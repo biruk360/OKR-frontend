@@ -1,0 +1,13 @@
+{
+  "/page": "app/page.js",
+  "/api/auth/[...nextauth]/route": "app/api/auth/[...nextauth]/route.js",
+  "/api/users/for-selection/route": "app/api/users/for-selection/route.js",
+  "/api/timeframes/route": "app/api/timeframes/route.js",
+  "/api/departments/route": "app/api/departments/route.js",
+  "/api/objectives/route": "app/api/objectives/route.js",
+  "/api/users/me/departments/route": "app/api/users/me/departments/route.js",
+  "/dashboard/company-okrs/page": "app/dashboard/company-okrs/page.js",
+  "/dashboard/my-okrs/page": "app/dashboard/my-okrs/page.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/dashboard/my-tasks/page": "app/dashboard/my-tasks/page.js"
+}

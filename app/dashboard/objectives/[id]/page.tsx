@@ -1,0 +1,318 @@
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
+import { notFound } from 'next/navigation'
+import Link from 'next/link'
+import { ArrowLeft, Target, User, Calendar, Building2, Link as LinkIcon, Archive } from 'lucide-react'
+import EditObjectiveButton from '@/components/objectives/EditObjectiveButton'
+import ArchiveObjectiveButton from '@/components/objectives/ArchiveObjectiveButton'
+import UnarchiveObjectiveButton from '@/components/objectives/UnarchiveObjectiveButton'
+import DeleteObjectiveButton from '@/components/objectives/DeleteObjectiveButton'
+import CloneObjectiveButton from '@/components/objectives/CloneObjectiveButton'
+import KeyResultsList from '@/components/keyresults/KeyResultsList'
+
+interface ObjectiveDetailPageProps {
+  params: { id: string }
+}
+
+export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPageProps) {
+  const session = await getServerSession(authOptions)
+  
+  if (!session) {
+    return null
+  }
+
+  const objective = await prisma.objective.findUnique({
+    where: { id: params.id },
+    include: {
+      owner: {
+        select: { id: true, name: true, avatar: true, email: true }
+      },
+      timeframe: true,
+      department: {
+        select: { id: true, name: true }
+      },
+      parentObjective: {
+        select: { id: true, title: true, level: true }
+      },
+      childObjectives: {
+        where: { status: 'ACTIVE' },
+        include: {
+          owner: {
+            select: { id: true, name: true, avatar: true }
+          },
+          department: {
+            select: { id: true, name: true }
+          },
+          _count: {
+            select: { keyResults: true }
+          }
+        },
+        orderBy: { updatedAt: 'desc' }
+      },
+      keyResults: {
+        include: {
+          owner: {
+            select: { id: true, name: true, avatar: true }
+          }
+        },
+        orderBy: [
+          { status: 'asc' }, // ACTIVE first, then ARCHIVED
+          { createdAt: 'desc' }
+        ]
+      },
+      _count: {
+        select: { keyResults: true, childObjectives: true }
+      }
+    }
+  })
+
+  if (!objective) {
+    notFound()
+  }
+
+  // Fetch timeframes for clone functionality
+  const timeframes = await prisma.timeframe.findMany({
+    orderBy: { startDate: 'desc' }
+  })
+
+  // Fetch users for key result creation
+  const users = await prisma.user.findMany({
+    select: { id: true, name: true, email: true },
+    orderBy: { name: 'asc' }
+  })
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <Link
+            href="/dashboard/objectives"
+            className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700"
+          >
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Back to Objectives
+          </Link>
+        </div>
+        <div className="flex items-center space-x-2">
+          {objective.status === 'ARCHIVED' ? (
+            <>
+              <UnarchiveObjectiveButton objective={objective} className="px-3 py-2" />
+              <DeleteObjectiveButton objective={objective} className="px-3 py-2" />
+            </>
+          ) : (
+            <>
+              <CloneObjectiveButton objective={objective} timeframes={timeframes} className="px-3 py-2" />
+              <EditObjectiveButton objective={objective} className="px-3 py-2" />
+              <ArchiveObjectiveButton objective={objective} className="px-3 py-2" />
+              <DeleteObjectiveButton objective={objective} className="px-3 py-2" />
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Objective Details */}
+      <div className="bg-white shadow rounded-lg">
+        {objective.status === 'ARCHIVED' && (
+          <div className="bg-orange-50 border-b border-orange-200 px-6 py-3">
+            <div className="flex items-center">
+              <Archive className="h-5 w-5 text-orange-600 mr-2" />
+              <span className="text-sm font-medium text-orange-800">
+                This objective has been archived
+              </span>
+            </div>
+          </div>
+        )}
+        <div className="px-6 py-4 border-b border-gray-200">
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <div className="flex items-center space-x-3 mb-2">
+                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                  objective.level === 'COMPANY' ? 'bg-blue-100 text-blue-800' :
+                  objective.level === 'DEPARTMENT' ? 'bg-green-100 text-green-800' :
+                  'bg-purple-100 text-purple-800'
+                }`}>
+                  <Target className="h-4 w-4 mr-1" />
+                  {objective.level}
+                </span>
+                
+                {objective.parentObjective && (
+                  <div className="flex items-center">
+                    <Link
+                      href={`/dashboard/objectives/${objective.parentObjective.id}`}
+                      className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 hover:underline bg-blue-50 px-3 py-1 rounded-md border border-blue-200"
+                    >
+                      <LinkIcon className="h-4 w-4 mr-1" />
+                      Aligned to: {objective.parentObjective.title}
+                    </Link>
+                  </div>
+                )}
+              </div>
+              
+              <h1 className="text-2xl font-bold text-gray-900">{objective.title}</h1>
+              
+              {objective.description && (
+                <p className="mt-2 text-gray-600">{objective.description}</p>
+              )}
+            </div>
+            
+            <div className="text-right">
+              <div className="text-3xl font-bold text-gray-900">
+                {Math.round(objective.progress)}%
+              </div>
+              <div className="w-32 bg-gray-200 rounded-full h-3 mt-2">
+                <div
+                  className={`h-3 rounded-full transition-all duration-300 ${
+                    objective.progress >= 75 ? 'bg-green-500' :
+                    objective.progress >= 25 ? 'bg-yellow-500' : 'bg-red-500'
+                  }`}
+                  style={{ width: `${Math.min(objective.progress, 100)}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="px-6 py-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+              <div className="flex items-center text-sm text-gray-500 mb-1">
+                <User className="h-4 w-4 mr-2" />
+                Owner
+              </div>
+              <div className="font-medium text-gray-900">{objective.owner.name}</div>
+              <div className="text-sm text-gray-500">{objective.owner.email}</div>
+            </div>
+            
+            <div>
+              <div className="flex items-center text-sm text-gray-500 mb-1">
+                <Calendar className="h-4 w-4 mr-2" />
+                Timeframe
+              </div>
+              <div className="font-medium text-gray-900">{objective.timeframe.name}</div>
+            </div>
+            
+            {objective.department && (
+              <div>
+                <div className="flex items-center text-sm text-gray-500 mb-1">
+                  <Building2 className="h-4 w-4 mr-2" />
+                  Department
+                </div>
+                <div className="font-medium text-gray-900">{objective.department.name}</div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Child Objectives (Contributing Objectives) */}
+      <div className="bg-white shadow rounded-lg">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-900">
+            Contributing Objectives {objective.childObjectives.length > 0 && `(${objective.childObjectives.length})`}
+          </h2>
+          <p className="text-sm text-gray-500 mt-1">
+            {objective.childObjectives.length > 0 
+              ? "Department and individual objectives that contribute to this objective"
+              : "No objectives are currently aligned to this objective"
+            }
+          </p>
+        </div>
+        
+        {objective.childObjectives.length > 0 ? (
+          
+          <div className="px-6 py-4">
+            <div className="space-y-4">
+              {objective.childObjectives.map((child) => (
+                <div key={child.id} className="border rounded-lg p-4 hover:bg-gray-50">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                          child.level === 'DEPARTMENT' ? 'bg-green-100 text-green-800' : 'bg-purple-100 text-purple-800'
+                        }`}>
+                          {child.level}
+                        </span>
+                        {child.department && (
+                          <span className="text-xs text-gray-500">{child.department.name}</span>
+                        )}
+                      </div>
+                      
+                      <Link
+                        href={`/dashboard/objectives/${child.id}`}
+                        className="text-lg font-medium text-gray-900 hover:text-blue-600 block"
+                      >
+                        {child.title}
+                      </Link>
+                      
+                      <div className="mt-2 flex items-center space-x-4 text-sm text-gray-500">
+                        <div className="flex items-center">
+                          {child.owner.avatar ? (
+                            <img 
+                              src={child.owner.avatar} 
+                              alt={child.owner.name}
+                              className="h-4 w-4 rounded-full mr-2"
+                            />
+                          ) : (
+                            <User className="h-4 w-4 mr-1" />
+                          )}
+                          {child.owner.name}
+                        </div>
+                        <div className="flex items-center">
+                          <Target className="h-4 w-4 mr-1" />
+                          {child._count.keyResults} Key Results
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="text-right">
+                      <div className="text-lg font-semibold text-gray-900">
+                        {Math.round(child.progress)}%
+                      </div>
+                      <div className="w-20 bg-gray-200 rounded-full h-2 mt-1">
+                        <div
+                          className={`h-2 rounded-full transition-all duration-300 ${
+                            child.progress >= 75 ? 'bg-green-500' :
+                            child.progress >= 25 ? 'bg-yellow-500' : 'bg-red-500'
+                          }`}
+                          style={{ width: `${Math.min(child.progress, 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="px-6 py-8 text-center">
+            <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-sm font-medium text-gray-900 mb-2">No contributing objectives</h3>
+            <p className="text-sm text-gray-500">
+              No department or individual objectives are currently aligned to this objective.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Key Results */}
+      <div className="bg-white shadow rounded-lg">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-900">
+            Key Results ({objective.keyResults.length})
+          </h2>
+        </div>
+        
+        <div className="px-6 py-4">
+        <KeyResultsList
+          keyResults={objective.keyResults}
+          objectiveId={objective.id}
+          objective={objective}
+          users={users}
+        />
+        </div>
+      </div>
+    </div>
+  )
+}

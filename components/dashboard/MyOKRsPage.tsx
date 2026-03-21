@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { Target, User, Calendar, Building2, Search } from 'lucide-react'
 import { useDebounce } from '@/hooks/useDebounce'
-import ObjectivesList from '@/components/objectives/ObjectivesList'
+import NestedObjectivesList from '@/components/objectives/NestedObjectivesList'
 import CreateIndividualObjectiveButton from '@/components/objectives/CreateIndividualObjectiveButton'
 import toast from 'react-hot-toast'
 
@@ -40,8 +40,8 @@ interface Objective {
     id: string
     title: string
   }
-  keyResults: any[]
-  _count: {
+  keyResults?: any[]
+  _count?: {
     keyResults: number
     childObjectives: number
   }
@@ -50,6 +50,7 @@ interface Objective {
 interface Timeframe {
   id: string
   name: string
+  type?: string
   startDate: string
   endDate: string
   isActive: boolean
@@ -76,6 +77,56 @@ export default function MyOKRsPage() {
   // Debounced search term
   const debouncedSearch = useDebounce(filters.search, 300)
 
+  // Define fetchObjectives before useEffect that uses it
+  const fetchObjectives = useCallback(async () => {
+    if (!session?.user?.id) return
+
+    setIsLoading(true)
+    try {
+      // For nested hierarchy, we need to fetch all objectives in the timeframe
+      // not just user's objectives, so we can show the full hierarchy
+      const params = new URLSearchParams({
+        status: 'ACTIVE',
+        limit: '500' // Increase limit to get all objectives for hierarchy
+      })
+
+      // If filtering by level, still apply it
+      if (filters.level && filters.level !== 'ALL') {
+        params.append('level', filters.level)
+      } else {
+        // For nested view, we want to show all levels to build hierarchy
+        // But still filter by user's objectives if they're not admin/executive
+        if (session.user.role === 'EMPLOYEE') {
+          // Employees see their own objectives plus parent objectives
+          params.append('ownerId', session.user.id)
+        }
+        // For DEPARTMENT_LEAD, ADMIN, EXECUTIVE - show all objectives in timeframe
+      }
+
+      if (filters.timeframe) {
+        params.append('timeframeId', filters.timeframe)
+      }
+
+      if (debouncedSearch) {
+        params.append('search', debouncedSearch)
+      }
+
+      const response = await fetch(`/api/objectives?${params}`)
+      const data = await response.json()
+
+      if (data.success) {
+        setObjectives(data.data)
+      } else {
+        toast.error('Failed to load objectives')
+      }
+    } catch (error) {
+      console.error('Error fetching objectives:', error)
+      toast.error('Failed to load objectives')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [session?.user?.id, filters.level, filters.timeframe, debouncedSearch])
+
   // Fetch initial data
   useEffect(() => {
     if (session?.user?.id) {
@@ -88,7 +139,7 @@ export default function MyOKRsPage() {
     if (session?.user?.id) {
       fetchObjectives()
     }
-  }, [session?.user?.id, filters.level, filters.timeframe, debouncedSearch])
+  }, [session?.user?.id, fetchObjectives])
 
   const fetchInitialData = async () => {
     try {
@@ -126,60 +177,68 @@ export default function MyOKRsPage() {
     }
   }
 
-  const fetchObjectives = async () => {
-    if (!session?.user?.id) return
-
-    setIsLoading(true)
-    try {
-      const params = new URLSearchParams({
-        ownerId: session.user.id,
-        status: 'ACTIVE'
-      })
-
-      if (filters.level && filters.level !== 'ALL') {
-        params.append('level', filters.level)
-      }
-
-      if (filters.timeframe) {
-        params.append('timeframeId', filters.timeframe)
-      }
-
-      if (debouncedSearch) {
-        params.append('search', debouncedSearch)
-      }
-
-      const response = await fetch(`/api/objectives?${params}`)
-      const data = await response.json()
-
-      if (data.success) {
-        setObjectives(data.data)
-      } else {
-        toast.error('Failed to load objectives')
-      }
-    } catch (error) {
-      console.error('Error fetching objectives:', error)
-      toast.error('Failed to load objectives')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
   const handleFilterChange = (key: string, value: string) => {
     setFilters(prev => ({ ...prev, [key]: value }))
   }
 
-  const handleObjectiveCreated = () => {
-    // Refresh objectives list
-    fetchObjectives()
-    toast.success('Objective created successfully!')
-  }
+  const handleObjectiveCreated = useCallback(() => {
+    // Refresh objectives list - temporarily clear timeframe filter to ensure new objective appears
+    // This handles the case where user creates objective in different timeframe than current filter
+    if (!session?.user?.id) return
+
+    setIsLoading(true)
+    const params = new URLSearchParams({
+      ownerId: session.user.id,
+      status: 'ACTIVE',
+      limit: '100' // Increase limit to ensure new objective appears
+    })
+
+    // Keep level filter if set
+    if (filters.level && filters.level !== 'ALL') {
+      params.append('level', filters.level)
+    }
+
+    // Don't apply timeframe filter on refresh - show all objectives so new one appears
+    // User can reapply timeframe filter if needed
+    if (debouncedSearch) {
+      params.append('search', debouncedSearch)
+    }
+
+    fetch(`/api/objectives?${params}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setObjectives(data.data || [])
+          toast.success('Objective created! Refreshing list...')
+        } else {
+          console.error('Failed to refresh objectives:', data)
+          toast.error('Failed to refresh objectives')
+        }
+      })
+      .catch(error => {
+        console.error('Error fetching objectives:', error)
+        toast.error('Failed to refresh objectives')
+      })
+      .finally(() => {
+        setIsLoading(false)
+      })
+  }, [session?.user?.id, filters.level, debouncedSearch])
 
   // Calculate stats
   const stats = {
     totalObjectives: objectives.length,
-    totalKeyResults: objectives.reduce((sum, obj) => sum + obj.keyResults.length, 0),
+    totalKeyResults: objectives.reduce((sum, obj) => {
+      // Use _count.keyResults if available, otherwise fallback to keyResults array length or 0
+      if (obj._count?.keyResults !== undefined) {
+        return sum + obj._count.keyResults
+      }
+      if (Array.isArray(obj.keyResults)) {
+        return sum + obj.keyResults.length
+      }
+      return sum
+    }, 0),
     avgProgress: objectives.length > 0 
-      ? Math.round(objectives.reduce((sum, obj) => sum + obj.progress, 0) / objectives.length)
+      ? Math.round(objectives.reduce((sum, obj) => sum + (obj.progress || 0), 0) / objectives.length)
       : 0,
     completed: objectives.filter(obj => obj.progress === 100).length
   }
@@ -318,11 +377,17 @@ export default function MyOKRsPage() {
               className="input"
             >
               <option value="">All Timeframes</option>
-              {timeframes.map((timeframe) => (
-                <option key={timeframe.id} value={timeframe.id}>
-                  {timeframe.name}
-                </option>
-              ))}
+              {timeframes.map((timeframe) => {
+                const typeLabel = timeframe.type === 'MONTHLY' ? 'Monthly' :
+                                 timeframe.type === 'QUARTERLY' ? 'Quarterly' :
+                                 timeframe.type === 'SIX_MONTH' ? '6-Month' :
+                                 timeframe.type === 'YEARLY' ? 'Yearly' : 'Quarterly'
+                return (
+                  <option key={timeframe.id} value={timeframe.id}>
+                    {timeframe.name} ({typeLabel})
+                  </option>
+                )
+              })}
             </select>
           </div>
         </div>
@@ -346,7 +411,7 @@ export default function MyOKRsPage() {
           </p>
         </div>
       ) : (
-        <ObjectivesList 
+        <NestedObjectivesList 
           objectives={objectives}
           timeframes={timeframes}
           departments={departments}

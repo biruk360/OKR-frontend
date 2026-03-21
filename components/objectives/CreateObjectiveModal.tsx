@@ -22,11 +22,12 @@ interface CreateObjectiveModalProps {
 interface FormData {
   title: string
   description: string
-  level: ObjectiveLevel
+  level: ObjectiveLevel | ''
   ownerId: string
   timeframeId: string
   departmentId?: string
   parentObjectiveId?: string
+  isPrivate?: boolean
 }
 
 export default function CreateObjectiveModal({ isOpen, onClose, defaultLevel, title, defaultOwnerId, onObjectiveCreated, userDepartments = [] }: CreateObjectiveModalProps) {
@@ -67,7 +68,8 @@ export default function CreateObjectiveModal({ isOpen, onClose, defaultLevel, ti
         ownerId: defaultOwnerId || session?.user?.id || '',
         timeframeId: '',
         departmentId: '',
-        parentObjectiveId: ''
+        parentObjectiveId: '',
+        isPrivate: false // Default to public
       })
     }
   }, [isOpen, defaultLevel, defaultOwnerId, session?.user?.id, reset])
@@ -148,6 +150,7 @@ export default function CreateObjectiveModal({ isOpen, onClose, defaultLevel, ti
         timeframeId: data.timeframeId,
         departmentId: data.departmentId || null,
         parentObjectiveId: data.parentObjectiveId || null,
+        isPrivate: data.isPrivate || false,
       }
 
       const response = await fetch('/api/objectives', {
@@ -263,11 +266,17 @@ export default function CreateObjectiveModal({ isOpen, onClose, defaultLevel, ti
                   className="input"
                 >
                   <option value="">Select timeframe</option>
-                  {timeframes.map((timeframe) => (
-                    <option key={timeframe.id} value={timeframe.id}>
-                      {timeframe.name}
-                    </option>
-                  ))}
+                  {timeframes.map((timeframe) => {
+                    const typeLabel = timeframe.type === 'MONTHLY' ? 'Monthly' :
+                                     timeframe.type === 'QUARTERLY' ? 'Quarterly' :
+                                     timeframe.type === 'SIX_MONTH' ? '6-Month' :
+                                     timeframe.type === 'YEARLY' ? 'Yearly' : 'Quarterly'
+                    return (
+                      <option key={timeframe.id} value={timeframe.id}>
+                        {timeframe.name} ({typeLabel})
+                      </option>
+                    )
+                  })}
                 </select>
                 {errors.timeframeId && (
                   <p className="mt-1 text-sm text-red-600">{errors.timeframeId.message}</p>
@@ -333,6 +342,20 @@ export default function CreateObjectiveModal({ isOpen, onClose, defaultLevel, ti
                 className="mb-4"
               />
             )}
+
+            <div>
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  {...register('isPrivate')}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <span className="ml-2 text-sm text-gray-700">Make this objective private</span>
+              </label>
+              <p className="mt-1 text-xs text-gray-500">
+                Private objectives will show as "[Private Objective]" to other users, but progress percentage will remain visible.
+              </p>
+            </div>
 
             <div className="flex items-center justify-end space-x-3 pt-6 border-t border-gray-200">
               <button

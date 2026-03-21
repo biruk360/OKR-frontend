@@ -123,11 +123,17 @@ export default function CloneObjectiveModal({ isOpen, onClose, objective, timefr
                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="">Select a timeframe</option>
-                {timeframes.map((timeframe) => (
-                  <option key={timeframe.id} value={timeframe.id}>
-                    {timeframe.name} ({new Date(timeframe.startDate).toLocaleDateString()} - {new Date(timeframe.endDate).toLocaleDateString()})
-                  </option>
-                ))}
+                {timeframes.map((timeframe) => {
+                  const typeLabel = timeframe.type === 'MONTHLY' ? 'Monthly' :
+                                   timeframe.type === 'QUARTERLY' ? 'Quarterly' :
+                                   timeframe.type === 'SIX_MONTH' ? '6-Month' :
+                                   timeframe.type === 'YEARLY' ? 'Yearly' : 'Quarterly'
+                  return (
+                    <option key={timeframe.id} value={timeframe.id}>
+                      {timeframe.name} ({typeLabel}) - {new Date(timeframe.startDate).toLocaleDateString()} to {new Date(timeframe.endDate).toLocaleDateString()}
+                    </option>
+                  )
+                })}
               </select>
               {errors.timeframeId && (
                 <p className="mt-1 text-sm text-red-600">{errors.timeframeId.message}</p>

@@ -8,21 +8,20 @@ import ArchiveKeyResultModal from './ArchiveKeyResultModal'
 interface ArchiveKeyResultButtonProps {
   keyResult: any
   className?: string
+  canArchive: boolean
+  onArchived?: () => void
 }
 
-export default function ArchiveKeyResultButton({ keyResult, className = '' }: ArchiveKeyResultButtonProps) {
+export default function ArchiveKeyResultButton({
+  keyResult,
+  className = '',
+  canArchive,
+  onArchived,
+}: ArchiveKeyResultButtonProps) {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const { data: session } = useSession()
 
-  // Check if user can archive this key result
-  const canArchive = session?.user && (
-    session.user.role === 'ADMIN' || 
-    session.user.id === keyResult.ownerId ||
-    session.user.id === keyResult.objective?.ownerId
-  )
-
-  // Don't show archive button for already archived key results
-  if (!canArchive || keyResult.status === 'ARCHIVED') {
+  if (!session?.user || !canArchive || keyResult.status === 'ARCHIVED') {
     return null
   }
 
@@ -40,6 +39,7 @@ export default function ArchiveKeyResultButton({ keyResult, className = '' }: Ar
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         keyResult={keyResult}
+        onArchived={onArchived}
       />
     </>
   )

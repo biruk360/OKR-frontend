@@ -1,7 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { Plus, Mail, User, Shield, Calendar, MoreVertical, Edit, Trash2, Key, AlertTriangle } from 'lucide-react'
+import toast from 'react-hot-toast'
 
 interface User {
   id: string
@@ -9,8 +11,8 @@ interface User {
   email: string
   role: string
   isActive: boolean
-  createdAt: string
-  lastLoginAt?: string
+  createdAt: string | Date
+  lastLoginAt?: string | Date | null
 }
 
 interface UserManagementProps {
@@ -20,7 +22,9 @@ interface UserManagementProps {
 export default function UserManagement({ initialUsers }: UserManagementProps) {
   const [users, setUsers] = useState(initialUsers)
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false)
+  const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false)
   const [isPasswordResetModalOpen, setIsPasswordResetModalOpen] = useState(false)
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
@@ -46,6 +50,48 @@ export default function UserManagement({ initialUsers }: UserManagementProps) {
     setIsPasswordResetModalOpen(true)
   }
 
+  const handleEditUser = (user: User) => {
+    setSelectedUser(user)
+    setIsEditUserModalOpen(true)
+  }
+
+  const handleUserUpdated = (updatedUser: User) => {
+    setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u))
+    setIsEditUserModalOpen(false)
+    setSelectedUser(null)
+  }
+
+  const handleDeleteUser = (user: User) => {
+    setSelectedUser(user)
+    setIsDeleteModalOpen(true)
+  }
+
+  const handleDeleteConfirmed = async () => {
+    if (!selectedUser) return
+
+    setIsLoading(true)
+    try {
+      const response = await fetch(`/api/users/${selectedUser.id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' }
+      })
+
+      if (response.ok) {
+        setUsers(prev => prev.filter(u => u.id !== selectedUser.id))
+        setIsDeleteModalOpen(false)
+        setSelectedUser(null)
+        toast.success('User deleted successfully')
+      } else {
+        const error = await response.json()
+        toast.error(error.error || 'Failed to delete user')
+      }
+    } catch (error) {
+      toast.error('An error occurred. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const handlePasswordResetConfirmed = async () => {
     if (!selectedUser) return
 
@@ -57,16 +103,15 @@ export default function UserManagement({ initialUsers }: UserManagementProps) {
       })
 
       if (response.ok) {
-        // Show success notification
-        alert(`Password reset email has been sent to ${selectedUser.email}`)
+        toast.success(`Password reset email has been sent to ${selectedUser.email}`)
         setIsPasswordResetModalOpen(false)
         setSelectedUser(null)
       } else {
         const error = await response.json()
-        alert(error.error || 'Failed to send password reset email')
+        toast.error(error.error || 'Failed to send password reset email')
       }
     } catch (error) {
-      alert('An error occurred. Please try again.')
+      toast.error('An error occurred. Please try again.')
     } finally {
       setIsLoading(false)
     }
@@ -93,7 +138,7 @@ export default function UserManagement({ initialUsers }: UserManagementProps) {
       : 'bg-yellow-100 text-yellow-800'
   }
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | Date) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
@@ -158,9 +203,12 @@ export default function UserManagement({ initialUsers }: UserManagementProps) {
                         </div>
                       </div>
                       <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">
+                        <Link
+                          href={`/dashboard/org/users/${user.id}`}
+                          className="text-sm font-medium text-gray-900 hover:text-blue-600 hover:underline"
+                        >
                           {user.name}
-                        </div>
+                        </Link>
                         <div className="text-sm text-gray-500">
                           {user.email}
                         </div>
@@ -198,10 +246,18 @@ export default function UserManagement({ initialUsers }: UserManagementProps) {
                           <Key className="h-4 w-4" />
                         </button>
                       )}
-                      <button className="text-blue-600 hover:text-blue-900">
+                      <button 
+                        onClick={() => handleEditUser(user)}
+                        className="text-blue-600 hover:text-blue-900"
+                        title="Edit User"
+                      >
                         <Edit className="h-4 w-4" />
                       </button>
-                      <button className="text-red-600 hover:text-red-900">
+                      <button 
+                        onClick={() => handleDeleteUser(user)}
+                        className="text-red-600 hover:text-red-900"
+                        title="Delete User"
+                      >
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
@@ -236,6 +292,33 @@ export default function UserManagement({ initialUsers }: UserManagementProps) {
           isOpen={isAddUserModalOpen}
           onClose={() => setIsAddUserModalOpen(false)}
           onUserCreated={handleUserCreated}
+        />
+      )}
+
+      {/* Edit User Modal */}
+      {isEditUserModalOpen && selectedUser && (
+        <EditUserModal
+          isOpen={isEditUserModalOpen}
+          onClose={() => {
+            setIsEditUserModalOpen(false)
+            setSelectedUser(null)
+          }}
+          onUserUpdated={handleUserUpdated}
+          user={selectedUser}
+        />
+      )}
+
+      {/* Delete User Confirmation Modal */}
+      {isDeleteModalOpen && selectedUser && (
+        <DeleteUserModal
+          isOpen={isDeleteModalOpen}
+          onClose={() => {
+            setIsDeleteModalOpen(false)
+            setSelectedUser(null)
+          }}
+          onConfirm={handleDeleteConfirmed}
+          user={selectedUser}
+          isLoading={isLoading}
         />
       )}
 
@@ -447,6 +530,259 @@ function AddUserModal({ isOpen, onClose, onUserCreated }: AddUserModalProps) {
               </button>
             </div>
           </form>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Edit User Modal Component
+interface EditUserModalProps {
+  isOpen: boolean
+  onClose: () => void
+  onUserUpdated: (user: User) => void
+  user: User
+}
+
+function EditUserModal({ isOpen, onClose, onUserUpdated, user }: EditUserModalProps) {
+  const [isLoading, setIsLoading] = useState(false)
+  const [formData, setFormData] = useState({
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    isActive: user.isActive
+  })
+  const [errors, setErrors] = useState<Record<string, string>>({})
+
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {}
+
+    if (!formData.name.trim()) {
+      newErrors.name = 'Name is required'
+    }
+
+    if (!formData.email.trim()) {
+      newErrors.email = 'Email address is required'
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = 'A valid email address is required'
+    }
+
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!validateForm()) {
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      const response = await fetch(`/api/users/${user.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        onUserUpdated(data.user)
+        toast.success('User updated successfully')
+      } else {
+        const error = await response.json()
+        const errorMessage = error.error || 'Failed to update user'
+        setErrors({ email: errorMessage })
+        toast.error(errorMessage)
+      }
+    } catch (error) {
+      const errorMessage = 'An error occurred. Please try again.'
+      setErrors({ email: errorMessage })
+      toast.error(errorMessage)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+          <div className="absolute inset-0 bg-gray-500 opacity-75" onClick={onClose}></div>
+        </div>
+
+        <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+          <form onSubmit={handleSubmit}>
+            <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+              <div className="sm:flex sm:items-start">
+                <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10">
+                  <Edit className="h-6 w-6 text-blue-600" />
+                </div>
+                <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                  <h3 className="text-lg leading-6 font-medium text-gray-900">
+                    Edit User
+                  </h3>
+                  <div className="mt-4 space-y-4">
+                    <div>
+                      <label htmlFor="edit-name" className="block text-sm font-medium text-gray-700">
+                        Name *
+                      </label>
+                      <input
+                        type="text"
+                        id="edit-name"
+                        value={formData.name}
+                        onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                        className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
+                          errors.name ? 'border-red-300' : 'border-gray-300'
+                        }`}
+                        placeholder="Enter full name"
+                      />
+                      {errors.name && (
+                        <p className="mt-1 text-sm text-red-600">{errors.name}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label htmlFor="edit-email" className="block text-sm font-medium text-gray-700">
+                        Email Address *
+                      </label>
+                      <input
+                        type="email"
+                        id="edit-email"
+                        value={formData.email}
+                        onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                        className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
+                          errors.email ? 'border-red-300' : 'border-gray-300'
+                        }`}
+                        placeholder="Enter email address"
+                      />
+                      {errors.email && (
+                        <p className="mt-1 text-sm text-red-600">{errors.email}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label htmlFor="edit-role" className="block text-sm font-medium text-gray-700">
+                        Role
+                      </label>
+                      <select
+                        id="edit-role"
+                        value={formData.role}
+                        onChange={(e) => setFormData(prev => ({ ...prev, role: e.target.value }))}
+                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      >
+                        <option value="EMPLOYEE">Employee</option>
+                        <option value="DEPARTMENT_LEAD">Department Lead</option>
+                        <option value="EXECUTIVE">Executive</option>
+                        <option value="ADMIN">Administrator</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={formData.isActive}
+                          onChange={(e) => setFormData(prev => ({ ...prev, isActive: e.target.checked }))}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        />
+                        <span className="ml-2 text-sm text-gray-700">Active Account</span>
+                      </label>
+                      <p className="mt-1 text-xs text-gray-500">
+                        Inactive users cannot log in to the system
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
+              >
+                {isLoading ? 'Updating...' : 'Update User'}
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Delete User Confirmation Modal Component
+interface DeleteUserModalProps {
+  isOpen: boolean
+  onClose: () => void
+  onConfirm: () => void
+  user: User
+  isLoading: boolean
+}
+
+function DeleteUserModal({ isOpen, onClose, onConfirm, user, isLoading }: DeleteUserModalProps) {
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+          <div className="absolute inset-0 bg-gray-500 opacity-75" onClick={onClose}></div>
+        </div>
+
+        <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+          <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+            <div className="sm:flex sm:items-start">
+              <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                <AlertTriangle className="h-6 w-6 text-red-600" />
+              </div>
+              <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                <h3 className="text-lg leading-6 font-medium text-gray-900">
+                  Delete User
+                </h3>
+                <div className="mt-2">
+                  <p className="text-sm text-gray-500">
+                    Are you sure you want to delete <span className="font-medium text-gray-900">{user.name}</span>?
+                  </p>
+                  <p className="text-sm text-gray-500 mt-2">
+                    This action cannot be undone. All data associated with this user will be permanently deleted.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+            <button
+              type="button"
+              onClick={onConfirm}
+              disabled={isLoading}
+              className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
+            >
+              {isLoading ? 'Deleting...' : 'Delete User'}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+            >
+              Cancel
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -191,7 +191,17 @@ export default function MyTasksList({ assignedTodos, completedTodos }: MyTasksLi
                           </div>
                           <div className="flex items-center">
                             <Calendar className="h-3 w-3 mr-1" />
-                            <span>Timeframe: {todo.keyResult.objective.timeframe.name}</span>
+                            <span>
+                              Timeframe: {todo.keyResult.objective.timeframe.name}
+                              {todo.keyResult.objective.timeframe.type && (
+                                <span className="ml-1 text-xs bg-blue-100 text-blue-800 px-1 rounded">
+                                  {todo.keyResult.objective.timeframe.type === 'MONTHLY' ? 'Monthly' :
+                                   todo.keyResult.objective.timeframe.type === 'QUARTERLY' ? 'Quarterly' :
+                                   todo.keyResult.objective.timeframe.type === 'SIX_MONTH' ? '6-Month' :
+                                   todo.keyResult.objective.timeframe.type === 'YEARLY' ? 'Yearly' : ''}
+                                </span>
+                              )}
+                            </span>
                           </div>
                           {todo.dueDate && (
                             <div className="flex items-center">

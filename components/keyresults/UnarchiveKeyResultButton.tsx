@@ -9,22 +9,21 @@ import toast from 'react-hot-toast'
 interface UnarchiveKeyResultButtonProps {
   keyResult: any
   className?: string
+  canUnarchive: boolean
+  onDone?: () => void
 }
 
-export default function UnarchiveKeyResultButton({ keyResult, className = '' }: UnarchiveKeyResultButtonProps) {
+export default function UnarchiveKeyResultButton({
+  keyResult,
+  className = '',
+  canUnarchive,
+  onDone,
+}: UnarchiveKeyResultButtonProps) {
   const [isLoading, setIsLoading] = useState(false)
   const { data: session } = useSession()
   const router = useRouter()
 
-  // Check if user can unarchive this key result
-  const canUnarchive = session?.user && (
-    session.user.role === 'ADMIN' || 
-    session.user.id === keyResult.ownerId ||
-    session.user.id === keyResult.objective?.ownerId
-  )
-
-  // Only show for archived key results
-  if (!canUnarchive || keyResult.status !== 'ARCHIVED') {
+  if (!session?.user || !canUnarchive || keyResult.status !== 'ARCHIVED') {
     return null
   }
 
@@ -43,6 +42,7 @@ export default function UnarchiveKeyResultButton({ keyResult, className = '' }: 
 
       if (response.ok) {
         toast.success('Key Result restored.')
+        onDone?.()
         router.refresh()
       } else {
         toast.error(result.error || 'Failed to restore key result')

@@ -4,10 +4,8 @@ import Link from 'next/link'
 import { formatDate } from '@/lib/utils'
 import { cn, getProgressColor } from '@/lib/utils'
 import { Target, Calendar, User, Building2 } from 'lucide-react'
-import { ObjectiveWithRelations } from '@/types'
-
 interface RecentObjectivesProps {
-  objectives: ObjectiveWithRelations[]
+  objectives: any[]
 }
 
 export default function RecentObjectives({ objectives }: RecentObjectivesProps) {
@@ -64,17 +62,35 @@ export default function RecentObjectives({ objectives }: RecentObjectivesProps) 
                   {objective.description}
                 </p>
                 
-                <div className="flex items-center mt-2 space-x-4 text-xs text-gray-500">
-                  <div className="flex items-center">
-                    <User className="h-3 w-3 mr-1" />
-                    {objective.owner.name}
+                <div className="flex items-center mt-2 space-x-4 text-xs">
+                  <div className="flex items-center bg-gray-50 px-2 py-1 rounded-md border border-gray-200">
+                    {objective.owner.avatar ? (
+                      <img 
+                        src={objective.owner.avatar} 
+                        alt={objective.owner.name}
+                        className="h-4 w-4 rounded-full mr-1.5"
+                      />
+                    ) : (
+                      <div className="h-4 w-4 rounded-full bg-blue-500 flex items-center justify-center mr-1.5">
+                        <User className="h-2.5 w-2.5 text-white" />
+                      </div>
+                    )}
+                    <span className="font-medium text-gray-700">{objective.owner.name}</span>
                   </div>
-                  <div className="flex items-center">
+                  <div className="flex items-center text-gray-500">
                     <Calendar className="h-3 w-3 mr-1" />
-                    {objective.timeframe.name}
+                    <span>{objective.timeframe.name}</span>
+                    {objective.timeframe.type && (
+                      <span className="ml-1 text-xs bg-blue-100 text-blue-800 px-1 rounded">
+                        {objective.timeframe.type === 'MONTHLY' ? 'Monthly' :
+                         objective.timeframe.type === 'QUARTERLY' ? 'Quarterly' :
+                         objective.timeframe.type === 'SIX_MONTH' ? '6-Month' :
+                         objective.timeframe.type === 'YEARLY' ? 'Yearly' : ''}
+                      </span>
+                    )}
                   </div>
                   {objective.department && (
-                    <div className="flex items-center">
+                    <div className="flex items-center text-gray-500">
                       <Building2 className="h-3 w-3 mr-1" />
                       {objective.department.name}
                     </div>

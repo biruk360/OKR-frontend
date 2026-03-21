@@ -1,1 +1,30 @@
+# dependencies
 node_modules
+/.pnp
+.pnp.js
+
+# Next.js
+.next/
+out/
+
+# env / secrets (use env.example only in repo)
+.env
+.env*.local
+
+# local SQLite (use seeds / migrations)
+*.db
+*.db-journal
+
+# debug / OS
+npm-debug.log*
+.DS_Store
+
+# Vercel
+.vercel
+
+# TypeScript build info
+*.tsbuildinfo
+
+# IDE
+.idea/
+.vscode/

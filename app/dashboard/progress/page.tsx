@@ -1,6 +1,7 @@
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { User } from 'lucide-react'
 
 export default async function ProgressTrackingPage() {
   const session = await getServerSession(authOptions)
@@ -19,6 +20,9 @@ export default async function ProgressTrackingPage() {
         status: 'ACTIVE'
       },
       include: {
+        owner: {
+          select: { id: true, name: true, avatar: true }
+        },
         keyResults: {
           include: {
             todos: true
@@ -44,6 +48,9 @@ export default async function ProgressTrackingPage() {
         ]
       },
       include: {
+        owner: {
+          select: { id: true, name: true, avatar: true }
+        },
         keyResults: {
           include: {
             todos: true
@@ -196,9 +203,33 @@ export default async function ProgressTrackingPage() {
                     style={{ width: `${objective.progress}%` }}
                   ></div>
                 </div>
-                <div className="text-xs text-gray-500">
-                  {objective.keyResults.length} Key Results • {objective.timeframe.name}
-                  {objective.department && ` • ${objective.department.name}`}
+                <div className="flex items-center space-x-3 text-xs">
+                  <div className="flex items-center bg-gray-50 px-2 py-1 rounded-md border border-gray-200">
+                    {objective.owner?.avatar ? (
+                      <img 
+                        src={objective.owner.avatar} 
+                        alt={objective.owner?.name || 'Owner'}
+                        className="h-4 w-4 rounded-full mr-1.5"
+                      />
+                    ) : (
+                      <div className="h-4 w-4 rounded-full bg-blue-500 flex items-center justify-center mr-1.5">
+                        <User className="h-2.5 w-2.5 text-white" />
+                      </div>
+                    )}
+                    <span className="font-medium text-gray-700">{objective.owner?.name || 'Unknown'}</span>
+                  </div>
+                  <span className="text-gray-500">
+                    {objective.keyResults.length} Key Results • {objective.timeframe.name}
+                    {objective.timeframe.type && (
+                      <span className="ml-1 text-xs bg-blue-100 text-blue-800 px-1 rounded">
+                        {objective.timeframe.type === 'MONTHLY' ? 'Monthly' :
+                         objective.timeframe.type === 'QUARTERLY' ? 'Quarterly' :
+                         objective.timeframe.type === 'SIX_MONTH' ? '6-Month' :
+                         objective.timeframe.type === 'YEARLY' ? 'Yearly' : ''}
+                      </span>
+                    )}
+                    {objective.department && ` • ${objective.department.name}`}
+                  </span>
                 </div>
               </div>
             ))}

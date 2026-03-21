@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { UpdateObjectiveForm } from '@/types'
+import { canViewObjective, canEditObjective, canViewKeyResult, redactObjective, redactKeyResult } from '@/lib/permissions'
 
 export async function GET(
   request: NextRequest,
@@ -81,17 +82,70 @@ export async function GET(
       )
     }
 
-    // Check permissions
-    if (session.user.role === 'EMPLOYEE' && objective.ownerId !== session.user.id) {
+    // Check visibility permissions
+    const visibility = await canViewObjective(
+      session.user.role as any,
+      session.user.id,
+      {
+        level: objective.level,
+        ownerId: objective.ownerId,
+        departmentId: objective.departmentId,
+        isPrivate: objective.isPrivate
+      }
+    )
+
+    if (!visibility.canView) {
       return NextResponse.json(
         { error: 'Access denied' },
         { status: 403 }
       )
     }
 
+    // Apply redaction if needed
+    let processedObjective = objective
+    if (visibility.isRedacted) {
+      processedObjective = redactObjective(objective) as any
+      
+      // Also redact key results if objective is redacted
+      if (processedObjective.keyResults) {
+        processedObjective.keyResults = processedObjective.keyResults.map((kr: any) => ({
+          ...kr,
+          title: '[Private Key Result]',
+          description: null,
+          startValue: 0,
+          targetValue: 0,
+          currentValue: 0,
+          unit: '',
+          // Keep progress percentage
+          progress: kr.progress
+        }))
+      }
+    } else {
+      // Even if objective is not redacted, check individual key results
+      if (processedObjective.keyResults) {
+        processedObjective.keyResults = await Promise.all(
+          processedObjective.keyResults.map(async (kr: any) => {
+            const krVisibility = await canViewKeyResult(
+              session.user.role as any,
+              session.user.id,
+              {
+                ownerId: kr.ownerId,
+                objectiveId: kr.objectiveId,
+                isPrivate: kr.isPrivate
+              }
+            )
+            if (krVisibility.isRedacted) {
+              return redactKeyResult(kr)
+            }
+            return kr
+          })
+        )
+      }
+    }
+
     return NextResponse.json({
       success: true,
-      data: objective
+      data: processedObjective
     })
   } catch (error) {
     console.error('Error fetching objective:', error)
@@ -114,7 +168,7 @@ export async function PUT(
     }
 
     const body: UpdateObjectiveForm = await request.json()
-    const { title, description, ownerId, parentObjectiveId } = body
+    const { title, description, ownerId, parentObjectiveId, isPrivate } = body
 
     // Get existing objective
     const existingObjective = await prisma.objective.findUnique({
@@ -128,14 +182,18 @@ export async function PUT(
       )
     }
 
-    // Check permissions
-    const canEdit = 
-      session.user.role === 'ADMIN' ||
-      existingObjective.ownerId === session.user.id ||
-      (session.user.role === 'EXECUTIVE' && existingObjective.level === 'COMPANY') ||
-      (session.user.role === 'DEPARTMENT_LEAD' && existingObjective.level === 'DEPARTMENT')
+    // Check permissions using permission utility
+    const hasEditPermission = await canEditObjective(
+      session.user.role as any,
+      session.user.id,
+      {
+        level: existingObjective.level,
+        ownerId: existingObjective.ownerId,
+        departmentId: existingObjective.departmentId
+      }
+    )
 
-    if (!canEdit) {
+    if (!hasEditPermission) {
       return NextResponse.json(
         { error: 'Insufficient permissions to edit this objective' },
         { status: 403 }
@@ -180,6 +238,7 @@ export async function PUT(
         ...(description !== undefined && { description }),
         ...(ownerId && { ownerId }),
         ...(parentObjectiveId !== undefined && { parentObjectiveId }),
+        ...(isPrivate !== undefined && { isPrivate }),
       },
       include: {
         owner: {
@@ -220,31 +279,36 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Only admins can delete objectives
-    if (session.user.role !== 'ADMIN') {
-      return NextResponse.json(
-        { error: 'Only administrators can delete objectives' },
-        { status: 403 }
-      )
-    }
-
-    const objective = await prisma.objective.findUnique({
-      where: { id: params.id },
-      include: {
-        keyResults: true,
-        childObjectives: true
-      }
+    // Get existing objective first to check permissions
+    const existingObjective = await prisma.objective.findUnique({
+      where: { id: params.id }
     })
 
-    if (!objective) {
+    if (!existingObjective) {
       return NextResponse.json(
         { error: 'Objective not found' },
         { status: 404 }
       )
     }
 
-    // Check if objective has child objectives
-    if (objective.childObjectives.length > 0) {
+    // Check permissions - ADMIN/EXECUTIVE can delete any, others can only delete their own
+    const canDelete = 
+      session.user.role === 'ADMIN' ||
+      session.user.role === 'EXECUTIVE' ||
+      existingObjective.ownerId === session.user.id
+
+    if (!canDelete) {
+      return NextResponse.json(
+        { error: 'Insufficient permissions to delete this objective' },
+        { status: 403 }
+      )
+    }
+
+    const childCount = await prisma.objective.count({
+      where: { parentObjectiveId: params.id },
+    })
+
+    if (childCount > 0) {
       return NextResponse.json(
         { error: 'Cannot delete objective with child objectives. Please unlink them first.' },
         { status: 400 }

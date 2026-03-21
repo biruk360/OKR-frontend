@@ -8,9 +8,10 @@ interface DeleteKeyResultModalProps {
   isOpen: boolean
   onClose: () => void
   keyResult: any
+  onSuccess?: () => void
 }
 
-export default function DeleteKeyResultModal({ isOpen, onClose, keyResult }: DeleteKeyResultModalProps) {
+export default function DeleteKeyResultModal({ isOpen, onClose, keyResult, onSuccess }: DeleteKeyResultModalProps) {
   const [isLoading, setIsLoading] = useState(false)
 
   const handleDelete = async () => {
@@ -29,8 +30,8 @@ export default function DeleteKeyResultModal({ isOpen, onClose, keyResult }: Del
       if (response.ok) {
         toast.success('Key Result deleted successfully.')
         onClose()
-        // Refresh the page to show the updated key result list
-        window.location.reload()
+        if (onSuccess) onSuccess()
+        else window.location.reload()
       } else {
         toast.error(result.error || 'Failed to delete key result')
       }

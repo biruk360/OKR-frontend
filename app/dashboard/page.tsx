@@ -1,6 +1,7 @@
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import type { Prisma } from '@prisma/client'
 import DashboardStats from '@/components/dashboard/DashboardStats'
 import RecentObjectives from '@/components/dashboard/RecentObjectives'
 import ProgressOverview from '@/components/dashboard/ProgressOverview'
@@ -38,12 +39,12 @@ export default async function DashboardPage() {
 }
 
 async function getDashboardStats(userId: string, userRole: string) {
-  const baseWhere = {
-    status: 'ACTIVE' as const,
+  const baseWhere: Prisma.ObjectiveWhereInput = {
+    status: 'ACTIVE',
   }
 
   // Adjust query based on user role
-  let objectiveWhere = baseWhere
+  let objectiveWhere: Prisma.ObjectiveWhereInput = baseWhere
   if (userRole === 'EMPLOYEE') {
     objectiveWhere = { ...baseWhere, ownerId: userId }
   } else if (userRole === 'DEPARTMENT_LEAD') {
@@ -122,11 +123,11 @@ async function getDashboardStats(userId: string, userRole: string) {
 }
 
 async function getRecentObjectives(userId: string, userRole: string) {
-  const baseWhere = {
-    status: 'ACTIVE' as const,
+  const baseWhere: Prisma.ObjectiveWhereInput = {
+    status: 'ACTIVE',
   }
 
-  let objectiveWhere = baseWhere
+  let objectiveWhere: Prisma.ObjectiveWhereInput = baseWhere
   if (userRole === 'EMPLOYEE') {
     objectiveWhere = { ...baseWhere, ownerId: userId }
   } else if (userRole === 'DEPARTMENT_LEAD') {

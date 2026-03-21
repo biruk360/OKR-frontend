@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { canEditKeyResultWithObjectiveContext } from '@/lib/permissions'
 
 export async function POST(
   request: NextRequest,
@@ -21,8 +22,14 @@ export async function POST(
       where: { id: keyResultId },
       include: {
         objective: {
-          select: { id: true, ownerId: true, title: true }
-        }
+          select: {
+            id: true,
+            ownerId: true,
+            title: true,
+            level: true,
+            departmentId: true,
+          },
+        },
       }
     })
 
@@ -41,10 +48,19 @@ export async function POST(
       )
     }
 
-    // Check permissions - owner, objective owner, or admin can unarchive
-    const canUnarchive = session.user.role === 'ADMIN' || 
-                        session.user.id === existingKeyResult.ownerId ||
-                        session.user.id === existingKeyResult.objective.ownerId
+    const canUnarchive = await canEditKeyResultWithObjectiveContext(
+      session.user.role as any,
+      session.user.id,
+      {
+        ownerId: existingKeyResult.ownerId,
+        objectiveId: existingKeyResult.objectiveId,
+      },
+      {
+        level: existingKeyResult.objective.level,
+        ownerId: existingKeyResult.objective.ownerId,
+        departmentId: existingKeyResult.objective.departmentId,
+      }
+    )
 
     if (!canUnarchive) {
       return NextResponse.json(

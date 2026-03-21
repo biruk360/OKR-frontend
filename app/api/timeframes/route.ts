@@ -11,8 +11,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // Check if we should return only active timeframes or all
+    const { searchParams } = new URL(request.url)
+    const activeOnly = searchParams.get('activeOnly') === 'true'
+
     const timeframes = await prisma.timeframe.findMany({
-      where: { isActive: true },
+      where: activeOnly ? { isActive: true } : undefined,
       orderBy: { startDate: 'desc' }
     })
 
@@ -43,11 +47,21 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { name, startDate, endDate } = body
+    const { name, type, startDate, endDate } = body
 
     if (!name || !startDate || !endDate) {
       return NextResponse.json(
         { error: 'Name, start date, and end date are required' },
+        { status: 400 }
+      )
+    }
+
+    // Validate timeframe type
+    const validTypes = ['MONTHLY', 'QUARTERLY', 'SIX_MONTH', 'YEARLY']
+    const timeframeType = type || 'QUARTERLY'
+    if (!validTypes.includes(timeframeType)) {
+      return NextResponse.json(
+        { error: 'Invalid timeframe type. Must be MONTHLY, QUARTERLY, SIX_MONTH, or YEARLY' },
         { status: 400 }
       )
     }
@@ -76,11 +90,30 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    // Validate dates
+    const start = new Date(startDate)
+    const end = new Date(endDate)
+    
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      return NextResponse.json(
+        { error: 'Invalid date format' },
+        { status: 400 }
+      )
+    }
+
+    if (start >= end) {
+      return NextResponse.json(
+        { error: 'End date must be after start date' },
+        { status: 400 }
+      )
+    }
+
     const timeframe = await prisma.timeframe.create({
       data: {
         name,
-        startDate: new Date(startDate),
-        endDate: new Date(endDate),
+        type: timeframeType,
+        startDate: start,
+        endDate: end,
         isActive
       }
     })
@@ -89,10 +122,10 @@ export async function POST(request: NextRequest) {
       success: true,
       timeframe
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating timeframe:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: error?.message || 'Internal server error', details: error?.code },
       { status: 500 }
     )
   }

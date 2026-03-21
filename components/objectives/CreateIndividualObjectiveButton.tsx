@@ -29,6 +29,8 @@ export default function CreateIndividualObjectiveButton({ onObjectiveCreated, us
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title="Add My Objective"
+        defaultLevel="INDIVIDUAL"
+        defaultOwnerId={session?.user?.id}
         onObjectiveCreated={onObjectiveCreated}
         userDepartments={userDepartments}
       />

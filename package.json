@@ -4,14 +4,18 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
+    "postinstall": "prisma generate",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "db:seed:360ground": "tsx prisma/seed-360ground-fy2026.ts",
+    "db:migrate:biruk": "tsx prisma/migrate-consolidate-biruk.ts",
+    "db:wipe:okr": "tsx prisma/wipe-users-objectives-krs.ts"
   },
   "dependencies": {
     "@next-auth/prisma-adapter": "^1.0.7",

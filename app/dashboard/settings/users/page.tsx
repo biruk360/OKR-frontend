@@ -1,0 +1,40 @@
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
+import UserManagement from '@/components/settings/UserManagement'
+import { redirect } from 'next/navigation'
+import { canManageUsers } from '@/lib/permissions'
+
+export default async function UsersSettingsPage() {
+  const session = await getServerSession(authOptions)
+  
+  if (!session) {
+    redirect('/login')
+  }
+
+  // Only admins and executives can access this page
+  if (!canManageUsers(session.user.role as any)) {
+    redirect('/dashboard/settings/profile')
+  }
+
+  // Get all users for management
+  const users = await prisma.user.findMany({
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      isActive: true,
+      createdAt: true,
+      lastLoginAt: true
+    },
+    orderBy: { createdAt: 'desc' }
+  })
+
+  return (
+    <div className="space-y-6">
+      <UserManagement initialUsers={users} />
+    </div>
+  )
+}
+

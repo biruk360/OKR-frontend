@@ -1,7 +1,7 @@
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import ObjectivesList from '@/components/objectives/ObjectivesList'
+import NestedObjectivesList from '@/components/objectives/NestedObjectivesList'
 import CreateObjectiveButton from '@/components/objectives/CreateObjectiveButton'
 
 export default async function ObjectivesPage() {
@@ -41,7 +41,22 @@ export default async function ObjectivesPage() {
         select: { id: true, name: true }
       },
       parentObjective: {
-        select: { id: true, title: true }
+        select: { id: true, title: true, level: true }
+      },
+      childObjectives: {
+        where: { status: 'ACTIVE' },
+        include: {
+          owner: {
+            select: { id: true, name: true, avatar: true }
+          },
+          department: {
+            select: { id: true, name: true }
+          },
+          _count: {
+            select: { keyResults: true, childObjectives: true }
+          }
+        },
+        orderBy: { level: 'asc' }
       },
       keyResults: {
         include: {
@@ -83,7 +98,7 @@ export default async function ObjectivesPage() {
         <CreateObjectiveButton />
       </div>
 
-      <ObjectivesList 
+      <NestedObjectivesList 
         objectives={objectives}
         timeframes={timeframes}
         departments={departments}

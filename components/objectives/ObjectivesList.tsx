@@ -125,11 +125,17 @@ export default function ObjectivesList({
               className="input"
             >
               <option value="">All Timeframes</option>
-              {timeframes.map((timeframe) => (
-                <option key={timeframe.id} value={timeframe.id}>
-                  {timeframe.name}
-                </option>
-              ))}
+              {timeframes.map((timeframe) => {
+                const typeLabel = timeframe.type === 'MONTHLY' ? 'Monthly' :
+                                 timeframe.type === 'QUARTERLY' ? 'Quarterly' :
+                                 timeframe.type === 'SIX_MONTH' ? '6-Month' :
+                                 timeframe.type === 'YEARLY' ? 'Yearly' : 'Quarterly'
+                return (
+                  <option key={timeframe.id} value={timeframe.id}>
+                    {timeframe.name} ({typeLabel})
+                  </option>
+                )
+              })}
             </select>
           </div>
 
@@ -238,17 +244,35 @@ export default function ObjectivesList({
                     </div>
                   )}
 
-                  <div className="mt-3 flex items-center space-x-4 text-sm text-gray-500">
-                    <div className="flex items-center">
-                      <User className="h-4 w-4 mr-1" />
-                      {objective.owner.name}
+                  <div className="mt-3 flex items-center space-x-4 text-sm">
+                    <div className="flex items-center bg-gray-50 px-2 py-1 rounded-md border border-gray-200">
+                      {objective.owner.avatar ? (
+                        <img 
+                          src={objective.owner.avatar} 
+                          alt={objective.owner.name}
+                          className="h-5 w-5 rounded-full mr-2"
+                        />
+                      ) : (
+                        <div className="h-5 w-5 rounded-full bg-blue-500 flex items-center justify-center mr-2">
+                          <User className="h-3 w-3 text-white" />
+                        </div>
+                      )}
+                      <span className="font-medium text-gray-700">{objective.owner.name}</span>
                     </div>
-                    <div className="flex items-center">
+                    <div className="flex items-center text-gray-500">
                       <Calendar className="h-4 w-4 mr-1" />
-                      {objective.timeframe.name}
+                      <span>{objective.timeframe.name}</span>
+                      {objective.timeframe.type && (
+                        <span className="ml-1 text-xs bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded">
+                          {objective.timeframe.type === 'MONTHLY' ? 'Monthly' :
+                           objective.timeframe.type === 'QUARTERLY' ? 'Quarterly' :
+                           objective.timeframe.type === 'SIX_MONTH' ? '6-Month' :
+                           objective.timeframe.type === 'YEARLY' ? 'Yearly' : ''}
+                        </span>
+                      )}
                     </div>
                     {objective.department && (
-                      <div className="flex items-center">
+                      <div className="flex items-center text-gray-500">
                         <Building2 className="h-4 w-4 mr-1" />
                         {objective.department.name}
                       </div>

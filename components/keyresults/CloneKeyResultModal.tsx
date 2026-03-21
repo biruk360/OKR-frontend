@@ -10,6 +10,7 @@ interface CloneKeyResultModalProps {
   onClose: () => void
   keyResult: any
   users: any[]
+  onSuccess?: () => void
 }
 
 interface KeyResultFormData {
@@ -25,7 +26,8 @@ export default function CloneKeyResultModal({
   isOpen, 
   onClose, 
   keyResult, 
-  users 
+  users,
+  onSuccess,
 }: CloneKeyResultModalProps) {
   const [isLoading, setIsLoading] = useState(false)
   
@@ -83,8 +85,8 @@ export default function CloneKeyResultModal({
       if (response.ok) {
         toast.success('Key Result cloned successfully.')
         onClose()
-        // Refresh the page to show the new key result
-        window.location.reload()
+        if (onSuccess) onSuccess()
+        else window.location.reload()
       } else {
         toast.error(result.error || 'Failed to clone key result')
       }

@@ -21,6 +21,7 @@ interface ParentObjective {
   timeframe: {
     id: string
     name: string
+    type?: string
   }
   owner: {
     id: string
@@ -147,6 +148,14 @@ export default function ParentObjectiveSelector({
                 <p className="text-sm font-medium text-blue-900">{selectedParent.title}</p>
                 <p className="text-xs text-blue-700">
                   {selectedParent.owner.name} • {selectedParent.timeframe.name}
+                  {selectedParent.timeframe.type && (
+                    <span className="ml-1 text-xs bg-blue-100 text-blue-800 px-1 rounded">
+                      {selectedParent.timeframe.type === 'MONTHLY' ? 'Monthly' :
+                       selectedParent.timeframe.type === 'QUARTERLY' ? 'Quarterly' :
+                       selectedParent.timeframe.type === 'SIX_MONTH' ? '6-Month' :
+                       selectedParent.timeframe.type === 'YEARLY' ? 'Yearly' : ''}
+                    </span>
+                  )}
                 </p>
               </div>
             </div>
@@ -246,7 +255,17 @@ export default function ParentObjectiveSelector({
                               )}
                               <div className="flex items-center mt-2 text-xs text-gray-500">
                                 <span className="mr-4">Owner: {objective.owner.name}</span>
-                                <span className="mr-4">Timeframe: {objective.timeframe.name}</span>
+                                <span className="mr-4">
+                                  Timeframe: {objective.timeframe.name}
+                                  {objective.timeframe.type && (
+                                    <span className="ml-1 text-xs bg-blue-100 text-blue-800 px-1 rounded">
+                                      {objective.timeframe.type === 'MONTHLY' ? 'Monthly' :
+                                       objective.timeframe.type === 'QUARTERLY' ? 'Quarterly' :
+                                       objective.timeframe.type === 'SIX_MONTH' ? '6-Month' :
+                                       objective.timeframe.type === 'YEARLY' ? 'Yearly' : ''}
+                                    </span>
+                                  )}
+                                </span>
                                 {objective.department && (
                                   <span>Department: {objective.department.name}</span>
                                 )}

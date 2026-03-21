@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Target, User, Archive } from 'lucide-react'
 import { getProgressColor } from '@/lib/utils'
 import ArchiveKeyResultButton from './ArchiveKeyResultButton'
@@ -11,89 +12,230 @@ import DeleteKeyResultButton from './DeleteKeyResultButton'
 import CloneKeyResultButton from './CloneKeyResultButton'
 import ToDoList from '../todos/ToDoList'
 
+function safeProgressPercent(value: unknown): number {
+  const n = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(n)) return 0
+  return Math.min(Math.max(n, 0), 100)
+}
+
+type KeyResultPermissions = {
+  canCreate: boolean
+  canEditByKeyResultId: Record<string, boolean>
+  canDeleteKeyResults: boolean
+  canCloneKeyResults: boolean
+}
+
 interface KeyResultsListProps {
   keyResults: any[]
   objectiveId: string
-  objective: any
-  users: any[]
+  objective: {
+    id: string
+    ownerId?: string
+    level?: string
+    departmentId?: string | null
+  }
+  users?: any[]
+  onKeyResultsChange?: () => void
 }
 
-export default function KeyResultsList({ keyResults, objectiveId, objective, users }: KeyResultsListProps) {
+export default function KeyResultsList({
+  keyResults,
+  objectiveId: _objectiveId,
+  objective,
+  users: usersFromProps,
+  onKeyResultsChange,
+}: KeyResultsListProps) {
+  const router = useRouter()
   const [showArchived, setShowArchived] = useState(false)
+  const [perm, setPerm] = useState<KeyResultPermissions | null>(null)
+  const [fetchedUsers, setFetchedUsers] = useState<any[] | null>(null)
 
-  const activeKeyResults = keyResults.filter(kr => kr.status === 'ACTIVE')
-  const archivedKeyResults = keyResults.filter(kr => kr.status === 'ARCHIVED')
+  const list = keyResults ?? []
+
+  const loadPermissions = useCallback(async () => {
+    if (!objective?.id) return
+    try {
+      const res = await fetch(`/api/objectives/${objective.id}/key-result-permissions`)
+      const data = await res.json()
+      if (!data.success) return
+      setPerm({
+        canCreate: data.canCreate,
+        canEditByKeyResultId: data.canEditByKeyResultId ?? {},
+        canDeleteKeyResults: data.canDeleteKeyResults,
+        canCloneKeyResults: data.canCloneKeyResults,
+      })
+    } catch {
+      setPerm({
+        canCreate: false,
+        canEditByKeyResultId: {},
+        canDeleteKeyResults: false,
+        canCloneKeyResults: false,
+      })
+    }
+  }, [objective?.id])
+
+  useEffect(() => {
+    if (!objective?.id) return
+    loadPermissions()
+  }, [objective?.id, loadPermissions])
+
+  useEffect(() => {
+    if (usersFromProps && usersFromProps.length > 0) {
+      setFetchedUsers(null)
+      return
+    }
+    let cancelled = false
+    fetch('/api/users/for-selection')
+      .then((r) => r.json())
+      .then((d) => {
+        if (!cancelled && d.success && d.users) setFetchedUsers(d.users)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [usersFromProps])
+
+  const users =
+    usersFromProps && usersFromProps.length > 0 ? usersFromProps : fetchedUsers ?? []
+
+  const afterMutation = useCallback(() => {
+    onKeyResultsChange?.()
+    router.refresh()
+    void loadPermissions()
+  }, [onKeyResultsChange, loadPermissions, router])
+
+  if (!objective?.id) {
+    return (
+      <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        Key results are unavailable (missing objective).
+      </div>
+    )
+  }
+
+  const activeKeyResults = list.filter((kr) => kr.status === 'ACTIVE')
+  const archivedKeyResults = list.filter((kr) => kr.status === 'ARCHIVED')
+
+  const renderKeyResultActions = (kr: any) => {
+    const canEdit = perm?.canEditByKeyResultId[kr.id] === true
+    const canClone = perm?.canCloneKeyResults === true
+    const canDelete = perm?.canDeleteKeyResults === true
+    const canArchive = canEdit
+
+    return (
+      <div className="flex items-center space-x-1">
+        <CloneKeyResultButton
+          keyResult={kr}
+          users={users}
+          canClone={canClone}
+          onCloned={afterMutation}
+        />
+        <EditKeyResultButton
+          keyResult={kr}
+          users={users}
+          canEdit={canEdit}
+          onUpdated={afterMutation}
+        />
+        <ArchiveKeyResultButton
+          keyResult={kr}
+          canArchive={canArchive}
+          onArchived={afterMutation}
+        />
+        <DeleteKeyResultButton
+          keyResult={kr}
+          canDelete={canDelete}
+          onDeleted={afterMutation}
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-4">
-      {/* Active Key Results */}
       <div>
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-lg font-semibold text-gray-900">
             Active Key Results ({activeKeyResults.length})
           </h3>
-          <AddKeyResultButton objective={objective} users={users} />
+          {perm && (
+            <AddKeyResultButton
+              objective={objective}
+              users={users}
+              canCreate={perm.canCreate}
+              onCreated={afterMutation}
+            />
+          )}
         </div>
         {activeKeyResults.length > 0 && (
           <ul className="space-y-3">
-            {activeKeyResults.map(kr => (
+            {activeKeyResults.map((kr) => {
+              const confidence = kr.confidence ?? 'ON_TRACK'
+              return (
               <li key={kr.id} className="bg-gray-50 p-4 rounded-md border border-gray-200">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center space-x-2 mb-2">
                       <Target className="h-4 w-4 text-gray-500" />
                       <span className="font-medium text-gray-800">{kr.title}</span>
-                      <div className="flex items-center space-x-1">
-                        <CloneKeyResultButton keyResult={kr} users={users} />
-                        <EditKeyResultButton keyResult={kr} users={users} />
-                        <ArchiveKeyResultButton keyResult={kr} />
-                        <DeleteKeyResultButton keyResult={kr} />
-                      </div>
+                      {perm ? renderKeyResultActions(kr) : null}
                     </div>
                     <div className="text-sm text-gray-600 mb-2">
                       Target: {kr.targetValue} {kr.unit} • Current: {kr.currentValue} {kr.unit}
                     </div>
-                    <div className="flex items-center space-x-4 text-xs text-gray-500">
-                      <div className="flex items-center">
-                        <User className="h-3 w-3 mr-1" />
-                        {kr.owner?.name}
+                    <div className="flex items-center space-x-4 text-xs">
+                      <div className="flex items-center bg-gray-50 px-2 py-1 rounded-md border border-gray-200">
+                        {kr.owner?.avatar ? (
+                          <img
+                            src={kr.owner.avatar}
+                            alt={kr.owner?.name || 'Owner'}
+                            className="h-4 w-4 rounded-full mr-1.5"
+                          />
+                        ) : (
+                          <div className="h-4 w-4 rounded-full bg-blue-500 flex items-center justify-center mr-1.5">
+                            <User className="h-2.5 w-2.5 text-white" />
+                          </div>
+                        )}
+                        <span className="font-medium text-gray-700">{kr.owner?.name || 'Unknown'}</span>
                       </div>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        kr.confidence === 'ON_TRACK' ? 'bg-green-100 text-green-800' :
-                        kr.confidence === 'AT_RISK' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-red-100 text-red-800'
-                      }`}>
-                        {kr.confidence.replace('_', ' ')}
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          confidence === 'ON_TRACK'
+                            ? 'bg-green-100 text-green-800'
+                            : confidence === 'AT_RISK'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-red-100 text-red-800'
+                        }`}
+                      >
+                        {confidence.replace(/_/g, ' ')}
                       </span>
                     </div>
                     <div className="mt-2">
                       <div className="flex items-center justify-between text-sm mb-1">
                         <span className="text-gray-600">Progress</span>
-                        <span className={`font-semibold ${getProgressColor(kr.progress)}`}>
-                          {Math.round(kr.progress)}%
+                        <span className={`font-semibold ${getProgressColor(safeProgressPercent(kr.progress))}`}>
+                          {Math.round(safeProgressPercent(kr.progress))}%
                         </span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2">
                         <div
                           className={`h-2 rounded-full transition-all duration-300 ${
-                            getProgressColor(kr.progress).split(' ')[0].replace('text-', 'bg-')
+                            getProgressColor(safeProgressPercent(kr.progress)).split(' ')[0].replace('text-', 'bg-')
                           }`}
-                          style={{ width: `${Math.min(kr.progress, 100)}%` }}
+                          style={{ width: `${safeProgressPercent(kr.progress)}%` }}
                         />
                       </div>
                     </div>
                   </div>
                 </div>
-                
-                {/* To-Do List Section */}
+
                 <ToDoList keyResultId={kr.id} keyResult={kr} users={users} />
               </li>
-            ))}
+              )
+            })}
           </ul>
         )}
       </div>
 
-      {/* Archived Key Results */}
       {archivedKeyResults.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-3">
@@ -101,6 +243,7 @@ export default function KeyResultsList({ keyResults, objectiveId, objective, use
               Archived Key Results ({archivedKeyResults.length})
             </h3>
             <button
+              type="button"
               onClick={() => setShowArchived(!showArchived)}
               className="text-sm text-gray-500 hover:text-gray-700 flex items-center"
             >
@@ -108,10 +251,10 @@ export default function KeyResultsList({ keyResults, objectiveId, objective, use
               {showArchived ? 'Hide' : 'Show'} Archived
             </button>
           </div>
-          
+
           {showArchived && (
             <ul className="space-y-3">
-              {archivedKeyResults.map(kr => (
+              {archivedKeyResults.map((kr) => (
                 <li key={kr.id} className="bg-orange-50 p-4 rounded-md border border-orange-200">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
@@ -121,43 +264,74 @@ export default function KeyResultsList({ keyResults, objectiveId, objective, use
                         <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full">
                           Archived
                         </span>
-                        <div className="flex items-center space-x-1">
-                          <CloneKeyResultButton keyResult={kr} users={users} />
-                          <EditKeyResultButton keyResult={kr} users={users} />
-                          <UnarchiveKeyResultButton keyResult={kr} />
-                          <DeleteKeyResultButton keyResult={kr} />
-                        </div>
+                        {perm ? (
+                          <div className="flex items-center space-x-1">
+                            <CloneKeyResultButton
+                              keyResult={kr}
+                              users={users}
+                              canClone={perm.canCloneKeyResults}
+                              onCloned={afterMutation}
+                            />
+                            <EditKeyResultButton
+                              keyResult={kr}
+                              users={users}
+                              canEdit={perm.canEditByKeyResultId[kr.id] === true}
+                              onUpdated={afterMutation}
+                            />
+                            <UnarchiveKeyResultButton
+                              keyResult={kr}
+                              canUnarchive={perm.canEditByKeyResultId[kr.id] === true}
+                              onDone={afterMutation}
+                            />
+                            <DeleteKeyResultButton
+                              keyResult={kr}
+                              canDelete={perm.canDeleteKeyResults}
+                              onDeleted={afterMutation}
+                            />
+                          </div>
+                        ) : null}
                       </div>
                       <div className="text-sm text-gray-600 mb-2">
                         Target: {kr.targetValue} {kr.unit} • Current: {kr.currentValue} {kr.unit}
                       </div>
-                      <div className="flex items-center space-x-4 text-xs text-gray-500">
-                        <div className="flex items-center">
-                          <User className="h-3 w-3 mr-1" />
-                          {kr.owner?.name}
+                      <div className="flex items-center space-x-4 text-xs">
+                        <div className="flex items-center bg-gray-50 px-2 py-1 rounded-md border border-gray-200">
+                          {kr.owner?.avatar ? (
+                            <img
+                              src={kr.owner.avatar}
+                              alt={kr.owner?.name || 'Owner'}
+                              className="h-4 w-4 rounded-full mr-1.5"
+                            />
+                          ) : (
+                            <div className="h-4 w-4 rounded-full bg-blue-500 flex items-center justify-center mr-1.5">
+                              <User className="h-2.5 w-2.5 text-white" />
+                            </div>
+                          )}
+                          <span className="font-medium text-gray-700">{kr.owner?.name || 'Unknown'}</span>
                         </div>
-                        <span>Archived: {new Date(kr.archivedAt).toLocaleDateString()}</span>
+                        <span className="text-gray-500">
+                          Archived: {new Date(kr.archivedAt).toLocaleDateString()}
+                        </span>
                       </div>
                       <div className="mt-2">
                         <div className="flex items-center justify-between text-sm mb-1">
                           <span className="text-gray-600">Progress (at time of archiving)</span>
-                          <span className={`font-semibold ${getProgressColor(kr.progress)}`}>
-                            {Math.round(kr.progress)}%
+                          <span className={`font-semibold ${getProgressColor(safeProgressPercent(kr.progress))}`}>
+                            {Math.round(safeProgressPercent(kr.progress))}%
                           </span>
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-2">
                           <div
                             className={`h-2 rounded-full transition-all duration-300 ${
-                              getProgressColor(kr.progress).split(' ')[0].replace('text-', 'bg-')
+                              getProgressColor(safeProgressPercent(kr.progress)).split(' ')[0].replace('text-', 'bg-')
                             }`}
-                            style={{ width: `${Math.min(kr.progress, 100)}%` }}
+                            style={{ width: `${safeProgressPercent(kr.progress)}%` }}
                           />
                         </div>
                       </div>
                     </div>
                   </div>
-                  
-                  {/* To-Do List Section */}
+
                   <ToDoList keyResultId={kr.id} keyResult={kr} users={users} />
                 </li>
               ))}
@@ -166,21 +340,25 @@ export default function KeyResultsList({ keyResults, objectiveId, objective, use
         </div>
       )}
 
-      {keyResults.length === 0 && (
+      {list.length === 0 && (
         <div className="text-center py-8">
           <Target className="mx-auto h-12 w-12 text-gray-400" />
           <h3 className="mt-2 text-sm font-medium text-gray-900">No key results</h3>
           <p className="mt-1 text-sm text-gray-500">
             No key results have been defined for this objective yet.
           </p>
+          {perm && (
+            <div className="mt-4 flex justify-center">
+              <AddKeyResultButton
+                objective={objective}
+                users={users}
+                canCreate={perm.canCreate}
+                onCreated={afterMutation}
+              />
+            </div>
+          )}
         </div>
       )}
     </div>
   )
 }
-
-
-
-
-
-

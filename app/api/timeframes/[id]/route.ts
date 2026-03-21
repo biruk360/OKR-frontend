@@ -21,7 +21,18 @@ export async function PATCH(
 
     const { id } = params
     const body = await request.json()
-    const { name, startDate, endDate, isActive } = body
+    const { name, type, startDate, endDate, isActive } = body
+
+    // Validate timeframe type if provided
+    if (type) {
+      const validTypes = ['MONTHLY', 'QUARTERLY', 'SIX_MONTH', 'YEARLY']
+      if (!validTypes.includes(type)) {
+        return NextResponse.json(
+          { error: 'Invalid timeframe type. Must be MONTHLY, QUARTERLY, SIX_MONTH, or YEARLY' },
+          { status: 400 }
+        )
+      }
+    }
 
     // If activating a timeframe, deactivate all others
     if (isActive === true) {
@@ -35,6 +46,7 @@ export async function PATCH(
       where: { id },
       data: {
         ...(name && { name }),
+        ...(type && { type }),
         ...(startDate && { startDate: new Date(startDate) }),
         ...(endDate && { endDate: new Date(endDate) }),
         ...(isActive !== undefined && { isActive })

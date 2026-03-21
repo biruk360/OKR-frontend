@@ -11,6 +11,7 @@ interface AddKeyResultModalProps {
   objectiveId: string
   users: any[]
   defaultOwnerId?: string
+  onSuccess?: () => void
 }
 
 interface KeyResultFormData {
@@ -20,6 +21,7 @@ interface KeyResultFormData {
   startValue: number
   targetValue: number
   unit: string
+  isPrivate?: boolean
 }
 
 export default function AddKeyResultModal({ 
@@ -27,7 +29,8 @@ export default function AddKeyResultModal({
   onClose, 
   objectiveId, 
   users, 
-  defaultOwnerId 
+  defaultOwnerId,
+  onSuccess,
 }: AddKeyResultModalProps) {
   const [isLoading, setIsLoading] = useState(false)
   
@@ -54,7 +57,8 @@ export default function AddKeyResultModal({
         ownerId: defaultOwnerId || '',
         startValue: 0,
         targetValue: 100,
-        unit: '%'
+        unit: '%',
+        isPrivate: false
       })
     }
   }, [isOpen, defaultOwnerId, reset])
@@ -86,8 +90,8 @@ export default function AddKeyResultModal({
       if (response.ok) {
         toast.success('Key Result added successfully.')
         onClose()
-        // Refresh the page to show the new key result
-        window.location.reload()
+        if (onSuccess) onSuccess()
+        else window.location.reload()
       } else {
         toast.error(result.error || 'Failed to add key result')
       }
@@ -254,6 +258,20 @@ export default function AddKeyResultModal({
                 </div>
               </div>
             )}
+
+            <div className="mb-6">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  {...register('isPrivate')}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <span className="ml-2 text-sm text-gray-700">Make this key result private</span>
+              </label>
+              <p className="mt-1 text-xs text-gray-500">
+                Private key results will show as "[Private Key Result]" to other users, but progress percentage will remain visible.
+              </p>
+            </div>
 
             <div className="flex items-center justify-end space-x-3">
               <button

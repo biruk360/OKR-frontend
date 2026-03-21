@@ -9,19 +9,21 @@ interface CloneKeyResultButtonProps {
   keyResult: any
   users: any[]
   className?: string
+  canClone: boolean
+  onCloned?: () => void
 }
 
-export default function CloneKeyResultButton({ keyResult, users, className = '' }: CloneKeyResultButtonProps) {
+export default function CloneKeyResultButton({
+  keyResult,
+  users,
+  className = '',
+  canClone,
+  onCloned,
+}: CloneKeyResultButtonProps) {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const { data: session } = useSession()
 
-  // Check if user can clone key results (objective owner or admin)
-  const canCloneKeyResult = session?.user && (
-    session.user.role === 'ADMIN' || 
-    session.user.id === keyResult.objective?.ownerId
-  )
-
-  if (!canCloneKeyResult) {
+  if (!session?.user || !canClone) {
     return null
   }
 
@@ -40,6 +42,7 @@ export default function CloneKeyResultButton({ keyResult, users, className = '' 
         onClose={() => setIsModalOpen(false)}
         keyResult={keyResult}
         users={users}
+        onSuccess={onCloned}
       />
     </>
   )

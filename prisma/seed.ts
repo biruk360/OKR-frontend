@@ -65,10 +65,10 @@ async function main() {
 
   console.log('✅ Departments created')
 
-  // Create users
+  // Create users (single exec: Biruk; demo ICs only)
   const hashedPassword = await bcrypt.hash('admin123', 12)
 
-  const admin = await prisma.user.upsert({
+  await prisma.user.upsert({
     where: { email: 'admin@company.com' },
     update: {},
     create: {
@@ -79,47 +79,17 @@ async function main() {
     },
   })
 
-  const ceo = await prisma.user.upsert({
-    where: { email: 'ceo@company.com' },
-    update: {},
-    create: {
-      name: 'John Smith',
-      email: 'ceo@company.com',
-      password: hashedPassword,
-      role: 'EXECUTIVE',
+  const biruk = await prisma.user.upsert({
+    where: { email: 'biruk@360ground.com' },
+    update: {
+      name: 'Biruk Hailu',
+      role: 'ADMIN',
     },
-  })
-
-  const engineeringLead = await prisma.user.upsert({
-    where: { email: 'engineering.lead@company.com' },
-    update: {},
     create: {
-      name: 'Sarah Johnson',
-      email: 'engineering.lead@company.com',
+      name: 'Biruk Hailu',
+      email: 'biruk@360ground.com',
       password: hashedPassword,
-      role: 'DEPARTMENT_LEAD',
-    },
-  })
-
-  const marketingLead = await prisma.user.upsert({
-    where: { email: 'marketing.lead@company.com' },
-    update: {},
-    create: {
-      name: 'Mike Chen',
-      email: 'marketing.lead@company.com',
-      password: hashedPassword,
-      role: 'DEPARTMENT_LEAD',
-    },
-  })
-
-  const salesLead = await prisma.user.upsert({
-    where: { email: 'sales.lead@company.com' },
-    update: {},
-    create: {
-      name: 'Emily Davis',
-      email: 'sales.lead@company.com',
-      password: hashedPassword,
-      role: 'DEPARTMENT_LEAD',
+      role: 'ADMIN',
     },
   })
 
@@ -129,17 +99,6 @@ async function main() {
     create: {
       name: 'Alex Rodriguez',
       email: 'engineer1@company.com',
-      password: hashedPassword,
-      role: 'EMPLOYEE',
-    },
-  })
-
-  const engineer2 = await prisma.user.upsert({
-    where: { email: 'engineer2@company.com' },
-    update: {},
-    create: {
-      name: 'Lisa Wang',
-      email: 'engineer2@company.com',
       password: hashedPassword,
       role: 'EMPLOYEE',
     },
@@ -156,29 +115,24 @@ async function main() {
     },
   })
 
-  const salesRep1 = await prisma.user.upsert({
-    where: { email: 'salesrep1@company.com' },
-    update: {},
-    create: {
-      name: 'Jessica Taylor',
-      email: 'salesrep1@company.com',
-      password: hashedPassword,
-      role: 'EMPLOYEE',
-    },
-  })
-
   console.log('✅ Users created')
 
-  // Create department memberships
-  await prisma.departmentMembership.upsert({
-    where: { userId_departmentId: { userId: engineeringLead.id, departmentId: engineering.id } },
-    update: {},
-    create: {
-      userId: engineeringLead.id,
-      departmentId: engineering.id,
-      role: 'Lead',
-    },
-  })
+  // Create department memberships (Biruk as department lead for demo depts)
+  for (const [deptId, role] of [
+    [engineering.id, 'Lead'],
+    [marketing.id, 'Lead'],
+    [sales.id, 'Lead'],
+  ] as const) {
+    await prisma.departmentMembership.upsert({
+      where: { userId_departmentId: { userId: biruk.id, departmentId: deptId } },
+      update: { role },
+      create: {
+        userId: biruk.id,
+        departmentId: deptId,
+        role,
+      },
+    })
+  }
 
   await prisma.departmentMembership.upsert({
     where: { userId_departmentId: { userId: engineer1.id, departmentId: engineering.id } },
@@ -187,26 +141,6 @@ async function main() {
       userId: engineer1.id,
       departmentId: engineering.id,
       role: 'Member',
-    },
-  })
-
-  await prisma.departmentMembership.upsert({
-    where: { userId_departmentId: { userId: engineer2.id, departmentId: engineering.id } },
-    update: {},
-    create: {
-      userId: engineer2.id,
-      departmentId: engineering.id,
-      role: 'Member',
-    },
-  })
-
-  await prisma.departmentMembership.upsert({
-    where: { userId_departmentId: { userId: marketingLead.id, departmentId: marketing.id } },
-    update: {},
-    create: {
-      userId: marketingLead.id,
-      departmentId: marketing.id,
-      role: 'Lead',
     },
   })
 
@@ -220,83 +154,38 @@ async function main() {
     },
   })
 
-  await prisma.departmentMembership.upsert({
-    where: { userId_departmentId: { userId: salesLead.id, departmentId: sales.id } },
-    update: {},
-    create: {
-      userId: salesLead.id,
-      departmentId: sales.id,
-      role: 'Lead',
-    },
-  })
-
-  await prisma.departmentMembership.upsert({
-    where: { userId_departmentId: { userId: salesRep1.id, departmentId: sales.id } },
-    update: {},
-    create: {
-      userId: salesRep1.id,
-      departmentId: sales.id,
-      role: 'Member',
-    },
-  })
-
   console.log('✅ Department memberships created')
 
-  // Create manager relationships
   await prisma.managerRelationship.upsert({
-    where: { managerId_directReportId: { managerId: ceo.id, directReportId: engineeringLead.id } },
-    update: {},
-    create: {
-      managerId: ceo.id,
-      directReportId: engineeringLead.id,
+    where: {
+      managerId_directReportId: { managerId: biruk.id, directReportId: engineer1.id },
     },
-  })
-
-  await prisma.managerRelationship.upsert({
-    where: { managerId_directReportId: { managerId: ceo.id, directReportId: marketingLead.id } },
     update: {},
     create: {
-      managerId: ceo.id,
-      directReportId: marketingLead.id,
-    },
-  })
-
-  await prisma.managerRelationship.upsert({
-    where: { managerId_directReportId: { managerId: ceo.id, directReportId: salesLead.id } },
-    update: {},
-    create: {
-      managerId: ceo.id,
-      directReportId: salesLead.id,
-    },
-  })
-
-  await prisma.managerRelationship.upsert({
-    where: { managerId_directReportId: { managerId: engineeringLead.id, directReportId: engineer1.id } },
-    update: {},
-    create: {
-      managerId: engineeringLead.id,
+      managerId: biruk.id,
       directReportId: engineer1.id,
     },
   })
 
   await prisma.managerRelationship.upsert({
-    where: { managerId_directReportId: { managerId: engineeringLead.id, directReportId: engineer2.id } },
+    where: {
+      managerId_directReportId: { managerId: biruk.id, directReportId: marketer1.id },
+    },
     update: {},
     create: {
-      managerId: engineeringLead.id,
-      directReportId: engineer2.id,
+      managerId: biruk.id,
+      directReportId: marketer1.id,
     },
   })
 
   console.log('✅ Manager relationships created')
 
-  // Create company-level objectives
   const companyObjective1 = await prisma.objective.create({
     data: {
       title: 'Achieve 50% Revenue Growth',
       description: 'Increase company revenue by 50% compared to last year through strategic initiatives and market expansion.',
       level: 'COMPANY',
-      ownerId: ceo.id,
+      ownerId: biruk.id,
       timeframeId: q1Timeframe.id,
       progress: 35,
     },
@@ -307,7 +196,7 @@ async function main() {
       title: 'Improve Customer Satisfaction to 95%',
       description: 'Enhance customer experience and support to achieve 95% satisfaction rating.',
       level: 'COMPANY',
-      ownerId: ceo.id,
+      ownerId: biruk.id,
       timeframeId: q1Timeframe.id,
       progress: 60,
     },
@@ -315,13 +204,12 @@ async function main() {
 
   console.log('✅ Company objectives created')
 
-  // Create department objectives
   const engineeringObjective = await prisma.objective.create({
     data: {
       title: 'Launch New Product Features',
       description: 'Develop and deploy 3 major product features to support revenue growth.',
       level: 'DEPARTMENT',
-      ownerId: engineeringLead.id,
+      ownerId: biruk.id,
       timeframeId: q1Timeframe.id,
       departmentId: engineering.id,
       parentObjectiveId: companyObjective1.id,
@@ -334,7 +222,7 @@ async function main() {
       title: 'Increase Brand Awareness by 30%',
       description: 'Execute marketing campaigns to increase brand recognition and market presence.',
       level: 'DEPARTMENT',
-      ownerId: marketingLead.id,
+      ownerId: biruk.id,
       timeframeId: q1Timeframe.id,
       departmentId: marketing.id,
       parentObjectiveId: companyObjective1.id,
@@ -347,7 +235,7 @@ async function main() {
       title: 'Close $2M in New Deals',
       description: 'Generate $2 million in new sales revenue through strategic partnerships and direct sales.',
       level: 'DEPARTMENT',
-      ownerId: salesLead.id,
+      ownerId: biruk.id,
       timeframeId: q1Timeframe.id,
       departmentId: sales.id,
       parentObjectiveId: companyObjective1.id,
@@ -357,7 +245,6 @@ async function main() {
 
   console.log('✅ Department objectives created')
 
-  // Create individual objectives
   const engineer1Objective = await prisma.objective.create({
     data: {
       title: 'Implement Authentication System',
@@ -370,21 +257,8 @@ async function main() {
     },
   })
 
-  const engineer2Objective = await prisma.objective.create({
-    data: {
-      title: 'Optimize Database Performance',
-      description: 'Improve database query performance by 40% to support increased user load.',
-      level: 'INDIVIDUAL',
-      ownerId: engineer2.id,
-      timeframeId: q1Timeframe.id,
-      parentObjectiveId: engineeringObjective.id,
-      progress: 45,
-    },
-  })
-
   console.log('✅ Individual objectives created')
 
-  // Create key results
   await prisma.keyResult.createMany({
     data: [
       {
@@ -410,30 +284,6 @@ async function main() {
         progress: 30,
         ownerId: engineer1.id,
         objectiveId: engineer1Objective.id,
-      },
-      {
-        title: 'Reduce average query time',
-        description: 'Optimize database queries to reduce average response time',
-        startValue: 500,
-        targetValue: 300,
-        currentValue: 400,
-        unit: 'ms',
-        confidence: 'ON_TRACK',
-        progress: 33,
-        ownerId: engineer2.id,
-        objectiveId: engineer2Objective.id,
-      },
-      {
-        title: 'Implement database indexing',
-        description: 'Add strategic indexes to improve query performance',
-        startValue: 0,
-        targetValue: 100,
-        currentValue: 60,
-        unit: '%',
-        confidence: 'ON_TRACK',
-        progress: 60,
-        ownerId: engineer2.id,
-        objectiveId: engineer2Objective.id,
       },
     ],
   })
@@ -483,10 +333,9 @@ async function main() {
   console.log('')
   console.log('Default login credentials:')
   console.log('Admin: admin@company.com / admin123')
-  console.log('CEO: ceo@company.com / admin123')
-  console.log('Engineering Lead: engineering.lead@company.com / admin123')
-  console.log('Marketing Lead: marketing.lead@company.com / admin123')
-  console.log('Sales Lead: sales.lead@company.com / admin123')
+  console.log('Biruk Hailu: biruk@360ground.com / admin123')
+  console.log('Engineer: engineer1@company.com / admin123')
+  console.log('Marketer: marketer1@company.com / admin123')
 }
 
 main()

@@ -32,7 +32,7 @@ export interface ObjectiveWithRelations extends Objective {
   department?: Department
   parentObjective?: ObjectiveWithRelations
   childObjectives?: ObjectiveWithRelations[]
-  keyResults: KeyResultWithRelations[]
+  keyResults?: KeyResultWithRelations[]
   comments?: CommentWithAuthor[]
   _count?: {
     keyResults: number
@@ -102,6 +102,10 @@ export interface CreateObjectiveForm {
   timeframeId: string
   departmentId?: string
   parentObjectiveId?: string
+  isPrivate?: boolean
+  goalStatus?: string
+  startDate?: string
+  endDate?: string
 }
 
 export interface UpdateObjectiveForm {
@@ -109,6 +113,7 @@ export interface UpdateObjectiveForm {
   description?: string
   ownerId?: string
   parentObjectiveId?: string
+  isPrivate?: boolean
 }
 
 export interface CreateKeyResultForm {
@@ -119,6 +124,7 @@ export interface CreateKeyResultForm {
   unit: string
   ownerId: string
   objectiveId: string
+  isPrivate?: boolean
 }
 
 export interface UpdateKeyResultForm {
@@ -126,6 +132,7 @@ export interface UpdateKeyResultForm {
   description?: string
   currentValue?: number
   confidence?: ConfidenceLevel
+  isPrivate?: boolean
 }
 
 export interface CreateTodoForm {

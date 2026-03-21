@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { CreateObjectiveForm } from '@/types'
+import { canCreateObjective, canViewObjective, redactObjective } from '@/lib/permissions'
 
 export async function GET(request: NextRequest) {
   try {
@@ -66,10 +67,25 @@ export async function GET(request: NextRequest) {
       where.timeframeId = timeframeId
     }
     if (search) {
-      where.OR = [
-        { title: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } }
+      // For SQLite, use contains (case-sensitive, as SQLite doesn't support case-insensitive mode)
+      const searchConditions = [
+        { title: { contains: search } },
+        { description: { contains: search } }
       ]
+      
+      // If there's already an OR condition (from role-based filtering), combine it properly
+      if (where.OR && Array.isArray(where.OR)) {
+        // Combine existing OR with search OR using AND
+        const existingConditions = { OR: where.OR }
+        where.AND = [
+          existingConditions,
+          { OR: searchConditions }
+        ]
+        delete where.OR
+      } else {
+        // No existing OR, just add search OR
+        where.OR = searchConditions
+      }
     }
 
     const skip = (page - 1) * limit
@@ -86,22 +102,90 @@ export async function GET(request: NextRequest) {
             select: { id: true, name: true }
           },
           parentObjective: {
-            select: { id: true, title: true }
+            select: { id: true, title: true, level: true }
+          },
+          objectiveLabels: {
+            include: {
+              label: true
+            }
+          },
+          childObjectives: {
+            where: { status: 'ACTIVE' },
+            include: {
+              owner: {
+                select: { id: true, name: true, avatar: true }
+              },
+              department: {
+                select: { id: true, name: true }
+              },
+              _count: {
+                select: { keyResults: true, childObjectives: true }
+              }
+            },
+            orderBy: { level: 'asc' }
+          },
+          keyResults: {
+            orderBy: { createdAt: 'asc' },
+            include: {
+              owner: {
+                select: { id: true, name: true, avatar: true }
+              },
+              objective: {
+                select: { id: true, ownerId: true }
+              }
+            }
           },
           _count: {
             select: { keyResults: true, childObjectives: true }
           }
         },
-        orderBy: { updatedAt: 'desc' },
+        orderBy: [
+          { level: 'asc' }, // COMPANY first, then DEPARTMENT, then INDIVIDUAL
+          { updatedAt: 'desc' }
+        ],
         skip,
         take: limit
       }),
       prisma.objective.count({ where })
     ])
 
+    // Apply visibility filtering - redact private objectives for users who shouldn't see full details
+    const processedObjectives = await Promise.all(
+      objectives.map(async (objective: any) => {
+        try {
+          const visibility = await canViewObjective(
+            session.user.role as any,
+            session.user.id,
+            {
+              level: objective.level,
+              ownerId: objective.ownerId,
+              departmentId: objective.departmentId,
+              isPrivate: objective.isPrivate || false
+            }
+          )
+
+          if (!visibility.canView) {
+            return null // Filter out objectives user can't view
+          }
+
+          if (visibility.isRedacted) {
+            return redactObjective(objective)
+          }
+
+          return objective
+        } catch (error) {
+          console.error('Error processing objective visibility:', error)
+          return objective // Return as-is if visibility check fails
+        }
+      })
+    )
+
+    // Filter out null values (objectives user can't view)
+    const filteredObjectives = processedObjectives.filter(obj => obj !== null)
+
     return NextResponse.json({
       success: true,
-      data: objectives,
+      data: filteredObjectives,
       pagination: {
         page,
         limit,
@@ -109,10 +193,15 @@ export async function GET(request: NextRequest) {
         totalPages: Math.ceil(total / limit)
       }
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching objectives:', error)
+    console.error('Error stack:', error.stack)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { 
+        error: error.message || 'Internal server error',
+        details: error.toString(),
+        code: error.code
+      },
       { status: 500 }
     )
   }
@@ -127,10 +216,13 @@ export async function POST(request: NextRequest) {
     }
 
     const body: CreateObjectiveForm = await request.json()
-    const { title, description, level, ownerId, timeframeId, departmentId, parentObjectiveId } = body
+    const { title, description, level, ownerId, timeframeId, departmentId, parentObjectiveId, isPrivate, goalStatus, startDate, endDate } = body
     const sanitizedDepartmentId = departmentId || null
     const sanitizedParentObjectiveId = parentObjectiveId || null
     const normalizedDescription = description?.trim() ? description.trim() : null
+    
+    // Ensure isPrivate is a boolean
+    const normalizedIsPrivate = typeof isPrivate === 'boolean' ? isPrivate : isPrivate === 'true' || isPrivate === true
 
     // Validate required fields
     if (!title || !level || !ownerId || !timeframeId) {
@@ -140,19 +232,44 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check permissions based on level
-    if (level === 'COMPANY' && !['ADMIN', 'EXECUTIVE'].includes(session.user.role)) {
+    // Check permissions using permission utility
+    if (!canCreateObjective(session.user.role as any, level as any)) {
       return NextResponse.json(
-        { error: 'Insufficient permissions to create company-level objectives' },
+        { error: 'Insufficient permissions to create objectives at this level' },
         { status: 403 }
       )
     }
 
-    if (level === 'DEPARTMENT' && !['ADMIN', 'EXECUTIVE', 'DEPARTMENT_LEAD'].includes(session.user.role)) {
-      return NextResponse.json(
-        { error: 'Insufficient permissions to create department-level objectives' },
-        { status: 403 }
-      )
+    // Additional check: DEPARTMENT_LEAD can only create objectives for their department or direct reports
+    if (level === 'DEPARTMENT' && session.user.role === 'DEPARTMENT_LEAD' && departmentId) {
+      const userDepartments = await prisma.departmentMembership.findMany({
+        where: { userId: session.user.id },
+        select: { departmentId: true }
+      })
+      const departmentIds = userDepartments.map(d => d.departmentId)
+      if (!departmentIds.includes(departmentId)) {
+        return NextResponse.json(
+          { error: 'You can only create objectives for your own department' },
+          { status: 403 }
+        )
+      }
+    }
+
+    // Additional check: DEPARTMENT_LEAD can create individual objectives for their direct reports
+    if (level === 'INDIVIDUAL' && session.user.role === 'DEPARTMENT_LEAD' && ownerId !== session.user.id) {
+      const isDirectReport = await prisma.managerRelationship.findFirst({
+        where: {
+          managerId: session.user.id,
+          directReportId: ownerId,
+          endedAt: null
+        }
+      })
+      if (!isDirectReport) {
+        return NextResponse.json(
+          { error: 'You can only create objectives for yourself or your direct reports' },
+          { status: 403 }
+        )
+      }
     }
 
     // Validate timeframe exists
@@ -193,6 +310,32 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Parse dates safely
+    let parsedStartDate: Date | null = null
+    let parsedEndDate: Date | null = null
+    
+    if (startDate) {
+      try {
+        parsedStartDate = new Date(startDate)
+        if (isNaN(parsedStartDate.getTime())) {
+          parsedStartDate = null
+        }
+      } catch (e) {
+        parsedStartDate = null
+      }
+    }
+    
+    if (endDate) {
+      try {
+        parsedEndDate = new Date(endDate)
+        if (isNaN(parsedEndDate.getTime())) {
+          parsedEndDate = null
+        }
+      } catch (e) {
+        parsedEndDate = null
+      }
+    }
+
     // Create objective
     const objective = await prisma.objective.create({
       data: {
@@ -203,6 +346,10 @@ export async function POST(request: NextRequest) {
         timeframeId,
         departmentId: sanitizedDepartmentId,
         parentObjectiveId: sanitizedParentObjectiveId,
+        isPrivate: normalizedIsPrivate, // Default to public if not specified
+        goalStatus: goalStatus || 'ON_TRACK',
+        startDate: parsedStartDate,
+        endDate: parsedEndDate,
       },
       include: {
         owner: {
@@ -223,10 +370,10 @@ export async function POST(request: NextRequest) {
       data: objective,
       message: 'Objective created successfully'
     }, { status: 201 })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating objective:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: error.message || 'Internal server error', details: error.toString(), code: error.code },
       { status: 500 }
     )
   }

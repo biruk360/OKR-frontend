@@ -9,19 +9,22 @@ interface AddKeyResultButtonProps {
   objective: any
   users: any[]
   className?: string
+  /** From GET /api/objectives/[id]/key-result-permissions — must match server POST rules */
+  canCreate: boolean
+  onCreated?: () => void
 }
 
-export default function AddKeyResultButton({ objective, users, className = '' }: AddKeyResultButtonProps) {
+export default function AddKeyResultButton({
+  objective,
+  users,
+  className = '',
+  canCreate,
+  onCreated,
+}: AddKeyResultButtonProps) {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const { data: session } = useSession()
 
-  // Check if user can add key results (objective owner or admin)
-  const canAddKeyResult = session?.user && (
-    session.user.role === 'ADMIN' || 
-    session.user.id === objective.ownerId
-  )
-
-  if (!canAddKeyResult) {
+  if (!session?.user || !canCreate) {
     return null
   }
 
@@ -42,6 +45,7 @@ export default function AddKeyResultButton({ objective, users, className = '' }:
         objectiveId={objective.id}
         users={users}
         defaultOwnerId={session?.user?.id}
+        onSuccess={onCreated}
       />
     </>
   )

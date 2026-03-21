@@ -9,20 +9,21 @@ interface EditKeyResultButtonProps {
   keyResult: any
   users: any[]
   className?: string
+  canEdit: boolean
+  onUpdated?: () => void
 }
 
-export default function EditKeyResultButton({ keyResult, users, className = '' }: EditKeyResultButtonProps) {
+export default function EditKeyResultButton({
+  keyResult,
+  users,
+  className = '',
+  canEdit,
+  onUpdated,
+}: EditKeyResultButtonProps) {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const { data: session } = useSession()
 
-  // Check if user can edit key results (key result owner, objective owner, or admin)
-  const canEditKeyResult = session?.user && (
-    session.user.role === 'ADMIN' || 
-    session.user.id === keyResult.ownerId ||
-    session.user.id === keyResult.objective?.ownerId
-  )
-
-  if (!canEditKeyResult) {
+  if (!session?.user || !canEdit) {
     return null
   }
 
@@ -41,6 +42,7 @@ export default function EditKeyResultButton({ keyResult, users, className = '' }
         onClose={() => setIsModalOpen(false)}
         keyResult={keyResult}
         users={users}
+        onSuccess={onUpdated}
       />
     </>
   )

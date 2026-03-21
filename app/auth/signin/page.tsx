@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { signIn, getSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Eye, EyeOff, Mail, Lock } from 'lucide-react'
+import { Eye, EyeOff, Mail, Lock, Info, ChevronDown, ChevronUp } from 'lucide-react'
 
 export default function SignInPage() {
   const [email, setEmail] = useState('')
@@ -12,6 +12,7 @@ export default function SignInPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+  const [showTestAccounts, setShowTestAccounts] = useState(false)
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -165,6 +166,129 @@ export default function SignInPage() {
             </button>
           </div>
         </form>
+
+        {/* Test Account Credentials */}
+        <div className="mt-6">
+          <button
+            type="button"
+            onClick={() => setShowTestAccounts(!showTestAccounts)}
+            className="w-full flex items-center justify-between p-3 text-sm text-gray-600 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors"
+          >
+            <div className="flex items-center">
+              <Info className="h-4 w-4 mr-2 text-blue-500" />
+              <span className="font-medium">Test Account Credentials</span>
+            </div>
+            {showTestAccounts ? (
+              <ChevronUp className="h-4 w-4" />
+            ) : (
+              <ChevronDown className="h-4 w-4" />
+            )}
+          </button>
+
+          {showTestAccounts && (
+            <div className="mt-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-xs font-semibold text-blue-900 mb-3">All test accounts use password: <code className="bg-blue-100 px-1 py-0.5 rounded">admin123</code></p>
+              <div className="space-y-2 text-xs">
+                <div className="flex items-center justify-between p-2 bg-white rounded border border-blue-100">
+                  <div>
+                    <span className="font-medium text-gray-900">Admin</span>
+                    <span className="text-gray-500 ml-2">admin@company.com</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEmail('admin@company.com')
+                      setPassword('admin123')
+                    }}
+                    className="text-blue-600 hover:text-blue-700 font-medium"
+                  >
+                    Use
+                  </button>
+                </div>
+                <div className="flex items-center justify-between p-2 bg-white rounded border border-blue-100">
+                  <div>
+                    <span className="font-medium text-gray-900">CEO (Executive)</span>
+                    <span className="text-gray-500 ml-2">ceo@company.com</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEmail('ceo@company.com')
+                      setPassword('admin123')
+                    }}
+                    className="text-blue-600 hover:text-blue-700 font-medium"
+                  >
+                    Use
+                  </button>
+                </div>
+                <div className="flex items-center justify-between p-2 bg-white rounded border border-blue-100">
+                  <div>
+                    <span className="font-medium text-gray-900">Engineering Lead</span>
+                    <span className="text-gray-500 ml-2">engineering.lead@company.com</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEmail('engineering.lead@company.com')
+                      setPassword('admin123')
+                    }}
+                    className="text-blue-600 hover:text-blue-700 font-medium"
+                  >
+                    Use
+                  </button>
+                </div>
+                <div className="flex items-center justify-between p-2 bg-white rounded border border-blue-100">
+                  <div>
+                    <span className="font-medium text-gray-900">Marketing Lead</span>
+                    <span className="text-gray-500 ml-2">marketing.lead@company.com</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEmail('marketing.lead@company.com')
+                      setPassword('admin123')
+                    }}
+                    className="text-blue-600 hover:text-blue-700 font-medium"
+                  >
+                    Use
+                  </button>
+                </div>
+                <div className="flex items-center justify-between p-2 bg-white rounded border border-blue-100">
+                  <div>
+                    <span className="font-medium text-gray-900">Sales Lead</span>
+                    <span className="text-gray-500 ml-2">sales.lead@company.com</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEmail('sales.lead@company.com')
+                      setPassword('admin123')
+                    }}
+                    className="text-blue-600 hover:text-blue-700 font-medium"
+                  >
+                    Use
+                  </button>
+                </div>
+                <div className="flex items-center justify-between p-2 bg-white rounded border border-blue-100">
+                  <div>
+                    <span className="font-medium text-gray-900">Employee</span>
+                    <span className="text-gray-500 ml-2">engineer1@company.com</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEmail('engineer1@company.com')
+                      setPassword('admin123')
+                    }}
+                    className="text-blue-600 hover:text-blue-700 font-medium"
+                  >
+                    Use
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

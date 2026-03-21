@@ -177,12 +177,27 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
         <div className="px-6 py-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
-              <div className="flex items-center text-sm text-gray-500 mb-1">
+              <div className="flex items-center text-sm text-gray-500 mb-2">
                 <User className="h-4 w-4 mr-2" />
                 Owner
               </div>
-              <div className="font-medium text-gray-900">{objective.owner.name}</div>
-              <div className="text-sm text-gray-500">{objective.owner.email}</div>
+              <div className="flex items-center space-x-3">
+                {objective.owner.avatar ? (
+                  <img 
+                    src={objective.owner.avatar} 
+                    alt={objective.owner.name}
+                    className="h-10 w-10 rounded-full border-2 border-gray-200"
+                  />
+                ) : (
+                  <div className="h-10 w-10 rounded-full bg-blue-500 flex items-center justify-center border-2 border-gray-200">
+                    <User className="h-6 w-6 text-white" />
+                  </div>
+                )}
+                <div>
+                  <div className="font-medium text-gray-900">{objective.owner.name}</div>
+                  <div className="text-sm text-gray-500">{objective.owner.email}</div>
+                </div>
+              </div>
             </div>
             
             <div>
@@ -190,7 +205,17 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
                 <Calendar className="h-4 w-4 mr-2" />
                 Timeframe
               </div>
-              <div className="font-medium text-gray-900">{objective.timeframe.name}</div>
+              <div className="flex items-center space-x-2">
+                <span className="font-medium text-gray-900">{objective.timeframe.name}</span>
+                {objective.timeframe.type && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                    {objective.timeframe.type === 'MONTHLY' ? 'Monthly' :
+                     objective.timeframe.type === 'QUARTERLY' ? 'Quarterly' :
+                     objective.timeframe.type === 'SIX_MONTH' ? '6-Month' :
+                     objective.timeframe.type === 'YEARLY' ? 'Yearly' : ''}
+                  </span>
+                )}
+              </div>
             </div>
             
             {objective.department && (
@@ -246,20 +271,22 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
                         {child.title}
                       </Link>
                       
-                      <div className="mt-2 flex items-center space-x-4 text-sm text-gray-500">
-                        <div className="flex items-center">
+                      <div className="mt-2 flex items-center space-x-4 text-sm">
+                        <div className="flex items-center bg-gray-50 px-2 py-1 rounded-md border border-gray-200">
                           {child.owner.avatar ? (
                             <img 
                               src={child.owner.avatar} 
                               alt={child.owner.name}
-                              className="h-4 w-4 rounded-full mr-2"
+                              className="h-4 w-4 rounded-full mr-1.5"
                             />
                           ) : (
-                            <User className="h-4 w-4 mr-1" />
+                            <div className="h-4 w-4 rounded-full bg-blue-500 flex items-center justify-center mr-1.5">
+                              <User className="h-2.5 w-2.5 text-white" />
+                            </div>
                           )}
-                          {child.owner.name}
+                          <span className="font-medium text-gray-700">{child.owner.name}</span>
                         </div>
-                        <div className="flex items-center">
+                        <div className="flex items-center text-gray-500">
                           <Target className="h-4 w-4 mr-1" />
                           {child._count.keyResults} Key Results
                         </div>

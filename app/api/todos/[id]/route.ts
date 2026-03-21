@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { canEditKeyResultWithObjectiveContext, type UserRole } from '@/lib/permissions'
 
 export async function PATCH(
   request: NextRequest,
@@ -42,12 +43,22 @@ export async function PATCH(
       )
     }
 
-    // Check if user has access to update this todo
-    const hasAccess = session.user.role === 'ADMIN' || 
-                     session.user.id === existingTodo.assigneeId ||
-                     session.user.id === existingTodo.creatorId ||
-                     session.user.id === existingTodo.keyResult.ownerId ||
-                     session.user.id === existingTodo.keyResult.objective.ownerId
+    const kr = existingTodo.keyResult
+    const obj = kr.objective
+    const canManageKr = await canEditKeyResultWithObjectiveContext(
+      session.user.role as UserRole,
+      session.user.id,
+      { ownerId: kr.ownerId, objectiveId: kr.objectiveId },
+      {
+        level: obj.level,
+        ownerId: obj.ownerId,
+        departmentId: obj.departmentId,
+      }
+    )
+    const hasAccess =
+      session.user.id === existingTodo.assigneeId ||
+      session.user.id === existingTodo.creatorId ||
+      canManageKr
 
     if (!hasAccess) {
       return NextResponse.json(
@@ -128,11 +139,20 @@ export async function DELETE(
       )
     }
 
-    // Check if user has access to delete this todo
-    const hasAccess = session.user.role === 'ADMIN' || 
-                     session.user.id === existingTodo.creatorId ||
-                     session.user.id === existingTodo.keyResult.ownerId ||
-                     session.user.id === existingTodo.keyResult.objective.ownerId
+    const kr = existingTodo.keyResult
+    const obj = kr.objective
+    const canManageKr = await canEditKeyResultWithObjectiveContext(
+      session.user.role as UserRole,
+      session.user.id,
+      { ownerId: kr.ownerId, objectiveId: kr.objectiveId },
+      {
+        level: obj.level,
+        ownerId: obj.ownerId,
+        departmentId: obj.departmentId,
+      }
+    )
+    const hasAccess =
+      session.user.id === existingTodo.creatorId || canManageKr
 
     if (!hasAccess) {
       return NextResponse.json(

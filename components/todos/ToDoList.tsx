@@ -21,8 +21,8 @@ interface Todo {
   title: string
   description?: string
   status: string
-  dueDate?: string
-  completedAt?: string
+  dueDate?: string | null
+  completedAt?: string | null
   assigneeId: string
   creatorId: string
   keyResultId: string

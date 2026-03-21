@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import {
+  canEditKeyResultWithObjectiveContext,
+  canViewKeyResult,
+  type UserRole,
+} from '@/lib/permissions'
 
 export async function GET(
   request: NextRequest,
@@ -37,12 +42,17 @@ export async function GET(
       )
     }
 
-    // Check if user has access to this key result
-    const hasAccess = session.user.role === 'ADMIN' || 
-                     session.user.id === keyResult.ownerId ||
-                     session.user.id === keyResult.objective.ownerId
+    const view = await canViewKeyResult(
+      session.user.role as UserRole,
+      session.user.id,
+      {
+        ownerId: keyResult.ownerId,
+        objectiveId: keyResult.objectiveId,
+        isPrivate: keyResult.isPrivate,
+      }
+    )
 
-    if (!hasAccess) {
+    if (!view.canView) {
       return NextResponse.json(
         { error: 'Insufficient permissions to view this key result' },
         { status: 403 }
@@ -119,12 +129,18 @@ export async function POST(
       )
     }
 
-    // Check if user has access to add todos to this key result
-    const hasAccess = session.user.role === 'ADMIN' || 
-                     session.user.id === keyResult.ownerId ||
-                     session.user.id === keyResult.objective.ownerId
+    const canAdd = await canEditKeyResultWithObjectiveContext(
+      session.user.role as UserRole,
+      session.user.id,
+      { ownerId: keyResult.ownerId, objectiveId: keyResult.objectiveId },
+      {
+        level: keyResult.objective.level,
+        ownerId: keyResult.objective.ownerId,
+        departmentId: keyResult.objective.departmentId,
+      }
+    )
 
-    if (!hasAccess) {
+    if (!canAdd) {
       return NextResponse.json(
         { error: 'Insufficient permissions to add todos to this key result' },
         { status: 403 }

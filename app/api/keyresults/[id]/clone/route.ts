@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { parseStartAndTarget } from '@/lib/keyResultNumbers'
 
 export async function POST(
   request: NextRequest,
@@ -25,20 +26,16 @@ export async function POST(
     const keyResultId = params.id
     const { title, description, ownerId, startValue, targetValue, unit, objectiveId } = await request.json()
 
-    // Validate required fields
-    if (!title || !ownerId || !targetValue || !objectiveId) {
+    if (!title || !ownerId || targetValue === undefined || targetValue === null || targetValue === '' || !objectiveId) {
       return NextResponse.json(
         { error: 'Title, owner, target value, and objective are required' },
         { status: 400 }
       )
     }
 
-    // Validate target value is greater than start value
-    if (startValue >= targetValue) {
-      return NextResponse.json(
-        { error: 'Target Value must be greater than Start Value.' },
-        { status: 400 }
-      )
+    const bounds = parseStartAndTarget(startValue, targetValue)
+    if (!bounds.ok) {
+      return NextResponse.json({ error: bounds.message }, { status: 400 })
     }
 
     // Check if original key result exists
@@ -124,9 +121,9 @@ export async function POST(
           title,
           description: description || '',
           ownerId,
-          startValue: startValue || 0,
-          targetValue,
-          currentValue: startValue || 0, // Reset progress to start value
+          startValue: bounds.start,
+          targetValue: bounds.target,
+          currentValue: bounds.start,
           unit: unit || '%',
           objectiveId,
           status: 'ACTIVE'

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { canCreateKeyResultForObjective } from '@/lib/permissions'
+import { parseCurrentValue, parseStartAndTarget } from '@/lib/keyResultNumbers'
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,22 +13,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { title, description, ownerId, startValue, targetValue, unit, objectiveId, currentValue } = await request.json()
+    const { title, description, ownerId, startValue, targetValue, unit, objectiveId, currentValue, isPrivate } = await request.json()
 
     // Validate required fields
-    if (!title || !ownerId || !targetValue || !objectiveId) {
+    if (!title || !ownerId || targetValue === undefined || targetValue === null || targetValue === '' || !objectiveId) {
       return NextResponse.json(
         { error: 'Title, owner, target value, and objective are required' },
         { status: 400 }
       )
     }
 
-    // Validate target value is greater than start value
-    if (startValue >= targetValue) {
-      return NextResponse.json(
-        { error: 'Target Value must be greater than Start Value.' },
-        { status: 400 }
-      )
+    const bounds = parseStartAndTarget(startValue, targetValue)
+    if (!bounds.ok) {
+      return NextResponse.json({ error: bounds.message }, { status: 400 })
+    }
+
+    const currentParsed = parseCurrentValue(currentValue, bounds.start)
+    if (!currentParsed.ok) {
+      return NextResponse.json({ error: currentParsed.message }, { status: 400 })
     }
 
     // Check if objective exists and user has permission
@@ -46,8 +50,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check permissions - only objective owner or admin can add key results
-    if (session.user.role !== 'ADMIN' && session.user.id !== objective.ownerId) {
+    const allowed = await canCreateKeyResultForObjective(
+      session.user.role as any,
+      session.user.id,
+      {
+        id: objective.id,
+        level: objective.level,
+        ownerId: objective.ownerId,
+        departmentId: objective.departmentId
+      }
+    )
+
+    if (!allowed) {
       return NextResponse.json(
         { error: 'Insufficient permissions to add key results to this objective' },
         { status: 403 }
@@ -74,12 +88,13 @@ export async function POST(request: NextRequest) {
           title,
           description: description || '',
           ownerId,
-          startValue: startValue || 0,
-          targetValue,
-          currentValue: currentValue || startValue || 0,
+          startValue: bounds.start,
+          targetValue: bounds.target,
+          currentValue: currentParsed.current,
           unit: unit || '%',
           objectiveId,
-          status: 'ACTIVE'
+          status: 'ACTIVE',
+          isPrivate: isPrivate ?? false // Default to public if not specified
         },
         include: {
           owner: {

@@ -85,7 +85,8 @@ model ManagerRelationship {
 
 model Timeframe {
   id          String   @id @default(cuid())
-  name        String   @unique // e.g., "Q1 2025", "H2 2025"
+  name        String   @unique // e.g., "Q1 2025", "H2 2025", "January 2025"
+  type        String   @default("QUARTERLY") // MONTHLY, QUARTERLY, SIX_MONTH, YEARLY
   startDate   DateTime
   endDate     DateTime
   isActive    Boolean  @default(true)
@@ -104,7 +105,11 @@ model Objective {
   description String?
   level       String           // COMPANY, DEPARTMENT, INDIVIDUAL
   status      String           @default("ACTIVE") // ACTIVE, ARCHIVED, DELETED
+  goalStatus  String           @default("ON_TRACK") // ON_TRACK, AT_RISK, OFF_TRACK, CLOSED
   progress    Float            @default(0) // Calculated from Key Results
+  isPrivate   Boolean          @default(false) // Visibility: false = Public, true = Private
+  startDate   DateTime?
+  endDate     DateTime?
   ownerId     String
   timeframeId String
   departmentId String?
@@ -121,6 +126,7 @@ model Objective {
   childObjectives  Objective[]  @relation("ObjectiveHierarchy")
   keyResults       KeyResult[]
   comments         Comment[]
+  objectiveLabels  ObjectiveLabel[]
 
   @@map("objectives")
 }
@@ -136,6 +142,7 @@ model KeyResult {
   confidence    String           @default("ON_TRACK") // ON_TRACK, AT_RISK, OFF_TRACK
   progress      Float            @default(0) // Calculated from currentValue/targetValue
   status        String           @default("ACTIVE") // ACTIVE, ARCHIVED, DELETED
+  isPrivate     Boolean          @default(false) // Visibility: false = Public, true = Private
   ownerId       String
   objectiveId   String
   archivedAt    DateTime?
@@ -216,4 +223,32 @@ model SystemSettings {
   updatedAt DateTime @updatedAt
 
   @@map("system_settings")
+}
+
+model Label {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  color       String   @default("#3B82F6") // Default blue color
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relationships
+  objectiveLabels ObjectiveLabel[]
+
+  @@map("labels")
+}
+
+model ObjectiveLabel {
+  id          String   @id @default(cuid())
+  objectiveId String
+  labelId     String
+  createdAt   DateTime @default(now())
+
+  // Relationships
+  objective Objective @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
+  label     Label     @relation(fields: [labelId], references: [id], onDelete: Cascade)
+
+  @@unique([objectiveId, labelId])
+  @@map("objective_labels")
 }

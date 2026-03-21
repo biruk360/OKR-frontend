@@ -8,20 +8,20 @@ import DeleteKeyResultModal from './DeleteKeyResultModal'
 interface DeleteKeyResultButtonProps {
   keyResult: any
   className?: string
+  canDelete: boolean
+  onDeleted?: () => void
 }
 
-export default function DeleteKeyResultButton({ keyResult, className = '' }: DeleteKeyResultButtonProps) {
+export default function DeleteKeyResultButton({
+  keyResult,
+  className = '',
+  canDelete,
+  onDeleted,
+}: DeleteKeyResultButtonProps) {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const { data: session } = useSession()
 
-  // Check if user can delete key results (objective owner or admin only)
-  // Key result owners cannot delete - only objective owners and admins
-  const canDeleteKeyResult = session?.user && (
-    session.user.role === 'ADMIN' || 
-    session.user.id === keyResult.objective?.ownerId
-  )
-
-  if (!canDeleteKeyResult) {
+  if (!session?.user || !canDelete) {
     return null
   }
 
@@ -39,6 +39,7 @@ export default function DeleteKeyResultButton({ keyResult, className = '' }: Del
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         keyResult={keyResult}
+        onSuccess={onDeleted}
       />
     </>
   )

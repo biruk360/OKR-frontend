@@ -20,25 +20,26 @@ import KeyResultNode from './KeyResultNode'
 interface Objective {
   id: string
   title: string
-  description?: string
-  level: 'COMPANY' | 'DEPARTMENT' | 'INDIVIDUAL'
+  description?: string | null
+  level: string
   progress: number
   owner: {
     id: string
     name: string
-    avatar?: string
+    avatar?: string | null
   }
   department?: {
     id: string
     name: string
-  }
-  parentObjectiveId?: string
-  childObjectives: Objective[]
+  } | null
+  parentObjectiveId?: string | null
+  childObjectives: any[]
   keyResults: any[]
 }
 
 interface OKRHierarchyProps {
-  objectives: Objective[]
+  /** Tree shape varies by query depth; keep loose for Prisma payloads */
+  objectives: any[]
   currentTimeframeId: string
 }
 
@@ -78,7 +79,7 @@ const OKRHierarchy = ({ objectives, currentTimeframeId }: OKRHierarchyProps) => 
   }, [])
 
   // Convert objectives to nodes and edges
-  const buildHierarchy = useCallback((objectives: Objective[]) => {
+  const buildHierarchy = useCallback((objectives: any[]) => {
     const newNodes: Node[] = []
     const newEdges: Edge[] = []
     const nodePositions = new Map<string, { x: number; y: number }>()
@@ -98,8 +99,8 @@ const OKRHierarchy = ({ objectives, currentTimeframeId }: OKRHierarchyProps) => 
         position: { x, y },
         data: {
           ...obj,
-          keyResultsCount: obj.keyResults.length,
-          childObjectivesCount: obj.childObjectives.length,
+          keyResultsCount: (obj.keyResults ?? []).length,
+          childObjectivesCount: (obj.childObjectives ?? []).length,
           isExpanded: expandedNodes.has(obj.id),
           isKRExpanded: expandedKRNodes.has(obj.id),
           onToggleExpand: handleToggleExpand,
@@ -109,8 +110,8 @@ const OKRHierarchy = ({ objectives, currentTimeframeId }: OKRHierarchyProps) => 
 
       // Add Key Result nodes if expanded
       if (expandedKRNodes.has(obj.id)) {
-        obj.keyResults.forEach((kr, krIndex) => {
-          const krX = x + (krIndex - (obj.keyResults.length - 1) / 2) * 280
+        (obj.keyResults ?? []).forEach((kr: any, krIndex: number) => {
+          const krX = x + (krIndex - ((obj.keyResults ?? []).length - 1) / 2) * 280
           const krY = y + 200
           const krId = `kr-${kr.id}`
           
@@ -160,8 +161,8 @@ const OKRHierarchy = ({ objectives, currentTimeframeId }: OKRHierarchyProps) => 
           position: { x, y: childY },
           data: {
             ...child,
-            keyResultsCount: child.keyResults.length,
-            childObjectivesCount: child.childObjectives.length,
+            keyResultsCount: (child.keyResults ?? []).length,
+            childObjectivesCount: (child.childObjectives ?? []).length,
             isExpanded: expandedNodes.has(child.id),
             isKRExpanded: expandedKRNodes.has(child.id),
             onToggleExpand: handleToggleExpand,
@@ -171,8 +172,8 @@ const OKRHierarchy = ({ objectives, currentTimeframeId }: OKRHierarchyProps) => 
 
         // Add Key Result nodes if expanded
         if (expandedKRNodes.has(child.id)) {
-          child.keyResults.forEach((kr, krIndex) => {
-            const krX = x + (krIndex - (child.keyResults.length - 1) / 2) * 280
+          (child.keyResults ?? []).forEach((kr: any, krIndex: number) => {
+            const krX = x + (krIndex - ((child.keyResults ?? []).length - 1) / 2) * 280
             const krY = childY + 200
             const krId = `kr-${kr.id}`
             

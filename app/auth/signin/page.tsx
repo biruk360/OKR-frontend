@@ -5,6 +5,7 @@ import { signIn, getSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Eye, EyeOff, Mail, Lock, Info, ChevronDown, ChevronUp } from 'lucide-react'
+import { DEMO_SEED_ACCOUNTS, DEMO_SEED_PASSWORD } from '@/lib/demo-seed-info'
 
 export default function SignInPage() {
   const [email, setEmail] = useState('')
@@ -45,21 +46,16 @@ export default function SignInPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
+    <div className="flex min-h-screen items-center justify-center bg-surface-app py-12 px-4 sm:px-6 lg:px-8">
+      <div className="w-full max-w-md space-y-8">
         <div>
-          <div className="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-primary-100">
-            <Lock className="h-6 w-6 text-primary-600" />
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-pill bg-primary-500/15">
+            <Lock className="h-6 w-6 text-primary-600" strokeWidth={1.75} />
           </div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Sign in to your account
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
+          <h2 className="mt-6 text-center text-page-title text-ink-primary">Sign in to your account</h2>
+          <p className="mt-2 text-center text-body-sm text-ink-secondary">
             Or{' '}
-            <Link
-              href="/auth/signup"
-              className="font-medium text-primary-600 hover:text-primary-500"
-            >
+            <Link href="/auth/signup" className="font-medium text-primary-500 hover:text-primary-700">
               create a new account
             </Link>
           </p>
@@ -67,19 +63,19 @@ export default function SignInPage() {
         
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           {error && (
-            <div className="bg-danger-50 border border-danger-200 text-danger-700 px-4 py-3 rounded-md">
+            <div className="rounded-card-lg bg-danger-500/10 px-4 py-3 text-body-sm text-danger-700">
               {error}
             </div>
           )}
           
           <div className="space-y-4">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="email" className="label mb-1 block text-ink-primary">
                 Email address
               </label>
-              <div className="mt-1 relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail className="h-5 w-5 text-gray-400" />
+              <div className="relative mt-1">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                  <Mail className="h-5 w-5 text-ink-secondary" strokeWidth={1.75} />
                 </div>
                 <input
                   id="email"
@@ -96,12 +92,12 @@ export default function SignInPage() {
             </div>
             
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="password" className="label mb-1 block text-ink-primary">
                 Password
               </label>
-              <div className="mt-1 relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-gray-400" />
+              <div className="relative mt-1">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                  <Lock className="h-5 w-5 text-ink-secondary" strokeWidth={1.75} />
                 </div>
                 <input
                   id="password"
@@ -120,9 +116,9 @@ export default function SignInPage() {
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? (
-                    <EyeOff className="h-5 w-5 text-gray-400" />
+                    <EyeOff className="h-5 w-5 text-ink-secondary" strokeWidth={1.75} />
                   ) : (
-                    <Eye className="h-5 w-5 text-gray-400" />
+                    <Eye className="h-5 w-5 text-ink-secondary" strokeWidth={1.75} />
                   )}
                 </button>
               </div>
@@ -135,15 +131,15 @@ export default function SignInPage() {
                 id="remember-me"
                 name="remember-me"
                 type="checkbox"
-                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                className="h-4 w-4 rounded border-surface-muted text-primary-500 focus:ring-primary-500"
               />
-              <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
+              <label htmlFor="remember-me" className="ml-2 block text-body-sm text-ink-primary">
                 Remember me
               </label>
             </div>
 
-            <div className="text-sm">
-              <a href="#" className="font-medium text-primary-600 hover:text-primary-500">
+            <div className="text-body-sm">
+              <a href="#" className="font-medium text-primary-500 hover:text-primary-700">
                 Forgot your password?
               </a>
             </div>
@@ -167,16 +163,16 @@ export default function SignInPage() {
           </div>
         </form>
 
-        {/* Test Account Credentials */}
+        {/* Seeded demo accounts (see prisma/seed.ts) */}
         <div className="mt-6">
           <button
             type="button"
             onClick={() => setShowTestAccounts(!showTestAccounts)}
-            className="w-full flex items-center justify-between p-3 text-sm text-gray-600 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors"
+            className="flex w-full items-center justify-between rounded-card-lg bg-surface-card p-3 text-body-sm text-ink-secondary shadow-card transition-colors duration-[180ms] hover:bg-surface-hover"
           >
             <div className="flex items-center">
-              <Info className="h-4 w-4 mr-2 text-blue-500" />
-              <span className="font-medium">Test Account Credentials</span>
+              <Info className="mr-2 h-4 w-4 text-primary-500" strokeWidth={2} />
+              <span className="font-medium">Demo login credentials</span>
             </div>
             {showTestAccounts ? (
               <ChevronUp className="h-4 w-4" />
@@ -186,105 +182,38 @@ export default function SignInPage() {
           </button>
 
           {showTestAccounts && (
-            <div className="mt-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-xs font-semibold text-blue-900 mb-3">All test accounts use password: <code className="bg-blue-100 px-1 py-0.5 rounded">admin123</code></p>
-              <div className="space-y-2 text-xs">
-                <div className="flex items-center justify-between p-2 bg-white rounded border border-blue-100">
-                  <div>
-                    <span className="font-medium text-gray-900">Admin</span>
-                    <span className="text-gray-500 ml-2">admin@company.com</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEmail('admin@company.com')
-                      setPassword('admin123')
-                    }}
-                    className="text-blue-600 hover:text-blue-700 font-medium"
+            <div className="mt-3 rounded-card-lg bg-primary-500/10 p-4">
+              <p className="mb-3 text-body-sm font-semibold text-ink-primary">
+                All seeded accounts use password:{' '}
+                <code className="rounded bg-white/80 px-1 py-0.5">{DEMO_SEED_PASSWORD}</code>
+              </p>
+              <p className="mb-3 text-body-sm text-ink-secondary">
+                Run <code className="rounded bg-white/80 px-1 py-0.5 text-[11px]">npm run db:seed</code> if these
+                users are missing.
+              </p>
+              <div className="space-y-2 text-body-sm">
+                {DEMO_SEED_ACCOUNTS.map((account) => (
+                  <div
+                    key={account.email}
+                    className="flex items-center justify-between gap-2 rounded-card bg-surface-card p-2 shadow-card"
                   >
-                    Use
-                  </button>
-                </div>
-                <div className="flex items-center justify-between p-2 bg-white rounded border border-blue-100">
-                  <div>
-                    <span className="font-medium text-gray-900">CEO (Executive)</span>
-                    <span className="text-gray-500 ml-2">ceo@company.com</span>
+                    <div className="min-w-0">
+                      <span className="font-medium text-ink-primary">{account.label}</span>
+                      <span className="ml-2 text-ink-secondary">({account.role})</span>
+                      <div className="truncate text-ink-secondary">{account.email}</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEmail(account.email)
+                        setPassword(DEMO_SEED_PASSWORD)
+                      }}
+                      className="shrink-0 font-medium text-primary-500 hover:text-primary-700"
+                    >
+                      Use
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEmail('ceo@company.com')
-                      setPassword('admin123')
-                    }}
-                    className="text-blue-600 hover:text-blue-700 font-medium"
-                  >
-                    Use
-                  </button>
-                </div>
-                <div className="flex items-center justify-between p-2 bg-white rounded border border-blue-100">
-                  <div>
-                    <span className="font-medium text-gray-900">Engineering Lead</span>
-                    <span className="text-gray-500 ml-2">engineering.lead@company.com</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEmail('engineering.lead@company.com')
-                      setPassword('admin123')
-                    }}
-                    className="text-blue-600 hover:text-blue-700 font-medium"
-                  >
-                    Use
-                  </button>
-                </div>
-                <div className="flex items-center justify-between p-2 bg-white rounded border border-blue-100">
-                  <div>
-                    <span className="font-medium text-gray-900">Marketing Lead</span>
-                    <span className="text-gray-500 ml-2">marketing.lead@company.com</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEmail('marketing.lead@company.com')
-                      setPassword('admin123')
-                    }}
-                    className="text-blue-600 hover:text-blue-700 font-medium"
-                  >
-                    Use
-                  </button>
-                </div>
-                <div className="flex items-center justify-between p-2 bg-white rounded border border-blue-100">
-                  <div>
-                    <span className="font-medium text-gray-900">Sales Lead</span>
-                    <span className="text-gray-500 ml-2">sales.lead@company.com</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEmail('sales.lead@company.com')
-                      setPassword('admin123')
-                    }}
-                    className="text-blue-600 hover:text-blue-700 font-medium"
-                  >
-                    Use
-                  </button>
-                </div>
-                <div className="flex items-center justify-between p-2 bg-white rounded border border-blue-100">
-                  <div>
-                    <span className="font-medium text-gray-900">Employee</span>
-                    <span className="text-gray-500 ml-2">engineer1@company.com</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEmail('engineer1@company.com')
-                      setPassword('admin123')
-                    }}
-                    className="text-blue-600 hover:text-blue-700 font-medium"
-                  >
-                    Use
-                  </button>
-                </div>
+                ))}
               </div>
             </div>
           )}

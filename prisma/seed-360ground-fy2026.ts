@@ -4,6 +4,7 @@
  */
 import { PrismaClient } from '@prisma/client'
 import bcrypt from 'bcryptjs'
+import { DEMO_SEED_PASSWORD } from '../lib/demo-seed-info'
 
 const prisma = new PrismaClient()
 
@@ -24,7 +25,7 @@ type KrInput = {
 }
 
 async function main() {
-  const hashed = await bcrypt.hash('admin123', 12)
+  const hashed = await bcrypt.hash(DEMO_SEED_PASSWORD, 12)
 
   const timeframe = await prisma.timeframe.upsert({
     where: { name: TF_NAME },
@@ -56,7 +57,7 @@ async function main() {
 
   const biruk = await prisma.user.upsert({
     where: { email: 'biruk@360ground.com' },
-    update: { name: 'Biruk Hailu', role: 'ADMIN' },
+    update: { name: 'Biruk Hailu', role: 'ADMIN', password: hashed },
     create: {
       email: 'biruk@360ground.com',
       name: 'Biruk Hailu',
@@ -67,7 +68,7 @@ async function main() {
 
   const beza = await prisma.user.upsert({
     where: { email: 'beza@360ground.com' },
-    update: { name: 'Beza' },
+    update: { name: 'Beza', password: hashed },
     create: {
       email: 'beza@360ground.com',
       name: 'Beza',
@@ -78,7 +79,7 @@ async function main() {
 
   const eden = await prisma.user.upsert({
     where: { email: 'eden@360ground.com' },
-    update: { name: 'Eden' },
+    update: { name: 'Eden', password: hashed },
     create: {
       email: 'eden@360ground.com',
       name: 'Eden',
@@ -89,7 +90,7 @@ async function main() {
 
   const kalkidan = await prisma.user.upsert({
     where: { email: 'kalkidan@360ground.com' },
-    update: { name: 'Kalkidan' },
+    update: { name: 'Kalkidan', password: hashed },
     create: {
       email: 'kalkidan@360ground.com',
       name: 'Kalkidan',
@@ -100,7 +101,7 @@ async function main() {
 
   const delivery = await prisma.user.upsert({
     where: { email: 'delivery@360ground.com' },
-    update: { name: 'Delivery Lead' },
+    update: { name: 'Delivery Lead', password: hashed },
     create: {
       email: 'delivery@360ground.com',
       name: 'Delivery Lead',
@@ -111,7 +112,7 @@ async function main() {
 
   const allSes = await prisma.user.upsert({
     where: { email: 'all.ses@360ground.com' },
-    update: { name: 'All SEs (team)' },
+    update: { name: 'All SEs (team)', password: hashed },
     create: {
       email: 'all.ses@360ground.com',
       name: 'All SEs (team)',
@@ -122,7 +123,7 @@ async function main() {
 
   const finance = await prisma.user.upsert({
     where: { email: 'finance@360ground.com' },
-    update: { name: 'Finance' },
+    update: { name: 'Finance', password: hashed },
     create: {
       email: 'finance@360ground.com',
       name: 'Finance',
@@ -133,7 +134,7 @@ async function main() {
 
   const hr = await prisma.user.upsert({
     where: { email: 'hr@360ground.com' },
-    update: { name: 'HR' },
+    update: { name: 'HR', password: hashed },
     create: {
       email: 'hr@360ground.com',
       name: 'HR',
@@ -144,7 +145,7 @@ async function main() {
 
   const wessagn = await prisma.user.upsert({
     where: { email: 'wessagn@360ground.com' },
-    update: { name: 'Wessagn' },
+    update: { name: 'Wessagn', password: hashed },
     create: {
       email: 'wessagn@360ground.com',
       name: 'Wessagn',
@@ -155,7 +156,7 @@ async function main() {
 
   const pm = await prisma.user.upsert({
     where: { email: 'pm.lead@360ground.com' },
-    update: { name: 'PM Lead' },
+    update: { name: 'PM Lead', password: hashed },
     create: {
       email: 'pm.lead@360ground.com',
       name: 'PM Lead',

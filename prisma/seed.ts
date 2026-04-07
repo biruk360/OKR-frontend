@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client'
 import bcrypt from 'bcryptjs'
+import { DEMO_SEED_PASSWORD } from '../lib/demo-seed-info'
 
 const prisma = new PrismaClient()
 
@@ -66,11 +67,15 @@ async function main() {
   console.log('✅ Departments created')
 
   // Create users (single exec: Biruk; demo ICs only)
-  const hashedPassword = await bcrypt.hash('admin123', 12)
+  const hashedPassword = await bcrypt.hash(DEMO_SEED_PASSWORD, 12)
 
   await prisma.user.upsert({
     where: { email: 'admin@company.com' },
-    update: {},
+    update: {
+      password: hashedPassword,
+      name: 'System Administrator',
+      role: 'ADMIN',
+    },
     create: {
       name: 'System Administrator',
       email: 'admin@company.com',
@@ -84,6 +89,7 @@ async function main() {
     update: {
       name: 'Biruk Hailu',
       role: 'ADMIN',
+      password: hashedPassword,
     },
     create: {
       name: 'Biruk Hailu',
@@ -95,7 +101,11 @@ async function main() {
 
   const engineer1 = await prisma.user.upsert({
     where: { email: 'engineer1@company.com' },
-    update: {},
+    update: {
+      password: hashedPassword,
+      name: 'Alex Rodriguez',
+      role: 'EMPLOYEE',
+    },
     create: {
       name: 'Alex Rodriguez',
       email: 'engineer1@company.com',
@@ -106,7 +116,11 @@ async function main() {
 
   const marketer1 = await prisma.user.upsert({
     where: { email: 'marketer1@company.com' },
-    update: {},
+    update: {
+      password: hashedPassword,
+      name: 'David Brown',
+      role: 'EMPLOYEE',
+    },
     create: {
       name: 'David Brown',
       email: 'marketer1@company.com',
@@ -332,10 +346,10 @@ async function main() {
   console.log('🎉 Database seeding completed successfully!')
   console.log('')
   console.log('Default login credentials:')
-  console.log('Admin: admin@company.com / admin123')
-  console.log('Biruk Hailu: biruk@360ground.com / admin123')
-  console.log('Engineer: engineer1@company.com / admin123')
-  console.log('Marketer: marketer1@company.com / admin123')
+  console.log(`Admin: admin@company.com / ${DEMO_SEED_PASSWORD}`)
+  console.log(`Biruk Hailu: biruk@360ground.com / ${DEMO_SEED_PASSWORD}`)
+  console.log(`Engineer: engineer1@company.com / ${DEMO_SEED_PASSWORD}`)
+  console.log(`Marketer: marketer1@company.com / ${DEMO_SEED_PASSWORD}`)
 }
 
 main()

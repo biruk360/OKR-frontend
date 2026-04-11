@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { getServerSessionSafe } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { parseStartAndTarget } from '@/lib/keyResultNumbers'
+import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
+import { recalcNodeAndAncestors } from '@/lib/objectiveProgress'
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: RouteIdParams }
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSessionSafe()
     
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -23,7 +24,10 @@ export async function POST(
       )
     }
 
-    const keyResultId = params.id
+    const { id: keyResultId } = await resolveParams(params)
+    if (!keyResultId) {
+      return NextResponse.json({ error: 'Invalid key result id' }, { status: 400 })
+    }
     const { title, description, ownerId, startValue, targetValue, unit, objectiveId } = await request.json()
 
     if (!title || !ownerId || targetValue === undefined || targetValue === null || targetValue === '' || !objectiveId) {
@@ -135,27 +139,7 @@ export async function POST(
         }
       })
 
-      // Recalculate objective progress
-      const allKeyResults = await tx.keyResult.findMany({
-        where: {
-          objectiveId,
-          status: 'ACTIVE'
-        }
-      })
-
-      // Calculate average progress of all active key results
-      const totalProgress = allKeyResults.reduce((sum, kr) => {
-        const progress = kr.targetValue > 0 ? (kr.currentValue / kr.targetValue) * 100 : 0
-        return sum + Math.min(progress, 100) // Cap at 100%
-      }, 0)
-
-      const averageProgress = allKeyResults.length > 0 ? totalProgress / allKeyResults.length : 0
-
-      // Update objective progress
-      await tx.objective.update({
-        where: { id: objectiveId },
-        data: { progress: Math.round(averageProgress) }
-      })
+      await recalcNodeAndAncestors(tx, objectiveId)
 
       return clonedKeyResult
     })

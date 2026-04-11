@@ -1,21 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { getServerSessionSafe } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { canEditKeyResultWithObjectiveContext } from '@/lib/permissions'
+import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
+import { recalcNodeAndAncestors } from '@/lib/objectiveProgress'
+import { recordActivity } from '@/lib/activity-log'
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: RouteIdParams }
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSessionSafe()
     
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const keyResultId = params.id
+    const { id: keyResultId } = await resolveParams(params)
+    if (!keyResultId) {
+      return NextResponse.json({ error: 'Invalid key result id' }, { status: 400 })
+    }
 
     // Check if key result exists
     const existingKeyResult = await prisma.keyResult.findUnique({
@@ -88,28 +93,26 @@ export async function POST(
         }
       })
 
-      // Recalculate objective progress including the restored key result
-      const allActiveKeyResults = await tx.keyResult.findMany({
-        where: {
-          objectiveId: existingKeyResult.objectiveId,
-          status: 'ACTIVE'
-        }
-      })
+      await recalcNodeAndAncestors(tx, existingKeyResult.objectiveId)
 
-      const newProgress = allActiveKeyResults.length > 0
-        ? allActiveKeyResults.reduce((sum, kr) => sum + kr.progress, 0) / allActiveKeyResults.length
-        : 0
-
-      // Update objective progress
-      await tx.objective.update({
+      const updatedObj = await tx.objective.findUnique({
         where: { id: existingKeyResult.objectiveId },
-        data: { progress: newProgress }
+        select: { progress: true },
       })
+      const newProgress = updatedObj?.progress ?? 0
 
       return {
         restoredKeyResult,
-        newObjectiveProgress: newProgress
+        newObjectiveProgress: newProgress,
       }
+    })
+
+    await recordActivity({
+      entityType: 'KEY_RESULT',
+      keyResultId,
+      objectiveId: existingKeyResult.objectiveId,
+      action: 'UNARCHIVED',
+      actorId: session.user.id,
     })
 
     return NextResponse.json({

@@ -1,21 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { getServerSessionSafe } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: RouteIdParams }
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSessionSafe()
     
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await resolveParams(params)
+    if (!id) {
+      return NextResponse.json({ error: 'Invalid department id' }, { status: 400 })
+    }
+
     const department = await prisma.department.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         memberships: {
           include: {
@@ -52,10 +57,10 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: RouteIdParams }
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSessionSafe()
     
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -69,11 +74,16 @@ export async function PATCH(
       )
     }
 
+    const { id } = await resolveParams(params)
+    if (!id) {
+      return NextResponse.json({ error: 'Invalid department id' }, { status: 400 })
+    }
+
     const body = await request.json()
     const { name, description, isActive } = body
 
     const department = await prisma.department.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         ...(name && { name }),
         ...(description !== undefined && { description: description || null }),
@@ -108,10 +118,10 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: RouteIdParams }
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSessionSafe()
     
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -125,9 +135,14 @@ export async function DELETE(
       )
     }
 
+    const { id } = await resolveParams(params)
+    if (!id) {
+      return NextResponse.json({ error: 'Invalid department id' }, { status: 400 })
+    }
+
     // Check if department has members or objectives
     const department = await prisma.department.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         _count: {
           select: { memberships: true, objectives: true }
@@ -145,13 +160,13 @@ export async function DELETE(
     // Soft delete by setting isActive to false if there are members or objectives
     if (department._count.memberships > 0 || department._count.objectives > 0) {
       await prisma.department.update({
-        where: { id: params.id },
+        where: { id },
         data: { isActive: false }
       })
     } else {
       // Hard delete if no members or objectives
       await prisma.department.delete({
-        where: { id: params.id }
+        where: { id }
       })
     }
 

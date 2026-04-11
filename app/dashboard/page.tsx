@@ -1,36 +1,36 @@
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { redirect } from 'next/navigation'
+import { getServerSessionSafe } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import type { Prisma } from '@prisma/client'
 import DashboardStats from '@/components/dashboard/DashboardStats'
 import RecentObjectives from '@/components/dashboard/RecentObjectives'
 import ProgressOverview from '@/components/dashboard/ProgressOverview'
+import AtAGlanceRow, { type GlanceCounts } from '@/components/dashboard/AtAGlanceRow'
 
 export default async function DashboardPage() {
-  const session = await getServerSession(authOptions)
+  const session = await getServerSessionSafe()
   
   if (!session) {
-    return null
+    redirect('/auth/signin')
   }
 
   // Fetch dashboard data based on user role
   const stats = await getDashboardStats(session.user.id, session.user.role)
   const recentObjectives = await getRecentObjectives(session.user.id, session.user.role)
+  const glanceCounts = await getGlanceCounts(session.user.id)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">
-          Welcome back, {session.user.name}!
-        </h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Here's what's happening with your OKRs today.
-        </p>
+        <p className="text-body font-medium text-ink-primary">Welcome back, {session.user.name}!</p>
+        <p className="mt-1 text-body-sm text-ink-secondary">Here&apos;s what&apos;s happening with your OKRs today.</p>
       </div>
 
+      <AtAGlanceRow counts={glanceCounts} />
+
       <DashboardStats stats={stats} />
-      
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-8">
         <RecentObjectives objectives={recentObjectives} />
         <ProgressOverview userId={session.user.id} />
       </div>
@@ -162,4 +162,39 @@ async function getRecentObjectives(userId: string, userRole: string) {
     orderBy: { updatedAt: 'desc' },
     take: 5
   })
+}
+
+/**
+ * Aggregate "My OKR at a glance" — confidence buckets across the user's owned key results,
+ * average KR progress, and initiative completion ratio.
+ */
+async function getGlanceCounts(userId: string): Promise<GlanceCounts> {
+  const krWhere: Prisma.KeyResultWhereInput = {
+    ownerId: userId,
+    status: 'ACTIVE',
+  }
+
+  const [offTrack, atRisk, onTrack, pending, krAvg, initiativesClosed, initiativesTotal] = await Promise.all([
+    prisma.keyResult.count({ where: { ...krWhere, confidence: 'OFF_TRACK' } }),
+    prisma.keyResult.count({ where: { ...krWhere, confidence: 'AT_RISK' } }),
+    prisma.keyResult.count({ where: { ...krWhere, confidence: 'ON_TRACK', progress: { gt: 0 } } }),
+    prisma.keyResult.count({ where: { ...krWhere, progress: 0 } }),
+    prisma.keyResult.aggregate({ where: krWhere, _avg: { progress: true } }),
+    prisma.todo.count({
+      where: { OR: [{ assigneeId: userId }, { creatorId: userId }], status: 'COMPLETED' },
+    }),
+    prisma.todo.count({
+      where: { OR: [{ assigneeId: userId }, { creatorId: userId }] },
+    }),
+  ])
+
+  return {
+    offTrack,
+    atRisk,
+    onTrack,
+    pending,
+    keyResultsProgress: krAvg._avg.progress ?? 0,
+    initiativesClosed,
+    initiativesTotal,
+  }
 }

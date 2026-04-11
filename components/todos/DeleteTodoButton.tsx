@@ -32,7 +32,7 @@ export default function DeleteTodoButton({ todo, onDelete, className = '' }: Del
       <button
         onClick={() => setIsModalOpen(true)}
         className={`inline-flex items-center px-2 py-1 text-sm text-gray-400 hover:text-red-600 hover:bg-red-50 rounded ${className}`}
-        title="Delete to-do"
+        title="Delete initiative"
       >
         <Trash2 className="h-4 w-4" />
       </button>

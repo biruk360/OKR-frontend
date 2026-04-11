@@ -1,14 +1,14 @@
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { redirect } from 'next/navigation'
+import { getServerSessionSafe } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import NestedObjectivesList from '@/components/objectives/NestedObjectivesList'
 import CreateDepartmentObjectiveButton from '@/components/objectives/CreateDepartmentObjectiveButton'
 
 export default async function DepartmentOKRsPage() {
-  const session = await getServerSession(authOptions)
+  const session = await getServerSessionSafe()
   
   if (!session) {
-    return null
+    redirect('/auth/signin')
   }
 
   // Build where clause based on user role
@@ -92,11 +92,10 @@ export default async function DepartmentOKRsPage() {
       })
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Department OKRs</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="text-sm text-gray-500">
             View and manage department-level objectives and key results.
           </p>
         </div>

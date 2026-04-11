@@ -1,5 +1,4 @@
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { getServerSessionSafe } from '@/lib/auth'
 import { canAccessSettings } from '@/lib/permissions'
 import { redirect } from 'next/navigation'
 
@@ -8,7 +7,7 @@ export default async function SettingsLayout({
 }: {
   children: React.ReactNode
 }) {
-  const session = await getServerSession(authOptions)
+  const session = await getServerSessionSafe()
   
   if (!session) {
     redirect('/auth/signin')
@@ -20,17 +19,11 @@ export default async function SettingsLayout({
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Manage your account settings and preferences.
-        </p>
-      </div>
-
-      <div>
-        {children}
-      </div>
+    <div className="space-y-4">
+      <p className="text-sm text-gray-500">
+        Manage your account settings and preferences.
+      </p>
+      <div>{children}</div>
     </div>
   )
 }

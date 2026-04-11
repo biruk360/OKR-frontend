@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Search, X, Target, Building2 } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
+import { Search, X, Target, Building2, Filter } from 'lucide-react'
 
 interface ParentObjectiveSelectorProps {
   selectedParentId: string | null
@@ -9,15 +10,18 @@ interface ParentObjectiveSelectorProps {
   currentTimeframeId: string
   currentObjectiveId?: string
   currentObjectiveLevel?: string
-  userDepartmentId?: string
+  /** When the selected parent is not yet in the loaded list, show this summary (e.g. from server objective). */
+  knownParent?: { id: string; title: string; ownerName?: string; timeframeName?: string; level?: string } | null
   className?: string
 }
 
 interface ParentObjective {
   id: string
   title: string
-  description?: string
+  description?: string | null
   level: string
+  goalStatus: string
+  progress: number
   timeframe: {
     id: string
     name: string
@@ -33,92 +37,92 @@ interface ParentObjective {
   }
 }
 
+type LevelFilter = 'ALL' | 'COMPANY' | 'DEPARTMENT' | 'INDIVIDUAL'
+
 export default function ParentObjectiveSelector({
   selectedParentId,
   onSelectParent,
   currentTimeframeId,
   currentObjectiveId,
   currentObjectiveLevel,
-  userDepartmentId,
-  className = ''
+  knownParent,
+  className = '',
 }: ParentObjectiveSelectorProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [parentObjectives, setParentObjectives] = useState<ParentObjective[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [selectedParent, setSelectedParent] = useState<ParentObjective | null>(null)
+  const [activeTimeframeOnly, setActiveTimeframeOnly] = useState(true)
+  const [levelFilter, setLevelFilter] = useState<LevelFilter>('ALL')
+  const [mounted, setMounted] = useState(false)
 
-  // Fetch parent objectives when modal opens
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const loadParents = useCallback(async () => {
+    if (!currentTimeframeId) return
+    setIsLoading(true)
+    try {
+      const params = new URLSearchParams({
+        timeframeId: currentTimeframeId,
+        activeTimeframeOnly: String(activeTimeframeOnly),
+      })
+      if (currentObjectiveId) params.set('excludeObjectiveId', currentObjectiveId)
+      if (levelFilter !== 'ALL') params.set('level', levelFilter)
+
+      const res = await fetch(`/api/objectives/alignment-search?${params.toString()}`)
+      const data = await res.json()
+      if (data.success) {
+        setParentObjectives(data.data)
+      } else {
+        setParentObjectives([])
+      }
+    } catch (error) {
+      console.error('Error fetching alignment candidates:', error)
+      setParentObjectives([])
+    } finally {
+      setIsLoading(false)
+    }
+  }, [currentTimeframeId, currentObjectiveId, activeTimeframeOnly, levelFilter])
+
   useEffect(() => {
     if (isOpen) {
-      fetchParentObjectives()
+      loadParents()
     }
-  }, [isOpen, currentTimeframeId, currentObjectiveLevel, userDepartmentId])
+  }, [isOpen, loadParents])
 
-  // Set selected parent when selectedParentId changes
   useEffect(() => {
     if (selectedParentId && parentObjectives.length > 0) {
-      const parent = parentObjectives.find(obj => obj.id === selectedParentId)
+      const parent = parentObjectives.find((obj) => obj.id === selectedParentId)
       setSelectedParent(parent || null)
-    } else {
+    } else if (!selectedParentId) {
       setSelectedParent(null)
     }
   }, [selectedParentId, parentObjectives])
 
-  const fetchParentObjectives = async () => {
-    setIsLoading(true)
-    try {
-      let objectives: ParentObjective[] = []
-      
-      // For individual objectives, fetch both department and company objectives
-      if (currentObjectiveLevel === 'INDIVIDUAL') {
-        // Fetch department objectives from user's department
-        if (userDepartmentId) {
-          const deptResponse = await fetch(`/api/objectives?level=DEPARTMENT&timeframeId=${currentTimeframeId}&status=ACTIVE&departmentId=${userDepartmentId}`)
-          if (deptResponse.ok) {
-            const deptData = await deptResponse.json()
-            if (deptData.success) {
-              objectives = [...objectives, ...deptData.data]
-            }
-          }
-        }
-        
-        // Fetch company objectives
-        const companyResponse = await fetch(`/api/objectives?level=COMPANY&timeframeId=${currentTimeframeId}&status=ACTIVE`)
-        if (companyResponse.ok) {
-          const companyData = await companyResponse.json()
-          if (companyData.success) {
-            objectives = [...objectives, ...companyData.data]
-          }
-        }
-      } else {
-        // For department objectives, only fetch company objectives
-        const response = await fetch(`/api/objectives?level=COMPANY&timeframeId=${currentTimeframeId}&status=ACTIVE`)
-        if (response.ok) {
-          const data = await response.json()
-          if (data.success) {
-            objectives = data.data
-          }
-        }
-      }
-      
-      // Filter out current objective if editing
-      const filteredObjectives = currentObjectiveId 
-        ? objectives.filter((obj: ParentObjective) => obj.id !== currentObjectiveId)
-        : objectives
-      
-      setParentObjectives(filteredObjectives)
-    } catch (error) {
-      console.error('Error fetching parent objectives:', error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  const displayParent =
+    selectedParent ||
+    (knownParent && selectedParentId === knownParent.id
+      ? ({
+          id: knownParent.id,
+          title: knownParent.title,
+          level: knownParent.level || '—',
+          goalStatus: 'ON_TRACK',
+          progress: 0,
+          owner: { id: '', name: knownParent.ownerName || '—' },
+          timeframe: { id: currentTimeframeId, name: knownParent.timeframeName || '—' },
+        } as ParentObjective)
+      : null)
 
-  const filteredObjectives = parentObjectives.filter(obj =>
-    obj.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    obj.description?.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const filteredObjectives = searchTerm.trim()
+    ? parentObjectives.filter(
+        (obj) =>
+          obj.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (obj.description && obj.description.toLowerCase().includes(searchTerm.toLowerCase()))
+      )
+    : parentObjectives
 
   const handleSelectParent = (objective: ParentObjective) => {
     setSelectedParent(objective)
@@ -135,31 +139,26 @@ export default function ParentObjectiveSelector({
   return (
     <div className={className}>
       <label className="block text-sm font-medium text-gray-700 mb-2">
-        Align to Parent Objective
+        Align to (parent goal)
       </label>
-      
-      {/* Selected Parent Display */}
-      {selectedParent ? (
+
+      {displayParent ? (
         <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <Building2 className="h-4 w-4 text-blue-600 mr-2" />
               <div>
-                <p className="text-sm font-medium text-blue-900">{selectedParent.title}</p>
+                <p className="text-sm font-medium text-blue-900">{displayParent.title}</p>
                 <p className="text-xs text-blue-700">
-                  {selectedParent.owner.name} • {selectedParent.timeframe.name}
-                  {selectedParent.timeframe.type && (
-                    <span className="ml-1 text-xs bg-blue-100 text-blue-800 px-1 rounded">
-                      {selectedParent.timeframe.type === 'MONTHLY' ? 'Monthly' :
-                       selectedParent.timeframe.type === 'QUARTERLY' ? 'Quarterly' :
-                       selectedParent.timeframe.type === 'SIX_MONTH' ? '6-Month' :
-                       selectedParent.timeframe.type === 'YEARLY' ? 'Yearly' : ''}
-                    </span>
-                  )}
+                  {displayParent.owner.name} • {displayParent.timeframe.name}
+                  <span className="ml-1 text-xs bg-blue-100 text-blue-800 px-1 rounded">
+                    {displayParent.level}
+                  </span>
                 </p>
               </div>
             </div>
             <button
+              type="button"
               onClick={handleClearSelection}
               className="text-blue-400 hover:text-blue-600"
               title="Remove alignment"
@@ -170,105 +169,136 @@ export default function ParentObjectiveSelector({
         </div>
       ) : (
         <div className="mb-3 p-3 bg-gray-50 border border-gray-200 rounded-md">
-          <p className="text-sm text-gray-500">No parent objective selected</p>
+          <p className="text-sm text-gray-500">No parent goal selected</p>
         </div>
       )}
 
-      {/* Select Parent Button */}
       <button
+        type="button"
         onClick={() => setIsOpen(true)}
         className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-left text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:bg-gray-50"
       >
         <div className="flex items-center">
           <Target className="h-4 w-4 text-gray-400 mr-2" />
           <span className="text-gray-700">
-            {selectedParent ? 'Change Parent Objective' : 'Select Parent Objective'}
+            {displayParent ? 'Change parent goal' : 'Search parent goals…'}
           </span>
         </div>
       </button>
 
-      {/* Modal */}
-      {isOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex min-h-screen items-center justify-center p-4">
-            <div className="fixed inset-0 bg-gray-500 bg-opacity-75" onClick={() => setIsOpen(false)} />
-            
-            <div className="relative bg-white rounded-lg shadow-xl max-w-2xl w-full">
-              <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                <div className="flex items-center">
-                  <Building2 className="h-6 w-6 text-blue-600 mr-2" />
-                  <h2 className="text-lg font-semibold text-gray-900">
-                    {currentObjectiveLevel === 'INDIVIDUAL' ? 'Select Parent Objective' : 'Select Parent Objective'}
-                  </h2>
-                </div>
-                <button
-                  onClick={() => setIsOpen(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X className="h-6 w-6" />
-                </button>
-              </div>
+      {currentObjectiveLevel ? (
+        <p className="mt-1 text-xs text-gray-500">
+          Search all objectives in this timeframe (excluding archived and your subtree). Same timeframe
+          required.
+        </p>
+      ) : null}
 
-              <div className="p-6">
-                {/* Search */}
-                <div className="mb-4">
+      {mounted &&
+        isOpen &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[200] overflow-y-auto"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="alignment-picker-title"
+          >
+            <div className="flex min-h-screen items-center justify-center p-4">
+              <button
+                type="button"
+                className="fixed inset-0 bg-gray-500 bg-opacity-75 cursor-default"
+                aria-label="Close picker"
+                onClick={() => setIsOpen(false)}
+              />
+
+              <div className="relative z-[1] bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col">
+                <div className="flex items-center justify-between p-6 border-b border-gray-200 shrink-0">
+                  <div className="flex items-center">
+                    <Building2 className="h-6 w-6 text-blue-600 mr-2" />
+                    <h2 id="alignment-picker-title" className="text-lg font-semibold text-gray-900">
+                      Relationship picker
+                    </h2>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsOpen(false)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="h-6 w-6" />
+                  </button>
+                </div>
+
+                <div className="p-6 border-b border-gray-100 shrink-0 space-y-3">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <input
                       type="text"
-                      placeholder={currentObjectiveLevel === 'INDIVIDUAL' ? "Search department and company objectives..." : "Search company objectives..."}
+                      placeholder="Search by title or description…"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
+                  <div className="flex flex-wrap items-center gap-3 text-sm">
+                    <span className="inline-flex items-center gap-1 text-gray-600">
+                      <Filter className="h-4 w-4" />
+                      Filters
+                    </span>
+                    <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={activeTimeframeOnly}
+                        onChange={(e) => setActiveTimeframeOnly(e.target.checked)}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span>Active timeframe only</span>
+                    </label>
+                    <select
+                      value={levelFilter}
+                      onChange={(e) => setLevelFilter(e.target.value as LevelFilter)}
+                      className="border border-gray-300 rounded-md text-sm py-1 pl-2 pr-6"
+                    >
+                      <option value="ALL">All levels</option>
+                      <option value="COMPANY">Company only</option>
+                      <option value="DEPARTMENT">Department only</option>
+                      <option value="INDIVIDUAL">Individual only</option>
+                    </select>
+                  </div>
                 </div>
 
-                {/* Objectives List */}
-                <div className="max-h-96 overflow-y-auto">
+                <div className="flex-1 overflow-y-auto p-6 min-h-[200px]">
                   {isLoading ? (
                     <div className="text-center py-8">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                      <p className="mt-2 text-sm text-gray-500">Loading objectives...</p>
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto" />
+                      <p className="mt-2 text-sm text-gray-500">Loading objectives…</p>
                     </div>
                   ) : filteredObjectives.length > 0 ? (
                     <div className="space-y-2">
                       {filteredObjectives.map((objective) => (
                         <button
                           key={objective.id}
+                          type="button"
                           onClick={() => handleSelectParent(objective)}
                           className="w-full p-4 text-left border border-gray-200 rounded-md hover:bg-blue-50 hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                           <div className="flex items-start">
-                            <Building2 className="h-5 w-5 text-blue-600 mr-3 mt-0.5" />
-                            <div className="flex-1">
-                              <div className="flex items-center space-x-2">
+                            <Building2 className="h-5 w-5 text-blue-600 mr-3 mt-0.5 shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
                                 <h3 className="text-sm font-medium text-gray-900">{objective.title}</h3>
-                                <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                                <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
                                   {objective.level}
+                                </span>
+                                <span className="text-xs tabular-nums text-gray-600">
+                                  {Math.round(Number(objective.progress) || 0)}%
                                 </span>
                               </div>
                               {objective.description && (
-                                <p className="text-sm text-gray-600 mt-1 line-clamp-2">
-                                  {objective.description}
-                                </p>
+                                <p className="text-sm text-gray-600 mt-1 line-clamp-2">{objective.description}</p>
                               )}
-                              <div className="flex items-center mt-2 text-xs text-gray-500">
-                                <span className="mr-4">Owner: {objective.owner.name}</span>
-                                <span className="mr-4">
-                                  Timeframe: {objective.timeframe.name}
-                                  {objective.timeframe.type && (
-                                    <span className="ml-1 text-xs bg-blue-100 text-blue-800 px-1 rounded">
-                                      {objective.timeframe.type === 'MONTHLY' ? 'Monthly' :
-                                       objective.timeframe.type === 'QUARTERLY' ? 'Quarterly' :
-                                       objective.timeframe.type === 'SIX_MONTH' ? '6-Month' :
-                                       objective.timeframe.type === 'YEARLY' ? 'Yearly' : ''}
-                                    </span>
-                                  )}
-                                </span>
-                                {objective.department && (
-                                  <span>Department: {objective.department.name}</span>
-                                )}
+                              <div className="flex flex-wrap items-center mt-2 text-xs text-gray-500 gap-x-3">
+                                <span>Owner: {objective.owner.name}</span>
+                                <span>Timeframe: {objective.timeframe.name}</span>
+                                {objective.department && <span>{objective.department.name}</span>}
                               </div>
                             </div>
                           </div>
@@ -278,32 +308,30 @@ export default function ParentObjectiveSelector({
                   ) : (
                     <div className="text-center py-8">
                       <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                      <h3 className="text-sm font-medium text-gray-900 mb-2">No objectives found</h3>
+                      <h3 className="text-sm font-medium text-gray-900 mb-2">No goals found</h3>
                       <p className="text-sm text-gray-500">
-                        {searchTerm 
-                          ? 'No objectives match your search.'
-                          : currentObjectiveLevel === 'INDIVIDUAL' 
-                            ? 'No active department or company objectives available for this timeframe.'
-                            : 'No active company objectives available for this timeframe.'
-                        }
+                        {searchTerm
+                          ? 'Nothing matches your search. Try clearing filters or the query.'
+                          : 'No eligible parent objectives in this timeframe.'}
                       </p>
                     </div>
                   )}
                 </div>
-              </div>
 
-              <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
-                <button
-                  onClick={() => setIsOpen(false)}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                  Cancel
-                </button>
+                <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setIsOpen(false)}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </div>
   )
 }

@@ -1,5 +1,5 @@
 /**
- * Permission utilities based on User_Permissions.md matrix
+ * Permission utilities based on docs/User_Permissions.md matrix
  * 
  * Roles:
  * - ADMIN: CEO/Super Admin - Full control

@@ -1,31 +1,22 @@
-import { getServerSession } from 'next-auth'
 import { redirect } from 'next/navigation'
-import { authOptions } from '@/lib/auth'
-import Sidebar from '@/components/layout/Sidebar'
-import Header from '@/components/layout/Header'
+import { getServerSessionSafe } from '@/lib/auth'
+import { DashboardTitleProvider } from '@/components/layout/DashboardTitleContext'
+import DashboardShell from '@/components/layout/DashboardShell'
 
 export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const session = await getServerSession(authOptions)
-  
+  const session = await getServerSessionSafe()
+
   if (!session) {
     redirect('/auth/signin')
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Sidebar />
-      <div className="lg:pl-64">
-        <Header user={session.user} />
-        <main className="py-6">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            {children}
-          </div>
-        </main>
-      </div>
-    </div>
+    <DashboardTitleProvider>
+      <DashboardShell user={session.user}>{children}</DashboardShell>
+    </DashboardTitleProvider>
   )
 }

@@ -51,12 +51,12 @@ export default function MyTasksList({ assignedTodos, completedTodos }: MyTasksLi
       })
 
       if (response.ok) {
-        toast.success(newStatus === 'COMPLETED' ? 'To-do completed!' : 'To-do marked as pending')
+        toast.success(newStatus === 'COMPLETED' ? 'Initiative completed!' : 'Initiative marked as pending')
         // Refresh the page to show updated data
         window.location.reload()
       } else {
         const error = await response.json()
-        toast.error(error.error || 'Failed to update to-do')
+        toast.error(error.error || 'Failed to update initiative')
       }
     } catch (error) {
       toast.error('An error occurred. Please try again.')
@@ -124,11 +124,11 @@ export default function MyTasksList({ assignedTodos, completedTodos }: MyTasksLi
         </div>
       </div>
 
-      {/* Assigned Tasks */}
+      {/* Assigned Initiatives */}
       <div className="bg-white rounded-lg border border-gray-200">
         <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Assigned Tasks</h2>
-          <p className="text-sm text-gray-500">Tasks currently assigned to you</p>
+          <h2 className="text-lg font-semibold text-gray-900">Assigned Initiatives</h2>
+          <p className="text-sm text-gray-500">Initiatives currently assigned to you</p>
         </div>
 
         <div className="p-6">
@@ -229,9 +229,9 @@ export default function MyTasksList({ assignedTodos, completedTodos }: MyTasksLi
           ) : (
             <div className="text-center py-8">
               <Target className="mx-auto h-12 w-12 text-gray-400" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">No assigned tasks</h3>
+              <h3 className="mt-2 text-sm font-medium text-gray-900">No assigned initiatives</h3>
               <p className="mt-1 text-sm text-gray-500">
-                You don't have any tasks assigned to you at the moment.
+                You don&apos;t have any initiatives assigned to you at the moment.
               </p>
             </div>
           )}
@@ -245,7 +245,7 @@ export default function MyTasksList({ assignedTodos, completedTodos }: MyTasksLi
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">Recently Completed</h2>
-                <p className="text-sm text-gray-500">Tasks completed in the last 30 days</p>
+                <p className="text-sm text-gray-500">Initiatives completed in the last 30 days</p>
               </div>
               <button
                 onClick={() => setShowCompleted(!showCompleted)}

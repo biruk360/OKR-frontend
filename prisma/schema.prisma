@@ -6,11 +6,13 @@ generator client {
 }
 
 datasource db {
+  // Local dev uses SQLite (dev.db). DATABASE_URL in .env is ignored here so the
+  // schema, generated client, and migration history stay in sync.
   provider = "sqlite"
   url      = "file:./dev.db"
 }
 
-// Enums are not supported in SQLite, using String with constraints instead
+// Enums are represented as String for portability and simpler migrations
 
 model User {
   id        String   @id @default(cuid())
@@ -31,11 +33,19 @@ model User {
   ownedKeyResults     KeyResult[]     @relation("KeyResultOwner")
   assignedTodos       Todo[]          @relation("TodoAssignee")
   createdTodos        Todo[]          @relation("TodoCreator")
+  keyResultCheckIns   KeyResultCheckIn[]
   comments            Comment[]
   notifications       Notification[]
   departmentMemberships DepartmentMembership[]
   managerRelationships ManagerRelationship[] @relation("Manager")
   directReports       ManagerRelationship[] @relation("DirectReport")
+  clientErrorLogs     ClientErrorLog[]
+  activityLogs        ActivityLog[]
+  objectiveViews      ObjectiveView[]
+  keyResultViews      KeyResultView[]
+  ownedSprints        Sprint[]        @relation("SprintOwner")
+  ownedSprintActivities SprintActivity[] @relation("SprintActivityOwner")
+  emailDigestSent     EmailDigestState?
 
   @@map("users")
 }
@@ -114,6 +124,12 @@ model Objective {
   timeframeId String
   departmentId String?
   parentObjectiveId String?
+  /// LOOSE = visual alignment only; STRICT_DEPENDENCY = progress can roll up from active child objectives
+  alignmentType     String           @default("LOOSE")
+  /// NONE | AVERAGE | SUM — used only when alignmentType is STRICT_DEPENDENCY and there are active children
+  rollupCalculation String           @default("NONE")
+  /// Mandatory check-in cadence: WEEKLY | BIWEEKLY | MONTHLY | QUARTERLY
+  checkInCadence    String           @default("WEEKLY")
   archivedAt  DateTime?
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
@@ -127,6 +143,8 @@ model Objective {
   keyResults       KeyResult[]
   comments         Comment[]
   objectiveLabels  ObjectiveLabel[]
+  activityLogs     ActivityLog[]
+  views            ObjectiveView[]
 
   @@map("objectives")
 }
@@ -145,6 +163,8 @@ model KeyResult {
   isPrivate     Boolean          @default(false) // Visibility: false = Public, true = Private
   ownerId       String
   objectiveId   String
+  /// Mandatory check-in cadence: WEEKLY | BIWEEKLY | MONTHLY | QUARTERLY
+  checkInCadence String          @default("WEEKLY")
   archivedAt    DateTime?
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
@@ -152,12 +172,36 @@ model KeyResult {
   // Relationships
   owner   User    @relation("KeyResultOwner", fields: [ownerId], references: [id])
   objective Objective @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
-  todos   Todo[]
+  todos    Todo[] // Renamed conceptually to "Initiative" in the UI; table is `initiatives`
   comments Comment[]
+  checkIns KeyResultCheckIn[]
+  activityLogs ActivityLog[]
+  views    KeyResultView[]
+  sprintActivities SprintActivity[]
 
   @@map("key_results")
 }
 
+model KeyResultCheckIn {
+  id          String   @id @default(cuid())
+  keyResultId String
+  asOfDate    DateTime
+  value       Float
+  confidence  String
+  analysis    String?
+  createdById String
+  createdAt   DateTime @default(now())
+
+  keyResult KeyResult @relation(fields: [keyResultId], references: [id], onDelete: Cascade)
+  createdBy User      @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([keyResultId, asOfDate])
+  @@map("key_result_check_ins")
+}
+
+/// Initiative (formerly "Todo") — actionable work item linked to a Key Result.
+/// Prisma model is still named `Todo` to keep code identifiers stable; the underlying
+/// table is `initiatives` and all user-facing labels render as "Initiative".
 model Todo {
   id          String     @id @default(cuid())
   title       String
@@ -176,7 +220,7 @@ model Todo {
   creator   User      @relation("TodoCreator", fields: [creatorId], references: [id])
   keyResult KeyResult @relation(fields: [keyResultId], references: [id], onDelete: Cascade)
 
-  @@map("todos")
+  @@map("initiatives")
 }
 
 model Comment {
@@ -225,6 +269,27 @@ model SystemSettings {
   @@map("system_settings")
 }
 
+/// Client-side crashes, unhandled rejections, and React error boundaries (troubleshooting).
+model ClientErrorLog {
+  id        String   @id @default(cuid())
+  source    String
+  message   String
+  stack     String?
+  url       String?
+  route     String?
+  userAgent String?
+  userId    String?
+  digest    String?
+  extra     String?
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([source])
+  @@map("client_error_logs")
+}
+
 model Label {
   id          String   @id @default(cuid())
   name        String   @unique
@@ -251,4 +316,160 @@ model ObjectiveLabel {
 
   @@unique([objectiveId, labelId])
   @@map("objective_labels")
+}
+
+/// Activity log — append-only audit trail for objectives and key results.
+/// One row per change. `action` is short ("CREATED", "UPDATED", "STATUS_CHANGED", "PROGRESS_UPDATED",
+/// "ARCHIVED", "UNARCHIVED", "DELETED", "CHECKIN", "VIEWED", "COMMENTED", "INITIATIVE_ADDED", ...).
+/// `changes` is a JSON string: `{ field: { from: any, to: any }, ... }`.
+model ActivityLog {
+  id           String   @id @default(cuid())
+  entityType   String   // OBJECTIVE | KEY_RESULT
+  objectiveId  String?
+  keyResultId  String?
+  action       String
+  actorId      String?
+  changes      String?  // JSON-encoded { field: { from, to } } map
+  metadata     String?  // JSON-encoded extra context (e.g. ip, source page)
+  createdAt    DateTime @default(now())
+
+  actor     User?      @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  objective Objective? @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
+  keyResult KeyResult? @relation(fields: [keyResultId], references: [id], onDelete: Cascade)
+
+  @@index([objectiveId, createdAt])
+  @@index([keyResultId, createdAt])
+  @@index([entityType, createdAt])
+  @@map("activity_logs")
+}
+
+/// View tracking — capped to one row per (user, objective, day) by unique constraint
+/// to keep storage bounded while still answering "who viewed and when".
+model ObjectiveView {
+  id          String   @id @default(cuid())
+  objectiveId String
+  userId      String
+  viewDate    String   // YYYY-MM-DD bucket — enables one-row-per-day uniqueness
+  viewCount   Int      @default(1)
+  firstViewAt DateTime @default(now())
+  lastViewAt  DateTime @default(now())
+
+  objective Objective @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([objectiveId, userId, viewDate])
+  @@index([objectiveId, lastViewAt])
+  @@map("objective_views")
+}
+
+model KeyResultView {
+  id          String   @id @default(cuid())
+  keyResultId String
+  userId      String
+  viewDate    String
+  viewCount   Int      @default(1)
+  firstViewAt DateTime @default(now())
+  lastViewAt  DateTime @default(now())
+
+  keyResult KeyResult @relation(fields: [keyResultId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([keyResultId, userId, viewDate])
+  @@index([keyResultId, lastViewAt])
+  @@map("key_result_views")
+}
+
+/// Sprint planning — Trello-style board for marketing/business teams.
+/// Columns are dynamic per-sprint and become the activity status.
+model Sprint {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  ownerId     String
+  startDate   DateTime?
+  endDate     DateTime?
+  status      String   @default("ACTIVE") // ACTIVE, ARCHIVED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  owner      User             @relation("SprintOwner", fields: [ownerId], references: [id])
+  columns    SprintColumn[]
+  activities SprintActivity[]
+
+  @@index([ownerId, status])
+  @@map("sprints")
+}
+
+model SprintColumn {
+  id        String   @id @default(cuid())
+  sprintId  String
+  name      String
+  position  Int      @default(0)
+  color     String?  // optional accent color for the column header
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sprint     Sprint           @relation(fields: [sprintId], references: [id], onDelete: Cascade)
+  activities SprintActivity[]
+
+  @@unique([sprintId, name])
+  @@index([sprintId, position])
+  @@map("sprint_columns")
+}
+
+model SprintActivity {
+  id          String   @id @default(cuid())
+  sprintId    String
+  columnId    String
+  title       String
+  description String?
+  ownerId     String
+  keyResultId String?  // optional link to a Key Result
+  position    Int      @default(0)
+  dueDate     DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  sprint    Sprint        @relation(fields: [sprintId], references: [id], onDelete: Cascade)
+  column    SprintColumn  @relation(fields: [columnId], references: [id], onDelete: Cascade)
+  owner     User          @relation("SprintActivityOwner", fields: [ownerId], references: [id])
+  keyResult KeyResult?    @relation(fields: [keyResultId], references: [id], onDelete: SetNull)
+
+  @@index([sprintId, columnId, position])
+  @@index([ownerId])
+  @@map("sprint_activities")
+}
+
+/// Tracks last sent weekly digest per user (idempotency for the Monday job).
+model EmailDigestState {
+  userId            String   @id
+  lastSentAt        DateTime?
+  lastDigestCadence String?  // "WEEKLY" — extensible
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("email_digest_state")
+}
+
+/// Outbound email queue — when SMTP isn't wired yet, every send lands here as a row
+/// AND is mirrored to server logs. Once SMTP is configured, a worker can drain `status='PENDING'`.
+model OutboundEmail {
+  id          String   @id @default(cuid())
+  toEmail     String
+  toName      String?
+  subject     String
+  bodyText    String
+  bodyHtml    String?
+  template    String?  // identifier of the template that produced this row
+  metadata    String?  // JSON context
+  status      String   @default("PENDING") // PENDING | SENT | FAILED | LOGGED_ONLY
+  error       String?
+  attempts    Int      @default(0)
+  createdAt   DateTime @default(now())
+  sentAt      DateTime?
+
+  @@index([status, createdAt])
+  @@map("outbound_emails")
 }

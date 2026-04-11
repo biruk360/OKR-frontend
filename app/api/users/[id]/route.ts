@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { getServerSessionSafe } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: RouteIdParams }
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSessionSafe()
     
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -19,7 +19,10 @@ export async function GET(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const userId = params.id
+    const { id: userId } = await resolveParams(params)
+    if (!userId) {
+      return NextResponse.json({ error: 'Invalid user id' }, { status: 400 })
+    }
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -53,10 +56,10 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: RouteIdParams }
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSessionSafe()
     
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -67,7 +70,10 @@ export async function PATCH(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const userId = params.id
+    const { id: userId } = await resolveParams(params)
+    if (!userId) {
+      return NextResponse.json({ error: 'Invalid user id' }, { status: 400 })
+    }
     const body = await request.json()
     const { name, email, role, isActive } = body
 
@@ -151,10 +157,10 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: RouteIdParams }
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSessionSafe()
     
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -165,7 +171,10 @@ export async function DELETE(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const userId = params.id
+    const { id: userId } = await resolveParams(params)
+    if (!userId) {
+      return NextResponse.json({ error: 'Invalid user id' }, { status: 400 })
+    }
 
     // Prevent deleting yourself
     if (userId === session.user.id) {

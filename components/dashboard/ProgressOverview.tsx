@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react'
 
 interface ProgressOverviewProps {
@@ -15,13 +15,15 @@ interface ProgressData {
   keyResults: number
 }
 
+const CHART_PRIMARY = '#007AFF'
+const AXIS = '#8E8E93'
+
 export default function ProgressOverview({ userId }: ProgressOverviewProps) {
   const [progressData, setProgressData] = useState<ProgressData[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [trend, setTrend] = useState<'up' | 'down' | 'stable'>('stable')
 
   useEffect(() => {
-    // Mock data for now - in real implementation, fetch from API
     const mockData: ProgressData[] = [
       { date: '2024-01-01', progress: 25, objectives: 3, keyResults: 8 },
       { date: '2024-01-08', progress: 32, objectives: 3, keyResults: 9 },
@@ -35,13 +37,12 @@ export default function ProgressOverview({ userId }: ProgressOverviewProps) {
     setTimeout(() => {
       setProgressData(mockData)
       setIsLoading(false)
-      
-      // Calculate trend
+
       if (mockData.length >= 2) {
         const latest = mockData[mockData.length - 1].progress
         const previous = mockData[mockData.length - 2].progress
         const diff = latest - previous
-        
+
         if (diff > 5) setTrend('up')
         else if (diff < -5) setTrend('down')
         else setTrend('stable')
@@ -52,9 +53,10 @@ export default function ProgressOverview({ userId }: ProgressOverviewProps) {
   if (isLoading) {
     return (
       <div className="card p-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Progress Overview</h3>
-        <div className="animate-pulse">
-          <div className="h-64 bg-gray-200 rounded"></div>
+        <h3 className="mb-4 text-section-title text-ink-primary">Progress Overview</h3>
+        <div className="space-y-3">
+          <div className="skeleton h-8 w-24" />
+          <div className="skeleton h-64 w-full rounded-card-lg" />
         </div>
       </div>
     )
@@ -66,84 +68,94 @@ export default function ProgressOverview({ userId }: ProgressOverviewProps) {
 
   return (
     <div className="card p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-medium text-gray-900">Progress Overview</h3>
-        <div className="flex items-center space-x-2">
-          {trend === 'up' && <TrendingUp className="h-4 w-4 text-success-600" />}
-          {trend === 'down' && <TrendingDown className="h-4 w-4 text-danger-600" />}
-          {trend === 'stable' && <Minus className="h-4 w-4 text-gray-600" />}
-          <span className={`text-sm font-medium ${
-            trend === 'up' ? 'text-success-600' : 
-            trend === 'down' ? 'text-danger-600' : 
-            'text-gray-600'
-          }`}>
-            {progressChange > 0 ? '+' : ''}{progressChange.toFixed(1)}%
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="text-section-title text-ink-primary">Progress Overview</h3>
+        <div className="flex items-center gap-2">
+          {trend === 'up' && <TrendingUp className="h-4 w-4 text-success-600" strokeWidth={2} />}
+          {trend === 'down' && <TrendingDown className="h-4 w-4 text-danger-500" strokeWidth={2} />}
+          {trend === 'stable' && <Minus className="h-4 w-4 text-ink-secondary" strokeWidth={2} />}
+          <span
+            className={`text-body-sm font-medium ${
+              trend === 'up' ? 'text-success-700' : trend === 'down' ? 'text-danger-600' : 'text-ink-secondary'
+            }`}
+          >
+            {progressChange > 0 ? '+' : ''}
+            {progressChange.toFixed(1)}%
           </span>
         </div>
       </div>
 
       <div className="mb-4">
-        <div className="text-3xl font-bold text-gray-900">{latestProgress.toFixed(1)}%</div>
-        <div className="text-sm text-gray-500">Average progress across all objectives</div>
+        <div className="text-display text-ink-primary">{latestProgress.toFixed(1)}%</div>
+        <div className="text-body-sm text-ink-secondary">Average progress across all objectives</div>
       </div>
 
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={progressData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-            <XAxis 
-              dataKey="date" 
-              stroke="#6b7280"
+          <LineChart data={progressData} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
+            <XAxis
+              dataKey="date"
+              stroke={AXIS}
+              tickLine={false}
+              axisLine={false}
               fontSize={12}
-              tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              tickFormatter={(value) =>
+                new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+              }
             />
-            <YAxis 
-              stroke="#6b7280"
+            <YAxis
+              stroke={AXIS}
+              tickLine={false}
+              axisLine={false}
               fontSize={12}
               domain={[0, 100]}
               tickFormatter={(value) => `${value}%`}
             />
             <Tooltip
               contentStyle={{
-                backgroundColor: 'white',
-                border: '1px solid #e5e7eb',
-                borderRadius: '8px',
-                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                backgroundColor: '#FFFFFF',
+                border: 'none',
+                borderRadius: '12px',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.08)',
               }}
-              labelFormatter={(value) => new Date(value).toLocaleDateString('en-US', { 
-                month: 'long', 
-                day: 'numeric',
-                year: 'numeric'
-              })}
+              labelStyle={{ color: '#1D1D1F', fontWeight: 600 }}
+              itemStyle={{ color: '#1D1D1F' }}
+              labelFormatter={(value) =>
+                new Date(value).toLocaleDateString('en-US', {
+                  month: 'long',
+                  day: 'numeric',
+                  year: 'numeric',
+                })
+              }
               formatter={(value: number, name: string) => [
                 `${value.toFixed(1)}%`,
-                name === 'progress' ? 'Progress' : name
+                name === 'progress' ? 'Progress' : name,
               ]}
             />
             <Line
               type="monotone"
               dataKey="progress"
-              stroke="#3b82f6"
+              stroke={CHART_PRIMARY}
               strokeWidth={2}
-              dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }}
-              activeDot={{ r: 6, stroke: '#3b82f6', strokeWidth: 2 }}
+              dot={{ fill: CHART_PRIMARY, strokeWidth: 0, r: 4 }}
+              activeDot={{ r: 6, stroke: CHART_PRIMARY, strokeWidth: 2, fill: '#fff' }}
             />
           </LineChart>
         </ResponsiveContainer>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-4 text-center">
+      <div className="mt-6 grid grid-cols-2 gap-6 border-t border-ink-secondary/10 pt-6 text-center">
         <div>
-          <div className="text-lg font-semibold text-gray-900">
+          <div className="text-section-title text-ink-primary">
             {progressData[progressData.length - 1]?.objectives || 0}
           </div>
-          <div className="text-sm text-gray-500">Active Objectives</div>
+          <div className="text-body-sm text-ink-secondary">Active Objectives</div>
         </div>
         <div>
-          <div className="text-lg font-semibold text-gray-900">
+          <div className="text-section-title text-ink-primary">
             {progressData[progressData.length - 1]?.keyResults || 0}
           </div>
-          <div className="text-sm text-gray-500">Key Results</div>
+          <div className="text-body-sm text-ink-secondary">Key Results</div>
         </div>
       </div>
     </div>

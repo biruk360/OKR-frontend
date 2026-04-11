@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { getServerSessionSafe } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { CreateObjectiveForm } from '@/types'
 import { canCreateObjective, canViewObjective, redactObjective } from '@/lib/permissions'
+import { recalcNodeAndAncestors } from '@/lib/objectiveProgress'
+import { recordActivity } from '@/lib/activity-log'
+import { normalizeCadence } from '@/lib/check-in-cadence'
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSessionSafe()
     
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -67,10 +69,10 @@ export async function GET(request: NextRequest) {
       where.timeframeId = timeframeId
     }
     if (search) {
-      // For SQLite, use contains (case-sensitive, as SQLite doesn't support case-insensitive mode)
+      // Postgres supports case-insensitive search via mode: 'insensitive'
       const searchConditions = [
-        { title: { contains: search } },
-        { description: { contains: search } }
+        { title: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } }
       ]
       
       // If there's already an OR condition (from role-based filtering), combine it properly
@@ -209,20 +211,41 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSessionSafe()
     
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const body: CreateObjectiveForm = await request.json()
-    const { title, description, level, ownerId, timeframeId, departmentId, parentObjectiveId, isPrivate, goalStatus, startDate, endDate } = body
+    const {
+      title,
+      description,
+      level,
+      ownerId,
+      timeframeId,
+      departmentId,
+      parentObjectiveId,
+      isPrivate,
+      goalStatus,
+      startDate,
+      endDate,
+      alignmentType: rawAlign,
+      rollupCalculation: rawRollup,
+      checkInCadence: rawCadence,
+    } = body as CreateObjectiveForm & { checkInCadence?: string }
+    const checkInCadence = normalizeCadence(rawCadence)
     const sanitizedDepartmentId = departmentId || null
     const sanitizedParentObjectiveId = parentObjectiveId || null
     const normalizedDescription = description?.trim() ? description.trim() : null
     
     // Ensure isPrivate is a boolean
     const normalizedIsPrivate = typeof isPrivate === 'boolean' ? isPrivate : isPrivate === 'true' || isPrivate === true
+
+    let alignmentType = rawAlign === 'STRICT_DEPENDENCY' ? 'STRICT_DEPENDENCY' : 'LOOSE'
+    let rollupCalculation: 'NONE' | 'AVERAGE' | 'SUM' = 'NONE'
+    if (rawRollup === 'AVERAGE' || rawRollup === 'SUM') rollupCalculation = rawRollup
+    if (alignmentType === 'LOOSE') rollupCalculation = 'NONE'
 
     // Validate required fields
     if (!title || !level || !ownerId || !timeframeId) {
@@ -296,15 +319,27 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate parent objective if provided
+    // Validate parent objective if provided (same cycle, timeframe, active)
     if (sanitizedParentObjectiveId) {
       const parentObjective = await prisma.objective.findUnique({
-        where: { id: sanitizedParentObjectiveId }
+        where: { id: sanitizedParentObjectiveId },
       })
 
       if (!parentObjective) {
         return NextResponse.json(
           { error: 'Invalid parent objective' },
+          { status: 400 }
+        )
+      }
+      if (parentObjective.status !== 'ACTIVE') {
+        return NextResponse.json(
+          { error: 'Parent objective must be active (not archived)' },
+          { status: 400 }
+        )
+      }
+      if (parentObjective.timeframeId !== timeframeId) {
+        return NextResponse.json(
+          { error: 'Parent objective must be in the same timeframe' },
           { status: 400 }
         )
       }
@@ -336,33 +371,47 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create objective
-    const objective = await prisma.objective.create({
-      data: {
-        title,
-        description: normalizedDescription,
-        level,
-        ownerId,
-        timeframeId,
-        departmentId: sanitizedDepartmentId,
-        parentObjectiveId: sanitizedParentObjectiveId,
-        isPrivate: normalizedIsPrivate, // Default to public if not specified
-        goalStatus: goalStatus || 'ON_TRACK',
-        startDate: parsedStartDate,
-        endDate: parsedEndDate,
-      },
-      include: {
-        owner: {
-          select: { id: true, name: true, avatar: true }
+    const objective = await prisma.$transaction(async (tx) => {
+      const created = await tx.objective.create({
+        data: {
+          title,
+          description: normalizedDescription,
+          level,
+          ownerId,
+          timeframeId,
+          departmentId: sanitizedDepartmentId,
+          parentObjectiveId: sanitizedParentObjectiveId,
+          alignmentType,
+          rollupCalculation,
+          checkInCadence,
+          isPrivate: normalizedIsPrivate,
+          goalStatus: goalStatus || 'ON_TRACK',
+          startDate: parsedStartDate,
+          endDate: parsedEndDate,
         },
-        timeframe: true,
-        department: {
-          select: { id: true, name: true }
+        include: {
+          owner: {
+            select: { id: true, name: true, avatar: true },
+          },
+          timeframe: true,
+          department: {
+            select: { id: true, name: true },
+          },
+          parentObjective: {
+            select: { id: true, title: true },
+          },
         },
-        parentObjective: {
-          select: { id: true, title: true }
-        }
-      }
+      })
+      await recalcNodeAndAncestors(tx, created.id)
+      return created
+    })
+
+    await recordActivity({
+      entityType: 'OBJECTIVE',
+      objectiveId: objective.id,
+      action: 'CREATED',
+      actorId: session.user.id,
+      metadata: { title: objective.title, level: objective.level },
     })
 
     return NextResponse.json({

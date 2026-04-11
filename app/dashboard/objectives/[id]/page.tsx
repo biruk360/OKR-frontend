@@ -1,29 +1,37 @@
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { getServerSessionSafe } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { notFound } from 'next/navigation'
+import { resolveParams } from '@/lib/resolve-route-params'
+import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Target, User, Calendar, Building2, Link as LinkIcon, Archive } from 'lucide-react'
+import { ArrowLeft, Target, User, Calendar, Building2, Archive } from 'lucide-react'
 import EditObjectiveButton from '@/components/objectives/EditObjectiveButton'
 import ArchiveObjectiveButton from '@/components/objectives/ArchiveObjectiveButton'
 import UnarchiveObjectiveButton from '@/components/objectives/UnarchiveObjectiveButton'
 import DeleteObjectiveButton from '@/components/objectives/DeleteObjectiveButton'
 import CloneObjectiveButton from '@/components/objectives/CloneObjectiveButton'
 import KeyResultsList from '@/components/keyresults/KeyResultsList'
+import { PageTitleSetter } from '@/components/layout/DashboardTitleContext'
+import AlignsToParentBadge from '@/components/objectives/AlignsToParentBadge'
+import { ActivityLogPanel } from '@/components/shared/ActivityLogPanel'
 
 interface ObjectiveDetailPageProps {
-  params: { id: string }
+  params: { id: string } | Promise<{ id: string }>
 }
 
 export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPageProps) {
-  const session = await getServerSession(authOptions)
+  const session = await getServerSessionSafe()
   
   if (!session) {
-    return null
+    redirect('/auth/signin')
+  }
+
+  const { id } = await resolveParams(params)
+  if (!id) {
+    notFound()
   }
 
   const objective = await prisma.objective.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       owner: {
         select: { id: true, name: true, avatar: true, email: true }
@@ -33,7 +41,7 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
         select: { id: true, name: true }
       },
       parentObjective: {
-        select: { id: true, title: true, level: true }
+        select: { id: true, title: true, level: true, goalStatus: true, progress: true }
       },
       childObjectives: {
         where: { status: 'ACTIVE' },
@@ -83,7 +91,9 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
   })
 
   return (
-    <div className="space-y-6">
+    <>
+      <PageTitleSetter title={objective.title} />
+      <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
@@ -136,21 +146,22 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
                   <Target className="h-4 w-4 mr-1" />
                   {objective.level}
                 </span>
-                
-                {objective.parentObjective && (
-                  <div className="flex items-center">
-                    <Link
-                      href={`/dashboard/objectives/${objective.parentObjective.id}`}
-                      className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 hover:underline bg-blue-50 px-3 py-1 rounded-md border border-blue-200"
-                    >
-                      <LinkIcon className="h-4 w-4 mr-1" />
-                      Aligned to: {objective.parentObjective.title}
-                    </Link>
-                  </div>
-                )}
               </div>
-              
-              <h1 className="text-2xl font-bold text-gray-900">{objective.title}</h1>
+
+              <p className="text-lg font-semibold text-gray-900">{objective.title}</p>
+
+              {objective.parentObjective && (
+                <div className="mt-2">
+                  <AlignsToParentBadge
+                    parent={{
+                      id: objective.parentObjective.id,
+                      title: objective.parentObjective.title,
+                      progress: objective.parentObjective.progress,
+                      goalStatus: objective.parentObjective.goalStatus,
+                    }}
+                  />
+                </div>
+              )}
               
               {objective.description && (
                 <p className="mt-2 text-gray-600">{objective.description}</p>
@@ -340,6 +351,9 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
         />
         </div>
       </div>
+
+      <ActivityLogPanel entityType="objective" entityId={objective.id} />
     </div>
+    </>
   )
 }

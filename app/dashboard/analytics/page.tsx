@@ -1,12 +1,12 @@
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { redirect } from 'next/navigation'
+import { getServerSessionSafe } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 export default async function AnalyticsPage() {
-  const session = await getServerSession(authOptions)
+  const session = await getServerSessionSafe()
   
   if (!session) {
-    return null
+    redirect('/auth/signin')
   }
 
   // Get analytics data
@@ -31,10 +31,9 @@ export default async function AnalyticsPage() {
   })
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Analytics</h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <p className="text-sm text-gray-500">
           Advanced analytics and insights for your OKR system.
         </p>
       </div>

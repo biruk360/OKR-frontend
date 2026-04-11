@@ -1,12 +1,11 @@
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { getServerSessionSafe } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Users, Building2, User, Target } from 'lucide-react'
 
 export default async function TeamsDirectoryPage() {
-  const session = await getServerSession(authOptions)
+  const session = await getServerSessionSafe()
   
   if (!session) {
     redirect('/auth/signin')
@@ -31,10 +30,9 @@ export default async function TeamsDirectoryPage() {
   })
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Teams Directory</h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <p className="text-sm text-gray-500">
           View all teams and departments in your organization.
         </p>
       </div>
@@ -42,7 +40,11 @@ export default async function TeamsDirectoryPage() {
       {/* Teams Grid */}
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
         {departments.map((department) => (
-          <div key={department.id} className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow">
+          <Link
+            key={department.id}
+            href={`/dashboard/org/teams/${department.id}`}
+            className="block bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          >
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-3">
                 <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -95,7 +97,7 @@ export default async function TeamsDirectoryPage() {
                 )}
               </div>
             </div>
-          </div>
+          </Link>
         ))}
       </div>
 

@@ -1,5 +1,9 @@
 'use client'
 
+import { useEffect } from 'react'
+import { usePathname } from 'next/navigation'
+import { reportClientError } from '@/lib/client-error-report'
+
 export default function Error({
   error,
   reset,
@@ -7,6 +11,17 @@ export default function Error({
   error: Error & { digest?: string }
   reset: () => void
 }) {
+  const pathname = usePathname()
+  useEffect(() => {
+    reportClientError({
+      source: 'react-error-boundary.settings',
+      message: error.message,
+      stack: error.stack,
+      digest: error.digest,
+      route: pathname,
+    })
+  }, [error, error.digest, error.message, error.stack, pathname])
+
   return (
     <div className="flex flex-col items-center justify-center min-h-[400px]">
       <h2 className="text-2xl font-bold text-gray-900 mb-4">Something went wrong!</h2>

@@ -1,12 +1,78 @@
-// Simple email service for user invitations
-// In a production environment, you would integrate with services like:
-// - SendGrid, Mailgun, AWS SES, or similar
+// Email service.
+//
+// Until SMTP is wired in via env vars, every send goes two places:
+//   1. console.log (so server logs show the message body)
+//   2. the `outbound_emails` table (status='LOGGED_ONLY') so we have an audit trail
+//      and a queue we can later drain when SMTP is configured.
+//
+// To switch on real sending, set EMAIL_DRIVER=smtp (or similar) and implement
+// `deliverEmail()` against the chosen provider — sendMail() already routes through it.
+
+import { prisma } from '@/lib/prisma'
 
 interface UserInvitationEmailData {
   email: string
   name: string
   activationToken: string
   role: string
+}
+
+export interface MailMessage {
+  to: string
+  toName?: string | null
+  subject: string
+  text: string
+  html?: string
+  template?: string
+  metadata?: Record<string, unknown>
+}
+
+/**
+ * Send an email through the active driver. Without SMTP configured, this writes to the
+ * outbound_emails table with status='LOGGED_ONLY' and mirrors to console.
+ */
+export async function sendMail(message: MailMessage): Promise<{ id: string; status: 'SENT' | 'LOGGED_ONLY' | 'FAILED' }> {
+  const driver = (process.env.EMAIL_DRIVER || 'log').toLowerCase()
+
+  // Always log to server output regardless of driver — keeps dev visibility.
+  console.log('[email] queued', { driver, to: message.to, subject: message.subject })
+
+  let status: 'SENT' | 'LOGGED_ONLY' | 'FAILED' = 'LOGGED_ONLY'
+  let error: string | null = null
+
+  if (driver !== 'log') {
+    try {
+      // Placeholder hook — wire up SMTP/SendGrid/etc here. Until a driver is implemented
+      // we still fall through as LOGGED_ONLY so the row lands in outbound_emails for later replay.
+      // await deliverEmail(message)
+    } catch (err) {
+      status = 'FAILED'
+      error = err instanceof Error ? err.message : String(err)
+      console.error('[email] driver send failed', err)
+    }
+  }
+
+  try {
+    const row = await prisma.outboundEmail.create({
+      data: {
+        toEmail: message.to,
+        toName: message.toName ?? null,
+        subject: message.subject,
+        bodyText: message.text,
+        bodyHtml: message.html ?? null,
+        template: message.template ?? null,
+        metadata: message.metadata ? JSON.stringify(message.metadata) : null,
+        status,
+        error,
+        attempts: status === 'LOGGED_ONLY' ? 0 : 1,
+        sentAt: null,
+      },
+    })
+    return { id: row.id, status }
+  } catch (err) {
+    console.error('[email] failed to persist outbound row', err)
+    return { id: 'unpersisted', status: 'FAILED' }
+  }
 }
 
 export async function sendUserInvitationEmail(data: UserInvitationEmailData) {

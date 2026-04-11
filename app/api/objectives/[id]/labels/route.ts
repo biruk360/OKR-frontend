@@ -1,17 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { getServerSessionSafe } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: RouteIdParams }
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSessionSafe()
     
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { id: objectiveId } = await resolveParams(params)
+    if (!objectiveId) {
+      return NextResponse.json({ error: 'Invalid objective id' }, { status: 400 })
     }
 
     const body = await request.json()
@@ -26,7 +31,7 @@ export async function POST(
 
     // Check if objective exists and user has permission
     const objective = await prisma.objective.findUnique({
-      where: { id: params.id }
+      where: { id: objectiveId }
     })
 
     if (!objective) {
@@ -51,7 +56,7 @@ export async function POST(
     // Add label to objective
     const objectiveLabel = await prisma.objectiveLabel.create({
       data: {
-        objectiveId: params.id,
+        objectiveId,
         labelId: labelId
       },
       include: {
@@ -80,13 +85,18 @@ export async function POST(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: RouteIdParams }
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSessionSafe()
     
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { id: objectiveId } = await resolveParams(params)
+    if (!objectiveId) {
+      return NextResponse.json({ error: 'Invalid objective id' }, { status: 400 })
     }
 
     const { searchParams } = new URL(request.url)
@@ -102,7 +112,7 @@ export async function DELETE(
     await prisma.objectiveLabel.delete({
       where: {
         objectiveId_labelId: {
-          objectiveId: params.id,
+          objectiveId,
           labelId: labelId
         }
       }

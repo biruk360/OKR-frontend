@@ -8,6 +8,8 @@ import toast from 'react-hot-toast'
 import { useSession } from 'next-auth/react'
 import { ObjectiveLevel } from '@/types'
 import ParentObjectiveSelector from '@/components/objectives/ParentObjectiveSelector'
+import { pickCurrentTimeframe } from '@/lib/timeframe-utils'
+import { CHECK_IN_CADENCES, CHECK_IN_CADENCE_LABELS } from '@/lib/check-in-cadence'
 
 interface CreateGoalModalProps {
   isOpen: boolean
@@ -30,6 +32,7 @@ interface FormData {
   startDate?: string
   endDate?: string
   labels: string[]
+  checkInCadence?: string
 }
 
 export default function CreateGoalModal({
@@ -61,7 +64,8 @@ export default function CreateGoalModal({
       ownerId: defaultOwnerId || '',
       isPrivate: false,
       goalStatus: 'ON_TRACK',
-      labels: []
+      labels: [],
+      checkInCadence: 'WEEKLY'
     }
   })
 
@@ -83,7 +87,8 @@ export default function CreateGoalModal({
         goalStatus: 'ON_TRACK',
         startDate: '',
         endDate: '',
-        labels: []
+        labels: [],
+        checkInCadence: 'WEEKLY',
       })
     }
   }, [isOpen, defaultLevel, defaultOwnerId, session?.user?.id, reset])
@@ -111,7 +116,11 @@ export default function CreateGoalModal({
       ])
 
       if (usersData.success) setUsers(usersData.users || [])
-      if (timeframesData.success) setTimeframes(timeframesData.data || [])
+      if (timeframesData.success) {
+        setTimeframes(timeframesData.data || [])
+        const current = pickCurrentTimeframe<{ id: string; startDate: string; endDate: string; isActive?: boolean }>(timeframesData.data || [])
+        if (current?.id) setValue('timeframeId', current.id)
+      }
       if (departmentsData.success) setDepartments(departmentsData.data || [])
       if (labelsData.success) setLabels(labelsData.data || [])
     } catch (error) {
@@ -164,7 +173,8 @@ export default function CreateGoalModal({
         isPrivate: Boolean(data.isPrivate), // Ensure it's a boolean
         goalStatus: data.goalStatus,
         startDate: data.startDate || null,
-        endDate: data.endDate || null
+        endDate: data.endDate || null,
+        checkInCadence: data.checkInCadence || 'WEEKLY',
       }
 
       const response = await fetch('/api/objectives', {
@@ -375,7 +385,6 @@ export default function CreateGoalModal({
                 onSelectParent={(parentId) => setValue('parentObjectiveId', parentId || '')}
                 currentTimeframeId={selectedTimeframe}
                 currentObjectiveLevel={selectedLevel}
-                userDepartmentId={selectedLevel === 'INDIVIDUAL' ? undefined : watch('departmentId')}
                 className="mb-4"
               />
             )}
@@ -440,6 +449,24 @@ export default function CreateGoalModal({
               </div>
             )}
 
+            {/* Check-in cadence */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Check-in cadence *
+              </label>
+              <select
+                {...register('checkInCadence', { required: 'A check-in cadence is required.' })}
+                className="input"
+              >
+                {CHECK_IN_CADENCES.map((c) => (
+                  <option key={c} value={c}>{CHECK_IN_CADENCE_LABELS[c]}</option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-gray-500">
+                We&apos;ll remind the owner on the dashboard and via the Monday email digest.
+              </p>
+            </div>
+
             {/* Visibility */}
             <div>
               <label className="flex items-center">
@@ -451,7 +478,7 @@ export default function CreateGoalModal({
                 <span className="ml-2 text-sm text-gray-700">Make this goal private</span>
               </label>
               <p className="mt-1 text-xs text-gray-500">
-                Private goals will show as "[Private Goal]" to other users, but progress percentage will remain visible.
+                Private goals will show as &quot;[Private Goal]&quot; to other users, but progress percentage will remain visible.
               </p>
             </div>
 

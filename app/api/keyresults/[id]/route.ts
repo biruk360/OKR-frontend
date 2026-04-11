@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { getServerSessionSafe } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import {
   canEditKeyResultWithObjectiveContext,
@@ -8,20 +7,29 @@ import {
   redactKeyResult,
 } from '@/lib/permissions'
 import { parseStartAndTarget } from '@/lib/keyResultNumbers'
+import { recalcNodeAndAncestors } from '@/lib/objectiveProgress'
+import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
+import { recordActivity, recordUpdateIfChanged } from '@/lib/activity-log'
+import { normalizeCadence } from '@/lib/check-in-cadence'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: RouteIdParams }
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSessionSafe()
     
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await resolveParams(params)
+    if (!id) {
+      return NextResponse.json({ error: 'Invalid key result id' }, { status: 400 })
+    }
+
     const keyResult = await prisma.keyResult.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         owner: {
           select: { id: true, name: true, avatar: true }
@@ -92,17 +100,21 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: RouteIdParams }
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSessionSafe()
     
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const keyResultId = params.id
-    const { title, description, ownerId, startValue, targetValue, unit, isPrivate } = await request.json()
+    const { id: keyResultId } = await resolveParams(params)
+    if (!keyResultId) {
+      return NextResponse.json({ error: 'Invalid key result id' }, { status: 400 })
+    }
+    const { title, description, ownerId, startValue, targetValue, unit, isPrivate, checkInCadence: rawCadence } = await request.json()
+    const cadencePatch = rawCadence !== undefined ? { checkInCadence: normalizeCadence(rawCadence) } : null
 
     if (!title || !ownerId || targetValue === undefined || targetValue === null || targetValue === '') {
       return NextResponse.json(
@@ -185,7 +197,8 @@ export async function PUT(
           startValue: bounds.start,
           targetValue: bounds.target,
           unit: unit || '%',
-          ...(isPrivate !== undefined && { isPrivate })
+          ...(isPrivate !== undefined && { isPrivate }),
+          ...(cadencePatch && cadencePatch),
         },
         include: {
           owner: {
@@ -194,30 +207,18 @@ export async function PUT(
         }
       })
 
-      // Recalculate objective progress
-      const allKeyResults = await tx.keyResult.findMany({
-        where: {
-          objectiveId: existingKeyResult.objectiveId,
-          status: 'ACTIVE'
-        }
-      })
-
-      // Calculate average progress of all active key results
-      const totalProgress = allKeyResults.reduce((sum, kr) => {
-        const progress = kr.targetValue > 0 ? (kr.currentValue / kr.targetValue) * 100 : 0
-        return sum + Math.min(progress, 100) // Cap at 100%
-      }, 0)
-
-      const averageProgress = allKeyResults.length > 0 ? totalProgress / allKeyResults.length : 0
-
-      // Update objective progress
-      await tx.objective.update({
-        where: { id: existingKeyResult.objectiveId },
-        data: { progress: Math.round(averageProgress) }
-      })
+      await recalcNodeAndAncestors(tx, existingKeyResult.objectiveId)
 
       return updatedKeyResult
     })
+
+    await recordUpdateIfChanged(
+      'KEY_RESULT',
+      { keyResultId, objectiveId: existingKeyResult.objectiveId },
+      existingKeyResult as unknown as Record<string, unknown>,
+      result as unknown as Record<string, unknown>,
+      session.user.id,
+    )
 
     return NextResponse.json({
       success: true,
@@ -235,16 +236,19 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: RouteIdParams }
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSessionSafe()
     
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const keyResultId = params.id
+    const { id: keyResultId } = await resolveParams(params)
+    if (!keyResultId) {
+      return NextResponse.json({ error: 'Invalid key result id' }, { status: 400 })
+    }
 
     // Check if key result exists and user has permission
     const existingKeyResult = await prisma.keyResult.findUnique({
@@ -284,37 +288,32 @@ export async function DELETE(
 
     // Permanently delete the key result and recalculate objective progress
     const result = await prisma.$transaction(async (tx) => {
-      // Permanently delete the key result (this will cascade delete to-dos/initiatives if they exist)
+      // Permanently delete the key result (this cascades to initiatives, comments, check-ins, views)
       await tx.keyResult.delete({
         where: { id: keyResultId }
       })
 
-      // Recalculate objective progress
-      const remainingKeyResults = await tx.keyResult.findMany({
+      await recalcNodeAndAncestors(tx, existingKeyResult.objectiveId)
+
+      const remainingKeyResults = await tx.keyResult.count({
         where: {
           objectiveId: existingKeyResult.objectiveId,
-          status: 'ACTIVE'
-        }
-      })
-
-      // Calculate average progress of remaining active key results
-      const totalProgress = remainingKeyResults.reduce((sum, kr) => {
-        const progress = kr.targetValue > 0 ? (kr.currentValue / kr.targetValue) * 100 : 0
-        return sum + Math.min(progress, 100) // Cap at 100%
-      }, 0)
-
-      const averageProgress = remainingKeyResults.length > 0 ? totalProgress / remainingKeyResults.length : 0
-
-      // Update objective progress
-      await tx.objective.update({
-        where: { id: existingKeyResult.objectiveId },
-        data: { progress: Math.round(averageProgress) }
+          status: 'ACTIVE',
+        },
       })
 
       return {
         deletedKeyResult: existingKeyResult,
-        remainingKeyResults: remainingKeyResults.length
+        remainingKeyResults,
       }
+    })
+
+    await recordActivity({
+      entityType: 'KEY_RESULT',
+      objectiveId: existingKeyResult.objectiveId,
+      action: 'DELETED',
+      actorId: session.user.id,
+      metadata: { keyResultId, title: existingKeyResult.title },
     })
 
     return NextResponse.json({

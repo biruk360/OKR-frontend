@@ -116,6 +116,42 @@ export function getTimeframeTypeLabel(type: TimeframeType): string {
 }
 
 /**
+ * Pick the "current" timeframe from a list — the one whose [startDate, endDate] window
+ * contains today. Falls back to the next future timeframe, then the most recently ended,
+ * then the first item, then null.
+ */
+export function pickCurrentTimeframe<
+  T extends { id?: string; startDate: Date | string; endDate: Date | string; isActive?: boolean }
+>(
+  timeframes: T[],
+  now: Date = new Date(),
+): T | null {
+  if (!timeframes || timeframes.length === 0) return null
+  const t = now.getTime()
+
+  const containing = timeframes.find((tf) => {
+    const start = new Date(tf.startDate).getTime()
+    const end = new Date(tf.endDate).getTime()
+    return start <= t && t <= end && (tf.isActive !== false)
+  })
+  if (containing) return containing
+
+  // Next upcoming
+  const future = timeframes
+    .filter((tf) => new Date(tf.startDate).getTime() > t && (tf.isActive !== false))
+    .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
+  if (future.length > 0) return future[0]
+
+  // Most recently ended
+  const past = timeframes
+    .filter((tf) => new Date(tf.endDate).getTime() < t)
+    .sort((a, b) => new Date(b.endDate).getTime() - new Date(a.endDate).getTime())
+  if (past.length > 0) return past[0]
+
+  return timeframes[0]
+}
+
+/**
  * Format timeframe for display
  */
 export function formatTimeframeDisplay(timeframe: {

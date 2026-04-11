@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { CheckSquare, Square, Plus, Trash2, User, Calendar } from 'lucide-react'
+import { CheckSquare, Square, ChevronDown, ChevronRight, User, Calendar } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import toast from 'react-hot-toast'
+import { cn } from '@/lib/utils'
 import AddToDo from './AddToDo'
 import AssignUserButton from './AssignUserButton'
 import SetDueDateButton from './SetDueDateButton'
@@ -14,6 +15,10 @@ interface ToDoListProps {
   keyResultId: string
   keyResult: any
   users: any[]
+  /** When false (default), initiatives / to-dos are hidden until the row is expanded. */
+  defaultExpanded?: boolean
+  /** Use `embedded` inside the key-result detail card to avoid a nested gray panel. */
+  variant?: 'card' | 'embedded'
 }
 
 interface Todo {
@@ -40,9 +45,16 @@ interface Todo {
   }
 }
 
-export default function ToDoList({ keyResultId, keyResult, users }: ToDoListProps) {
+export default function ToDoList({
+  keyResultId,
+  keyResult: _keyResult,
+  users,
+  defaultExpanded = false,
+  variant = 'card',
+}: ToDoListProps) {
   const [todos, setTodos] = useState<Todo[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [expanded, setExpanded] = useState(defaultExpanded)
   const { data: session } = useSession()
 
   // Fetch todos for this key result
@@ -86,10 +98,10 @@ export default function ToDoList({ keyResultId, keyResult, users }: ToDoListProp
       if (response.ok) {
         const newTodo = await response.json()
         setTodos(prev => [...prev, newTodo.todo])
-        toast.success('To-do added successfully')
+        toast.success('Initiative added successfully')
       } else {
         const error = await response.json()
-        toast.error(error.error || 'Failed to add to-do')
+        toast.error(error.error || 'Failed to add initiative')
       }
     } catch (error) {
       toast.error('An error occurred. Please try again.')
@@ -122,10 +134,10 @@ export default function ToDoList({ keyResultId, keyResult, users }: ToDoListProp
               }
             : todo
         ))
-        toast.success(newStatus === 'COMPLETED' ? 'To-do completed!' : 'To-do marked as pending')
+        toast.success(newStatus === 'COMPLETED' ? 'Initiative completed!' : 'Initiative marked as pending')
       } else {
         const error = await response.json()
-        toast.error(error.error || 'Failed to update to-do')
+        toast.error(error.error || 'Failed to update initiative')
       }
     } catch (error) {
       toast.error('An error occurred. Please try again.')
@@ -134,7 +146,7 @@ export default function ToDoList({ keyResultId, keyResult, users }: ToDoListProp
 
   // Delete todo
   const handleDeleteTodo = async (todoId: string) => {
-    if (!confirm('Are you sure you want to delete this to-do?')) return
+    if (!confirm('Are you sure you want to delete this initiative?')) return
 
     try {
       const response = await fetch(`/api/todos/${todoId}`, {
@@ -143,10 +155,10 @@ export default function ToDoList({ keyResultId, keyResult, users }: ToDoListProp
 
       if (response.ok) {
         setTodos(prev => prev.filter(todo => todo.id !== todoId))
-        toast.success('To-do deleted successfully')
+        toast.success('Initiative deleted successfully')
       } else {
         const error = await response.json()
-        toast.error(error.error || 'Failed to delete to-do')
+        toast.error(error.error || 'Failed to delete initiative')
       }
     } catch (error) {
       toast.error('An error occurred. Please try again.')
@@ -173,10 +185,10 @@ export default function ToDoList({ keyResultId, keyResult, users }: ToDoListProp
             ? { ...todo, assigneeId: userId, assignee: updatedTodo.todo.assignee }
             : todo
         ))
-        toast.success(userId ? 'To-do assigned successfully' : 'To-do unassigned successfully')
+        toast.success(userId ? 'Initiative assigned successfully' : 'Initiative unassigned successfully')
       } else {
         const error = await response.json()
-        toast.error(error.error || 'Failed to assign to-do')
+        toast.error(error.error || 'Failed to assign initiative')
       }
     } catch (error) {
       toast.error('An error occurred. Please try again.')
@@ -232,10 +244,10 @@ export default function ToDoList({ keyResultId, keyResult, users }: ToDoListProp
             ? { ...todo, title: title, description: description }
             : todo
         ))
-        toast.success('To-do updated successfully')
+        toast.success('Initiative updated successfully')
       } else {
         const error = await response.json()
-        toast.error(error.error || 'Failed to update to-do')
+        toast.error(error.error || 'Failed to update initiative')
       }
     } catch (error) {
       toast.error('An error occurred. Please try again.')
@@ -267,158 +279,184 @@ export default function ToDoList({ keyResultId, keyResult, users }: ToDoListProp
   const totalTodos = todos.length
   const completionPercentage = totalTodos > 0 ? Math.round((completedTodos / totalTodos) * 100) : 0
 
-  if (isLoading) {
-    return (
-      <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-        <div className="animate-pulse">
-          <div className="h-4 bg-gray-200 rounded w-1/4 mb-3"></div>
-          <div className="space-y-2">
-            <div className="h-3 bg-gray-200 rounded w-3/4"></div>
-            <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-          </div>
+  const shellClass = cn(
+    variant === 'card' && 'mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200',
+    variant === 'embedded' && 'mt-0'
+  )
+
+  const summaryRight = isLoading ? (
+    <span className="text-sm text-gray-400">Loading…</span>
+  ) : totalTodos > 0 ? (
+    <span className="text-sm text-gray-600">
+      {completedTodos} of {totalTodos} completed
+      <span className="ml-2 text-blue-600 font-medium">({completionPercentage}%)</span>
+    </span>
+  ) : (
+    <span className="text-sm text-gray-500">No initiatives yet</span>
+  )
+
+  const toggleRow = (
+    <button
+      type="button"
+      onClick={() => setExpanded((e) => !e)}
+      className={cn(
+        'flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-2.5 text-left transition-colors',
+        variant === 'card' && 'hover:bg-gray-100/80',
+        variant === 'embedded' && 'hover:bg-gray-50'
+      )}
+      aria-expanded={expanded}
+    >
+      {expanded ? (
+        <ChevronDown className="h-5 w-5 shrink-0 text-gray-500" />
+      ) : (
+        <ChevronRight className="h-5 w-5 shrink-0 text-gray-500" />
+      )}
+      <span className="text-base font-semibold text-gray-900">Initiatives</span>
+      <span className="ml-auto min-w-0 shrink truncate">{summaryRight}</span>
+    </button>
+  )
+
+  const listBody =
+    isLoading && expanded ? (
+      <div className="animate-pulse pt-2">
+        <div className="h-4 bg-gray-200 rounded w-1/3 mb-3" />
+        <div className="space-y-2">
+          <div className="h-3 bg-gray-200 rounded w-3/4" />
+          <div className="h-3 bg-gray-200 rounded w-1/2" />
         </div>
       </div>
-    )
-  }
+    ) : (
+      <>
+        <AddToDo onAddTodo={handleAddTodo} />
 
-  return (
-    <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">To-Do List</h3>
-        <div className="text-sm text-gray-600">
-          {completedTodos} of {totalTodos} completed
-          {totalTodos > 0 && (
-            <span className="ml-2 text-blue-600 font-medium">
-              ({completionPercentage}%)
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Add Todo Component */}
-      <AddToDo onAddTodo={handleAddTodo} />
-
-      {/* Todo List */}
-      {todos.length > 0 ? (
-        <div className="mt-4 space-y-2">
-          {todos.map((todo) => (
-            <div
-              key={todo.id}
-              className={`flex items-center space-x-3 p-3 bg-white rounded-md border ${
-                todo.status === 'COMPLETED' 
-                  ? 'border-green-200 bg-green-50' 
-                  : 'border-gray-200'
-              }`}
-            >
-              <button
-                onClick={() => handleToggleTodo(todo.id, todo.status)}
-                className={`flex-shrink-0 ${
-                  todo.status === 'COMPLETED' 
-                    ? 'text-green-600 hover:text-green-700' 
-                    : 'text-gray-400 hover:text-gray-600'
+        {todos.length > 0 ? (
+          <div className="mt-4 space-y-2">
+            {todos.map((todo) => (
+              <div
+                key={todo.id}
+                className={`flex items-center space-x-3 p-3 bg-white rounded-md border ${
+                  todo.status === 'COMPLETED'
+                    ? 'border-green-200 bg-green-50'
+                    : 'border-gray-200'
                 }`}
-                title={todo.status === 'COMPLETED' ? 'Mark as pending' : 'Mark as completed'}
               >
-                {todo.status === 'COMPLETED' ? (
-                  <CheckSquare className="h-5 w-5" />
-                ) : (
-                  <Square className="h-5 w-5" />
-                )}
-              </button>
+                <button
+                  onClick={() => handleToggleTodo(todo.id, todo.status)}
+                  className={`flex-shrink-0 ${
+                    todo.status === 'COMPLETED'
+                      ? 'text-green-600 hover:text-green-700'
+                      : 'text-gray-400 hover:text-gray-600'
+                  }`}
+                  title={todo.status === 'COMPLETED' ? 'Mark as pending' : 'Mark as completed'}
+                >
+                  {todo.status === 'COMPLETED' ? (
+                    <CheckSquare className="h-5 w-5" />
+                  ) : (
+                    <Square className="h-5 w-5" />
+                  )}
+                </button>
 
-              <div className="flex-1 min-w-0">
-                <p className={`text-sm ${
-                  todo.status === 'COMPLETED' 
-                    ? 'text-gray-500 line-through' 
-                    : 'text-gray-900'
-                }`}>
-                  {todo.title}
-                </p>
-                {todo.description && (
-                  <p className={`text-xs mt-1 ${
-                    todo.status === 'COMPLETED' 
-                      ? 'text-gray-400 line-through' 
-                      : 'text-gray-600'
-                  }`}>
-                    {todo.description}
+                <div className="flex-1 min-w-0">
+                  <p
+                    className={`text-sm ${
+                      todo.status === 'COMPLETED' ? 'text-gray-500 line-through' : 'text-gray-900'
+                    }`}
+                  >
+                    {todo.title}
                   </p>
-                )}
-                <div className="flex items-center space-x-2 mt-1">
-                  <div className="flex items-center space-x-1">
-                    <User className="h-3 w-3 text-gray-400" />
-                    <span className="text-xs text-gray-500">
-                      {todo.assignee ? `Assigned to: ${todo.assignee.name}` : 'Unassigned'}
-                    </span>
-                  </div>
-                  {todo.dueDate && (
+                  {todo.description && (
+                    <p
+                      className={`text-xs mt-1 ${
+                        todo.status === 'COMPLETED' ? 'text-gray-400 line-through' : 'text-gray-600'
+                      }`}
+                    >
+                      {todo.description}
+                    </p>
+                  )}
+                  <div className="flex items-center space-x-2 mt-1">
                     <div className="flex items-center space-x-1">
-                      <Calendar className="h-3 w-3 text-gray-400" />
-                      <span className={`text-xs font-medium ${
-                        getDueDateStatus(todo.dueDate) === 'overdue' ? 'text-red-600' :
-                        getDueDateStatus(todo.dueDate) === 'due-today' ? 'text-yellow-600' :
-                        getDueDateStatus(todo.dueDate) === 'due-tomorrow' ? 'text-orange-600' :
-                        'text-green-600'
-                      }`}>
-                        Due: {new Date(todo.dueDate).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric'
-                        })}
+                      <User className="h-3 w-3 text-gray-400" />
+                      <span className="text-xs text-gray-500">
+                        {todo.assignee ? `Assigned to: ${todo.assignee.name}` : 'Unassigned'}
                       </span>
                     </div>
-                  )}
-                  {todo.completedAt && (
-                    <span className="text-xs text-green-600">
-                      Completed: {new Date(todo.completedAt).toLocaleDateString()}
-                    </span>
-                  )}
+                    {todo.dueDate && (
+                      <div className="flex items-center space-x-1">
+                        <Calendar className="h-3 w-3 text-gray-400" />
+                        <span
+                          className={`text-xs font-medium ${
+                            getDueDateStatus(todo.dueDate) === 'overdue'
+                              ? 'text-red-600'
+                              : getDueDateStatus(todo.dueDate) === 'due-today'
+                                ? 'text-yellow-600'
+                                : getDueDateStatus(todo.dueDate) === 'due-tomorrow'
+                                  ? 'text-orange-600'
+                                  : 'text-green-600'
+                          }`}
+                        >
+                          Due:{' '}
+                          {new Date(todo.dueDate).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                          })}
+                        </span>
+                      </div>
+                    )}
+                    {todo.completedAt && (
+                      <span className="text-xs text-green-600">
+                        Completed: {new Date(todo.completedAt).toLocaleDateString()}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-1">
+                  <EditTodoButton
+                    todo={todo}
+                    onSave={(title, description) => handleEditTodo(todo.id, title, description)}
+                  />
+                  <SetDueDateButton
+                    todo={todo}
+                    onSetDueDate={(dueDate) => handleSetDueDate(todo.id, dueDate)}
+                  />
+                  <AssignUserButton
+                    todo={todo}
+                    users={users}
+                    onAssign={(userId) => handleAssignTodo(todo.id, userId)}
+                  />
+
+                  <DeleteTodoButton todo={todo} onDelete={() => handleDeleteTodo(todo.id)} />
                 </div>
               </div>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-4 text-center py-6">
+            <p className="text-gray-500 text-sm">No initiatives yet. Add one above to get started!</p>
+          </div>
+        )}
 
-              {/* Action buttons */}
-              <div className="flex items-center space-x-1">
-                <EditTodoButton 
-                  todo={todo} 
-                  onSave={(title, description) => handleEditTodo(todo.id, title, description)}
-                />
-                <SetDueDateButton 
-                  todo={todo} 
-                  onSetDueDate={(dueDate) => handleSetDueDate(todo.id, dueDate)}
-                />
-                <AssignUserButton 
-                  todo={todo} 
-                  users={users} 
-                  onAssign={(userId) => handleAssignTodo(todo.id, userId)}
-                />
-                
-                <DeleteTodoButton 
-                  todo={todo} 
-                  onDelete={() => handleDeleteTodo(todo.id)}
-                />
-              </div>
+        {totalTodos > 0 && (
+          <div className="mt-4">
+            <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
+              <span>Progress</span>
+              <span>{completionPercentage}%</span>
             </div>
-          ))}
-        </div>
-      ) : (
-        <div className="mt-4 text-center py-6">
-          <p className="text-gray-500 text-sm">No to-dos yet. Add one above to get started!</p>
-        </div>
-      )}
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div
+                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${completionPercentage}%` }}
+              />
+            </div>
+          </div>
+        )}
+      </>
+    )
 
-      {/* Progress indicator */}
-      {totalTodos > 0 && (
-        <div className="mt-4">
-          <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
-            <span>Progress</span>
-            <span>{completionPercentage}%</span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div
-              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-              style={{ width: `${completionPercentage}%` }}
-            />
-          </div>
-        </div>
-      )}
+  return (
+    <div className={shellClass}>
+      {toggleRow}
+      {expanded && <div className={cn(variant === 'card' && 'pt-1')}>{listBody}</div>}
     </div>
   )
 }

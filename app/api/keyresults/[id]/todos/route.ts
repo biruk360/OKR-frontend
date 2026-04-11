@@ -1,25 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { getServerSessionSafe } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import {
   canEditKeyResultWithObjectiveContext,
   canViewKeyResult,
   type UserRole,
 } from '@/lib/permissions'
+import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
+import { recordActivity } from '@/lib/activity-log'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: RouteIdParams }
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSessionSafe()
     
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const keyResultId = params.id
+    const { id: keyResultId } = await resolveParams(params)
+    if (!keyResultId) {
+      return NextResponse.json({ error: 'Invalid key result id' }, { status: 400 })
+    }
 
     // Check if key result exists and user has access
     const keyResult = await prisma.keyResult.findUnique({
@@ -88,16 +92,19 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: RouteIdParams }
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSessionSafe()
     
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const keyResultId = params.id
+    const { id: keyResultId } = await resolveParams(params)
+    if (!keyResultId) {
+      return NextResponse.json({ error: 'Invalid key result id' }, { status: 400 })
+    }
     const { title, description, assigneeId, creatorId } = await request.json()
 
     // Validate required fields
@@ -179,9 +186,18 @@ export async function POST(
       }
     })
 
+    await recordActivity({
+      entityType: 'KEY_RESULT',
+      keyResultId,
+      objectiveId: keyResult.objectiveId,
+      action: 'INITIATIVE_ADDED',
+      actorId: session.user.id,
+      metadata: { initiativeId: todo.id, title: todo.title, assigneeId },
+    })
+
     return NextResponse.json({
       success: true,
-      message: 'To-do created successfully',
+      message: 'Initiative created successfully',
       todo
     })
   } catch (error) {

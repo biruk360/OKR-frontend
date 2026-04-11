@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { getServerSessionSafe } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: RouteIdParams }
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSessionSafe()
     
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -19,7 +19,10 @@ export async function PATCH(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const { id } = params
+    const { id } = await resolveParams(params)
+    if (!id) {
+      return NextResponse.json({ error: 'Invalid timeframe id' }, { status: 400 })
+    }
     const body = await request.json()
     const { name, type, startDate, endDate, isActive } = body
 
@@ -68,10 +71,10 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: RouteIdParams }
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSessionSafe()
     
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -82,7 +85,10 @@ export async function DELETE(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const { id } = params
+    const { id } = await resolveParams(params)
+    if (!id) {
+      return NextResponse.json({ error: 'Invalid timeframe id' }, { status: 400 })
+    }
 
     // Check if timeframe has objectives
     const objectivesCount = await prisma.objective.count({

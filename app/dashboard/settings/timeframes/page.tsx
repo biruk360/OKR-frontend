@@ -1,15 +1,14 @@
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { getServerSessionSafe } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import TimeframeManagement from '@/components/settings/TimeframeManagement'
 import { redirect } from 'next/navigation'
 import { canManageTimeframes } from '@/lib/permissions'
 
 export default async function TimeframesSettingsPage() {
-  const session = await getServerSession(authOptions)
+  const session = await getServerSessionSafe()
   
   if (!session) {
-    redirect('/login')
+    redirect('/auth/signin')
   }
 
   // Only admins and executives can access this page

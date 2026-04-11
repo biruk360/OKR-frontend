@@ -94,6 +94,9 @@ export interface PaginatedResponse<T> extends ApiResponse<T[]> {
 }
 
 // Form types
+export type AlignmentType = 'LOOSE' | 'STRICT_DEPENDENCY'
+export type RollupCalculation = 'NONE' | 'AVERAGE' | 'SUM'
+
 export interface CreateObjectiveForm {
   title: string
   description?: string
@@ -106,6 +109,8 @@ export interface CreateObjectiveForm {
   goalStatus?: string
   startDate?: string
   endDate?: string
+  alignmentType?: AlignmentType
+  rollupCalculation?: RollupCalculation
 }
 
 export interface UpdateObjectiveForm {
@@ -114,6 +119,8 @@ export interface UpdateObjectiveForm {
   ownerId?: string
   parentObjectiveId?: string
   isPrivate?: boolean
+  alignmentType?: AlignmentType
+  rollupCalculation?: RollupCalculation
 }
 
 export interface CreateKeyResultForm {

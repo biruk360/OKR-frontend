@@ -2,9 +2,10 @@
 
 import { useState } from 'react'
 import { signOut } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
-import { User, LogOut, Settings, Bell } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { usePathname, useRouter } from 'next/navigation'
+import { User, LogOut, Settings, Bell, Menu } from 'lucide-react'
+import { getDashboardPageTitle } from '@/lib/dashboard-page-titles'
+import { useDashboardTitleContext } from '@/components/layout/DashboardTitleContext'
 
 interface HeaderProps {
   user: {
@@ -13,12 +14,17 @@ interface HeaderProps {
     avatar?: string | null
     role?: string
   }
+  /** Opens the mobile nav drawer (grid shell — no fixed overlap). */
+  onMobileNavOpen?: () => void
 }
 
-export default function Header({ user }: HeaderProps) {
+export default function Header({ user, onMobileNavOpen }: HeaderProps) {
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
   const router = useRouter()
+  const pathname = usePathname()
+  const { overrideTitle } = useDashboardTitleContext()
+  const pageTitle = overrideTitle ?? getDashboardPageTitle(pathname)
 
   const handleSignOut = async () => {
     await signOut({ callbackUrl: '/auth/signin' })
@@ -27,56 +33,66 @@ export default function Header({ user }: HeaderProps) {
   const getInitials = (name: string) => {
     return name
       .split(' ')
-      .map(word => word[0])
+      .map((word) => word[0])
       .join('')
       .toUpperCase()
       .slice(0, 2)
   }
 
   return (
-    <header className="bg-white shadow-sm border-b border-gray-200">
-      <div className="flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center">
-          <h1 className="text-lg font-semibold text-gray-900">
-            OKR Management System
-          </h1>
+    <header className="bg-transparent">
+      <div className="flex h-14 items-center gap-2 px-3 sm:px-4 lg:px-6">
+        {onMobileNavOpen ? (
+          <button
+            type="button"
+            className="inline-flex shrink-0 items-center justify-center rounded-lg p-2 text-ink-secondary transition-colors duration-[180ms] hover:bg-surface-hover hover:text-ink-primary lg:hidden"
+            onClick={onMobileNavOpen}
+            aria-label="Open navigation menu"
+          >
+            <Menu className="h-5 w-5 stroke-[1.75]" />
+          </button>
+        ) : null}
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate text-page-title text-ink-primary">{pageTitle}</h1>
         </div>
 
-        <div className="flex items-center space-x-4">
-          {/* Notifications */}
+        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
           <div className="relative">
             <button
               type="button"
-              className="relative rounded-full bg-white p-1 text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+              className="relative rounded-pill p-2 text-ink-secondary transition-colors duration-[180ms] hover:bg-surface-hover hover:text-ink-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
               onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
             >
-              <Bell className="h-6 w-6" />
-              <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-danger-500 text-xs text-white flex items-center justify-center">
+              <Bell className="h-5 w-5 stroke-[1.75]" />
+              <span className="absolute -right-0.5 -top-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-pill bg-danger-500 text-[10px] font-medium text-white">
                 3
               </span>
             </button>
 
             {isNotificationsOpen && (
-              <div className="absolute right-0 z-10 mt-2 w-80 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
-                <div className="px-4 py-2 border-b border-gray-200">
-                  <h3 className="text-sm font-medium text-gray-900">Notifications</h3>
+              <div className="absolute right-0 z-10 mt-2 w-72 origin-top-right rounded-card-lg bg-surface-card py-1 shadow-popover focus:outline-none">
+                <div className="list-divider px-4 py-2">
+                  <h3 className="text-overline text-ink-secondary">Notifications</h3>
                 </div>
-                <div className="max-h-64 overflow-y-auto">
-                  <div className="px-4 py-3 hover:bg-gray-50">
-                    <p className="text-sm text-gray-900">New comment on your objective</p>
-                    <p className="text-xs text-gray-500">2 minutes ago</p>
+                <div className="max-h-56 overflow-y-auto">
+                  <div className="px-4 py-2.5 transition-colors duration-[180ms] hover:bg-surface-hover">
+                    <p className="text-body text-ink-primary">New comment on your objective</p>
+                    <p className="mt-0.5 text-body-sm text-ink-secondary">2 minutes ago</p>
                   </div>
-                  <div className="px-4 py-3 hover:bg-gray-50">
-                    <p className="text-sm text-gray-900">Key result progress updated</p>
-                    <p className="text-xs text-gray-500">1 hour ago</p>
+                  <div className="px-4 py-2.5 transition-colors duration-[180ms] hover:bg-surface-hover">
+                    <p className="text-body text-ink-primary">Key result progress updated</p>
+                    <p className="mt-0.5 text-body-sm text-ink-secondary">1 hour ago</p>
                   </div>
-                  <div className="px-4 py-3 hover:bg-gray-50">
-                    <p className="text-sm text-gray-900">New objective assigned to you</p>
-                    <p className="text-xs text-gray-500">3 hours ago</p>
+                  <div className="px-4 py-2.5 transition-colors duration-[180ms] hover:bg-surface-hover">
+                    <p className="text-body text-ink-primary">New objective assigned to you</p>
+                    <p className="mt-0.5 text-body-sm text-ink-secondary">3 hours ago</p>
                   </div>
                 </div>
-                <div className="px-4 py-2 border-t border-gray-200">
-                  <button className="text-sm text-primary-600 hover:text-primary-500">
+                <div className="list-divider px-4 py-2">
+                  <button
+                    type="button"
+                    className="text-body-sm font-medium text-primary-500 hover:text-primary-700"
+                  >
                     View all notifications
                   </button>
                 </div>
@@ -84,23 +100,22 @@ export default function Header({ user }: HeaderProps) {
             )}
           </div>
 
-          {/* Profile dropdown */}
           <div className="relative">
             <button
               type="button"
-              className="flex items-center rounded-full bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+              className="flex items-center rounded-pill text-body-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
               onClick={() => setIsProfileOpen(!isProfileOpen)}
             >
               <span className="sr-only">Open user menu</span>
               {user.avatar ? (
                 <img
-                  className="h-8 w-8 rounded-full"
+                  className="h-8 w-8 rounded-pill object-cover"
                   src={user.avatar}
                   alt={user.name || 'User'}
                 />
               ) : (
-                <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center">
-                  <span className="text-sm font-medium text-primary-700">
+                <div className="flex h-8 w-8 items-center justify-center rounded-pill bg-primary-500/15">
+                  <span className="text-body-sm font-semibold text-primary-600">
                     {user.name ? getInitials(user.name) : 'U'}
                   </span>
                 </div>
@@ -108,37 +123,40 @@ export default function Header({ user }: HeaderProps) {
             </button>
 
             {isProfileOpen && (
-              <div className="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
-                <div className="px-4 py-2 border-b border-gray-200">
-                  <p className="text-sm font-medium text-gray-900">{user.name}</p>
-                  <p className="text-xs text-gray-500">{user.email}</p>
-                  <p className="text-xs text-primary-600 capitalize">{user.role?.toLowerCase()}</p>
+              <div className="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-card-lg bg-surface-card py-1 shadow-popover focus:outline-none">
+                <div className="list-divider px-4 py-2">
+                  <p className="truncate text-body font-medium text-ink-primary">{user.name}</p>
+                  <p className="truncate text-body-sm text-ink-secondary">{user.email}</p>
+                  <p className="mt-1 text-body-sm capitalize text-primary-600">{user.role?.toLowerCase()}</p>
                 </div>
                 <button
-                  className="flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  type="button"
+                  className="flex w-full items-center px-4 py-2 text-left text-body text-ink-primary transition-colors duration-[180ms] hover:bg-surface-hover"
                   onClick={() => {
                     setIsProfileOpen(false)
-                    router.push('/dashboard/profile')
+                    router.push('/dashboard/settings/profile')
                   }}
                 >
-                  <User className="mr-3 h-4 w-4" />
+                  <User className="mr-2 h-4 w-4 stroke-[1.75]" />
                   Your Profile
                 </button>
                 <button
-                  className="flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  type="button"
+                  className="flex w-full items-center px-4 py-2 text-left text-body text-ink-primary transition-colors duration-[180ms] hover:bg-surface-hover"
                   onClick={() => {
                     setIsProfileOpen(false)
                     router.push('/dashboard/settings')
                   }}
                 >
-                  <Settings className="mr-3 h-4 w-4" />
+                  <Settings className="mr-2 h-4 w-4 stroke-[1.75]" />
                   Settings
                 </button>
                 <button
-                  className="flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  type="button"
+                  className="flex w-full items-center px-4 py-2 text-left text-body text-ink-primary transition-colors duration-[180ms] hover:bg-surface-hover"
                   onClick={handleSignOut}
                 >
-                  <LogOut className="mr-3 h-4 w-4" />
+                  <LogOut className="mr-2 h-4 w-4 stroke-[1.75]" />
                   Sign out
                 </button>
               </div>

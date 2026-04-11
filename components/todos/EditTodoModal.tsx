@@ -108,7 +108,7 @@ export default function EditTodoModal({
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Enter to-do title"
+                placeholder="Enter initiative title"
                 disabled={isLoading}
               />
               {!title.trim() && (
@@ -126,7 +126,7 @@ export default function EditTodoModal({
                 onChange={(e) => setDescription(e.target.value)}
                 rows={4}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Enter to-do description (optional)"
+                placeholder="Enter initiative description (optional)"
                 disabled={isLoading}
               />
             </div>

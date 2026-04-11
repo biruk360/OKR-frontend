@@ -3,37 +3,34 @@
 @tailwind utilities;
 
 @layer base {
-  * {
-    @apply border-gray-200;
-  }
   body {
-    @apply bg-white text-gray-900;
+    @apply bg-surface-app text-ink-primary antialiased;
   }
 }
 
 @layer components {
   .btn {
-    @apply inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none;
+    @apply inline-flex items-center justify-center rounded-lg text-body font-medium transition-colors duration-[180ms] ease-apple focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-app disabled:opacity-50 disabled:pointer-events-none;
   }
 
   .btn-primary {
-    @apply btn bg-primary-600 text-white hover:bg-primary-700 h-10 py-2 px-4;
+    @apply btn bg-primary-500 text-white hover:bg-primary-700 h-10 py-2 px-4 shadow-none;
   }
 
   .btn-secondary {
-    @apply btn bg-gray-100 text-gray-900 hover:bg-gray-200 h-10 py-2 px-4;
+    @apply btn bg-surface-app text-ink-primary hover:bg-surface-hover h-10 py-2 px-4;
   }
 
   .btn-outline {
-    @apply btn border border-gray-300 hover:bg-gray-50 hover:text-gray-900 h-10 py-2 px-4;
+    @apply btn border border-surface-muted bg-white text-ink-primary hover:bg-surface-hover h-10 py-2 px-4;
   }
 
   .btn-ghost {
-    @apply btn hover:bg-gray-100 hover:text-gray-900 h-10 py-2 px-4;
+    @apply btn text-primary-600 hover:bg-primary-50 h-10 py-2 px-4;
   }
 
   .btn-sm {
-    @apply h-9 px-3 text-xs;
+    @apply h-9 px-3 text-body-sm;
   }
 
   .btn-lg {
@@ -41,69 +38,78 @@
   }
 
   .card {
-    @apply rounded-lg border border-gray-200 bg-white text-gray-900 shadow-sm;
+    @apply rounded-card-lg bg-surface-card text-ink-primary shadow-card transition-shadow duration-[180ms] ease-apple;
   }
 
   .input {
-    @apply flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply flex h-10 w-full rounded-lg border border-surface-muted bg-white px-3 py-2 text-body file:border-0 file:bg-transparent file:text-body-sm file:font-medium placeholder:text-ink-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .label {
-    @apply text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70;
+    @apply text-body-sm font-medium leading-none text-ink-primary peer-disabled:cursor-not-allowed peer-disabled:opacity-70;
   }
 
   .progress-bar {
-    @apply w-full bg-gray-200 rounded-full h-2.5;
+    @apply w-full rounded bg-surface-muted;
+    height: 6px;
   }
 
   .progress-fill {
-    @apply bg-primary-600 h-2.5 rounded-full transition-all duration-300 ease-in-out;
+    @apply h-full rounded bg-primary-500 transition-all duration-[180ms] ease-apple;
   }
 
   .badge {
-    @apply inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
+    @apply inline-flex items-center rounded-pill px-2.5 py-0.5 text-body-sm font-semibold transition-colors duration-[180ms] ease-apple focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
   }
 
   .badge-default {
-    @apply badge border-transparent bg-primary-600 text-white hover:bg-primary-700;
+    @apply badge bg-primary-500/15 text-primary-600;
   }
 
   .badge-secondary {
-    @apply badge border-transparent bg-gray-100 text-gray-900 hover:bg-gray-200;
+    @apply badge bg-surface-app text-ink-primary;
   }
 
   .badge-success {
-    @apply badge border-transparent bg-success-100 text-success-800;
+    @apply badge bg-success-500/15 text-success-700;
   }
 
   .badge-warning {
-    @apply badge border-transparent bg-warning-100 text-warning-800;
+    @apply badge bg-warning-500/15 text-warning-800;
   }
 
   .badge-danger {
-    @apply badge border-transparent bg-danger-100 text-danger-800;
+    @apply badge bg-danger-500/15 text-danger-600;
+  }
+
+  .list-divider {
+    @apply border-t border-ink-secondary/20;
+  }
+
+  .skeleton {
+    @apply animate-shimmer rounded-md bg-gradient-to-r from-surface-muted via-surface-hover to-surface-muted bg-[length:200%_100%];
   }
 }
 
-/* Custom scrollbar */
+/* Custom scrollbar — subtle, matches chrome */
 ::-webkit-scrollbar {
   width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
+  background: rgba(0, 0, 0, 0.12);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
+  background: rgba(0, 0, 0, 0.2);
 }
 
-/* Loading animations */
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -115,11 +121,12 @@
 }
 
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
   }
   50% {
-    opacity: .5;
+    opacity: 0.5;
   }
 }
 
@@ -127,7 +134,6 @@
   animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-/* Progress bar animations */
 @keyframes progress-fill {
   0% {
     width: 0%;

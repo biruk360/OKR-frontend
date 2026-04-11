@@ -1,12 +1,11 @@
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { getServerSessionSafe } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { redirect } from 'next/navigation'
 import { canManageUsers } from '@/lib/permissions'
 import TeamsManagement from '@/components/settings/TeamsManagement'
 
 export default async function TeamsSettingsPage() {
-  const session = await getServerSession(authOptions)
+  const session = await getServerSessionSafe()
   
   if (!session) {
     redirect('/auth/signin')

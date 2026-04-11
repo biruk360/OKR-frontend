@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { getServerSessionSafe } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { sendPasswordResetEmail } from '@/lib/email'
+import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: RouteIdParams }
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSessionSafe()
     
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -20,7 +20,10 @@ export async function POST(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const userId = params.id
+    const { id: userId } = await resolveParams(params)
+    if (!userId) {
+      return NextResponse.json({ error: 'Invalid user id' }, { status: 400 })
+    }
 
     // Find the user
     const user = await prisma.user.findUnique({

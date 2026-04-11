@@ -1,11 +1,10 @@
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { getServerSessionSafe } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { canAccessSettings } from '@/lib/permissions'
 import BrandingManagement from '@/components/settings/BrandingManagement'
 
 export default async function BrandingSettingsPage() {
-  const session = await getServerSession(authOptions)
+  const session = await getServerSessionSafe()
   
   if (!session) {
     redirect('/auth/signin')

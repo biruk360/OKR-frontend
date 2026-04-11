@@ -1,14 +1,14 @@
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { redirect } from 'next/navigation'
+import { getServerSessionSafe } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import NestedObjectivesList from '@/components/objectives/NestedObjectivesList'
 import CreateCompanyObjectiveButton from '@/components/objectives/CreateCompanyObjectiveButton'
 
 export default async function CompanyOKRsPage() {
-  const session = await getServerSession(authOptions)
+  const session = await getServerSessionSafe()
   
   if (!session) {
-    return null
+    redirect('/auth/signin')
   }
 
   // Only show company-level objectives
@@ -70,11 +70,10 @@ export default async function CompanyOKRsPage() {
   })
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Company OKRs</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="text-sm text-gray-500">
             View and manage company-wide objectives and key results.
           </p>
         </div>

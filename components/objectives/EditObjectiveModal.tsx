@@ -22,6 +22,8 @@ interface FormData {
   departmentId?: string
   parentObjectiveId?: string
   isPrivate?: boolean
+  alignmentType: 'LOOSE' | 'STRICT_DEPENDENCY'
+  rollupCalculation: 'NONE' | 'AVERAGE' | 'SUM'
 }
 
 export default function EditObjectiveModal({ isOpen, onClose, objective }: EditObjectiveModalProps) {
@@ -50,7 +52,13 @@ export default function EditObjectiveModal({ isOpen, onClose, objective }: EditO
         timeframeId: objective.timeframeId || '',
         departmentId: objective.departmentId || '',
         parentObjectiveId: objective.parentObjectiveId || '',
-        isPrivate: objective.isPrivate || false
+        isPrivate: objective.isPrivate || false,
+        alignmentType:
+          objective.alignmentType === 'STRICT_DEPENDENCY' ? 'STRICT_DEPENDENCY' : 'LOOSE',
+        rollupCalculation:
+          objective.rollupCalculation === 'AVERAGE' || objective.rollupCalculation === 'SUM'
+            ? objective.rollupCalculation
+            : 'NONE',
       })
       fetchFormData()
     }
@@ -87,7 +95,12 @@ export default function EditObjectiveModal({ isOpen, onClose, objective }: EditO
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...data,
+          alignmentType: data.alignmentType,
+          rollupCalculation:
+            data.alignmentType === 'LOOSE' ? 'NONE' : data.rollupCalculation,
+        }),
       })
 
       const result = await response.json()
@@ -232,10 +245,52 @@ export default function EditObjectiveModal({ isOpen, onClose, objective }: EditO
                 currentTimeframeId={watch('timeframeId')}
                 currentObjectiveId={objective.id}
                 currentObjectiveLevel={objective.level}
-                userDepartmentId={objective.departmentId}
+                knownParent={
+                  objective.parentObjective
+                    ? {
+                        id: objective.parentObjective.id,
+                        title: objective.parentObjective.title,
+                        level: objective.parentObjective.level,
+                        timeframeName: objective.timeframe?.name,
+                      }
+                    : null
+                }
                 className="mb-4"
               />
             )}
+
+            <div className="rounded-lg border border-gray-200 bg-gray-50/80 p-4 space-y-3">
+              <p className="text-sm font-medium text-gray-800">Progress roll-up (aligned children)</p>
+              <p className="text-xs text-gray-600">
+                When <strong>Strict</strong> is on and you choose average or sum, this objective&apos;s
+                progress is derived from its active child objectives (not from key results) as long as it
+                has at least one child. Otherwise progress follows key results as usual.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Alignment mode</label>
+                  <select
+                    {...register('alignmentType')}
+                    className="input text-sm"
+                  >
+                    <option value="LOOSE">Loose (visual link only)</option>
+                    <option value="STRICT_DEPENDENCY">Strict (roll up from children)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Roll-up calculation</label>
+                  <select
+                    {...register('rollupCalculation')}
+                    className="input text-sm"
+                    disabled={watch('alignmentType') === 'LOOSE'}
+                  >
+                    <option value="NONE">None</option>
+                    <option value="AVERAGE">Average of child %</option>
+                    <option value="SUM">Sum of child % (capped at 100%)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
 
             <div>
               <label className="flex items-center">

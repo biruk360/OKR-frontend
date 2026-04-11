@@ -3,11 +3,13 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import { X, Target, User, Calendar, Building2, Link } from 'lucide-react'
+import { X, Target, User, Calendar, Building2 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
 import { CreateObjectiveForm, ObjectiveLevel } from '@/types'
 import ParentObjectiveSelector from './ParentObjectiveSelector'
+import { pickCurrentTimeframe } from '@/lib/timeframe-utils'
+import { CHECK_IN_CADENCES, CHECK_IN_CADENCE_LABELS, normalizeCadence } from '@/lib/check-in-cadence'
 
 interface CreateObjectiveModalProps {
   isOpen: boolean
@@ -28,6 +30,7 @@ interface FormData {
   departmentId?: string
   parentObjectiveId?: string
   isPrivate?: boolean
+  checkInCadence?: string
 }
 
 export default function CreateObjectiveModal({ isOpen, onClose, defaultLevel, title, defaultOwnerId, onObjectiveCreated, userDepartments = [] }: CreateObjectiveModalProps) {
@@ -35,7 +38,6 @@ export default function CreateObjectiveModal({ isOpen, onClose, defaultLevel, ti
   const [users, setUsers] = useState<any[]>([])
   const [timeframes, setTimeframes] = useState<any[]>([])
   const [departments, setDepartments] = useState<any[]>([])
-  const [parentObjectives, setParentObjectives] = useState<any[]>([])
   const router = useRouter()
   const { data: session } = useSession()
 
@@ -74,12 +76,6 @@ export default function CreateObjectiveModal({ isOpen, onClose, defaultLevel, ti
     }
   }, [isOpen, defaultLevel, defaultOwnerId, session?.user?.id, reset])
 
-  useEffect(() => {
-    if (selectedLevel && selectedTimeframe) {
-      fetchParentObjectives(selectedLevel, selectedTimeframe)
-    }
-  }, [selectedLevel, selectedTimeframe])
-
   const fetchFormData = async () => {
     try {
       const [usersRes, timeframesRes, departmentsRes] = await Promise.all([
@@ -95,46 +91,14 @@ export default function CreateObjectiveModal({ isOpen, onClose, defaultLevel, ti
       ])
 
       if (usersData.success) setUsers(usersData.users)
-      if (timeframesData.success) setTimeframes(timeframesData.data)
+      if (timeframesData.success) {
+        setTimeframes(timeframesData.data)
+        const current = pickCurrentTimeframe<{ id: string; startDate: string; endDate: string; isActive?: boolean }>(timeframesData.data || [])
+        if (current?.id) setValue('timeframeId', current.id)
+      }
       if (departmentsData.success) setDepartments(departmentsData.data)
     } catch (error) {
       console.error('Error fetching form data:', error)
-    }
-  }
-
-  const fetchParentObjectives = async (level: ObjectiveLevel, timeframeId: string) => {
-    try {
-      if (level === 'DEPARTMENT' && timeframeId) {
-        // For department objectives, show company objectives
-        const response = await fetch(`/api/objectives?level=COMPANY&timeframeId=${timeframeId}&status=ACTIVE`)
-        const data = await response.json()
-        
-        if (data.success) {
-          setParentObjectives(data.data)
-        }
-      } else if (level === 'INDIVIDUAL' && timeframeId) {
-        // For individual objectives, show both company and department objectives
-        const [companyResponse, departmentResponse] = await Promise.all([
-          fetch(`/api/objectives?level=COMPANY&timeframeId=${timeframeId}&status=ACTIVE`),
-          fetch(`/api/objectives?level=DEPARTMENT&timeframeId=${timeframeId}&status=ACTIVE`)
-        ])
-        
-        const [companyData, departmentData] = await Promise.all([
-          companyResponse.json(),
-          departmentResponse.json()
-        ])
-        
-        const allParentObjectives = [
-          ...(companyData.success ? companyData.data.map((obj: any) => ({ ...obj, level: 'COMPANY' })) : []),
-          ...(departmentData.success ? departmentData.data.map((obj: any) => ({ ...obj, level: 'DEPARTMENT' })) : [])
-        ]
-        
-        setParentObjectives(allParentObjectives)
-      } else {
-        setParentObjectives([])
-      }
-    } catch (error) {
-      console.error('Error fetching parent objectives:', error)
     }
   }
 
@@ -151,6 +115,7 @@ export default function CreateObjectiveModal({ isOpen, onClose, defaultLevel, ti
         departmentId: data.departmentId || null,
         parentObjectiveId: data.parentObjectiveId || null,
         isPrivate: data.isPrivate || false,
+        checkInCadence: normalizeCadence(data.checkInCadence),
       }
 
       const response = await fetch('/api/objectives', {
@@ -338,10 +303,27 @@ export default function CreateObjectiveModal({ isOpen, onClose, defaultLevel, ti
                 onSelectParent={(parentId) => setValue('parentObjectiveId', parentId || '')}
                 currentTimeframeId={selectedTimeframe}
                 currentObjectiveLevel={selectedLevel}
-                userDepartmentId={selectedLevel === 'INDIVIDUAL' ? userDepartments[0]?.id : watch('departmentId')}
                 className="mb-4"
               />
             )}
+
+            <div>
+              <label htmlFor="checkInCadence" className="block text-sm font-medium text-gray-700 mb-1">
+                Check-in cadence *
+              </label>
+              <select
+                {...register('checkInCadence', { required: 'A check-in cadence is required.' })}
+                defaultValue="WEEKLY"
+                className="input"
+              >
+                {CHECK_IN_CADENCES.map((c) => (
+                  <option key={c} value={c}>{CHECK_IN_CADENCE_LABELS[c]}</option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-gray-500">
+                We&apos;ll remind the owner on their dashboard and via the Monday email digest.
+              </p>
+            </div>
 
             <div>
               <label className="flex items-center">
@@ -353,7 +335,7 @@ export default function CreateObjectiveModal({ isOpen, onClose, defaultLevel, ti
                 <span className="ml-2 text-sm text-gray-700">Make this objective private</span>
               </label>
               <p className="mt-1 text-xs text-gray-500">
-                Private objectives will show as "[Private Objective]" to other users, but progress percentage will remain visible.
+                Private objectives will show as &quot;[Private Objective]&quot; to other users, but progress percentage will remain visible.
               </p>
             </div>
 

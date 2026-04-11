@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:turbo": "next dev --turbo",
+    "clean": "rm -rf .next",
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",

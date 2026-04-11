@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Target, User, Archive } from 'lucide-react'
 import { getProgressColor } from '@/lib/utils'
@@ -10,6 +11,7 @@ import AddKeyResultButton from './AddKeyResultButton'
 import EditKeyResultButton from './EditKeyResultButton'
 import DeleteKeyResultButton from './DeleteKeyResultButton'
 import CloneKeyResultButton from './CloneKeyResultButton'
+import CreateCheckInButton from './CreateCheckInButton'
 import ToDoList from '../todos/ToDoList'
 
 function safeProgressPercent(value: unknown): number {
@@ -33,6 +35,7 @@ interface KeyResultsListProps {
     ownerId?: string
     level?: string
     departmentId?: string | null
+    timeframe?: { startDate: string | Date; endDate: string | Date; name?: string } | null
   }
   users?: any[]
   onKeyResultsChange?: () => void
@@ -123,7 +126,13 @@ export default function KeyResultsList({
     const canArchive = canEdit
 
     return (
-      <div className="flex items-center space-x-1">
+      <div className="flex items-center flex-wrap gap-1">
+        <CreateCheckInButton
+          keyResult={kr}
+          objective={objective}
+          canEdit={canEdit}
+          onSaved={afterMutation}
+        />
         <CloneKeyResultButton
           keyResult={kr}
           users={users}
@@ -176,7 +185,12 @@ export default function KeyResultsList({
                   <div className="flex-1">
                     <div className="flex items-center space-x-2 mb-2">
                       <Target className="h-4 w-4 text-gray-500" />
-                      <span className="font-medium text-gray-800">{kr.title}</span>
+                      <Link
+                        href={`/dashboard/key-results/${kr.id}`}
+                        className="font-medium text-gray-800 hover:text-blue-700 hover:underline"
+                      >
+                        {kr.title}
+                      </Link>
                       {perm ? renderKeyResultActions(kr) : null}
                     </div>
                     <div className="text-sm text-gray-600 mb-2">
@@ -260,7 +274,12 @@ export default function KeyResultsList({
                     <div className="flex-1">
                       <div className="flex items-center space-x-2 mb-2">
                         <Archive className="h-4 w-4 text-orange-600" />
-                        <span className="font-medium text-gray-800 line-through">{kr.title}</span>
+                        <Link
+                          href={`/dashboard/key-results/${kr.id}`}
+                          className="font-medium text-gray-800 line-through hover:text-blue-700 hover:no-underline"
+                        >
+                          {kr.title}
+                        </Link>
                         <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full">
                           Archived
                         </span>

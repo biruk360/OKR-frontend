@@ -1,10 +1,28 @@
-import { NextAuthOptions } from 'next-auth'
+import { getServerSession, NextAuthOptions } from 'next-auth'
+import type { Session } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import { prisma } from './prisma'
 import bcrypt from 'bcryptjs'
 import { UserRole } from '@/types'
 
+/**
+ * JWT signing secret. In production you must set NEXTAUTH_SECRET (e.g. openssl rand -base64 32).
+ * A dev-only fallback avoids opaque 500s when .env.local is missing locally.
+ */
+const nextAuthSecret =
+  process.env.NEXTAUTH_SECRET ||
+  (process.env.NODE_ENV !== 'production'
+    ? 'local-dev-nextauth-secret-not-for-production'
+    : undefined)
+
+if (process.env.NODE_ENV === 'production' && !process.env.NEXTAUTH_SECRET) {
+  console.error(
+    '[auth] NEXTAUTH_SECRET is not set. Sessions may fail; set NEXTAUTH_SECRET in your environment.'
+  )
+}
+
 export const authOptions: NextAuthOptions = {
+  secret: nextAuthSecret,
   providers: [
     CredentialsProvider({
       name: 'credentials',
@@ -70,5 +88,19 @@ export const authOptions: NextAuthOptions = {
   },
   pages: {
     signIn: '/auth/signin',
+  }
+}
+
+/**
+ * next-auth's getServerSession() throws on some bad session responses (see next-auth RSC path).
+ * That surfaces as HTTP 500 for the whole route. This wrapper returns null instead.
+ */
+export async function getServerSessionSafe(): Promise<Session | null> {
+  try {
+    return await getServerSession(authOptions)
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error)
+    console.error('[auth] getServerSession failed:', msg)
+    return null
   }
 }

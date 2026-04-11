@@ -20,6 +20,7 @@ import ArchiveObjectiveButton from './ArchiveObjectiveButton'
 import UnarchiveObjectiveButton from './UnarchiveObjectiveButton'
 import DeleteObjectiveButton from './DeleteObjectiveButton'
 import CloneObjectiveButton from './CloneObjectiveButton'
+import { pickCurrentTimeframe } from '@/lib/timeframe-utils'
 
 interface ObjectivesListProps {
   objectives: any[] // More flexible type to handle partial user data
@@ -40,12 +41,12 @@ export default function ObjectivesList({
   showCompanyOnly = false,
   showDepartmentOnly = false
 }: ObjectivesListProps) {
-  const [filters, setFilters] = useState({
+  const [filters, setFilters] = useState(() => ({
     level: '',
-    timeframe: '',
+    timeframe: pickCurrentTimeframe(timeframes || [])?.id || '',
     department: '',
     search: ''
-  })
+  }))
 
   const filteredObjectives = objectives.filter(objective => {
     if (filters.level && objective.level !== filters.level) return false

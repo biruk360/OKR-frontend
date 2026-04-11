@@ -33,7 +33,7 @@ export default function EditTodoButton({ todo, onSave, className = '' }: EditTod
       <button
         onClick={() => setIsModalOpen(true)}
         className={`inline-flex items-center px-2 py-1 text-sm text-gray-600 hover:text-gray-700 hover:bg-gray-50 rounded ${className}`}
-        title="Edit to-do"
+        title="Edit initiative"
       >
         <Edit3 className="h-4 w-4" />
       </button>

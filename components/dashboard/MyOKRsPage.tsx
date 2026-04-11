@@ -6,6 +6,7 @@ import { Target, User, Calendar, Building2, Search } from 'lucide-react'
 import { useDebounce } from '@/hooks/useDebounce'
 import NestedObjectivesList from '@/components/objectives/NestedObjectivesList'
 import CreateIndividualObjectiveButton from '@/components/objectives/CreateIndividualObjectiveButton'
+import { pickCurrentTimeframe } from '@/lib/timeframe-utils'
 import toast from 'react-hot-toast'
 
 interface Objective {
@@ -157,10 +158,10 @@ export default function MyOKRsPage() {
 
       if (timeframesData.success) {
         setTimeframes(timeframesData.data)
-        // Set default timeframe to current active one
-        const activeTimeframe = timeframesData.data.find((tf: Timeframe) => tf.isActive)
-        if (activeTimeframe) {
-          setFilters(prev => ({ ...prev, timeframe: activeTimeframe.id }))
+        // Default to the timeframe whose date range covers today (Q1/Q2/etc).
+        const current = pickCurrentTimeframe(timeframesData.data as Timeframe[])
+        if (current) {
+          setFilters(prev => ({ ...prev, timeframe: current.id }))
         }
       }
 
@@ -248,12 +249,11 @@ export default function MyOKRsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">My OKRs</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="text-sm text-gray-500">
             Manage and track your personal objectives and key results.
           </p>
         </div>

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { X, Target, User, TrendingUp } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { CHECK_IN_CADENCES, CHECK_IN_CADENCE_LABELS, normalizeCadence } from '@/lib/check-in-cadence'
 
 interface AddKeyResultModalProps {
   isOpen: boolean
@@ -22,6 +23,7 @@ interface KeyResultFormData {
   targetValue: number
   unit: string
   isPrivate?: boolean
+  checkInCadence?: string
 }
 
 export default function AddKeyResultModal({ 
@@ -58,7 +60,8 @@ export default function AddKeyResultModal({
         startValue: 0,
         targetValue: 100,
         unit: '%',
-        isPrivate: false
+        isPrivate: false,
+        checkInCadence: 'WEEKLY',
       })
     }
   }, [isOpen, defaultOwnerId, reset])
@@ -80,6 +83,7 @@ export default function AddKeyResultModal({
         },
         body: JSON.stringify({
           ...data,
+          checkInCadence: normalizeCadence(data.checkInCadence),
           objectiveId,
           currentValue: data.startValue // Set current value to start value
         }),
@@ -259,6 +263,23 @@ export default function AddKeyResultModal({
               </div>
             )}
 
+            <div className="mb-4">
+              <label htmlFor="kr-checkInCadence" className="block text-sm font-medium text-gray-700 mb-1">
+                Check-in cadence *
+              </label>
+              <select
+                {...register('checkInCadence', { required: 'A check-in cadence is required.' })}
+                className="input"
+              >
+                {CHECK_IN_CADENCES.map((c) => (
+                  <option key={c} value={c}>{CHECK_IN_CADENCE_LABELS[c]}</option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-gray-500">
+                Owner gets a reminder on the dashboard and in the Monday digest.
+              </p>
+            </div>
+
             <div className="mb-6">
               <label className="flex items-center">
                 <input
@@ -269,7 +290,7 @@ export default function AddKeyResultModal({
                 <span className="ml-2 text-sm text-gray-700">Make this key result private</span>
               </label>
               <p className="mt-1 text-xs text-gray-500">
-                Private key results will show as "[Private Key Result]" to other users, but progress percentage will remain visible.
+                Private key results will show as &quot;[Private Key Result]&quot; to other users, but progress percentage will remain visible.
               </p>
             </div>
 

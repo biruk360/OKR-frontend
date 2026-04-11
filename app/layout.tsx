@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import { Providers } from './providers'
 import { Toaster } from 'react-hot-toast'
+import { getServerSessionSafe } from '@/lib/auth'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -20,26 +21,30 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  themeColor: '#f9fafb',
+  themeColor: '#F2F2F7',
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const session = await getServerSessionSafe()
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} ${inter.className}`} suppressHydrationWarning>
-        <Providers>
+        <Providers session={session}>
           {children}
-          <Toaster 
+          <Toaster
             position="top-right"
             toastOptions={{
               duration: 4000,
               style: {
-                background: '#363636',
+                background: '#1D1D1F',
                 color: '#fff',
+                borderRadius: '12px',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
               },
             }}
           />

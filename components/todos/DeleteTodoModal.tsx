@@ -55,7 +55,7 @@ export default function DeleteTodoModal({
           <div className="p-6">
             <div className="mb-4">
               <p className="text-sm text-gray-600 mb-4">
-                Are you sure you want to permanently delete this to-do? This action cannot be undone.
+                Are you sure you want to permanently delete this initiative? This action cannot be undone.
               </p>
               
               {/* Todo Details */}
@@ -82,7 +82,7 @@ export default function DeleteTodoModal({
               <div className="flex items-center">
                 <AlertTriangle className="h-4 w-4 text-red-600 mr-2" />
                 <p className="text-sm text-red-700">
-                  <strong>Warning:</strong> This will permanently delete the to-do and cannot be undone.
+                  <strong>Warning:</strong> This will permanently delete the initiative and cannot be undone.
                 </p>
               </div>
             </div>

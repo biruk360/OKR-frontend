@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { getServerSessionSafe } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import {
   canViewObjective,
@@ -8,20 +7,26 @@ import {
   canEditKeyResultWithObjectiveContext,
   canDeleteKeyResult,
 } from '@/lib/permissions'
+import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: RouteIdParams }
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSessionSafe()
 
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await resolveParams(params)
+    if (!id) {
+      return NextResponse.json({ error: 'Invalid objective id' }, { status: 400 })
+    }
+
     const objective = await prisma.objective.findUnique({
-      where: { id: params.id },
+      where: { id },
       select: {
         id: true,
         level: true,

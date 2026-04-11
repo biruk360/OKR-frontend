@@ -1,11 +1,10 @@
-import { getServerSession } from 'next-auth'
 import { redirect } from 'next/navigation'
-import { authOptions } from '@/lib/auth'
+import { getServerSessionSafe } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import MyTasksList from '@/components/todos/MyTasksList'
 
 export default async function MyTasksPage() {
-  const session = await getServerSession(authOptions)
+  const session = await getServerSessionSafe()
   
   if (!session) {
     redirect('/auth/signin')
@@ -81,15 +80,14 @@ export default async function MyTasksPage() {
   })
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">My Tasks</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Manage your assigned to-dos and track your progress
+        <p className="text-sm text-gray-500">
+          Manage your assigned initiatives and track your progress
         </p>
       </div>
 
-      <MyTasksList 
+      <MyTasksList
         assignedTodos={assignedTodos}
         completedTodos={completedTodos}
       />

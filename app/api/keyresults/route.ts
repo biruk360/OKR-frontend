@@ -1,19 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { getServerSessionSafe } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { canCreateKeyResultForObjective } from '@/lib/permissions'
 import { parseCurrentValue, parseStartAndTarget } from '@/lib/keyResultNumbers'
+import { recalcNodeAndAncestors } from '@/lib/objectiveProgress'
+import { recordActivity } from '@/lib/activity-log'
+import { normalizeCadence } from '@/lib/check-in-cadence'
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSessionSafe()
     
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { title, description, ownerId, startValue, targetValue, unit, objectiveId, currentValue, isPrivate } = await request.json()
+    const { title, description, ownerId, startValue, targetValue, unit, objectiveId, currentValue, isPrivate, checkInCadence: rawCadence } = await request.json()
+    const checkInCadence = normalizeCadence(rawCadence)
 
     // Validate required fields
     if (!title || !ownerId || targetValue === undefined || targetValue === null || targetValue === '' || !objectiveId) {
@@ -94,7 +97,8 @@ export async function POST(request: NextRequest) {
           unit: unit || '%',
           objectiveId,
           status: 'ACTIVE',
-          isPrivate: isPrivate ?? false // Default to public if not specified
+          isPrivate: isPrivate ?? false, // Default to public if not specified
+          checkInCadence,
         },
         include: {
           owner: {
@@ -103,29 +107,18 @@ export async function POST(request: NextRequest) {
         }
       })
 
-      // Recalculate objective progress
-      const allKeyResults = await tx.keyResult.findMany({
-        where: {
-          objectiveId,
-          status: 'ACTIVE'
-        }
-      })
-
-      // Calculate average progress of all active key results
-      const totalProgress = allKeyResults.reduce((sum, kr) => {
-        const progress = kr.targetValue > 0 ? (kr.currentValue / kr.targetValue) * 100 : 0
-        return sum + Math.min(progress, 100) // Cap at 100%
-      }, 0)
-
-      const averageProgress = allKeyResults.length > 0 ? totalProgress / allKeyResults.length : 0
-
-      // Update objective progress
-      await tx.objective.update({
-        where: { id: objectiveId },
-        data: { progress: Math.round(averageProgress) }
-      })
+      await recalcNodeAndAncestors(tx, objectiveId)
 
       return keyResult
+    })
+
+    await recordActivity({
+      entityType: 'KEY_RESULT',
+      keyResultId: result.id,
+      objectiveId,
+      action: 'CREATED',
+      actorId: session.user.id,
+      metadata: { title: result.title },
     })
 
     return NextResponse.json({

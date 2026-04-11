@@ -37,3 +37,30 @@ export function parseCurrentValue(
   }
   return { ok: true, current }
 }
+
+/** Absolute value, or "+N" / "+10" to add to the current cumulative value. */
+export function parseProgressInput(
+  raw: unknown,
+  currentValue: number
+): { ok: true; value: number } | { ok: false; message: string } {
+  if (raw === undefined || raw === null) {
+    return { ok: false, message: 'Progress is required' }
+  }
+  const s = (typeof raw === 'number' ? String(raw) : String(raw)).trim()
+  if (!s) {
+    return { ok: false, message: 'Progress is required' }
+  }
+  const normalized = s.replace(/,/g, '')
+  if (normalized.startsWith('+')) {
+    const delta = Number(normalized.slice(1))
+    if (!Number.isFinite(delta)) {
+      return { ok: false, message: 'Invalid number after +' }
+    }
+    return { ok: true, value: currentValue + delta }
+  }
+  const abs = Number(normalized)
+  if (!Number.isFinite(abs)) {
+    return { ok: false, message: 'Progress must be a valid number' }
+  }
+  return { ok: true, value: abs }
+}

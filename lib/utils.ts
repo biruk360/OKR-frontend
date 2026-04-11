@@ -37,6 +37,14 @@ export function getProgressColor(progress: number): string {
   return 'text-danger-600 bg-danger-100'
 }
 
+/** Solid bar fill class for inline progress (tracks use `bg-surface-muted`). */
+export function getProgressBarClass(progress: number): string {
+  if (progress >= 80) return 'bg-success-500'
+  if (progress >= 60) return 'bg-primary-500'
+  if (progress >= 40) return 'bg-warning-500'
+  return 'bg-danger-500'
+}
+
 export function getConfidenceColor(confidence: string): string {
   switch (confidence) {
     case 'ON_TRACK':

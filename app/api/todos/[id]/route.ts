@@ -1,21 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { getServerSessionSafe } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { canEditKeyResultWithObjectiveContext, type UserRole } from '@/lib/permissions'
+import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
+import { recordActivity } from '@/lib/activity-log'
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: RouteIdParams }
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSessionSafe()
     
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const todoId = params.id
+    const { id: todoId } = await resolveParams(params)
+    if (!todoId) {
+      return NextResponse.json({ error: 'Invalid todo id' }, { status: 400 })
+    }
     const { title, description, status, dueDate, completedAt } = await request.json()
 
     // Check if todo exists
@@ -87,9 +91,26 @@ export async function PATCH(
       }
     })
 
+    const initiativeChanges: Record<string, { from: unknown; to: unknown }> = {}
+    if (title !== undefined && title !== existingTodo.title) initiativeChanges.title = { from: existingTodo.title, to: title }
+    if (description !== undefined && description !== existingTodo.description) initiativeChanges.description = { from: existingTodo.description, to: description }
+    if (status !== undefined && status !== existingTodo.status) initiativeChanges.status = { from: existingTodo.status, to: status }
+
+    if (Object.keys(initiativeChanges).length > 0) {
+      await recordActivity({
+        entityType: 'KEY_RESULT',
+        keyResultId: existingTodo.keyResultId,
+        objectiveId: existingTodo.keyResult.objectiveId,
+        action: 'INITIATIVE_UPDATED',
+        actorId: session.user.id,
+        changes: initiativeChanges,
+        metadata: { initiativeId: todoId, title: updatedTodo.title },
+      })
+    }
+
     return NextResponse.json({
       success: true,
-      message: 'To-do updated successfully',
+      message: 'Initiative updated successfully',
       todo: updatedTodo
     })
   } catch (error) {
@@ -103,16 +124,19 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: RouteIdParams }
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSessionSafe()
     
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const todoId = params.id
+    const { id: todoId } = await resolveParams(params)
+    if (!todoId) {
+      return NextResponse.json({ error: 'Invalid todo id' }, { status: 400 })
+    }
 
     // Check if todo exists
     const existingTodo = await prisma.todo.findUnique({
@@ -161,14 +185,23 @@ export async function DELETE(
       )
     }
 
-    // Delete the todo
+    // Delete the initiative
     await prisma.todo.delete({
       where: { id: todoId }
     })
 
+    await recordActivity({
+      entityType: 'KEY_RESULT',
+      keyResultId: existingTodo.keyResultId,
+      objectiveId: existingTodo.keyResult.objectiveId,
+      action: 'INITIATIVE_REMOVED',
+      actorId: session.user.id,
+      metadata: { initiativeId: todoId, title: existingTodo.title },
+    })
+
     return NextResponse.json({
       success: true,
-      message: 'To-do deleted successfully'
+      message: 'Initiative deleted successfully'
     })
   } catch (error) {
     console.error('Error deleting todo:', error)

@@ -1,12 +1,12 @@
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { redirect } from 'next/navigation'
+import { getServerSessionSafe } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 export default async function CommentsPage() {
-  const session = await getServerSession(authOptions)
+  const session = await getServerSessionSafe()
   
   if (!session) {
-    return null
+    redirect('/auth/signin')
   }
 
   // Get comments based on user role
@@ -65,10 +65,9 @@ export default async function CommentsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Comments</h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <p className="text-sm text-gray-500">
           View and manage comments on objectives and key results.
         </p>
       </div>

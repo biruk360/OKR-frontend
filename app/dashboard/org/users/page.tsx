@@ -1,5 +1,4 @@
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { getServerSessionSafe } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
@@ -7,7 +6,7 @@ import { User, Building2, Users, Target } from 'lucide-react'
 import { canManageUsers } from '@/lib/permissions'
 
 export default async function UsersDirectoryPage() {
-  const session = await getServerSession(authOptions)
+  const session = await getServerSessionSafe()
   
   if (!session) {
     redirect('/auth/signin')
@@ -34,11 +33,10 @@ export default async function UsersDirectoryPage() {
   const canManage = canManageUsers(session.user.role as any)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Users Directory</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="text-sm text-gray-500">
             View all users in your organization.
           </p>
         </div>

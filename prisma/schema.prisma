@@ -6,10 +6,11 @@ generator client {
 }
 
 datasource db {
-  // Local dev uses SQLite (dev.db). DATABASE_URL in .env is ignored here so the
-  // schema, generated client, and migration history stay in sync.
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  // Production uses PostgreSQL (see env.example). `DATABASE_URL` is required.
+  // Schema changes are applied via `prisma db push` from scripts/deploy.sh —
+  // there is no migration history; `prisma/migrations/` is vestigial SQLite output.
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 // Enums are represented as String for portability and simpler migrations

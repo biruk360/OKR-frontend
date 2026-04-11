@@ -26,7 +26,7 @@ export default async function ReportsPage() {
       department: { select: { name: true } },
       owner: { select: { id: true, name: true, avatar: true } },
       keyResults: {
-        where: { status: 'ACTIVE' },
+        where: { status: { in: ['ACTIVE', 'DRAFT'] } },
         include: {
           owner: { select: { id: true, name: true, avatar: true } },
           _count: { select: { checkIns: true } },
@@ -71,6 +71,7 @@ export default async function ReportsPage() {
         ownerName: kr.owner.name,
         ownerAvatar: kr.owner.avatar,
         checkInCount: kr._count.checkIns,
+        status: kr.status,
       })
     }
   }

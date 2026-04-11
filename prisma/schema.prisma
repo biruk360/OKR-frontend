@@ -45,6 +45,8 @@ model User {
   keyResultViews      KeyResultView[]
   ownedSprints        Sprint[]        @relation("SprintOwner")
   ownedSprintActivities SprintActivity[] @relation("SprintActivityOwner")
+  sprintActivityComments SprintActivityComment[] @relation("SprintActivityCommentAuthor")
+  assignedSprintActivityTasks SprintActivityTask[] @relation("SprintActivityTaskAssignee")
   emailDigestSent     EmailDigestState?
 
   @@map("users")
@@ -145,6 +147,7 @@ model Objective {
   objectiveLabels  ObjectiveLabel[]
   activityLogs     ActivityLog[]
   views            ObjectiveView[]
+  sprintActivities SprintActivity[]  @relation("SprintActivityObjective")
 
   @@map("objectives")
 }
@@ -424,7 +427,13 @@ model SprintActivity {
   title       String
   description String?
   ownerId     String
-  keyResultId String?  // optional link to a Key Result
+  /// Optional link to a Key Result — the activity contributes to this KR's work.
+  keyResultId String?
+  /// Optional link to an Objective (useful when the work spans a whole objective, not a single KR).
+  objectiveId String?
+  /// When set, points at the Initiative (Todo) row this activity was converted into.
+  /// Lets the board show "converted" state and jump to the initiative record.
+  convertedInitiativeId String?
   position    Int      @default(0)
   dueDate     DateTime?
   createdAt   DateTime @default(now())
@@ -434,10 +443,48 @@ model SprintActivity {
   column    SprintColumn  @relation(fields: [columnId], references: [id], onDelete: Cascade)
   owner     User          @relation("SprintActivityOwner", fields: [ownerId], references: [id])
   keyResult KeyResult?    @relation(fields: [keyResultId], references: [id], onDelete: SetNull)
+  objective Objective?    @relation("SprintActivityObjective", fields: [objectiveId], references: [id], onDelete: SetNull)
+  comments  SprintActivityComment[]
+  tasks     SprintActivityTask[]
 
   @@index([sprintId, columnId, position])
   @@index([ownerId])
   @@map("sprint_activities")
+}
+
+/// Trello-style comment thread on a sprint activity.
+model SprintActivityComment {
+  id         String   @id @default(cuid())
+  activityId String
+  authorId   String?
+  content    String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  activity SprintActivity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  author   User?          @relation("SprintActivityCommentAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([activityId, createdAt])
+  @@map("sprint_activity_comments")
+}
+
+/// Sub-task / checklist item on a sprint activity. Assignable to any user.
+model SprintActivityTask {
+  id          String   @id @default(cuid())
+  activityId  String
+  title       String
+  status      String   @default("PENDING") // PENDING | COMPLETED
+  assigneeId  String?
+  position    Int      @default(0)
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  activity SprintActivity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  assignee User?          @relation("SprintActivityTaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+
+  @@index([activityId, position])
+  @@map("sprint_activity_tasks")
 }
 
 /// Tracks last sent weekly digest per user (idempotency for the Monday job).

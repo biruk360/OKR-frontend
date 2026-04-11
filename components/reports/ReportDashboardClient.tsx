@@ -49,6 +49,8 @@ export interface ReportKrRow {
   ownerName: string
   ownerAvatar: string | null
   checkInCount: number
+  /** ACTIVE | DRAFT | ARCHIVED — drives the Active/Draft preset filters. */
+  status: string
 }
 
 export interface ReportObjectiveRow {
@@ -117,6 +119,7 @@ export default function ReportDashboardClient({
   const [quickOffTrack, setQuickOffTrack] = useState(false)
   const [quickAtRisk, setQuickAtRisk] = useState(false)
   const [quickNoCheckIn, setQuickNoCheckIn] = useState(false)
+  const [statusFilter, setStatusFilter] = useState<'all' | 'ACTIVE' | 'DRAFT'>('all')
   const [activePreset, setActivePreset] = useState<string>('all-key-results')
 
   // Honor ?filter=... from URL (e.g. dashboard "At a Glance" cards link in)
@@ -133,6 +136,7 @@ export default function ReportDashboardClient({
     setQuickOffTrack(false)
     setQuickAtRisk(false)
     setQuickNoCheckIn(false)
+    setStatusFilter('all')
   }
 
   function applyPreset(preset: string) {
@@ -163,13 +167,17 @@ export default function ReportDashboardClient({
         setQuickOwned(true)
         setQuickAtRisk(true)
         break
+      case 'active':
+        setStatusFilter('ACTIVE')
+        break
+      case 'draft':
+        setStatusFilter('DRAFT')
+        break
       case 'on-track':
       case 'pending':
-      case 'active':
-      case 'draft':
       case 'all-key-results':
       default:
-        // 'all-key-results' / 'active' / fallthrough — no extra flags
+        // no extra flags
         break
     }
   }
@@ -212,6 +220,7 @@ export default function ReportDashboardClient({
     if (quickOffTrack) list = list.filter((kr) => kr.displayStatus === 'off_track')
     if (quickAtRisk) list = list.filter((kr) => kr.displayStatus === 'at_risk')
     if (quickNoCheckIn) list = list.filter((kr) => kr.checkInCount === 0)
+    if (statusFilter !== 'all') list = list.filter((kr) => kr.status === statusFilter)
     if (confidenceFilter !== 'all') {
       list = list.filter((kr) => kr.confidence === confidenceFilter)
     }
@@ -233,6 +242,7 @@ export default function ReportDashboardClient({
     quickNoCheckIn,
     confidenceFilter,
     planStatus,
+    statusFilter,
     objRows,
     currentUserId,
   ])

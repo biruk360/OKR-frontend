@@ -14,6 +14,16 @@ out/
 # local SQLite (use seeds / migrations)
 *.db
 *.db-journal
+# Backup snapshots created by manual migrations — never commit
+dev.db.backup-*
+dev.db.pre-*
+prisma/dev.db.backup-*
+prisma/dev.db.pre-*
+prisma/shadow.db*
+
+# Throwaway diagnostic / migration helper scripts
+prisma/diag-*.ts
+prisma/inspect-tables.ts
 
 # debug / OS
 npm-debug.log*

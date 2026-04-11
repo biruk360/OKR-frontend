@@ -7,6 +7,7 @@ import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
 import { ObjectiveLevel } from '@/types'
 import ParentObjectiveSelector from './ParentObjectiveSelector'
+import { CHECK_IN_CADENCES, CHECK_IN_CADENCE_LABELS, normalizeCadence, type CheckInCadence } from '@/lib/check-in-cadence'
 
 interface EditObjectiveModalProps {
   isOpen: boolean
@@ -24,6 +25,7 @@ interface FormData {
   isPrivate?: boolean
   alignmentType: 'LOOSE' | 'STRICT_DEPENDENCY'
   rollupCalculation: 'NONE' | 'AVERAGE' | 'SUM'
+  checkInCadence: CheckInCadence
 }
 
 export default function EditObjectiveModal({ isOpen, onClose, objective }: EditObjectiveModalProps) {
@@ -59,6 +61,7 @@ export default function EditObjectiveModal({ isOpen, onClose, objective }: EditO
           objective.rollupCalculation === 'AVERAGE' || objective.rollupCalculation === 'SUM'
             ? objective.rollupCalculation
             : 'NONE',
+        checkInCadence: normalizeCadence(objective.checkInCadence),
       })
       fetchFormData()
     }
@@ -100,6 +103,7 @@ export default function EditObjectiveModal({ isOpen, onClose, objective }: EditO
           alignmentType: data.alignmentType,
           rollupCalculation:
             data.alignmentType === 'LOOSE' ? 'NONE' : data.rollupCalculation,
+          checkInCadence: normalizeCadence(data.checkInCadence),
         }),
       })
 
@@ -258,6 +262,23 @@ export default function EditObjectiveModal({ isOpen, onClose, objective }: EditO
                 className="mb-4"
               />
             )}
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Check-in cadence *
+              </label>
+              <select
+                {...register('checkInCadence', { required: true })}
+                className="input"
+              >
+                {CHECK_IN_CADENCES.map((c) => (
+                  <option key={c} value={c}>{CHECK_IN_CADENCE_LABELS[c]}</option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-gray-500">
+                Owner gets a reminder on the dashboard and via the Monday email digest.
+              </p>
+            </div>
 
             <div className="rounded-lg border border-gray-200 bg-gray-50/80 p-4 space-y-3">
               <p className="text-sm font-medium text-gray-800">Progress roll-up (aligned children)</p>

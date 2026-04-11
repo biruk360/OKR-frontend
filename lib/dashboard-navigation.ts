@@ -16,6 +16,7 @@ import {
   Network,
   Calendar,
   Key,
+  Layout,
 } from 'lucide-react'
 
 export interface NavItem {
@@ -45,6 +46,7 @@ export const navigationGroups: NavGroup[] = [
       { name: 'Goals', href: '/dashboard/goals', icon: Target },
       { name: 'My OKRs', href: '/dashboard/my-okrs', icon: User },
       { name: 'My Initiatives', href: '/dashboard/my-tasks', icon: CheckSquare },
+      { name: 'Sprints', href: '/dashboard/sprints', icon: Layout },
     ],
     defaultOpen: true,
   },
@@ -52,6 +54,7 @@ export const navigationGroups: NavGroup[] = [
     name: 'OKRs',
     icon: Target,
     items: [
+      { name: 'Plans', href: '/dashboard/plans', icon: FileText },
       { name: 'Company OKRs', href: '/dashboard/company-okrs', icon: Building2 },
       { name: 'Department OKRs', href: '/dashboard/department-okrs', icon: Users },
       { name: 'Strategy map', href: '/dashboard/alignment-map', icon: Network },

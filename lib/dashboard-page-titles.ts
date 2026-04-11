@@ -3,9 +3,11 @@ const EXACT: Record<string, string> = {
   '/dashboard/goals': 'Goals',
   '/dashboard/my-okrs': 'My OKRs',
   '/dashboard/my-tasks': 'My initiatives',
+  '/dashboard/sprints': 'Sprints',
   '/dashboard/company-okrs': 'Company OKRs',
   '/dashboard/department-okrs': 'Department OKRs',
   '/dashboard/alignment-map': 'Strategy map',
+  '/dashboard/plans': 'Plans',
   '/dashboard/objectives': 'Objectives',
   '/dashboard/progress': 'Progress tracking',
   '/dashboard/reports': 'Reports',
@@ -34,6 +36,7 @@ const PREFIX_FALLBACK: { prefix: string; title: string }[] = [
   { prefix: '/dashboard/key-results/', title: 'Key result' },
   { prefix: '/dashboard/objectives/', title: 'Objective' },
   { prefix: '/dashboard/org/users/', title: 'User profile' },
+  { prefix: '/dashboard/sprints/', title: 'Sprint' },
 ]
 
 export function getDashboardPageTitle(pathname: string | null): string {

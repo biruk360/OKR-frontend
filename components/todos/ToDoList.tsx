@@ -279,184 +279,156 @@ export default function ToDoList({
   const totalTodos = todos.length
   const completionPercentage = totalTodos > 0 ? Math.round((completedTodos / totalTodos) * 100) : 0
 
+  // Compact / Notion-style design: single-line rows, hover-revealed actions, no per-row card.
   const shellClass = cn(
-    variant === 'card' && 'mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200',
+    'notion-surface',
+    variant === 'card' && 'mt-4 rounded-md border border-[color:var(--notion-divider)] bg-white',
     variant === 'embedded' && 'mt-0'
   )
 
   const summaryRight = isLoading ? (
-    <span className="text-sm text-gray-400">Loading…</span>
+    <span className="notion-text-tertiary">Loading…</span>
   ) : totalTodos > 0 ? (
-    <span className="text-sm text-gray-600">
-      {completedTodos} of {totalTodos} completed
-      <span className="ml-2 text-blue-600 font-medium">({completionPercentage}%)</span>
+    <span className="notion-text-tertiary">
+      {completedTodos}/{totalTodos} done · {completionPercentage}%
     </span>
   ) : (
-    <span className="text-sm text-gray-500">No initiatives yet</span>
+    <span className="notion-text-tertiary">empty</span>
   )
 
   const toggleRow = (
     <button
       type="button"
       onClick={() => setExpanded((e) => !e)}
-      className={cn(
-        'flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-2.5 text-left transition-colors',
-        variant === 'card' && 'hover:bg-gray-100/80',
-        variant === 'embedded' && 'hover:bg-gray-50'
-      )}
+      className="flex w-full min-w-0 items-center gap-1.5 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-[color:var(--notion-hover)]"
       aria-expanded={expanded}
     >
       {expanded ? (
-        <ChevronDown className="h-5 w-5 shrink-0 text-gray-500" />
+        <ChevronDown className="h-3.5 w-3.5 shrink-0 text-[color:var(--notion-text-tertiary)]" />
       ) : (
-        <ChevronRight className="h-5 w-5 shrink-0 text-gray-500" />
+        <ChevronRight className="h-3.5 w-3.5 shrink-0 text-[color:var(--notion-text-tertiary)]" />
       )}
-      <span className="text-base font-semibold text-gray-900">Initiatives</span>
+      <span className="text-[13px] font-semibold text-[color:var(--notion-text)]">Initiatives</span>
+      {totalTodos > 0 && (
+        <span className="ml-1 inline-flex h-4 min-w-[18px] items-center justify-center rounded-sm bg-[color:var(--notion-hover)] px-1 text-[10px] font-semibold text-[color:var(--notion-text-secondary)]">
+          {totalTodos}
+        </span>
+      )}
       <span className="ml-auto min-w-0 shrink truncate">{summaryRight}</span>
     </button>
   )
 
   const listBody =
     isLoading && expanded ? (
-      <div className="animate-pulse pt-2">
-        <div className="h-4 bg-gray-200 rounded w-1/3 mb-3" />
-        <div className="space-y-2">
-          <div className="h-3 bg-gray-200 rounded w-3/4" />
-          <div className="h-3 bg-gray-200 rounded w-1/2" />
-        </div>
+      <div className="px-2 py-3 animate-pulse">
+        <div className="h-3 w-1/3 bg-[color:var(--notion-divider)] rounded mb-2" />
+        <div className="h-3 w-3/4 bg-[color:var(--notion-divider)] rounded mb-1" />
+        <div className="h-3 w-1/2 bg-[color:var(--notion-divider)] rounded" />
       </div>
     ) : (
-      <>
-        <AddToDo onAddTodo={handleAddTodo} />
+      <div className="px-1 pb-1">
+        <div className="px-1 py-1">
+          <AddToDo onAddTodo={handleAddTodo} />
+        </div>
 
         {todos.length > 0 ? (
-          <div className="mt-4 space-y-2">
-            {todos.map((todo) => (
-              <div
-                key={todo.id}
-                className={`flex items-center space-x-3 p-3 bg-white rounded-md border ${
-                  todo.status === 'COMPLETED'
-                    ? 'border-green-200 bg-green-50'
-                    : 'border-gray-200'
-                }`}
-              >
-                <button
-                  onClick={() => handleToggleTodo(todo.id, todo.status)}
-                  className={`flex-shrink-0 ${
-                    todo.status === 'COMPLETED'
-                      ? 'text-green-600 hover:text-green-700'
-                      : 'text-gray-400 hover:text-gray-600'
-                  }`}
-                  title={todo.status === 'COMPLETED' ? 'Mark as pending' : 'Mark as completed'}
+          <ul className="">
+            {todos.map((todo) => {
+              const isDone = todo.status === 'COMPLETED'
+              const dueStatus = todo.dueDate ? getDueDateStatus(todo.dueDate) : 'none'
+              return (
+                <li
+                  key={todo.id}
+                  className="group flex h-8 items-center gap-2 rounded-sm px-2 hover:bg-[color:var(--notion-hover)]"
                 >
-                  {todo.status === 'COMPLETED' ? (
-                    <CheckSquare className="h-5 w-5" />
-                  ) : (
-                    <Square className="h-5 w-5" />
-                  )}
-                </button>
-
-                <div className="flex-1 min-w-0">
-                  <p
-                    className={`text-sm ${
-                      todo.status === 'COMPLETED' ? 'text-gray-500 line-through' : 'text-gray-900'
-                    }`}
+                  <input
+                    type="checkbox"
+                    checked={isDone}
+                    onChange={() => handleToggleTodo(todo.id, todo.status)}
+                    className="notion-checkbox"
+                    aria-label={isDone ? 'Mark as pending' : 'Mark as completed'}
+                  />
+                  <span
+                    className={cn(
+                      'min-w-0 flex-1 truncate text-[13px]',
+                      isDone
+                        ? 'text-[color:var(--notion-text-tertiary)] line-through'
+                        : 'text-[color:var(--notion-text)]'
+                    )}
+                    title={todo.title}
                   >
                     {todo.title}
-                  </p>
-                  {todo.description && (
-                    <p
-                      className={`text-xs mt-1 ${
-                        todo.status === 'COMPLETED' ? 'text-gray-400 line-through' : 'text-gray-600'
-                      }`}
-                    >
-                      {todo.description}
-                    </p>
+                  </span>
+
+                  {/* Inline metadata: assignee + due date */}
+                  {todo.assignee && (
+                    <span className="notion-avatar" title={todo.assignee.name}>
+                      {todo.assignee.avatar ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={todo.assignee.avatar} alt="" />
+                      ) : (
+                        todo.assignee.name?.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase()
+                      )}
+                    </span>
                   )}
-                  <div className="flex items-center space-x-2 mt-1">
-                    <div className="flex items-center space-x-1">
-                      <User className="h-3 w-3 text-gray-400" />
-                      <span className="text-xs text-gray-500">
-                        {todo.assignee ? `Assigned to: ${todo.assignee.name}` : 'Unassigned'}
-                      </span>
-                    </div>
-                    {todo.dueDate && (
-                      <div className="flex items-center space-x-1">
-                        <Calendar className="h-3 w-3 text-gray-400" />
-                        <span
-                          className={`text-xs font-medium ${
-                            getDueDateStatus(todo.dueDate) === 'overdue'
-                              ? 'text-red-600'
-                              : getDueDateStatus(todo.dueDate) === 'due-today'
-                                ? 'text-yellow-600'
-                                : getDueDateStatus(todo.dueDate) === 'due-tomorrow'
-                                  ? 'text-orange-600'
-                                  : 'text-green-600'
-                          }`}
-                        >
-                          Due:{' '}
-                          {new Date(todo.dueDate).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                          })}
-                        </span>
-                      </div>
-                    )}
-                    {todo.completedAt && (
-                      <span className="text-xs text-green-600">
-                        Completed: {new Date(todo.completedAt).toLocaleDateString()}
-                      </span>
-                    )}
-                  </div>
-                </div>
+                  {todo.dueDate && (
+                    <span
+                      className="notion-pill"
+                      data-tone={
+                        dueStatus === 'overdue' ? 'red' :
+                        dueStatus === 'due-today' ? 'yellow' :
+                        dueStatus === 'due-tomorrow' ? 'yellow' :
+                        'gray'
+                      }
+                    >
+                      {new Date(todo.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </span>
+                  )}
 
-                <div className="flex items-center space-x-1">
-                  <EditTodoButton
-                    todo={todo}
-                    onSave={(title, description) => handleEditTodo(todo.id, title, description)}
-                  />
-                  <SetDueDateButton
-                    todo={todo}
-                    onSetDueDate={(dueDate) => handleSetDueDate(todo.id, dueDate)}
-                  />
-                  <AssignUserButton
-                    todo={todo}
-                    users={users}
-                    onAssign={(userId) => handleAssignTodo(todo.id, userId)}
-                  />
-
-                  <DeleteTodoButton todo={todo} onDelete={() => handleDeleteTodo(todo.id)} />
-                </div>
-              </div>
-            ))}
-          </div>
+                  {/* Hover-revealed actions */}
+                  <span className="ml-1 hidden items-center gap-0.5 group-hover:flex">
+                    <EditTodoButton
+                      todo={todo}
+                      onSave={(title, description) => handleEditTodo(todo.id, title, description)}
+                    />
+                    <SetDueDateButton
+                      todo={todo}
+                      onSetDueDate={(dueDate) => handleSetDueDate(todo.id, dueDate)}
+                    />
+                    <AssignUserButton
+                      todo={todo}
+                      users={users}
+                      onAssign={(userId) => handleAssignTodo(todo.id, userId)}
+                    />
+                    <DeleteTodoButton todo={todo} onDelete={() => handleDeleteTodo(todo.id)} />
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
         ) : (
-          <div className="mt-4 text-center py-6">
-            <p className="text-gray-500 text-sm">No initiatives yet. Add one above to get started!</p>
+          <div className="px-2 py-2 text-[12px] text-[color:var(--notion-text-tertiary)]">
+            No initiatives yet — add one above.
           </div>
         )}
 
         {totalTodos > 0 && (
-          <div className="mt-4">
-            <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
-              <span>Progress</span>
-              <span>{completionPercentage}%</span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
+          <div className="mt-2 px-2 pb-1">
+            <div className="notion-progress">
               <div
-                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                className="notion-progress-fill"
                 style={{ width: `${completionPercentage}%` }}
               />
             </div>
           </div>
         )}
-      </>
+      </div>
     )
 
   return (
     <div className={shellClass}>
-      {toggleRow}
-      {expanded && <div className={cn(variant === 'card' && 'pt-1')}>{listBody}</div>}
+      <div className="px-1 pt-1">{toggleRow}</div>
+      {expanded && <div>{listBody}</div>}
     </div>
   )
 }

@@ -61,6 +61,39 @@ jobs:
       DEPLOY_BRANCH: ${{ vars.VPS_DEPLOY_BRANCH || 'main' }}
       VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT || '22' }}
     steps:
+      # Fail fast with a clear message if any required secret is missing or empty,
+      # and surface safe diagnostics (lengths only — GitHub masks secret content
+      # in logs so lengths are the only thing we can inspect).
+      - name: Assert required secrets are set
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USERNAME: ${{ secrets.VPS_USERNAME }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_APP_DIR: ${{ secrets.VPS_APP_DIR }}
+        run: |
+          fail=0
+          [ -n "$VPS_HOST" ] || { echo "::error::VPS_HOST secret is empty or unset"; fail=1; }
+          [ -n "$VPS_USERNAME" ] || { echo "::error::VPS_USERNAME secret is empty or unset"; fail=1; }
+          [ -n "$VPS_SSH_KEY" ] || { echo "::error::VPS_SSH_KEY secret is empty or unset"; fail=1; }
+          [ -n "$VPS_APP_DIR" ] || { echo "::error::VPS_APP_DIR secret is empty or unset"; fail=1; }
+          [ "$fail" = "0" ] || exit 1
+          echo "VPS_HOST length: ${#VPS_HOST}"
+          echo "VPS_USERNAME length: ${#VPS_USERNAME}"
+          echo "VPS_SSH_KEY length: ${#VPS_SSH_KEY} (expected ~400 for ed25519)"
+          echo "VPS_APP_DIR length: ${#VPS_APP_DIR}"
+          # Key header/footer: these are not sensitive, they're standard OpenSSH markers.
+          first=$(printf '%s' "$VPS_SSH_KEY" | head -1)
+          last=$(printf '%s' "$VPS_SSH_KEY" | tail -1)
+          case "$first" in
+            *"BEGIN OPENSSH PRIVATE KEY"*) echo "VPS_SSH_KEY header: OK (OpenSSH)" ;;
+            *"BEGIN RSA PRIVATE KEY"*) echo "VPS_SSH_KEY header: OK (RSA PEM)" ;;
+            *) echo "::warning::VPS_SSH_KEY header looks wrong: $first" ;;
+          esac
+          case "$last" in
+            *"END OPENSSH PRIVATE KEY"*|*"END RSA PRIVATE KEY"*) echo "VPS_SSH_KEY footer: OK" ;;
+            *) echo "::warning::VPS_SSH_KEY footer looks wrong: $last" ;;
+          esac
+
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.0.3
         with:

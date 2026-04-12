@@ -49,8 +49,22 @@ model User {
   sprintActivityComments SprintActivityComment[] @relation("SprintActivityCommentAuthor")
   assignedSprintActivityTasks SprintActivityTask[] @relation("SprintActivityTaskAssignee")
   emailDigestSent     EmailDigestState?
+  initiativeUpdates   InitiativeUpdate[]  @relation("InitiativeUpdateAuthor")
+  userPreferences     UserPreference?
 
   @@map("users")
+}
+
+/// Stores per-user UI preferences (sidebar vs modal for todo view, etc).
+model UserPreference {
+  userId           String   @id
+  todoViewMode     String   @default("modal") // "modal" | "sidebar"
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
 }
 
 model Department {
@@ -232,9 +246,52 @@ model Todo {
   keyResult KeyResult? @relation(fields: [keyResultId], references: [id], onDelete: Cascade)
   objective Objective? @relation("TodoObjective", fields: [objectiveId], references: [id], onDelete: SetNull)
 
+  initiativeUpdates InitiativeUpdate[]
+
   @@index([assigneeId, status])
   @@index([creatorId, status])
   @@map("initiatives")
+}
+
+/// Mandatory daily update on an initiative. One row per (initiative, date).
+/// The report page renders a day-by-day grid from these rows.
+model InitiativeUpdate {
+  id           String   @id @default(cuid())
+  initiativeId String
+  authorId     String
+  updateDate   String   // YYYY-MM-DD bucket
+  content      String
+  status       String?  // optional status snapshot at time of update
+  blockers     String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  initiative Todo @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+  author     User @relation("InitiativeUpdateAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@unique([initiativeId, updateDate])
+  @@index([updateDate])
+  @@index([authorId, updateDate])
+  @@map("initiative_updates")
+}
+
+/// Bi-weekly auto-calculated confidence snapshot for an objective or key result.
+/// Stored once per entity per calculation period so the system keeps a history
+/// of confidence transitions over time.
+model ConfidenceSnapshot {
+  id           String   @id @default(cuid())
+  entityType   String   // OBJECTIVE | KEY_RESULT
+  entityId     String
+  periodStart  String   // YYYY-MM-DD (the first day of the bi-weekly period)
+  confidence   String   // ON_TRACK | AT_RISK | OFF_TRACK
+  score        Float    // 0-100 computed score
+  factors      String?  // JSON: { progressPct, timeElapsedPct, velocity, ... }
+  previousConf String?  // previous confidence for delta detection
+  createdAt    DateTime @default(now())
+
+  @@unique([entityType, entityId, periodStart])
+  @@index([entityType, periodStart])
+  @@map("confidence_snapshots")
 }
 
 model Comment {

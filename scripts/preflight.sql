@@ -39,3 +39,7 @@ BEGIN
              ON DELETE SET NULL ON UPDATE CASCADE';
   END IF;
 END $$;
+
+-- Note: initiative_updates, confidence_snapshots, and user_preferences tables
+-- are created automatically by `prisma db push` (new tables, no destructive changes).
+-- Only destructive pre-operations (renames, dropping NOT NULL) need explicit preflight.

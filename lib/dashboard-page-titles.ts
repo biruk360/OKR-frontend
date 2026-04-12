@@ -12,6 +12,7 @@ const EXACT: Record<string, string> = {
   '/dashboard/objectives': 'Objectives',
   '/dashboard/progress': 'Progress tracking',
   '/dashboard/reports': 'Reports',
+  '/dashboard/initiative-report': 'Initiative Report',
   '/dashboard/analytics': 'Analytics',
   '/dashboard/activity': 'Activity feed',
   '/dashboard/comments': 'Comments',

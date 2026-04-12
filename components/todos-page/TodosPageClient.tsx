@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 import {
@@ -14,7 +14,10 @@ import {
   ChevronDown,
   User as UserIcon,
   Trash2,
+  PanelRight,
+  Maximize2,
 } from 'lucide-react'
+import TodoDetailPanel from './TodoDetailPanel'
 
 export interface UserOption {
   id: string
@@ -80,6 +83,28 @@ export default function TodosPageClient({
   const [scopeFilter, setScopeFilter] = useState<ScopeFilter>('assigned')
   const [linkFilter, setLinkFilter] = useState<LinkFilter>('all')
   const [showCreate, setShowCreate] = useState(false)
+  const [openTodoId, setOpenTodoId] = useState<string | null>(null)
+  const [viewMode, setViewMode] = useState<'modal' | 'sidebar'>('modal')
+
+  // Load user preference for view mode
+  useEffect(() => {
+    fetch('/api/user-preferences')
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success && d.preferences?.todoViewMode) setViewMode(d.preferences.todoViewMode)
+      })
+      .catch(() => {})
+  }, [])
+
+  function toggleViewMode() {
+    const next = viewMode === 'modal' ? 'sidebar' : 'modal'
+    setViewMode(next)
+    fetch('/api/user-preferences', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ todoViewMode: next }),
+    }).catch(() => {})
+  }
 
   // ---------- Filter pipeline ----------
   const filteredRows = useMemo(() => {
@@ -195,13 +220,24 @@ export default function TodosPageClient({
               {counts.dueToday > 0 && <span className="text-[color:var(--atlas-warning)]"> · {counts.dueToday} due today</span>}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowCreate(true)}
-            className="atlas-btn atlas-btn-primary"
-          >
-            <Plus className="h-3.5 w-3.5" /> Create to-do
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={toggleViewMode}
+              className="atlas-btn atlas-btn-ghost"
+              title={`View mode: ${viewMode}. Click to switch.`}
+            >
+              {viewMode === 'modal' ? <Maximize2 className="h-3.5 w-3.5" /> : <PanelRight className="h-3.5 w-3.5" />}
+              {viewMode === 'modal' ? 'Modal' : 'Sidebar'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowCreate(true)}
+              className="atlas-btn atlas-btn-primary"
+            >
+              <Plus className="h-3.5 w-3.5" /> Create to-do
+            </button>
+          </div>
         </div>
 
         {/* Filter bar */}
@@ -274,12 +310,37 @@ export default function TodosPageClient({
                   row={row}
                   onToggle={() => toggleComplete(row)}
                   onDelete={() => deleteRow(row.id)}
+                  onOpen={() => setOpenTodoId(row.id)}
                 />
               ))}
             </tbody>
           </table>
         </div>
       </div>
+
+      {openTodoId && (() => {
+        const todo = rows.find((r) => r.id === openTodoId)
+        if (!todo) return null
+        return (
+          <TodoDetailPanel
+            todo={todo}
+            mode={viewMode}
+            users={users}
+            keyResults={keyResults}
+            objectives={objectives}
+            currentUserId={currentUserId}
+            onClose={() => setOpenTodoId(null)}
+            onUpdate={(patch) => {
+              setRows((prev) => prev.map((r) => (r.id === openTodoId ? { ...r, ...patch } : r)))
+            }}
+            onDelete={() => {
+              setRows((prev) => prev.filter((r) => r.id !== openTodoId))
+              setOpenTodoId(null)
+            }}
+            onToggleMode={toggleViewMode}
+          />
+        )
+      })()}
 
       {showCreate && (
         <CreateTodoModal
@@ -301,10 +362,12 @@ function TodoTableRow({
   row,
   onToggle,
   onDelete,
+  onOpen,
 }: {
   row: TodoRow
   onToggle: () => void
   onDelete: () => void
+  onOpen: () => void
 }) {
   const isDone = row.status === 'COMPLETED'
   const link = row.keyResult || row.objective
@@ -312,8 +375,8 @@ function TodoTableRow({
   const overdue = !isDone && row.dueDate && new Date(row.dueDate).getTime() < Date.now()
 
   return (
-    <tr className="group">
-      <td>
+    <tr className="group cursor-pointer" onClick={onOpen}>
+      <td onClick={(e) => e.stopPropagation()}>
         <input
           type="checkbox"
           checked={isDone}

@@ -45,7 +45,7 @@ export const navigationGroups: NavGroup[] = [
     items: [
       { name: 'Goals', href: '/dashboard/goals', icon: Target },
       { name: 'My OKRs', href: '/dashboard/my-okrs', icon: User },
-      { name: 'My Initiatives', href: '/dashboard/my-tasks', icon: CheckSquare },
+      { name: 'To-dos', href: '/dashboard/todos', icon: CheckSquare },
       { name: 'Sprints', href: '/dashboard/sprints', icon: Layout },
     ],
     defaultOpen: true,

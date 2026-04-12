@@ -138,6 +138,8 @@ export default async function TeamProfilePage({ params }: PageProps) {
 
   const visibleTodos: typeof teamTodosRaw = []
   for (const t of teamTodosRaw) {
+    // Team view only surfaces KR-linked todos scoped to the team's department.
+    if (!t.keyResult) continue
     const obj = t.keyResult.objective
     if (obj.departmentId !== department.id) continue
     const { canView } = await canViewObjective(
@@ -407,7 +409,7 @@ export default async function TeamProfilePage({ params }: PageProps) {
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-gray-900">{t.title}</p>
                         <p className="text-xs text-gray-500">
-                          {t.assignee.name} · {t.keyResult.objective.title}
+                          {t.assignee.name} · {t.keyResult?.objective.title ?? 'Personal to-do'}
                         </p>
                       </div>
                       <span className="text-xs text-gray-500 shrink-0 capitalize">

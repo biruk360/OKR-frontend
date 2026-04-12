@@ -47,22 +47,27 @@ export async function PATCH(
       )
     }
 
+    // Permission: creator/assignee can always edit their own todo. If the todo is
+    // linked to a KR, KR/objective managers can also edit.
     const kr = existingTodo.keyResult
-    const obj = kr.objective
-    const canManageKr = await canEditKeyResultWithObjectiveContext(
-      session.user.role as UserRole,
-      session.user.id,
-      { ownerId: kr.ownerId, objectiveId: kr.objectiveId },
-      {
-        level: obj.level,
-        ownerId: obj.ownerId,
-        departmentId: obj.departmentId,
-      }
-    )
+    let canManageKr = false
+    if (kr) {
+      canManageKr = await canEditKeyResultWithObjectiveContext(
+        session.user.role as UserRole,
+        session.user.id,
+        { ownerId: kr.ownerId, objectiveId: kr.objectiveId },
+        {
+          level: kr.objective.level,
+          ownerId: kr.objective.ownerId,
+          departmentId: kr.objective.departmentId,
+        }
+      )
+    }
     const hasAccess =
       session.user.id === existingTodo.assigneeId ||
       session.user.id === existingTodo.creatorId ||
-      canManageKr
+      canManageKr ||
+      session.user.role === 'ADMIN'
 
     if (!hasAccess) {
       return NextResponse.json(
@@ -96,7 +101,9 @@ export async function PATCH(
     if (description !== undefined && description !== existingTodo.description) initiativeChanges.description = { from: existingTodo.description, to: description }
     if (status !== undefined && status !== existingTodo.status) initiativeChanges.status = { from: existingTodo.status, to: status }
 
-    if (Object.keys(initiativeChanges).length > 0) {
+    // Only record KR activity when the todo is actually linked to a KR. Standalone
+    // todo changes don't belong in any KR's activity log.
+    if (Object.keys(initiativeChanges).length > 0 && existingTodo.keyResult) {
       await recordActivity({
         entityType: 'KEY_RESULT',
         keyResultId: existingTodo.keyResultId,
@@ -164,19 +171,23 @@ export async function DELETE(
     }
 
     const kr = existingTodo.keyResult
-    const obj = kr.objective
-    const canManageKr = await canEditKeyResultWithObjectiveContext(
-      session.user.role as UserRole,
-      session.user.id,
-      { ownerId: kr.ownerId, objectiveId: kr.objectiveId },
-      {
-        level: obj.level,
-        ownerId: obj.ownerId,
-        departmentId: obj.departmentId,
-      }
-    )
+    let canManageKr = false
+    if (kr) {
+      canManageKr = await canEditKeyResultWithObjectiveContext(
+        session.user.role as UserRole,
+        session.user.id,
+        { ownerId: kr.ownerId, objectiveId: kr.objectiveId },
+        {
+          level: kr.objective.level,
+          ownerId: kr.objective.ownerId,
+          departmentId: kr.objective.departmentId,
+        }
+      )
+    }
     const hasAccess =
-      session.user.id === existingTodo.creatorId || canManageKr
+      session.user.id === existingTodo.creatorId ||
+      canManageKr ||
+      session.user.role === 'ADMIN'
 
     if (!hasAccess) {
       return NextResponse.json(
@@ -190,14 +201,16 @@ export async function DELETE(
       where: { id: todoId }
     })
 
-    await recordActivity({
-      entityType: 'KEY_RESULT',
-      keyResultId: existingTodo.keyResultId,
-      objectiveId: existingTodo.keyResult.objectiveId,
-      action: 'INITIATIVE_REMOVED',
-      actorId: session.user.id,
-      metadata: { initiativeId: todoId, title: existingTodo.title },
-    })
+    if (existingTodo.keyResult) {
+      await recordActivity({
+        entityType: 'KEY_RESULT',
+        keyResultId: existingTodo.keyResultId,
+        objectiveId: existingTodo.keyResult.objectiveId,
+        action: 'INITIATIVE_REMOVED',
+        actorId: session.user.id,
+        metadata: { initiativeId: todoId, title: existingTodo.title },
+      })
+    }
 
     return NextResponse.json({
       success: true,

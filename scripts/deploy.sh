@@ -53,14 +53,8 @@ if [ -f .env ]; then
 fi
 
 if [ -n "${DATABASE_URL:-}" ] && command -v psql >/dev/null 2>&1; then
-  echo "[deploy] running schema preflight..."
-  PREFLIGHT_SQL='DO $PRE$ BEGIN
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='"'"'public'"'"' AND table_name='"'"'todos'"'"')
-       AND NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='"'"'public'"'"' AND table_name='"'"'initiatives'"'"') THEN
-      EXECUTE '"'"'ALTER TABLE "public"."todos" RENAME TO "initiatives"'"'"';
-    END IF;
-  END $PRE$;'
-  if ! psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "$PREFLIGHT_SQL"; then
+  echo "[deploy] running schema preflight (scripts/preflight.sql)..."
+  if ! psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$APP_DIR/scripts/preflight.sql"; then
     echo "[deploy] preflight failed — aborting before db push"
     exit 1
   fi

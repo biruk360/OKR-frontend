@@ -96,16 +96,20 @@ export default async function ReportsPage() {
           },
         })
 
-  const todoRows: ReportTodoRow[] = todos.map((t) => ({
-    id: t.id,
-    title: t.title,
-    status: t.status,
-    keyResultId: t.keyResultId,
-    krTitle: t.keyResult.title,
-    objectiveTitle: t.keyResult.objective.title,
-    assigneeName: t.assignee.name,
-    dueDate: t.dueDate ? t.dueDate.toISOString() : null,
-  }))
+  // Report page only surfaces KR-linked todos (the query filters keyResultId IN krIds),
+  // so `t.keyResult` is guaranteed present here — fall through defensively if not.
+  const todoRows: ReportTodoRow[] = todos
+    .filter((t) => t.keyResultId && t.keyResult)
+    .map((t) => ({
+      id: t.id,
+      title: t.title,
+      status: t.status,
+      keyResultId: t.keyResultId as string,
+      krTitle: t.keyResult!.title,
+      objectiveTitle: t.keyResult!.objective.title,
+      assigneeName: t.assignee.name,
+      dueDate: t.dueDate ? t.dueDate.toISOString() : null,
+    }))
 
   return (
     <ReportDashboardClient

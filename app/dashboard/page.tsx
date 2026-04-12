@@ -20,17 +20,17 @@ export default async function DashboardPage() {
   const glanceCounts = await getGlanceCounts(session.user.id)
 
   return (
-    <div className="space-y-8">
+    <div className="atlas-surface -m-3 sm:-m-6 min-h-full p-4 sm:p-6 space-y-4">
       <div>
-        <p className="text-body font-medium text-ink-primary">Welcome back, {session.user.name}!</p>
-        <p className="mt-1 text-body-sm text-ink-secondary">Here&apos;s what&apos;s happening with your OKRs today.</p>
+        <h1 className="atlas-h1">Welcome back, {session.user.name}</h1>
+        <p className="atlas-text-tertiary mt-0.5">Here&apos;s what&apos;s happening with your OKRs today.</p>
       </div>
 
       <AtAGlanceRow counts={glanceCounts} />
 
       <DashboardStats stats={stats} />
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-8">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         <RecentObjectives objectives={recentObjectives} />
         <ProgressOverview userId={session.user.id} />
       </div>

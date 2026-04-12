@@ -149,6 +149,7 @@ model Objective {
   activityLogs     ActivityLog[]
   views            ObjectiveView[]
   sprintActivities SprintActivity[]  @relation("SprintActivityObjective")
+  todos            Todo[]            @relation("TodoObjective")
 
   @@map("objectives")
 }
@@ -203,9 +204,11 @@ model KeyResultCheckIn {
   @@map("key_result_check_ins")
 }
 
-/// Initiative (formerly "Todo") — actionable work item linked to a Key Result.
-/// Prisma model is still named `Todo` to keep code identifiers stable; the underlying
-/// table is `initiatives` and all user-facing labels render as "Initiative".
+/// Initiative / To-do — actionable work item.
+/// Can be standalone (personal to-do), linked to a Key Result, or linked to an
+/// Objective. The Prisma model name stays `Todo` so existing code paths keep
+/// working; the underlying table is `initiatives` and user-facing labels say
+/// "To-do" on the dedicated page and "Initiative" when shown under a KR.
 model Todo {
   id          String     @id @default(cuid())
   title       String
@@ -215,15 +218,22 @@ model Todo {
   completedAt DateTime?
   assigneeId  String
   creatorId   String
-  keyResultId String
+  /// Optional link to a Key Result — when set, the todo contributes toward KR work.
+  keyResultId String?
+  /// Optional link to an Objective — use when the work spans a whole objective
+  /// rather than a single KR. Mutually informative with keyResultId; both can be set.
+  objectiveId String?
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
   // Relationships
-  assignee  User      @relation("TodoAssignee", fields: [assigneeId], references: [id])
-  creator   User      @relation("TodoCreator", fields: [creatorId], references: [id])
-  keyResult KeyResult @relation(fields: [keyResultId], references: [id], onDelete: Cascade)
+  assignee  User       @relation("TodoAssignee", fields: [assigneeId], references: [id])
+  creator   User       @relation("TodoCreator", fields: [creatorId], references: [id])
+  keyResult KeyResult? @relation(fields: [keyResultId], references: [id], onDelete: Cascade)
+  objective Objective? @relation("TodoObjective", fields: [objectiveId], references: [id], onDelete: SetNull)
 
+  @@index([assigneeId, status])
+  @@index([creatorId, status])
   @@map("initiatives")
 }
 

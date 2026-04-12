@@ -58,9 +58,10 @@ export default async function PlansListPage() {
       })
     : []
   // Map keyResultId -> initiative count, then per objective sum.
+  // Standalone todos (keyResultId = null) don't roll up to a plan; skip them.
   const krIdToInitiativeCount = new Map<string, number>()
   for (const row of initiativeRows) {
-    krIdToInitiativeCount.set(row.keyResultId, row._count._all)
+    if (row.keyResultId) krIdToInitiativeCount.set(row.keyResultId, row._count._all)
   }
 
   // Closed initiatives per objective (status COMPLETED).
@@ -76,7 +77,7 @@ export default async function PlansListPage() {
     : []
   const krIdToClosed = new Map<string, number>()
   for (const row of closedInitiativeRows) {
-    krIdToClosed.set(row.keyResultId, row._count._all)
+    if (row.keyResultId) krIdToClosed.set(row.keyResultId, row._count._all)
   }
 
   // We also need keyResultId -> objectiveId so we can roll up per-objective.

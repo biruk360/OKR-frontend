@@ -15,8 +15,8 @@ interface ProgressData {
   keyResults: number
 }
 
-const CHART_PRIMARY = '#007AFF'
-const AXIS = '#8E8E93'
+const CHART_PRIMARY = '#0052cc'
+const AXIS = '#6b778c'
 
 export default function ProgressOverview({ userId }: ProgressOverviewProps) {
   const [progressData, setProgressData] = useState<ProgressData[]>([])
@@ -52,13 +52,15 @@ export default function ProgressOverview({ userId }: ProgressOverviewProps) {
 
   if (isLoading) {
     return (
-      <div className="card p-6">
-        <h3 className="mb-4 text-section-title text-ink-primary">Progress Overview</h3>
-        <div className="space-y-3">
-          <div className="skeleton h-8 w-24" />
-          <div className="skeleton h-64 w-full rounded-card-lg" />
+      <section className="atlas-card">
+        <header className="px-3 py-2 border-b border-[color:var(--atlas-n30)]">
+          <h3 className="atlas-eyebrow">Progress overview</h3>
+        </header>
+        <div className="p-3 space-y-2">
+          <div className="skeleton h-6 w-20" />
+          <div className="skeleton h-48 w-full" />
         </div>
-      </div>
+      </section>
     )
   }
 
@@ -67,30 +69,38 @@ export default function ProgressOverview({ userId }: ProgressOverviewProps) {
   const progressChange = latestProgress - previousProgress
 
   return (
-    <div className="card p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-section-title text-ink-primary">Progress Overview</h3>
-        <div className="flex items-center gap-2">
-          {trend === 'up' && <TrendingUp className="h-4 w-4 text-success-600" strokeWidth={2} />}
-          {trend === 'down' && <TrendingDown className="h-4 w-4 text-danger-500" strokeWidth={2} />}
-          {trend === 'stable' && <Minus className="h-4 w-4 text-ink-secondary" strokeWidth={2} />}
+    <section className="atlas-card">
+      <header className="flex items-center justify-between px-3 py-2 border-b border-[color:var(--atlas-n30)]">
+        <h3 className="atlas-eyebrow">Progress overview</h3>
+        <div className="flex items-center gap-1">
+          {trend === 'up' && <TrendingUp className="h-3 w-3 text-[color:var(--atlas-success)]" strokeWidth={2} />}
+          {trend === 'down' && <TrendingDown className="h-3 w-3 text-[color:var(--atlas-danger)]" strokeWidth={2} />}
+          {trend === 'stable' && <Minus className="h-3 w-3 text-[color:var(--atlas-n100)]" strokeWidth={2} />}
           <span
-            className={`text-body-sm font-medium ${
-              trend === 'up' ? 'text-success-700' : trend === 'down' ? 'text-danger-600' : 'text-ink-secondary'
+            className={`text-[11px] font-medium ${
+              trend === 'up'
+                ? 'text-[color:var(--atlas-success)]'
+                : trend === 'down'
+                ? 'text-[color:var(--atlas-danger)]'
+                : 'text-[color:var(--atlas-n100)]'
             }`}
           >
             {progressChange > 0 ? '+' : ''}
             {progressChange.toFixed(1)}%
           </span>
         </div>
+      </header>
+
+      <div className="px-3 pt-3">
+        <div className="text-[24px] font-semibold text-[color:var(--atlas-n800)] leading-none">
+          {latestProgress.toFixed(1)}%
+        </div>
+        <div className="text-[11px] text-[color:var(--atlas-n100)] mt-0.5">
+          Average progress across all objectives
+        </div>
       </div>
 
-      <div className="mb-4">
-        <div className="text-display text-ink-primary">{latestProgress.toFixed(1)}%</div>
-        <div className="text-body-sm text-ink-secondary">Average progress across all objectives</div>
-      </div>
-
-      <div className="h-64">
+      <div className="h-[180px] px-1">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={progressData} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
             <XAxis
@@ -98,7 +108,7 @@ export default function ProgressOverview({ userId }: ProgressOverviewProps) {
               stroke={AXIS}
               tickLine={false}
               axisLine={false}
-              fontSize={12}
+              fontSize={11}
               tickFormatter={(value) =>
                 new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
               }
@@ -107,19 +117,20 @@ export default function ProgressOverview({ userId }: ProgressOverviewProps) {
               stroke={AXIS}
               tickLine={false}
               axisLine={false}
-              fontSize={12}
+              fontSize={11}
               domain={[0, 100]}
               tickFormatter={(value) => `${value}%`}
             />
             <Tooltip
               contentStyle={{
                 backgroundColor: '#FFFFFF',
-                border: 'none',
-                borderRadius: '12px',
-                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.08)',
+                border: '1px solid #dfe1e6',
+                borderRadius: '6px',
+                boxShadow: '0 4px 8px -2px rgba(9,30,66,0.25)',
+                fontSize: '12px',
               }}
-              labelStyle={{ color: '#1D1D1F', fontWeight: 600 }}
-              itemStyle={{ color: '#1D1D1F' }}
+              labelStyle={{ color: '#172b4d', fontWeight: 600 }}
+              itemStyle={{ color: '#172b4d' }}
               labelFormatter={(value) =>
                 new Date(value).toLocaleDateString('en-US', {
                   month: 'long',
@@ -137,27 +148,31 @@ export default function ProgressOverview({ userId }: ProgressOverviewProps) {
               dataKey="progress"
               stroke={CHART_PRIMARY}
               strokeWidth={2}
-              dot={{ fill: CHART_PRIMARY, strokeWidth: 0, r: 4 }}
-              activeDot={{ r: 6, stroke: CHART_PRIMARY, strokeWidth: 2, fill: '#fff' }}
+              dot={{ fill: CHART_PRIMARY, strokeWidth: 0, r: 3 }}
+              activeDot={{ r: 5, stroke: CHART_PRIMARY, strokeWidth: 2, fill: '#fff' }}
             />
           </LineChart>
         </ResponsiveContainer>
       </div>
 
-      <div className="mt-6 grid grid-cols-2 gap-6 border-t border-ink-secondary/10 pt-6 text-center">
-        <div>
-          <div className="text-section-title text-ink-primary">
+      <div className="grid grid-cols-2 divide-x divide-[color:var(--atlas-n20)] border-t border-[color:var(--atlas-n30)]">
+        <div className="px-3 py-2">
+          <div className="text-[18px] font-semibold text-[color:var(--atlas-n800)] leading-none">
             {progressData[progressData.length - 1]?.objectives || 0}
           </div>
-          <div className="text-body-sm text-ink-secondary">Active Objectives</div>
+          <div className="text-[11px] text-[color:var(--atlas-n100)] uppercase tracking-wide mt-1">
+            Active objectives
+          </div>
         </div>
-        <div>
-          <div className="text-section-title text-ink-primary">
+        <div className="px-3 py-2">
+          <div className="text-[18px] font-semibold text-[color:var(--atlas-n800)] leading-none">
             {progressData[progressData.length - 1]?.keyResults || 0}
           </div>
-          <div className="text-body-sm text-ink-secondary">Key Results</div>
+          <div className="text-[11px] text-[color:var(--atlas-n100)] uppercase tracking-wide mt-1">
+            Key results
+          </div>
         </div>
       </div>
-    </div>
+    </section>
   )
 }

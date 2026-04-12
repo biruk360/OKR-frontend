@@ -86,16 +86,16 @@ export default function PlansList({
   const otherRows = filteredRows.filter((r) => !favorites.has(r.id))
 
   return (
-    <div className="notion-surface min-h-screen">
-      <div className="mx-auto max-w-[1280px] px-6 py-6">
+    <div className="atlas-surface -m-3 sm:-m-6 min-h-full p-4 sm:p-6">
+      <div className="mx-auto max-w-[1280px]">
         {/* Tabs + create button */}
-        <div className="mb-4 flex items-center justify-between border-b border-[color:var(--notion-divider)]">
+        <div className="mb-3 flex items-center justify-between border-b border-[color:var(--atlas-n30)]">
           <div className="flex items-center gap-1">
             <button
               type="button"
               role="tab"
               aria-selected={tab === 'all'}
-              className="notion-tab"
+              className="atlas-tab"
               onClick={() => setTab('all')}
             >
               All plans
@@ -104,38 +104,38 @@ export default function PlansList({
               type="button"
               role="tab"
               aria-selected={tab === 'watched'}
-              className="notion-tab"
+              className="atlas-tab"
               onClick={() => setTab('watched')}
             >
               Watched plans
             </button>
           </div>
-          <div className="flex items-center gap-2 pb-2">
+          <div className="flex items-center gap-2 pb-1">
             <Link
               href="/dashboard/objectives?create=1"
-              className="notion-button notion-button-primary"
+              className="atlas-btn atlas-btn-primary"
             >
-              Create a new plan
+              Create a plan
             </Link>
-            <button className="notion-icon-button" aria-label="More">
+            <button className="atlas-icon-btn" aria-label="More">
               <MoreHorizontal className="h-4 w-4" />
             </button>
           </div>
         </div>
 
         {/* Filter row */}
-        <div className="mb-4 flex flex-wrap items-center gap-2">
+        <div className="mb-3 flex flex-wrap items-center gap-2">
           <div className="relative">
-            <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[color:var(--notion-text-tertiary)]" />
+            <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[color:var(--atlas-n100)]" />
             <input
-              className="notion-input pl-7 w-[220px]"
+              className="atlas-input pl-7 w-[220px]"
               placeholder="Filter plans by name"
               value={nameFilter}
               onChange={(e) => setNameFilter(e.target.value)}
             />
           </div>
           <select
-            className="notion-input w-[180px]"
+            className="atlas-input atlas-select w-[180px]"
             value={teamFilter}
             onChange={(e) => setTeamFilter(e.target.value)}
           >
@@ -145,7 +145,7 @@ export default function PlansList({
             ))}
           </select>
           <select
-            className="notion-input w-[180px]"
+            className="atlas-input atlas-select w-[180px]"
             value={insightFilter}
             onChange={(e) => setInsightFilter(e.target.value)}
           >
@@ -154,20 +154,20 @@ export default function PlansList({
             <option value="at-risk">At risk (NCS 34–66)</option>
             <option value="off-track">Off track (NCS ≤ 33)</option>
           </select>
-          <label className="ml-auto inline-flex items-center gap-2 text-[12px] text-[color:var(--notion-text-secondary)]">
+          <label className="ml-auto inline-flex items-center gap-2 text-[12px] text-[color:var(--atlas-n200)]">
             <input
               type="checkbox"
               checked={hideFinished}
               onChange={(e) => setHideFinished(e.target.checked)}
-              className="notion-checkbox"
+              className="atlas-checkbox"
             />
             Hide finished plans
           </label>
         </div>
 
         {/* Table */}
-        <div className="notion-card">
-          <table className="notion-table">
+        <div className="atlas-card overflow-hidden">
+          <table className="atlas-table">
             <thead>
               <tr>
                 <th style={{ width: '40%' }}>Plan</th>
@@ -182,7 +182,7 @@ export default function PlansList({
               {favoriteRows.length > 0 && (
                 <>
                   <tr>
-                    <td colSpan={6} className="!py-1.5 !pl-3 notion-eyebrow !border-b-0">Favorite plans</td>
+                    <td colSpan={6} className="!py-1.5 !pl-3 atlas-eyebrow !border-b-0">Favorite plans</td>
                   </tr>
                   {favoriteRows.map((row) => (
                     <PlanTableRow key={row.id} row={row} isFavorite onToggleFavorite={toggleFavorite} />
@@ -191,7 +191,7 @@ export default function PlansList({
               )}
               {(favoriteRows.length > 0 && otherRows.length > 0) && (
                 <tr>
-                  <td colSpan={6} className="!py-1.5 !pl-3 notion-eyebrow !border-b-0">All plans</td>
+                  <td colSpan={6} className="!py-1.5 !pl-3 atlas-eyebrow !border-b-0">All plans</td>
                 </tr>
               )}
               {otherRows.map((row) => (
@@ -199,7 +199,7 @@ export default function PlansList({
               ))}
               {filteredRows.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="text-center !py-8 text-[color:var(--notion-text-tertiary)]">
+                  <td colSpan={6} className="text-center !py-8 atlas-text-tertiary">
                     No plans match your filters.
                   </td>
                 </tr>
@@ -222,9 +222,11 @@ function PlanTableRow({
   onToggleFavorite: (id: string) => void
 }) {
   const planLink = `/dashboard/objectives/${row.id}`
-  const ncsTone = row.ncs <= 33 ? 'red' : row.ncs <= 66 ? 'yellow' : 'green'
-  const statusTone = row.status === 'ARCHIVED' ? 'gray' : row.goalStatus === 'CLOSED' ? 'gray' : 'blue'
-  const statusLabel = row.status === 'ARCHIVED' ? 'Archived' : row.goalStatus === 'CLOSED' ? 'Done' : 'In Progress'
+  const ncsTone = row.ncs <= 33 ? 'danger' : row.ncs <= 66 ? 'warning' : 'success'
+  const statusTone =
+    row.status === 'ARCHIVED' || row.goalStatus === 'CLOSED' ? undefined : 'primary'
+  const statusLabel =
+    row.status === 'ARCHIVED' ? 'Archived' : row.goalStatus === 'CLOSED' ? 'Done' : 'In progress'
   const timeline = `${formatMonthYear(row.timeframeStart)} → ${formatMonthYear(row.timeframeEnd)}`
 
   return (
@@ -234,41 +236,41 @@ function PlanTableRow({
           <button
             type="button"
             onClick={() => onToggleFavorite(row.id)}
-            className="notion-icon-button"
+            className="atlas-icon-btn"
             aria-label={isFavorite ? 'Unfavorite' : 'Favorite'}
             title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
           >
             <Star className={`h-3.5 w-3.5 ${isFavorite ? 'fill-yellow-400 text-yellow-500' : ''}`} />
           </button>
-          <Link href={planLink} className="font-medium text-[color:var(--notion-text)] hover:underline">
+          <Link href={planLink} className="font-medium text-[color:var(--atlas-n800)] hover:underline">
             {row.title}
           </Link>
           {row.department && (
-            <span className="notion-pill" data-tone="gray">{row.department}</span>
+            <span className="atlas-chip">{row.department}</span>
           )}
         </div>
       </td>
       <td>
         <div className="flex items-center gap-2">
-          <span className="notion-text-secondary tabular-nums">{row.keyResultsProgressPct}%</span>
-          <div className="w-16 notion-progress">
-            <div className="notion-progress-fill" style={{ width: `${row.keyResultsProgressPct}%` }} />
+          <span className="atlas-text-secondary tabular-nums">{row.keyResultsProgressPct}%</span>
+          <div className="w-16 atlas-progress">
+            <div className="atlas-progress-fill" style={{ width: `${row.keyResultsProgressPct}%` }} />
           </div>
         </div>
       </td>
       <td>
-        <span className="notion-text-secondary tabular-nums">
+        <span className="atlas-text-secondary tabular-nums">
           {row.initiativesClosed}/{row.initiativesTotal}
         </span>
       </td>
       <td>
-        <div className="flex items-center gap-1.5">
-          <span className="notion-pill" data-tone={ncsTone}>{row.ncs} NCS</span>
-        </div>
+        <span className="atlas-lozenge" data-tone={ncsTone}>
+          {row.ncs} NCS
+        </span>
       </td>
-      <td className="notion-text-tertiary">{timeline}</td>
+      <td className="atlas-text-tertiary">{timeline}</td>
       <td>
-        <span className="notion-pill" data-tone={statusTone}>{statusLabel}</span>
+        <span className="atlas-lozenge" data-tone={statusTone}>{statusLabel}</span>
       </td>
     </tr>
   )

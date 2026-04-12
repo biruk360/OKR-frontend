@@ -3,6 +3,7 @@ const EXACT: Record<string, string> = {
   '/dashboard/goals': 'Goals',
   '/dashboard/my-okrs': 'My OKRs',
   '/dashboard/my-tasks': 'My initiatives',
+  '/dashboard/todos': 'To-dos',
   '/dashboard/sprints': 'Sprints',
   '/dashboard/company-okrs': 'Company OKRs',
   '/dashboard/department-okrs': 'Department OKRs',

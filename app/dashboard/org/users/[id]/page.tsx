@@ -135,6 +135,14 @@ export default async function UserProfilePage({ params }: PageProps) {
 
   const visibleTodos: typeof assignedTodosRaw = []
   for (const t of assignedTodosRaw) {
+    // Standalone todos (no KR link) are only visible to the assignee/creator on
+    // their own profile page — viewing someone else's profile filters them out.
+    if (!t.keyResult) {
+      if (session.user.id === t.assigneeId || session.user.id === t.creatorId) {
+        visibleTodos.push(t)
+      }
+      continue
+    }
     const obj = t.keyResult.objective
     const { canView } = await canViewObjective(
       session.user.role as UserRole,
@@ -442,7 +450,9 @@ export default async function UserProfilePage({ params }: PageProps) {
                     <li key={t.id} className="px-4 py-3 flex items-center justify-between gap-2">
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-gray-900">{t.title}</p>
-                        <p className="text-xs text-gray-500 truncate">{t.keyResult.objective.title}</p>
+                        <p className="text-xs text-gray-500 truncate">
+                          {t.keyResult?.objective.title ?? 'Personal to-do'}
+                        </p>
                       </div>
                       <span className="text-xs text-gray-500 shrink-0 capitalize">
                         {t.status.replace(/_/g, ' ').toLowerCase()}

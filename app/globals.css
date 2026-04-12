@@ -54,6 +54,67 @@
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
   }
+
+  /*
+    Compact design tokens — applied via the .atlas-surface scope.
+    Design goals: high density, neutral greys, tight rows, small type, flat cards.
+    Coexists with .notion-surface (two distinct aesthetics for different page types).
+
+    Naming: "atlas" is just a bucket identifier in this codebase. The palette is a
+    generic accessible N-scale (neutral greys) + semantic primary / success / warning
+    / danger derived from standard WCAG-contrast design guidance.
+  */
+  .atlas-surface {
+    /* N-scale neutrals (lightest -> darkest) */
+    --atlas-n0:  #ffffff;
+    --atlas-n10: #f4f5f7;
+    --atlas-n20: #ebecf0;
+    --atlas-n30: #dfe1e6;
+    --atlas-n40: #c1c7d0;
+    --atlas-n50: #a5adba;
+    --atlas-n70: #7a869a;
+    --atlas-n100: #6b778c;
+    --atlas-n200: #5e6c84;
+    --atlas-n400: #42526e;
+    --atlas-n700: #172b4d;
+    --atlas-n800: #091e42;
+
+    /* Semantic */
+    --atlas-primary:    #0052cc;
+    --atlas-primary-hover: #0747a6;
+    --atlas-primary-bg: #deebff;
+    --atlas-success:    #00875a;
+    --atlas-success-bg: #e3fcef;
+    --atlas-warning:    #ff8b00;
+    --atlas-warning-bg: #fffae6;
+    --atlas-danger:     #de350b;
+    --atlas-danger-bg:  #ffebe6;
+    --atlas-purple:     #403294;
+    --atlas-purple-bg:  #eae6ff;
+
+    /* Sizing — all compact */
+    --atlas-radius-sm: 3px;
+    --atlas-radius:    3px;
+    --atlas-radius-md: 6px;
+    --atlas-btn-h:     28px;
+    --atlas-btn-h-sm:  24px;
+    --atlas-input-h:   32px;
+    --atlas-row-h:     32px;
+
+    /* Subtle elevations (cards stay flat; only popovers get shadow) */
+    --atlas-shadow-card:    0 0 0 1px var(--atlas-n30);
+    --atlas-shadow-popover: 0 4px 8px -2px rgba(9,30,66,0.25), 0 0 1px rgba(9,30,66,0.31);
+
+    --atlas-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+      "Helvetica Neue", Arial, sans-serif;
+
+    background: var(--atlas-n10);
+    color: var(--atlas-n800);
+    font-family: var(--atlas-font);
+    font-size: 14px;
+    line-height: 20px;
+    -webkit-font-smoothing: antialiased;
+  }
 }
 
 @layer components {
@@ -422,6 +483,375 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
+  }
+
+  /* ─── Atlas atom classes (compact design) ─── */
+
+  .atlas-h1 {
+    font-size: 20px;
+    line-height: 24px;
+    font-weight: 600;
+    color: var(--atlas-n800);
+    letter-spacing: -0.005em;
+  }
+
+  .atlas-h2 {
+    font-size: 16px;
+    line-height: 20px;
+    font-weight: 600;
+    color: var(--atlas-n800);
+  }
+
+  .atlas-eyebrow {
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 16px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--atlas-n200);
+  }
+
+  .atlas-text {
+    font-size: 14px;
+    color: var(--atlas-n800);
+  }
+  .atlas-text-secondary {
+    font-size: 13px;
+    color: var(--atlas-n200);
+  }
+  .atlas-text-tertiary {
+    font-size: 12px;
+    color: var(--atlas-n100);
+  }
+  .atlas-link {
+    color: var(--atlas-primary);
+    text-decoration: none;
+  }
+  .atlas-link:hover {
+    text-decoration: underline;
+  }
+
+  .atlas-card {
+    background: var(--atlas-n0);
+    border: 1px solid var(--atlas-n30);
+    border-radius: var(--atlas-radius-md);
+  }
+  .atlas-divider {
+    border-top: 1px solid var(--atlas-n30);
+  }
+
+  .atlas-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: var(--atlas-btn-h);
+    padding: 0 10px;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1;
+    color: var(--atlas-n700);
+    background: var(--atlas-n20);
+    border: none;
+    border-radius: var(--atlas-radius);
+    cursor: pointer;
+    transition: background-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
+  }
+  .atlas-btn:hover {
+    background: var(--atlas-n30);
+  }
+  .atlas-btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--atlas-primary);
+  }
+  .atlas-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+  .atlas-btn-sm {
+    height: var(--atlas-btn-h-sm);
+    padding: 0 8px;
+    font-size: 12px;
+  }
+  .atlas-btn-primary {
+    background: var(--atlas-primary);
+    color: var(--atlas-n0);
+  }
+  .atlas-btn-primary:hover {
+    background: var(--atlas-primary-hover);
+  }
+  .atlas-btn-ghost {
+    background: transparent;
+    color: var(--atlas-n200);
+  }
+  .atlas-btn-ghost:hover {
+    background: var(--atlas-n20);
+    color: var(--atlas-n700);
+  }
+  .atlas-btn-danger {
+    color: var(--atlas-danger);
+    background: transparent;
+  }
+  .atlas-btn-danger:hover {
+    background: var(--atlas-danger-bg);
+  }
+
+  .atlas-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    background: transparent;
+    border: none;
+    border-radius: var(--atlas-radius);
+    color: var(--atlas-n200);
+    cursor: pointer;
+    transition: background-color 120ms ease, color 120ms ease;
+  }
+  .atlas-icon-btn:hover {
+    background: var(--atlas-n20);
+    color: var(--atlas-n700);
+  }
+
+  .atlas-input {
+    width: 100%;
+    height: var(--atlas-input-h);
+    padding: 4px 8px;
+    font-size: 14px;
+    color: var(--atlas-n800);
+    background: var(--atlas-n10);
+    border: 2px solid transparent;
+    border-radius: var(--atlas-radius);
+    transition: background-color 120ms ease, border-color 120ms ease;
+  }
+  .atlas-input:hover:not(:focus) {
+    background: var(--atlas-n20);
+  }
+  .atlas-input:focus {
+    outline: none;
+    background: var(--atlas-n0);
+    border-color: var(--atlas-primary);
+  }
+  .atlas-input::placeholder {
+    color: var(--atlas-n100);
+  }
+
+  .atlas-select {
+    /* Use alongside .atlas-input for native <select> */
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%235e6c84' d='M5 6L0 0h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    padding-right: 24px;
+  }
+
+  .atlas-checkbox {
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--atlas-n70);
+    border-radius: 2px;
+    background: var(--atlas-n0);
+    cursor: pointer;
+    position: relative;
+    flex-shrink: 0;
+    transition: background-color 120ms ease, border-color 120ms ease;
+  }
+  .atlas-checkbox:checked {
+    background: var(--atlas-primary);
+    border-color: var(--atlas-primary);
+  }
+  .atlas-checkbox:checked::after {
+    content: '';
+    position: absolute;
+    left: 2px;
+    top: -1px;
+    width: 4px;
+    height: 8px;
+    border: solid var(--atlas-n0);
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+  }
+
+  /* Lozenges — Atlassian's term for small status chips. Short, uppercase, bold. */
+  .atlas-lozenge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 16px;
+    padding: 0 4px;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 16px;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    border-radius: 3px;
+    white-space: nowrap;
+    background: var(--atlas-n30);
+    color: var(--atlas-n400);
+  }
+  .atlas-lozenge[data-tone='primary'] {
+    background: var(--atlas-primary-bg);
+    color: var(--atlas-primary);
+  }
+  .atlas-lozenge[data-tone='success'] {
+    background: var(--atlas-success-bg);
+    color: var(--atlas-success);
+  }
+  .atlas-lozenge[data-tone='warning'] {
+    background: var(--atlas-warning-bg);
+    color: #974f0c;
+  }
+  .atlas-lozenge[data-tone='danger'] {
+    background: var(--atlas-danger-bg);
+    color: var(--atlas-danger);
+  }
+  .atlas-lozenge[data-tone='purple'] {
+    background: var(--atlas-purple-bg);
+    color: var(--atlas-purple);
+  }
+
+  /* A chip is the lozenge's softer cousin — lowercase, used for tags / filters / links. */
+  .atlas-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 20px;
+    padding: 0 6px;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1;
+    border-radius: 3px;
+    color: var(--atlas-n200);
+    background: var(--atlas-n20);
+    white-space: nowrap;
+  }
+  .atlas-chip[data-tone='primary'] {
+    color: var(--atlas-primary);
+    background: var(--atlas-primary-bg);
+  }
+
+  .atlas-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  .atlas-table thead th {
+    text-align: left;
+    padding: 8px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--atlas-n200);
+    border-bottom: 2px solid var(--atlas-n30);
+    background: var(--atlas-n0);
+  }
+  .atlas-table tbody td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--atlas-n20);
+    color: var(--atlas-n800);
+    vertical-align: middle;
+  }
+  .atlas-table tbody tr {
+    transition: background-color 120ms ease;
+  }
+  .atlas-table tbody tr:hover {
+    background: var(--atlas-n10);
+  }
+  .atlas-table tbody tr:last-child td {
+    border-bottom: 0;
+  }
+
+  .atlas-row {
+    display: flex;
+    align-items: center;
+    min-height: var(--atlas-row-h);
+    padding: 0 8px;
+    border-radius: var(--atlas-radius);
+    transition: background-color 120ms ease;
+  }
+  .atlas-row:hover {
+    background: var(--atlas-n10);
+  }
+
+  .atlas-progress {
+    height: 4px;
+    width: 100%;
+    background: var(--atlas-n30);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .atlas-progress-fill {
+    height: 100%;
+    background: var(--atlas-primary);
+    transition: width 180ms ease;
+  }
+
+  .atlas-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 10px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--atlas-n200);
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    transition: color 120ms ease, border-color 120ms ease;
+  }
+  .atlas-tab:hover {
+    color: var(--atlas-n700);
+  }
+  .atlas-tab[aria-selected='true'] {
+    color: var(--atlas-primary);
+    border-bottom-color: var(--atlas-primary);
+  }
+
+  .atlas-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--atlas-n30);
+    color: var(--atlas-n700);
+    font-size: 11px;
+    font-weight: 600;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  .atlas-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .atlas-menu {
+    background: var(--atlas-n0);
+    border: 1px solid var(--atlas-n30);
+    border-radius: var(--atlas-radius-md);
+    box-shadow: var(--atlas-shadow-popover);
+    padding: 4px;
+    min-width: 200px;
+  }
+  .atlas-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 6px 8px;
+    font-size: 13px;
+    color: var(--atlas-n800);
+    background: transparent;
+    border: none;
+    border-radius: var(--atlas-radius);
+    cursor: pointer;
+    text-align: left;
+  }
+  .atlas-menu-item:hover {
+    background: var(--atlas-n10);
   }
 }
 

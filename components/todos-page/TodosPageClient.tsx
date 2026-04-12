@@ -20,6 +20,8 @@ import {
 import TodoDetailPanel from './TodoDetailPanel'
 import TodoKanbanView from './TodoKanbanView'
 import TodoTreeView from './TodoTreeView'
+import { useTodoStore } from '@/lib/stores/todo-store'
+import { useUserPrefsStore } from '@/lib/stores/user-prefs-store'
 
 export interface UserOption {
   id: string
@@ -79,34 +81,27 @@ export default function TodosPageClient({
   objectives,
   currentUserId,
 }: Props) {
-  const [rows, setRows] = useState<TodoRow[]>(initialRows)
+  // ─── Zustand stores ───
+  const { todos: rows, setTodos, toggleComplete, changeStatus, changeAssignee, changeDueDate, deleteTodo, addTodo, updateTodo } = useTodoStore()
+  const { todoViewMode: viewMode, load: loadPrefs, setTodoViewMode } = useUserPrefsStore()
+
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('open')
   const [scopeFilter, setScopeFilter] = useState<ScopeFilter>('assigned')
   const [linkFilter, setLinkFilter] = useState<LinkFilter>('all')
   const [showCreate, setShowCreate] = useState(false)
   const [openTodoId, setOpenTodoId] = useState<string | null>(null)
-  const [viewMode, setViewMode] = useState<'modal' | 'sidebar'>('modal')
   const [viewType, setViewType] = useState<'list' | 'kanban' | 'tree'>('list')
 
-  // Load user preference for view mode
+  // Hydrate stores from server-provided initial data + user prefs
   useEffect(() => {
-    fetch('/api/user-preferences')
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.success && d.preferences?.todoViewMode) setViewMode(d.preferences.todoViewMode)
-      })
-      .catch(() => {})
+    setTodos(initialRows as any)
+    loadPrefs()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   function toggleViewMode() {
-    const next = viewMode === 'modal' ? 'sidebar' : 'modal'
-    setViewMode(next)
-    fetch('/api/user-preferences', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ todoViewMode: next }),
-    }).catch(() => {})
+    setTodoViewMode(viewMode === 'modal' ? 'sidebar' : 'modal')
   }
 
   // ---------- Filter pipeline ----------
@@ -162,93 +157,33 @@ export default function TodosPageClient({
     return { total: rows.length, open, overdue, dueToday }
   }, [rows])
 
-  // ---------- Mutations ----------
-  async function toggleComplete(row: TodoRow) {
-    const next = row.status === 'COMPLETED' ? 'PENDING' : 'COMPLETED'
-    const snapshot = rows
-    setRows((prev) =>
-      prev.map((t) =>
-        t.id === row.id
-          ? { ...t, status: next, completedAt: next === 'COMPLETED' ? new Date().toISOString() : null }
-          : t
-      )
-    )
-    try {
-      const res = await fetch(`/api/todos/${row.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          status: next,
-          completedAt: next === 'COMPLETED' ? new Date().toISOString() : null,
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Failed')
-    } catch (err: any) {
-      setRows(snapshot)
-      toast.error(err.message || 'Failed to update')
-    }
+  // ---------- Mutations (delegated to Zustand store) ----------
+
+  function handleToggle(row: TodoRow) {
+    toggleComplete(row.id)
   }
 
-  async function changeStatus(rowId: string, status: string) {
-    const snapshot = rows
-    setRows((prev) => prev.map((r) =>
-      r.id === rowId ? { ...r, status, completedAt: status === 'COMPLETED' ? new Date().toISOString() : null } : r
-    ))
-    try {
-      const res = await fetch(`/api/todos/${rowId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status, completedAt: status === 'COMPLETED' ? new Date().toISOString() : null }),
-      })
-      if (!res.ok) throw new Error('Failed')
-    } catch { setRows(snapshot); toast.error('Failed to update status') }
+  function handleChangeStatus(rowId: string, status: string) {
+    changeStatus(rowId, status)
   }
 
-  async function changeAssignee(rowId: string, assigneeId: string) {
+  function handleChangeAssignee(rowId: string, assigneeId: string) {
     const user = users.find((u) => u.id === assigneeId)
     if (!user) return
-    const snapshot = rows
-    setRows((prev) => prev.map((r) => r.id === rowId ? { ...r, assignee: user } : r))
-    try {
-      const res = await fetch(`/api/todos/${rowId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ assigneeId }),
-      })
-      if (!res.ok) throw new Error('Failed')
-    } catch { setRows(snapshot); toast.error('Failed to change assignee') }
+    changeAssignee(rowId, assigneeId, user)
   }
 
-  async function changeDueDate(rowId: string, dueDate: string | null) {
-    const snapshot = rows
-    setRows((prev) => prev.map((r) => r.id === rowId ? { ...r, dueDate } : r))
-    try {
-      const res = await fetch(`/api/todos/${rowId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dueDate: dueDate || null }),
-      })
-      if (!res.ok) throw new Error('Failed')
-    } catch { setRows(snapshot); toast.error('Failed to update date') }
+  function handleChangeDueDate(rowId: string, dueDate: string | null) {
+    changeDueDate(rowId, dueDate)
   }
 
-  async function deleteRow(rowId: string) {
+  function handleDelete(rowId: string) {
     if (!confirm('Delete this to-do?')) return
-    const snapshot = rows
-    setRows((prev) => prev.filter((t) => t.id !== rowId))
-    try {
-      const res = await fetch(`/api/todos/${rowId}`, { method: 'DELETE' })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Failed')
-    } catch (err: any) {
-      setRows(snapshot)
-      toast.error(err.message || 'Failed to delete')
-    }
+    deleteTodo(rowId)
   }
 
-  async function onCreated(newRow: TodoRow) {
-    setRows((prev) => [newRow, ...prev])
+  function onCreated(newRow: TodoRow) {
+    addTodo(newRow as any)
     setShowCreate(false)
   }
 
@@ -371,8 +306,8 @@ export default function TodosPageClient({
                   <TodoTableRow
                     key={row.id}
                     row={row}
-                    onToggle={() => toggleComplete(row)}
-                    onDelete={() => deleteRow(row.id)}
+                    onToggle={() => handleToggle(row)}
+                    onDelete={() => handleDelete(row.id)}
                     onOpen={() => setOpenTodoId(row.id)}
                   />
                 ))}
@@ -385,10 +320,10 @@ export default function TodosPageClient({
           <TodoKanbanView
             rows={filteredRows}
             users={users}
-            onToggle={toggleComplete}
-            onStatusChange={changeStatus}
+            onToggle={handleToggle}
+            onStatusChange={handleChangeStatus}
             onOpen={setOpenTodoId}
-            onAssigneeChange={changeAssignee}
+            onAssigneeChange={handleChangeAssignee}
           />
         )}
 
@@ -396,11 +331,11 @@ export default function TodosPageClient({
           <TodoTreeView
             rows={filteredRows}
             users={users}
-            onToggle={toggleComplete}
+            onToggle={handleToggle}
             onOpen={setOpenTodoId}
-            onStatusChange={changeStatus}
-            onAssigneeChange={changeAssignee}
-            onDueDateChange={changeDueDate}
+            onStatusChange={handleChangeStatus}
+            onAssigneeChange={handleChangeAssignee}
+            onDueDateChange={handleChangeDueDate}
           />
         )}
       </div>
@@ -418,10 +353,10 @@ export default function TodosPageClient({
             currentUserId={currentUserId}
             onClose={() => setOpenTodoId(null)}
             onUpdate={(patch) => {
-              setRows((prev) => prev.map((r) => (r.id === openTodoId ? { ...r, ...patch } : r)))
+              updateTodo(openTodoId, patch as any)
             }}
             onDelete={() => {
-              setRows((prev) => prev.filter((r) => r.id !== openTodoId))
+              deleteTodo(openTodoId)
               setOpenTodoId(null)
             }}
             onToggleMode={toggleViewMode}

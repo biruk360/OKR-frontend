@@ -111,12 +111,36 @@ export default async function ReportsPage() {
       dueDate: t.dueDate ? t.dueDate.toISOString() : null,
     }))
 
+  // Fetch filter options for the dynamic filter bar
+  const [allUsers, allDepartments, allTimeframes] = await Promise.all([
+    prisma.user.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    }),
+    prisma.department.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    }),
+    prisma.timeframe.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true },
+      orderBy: { startDate: 'desc' },
+    }),
+  ])
+
   return (
     <ReportDashboardClient
       currentUserId={session.user.id}
       keyResults={krRows}
       objectives={objectiveRows}
       todos={todoRows}
+      filterOptions={{
+        users: allUsers,
+        departments: allDepartments,
+        timeframes: allTimeframes,
+      }}
     />
   )
 }

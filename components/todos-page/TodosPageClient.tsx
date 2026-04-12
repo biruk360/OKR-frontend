@@ -18,6 +18,8 @@ import {
   Maximize2,
 } from 'lucide-react'
 import TodoDetailPanel from './TodoDetailPanel'
+import TodoKanbanView from './TodoKanbanView'
+import TodoTreeView from './TodoTreeView'
 
 export interface UserOption {
   id: string
@@ -85,6 +87,7 @@ export default function TodosPageClient({
   const [showCreate, setShowCreate] = useState(false)
   const [openTodoId, setOpenTodoId] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'modal' | 'sidebar'>('modal')
+  const [viewType, setViewType] = useState<'list' | 'kanban' | 'tree'>('list')
 
   // Load user preference for view mode
   useEffect(() => {
@@ -187,6 +190,49 @@ export default function TodosPageClient({
     }
   }
 
+  async function changeStatus(rowId: string, status: string) {
+    const snapshot = rows
+    setRows((prev) => prev.map((r) =>
+      r.id === rowId ? { ...r, status, completedAt: status === 'COMPLETED' ? new Date().toISOString() : null } : r
+    ))
+    try {
+      const res = await fetch(`/api/todos/${rowId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status, completedAt: status === 'COMPLETED' ? new Date().toISOString() : null }),
+      })
+      if (!res.ok) throw new Error('Failed')
+    } catch { setRows(snapshot); toast.error('Failed to update status') }
+  }
+
+  async function changeAssignee(rowId: string, assigneeId: string) {
+    const user = users.find((u) => u.id === assigneeId)
+    if (!user) return
+    const snapshot = rows
+    setRows((prev) => prev.map((r) => r.id === rowId ? { ...r, assignee: user } : r))
+    try {
+      const res = await fetch(`/api/todos/${rowId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assigneeId }),
+      })
+      if (!res.ok) throw new Error('Failed')
+    } catch { setRows(snapshot); toast.error('Failed to change assignee') }
+  }
+
+  async function changeDueDate(rowId: string, dueDate: string | null) {
+    const snapshot = rows
+    setRows((prev) => prev.map((r) => r.id === rowId ? { ...r, dueDate } : r))
+    try {
+      const res = await fetch(`/api/todos/${rowId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dueDate: dueDate || null }),
+      })
+      if (!res.ok) throw new Error('Failed')
+    } catch { setRows(snapshot); toast.error('Failed to update date') }
+  }
+
   async function deleteRow(rowId: string) {
     if (!confirm('Delete this to-do?')) return
     const snapshot = rows
@@ -281,41 +327,82 @@ export default function TodosPageClient({
           </select>
         </div>
 
-        {/* Table */}
-        <div className="atlas-card overflow-hidden">
-          <table className="atlas-table">
-            <thead>
-              <tr>
-                <th style={{ width: '34px' }}></th>
-                <th>To-do</th>
-                <th style={{ width: '220px' }}>Linked to</th>
-                <th style={{ width: '110px' }}>Timeframe</th>
-                <th style={{ width: '120px' }}>Due</th>
-                <th style={{ width: '50px' }}>Owner</th>
-                <th style={{ width: '90px' }}>Status</th>
-                <th style={{ width: '40px' }}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredRows.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="atlas-text-tertiary text-center !py-10">
-                    No to-dos match your filters.
-                  </td>
-                </tr>
-              )}
-              {filteredRows.map((row) => (
-                <TodoTableRow
-                  key={row.id}
-                  row={row}
-                  onToggle={() => toggleComplete(row)}
-                  onDelete={() => deleteRow(row.id)}
-                  onOpen={() => setOpenTodoId(row.id)}
-                />
-              ))}
-            </tbody>
-          </table>
+        {/* View switcher */}
+        <div className="mb-3 flex items-center gap-1 border-b border-[color:var(--atlas-n30)]">
+          {(['list', 'kanban', 'tree'] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              role="tab"
+              aria-selected={viewType === v}
+              className="atlas-tab"
+              onClick={() => setViewType(v)}
+            >
+              {v === 'list' ? 'List' : v === 'kanban' ? 'Board' : 'Tree'}
+            </button>
+          ))}
         </div>
+
+        {/* Views */}
+        {viewType === 'list' && (
+          <div className="atlas-card overflow-hidden">
+            <table className="atlas-table">
+              <thead>
+                <tr>
+                  <th style={{ width: '34px' }}></th>
+                  <th>To-do</th>
+                  <th style={{ width: '220px' }}>Linked to</th>
+                  <th style={{ width: '110px' }}>Timeframe</th>
+                  <th style={{ width: '120px' }}>Due</th>
+                  <th style={{ width: '50px' }}>Owner</th>
+                  <th style={{ width: '90px' }}>Status</th>
+                  <th style={{ width: '40px' }}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredRows.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="atlas-text-tertiary text-center !py-10">
+                      No to-dos match your filters.
+                    </td>
+                  </tr>
+                )}
+                {filteredRows.map((row) => (
+                  <TodoTableRow
+                    key={row.id}
+                    row={row}
+                    onToggle={() => toggleComplete(row)}
+                    onDelete={() => deleteRow(row.id)}
+                    onOpen={() => setOpenTodoId(row.id)}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {viewType === 'kanban' && (
+          <TodoKanbanView
+            rows={filteredRows}
+            users={users}
+            onToggle={toggleComplete}
+            onStatusChange={changeStatus}
+            onOpen={setOpenTodoId}
+            onAssigneeChange={changeAssignee}
+          />
+        )}
+
+        {viewType === 'tree' && (
+          <TodoTreeView
+            rows={filteredRows}
+            users={users}
+            onToggle={toggleComplete}
+            onOpen={setOpenTodoId}
+            onStatusChange={changeStatus}
+            onAssigneeChange={changeAssignee}
+            onDueDateChange={changeDueDate}
+          />
+        )}
       </div>
 
       {openTodoId && (() => {

@@ -22,6 +22,7 @@ import {
   ChevronRight,
   Filter,
   RotateCcw,
+  X,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { cn } from '@/lib/utils'
@@ -89,11 +90,18 @@ const STATUS_COLORS: Record<KrDisplayStatus, string> = {
 
 const DONUT_BLUE = '#2563eb'
 
+export interface FilterOptions {
+  users: Array<{ id: string; name: string }>
+  departments: Array<{ id: string; name: string }>
+  timeframes: Array<{ id: string; name: string }>
+}
+
 interface Props {
   currentUserId: string
   keyResults: ReportKrRow[]
   objectives: ReportObjectiveRow[]
   todos: ReportTodoRow[]
+  filterOptions?: FilterOptions
 }
 
 function initials(name: string) {
@@ -110,9 +118,25 @@ export default function ReportDashboardClient({
   keyResults: krRows,
   objectives: objRows,
   todos: todoRows,
+  filterOptions,
 }: Props) {
   const [mainTab, setMainTab] = useState<MainTab>('key-results')
   const [filterOpen, setFilterOpen] = useState(true)
+
+  // Dynamic filter chips — each chip is { type, id, label }
+  const [dynamicFilters, setDynamicFilters] = useState<Array<{ type: string; id: string; label: string }>>([])
+  const [addingFilterType, setAddingFilterType] = useState<string | null>(null)
+
+  function addDynamicFilter(type: string, id: string, label: string) {
+    setDynamicFilters((prev) => {
+      if (prev.some((f) => f.type === type && f.id === id)) return prev
+      return [...prev, { type, id, label }]
+    })
+    setAddingFilterType(null)
+  }
+  function removeDynamicFilter(type: string, id: string) {
+    setDynamicFilters((prev) => prev.filter((f) => !(f.type === type && f.id === id)))
+  }
   const [segmentQuery, setSegmentQuery] = useState('')
   const [quickOwned, setQuickOwned] = useState(false)
   const [quickContributing, setQuickContributing] = useState(false)
@@ -221,6 +245,26 @@ export default function ReportDashboardClient({
     if (quickAtRisk) list = list.filter((kr) => kr.displayStatus === 'at_risk')
     if (quickNoCheckIn) list = list.filter((kr) => kr.checkInCount === 0)
     if (statusFilter !== 'all') list = list.filter((kr) => kr.status === statusFilter)
+
+    // Dynamic filter chips (AND-chained)
+    const userFilters = dynamicFilters.filter((f) => f.type === 'user').map((f) => f.id)
+    const deptFilters = dynamicFilters.filter((f) => f.type === 'department').map((f) => f.id)
+    const tfFilters = dynamicFilters.filter((f) => f.type === 'timeframe').map((f) => f.label)
+    if (userFilters.length > 0) {
+      list = list.filter((kr) => userFilters.includes(kr.ownerId))
+    }
+    if (deptFilters.length > 0) {
+      list = list.filter((kr) => {
+        const obj = objRows.find((o) => o.id === kr.objectiveId)
+        return obj && deptFilters.some((d) => obj.planLabel.includes(d))
+      })
+    }
+    if (tfFilters.length > 0) {
+      list = list.filter((kr) => {
+        const obj = objRows.find((o) => o.id === kr.objectiveId)
+        return obj && tfFilters.some((t) => obj.planLabel.includes(t))
+      })
+    }
     if (confidenceFilter !== 'all') {
       list = list.filter((kr) => kr.confidence === confidenceFilter)
     }
@@ -243,6 +287,7 @@ export default function ReportDashboardClient({
     confidenceFilter,
     planStatus,
     statusFilter,
+    dynamicFilters,
     objRows,
     currentUserId,
   ])
@@ -446,19 +491,91 @@ export default function ReportDashboardClient({
       </aside>
 
       <div className="min-w-0 flex-1 space-y-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm text-gray-500">
-              Portfolio view of objectives, key results, and initiatives.
-            </p>
+        {/* Dynamic filter chip bar */}
+        <div className="flex flex-wrap items-center gap-2">
+          {dynamicFilters.map((f) => (
+            <span key={`${f.type}-${f.id}`} className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs font-medium text-gray-700">
+              <span className="text-gray-400 capitalize">{f.type}:</span> {f.label}
+              <button
+                onClick={() => removeDynamicFilter(f.type, f.id)}
+                className="ml-0.5 text-gray-400 hover:text-gray-700"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          ))}
+
+          {/* Add filter dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setAddingFilterType(addingFilterType ? null : '_pick')}
+              className="inline-flex items-center gap-1 rounded-md border border-dashed border-gray-300 bg-white px-2 py-1 text-xs text-gray-500 hover:border-gray-400 hover:text-gray-700"
+            >
+              <Filter className="h-3 w-3" /> Add filter
+            </button>
+
+            {addingFilterType === '_pick' && (
+              <div className="absolute left-0 top-8 z-20 rounded-md border border-gray-200 bg-white p-1 shadow-lg min-w-[160px]">
+                <button onClick={() => setAddingFilterType('user')} className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 rounded">User</button>
+                <button onClick={() => setAddingFilterType('department')} className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 rounded">Department</button>
+                <button onClick={() => setAddingFilterType('timeframe')} className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 rounded">Timeframe</button>
+                <button onClick={() => setAddingFilterType('confidence')} className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 rounded">Confidence</button>
+                <button onClick={() => setAddingFilterType('status')} className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 rounded">Status</button>
+              </div>
+            )}
+
+            {addingFilterType === 'user' && filterOptions && (
+              <div className="absolute left-0 top-8 z-20 rounded-md border border-gray-200 bg-white p-1 shadow-lg min-w-[200px] max-h-[240px] overflow-auto">
+                {filterOptions.users.map((u) => (
+                  <button key={u.id} onClick={() => addDynamicFilter('user', u.id, u.name)} className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 rounded truncate">{u.name}</button>
+                ))}
+              </div>
+            )}
+            {addingFilterType === 'department' && filterOptions && (
+              <div className="absolute left-0 top-8 z-20 rounded-md border border-gray-200 bg-white p-1 shadow-lg min-w-[200px] max-h-[240px] overflow-auto">
+                {filterOptions.departments.map((d) => (
+                  <button key={d.id} onClick={() => addDynamicFilter('department', d.id, d.name)} className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 rounded truncate">{d.name}</button>
+                ))}
+              </div>
+            )}
+            {addingFilterType === 'timeframe' && filterOptions && (
+              <div className="absolute left-0 top-8 z-20 rounded-md border border-gray-200 bg-white p-1 shadow-lg min-w-[200px] max-h-[240px] overflow-auto">
+                {filterOptions.timeframes.map((t) => (
+                  <button key={t.id} onClick={() => addDynamicFilter('timeframe', t.id, t.name)} className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 rounded truncate">{t.name}</button>
+                ))}
+              </div>
+            )}
+            {addingFilterType === 'confidence' && (
+              <div className="absolute left-0 top-8 z-20 rounded-md border border-gray-200 bg-white p-1 shadow-lg min-w-[160px]">
+                <button onClick={() => addDynamicFilter('confidence', 'ON_TRACK', 'On track')} className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 rounded">On track</button>
+                <button onClick={() => addDynamicFilter('confidence', 'AT_RISK', 'At risk')} className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 rounded">At risk</button>
+                <button onClick={() => addDynamicFilter('confidence', 'OFF_TRACK', 'Off track')} className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 rounded">Off track</button>
+              </div>
+            )}
+            {addingFilterType === 'status' && (
+              <div className="absolute left-0 top-8 z-20 rounded-md border border-gray-200 bg-white p-1 shadow-lg min-w-[160px]">
+                <button onClick={() => addDynamicFilter('status', 'ACTIVE', 'Active')} className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 rounded">Active</button>
+                <button onClick={() => addDynamicFilter('status', 'DRAFT', 'Draft')} className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 rounded">Draft</button>
+              </div>
+            )}
           </div>
+
+          {dynamicFilters.length > 0 && (
+            <button
+              onClick={() => setDynamicFilters([])}
+              className="text-xs text-primary-600 hover:text-primary-700"
+            >
+              Clear all
+            </button>
+          )}
+
           <button
             type="button"
-            className="inline-flex items-center gap-1 self-start rounded-md border border-gray-300 bg-white px-2 py-1 text-sm text-gray-700 lg:hidden"
+            className="ml-auto inline-flex items-center gap-1 self-start rounded-md border border-gray-300 bg-white px-2 py-1 text-sm text-gray-700 lg:hidden"
             onClick={() => setFilterOpen(true)}
           >
             <SlidersHorizontal className="h-4 w-4" />
-            Filters
+            Presets
           </button>
         </div>
 

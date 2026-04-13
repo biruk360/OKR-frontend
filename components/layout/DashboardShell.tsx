@@ -27,6 +27,13 @@ interface DashboardShellProps {
 export default function DashboardShell({ user, children }: DashboardShellProps) {
   const pathname = usePathname()
   const isStrategyMap = pathname === '/dashboard/alignment-map'
+  // Full-width routes bypass the content max-width so wide tables can
+  // stretch edge-to-edge (minus sidebar).
+  const isFullWidth =
+    pathname === '/dashboard/okr-hierarchy' ||
+    pathname === '/dashboard/timeline' ||
+    pathname?.startsWith('/dashboard/okr-hierarchy/') ||
+    pathname?.startsWith('/dashboard/timeline/')
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [sidebarReady, setSidebarReady] = useState(false)
@@ -77,6 +84,8 @@ export default function DashboardShell({ user, children }: DashboardShellProps) 
         >
           {isStrategyMap ? (
             <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+          ) : isFullWidth ? (
+            <div className="w-full px-4 sm:px-6 lg:px-8">{children}</div>
           ) : (
             <div className="mx-auto w-full max-w-content px-4 sm:px-6 lg:px-8">{children}</div>
           )}

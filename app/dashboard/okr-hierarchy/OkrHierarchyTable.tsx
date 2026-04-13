@@ -741,6 +741,10 @@ function flatten(nodes: TreeNode[], expanded: Set<string>, depth = 0, out: Array
 
 /* --------------------------- Main component -------------------------- */
 
+const NAME_COL_DEFAULT = 420
+const NAME_COL_MIN = 260
+const COL_MIN = 72
+
 export default function OkrHierarchyTable() {
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS)
   const [rows, setRows] = useState<Row[]>([])
@@ -750,6 +754,46 @@ export default function OkrHierarchyTable() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [openMenu, setOpenMenu] = useState<string | null>(null)
   const [selected, setSelected] = useState<Row | null>(null)
+
+  // Per-column widths (resizable). Seeded from defaults; persisted to
+  // localStorage so widths survive refreshes.
+  const [widths, setWidths] = useState<Record<string, number>>(() => {
+    const init: Record<string, number> = { __name: NAME_COL_DEFAULT }
+    for (const c of COLUMNS) init[c.key] = c.width
+    return init
+  })
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('okr-hier-widths')
+      if (raw) {
+        const parsed = JSON.parse(raw) as Record<string, number>
+        setWidths((prev) => ({ ...prev, ...parsed }))
+      }
+    } catch {}
+  }, [])
+  useEffect(() => {
+    try {
+      localStorage.setItem('okr-hier-widths', JSON.stringify(widths))
+    } catch {}
+  }, [widths])
+  const startResize = useCallback((key: string, startX: number) => {
+    const startWidth = widths[key]
+    const min = key === '__name' ? NAME_COL_MIN : COL_MIN
+    const onMove = (e: MouseEvent) => {
+      const next = Math.max(min, Math.round(startWidth + (e.clientX - startX)))
+      setWidths((prev) => ({ ...prev, [key]: next }))
+    }
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+  }, [widths])
 
   const fetchData = useCallback(async (f: Filters) => {
     setLoading(true)
@@ -807,7 +851,7 @@ export default function OkrHierarchyTable() {
     (filters.progressMax ? 1 : 0) +
     (filters.q ? 1 : 0)
 
-  const totalWidth = 420 + COLUMNS.reduce((s, c) => s + c.width, 0)
+  const totalWidth = widths.__name + COLUMNS.reduce((s, c) => s + (widths[c.key] ?? c.width), 0)
 
   return (
     <div className="bg-white rounded-lg shadow">
@@ -852,13 +896,17 @@ export default function OkrHierarchyTable() {
         <div style={{ minWidth: totalWidth }}>
           {/* Header row */}
           <div className="flex items-center sticky top-0 z-20 bg-gray-50 border-b border-gray-200">
-            <div className="sticky left-0 z-20 bg-gray-50 px-3 py-2 w-[420px] shrink-0 text-[11px] font-semibold uppercase tracking-wide text-gray-600 border-r border-gray-200">
+            <div
+              style={{ width: widths.__name }}
+              className="relative sticky left-0 z-20 bg-gray-50 px-3 py-2 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-gray-600 border-r border-gray-200"
+            >
               OKR Name
+              <ResizeHandle onStart={(x) => startResize('__name', x)} />
             </div>
             {COLUMNS.map((c) => (
               <div
                 key={c.key}
-                style={{ width: c.width }}
+                style={{ width: widths[c.key] ?? c.width }}
                 className="relative px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-gray-600 border-r border-gray-100 shrink-0"
               >
                 {c.filterable ? (
@@ -871,6 +919,7 @@ export default function OkrHierarchyTable() {
                   <span>{c.label}</span>
                 )}
                 {openMenu === c.key && c.filterMenu?.({ refs, filters, setFilters, close: () => setOpenMenu(null) })}
+                <ResizeHandle onStart={(x) => startResize(c.key, x)} />
               </div>
             ))}
           </div>
@@ -884,18 +933,22 @@ export default function OkrHierarchyTable() {
             <div className="p-8 text-sm text-gray-500 text-center">No OKRs match these filters.</div>
           ) : (
             <div>
-              {flat.map((row) => {
+              {flat.map((row, idx) => {
                 const isExpandable = row.children.length > 0
                 const isExpanded = expanded.has(row.rowId)
+                // Alternate row bg is solid so the sticky left-column stays opaque
+                // on hover (prevents the text-overlap bug).
+                const rowBase = idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                const rowHover = 'hover:bg-blue-50'
                 return (
                   <div
                     key={row.rowId}
-                    className="flex items-center border-b border-gray-100 hover:bg-blue-50/30 group"
+                    className={`group flex items-stretch border-b border-gray-100 ${rowBase} ${rowHover}`}
                     onClick={() => setSelected(row)}
                   >
                     <div
-                      className="sticky left-0 z-10 bg-white group-hover:bg-blue-50/30 px-3 py-2 w-[420px] shrink-0 flex items-center gap-1 border-r border-gray-200"
-                      style={{ paddingLeft: 12 + row.depth * 16 }}
+                      style={{ width: widths.__name, paddingLeft: 12 + row.depth * 16 }}
+                      className={`sticky left-0 z-10 pr-3 py-2 shrink-0 flex items-center gap-1 border-r border-gray-200 ${rowBase} group-hover:bg-blue-50`}
                     >
                       <button
                         type="button"
@@ -933,7 +986,7 @@ export default function OkrHierarchyTable() {
                     {COLUMNS.map((c) => (
                       <div
                         key={c.key}
-                        style={{ width: c.width }}
+                        style={{ width: widths[c.key] ?? c.width }}
                         className="px-3 py-2 shrink-0 border-r border-gray-100 overflow-hidden"
                       >
                         {c.render(row, refs)}
@@ -1027,6 +1080,21 @@ function KindBadge({ row }: { row: Row }) {
     <span className="h-5 w-5 rounded bg-emerald-500 text-white flex items-center justify-center shrink-0">
       <CheckSquare className="h-3 w-3" />
     </span>
+  )
+}
+
+function ResizeHandle({ onStart }: { onStart: (x: number) => void }) {
+  return (
+    <div
+      onMouseDown={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        onStart(e.clientX)
+      }}
+      onClick={(e) => e.stopPropagation()}
+      className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize select-none group-hover:bg-blue-200/60 hover:bg-blue-400/80 transition-colors"
+      title="Drag to resize"
+    />
   )
 }
 

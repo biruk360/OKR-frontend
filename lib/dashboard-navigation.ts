@@ -67,6 +67,7 @@ export const navigationGroups: NavGroup[] = [
     icon: TrendingUp,
     items: [
       { name: 'Progress Tracking', href: '/dashboard/progress', icon: TrendingUp },
+      { name: 'Progress Dashboard', href: '/dashboard/progress-report', icon: BarChart3 },
       { name: 'Reports', href: '/dashboard/reports', icon: FileText },
       { name: 'Initiative Report', href: '/dashboard/initiative-report', icon: FileText },
       { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },

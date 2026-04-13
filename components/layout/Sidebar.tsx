@@ -384,11 +384,6 @@ export function SidebarMobileDrawer({
             <X className="h-5 w-5" />
           </button>
         </div>
-        {getActiveNavContext(pathname) ? (
-          <div className="border-b border-ink-secondary/10 px-4 py-3">
-            <CurrentNavCallout pathname={pathname} className="border-0 bg-surface-app" />
-          </div>
-        ) : null}
         <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain px-3 py-4">
           {renderExpandedGroupNav({
             pathname,
@@ -459,11 +454,6 @@ export function SidebarDesktopColumn({
         </button>
       </div>
 
-      {!collapsed && (
-        <div className="shrink-0 px-3 pt-3">
-          <CurrentNavCallout pathname={pathname} />
-        </div>
-      )}
 
       {collapsed ? (
         <>

@@ -1,0 +1,55 @@
+# .cursorignore
+# Cursor will not index anything listed here.
+# Keep this updated to prevent AI from wasting tokens on generated/vendor files.
+
+# ── Web (Next.js) ──────────────────────────────────────────────
+.next/
+out/
+dist/
+build/
+node_modules/
+.cache/
+coverage/
+storybook-static/
+*.min.js
+*.min.css
+*.map
+public/fonts/
+public/images/
+.vercel/
+.netlify/
+
+# ── Mobile (Flutter) ──────────────────────────────────────────
+mobile/build/
+mobile/.dart_tool/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/.packages
+mobile/android/.gradle/
+mobile/android/build/
+mobile/ios/.symlinks/
+mobile/ios/Pods/
+mobile/ios/Runner.xcworkspace/xcuserdata/
+mobile/web/
+mobile/linux/
+mobile/macos/
+mobile/windows/
+*.g.dart
+*.freezed.dart
+*.mocks.dart
+*.gr.dart
+
+# ── Shared ─────────────────────────────────────────────────────
+.git/
+.github/
+*.lock
+*.log
+*.env
+*.env.*
+.env.local
+.env.production
+docs/archive/
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db

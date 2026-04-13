@@ -1,0 +1,99 @@
+## IDENTITY
+
+You are working on a cross-platform application with two codebases:
+
+**Web** (`web/`) — React + Next.js (App Router), TypeScript, Zustand, Tailwind CSS
+**Mobile** (`mobile/`) — Flutter, Dart, Riverpod, go_router
+
+Architecture: 4-layer modular system. Dependencies flow one direction only (down).
+- Layer 1 `foundation/` — tokens, theme, constants
+- Layer 2 `shared/` — reusable components, stores, services, hooks, utils
+- Layer 3 `features/` — vertical feature modules (one folder per feature)
+- Layer 4 `app/` — router, shell, global providers
+
+**Cross-feature imports are FORBIDDEN.** `features/a` cannot import from `features/b`. All shared logic goes in `shared/`.
+
+---
+
+## BEFORE WRITING ANY CODE
+
+1. Read `COMPONENTS.md` (root) — if a matching component exists, REUSE IT. Never duplicate.
+2. Read `CONTEXT.md` inside the relevant `features/[module]/` folder.
+3. If creating a screen, check `SITEMAP.md` for existing routes first.
+4. If logic belongs to 2+ features → it goes in `shared/`, not inside any feature.
+
+---
+
+## BUILD RULES
+
+- Reuse before build — COMPONENTS.md is the source of truth for what exists.
+- No hardcoded values — use `foundation/tokens/` for all colors, spacing, typography.
+- Business logic lives in services, never in components or screens.
+- State via Zustand stores (web) or Riverpod providers (mobile) only. No useState for shared state.
+- Every folder must have a barrel export: `index.ts` (web) / `index.dart` (mobile).
+- Naming: Components `PascalCase` · TS files `camelCase.ts` · Dart files `snake_case.dart` · Stores `useXxxStore` · Providers `xxxProvider` · Services `XxxService`.
+- No TypeScript `any` — use proper types or `unknown` with a TODO comment.
+
+---
+
+## COMPONENT HIERARCHY
+
+- **Atom** — single element, no logic, primitive props only
+- **Molecule** — composed atoms, local UI state only, no store access
+- **Organism** — composed molecules/atoms, may access stores and call services
+- **Feature screen** — composes organisms, accesses feature store, handles navigation
+
+---
+
+## AFTER EVERY TASK — MANDATORY LOGGING (do not skip)
+
+### Append to `CHANGELOG.md` (most recent at top):
+```
+---
+### [YYYY-MM-DD HH:MM] — {task title}
+**Summary:** {one sentence}
+**Files created:** {list}
+**Files modified:** {list}
+**Components reused:** {names from COMPONENTS.md or "none"}
+**New components added:** {names or "none"}
+**Features updated:** {FEATURES.md IDs + new status or "none"}
+**Screens added:** {routes added to SITEMAP.md or "none"}
+**Notes:** {anything for next session}
+---
+```
+
+### Update `FEATURES.md`:
+Find the relevant row(s). Set status: `✅` done · `🔄` in progress · `⏳` pending · `🚫` blocked
+Update the module summary table totals.
+
+### Update `COMPONENTS.md` (only if a new shared component was created):
+Append row: `| ComponentName | key props | shared/path | modules using it | stack |`
+
+### Update `SITEMAP.md` (only if a new screen/route was created):
+Append row to the correct module section: `| /route · module/route | ScreenName | Type | Auth | Stack | Status |`
+
+---
+
+## STACK QUICK REFERENCE
+
+| | Web | Mobile |
+|---|---|---|
+| Framework | Next.js 14+ App Router | Flutter 3+ |
+| Language | TypeScript (strict, no any) | Dart (null-safe) |
+| State | Zustand | Riverpod |
+| Styling | Tailwind CSS + CSS vars | ThemeData + tokens |
+| Router | Next.js App Router | go_router |
+| HTTP | Axios via ApiService | Dio via ApiService |
+| Storage | localStorage via StorageService | SharedPreferences via StorageService |
+| Auth | JWT in useAuthStore | JWT in authProvider |
+
+---
+
+## CONTEXT
+
+Living documents at project root:
+- `COMPONENTS.md` — every reusable component, store, service, utility
+- `FEATURES.md` — every feature and its build status
+- `SITEMAP.md` — every screen and route
+- `CHANGELOG.md` — every change made, session by session
+- `AI_PROMPT.md` — human-readable version of these rules (source of this file)

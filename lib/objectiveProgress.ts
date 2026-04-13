@@ -3,6 +3,44 @@ import type { Prisma, PrismaClient } from '@prisma/client'
 export type DbLike = Prisma.TransactionClient | PrismaClient
 
 /**
+ * Weighted average where `weight = 0` means "auto" (equal split).
+ * If every item has weight 0, falls back to a plain average; otherwise each
+ * zero-weight item gets a synthetic weight equal to `avg(non-zero weights)`
+ * so manual overrides compose naturally with auto siblings.
+ */
+export function weightedAverage(items: Array<{ value: number; weight: number }>): number {
+  if (items.length === 0) return 0
+  const explicit = items.filter((i) => i.weight > 0)
+  if (explicit.length === 0) {
+    return items.reduce((s, i) => s + i.value, 0) / items.length
+  }
+  const avgExplicit = explicit.reduce((s, i) => s + i.weight, 0) / explicit.length
+  let totalW = 0
+  let totalWV = 0
+  for (const { value, weight } of items) {
+    const w = weight > 0 ? weight : avgExplicit
+    totalW += w
+    totalWV += w * value
+  }
+  return totalW > 0 ? totalWV / totalW : 0
+}
+
+/** Resolve the contribution % each item has toward its parent. Same auto-fill rules as weightedAverage. */
+export function contributionPercents(
+  items: Array<{ id: string; weight: number }>,
+): Record<string, number> {
+  if (items.length === 0) return {}
+  const explicit = items.filter((i) => i.weight > 0)
+  const avgExplicit =
+    explicit.length > 0 ? explicit.reduce((s, i) => s + i.weight, 0) / explicit.length : 1
+  const effective = items.map((i) => ({ id: i.id, w: i.weight > 0 ? i.weight : avgExplicit }))
+  const total = effective.reduce((s, i) => s + i.w, 0) || 1
+  const out: Record<string, number> = {}
+  for (const { id, w } of effective) out[id] = (w / total) * 100
+  return out
+}
+
+/**
  * Recompute stored progress for one objective: strict roll-up from active children when enabled,
  * otherwise average of active key results (capped 0–100 per KR).
  */
@@ -18,7 +56,7 @@ export async function recalcObjectiveStoredProgress(tx: DbLike, objectiveId: str
 
   const children = await tx.objective.findMany({
     where: { parentObjectiveId: objectiveId, status: 'ACTIVE' },
-    select: { progress: true },
+    select: { progress: true, weight: true },
   })
 
   let progress: number
@@ -28,26 +66,29 @@ export async function recalcObjectiveStoredProgress(tx: DbLike, objectiveId: str
     children.length > 0
   ) {
     if (obj.rollupCalculation === 'AVERAGE') {
-      progress = children.reduce((s, c) => s + c.progress, 0) / children.length
+      progress = weightedAverage(
+        children.map((c) => ({ value: c.progress, weight: c.weight })),
+      )
     } else {
       progress = Math.min(100, children.reduce((s, c) => s + c.progress, 0))
     }
   } else {
     const krs = await tx.keyResult.findMany({
       where: { objectiveId, status: 'ACTIVE' },
-      select: { currentValue: true, targetValue: true, progress: true },
+      select: { currentValue: true, targetValue: true, progress: true, weight: true },
     })
     if (krs.length === 0) {
       progress = 0
     } else {
-      const total = krs.reduce((sum, kr) => {
-        const p =
-          kr.targetValue > 0
-            ? Math.min((kr.currentValue / kr.targetValue) * 100, 100)
-            : Math.min(kr.progress, 100)
-        return sum + p
-      }, 0)
-      progress = total / krs.length
+      progress = weightedAverage(
+        krs.map((kr) => {
+          const p =
+            kr.targetValue > 0
+              ? Math.min((kr.currentValue / kr.targetValue) * 100, 100)
+              : Math.min(kr.progress, 100)
+          return { value: p, weight: kr.weight }
+        }),
+      )
     }
   }
 

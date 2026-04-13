@@ -11,11 +11,13 @@ import {
   History,
   Download,
   MoveRight,
+  Scale,
   Trash2,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { ActionsMenu, ConfirmDialog } from '@/components/ui'
 import type { ActionsMenuItem } from '@/components/ui'
+import EditWeightsModal from './EditWeightsModal'
 
 interface ObjectiveActionsMenuProps {
   objective: any
@@ -44,6 +46,7 @@ export default function ObjectiveActionsMenu({
   const router = useRouter()
   const [completeOpen, setCompleteOpen] = useState(false)
   const [archiveOpen, setArchiveOpen] = useState(false)
+  const [weightsOpen, setWeightsOpen] = useState(false)
   const [isCompleting, setIsCompleting] = useState(false)
   const [isArchiving, setIsArchiving] = useState(false)
 
@@ -163,6 +166,13 @@ export default function ObjectiveActionsMenu({
         ),
       hidden: isArchived,
     },
+    {
+      key: 'weights',
+      label: 'Edit weights',
+      icon: Scale,
+      onSelect: () => setWeightsOpen(true),
+      hidden: isArchived,
+    },
     { key: 'd1', label: '', divider: true, onSelect: () => {} },
     {
       key: 'audit',
@@ -226,6 +236,14 @@ export default function ObjectiveActionsMenu({
         confirmLabel="Mark complete"
         loadingLabel="Completing..."
         isLoading={isCompleting}
+      />
+
+      <EditWeightsModal
+        open={weightsOpen}
+        onClose={() => setWeightsOpen(false)}
+        objectiveId={objective.id}
+        objectiveTitle={objective.title}
+        onSaved={() => router.refresh()}
       />
 
       <ConfirmDialog

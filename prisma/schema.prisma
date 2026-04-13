@@ -148,6 +148,10 @@ model Objective {
   rollupCalculation String           @default("NONE")
   /// Mandatory check-in cadence: WEEKLY | BIWEEKLY | MONTHLY | QUARTERLY
   checkInCadence    String           @default("WEEKLY")
+  /// Raw weight used when this objective contributes to a parent's progress.
+  /// 0 = treated as auto (equal split with siblings whose weight is also 0).
+  /// Otherwise, the relative weight among siblings determines contribution %.
+  weight            Float            @default(0)
   archivedAt  DateTime?
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
@@ -202,6 +206,9 @@ model KeyResult {
   objectiveId   String
   /// Mandatory check-in cadence: WEEKLY | BIWEEKLY | MONTHLY | QUARTERLY
   checkInCadence String          @default("WEEKLY")
+  /// Raw weight used when this KR contributes to its parent objective's progress.
+  /// 0 = treated as auto (equal split with siblings whose weight is also 0).
+  weight        Float            @default(0)
   archivedAt    DateTime?
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt

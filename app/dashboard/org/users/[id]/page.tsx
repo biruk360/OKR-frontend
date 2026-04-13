@@ -6,6 +6,7 @@ import { ArrowLeft, Building2, HelpCircle, User, UserCircle } from 'lucide-react
 import { canViewObjective, canManageUsers, type UserRole } from '@/lib/permissions'
 import { PageTitleSetter } from '@/components/layout/DashboardTitleContext'
 import ProfileOrgMinimap from '@/components/profile/ProfileOrgMinimap'
+import UserProgressTimeline from '@/components/profile/UserProgressTimeline'
 import {
   computeProfilePlanMetrics,
   formatKrValueLabel,
@@ -83,6 +84,7 @@ export default async function UserProfilePage({ params }: PageProps) {
           ownerId: true,
           departmentId: true,
           isPrivate: true,
+          timeframe: { select: { startDate: true, endDate: true } },
         },
       },
       todos: { select: { status: true } },
@@ -196,6 +198,56 @@ export default async function UserProfilePage({ params }: PageProps) {
   const pendingCount = krsWithStatus.filter(
     (x) => x.displayStatus === 'pending' || x.displayStatus === 'not_measurable'
   ).length
+
+  // Timeline: bucket user's KR check-ins by ISO week and average per-checkin progress.
+  const krIds = visibleKeyResults.map((kr) => kr.id)
+  const timelineCheckIns =
+    krIds.length > 0
+      ? await prisma.keyResultCheckIn.findMany({
+          where: { keyResultId: { in: krIds } },
+          orderBy: { createdAt: 'asc' },
+          select: { createdAt: true, newValue: true, keyResultId: true },
+        })
+      : []
+  const krMeta = new Map(
+    visibleKeyResults.map((kr) => [kr.id, { start: kr.startValue, target: kr.targetValue }]),
+  )
+  function weekKey(d: Date) {
+    const copy = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
+    const day = copy.getUTCDay() || 7
+    copy.setUTCDate(copy.getUTCDate() - day + 1)
+    return copy.toISOString().slice(0, 10)
+  }
+  const byWeek = new Map<string, { sum: number; n: number }>()
+  for (const ci of timelineCheckIns) {
+    const meta = krMeta.get(ci.keyResultId)
+    if (!meta) continue
+    const span = meta.target - meta.start
+    if (span <= 0) continue
+    const pct = Math.max(0, Math.min(100, ((ci.newValue - meta.start) / span) * 100))
+    const key = weekKey(ci.createdAt)
+    const bucket = byWeek.get(key) ?? { sum: 0, n: 0 }
+    bucket.sum += pct
+    bucket.n += 1
+    byWeek.set(key, bucket)
+  }
+  const timelineSnapshots = Array.from(byWeek.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([periodStart, v]) => ({ periodStart, score: v.sum / v.n }))
+
+  // Pick widest timeframe among owned KRs' objectives; fall back to last 90 days.
+  const tfBounds = visibleKeyResults
+    .map((kr) => kr.objective.timeframe)
+    .filter((t): t is { startDate: Date; endDate: Date } => Boolean(t?.startDate && t?.endDate))
+  let tfStart: Date
+  let tfEnd: Date
+  if (tfBounds.length > 0) {
+    tfStart = new Date(Math.min(...tfBounds.map((t) => t.startDate.getTime())))
+    tfEnd = new Date(Math.max(...tfBounds.map((t) => t.endDate.getTime())))
+  } else {
+    tfEnd = new Date()
+    tfStart = new Date(Date.now() - 90 * 24 * 3600 * 1000)
+  }
 
   return (
     <>
@@ -379,6 +431,13 @@ export default async function UserProfilePage({ params }: PageProps) {
 
           {/* Main */}
           <div className="lg:col-span-8 space-y-6">
+            <UserProgressTimeline
+              snapshots={timelineSnapshots}
+              currentProgress={metrics.avgKrProgress}
+              timeframeStart={tfStart.toISOString()}
+              timeframeEnd={tfEnd.toISOString()}
+            />
+
             <section className="bg-white rounded-lg border border-gray-200 shadow-sm">
               <div className="px-4 py-3 border-b border-gray-100">
                 <h2 className="text-base font-semibold text-gray-900">Active key results</h2>

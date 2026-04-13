@@ -1,30 +1,33 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSessionSafe } from '@/lib/auth'
+import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { resolveParams } from '@/lib/resolve-route-params'
+import {
+  apiSuccess,
+  apiBadRequest,
+  apiForbidden,
+  apiNotFound,
+  withAuth,
+} from '@/lib/api'
 
 type CommentParams =
   | { id: string; actId: string; commentId: string }
   | Promise<{ id: string; actId: string; commentId: string }>
 
-export async function PATCH(request: NextRequest, { params }: { params: CommentParams }) {
-  const session = await getServerSessionSafe()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
+export const PATCH = withAuth<CommentParams>(async (request: NextRequest, { session, params }) => {
   const { commentId } = await resolveParams(params)
-  if (!commentId) return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
+  if (!commentId) return apiBadRequest('Invalid id')
 
   const body = await request.json()
   const content = (body.content || '').trim()
-  if (!content) return NextResponse.json({ error: 'Content is required' }, { status: 400 })
+  if (!content) return apiBadRequest('Content is required')
 
   const existing = await prisma.sprintActivityComment.findUnique({
     where: { id: commentId },
     select: { authorId: true },
   })
-  if (!existing) return NextResponse.json({ error: 'Comment not found' }, { status: 404 })
+  if (!existing) return apiNotFound('Comment not found')
   if (existing.authorId !== session.user.id && session.user.role !== 'ADMIN') {
-    return NextResponse.json({ error: 'Only the author can edit this comment' }, { status: 403 })
+    return apiForbidden('Only the author can edit this comment')
   }
 
   const comment = await prisma.sprintActivityComment.update({
@@ -32,25 +35,22 @@ export async function PATCH(request: NextRequest, { params }: { params: CommentP
     data: { content },
     include: { author: { select: { id: true, name: true, avatar: true } } },
   })
-  return NextResponse.json({ success: true, comment })
-}
+  return apiSuccess(comment)
+})
 
-export async function DELETE(_request: NextRequest, { params }: { params: CommentParams }) {
-  const session = await getServerSessionSafe()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
+export const DELETE = withAuth<CommentParams>(async (_request, { session, params }) => {
   const { commentId } = await resolveParams(params)
-  if (!commentId) return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
+  if (!commentId) return apiBadRequest('Invalid id')
 
   const existing = await prisma.sprintActivityComment.findUnique({
     where: { id: commentId },
     select: { authorId: true },
   })
-  if (!existing) return NextResponse.json({ error: 'Comment not found' }, { status: 404 })
+  if (!existing) return apiNotFound('Comment not found')
   if (existing.authorId !== session.user.id && session.user.role !== 'ADMIN') {
-    return NextResponse.json({ error: 'Only the author can delete this comment' }, { status: 403 })
+    return apiForbidden('Only the author can delete this comment')
   }
 
   await prisma.sprintActivityComment.delete({ where: { id: commentId } })
-  return NextResponse.json({ success: true })
-}
+  return apiSuccess(null)
+})

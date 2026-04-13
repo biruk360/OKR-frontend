@@ -78,7 +78,7 @@ export default function TimeframeManagement({ timeframes }: TimeframeManagementP
       const result = await response.json()
       
       if (response.ok) {
-        setTimeframesList(prev => [result.timeframe, ...prev])
+        setTimeframesList(prev => [result.data, ...prev])
         setNewTimeframe({ 
           name: '', 
           type: 'QUARTERLY',
@@ -114,8 +114,8 @@ export default function TimeframeManagement({ timeframes }: TimeframeManagementP
 
       if (response.ok) {
         const data = await response.json()
-        setTimeframesList(prev => prev.map(tf => 
-          tf.id === id ? data.timeframe : tf
+        setTimeframesList(prev => prev.map(tf =>
+          tf.id === id ? data.data : tf
         ))
         setEditingId(null)
         setEditTimeframe({ name: '', type: 'QUARTERLY', startDate: '', endDate: '' })
@@ -141,8 +141,8 @@ export default function TimeframeManagement({ timeframes }: TimeframeManagementP
 
       if (response.ok) {
         const data = await response.json()
-        setTimeframesList(prev => prev.map(tf => 
-          tf.id === id ? data.timeframe : tf
+        setTimeframesList(prev => prev.map(tf =>
+          tf.id === id ? data.data : tf
         ))
         toast.success(`Timeframe ${!isActive ? 'activated' : 'deactivated'} successfully`)
         // Refresh the page to reflect changes

@@ -1,25 +1,26 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSessionSafe } from '@/lib/auth'
+import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { resolveParams } from '@/lib/resolve-route-params'
+import {
+  apiSuccess,
+  apiBadRequest,
+  apiNotFound,
+  withAuth,
+} from '@/lib/api'
 
 type ActParams = { id: string; actId: string } | Promise<{ id: string; actId: string }>
 
 /** List comments on a sprint activity (chronological). */
-export async function GET(_request: NextRequest, { params }: { params: ActParams }) {
-  const session = await getServerSessionSafe()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
+export const GET = withAuth<ActParams>(async (_request, { params }) => {
   const { id: sprintId, actId } = await resolveParams(params)
-  if (!sprintId || !actId) return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
+  if (!sprintId || !actId) return apiBadRequest('Invalid id')
 
-  // Verify activity belongs to sprint
   const activity = await prisma.sprintActivity.findUnique({
     where: { id: actId },
     select: { sprintId: true },
   })
   if (!activity || activity.sprintId !== sprintId) {
-    return NextResponse.json({ error: 'Activity not found' }, { status: 404 })
+    return apiNotFound('Activity not found')
   }
 
   const comments = await prisma.sprintActivityComment.findMany({
@@ -27,35 +28,30 @@ export async function GET(_request: NextRequest, { params }: { params: ActParams
     include: { author: { select: { id: true, name: true, avatar: true } } },
     orderBy: { createdAt: 'asc' },
   })
-  return NextResponse.json({ success: true, comments })
-}
+  return apiSuccess(comments)
+})
 
 /** Create a comment. */
-export async function POST(request: NextRequest, { params }: { params: ActParams }) {
-  const session = await getServerSessionSafe()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
+export const POST = withAuth<ActParams>(async (request: NextRequest, { session, params }) => {
   const { id: sprintId, actId } = await resolveParams(params)
-  if (!sprintId || !actId) return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
+  if (!sprintId || !actId) return apiBadRequest('Invalid id')
 
   const body = await request.json()
   const content = (body.content || '').trim()
-  if (!content) return NextResponse.json({ error: 'Comment content is required' }, { status: 400 })
-  if (content.length > 10000) {
-    return NextResponse.json({ error: 'Comment is too long' }, { status: 400 })
-  }
+  if (!content) return apiBadRequest('Comment content is required')
+  if (content.length > 10000) return apiBadRequest('Comment is too long')
 
   const activity = await prisma.sprintActivity.findUnique({
     where: { id: actId },
     select: { sprintId: true },
   })
   if (!activity || activity.sprintId !== sprintId) {
-    return NextResponse.json({ error: 'Activity not found' }, { status: 404 })
+    return apiNotFound('Activity not found')
   }
 
   const comment = await prisma.sprintActivityComment.create({
     data: { activityId: actId, authorId: session.user.id, content },
     include: { author: { select: { id: true, name: true, avatar: true } } },
   })
-  return NextResponse.json({ success: true, comment }, { status: 201 })
-}
+  return apiSuccess(comment, { status: 201 })
+})

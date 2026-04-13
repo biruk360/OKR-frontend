@@ -1,71 +1,28 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSessionSafe } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
+import { apiSuccess, apiBadRequest, apiNotFound, withAuth } from '@/lib/api'
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: RouteIdParams }
-) {
-  try {
-    const session = await getServerSessionSafe()
-    
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+export const GET = withAuth<RouteIdParams>(async (_request, { params }) => {
+  const { id: objectiveId } = await resolveParams(params)
+  if (!objectiveId) return apiBadRequest('Invalid objective id')
 
-    const { id: objectiveId } = await resolveParams(params)
-    if (!objectiveId) {
-      return NextResponse.json({ error: 'Invalid objective id' }, { status: 400 })
-    }
+  const parentObjective = await prisma.objective.findUnique({
+    where: { id: objectiveId },
+    select: { id: true, title: true, level: true },
+  })
 
-    // Get the parent objective first to verify it exists
-    const parentObjective = await prisma.objective.findUnique({
-      where: { id: objectiveId },
-      select: { id: true, title: true, level: true }
-    })
+  if (!parentObjective) return apiNotFound('Parent objective not found')
 
-    if (!parentObjective) {
-      return NextResponse.json(
-        { error: 'Parent objective not found' },
-        { status: 404 }
-      )
-    }
+  const childObjectives = await prisma.objective.findMany({
+    where: { parentObjectiveId: objectiveId, status: 'ACTIVE' },
+    include: {
+      owner: { select: { id: true, name: true, avatar: true } },
+      timeframe: true,
+      department: { select: { id: true, name: true } },
+      _count: { select: { keyResults: true, childObjectives: true } },
+    },
+    orderBy: { updatedAt: 'desc' },
+  })
 
-    // Get all child objectives
-    const childObjectives = await prisma.objective.findMany({
-      where: {
-        parentObjectiveId: objectiveId,
-        status: 'ACTIVE'
-      },
-      include: {
-        owner: {
-          select: { id: true, name: true, avatar: true }
-        },
-        timeframe: true,
-        department: {
-          select: { id: true, name: true }
-        },
-        _count: {
-          select: { keyResults: true, childObjectives: true }
-        }
-      },
-      orderBy: { updatedAt: 'desc' }
-    })
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        parentObjective,
-        childObjectives
-      }
-    })
-  } catch (error) {
-    console.error('Error fetching child objectives:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
-  }
-}
-
+  return apiSuccess({ parentObjective, childObjectives })
+})

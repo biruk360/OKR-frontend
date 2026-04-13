@@ -2,7 +2,7 @@ import { notFound, redirect } from 'next/navigation'
 import { getServerSessionSafe } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { resolveParams } from '@/lib/resolve-route-params'
-import SprintBoardClient, { type SprintBoardData } from '@/components/sprints/SprintBoardClient'
+import { SprintBoardClient, type SprintBoardData } from '@/features/sprints'
 
 interface Props {
   params: { id: string } | Promise<{ id: string }>

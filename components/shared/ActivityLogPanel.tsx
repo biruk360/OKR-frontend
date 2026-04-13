@@ -69,8 +69,11 @@ export function ActivityLogPanel({ entityType, entityId }: Props) {
       .then((data) => {
         if (cancelled) return
         if (data?.success) {
-          setLogs(data.logs || [])
-          setViews(data.views || [])
+          // Server now nests logs/views under `data.data` (standard envelope);
+          // keep top-level fallback for any legacy routes.
+          const payload = data.data ?? data
+          setLogs(payload.logs || [])
+          setViews(payload.views || [])
         }
       })
       .catch(() => {})

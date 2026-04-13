@@ -1,15 +1,18 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSessionSafe } from '@/lib/auth'
+import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
+import {
+  apiSuccess,
+  apiBadRequest,
+  apiForbidden,
+  apiNotFound,
+  withAuth,
+} from '@/lib/api'
 
 /** Full sprint with columns + activities (board fetch). */
-export async function GET(_request: NextRequest, { params }: { params: RouteIdParams }) {
-  const session = await getServerSessionSafe()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
+export const GET = withAuth<RouteIdParams>(async (_request, { params }) => {
   const { id } = await resolveParams(params)
-  if (!id) return NextResponse.json({ error: 'Invalid sprint id' }, { status: 400 })
+  if (!id) return apiBadRequest('Invalid sprint id')
 
   const sprint = await prisma.sprint.findUnique({
     where: { id },
@@ -36,17 +39,13 @@ export async function GET(_request: NextRequest, { params }: { params: RouteIdPa
     },
   })
 
-  if (!sprint) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  if (!sprint) return apiNotFound('Not found')
+  return apiSuccess(sprint)
+})
 
-  return NextResponse.json({ success: true, sprint })
-}
-
-export async function PATCH(request: NextRequest, { params }: { params: RouteIdParams }) {
-  const session = await getServerSessionSafe()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
+export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { params }) => {
   const { id } = await resolveParams(params)
-  if (!id) return NextResponse.json({ error: 'Invalid sprint id' }, { status: 400 })
+  if (!id) return apiBadRequest('Invalid sprint id')
 
   const body = await request.json()
   const data: any = {}
@@ -57,22 +56,19 @@ export async function PATCH(request: NextRequest, { params }: { params: RouteIdP
   if (body.endDate) data.endDate = new Date(body.endDate)
 
   const sprint = await prisma.sprint.update({ where: { id }, data })
-  return NextResponse.json({ success: true, sprint })
-}
+  return apiSuccess(sprint)
+})
 
-export async function DELETE(_request: NextRequest, { params }: { params: RouteIdParams }) {
-  const session = await getServerSessionSafe()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
+export const DELETE = withAuth<RouteIdParams>(async (_request, { session, params }) => {
   const { id } = await resolveParams(params)
-  if (!id) return NextResponse.json({ error: 'Invalid sprint id' }, { status: 400 })
+  if (!id) return apiBadRequest('Invalid sprint id')
 
   const sprint = await prisma.sprint.findUnique({ where: { id }, select: { ownerId: true } })
-  if (!sprint) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  if (!sprint) return apiNotFound('Not found')
   if (sprint.ownerId !== session.user.id && session.user.role !== 'ADMIN') {
-    return NextResponse.json({ error: 'Only the owner can delete this sprint' }, { status: 403 })
+    return apiForbidden('Only the owner can delete this sprint')
   }
 
   await prisma.sprint.delete({ where: { id } })
-  return NextResponse.json({ success: true })
-}
+  return apiSuccess(null)
+})

@@ -1,92 +1,51 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSessionSafe } from '@/lib/auth'
+import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { canAccessSettings } from '@/lib/permissions'
+import {
+  apiSuccess,
+  apiBadRequest,
+  apiForbidden,
+  withAuth,
+} from '@/lib/api'
 
-export async function GET(request: NextRequest) {
-  try {
-    const session = await getServerSessionSafe()
-    
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    if (!canAccessSettings(session.user.role as any)) {
-      return NextResponse.json(
-        { error: 'Insufficient permissions' },
-        { status: 403 }
-      )
-    }
-
-    const [workspaceName, logoUrl] = await Promise.all([
-      prisma.systemSettings.findUnique({ where: { key: 'branding_workspaceName' } }),
-      prisma.systemSettings.findUnique({ where: { key: 'branding_logoUrl' } })
-    ])
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        workspaceName: workspaceName?.value || 'OKR System',
-        logoUrl: logoUrl?.value || ''
-      }
-    })
-  } catch (error) {
-    console.error('Error fetching branding settings:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+export const GET = withAuth(async (_request, { session }) => {
+  if (!canAccessSettings(session.user.role as any)) {
+    return apiForbidden('Insufficient permissions')
   }
-}
 
-export async function POST(request: NextRequest) {
-  try {
-    const session = await getServerSessionSafe()
-    
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+  const [workspaceName, logoUrl] = await Promise.all([
+    prisma.systemSettings.findUnique({ where: { key: 'branding_workspaceName' } }),
+    prisma.systemSettings.findUnique({ where: { key: 'branding_logoUrl' } }),
+  ])
 
-    if (!canAccessSettings(session.user.role as any)) {
-      return NextResponse.json(
-        { error: 'Insufficient permissions' },
-        { status: 403 }
-      )
-    }
+  return apiSuccess({
+    workspaceName: workspaceName?.value || 'OKR System',
+    logoUrl: logoUrl?.value || '',
+  })
+})
 
-    const body = await request.json()
-    const { workspaceName, logoUrl } = body
-
-    if (!workspaceName) {
-      return NextResponse.json(
-        { error: 'Workspace name is required' },
-        { status: 400 }
-      )
-    }
-
-    await Promise.all([
-      prisma.systemSettings.upsert({
-        where: { key: 'branding_workspaceName' },
-        update: { value: workspaceName },
-        create: { key: 'branding_workspaceName', value: workspaceName }
-      }),
-      prisma.systemSettings.upsert({
-        where: { key: 'branding_logoUrl' },
-        update: { value: logoUrl || '' },
-        create: { key: 'branding_logoUrl', value: logoUrl || '' }
-      })
-    ])
-
-    return NextResponse.json({
-      success: true,
-      message: 'Branding settings updated successfully'
-    })
-  } catch (error) {
-    console.error('Error updating branding settings:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+export const POST = withAuth(async (request: NextRequest, { session }) => {
+  if (!canAccessSettings(session.user.role as any)) {
+    return apiForbidden('Insufficient permissions')
   }
-}
 
+  const body = await request.json()
+  const { workspaceName, logoUrl } = body
+
+  if (!workspaceName) return apiBadRequest('Workspace name is required')
+
+  await Promise.all([
+    prisma.systemSettings.upsert({
+      where: { key: 'branding_workspaceName' },
+      update: { value: workspaceName },
+      create: { key: 'branding_workspaceName', value: workspaceName },
+    }),
+    prisma.systemSettings.upsert({
+      where: { key: 'branding_logoUrl' },
+      update: { value: logoUrl || '' },
+      create: { key: 'branding_logoUrl', value: logoUrl || '' },
+    }),
+  ])
+
+  return apiSuccess(null, { message: 'Branding settings updated successfully' })
+})

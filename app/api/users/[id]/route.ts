@@ -1,261 +1,108 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSessionSafe } from '@/lib/auth'
+import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
+import {
+  apiSuccess,
+  apiBadRequest,
+  apiNotFound,
+  apiConflict,
+  withRole,
+} from '@/lib/api'
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: RouteIdParams }
-) {
-  try {
-    const session = await getServerSessionSafe()
-    
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+export const GET = withRole<RouteIdParams>('ADMIN', async (_request, { params }) => {
+  const { id: userId } = await resolveParams(params)
+  if (!userId) return apiBadRequest('Invalid user id')
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      isActive: true,
+      createdAt: true,
+      lastLoginAt: true,
+    },
+  })
+
+  if (!user) return apiNotFound('User not found')
+  return apiSuccess(user)
+})
+
+export const PATCH = withRole<RouteIdParams>('ADMIN', async (request: NextRequest, { params }) => {
+  const { id: userId } = await resolveParams(params)
+  if (!userId) return apiBadRequest('Invalid user id')
+
+  const body = await request.json()
+  const { name, email, role, isActive } = body
+
+  const existingUser = await prisma.user.findUnique({ where: { id: userId } })
+  if (!existingUser) return apiNotFound('User not found')
+
+  if (email && email !== existingUser.email) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      return apiBadRequest('A valid email address is required')
     }
 
-    // Only admins can view user details
-    if (session.user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
-
-    const { id: userId } = await resolveParams(params)
-    if (!userId) {
-      return NextResponse.json({ error: 'Invalid user id' }, { status: 400 })
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        isActive: true,
-        createdAt: true,
-        lastLoginAt: true
-      }
+    const emailTaken = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true },
     })
-
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    if (emailTaken && emailTaken.id !== userId) {
+      return apiConflict('Email address is already in use')
     }
-
-    return NextResponse.json({
-      success: true,
-      user
-    })
-  } catch (error) {
-    console.error('Error fetching user:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
   }
-}
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: RouteIdParams }
-) {
-  try {
-    const session = await getServerSessionSafe()
-    
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (role) {
+    const validRoles = ['ADMIN', 'EXECUTIVE', 'DEPARTMENT_LEAD', 'EMPLOYEE']
+    if (!validRoles.includes(role)) {
+      return apiBadRequest('Invalid role. Must be ADMIN, EXECUTIVE, DEPARTMENT_LEAD, or EMPLOYEE')
     }
-
-    // Only admins can update users
-    if (session.user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
-
-    const { id: userId } = await resolveParams(params)
-    if (!userId) {
-      return NextResponse.json({ error: 'Invalid user id' }, { status: 400 })
-    }
-    const body = await request.json()
-    const { name, email, role, isActive } = body
-
-    // Find the user
-    const existingUser = await prisma.user.findUnique({
-      where: { id: userId }
-    })
-
-    if (!existingUser) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
-    }
-
-    // Validate email format if provided
-    if (email && email !== existingUser.email) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-      if (!emailRegex.test(email)) {
-        return NextResponse.json(
-          { error: 'A valid email address is required' },
-          { status: 400 }
-        )
-      }
-
-      // Check if email is already taken by another user
-      const emailTaken = await prisma.user.findUnique({
-        where: { email },
-        select: { id: true }
-      })
-
-      if (emailTaken && emailTaken.id !== userId) {
-        return NextResponse.json(
-          { error: 'Email address is already in use' },
-          { status: 400 }
-        )
-      }
-    }
-
-    // Validate role if provided
-    if (role) {
-      const validRoles = ['ADMIN', 'EXECUTIVE', 'DEPARTMENT_LEAD', 'EMPLOYEE']
-      if (!validRoles.includes(role)) {
-        return NextResponse.json(
-          { error: 'Invalid role. Must be ADMIN, EXECUTIVE, DEPARTMENT_LEAD, or EMPLOYEE' },
-          { status: 400 }
-        )
-      }
-    }
-
-    // Update user
-    const updatedUser = await prisma.user.update({
-      where: { id: userId },
-      data: {
-        ...(name && { name }),
-        ...(email && { email }),
-        ...(role && { role }),
-        ...(isActive !== undefined && { isActive })
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        isActive: true,
-        createdAt: true,
-        lastLoginAt: true
-      }
-    })
-
-    return NextResponse.json({
-      success: true,
-      user: updatedUser,
-      message: 'User updated successfully'
-    })
-  } catch (error) {
-    console.error('Error updating user:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
   }
-}
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: RouteIdParams }
-) {
-  try {
-    const session = await getServerSessionSafe()
-    
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+  const updatedUser = await prisma.user.update({
+    where: { id: userId },
+    data: {
+      ...(name && { name }),
+      ...(email && { email }),
+      ...(role && { role }),
+      ...(isActive !== undefined && { isActive }),
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      isActive: true,
+      createdAt: true,
+      lastLoginAt: true,
+    },
+  })
 
-    // Only admins can delete users
-    if (session.user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
+  return apiSuccess(updatedUser, { message: 'User updated successfully' })
+})
 
-    const { id: userId } = await resolveParams(params)
-    if (!userId) {
-      return NextResponse.json({ error: 'Invalid user id' }, { status: 400 })
-    }
+export const DELETE = withRole<RouteIdParams>('ADMIN', async (_request, { session, params }) => {
+  const { id: userId } = await resolveParams(params)
+  if (!userId) return apiBadRequest('Invalid user id')
 
-    // Prevent deleting yourself
-    if (userId === session.user.id) {
-      return NextResponse.json(
-        { error: 'You cannot delete your own account' },
-        { status: 400 }
-      )
-    }
-
-    // Find the user
-    const user = await prisma.user.findUnique({
-      where: { id: userId }
-    })
-
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
-    }
-
-    // Delete related records first (manual cascade for relationships without onDelete: Cascade)
-    // Order matters: delete child records before parent records
-    
-    // 1. Delete comments by this user
-    await prisma.comment.deleteMany({
-      where: { authorId: userId }
-    })
-
-    // 2. Delete todos assigned to or created by this user
-    await prisma.todo.deleteMany({
-      where: {
-        OR: [
-          { assigneeId: userId },
-          { creatorId: userId }
-        ]
-      }
-    })
-
-    // 3. Delete key results owned by this user
-    // Note: This must happen before deleting objectives to avoid FK constraint issues
-    await prisma.keyResult.deleteMany({
-      where: { ownerId: userId }
-    })
-
-    // 4. Delete objectives owned by this user
-    // Note: Deleting objectives will cascade delete their key results (if any remain),
-    // but we've already deleted key results owned by this user above
-    await prisma.objective.deleteMany({
-      where: { ownerId: userId }
-    })
-
-    // 5. Delete user
-    // Cascade will automatically handle: departmentMemberships, managerRelationships, notifications
-    await prisma.user.delete({
-      where: { id: userId }
-    })
-
-    return NextResponse.json({
-      success: true,
-      message: 'User deleted successfully'
-    })
-  } catch (error: any) {
-    console.error('Error deleting user:', error)
-    
-    // Provide more specific error messages
-    if (error.code === 'P2003') {
-      return NextResponse.json(
-        { error: 'Cannot delete user: User has related records that cannot be automatically removed' },
-        { status: 400 }
-      )
-    }
-    
-    if (error.code === 'P2025') {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      )
-    }
-
-    return NextResponse.json(
-      { error: error.message || 'Internal server error' },
-      { status: 500 }
-    )
+  if (userId === session.user.id) {
+    return apiBadRequest('You cannot delete your own account')
   }
-}
 
+  const user = await prisma.user.findUnique({ where: { id: userId } })
+  if (!user) return apiNotFound('User not found')
+
+  // Manual cascade — delete relations that don't have onDelete: Cascade set.
+  await prisma.comment.deleteMany({ where: { authorId: userId } })
+  await prisma.todo.deleteMany({
+    where: { OR: [{ assigneeId: userId }, { creatorId: userId }] },
+  })
+  await prisma.keyResult.deleteMany({ where: { ownerId: userId } })
+  await prisma.objective.deleteMany({ where: { ownerId: userId } })
+  await prisma.user.delete({ where: { id: userId } })
+
+  return apiSuccess(null, { message: 'User deleted successfully' })
+})

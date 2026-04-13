@@ -33,7 +33,7 @@ export default function UserManagement({ initialUsers }: UserManagementProps) {
       const response = await fetch('/api/users')
       if (response.ok) {
         const data = await response.json()
-        setUsers(data.users)
+        setUsers(data.data)
       }
     } catch (error) {
       console.error('Error refreshing users:', error)
@@ -398,7 +398,7 @@ function AddUserModal({ isOpen, onClose, onUserCreated }: AddUserModalProps) {
 
       if (response.ok) {
         const data = await response.json()
-        onUserCreated(data.user)
+        onUserCreated(data.data)
         setFormData({ firstName: '', lastName: '', email: '', role: 'EMPLOYEE' })
         setErrors({})
       } else {
@@ -588,7 +588,7 @@ function EditUserModal({ isOpen, onClose, onUserUpdated, user }: EditUserModalPr
 
       if (response.ok) {
         const data = await response.json()
-        onUserUpdated(data.user)
+        onUserUpdated(data.data)
         toast.success('User updated successfully')
       } else {
         const error = await response.json()

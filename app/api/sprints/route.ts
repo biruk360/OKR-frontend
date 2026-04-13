@@ -1,15 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSessionSafe } from '@/lib/auth'
+import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { apiSuccess, apiBadRequest, withAuth } from '@/lib/api'
 
 /**
- * GET — list sprints visible to the user (their own + shared "ACTIVE" ones).
- * For now everyone sees all ACTIVE sprints; tighten this once team-scoped sprints land.
+ * GET — list sprints visible to the user. Today everyone sees all ACTIVE sprints;
+ * tighten this when team-scoped sprints land.
  */
-export async function GET(request: NextRequest) {
-  const session = await getServerSessionSafe()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
+export const GET = withAuth(async (request: NextRequest) => {
   const { searchParams } = new URL(request.url)
   const status = searchParams.get('status') || 'ACTIVE'
 
@@ -22,8 +19,8 @@ export async function GET(request: NextRequest) {
     orderBy: { createdAt: 'desc' },
   })
 
-  return NextResponse.json({ success: true, sprints })
-}
+  return apiSuccess(sprints)
+})
 
 const DEFAULT_COLUMNS = [
   { name: 'Backlog', position: 0, color: null },
@@ -32,34 +29,26 @@ const DEFAULT_COLUMNS = [
   { name: 'Done', position: 3, color: '#0f7b6c' },
 ]
 
-export async function POST(request: NextRequest) {
-  const session = await getServerSessionSafe()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+export const POST = withAuth(async (request: NextRequest, { session }) => {
+  const body = await request.json()
+  const { name, description, startDate, endDate } = body
 
-  try {
-    const body = await request.json()
-    const { name, description, startDate, endDate } = body
-
-    if (!name || typeof name !== 'string' || !name.trim()) {
-      return NextResponse.json({ error: 'Sprint name is required' }, { status: 400 })
-    }
-
-    const sprint = await prisma.sprint.create({
-      data: {
-        name: name.trim(),
-        description: description?.trim() || null,
-        ownerId: session.user.id,
-        startDate: startDate ? new Date(startDate) : null,
-        endDate: endDate ? new Date(endDate) : null,
-        status: 'ACTIVE',
-        columns: { create: DEFAULT_COLUMNS },
-      },
-      include: { columns: true },
-    })
-
-    return NextResponse.json({ success: true, sprint }, { status: 201 })
-  } catch (error) {
-    console.error('Error creating sprint:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  if (!name || typeof name !== 'string' || !name.trim()) {
+    return apiBadRequest('Sprint name is required')
   }
-}
+
+  const sprint = await prisma.sprint.create({
+    data: {
+      name: name.trim(),
+      description: description?.trim() || null,
+      ownerId: session.user.id,
+      startDate: startDate ? new Date(startDate) : null,
+      endDate: endDate ? new Date(endDate) : null,
+      status: 'ACTIVE',
+      columns: { create: DEFAULT_COLUMNS },
+    },
+    include: { columns: true },
+  })
+
+  return apiSuccess(sprint, { status: 201 })
+})

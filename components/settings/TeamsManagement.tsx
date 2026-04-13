@@ -6,45 +6,39 @@ import toast from 'react-hot-toast'
 import CreateTeamModal from './CreateTeamModal'
 import EditTeamModal from './EditTeamModal'
 import DeleteTeamModal from './DeleteTeamModal'
+import { useDepartments } from '@/hooks'
 
 interface TeamsManagementProps {
   initialDepartments: any[]
 }
 
 export default function TeamsManagement({ initialDepartments }: TeamsManagementProps) {
-  const [departments, setDepartments] = useState(initialDepartments)
+  // Share the departments cache with every other consumer (modals, MyOKRsPage, etc.).
+  // `initialDepartments` was previously SSR-hydrated local state; we now drive the
+  // list through React Query so a mutation here immediately propagates.
+  const { departments: hookDepartments, refetch } = useDepartments()
+  const departments = hookDepartments.length > 0 ? hookDepartments : initialDepartments
+
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [editingTeam, setEditingTeam] = useState<any>(null)
   const [deletingTeam, setDeletingTeam] = useState<any>(null)
 
   const handleTeamCreated = async () => {
-    const response = await fetch('/api/departments')
-    const data = await response.json()
-    if (data.success) {
-      setDepartments(data.data)
-      setIsCreateModalOpen(false)
-      toast.success('Team created successfully')
-    }
+    await refetch()
+    setIsCreateModalOpen(false)
+    toast.success('Team created successfully')
   }
 
   const handleTeamUpdated = async () => {
-    const response = await fetch('/api/departments')
-    const data = await response.json()
-    if (data.success) {
-      setDepartments(data.data)
-      setEditingTeam(null)
-      toast.success('Team updated successfully')
-    }
+    await refetch()
+    setEditingTeam(null)
+    toast.success('Team updated successfully')
   }
 
   const handleTeamDeleted = async () => {
-    const response = await fetch('/api/departments')
-    const data = await response.json()
-    if (data.success) {
-      setDepartments(data.data)
-      setDeletingTeam(null)
-      toast.success('Team deleted successfully')
-    }
+    await refetch()
+    setDeletingTeam(null)
+    toast.success('Team deleted successfully')
   }
 
   return (

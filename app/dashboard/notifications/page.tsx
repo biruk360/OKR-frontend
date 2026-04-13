@@ -1,30 +1,25 @@
 import { redirect } from 'next/navigation'
 import { getServerSessionSafe } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { StatCard, StatGrid } from '@/components/ui'
 
 export default async function NotificationsPage() {
   const session = await getServerSessionSafe()
-  
-  if (!session) {
-    redirect('/auth/signin')
-  }
+  if (!session) redirect('/auth/signin')
 
-  // Get user's notifications
   const notifications = await prisma.notification.findMany({
     where: { userId: session.user.id },
-    orderBy: { createdAt: 'desc' }
+    orderBy: { createdAt: 'desc' },
   })
 
-  const unreadCount = notifications.filter(n => !n.isRead).length
+  const unreadCount = notifications.filter((n) => !n.isRead).length
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm text-gray-500">
-            Stay updated with OKR activities and important updates.
-          </p>
-        </div>
+        <p className="text-sm text-gray-500">
+          Stay updated with OKR activities and important updates.
+        </p>
         {unreadCount > 0 && (
           <button className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
             Mark All as Read
@@ -32,81 +27,27 @@ export default async function NotificationsPage() {
         )}
       </div>
 
-      {/* Notification Stats */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-blue-500 rounded-md flex items-center justify-center">
-                  <span className="text-white text-sm font-medium">🔔</span>
-                </div>
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Total Notifications</dt>
-                  <dd className="text-lg font-medium text-gray-900">{notifications.length}</dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-        </div>
+      <StatGrid columns={3}>
+        <StatCard label="Total Notifications" value={notifications.length} iconText="🔔" tone="blue" />
+        <StatCard label="Unread" value={unreadCount} iconText="!" tone="red" />
+        <StatCard label="Read" value={notifications.length - unreadCount} iconText="✓" tone="green" />
+      </StatGrid>
 
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-red-500 rounded-md flex items-center justify-center">
-                  <span className="text-white text-sm font-medium">!</span>
-                </div>
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Unread</dt>
-                  <dd className="text-lg font-medium text-gray-900">{unreadCount}</dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-green-500 rounded-md flex items-center justify-center">
-                  <span className="text-white text-sm font-medium">✓</span>
-                </div>
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Read</dt>
-                  <dd className="text-lg font-medium text-gray-900">{notifications.length - unreadCount}</dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Notifications List */}
       <div className="bg-white shadow rounded-lg">
         <div className="px-4 py-5 sm:p-6">
-          <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-            All Notifications
-          </h3>
+          <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">All Notifications</h3>
           <div className="space-y-4">
             {notifications.length === 0 ? (
               <div className="text-center py-8">
                 <div className="text-gray-500">No notifications yet.</div>
                 <div className="text-sm text-gray-400 mt-1">
-                  You'll receive notifications when there are updates to your OKRs.
+                  You&apos;ll receive notifications when there are updates to your OKRs.
                 </div>
               </div>
             ) : (
               notifications.map((notification) => (
-                <div 
-                  key={notification.id} 
+                <div
+                  key={notification.id}
                   className={`border rounded-lg p-4 ${
                     !notification.isRead ? 'bg-blue-50 border-blue-200' : 'bg-white'
                   }`}
@@ -147,4 +88,3 @@ export default async function NotificationsPage() {
     </div>
   )
 }
-

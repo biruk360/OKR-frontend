@@ -1,8 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSessionSafe } from '@/lib/auth'
+import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { canEditKeyResultWithObjectiveContext, canViewObjective, type UserRole } from '@/lib/permissions'
 import { recordActivity } from '@/lib/activity-log'
+import {
+  apiSuccess,
+  apiBadRequest,
+  apiForbidden,
+  withAuth,
+} from '@/lib/api'
 
 /**
  * GET /api/todos — list todos visible to the current user.
@@ -14,14 +19,11 @@ import { recordActivity } from '@/lib/activity-log'
  *
  * Optional filters:
  *   - ?status=PENDING|IN_PROGRESS|COMPLETED|CANCELLED
- *   - ?keyResultId=<id>   → todos under a specific KR
- *   - ?objectiveId=<id>   → todos under a specific objective (via KR or directly)
- *   - ?q=<text>           → case-insensitive title substring
+ *   - ?keyResultId=<id>
+ *   - ?objectiveId=<id>
+ *   - ?q=<text>  → case-insensitive title substring
  */
-export async function GET(request: NextRequest) {
-  const session = await getServerSessionSafe()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
+export const GET = withAuth(async (request: NextRequest, { session }) => {
   const { searchParams } = new URL(request.url)
   const mine = (searchParams.get('mine') || 'all').toLowerCase()
   const status = searchParams.get('status')
@@ -42,13 +44,9 @@ export async function GET(request: NextRequest) {
   if (status) where.status = status
   if (keyResultId) where.keyResultId = keyResultId
   if (objectiveId) {
-    // A todo is "on" an objective if it either links directly OR its KR belongs to it.
     where.AND = [
       {
-        OR: [
-          { objectiveId },
-          { keyResult: { objectiveId } },
-        ],
+        OR: [{ objectiveId }, { keyResult: { objectiveId } }],
       },
     ]
   }
@@ -74,53 +72,43 @@ export async function GET(request: NextRequest) {
     take: 500,
   })
 
-  return NextResponse.json({ success: true, todos })
-}
+  return apiSuccess(todos)
+})
 
 /**
  * POST /api/todos — create a todo.
  *
- * Shape:
- *   { title, description?, dueDate?, assigneeId?, keyResultId?, objectiveId? }
- *
  * Rules:
  *   - `title` required; everything else optional.
  *   - `assigneeId` defaults to the caller.
- *   - At most one "link target" is validated at a time, but both columns can be set
- *     (e.g. an Initiative on KR X that also contributes to objective Y).
- *   - When linked to a KR, the caller must have edit rights on that KR (via
- *     canEditKeyResultWithObjectiveContext). When linked to an objective only,
- *     the caller must at least be able to view it.
- *   - Standalone todos (no link) are always allowed — personal to-dos.
+ *   - When linked to a KR, the caller must have edit rights on that KR.
+ *   - When linked to an objective only, the caller must at least view it.
+ *   - Standalone todos (no link) are always allowed.
  *
  * Side effects:
  *   - If linked to a KR, the creation is recorded on the KR activity log.
  */
-export async function POST(request: NextRequest) {
-  const session = await getServerSessionSafe()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
+export const POST = withAuth(async (request: NextRequest, { session }) => {
   let body: any
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+    return apiBadRequest('Invalid JSON body')
   }
 
   const title = (body.title || '').trim()
-  if (!title) return NextResponse.json({ error: 'Title is required' }, { status: 400 })
+  if (!title) return apiBadRequest('Title is required')
 
   const description = typeof body.description === 'string' ? body.description.trim() || null : null
   const dueDate = body.dueDate ? new Date(body.dueDate) : null
   if (dueDate && Number.isNaN(dueDate.getTime())) {
-    return NextResponse.json({ error: 'Invalid dueDate' }, { status: 400 })
+    return apiBadRequest('Invalid dueDate')
   }
 
   const assigneeId: string = body.assigneeId || session.user.id
   const assignee = await prisma.user.findUnique({ where: { id: assigneeId }, select: { id: true } })
-  if (!assignee) return NextResponse.json({ error: 'Invalid assignee' }, { status: 400 })
+  if (!assignee) return apiBadRequest('Invalid assignee')
 
-  // Optional KR link + permission check
   let keyResultId: string | null = null
   if (body.keyResultId) {
     const kr = await prisma.keyResult.findUnique({
@@ -129,7 +117,7 @@ export async function POST(request: NextRequest) {
         objective: { select: { level: true, ownerId: true, departmentId: true } },
       },
     })
-    if (!kr) return NextResponse.json({ error: 'Invalid keyResultId' }, { status: 400 })
+    if (!kr) return apiBadRequest('Invalid keyResultId')
     const allowed = await canEditKeyResultWithObjectiveContext(
       session.user.role as UserRole,
       session.user.id,
@@ -137,27 +125,22 @@ export async function POST(request: NextRequest) {
       kr.objective
     )
     if (!allowed) {
-      return NextResponse.json(
-        { error: 'Insufficient permissions to add a todo to this key result' },
-        { status: 403 }
-      )
+      return apiForbidden('Insufficient permissions to add a todo to this key result')
     }
     keyResultId = kr.id
   }
 
-  // Optional Objective link + permission check (only needed when there's no KR — linking
-  // to a KR already asserts its parent objective is accessible via the edit check).
   let objectiveId: string | null = null
   if (body.objectiveId) {
     const obj = await prisma.objective.findUnique({
       where: { id: body.objectiveId },
       select: { id: true, level: true, ownerId: true, departmentId: true, isPrivate: true },
     })
-    if (!obj) return NextResponse.json({ error: 'Invalid objectiveId' }, { status: 400 })
+    if (!obj) return apiBadRequest('Invalid objectiveId')
     if (!keyResultId) {
       const { canView } = await canViewObjective(session.user.role as UserRole, session.user.id, obj)
       if (!canView) {
-        return NextResponse.json({ error: 'Insufficient permissions to view this objective' }, { status: 403 })
+        return apiForbidden('Insufficient permissions to view this objective')
       }
     }
     objectiveId = obj.id
@@ -199,5 +182,5 @@ export async function POST(request: NextRequest) {
     })
   }
 
-  return NextResponse.json({ success: true, todo }, { status: 201 })
-}
+  return apiSuccess(todo, { status: 201 })
+})

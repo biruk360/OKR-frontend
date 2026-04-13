@@ -1,6 +1,6 @@
 import { getServerSessionSafe } from '@/lib/auth'
 import { redirect } from 'next/navigation'
-import GoalsPageClient from '@/components/goals/GoalsPageClient'
+import { GoalsPageClient } from '@/features/goals'
 
 export default async function GoalsPage() {
   const session = await getServerSessionSafe()

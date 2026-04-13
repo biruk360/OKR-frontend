@@ -1,82 +1,39 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSessionSafe } from '@/lib/auth'
+import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import {
+  apiSuccess,
+  apiBadRequest,
+  apiConflict,
+  withAuth,
+  withRole,
+} from '@/lib/api'
 
-export async function GET(request: NextRequest) {
-  try {
-    const session = await getServerSessionSafe()
-    
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+export const GET = withAuth(async () => {
+  const labels = await prisma.label.findMany({ orderBy: { name: 'asc' } })
+  return apiSuccess(labels)
+})
 
-    const labels = await prisma.label.findMany({
-      orderBy: { name: 'asc' }
-    })
+export const POST = withRole(['ADMIN', 'EXECUTIVE'], async (request: NextRequest) => {
+  const body = await request.json()
+  const { name, color, description } = body
 
-    return NextResponse.json({
-      success: true,
-      data: labels
-    })
-  } catch (error: any) {
-    console.error('Error fetching labels:', error)
-    return NextResponse.json(
-      { error: error.message || 'Internal server error', details: error.toString() },
-      { status: 500 }
-    )
+  if (!name) {
+    return apiBadRequest('Label name is required')
   }
-}
 
-export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSessionSafe()
-    
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    // Only admins can create labels
-    if (session.user.role !== 'ADMIN' && session.user.role !== 'EXECUTIVE') {
-      return NextResponse.json(
-        { error: 'Insufficient permissions' },
-        { status: 403 }
-      )
-    }
-
-    const body = await request.json()
-    const { name, color, description } = body
-
-    if (!name) {
-      return NextResponse.json(
-        { error: 'Label name is required' },
-        { status: 400 }
-      )
-    }
-
     const label = await prisma.label.create({
       data: {
         name,
         color: color || '#3B82F6',
-        description: description || null
-      }
+        description: description || null,
+      },
     })
-
-    return NextResponse.json({
-      success: true,
-      data: label
-    }, { status: 201 })
+    return apiSuccess(label, { status: 201 })
   } catch (error: any) {
-    if (error.code === 'P2002') {
-      return NextResponse.json(
-        { error: 'Label with this name already exists' },
-        { status: 409 }
-      )
+    if (error?.code === 'P2002') {
+      return apiConflict('Label with this name already exists')
     }
-    console.error('Error creating label:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    throw error
   }
-}
-
+})

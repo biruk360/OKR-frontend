@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getServerSessionSafe } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import MyTasksList from '@/components/todos/MyTasksList'
+import { MyTasksList } from '@/features/todos'
 
 export default async function MyTasksPage() {
   const session = await getServerSessionSafe()

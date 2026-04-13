@@ -1,7 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSessionSafe } from '@/lib/auth'
+import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
+import {
+  apiSuccess,
+  apiBadRequest,
+  apiNotFound,
+  withAuth,
+} from '@/lib/api'
 
 function todayBucket(): string {
   const d = new Date()
@@ -9,12 +14,9 @@ function todayBucket(): string {
 }
 
 /** List daily updates for an initiative. */
-export async function GET(_request: NextRequest, { params }: { params: RouteIdParams }) {
-  const session = await getServerSessionSafe()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
+export const GET = withAuth<RouteIdParams>(async (_request, { params }) => {
   const { id } = await resolveParams(params)
-  if (!id) return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
+  if (!id) return apiBadRequest('Invalid id')
 
   const updates = await prisma.initiativeUpdate.findMany({
     where: { initiativeId: id },
@@ -22,24 +24,21 @@ export async function GET(_request: NextRequest, { params }: { params: RouteIdPa
     orderBy: { updateDate: 'desc' },
     take: 90,
   })
-  return NextResponse.json({ success: true, updates })
-}
+  return apiSuccess(updates)
+})
 
 /** Create or update today's daily update (upsert per initiative+date). */
-export async function POST(request: NextRequest, { params }: { params: RouteIdParams }) {
-  const session = await getServerSessionSafe()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
+export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { session, params }) => {
   const { id } = await resolveParams(params)
-  if (!id) return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
+  if (!id) return apiBadRequest('Invalid id')
 
   const body = await request.json()
   const content = (body.content || '').trim()
-  if (!content) return NextResponse.json({ error: 'Update content is required' }, { status: 400 })
-  if (content.length > 5000) return NextResponse.json({ error: 'Update too long' }, { status: 400 })
+  if (!content) return apiBadRequest('Update content is required')
+  if (content.length > 5000) return apiBadRequest('Update too long')
 
   const initiative = await prisma.todo.findUnique({ where: { id }, select: { id: true } })
-  if (!initiative) return NextResponse.json({ error: 'Initiative not found' }, { status: 404 })
+  if (!initiative) return apiNotFound('Initiative not found')
 
   const updateDate = body.updateDate || todayBucket()
 
@@ -61,5 +60,5 @@ export async function POST(request: NextRequest, { params }: { params: RouteIdPa
     include: { author: { select: { id: true, name: true, avatar: true } } },
   })
 
-  return NextResponse.json({ success: true, update }, { status: 201 })
-}
+  return apiSuccess(update, { status: 201 })
+})

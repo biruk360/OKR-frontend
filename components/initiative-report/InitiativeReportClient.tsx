@@ -55,8 +55,8 @@ export default function InitiativeReportClient() {
       const res = await fetch(`/api/initiative-report?from=${from}&to=${to}`)
       const data = await res.json()
       if (data.success) {
-        setDates(data.dates)
-        setRows(data.rows)
+        setDates(data.data.dates)
+        setRows(data.data.rows)
       }
     } catch {
       toast.error('Failed to load report')

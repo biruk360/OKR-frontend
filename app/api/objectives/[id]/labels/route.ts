@@ -1,133 +1,53 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSessionSafe } from '@/lib/auth'
+import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
+import {
+  apiSuccess,
+  apiBadRequest,
+  apiNotFound,
+  apiConflict,
+  withAuth,
+} from '@/lib/api'
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: RouteIdParams }
-) {
+export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { params }) => {
+  const { id: objectiveId } = await resolveParams(params)
+  if (!objectiveId) return apiBadRequest('Invalid objective id')
+
+  const body = await request.json()
+  const { labelId } = body
+  if (!labelId) return apiBadRequest('Label ID is required')
+
+  const objective = await prisma.objective.findUnique({ where: { id: objectiveId } })
+  if (!objective) return apiNotFound('Objective not found')
+
+  const label = await prisma.label.findUnique({ where: { id: labelId } })
+  if (!label) return apiNotFound('Label not found')
+
   try {
-    const session = await getServerSessionSafe()
-    
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const { id: objectiveId } = await resolveParams(params)
-    if (!objectiveId) {
-      return NextResponse.json({ error: 'Invalid objective id' }, { status: 400 })
-    }
-
-    const body = await request.json()
-    const { labelId } = body
-
-    if (!labelId) {
-      return NextResponse.json(
-        { error: 'Label ID is required' },
-        { status: 400 }
-      )
-    }
-
-    // Check if objective exists and user has permission
-    const objective = await prisma.objective.findUnique({
-      where: { id: objectiveId }
-    })
-
-    if (!objective) {
-      return NextResponse.json(
-        { error: 'Objective not found' },
-        { status: 404 }
-      )
-    }
-
-    // Check if label exists
-    const label = await prisma.label.findUnique({
-      where: { id: labelId }
-    })
-
-    if (!label) {
-      return NextResponse.json(
-        { error: 'Label not found' },
-        { status: 404 }
-      )
-    }
-
-    // Add label to objective
     const objectiveLabel = await prisma.objectiveLabel.create({
-      data: {
-        objectiveId,
-        labelId: labelId
-      },
-      include: {
-        label: true
-      }
+      data: { objectiveId, labelId },
+      include: { label: true },
     })
-
-    return NextResponse.json({
-      success: true,
-      data: objectiveLabel
-    })
+    return apiSuccess(objectiveLabel, { status: 201 })
   } catch (error: any) {
-    if (error.code === 'P2002') {
-      return NextResponse.json(
-        { error: 'Label already assigned to this objective' },
-        { status: 409 }
-      )
+    if (error?.code === 'P2002') {
+      return apiConflict('Label already assigned to this objective')
     }
-    console.error('Error adding label to objective:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    throw error
   }
-}
+})
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: RouteIdParams }
-) {
-  try {
-    const session = await getServerSessionSafe()
-    
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+export const DELETE = withAuth<RouteIdParams>(async (request: NextRequest, { params }) => {
+  const { id: objectiveId } = await resolveParams(params)
+  if (!objectiveId) return apiBadRequest('Invalid objective id')
 
-    const { id: objectiveId } = await resolveParams(params)
-    if (!objectiveId) {
-      return NextResponse.json({ error: 'Invalid objective id' }, { status: 400 })
-    }
+  const { searchParams } = new URL(request.url)
+  const labelId = searchParams.get('labelId')
+  if (!labelId) return apiBadRequest('Label ID is required')
 
-    const { searchParams } = new URL(request.url)
-    const labelId = searchParams.get('labelId')
+  await prisma.objectiveLabel.delete({
+    where: { objectiveId_labelId: { objectiveId, labelId } },
+  })
 
-    if (!labelId) {
-      return NextResponse.json(
-        { error: 'Label ID is required' },
-        { status: 400 }
-      )
-    }
-
-    await prisma.objectiveLabel.delete({
-      where: {
-        objectiveId_labelId: {
-          objectiveId,
-          labelId: labelId
-        }
-      }
-    })
-
-    return NextResponse.json({
-      success: true,
-      message: 'Label removed from objective'
-    })
-  } catch (error) {
-    console.error('Error removing label from objective:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
-  }
-}
-
+  return apiSuccess(null, { message: 'Label removed from objective' })
+})

@@ -17,8 +17,8 @@ export const useUserPrefsStore = create<UserPrefsState>((set, get) => ({
     try {
       const res = await fetch('/api/user-preferences')
       const data = await res.json()
-      if (data.success && data.preferences?.todoViewMode) {
-        set({ todoViewMode: data.preferences.todoViewMode, loaded: true })
+      if (data.success && data.data?.todoViewMode) {
+        set({ todoViewMode: data.data.todoViewMode, loaded: true })
       } else {
         set({ loaded: true })
       }

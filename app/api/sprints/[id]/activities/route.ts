@@ -1,47 +1,42 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSessionSafe } from '@/lib/auth'
+import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
+import { apiSuccess, apiBadRequest, withAuth } from '@/lib/api'
 
-export async function POST(request: NextRequest, { params }: { params: RouteIdParams }) {
-  const session = await getServerSessionSafe()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
+export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { session, params }) => {
   const { id: sprintId } = await resolveParams(params)
-  if (!sprintId) return NextResponse.json({ error: 'Invalid sprint id' }, { status: 400 })
+  if (!sprintId) return apiBadRequest('Invalid sprint id')
 
   const body = await request.json()
   const title = (body.title || '').trim()
-  if (!title) return NextResponse.json({ error: 'Activity title is required' }, { status: 400 })
+  if (!title) return apiBadRequest('Activity title is required')
 
   const columnId: string | undefined = body.columnId
-  if (!columnId) {
-    return NextResponse.json({ error: 'Column is required' }, { status: 400 })
-  }
-  // Validate column belongs to this sprint
-  const column = await prisma.sprintColumn.findUnique({ where: { id: columnId }, select: { sprintId: true } })
+  if (!columnId) return apiBadRequest('Column is required')
+
+  const column = await prisma.sprintColumn.findUnique({
+    where: { id: columnId },
+    select: { sprintId: true },
+  })
   if (!column || column.sprintId !== sprintId) {
-    return NextResponse.json({ error: 'Invalid column for this sprint' }, { status: 400 })
+    return apiBadRequest('Invalid column for this sprint')
   }
 
   const ownerId: string = body.ownerId || session.user.id
-  // Validate owner exists
   const owner = await prisma.user.findUnique({ where: { id: ownerId }, select: { id: true } })
-  if (!owner) return NextResponse.json({ error: 'Invalid owner' }, { status: 400 })
+  if (!owner) return apiBadRequest('Invalid owner')
 
-  // Optional KR link
   let keyResultId: string | null = null
   if (body.keyResultId) {
     const kr = await prisma.keyResult.findUnique({ where: { id: body.keyResultId }, select: { id: true } })
-    if (!kr) return NextResponse.json({ error: 'Invalid key result link' }, { status: 400 })
+    if (!kr) return apiBadRequest('Invalid key result link')
     keyResultId = kr.id
   }
 
-  // Optional Objective link
   let objectiveId: string | null = null
   if (body.objectiveId) {
     const obj = await prisma.objective.findUnique({ where: { id: body.objectiveId }, select: { id: true } })
-    if (!obj) return NextResponse.json({ error: 'Invalid objective link' }, { status: 400 })
+    if (!obj) return apiBadRequest('Invalid objective link')
     objectiveId = obj.id
   }
 
@@ -71,5 +66,5 @@ export async function POST(request: NextRequest, { params }: { params: RouteIdPa
     },
   })
 
-  return NextResponse.json({ success: true, activity }, { status: 201 })
-}
+  return apiSuccess(activity, { status: 201 })
+})

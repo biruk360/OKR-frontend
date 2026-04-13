@@ -1,24 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSessionSafe } from '@/lib/auth'
+import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { apiSuccess, withAuth } from '@/lib/api'
 
-export async function GET() {
-  const session = await getServerSessionSafe()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
+export const GET = withAuth(async (_request, { session }) => {
   const pref = await prisma.userPreference.findUnique({
     where: { userId: session.user.id },
   })
-  return NextResponse.json({
-    success: true,
-    preferences: pref || { todoViewMode: 'modal' },
-  })
-}
+  return apiSuccess(pref || { todoViewMode: 'modal' })
+})
 
-export async function PATCH(request: NextRequest) {
-  const session = await getServerSessionSafe()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
+export const PATCH = withAuth(async (request: NextRequest, { session }) => {
   const body = await request.json()
   const data: any = {}
   if (body.todoViewMode === 'modal' || body.todoViewMode === 'sidebar') {
@@ -30,5 +21,5 @@ export async function PATCH(request: NextRequest) {
     create: { userId: session.user.id, ...data },
     update: data,
   })
-  return NextResponse.json({ success: true, preferences: pref })
-}
+  return apiSuccess(pref)
+})

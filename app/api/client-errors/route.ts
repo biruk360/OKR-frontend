@@ -1,7 +1,14 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { getServerSessionSafe } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { canAccessSettings, type UserRole } from '@/lib/permissions'
+import {
+  apiSuccess,
+  apiBadRequest,
+  apiError,
+  apiForbidden,
+  withAuth,
+} from '@/lib/api'
 
 const MAX_MESSAGE = 4000
 const MAX_STACK = 50000
@@ -35,12 +42,16 @@ function safeExtraJson(extra: Record<string, unknown> | undefined): string | und
   }
 }
 
+/**
+ * Public-ish POST: clients log errors whether or not they are signed in (anonymous crashes count).
+ * We still attach the user id when available.
+ */
 export async function POST(request: NextRequest) {
   let body: IncomingBody
   try {
     body = (await request.json()) as IncomingBody
   } catch {
-    return NextResponse.json({ ok: false, error: 'Invalid JSON' }, { status: 400 })
+    return apiBadRequest('Invalid JSON')
   }
 
   const source = clampStr(body.source, 120) ?? 'unknown'
@@ -55,16 +66,10 @@ export async function POST(request: NextRequest) {
   const session = await getServerSessionSafe()
   const userId = session?.user?.id ?? null
 
-  const logLine = {
-    type: 'client_error',
-    source,
-    message,
-    userId,
-    route,
-    url,
-    digest,
-  }
-  console.error('[client-error]', JSON.stringify(logLine))
+  console.error(
+    '[client-error]',
+    JSON.stringify({ type: 'client_error', source, message, userId, route, url, digest })
+  )
 
   try {
     await prisma.clientErrorLog.create({
@@ -82,20 +87,15 @@ export async function POST(request: NextRequest) {
     })
   } catch (e) {
     console.error('[client-error] persist failed', e)
-    return NextResponse.json({ ok: false, error: 'Log failed' }, { status: 500 })
+    return apiError('Log failed', { status: 500, code: 'LOG_FAILED' })
   }
 
-  return NextResponse.json({ ok: true })
+  return apiSuccess(null)
 }
 
-export async function GET() {
-  const session = await getServerSessionSafe()
-  if (!session?.user?.id || !session.user.role) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
+export const GET = withAuth(async (_request, { session }) => {
   if (!canAccessSettings(session.user.role as UserRole)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    return apiForbidden('Forbidden')
   }
 
   const rows = await prisma.clientErrorLog.findMany({
@@ -106,5 +106,5 @@ export async function GET() {
     },
   })
 
-  return NextResponse.json({ items: rows })
-}
+  return apiSuccess(rows)
+})

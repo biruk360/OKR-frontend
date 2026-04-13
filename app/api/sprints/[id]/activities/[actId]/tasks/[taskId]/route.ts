@@ -1,25 +1,27 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSessionSafe } from '@/lib/auth'
+import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { resolveParams } from '@/lib/resolve-route-params'
+import {
+  apiSuccess,
+  apiBadRequest,
+  apiNotFound,
+  withAuth,
+} from '@/lib/api'
 
 type TaskParams =
   | { id: string; actId: string; taskId: string }
   | Promise<{ id: string; actId: string; taskId: string }>
 
-export async function PATCH(request: NextRequest, { params }: { params: TaskParams }) {
-  const session = await getServerSessionSafe()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
+export const PATCH = withAuth<TaskParams>(async (request: NextRequest, { params }) => {
   const { actId, taskId } = await resolveParams(params)
-  if (!actId || !taskId) return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
+  if (!actId || !taskId) return apiBadRequest('Invalid id')
 
   const existing = await prisma.sprintActivityTask.findUnique({
     where: { id: taskId },
     select: { activityId: true, status: true },
   })
   if (!existing || existing.activityId !== actId) {
-    return NextResponse.json({ error: 'Task not found' }, { status: 404 })
+    return apiNotFound('Task not found')
   }
 
   const body = await request.json()
@@ -28,12 +30,12 @@ export async function PATCH(request: NextRequest, { params }: { params: TaskPara
   if (body.assigneeId === null) data.assigneeId = null
   else if (typeof body.assigneeId === 'string') {
     const user = await prisma.user.findUnique({ where: { id: body.assigneeId }, select: { id: true } })
-    if (!user) return NextResponse.json({ error: 'Invalid assignee' }, { status: 400 })
+    if (!user) return apiBadRequest('Invalid assignee')
     data.assigneeId = user.id
   }
   if (typeof body.status === 'string') {
     if (body.status !== 'PENDING' && body.status !== 'COMPLETED') {
-      return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
+      return apiBadRequest('Invalid status')
     }
     data.status = body.status
     data.completedAt = body.status === 'COMPLETED' ? new Date() : null
@@ -45,24 +47,21 @@ export async function PATCH(request: NextRequest, { params }: { params: TaskPara
     data,
     include: { assignee: { select: { id: true, name: true, avatar: true } } },
   })
-  return NextResponse.json({ success: true, task })
-}
+  return apiSuccess(task)
+})
 
-export async function DELETE(_request: NextRequest, { params }: { params: TaskParams }) {
-  const session = await getServerSessionSafe()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
+export const DELETE = withAuth<TaskParams>(async (_request, { params }) => {
   const { actId, taskId } = await resolveParams(params)
-  if (!actId || !taskId) return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
+  if (!actId || !taskId) return apiBadRequest('Invalid id')
 
   const existing = await prisma.sprintActivityTask.findUnique({
     where: { id: taskId },
     select: { activityId: true },
   })
   if (!existing || existing.activityId !== actId) {
-    return NextResponse.json({ error: 'Task not found' }, { status: 404 })
+    return apiNotFound('Task not found')
   }
 
   await prisma.sprintActivityTask.delete({ where: { id: taskId } })
-  return NextResponse.json({ success: true })
-}
+  return apiSuccess(null)
+})

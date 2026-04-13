@@ -1,16 +1,18 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSessionSafe } from '@/lib/auth'
+import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { resolveParams } from '@/lib/resolve-route-params'
+import {
+  apiSuccess,
+  apiBadRequest,
+  apiConflict,
+  withAuth,
+} from '@/lib/api'
 
 type ColParams = { id: string; colId: string } | Promise<{ id: string; colId: string }>
 
-export async function PATCH(request: NextRequest, { params }: { params: ColParams }) {
-  const session = await getServerSessionSafe()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
+export const PATCH = withAuth<ColParams>(async (request: NextRequest, { params }) => {
   const { id: sprintId, colId } = await resolveParams(params)
-  if (!sprintId || !colId) return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
+  if (!sprintId || !colId) return apiBadRequest('Invalid id')
 
   const body = await request.json()
   const data: any = {}
@@ -23,28 +25,25 @@ export async function PATCH(request: NextRequest, { params }: { params: ColParam
       where: { id: colId },
       data,
     })
-    return NextResponse.json({ success: true, column })
+    return apiSuccess(column)
   } catch (err: any) {
     if (err?.code === 'P2002') {
-      return NextResponse.json({ error: 'A column with that name already exists in this sprint' }, { status: 409 })
+      return apiConflict('A column with that name already exists in this sprint')
     }
     throw err
   }
-}
+})
 
-export async function DELETE(_request: NextRequest, { params }: { params: ColParams }) {
-  const session = await getServerSessionSafe()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
+export const DELETE = withAuth<ColParams>(async (_request, { params }) => {
   const { id: sprintId, colId } = await resolveParams(params)
-  if (!sprintId || !colId) return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
+  if (!sprintId || !colId) return apiBadRequest('Invalid id')
 
   // Block deleting the last column — every sprint needs at least one place to put cards.
   const remaining = await prisma.sprintColumn.count({ where: { sprintId } })
   if (remaining <= 1) {
-    return NextResponse.json({ error: 'A sprint must have at least one column' }, { status: 400 })
+    return apiBadRequest('A sprint must have at least one column')
   }
 
   await prisma.sprintColumn.delete({ where: { id: colId } })
-  return NextResponse.json({ success: true })
-}
+  return apiSuccess(null)
+})

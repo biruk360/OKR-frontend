@@ -1,23 +1,25 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSessionSafe } from '@/lib/auth'
+import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { resolveParams } from '@/lib/resolve-route-params'
+import {
+  apiSuccess,
+  apiBadRequest,
+  apiNotFound,
+  withAuth,
+} from '@/lib/api'
 
 type ActParams = { id: string; actId: string } | Promise<{ id: string; actId: string }>
 
-export async function GET(_request: NextRequest, { params }: { params: ActParams }) {
-  const session = await getServerSessionSafe()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
+export const GET = withAuth<ActParams>(async (_request, { params }) => {
   const { id: sprintId, actId } = await resolveParams(params)
-  if (!sprintId || !actId) return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
+  if (!sprintId || !actId) return apiBadRequest('Invalid id')
 
   const activity = await prisma.sprintActivity.findUnique({
     where: { id: actId },
     select: { sprintId: true },
   })
   if (!activity || activity.sprintId !== sprintId) {
-    return NextResponse.json({ error: 'Activity not found' }, { status: 404 })
+    return apiNotFound('Activity not found')
   }
 
   const tasks = await prisma.sprintActivityTask.findMany({
@@ -25,32 +27,29 @@ export async function GET(_request: NextRequest, { params }: { params: ActParams
     include: { assignee: { select: { id: true, name: true, avatar: true } } },
     orderBy: { position: 'asc' },
   })
-  return NextResponse.json({ success: true, tasks })
-}
+  return apiSuccess(tasks)
+})
 
-export async function POST(request: NextRequest, { params }: { params: ActParams }) {
-  const session = await getServerSessionSafe()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
+export const POST = withAuth<ActParams>(async (request: NextRequest, { params }) => {
   const { id: sprintId, actId } = await resolveParams(params)
-  if (!sprintId || !actId) return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
+  if (!sprintId || !actId) return apiBadRequest('Invalid id')
 
   const body = await request.json()
   const title = (body.title || '').trim()
-  if (!title) return NextResponse.json({ error: 'Task title is required' }, { status: 400 })
+  if (!title) return apiBadRequest('Task title is required')
 
   const activity = await prisma.sprintActivity.findUnique({
     where: { id: actId },
     select: { sprintId: true },
   })
   if (!activity || activity.sprintId !== sprintId) {
-    return NextResponse.json({ error: 'Activity not found' }, { status: 404 })
+    return apiNotFound('Activity not found')
   }
 
   let assigneeId: string | null = null
   if (body.assigneeId) {
     const user = await prisma.user.findUnique({ where: { id: body.assigneeId }, select: { id: true } })
-    if (!user) return NextResponse.json({ error: 'Invalid assignee' }, { status: 400 })
+    if (!user) return apiBadRequest('Invalid assignee')
     assigneeId = user.id
   }
 
@@ -65,5 +64,5 @@ export async function POST(request: NextRequest, { params }: { params: ActParams
     data: { activityId: actId, title, assigneeId, position },
     include: { assignee: { select: { id: true, name: true, avatar: true } } },
   })
-  return NextResponse.json({ success: true, task }, { status: 201 })
-}
+  return apiSuccess(task, { status: 201 })
+})

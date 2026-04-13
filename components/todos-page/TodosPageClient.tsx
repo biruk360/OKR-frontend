@@ -580,7 +580,7 @@ function CreateTodoModal({
 
       // Shape the returned todo into a TodoRow for optimistic append. We trust the
       // API to include the joined relations.
-      const t = data.todo
+      const t = data.data
       const row: TodoRow = {
         id: t.id,
         title: t.title,

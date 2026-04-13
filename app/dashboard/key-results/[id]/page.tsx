@@ -7,7 +7,7 @@ import {
   canViewKeyResult,
   canEditKeyResultWithObjectiveContext,
 } from '@/lib/permissions'
-import KeyResultDetailClient from '@/components/keyresults/KeyResultDetailClient'
+import { KeyResultDetailClient } from '@/features/key-results'
 
 interface PageProps {
   params: { id: string } | Promise<{ id: string }>

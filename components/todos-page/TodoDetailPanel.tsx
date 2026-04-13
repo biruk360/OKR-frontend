@@ -71,7 +71,7 @@ export default function TodoDetailPanel({
     setLoadingUpdates(true)
     fetch(`/api/initiatives/${todo.id}/updates`)
       .then((r) => r.json())
-      .then((data) => { if (data.success) setUpdates(data.updates) })
+      .then((data) => { if (data.success) setUpdates(data.data) })
       .catch(() => {})
       .finally(() => setLoadingUpdates(false))
   }, [todo.id])
@@ -99,7 +99,7 @@ export default function TodoDetailPanel({
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed')
-      setUpdates((prev) => [data.update, ...prev])
+      setUpdates((prev) => [data.data, ...prev])
       setUpdateDraft('')
       toast.success('Daily update saved')
     } catch (err: any) {

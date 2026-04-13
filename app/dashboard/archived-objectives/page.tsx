@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getServerSessionSafe } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import NestedObjectivesList from '@/components/objectives/NestedObjectivesList'
+import { NestedObjectivesList } from '@/features/objectives'
 
 export default async function ArchivedObjectivesPage() {
   const session = await getServerSessionSafe()

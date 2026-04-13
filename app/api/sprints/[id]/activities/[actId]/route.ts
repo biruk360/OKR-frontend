@@ -1,16 +1,18 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSessionSafe } from '@/lib/auth'
+import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { resolveParams } from '@/lib/resolve-route-params'
+import {
+  apiSuccess,
+  apiBadRequest,
+  apiNotFound,
+  withAuth,
+} from '@/lib/api'
 
 type ActParams = { id: string; actId: string } | Promise<{ id: string; actId: string }>
 
-export async function PATCH(request: NextRequest, { params }: { params: ActParams }) {
-  const session = await getServerSessionSafe()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
+export const PATCH = withAuth<ActParams>(async (request: NextRequest, { params }) => {
   const { id: sprintId, actId } = await resolveParams(params)
-  if (!sprintId || !actId) return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
+  if (!sprintId || !actId) return apiBadRequest('Invalid id')
 
   const body = await request.json()
 
@@ -19,7 +21,7 @@ export async function PATCH(request: NextRequest, { params }: { params: ActParam
     select: { sprintId: true, columnId: true, position: true },
   })
   if (!existing || existing.sprintId !== sprintId) {
-    return NextResponse.json({ error: 'Activity not found' }, { status: 404 })
+    return apiNotFound('Activity not found')
   }
 
   const data: any = {}
@@ -33,14 +35,14 @@ export async function PATCH(request: NextRequest, { params }: { params: ActParam
   if (body.dueDate === null) data.dueDate = null
   else if (typeof body.dueDate === 'string') data.dueDate = new Date(body.dueDate)
 
-  // Move support: { columnId, position } — if columnId provided, validate column belongs to sprint.
+  // Move support: { columnId, position }
   if (typeof body.columnId === 'string') {
     const col = await prisma.sprintColumn.findUnique({
       where: { id: body.columnId },
       select: { sprintId: true },
     })
     if (!col || col.sprintId !== sprintId) {
-      return NextResponse.json({ error: 'Invalid column for this sprint' }, { status: 400 })
+      return apiBadRequest('Invalid column for this sprint')
     }
     data.columnId = body.columnId
   }
@@ -58,24 +60,21 @@ export async function PATCH(request: NextRequest, { params }: { params: ActParam
     },
   })
 
-  return NextResponse.json({ success: true, activity })
-}
+  return apiSuccess(activity)
+})
 
-export async function DELETE(_request: NextRequest, { params }: { params: ActParams }) {
-  const session = await getServerSessionSafe()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
+export const DELETE = withAuth<ActParams>(async (_request, { params }) => {
   const { id: sprintId, actId } = await resolveParams(params)
-  if (!sprintId || !actId) return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
+  if (!sprintId || !actId) return apiBadRequest('Invalid id')
 
   const existing = await prisma.sprintActivity.findUnique({
     where: { id: actId },
     select: { sprintId: true, ownerId: true },
   })
   if (!existing || existing.sprintId !== sprintId) {
-    return NextResponse.json({ error: 'Activity not found' }, { status: 404 })
+    return apiNotFound('Activity not found')
   }
 
   await prisma.sprintActivity.delete({ where: { id: actId } })
-  return NextResponse.json({ success: true })
-}
+  return apiSuccess(null)
+})

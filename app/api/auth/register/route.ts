@@ -1,36 +1,25 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
 import { UserRole } from '@/types'
+import { apiSuccess, apiBadRequest, apiConflict, handleApiError } from '@/lib/api'
 
+/** Public endpoint — intentionally does not use withAuth. */
 export async function POST(request: NextRequest) {
   try {
     const { name, email, password, role } = await request.json()
 
-    // Validate input
     if (!name || !email || !password) {
-      return NextResponse.json(
-        { error: 'Name, email, and password are required' },
-        { status: 400 }
-      )
+      return apiBadRequest('Name, email, and password are required')
     }
 
-    // Check if user already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { email }
-    })
-
+    const existingUser = await prisma.user.findUnique({ where: { email } })
     if (existingUser) {
-      return NextResponse.json(
-        { error: 'User with this email already exists' },
-        { status: 400 }
-      )
+      return apiConflict('User with this email already exists')
     }
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 12)
 
-    // Create user
     const user = await prisma.user.create({
       data: {
         name,
@@ -44,21 +33,11 @@ export async function POST(request: NextRequest) {
         email: true,
         role: true,
         createdAt: true,
-      }
+      },
     })
 
-    return NextResponse.json(
-      { 
-        message: 'User created successfully',
-        user 
-      },
-      { status: 201 }
-    )
+    return apiSuccess(user, { status: 201, message: 'User created successfully' })
   } catch (error) {
-    console.error('Registration error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return handleApiError(error, 'POST /api/auth/register')
   }
 }

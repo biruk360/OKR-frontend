@@ -4,10 +4,11 @@ import { useState, useEffect, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { Target, User, Calendar, Building2, Search } from 'lucide-react'
 import { useDebounce } from '@/hooks/useDebounce'
-import NestedObjectivesList from '@/components/objectives/NestedObjectivesList'
-import CreateIndividualObjectiveButton from '@/components/objectives/CreateIndividualObjectiveButton'
+import { NestedObjectivesList, CreateIndividualObjectiveButton } from '@/features/objectives'
 import { pickCurrentTimeframe } from '@/lib/timeframe-utils'
 import toast from 'react-hot-toast'
+import { StatCard, StatGrid } from '@/components/ui'
+import { useTimeframes, useDepartments } from '@/hooks'
 
 interface Objective {
   id: string
@@ -65,8 +66,8 @@ interface Department {
 export default function MyOKRsPage() {
   const { data: session } = useSession()
   const [objectives, setObjectives] = useState<Objective[]>([])
-  const [timeframes, setTimeframes] = useState<Timeframe[]>([])
-  const [departments, setDepartments] = useState<Department[]>([])
+  const { timeframes } = useTimeframes()
+  const { departments } = useDepartments() as { departments: Department[] }
   const [userDepartments, setUserDepartments] = useState<Department[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [filters, setFilters] = useState({
@@ -144,39 +145,26 @@ export default function MyOKRsPage() {
 
   const fetchInitialData = async () => {
     try {
-      const [timeframesRes, departmentsRes, userDepartmentsRes] = await Promise.all([
-        fetch('/api/timeframes'),
-        fetch('/api/departments'),
-        fetch('/api/users/me/departments')
-      ])
-
-      const [timeframesData, departmentsData, userDepartmentsData] = await Promise.all([
-        timeframesRes.json(),
-        departmentsRes.json(),
-        userDepartmentsRes.json()
-      ])
-
-      if (timeframesData.success) {
-        setTimeframes(timeframesData.data)
-        // Default to the timeframe whose date range covers today (Q1/Q2/etc).
-        const current = pickCurrentTimeframe(timeframesData.data as Timeframe[])
-        if (current) {
-          setFilters(prev => ({ ...prev, timeframe: current.id }))
-        }
-      }
-
-      if (departmentsData.success) {
-        setDepartments(departmentsData.data)
-      }
-
-      if (userDepartmentsData.success) {
-        setUserDepartments(userDepartmentsData.data)
+      const res = await fetch('/api/users/me/departments')
+      const data = await res.json()
+      if (data.success) {
+        // Route returns `{ success, data: [...] }` (or legacy `.departments` — defensive).
+        setUserDepartments(data.data ?? data.departments ?? [])
       }
     } catch (error) {
-      console.error('Error fetching initial data:', error)
-      toast.error('Failed to load page data')
+      console.error('Error fetching user departments:', error)
+      toast.error('Failed to load user departments')
     }
   }
+
+  // When timeframes load via the shared hook, default to the current period once.
+  useEffect(() => {
+    if (filters.timeframe || timeframes.length === 0) return
+    const current = pickCurrentTimeframe(timeframes as unknown as Timeframe[])
+    if (current) {
+      setFilters((prev) => ({ ...prev, timeframe: current.id }))
+    }
+  }, [timeframes, filters.timeframe])
 
   const handleFilterChange = (key: string, value: string) => {
     setFilters(prev => ({ ...prev, [key]: value }))
@@ -264,79 +252,12 @@ export default function MyOKRsPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-blue-500 rounded-md flex items-center justify-center">
-                  <span className="text-white text-sm font-medium">O</span>
-                </div>
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Total Objectives</dt>
-                  <dd className="text-lg font-medium text-gray-900">{stats.totalObjectives}</dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-green-500 rounded-md flex items-center justify-center">
-                  <span className="text-white text-sm font-medium">KR</span>
-                </div>
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Key Results</dt>
-                  <dd className="text-lg font-medium text-gray-900">{stats.totalKeyResults}</dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-yellow-500 rounded-md flex items-center justify-center">
-                  <span className="text-white text-sm font-medium">%</span>
-                </div>
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Avg Progress</dt>
-                  <dd className="text-lg font-medium text-gray-900">{stats.avgProgress}%</dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-purple-500 rounded-md flex items-center justify-center">
-                  <span className="text-white text-sm font-medium">✓</span>
-                </div>
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Completed</dt>
-                  <dd className="text-lg font-medium text-gray-900">{stats.completed}</dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <StatGrid columns={4}>
+        <StatCard label="Total Objectives" value={stats.totalObjectives} iconText="O" tone="blue" />
+        <StatCard label="Key Results" value={stats.totalKeyResults} iconText="KR" tone="green" />
+        <StatCard label="Avg Progress" value={`${stats.avgProgress}%`} iconText="%" tone="yellow" />
+        <StatCard label="Completed" value={stats.completed} iconText="✓" tone="purple" />
+      </StatGrid>
 
       {/* Filter Bar */}
       <div className="bg-white p-4 rounded-lg border border-gray-200">

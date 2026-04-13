@@ -1,7 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import {
   ChevronDown,
   ChevronRight,
@@ -754,6 +756,7 @@ export default function OkrHierarchyTable() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [openMenu, setOpenMenu] = useState<string | null>(null)
   const [selected, setSelected] = useState<Row | null>(null)
+  const router = useRouter()
 
   // Per-column widths (resizable). Seeded from defaults; persisted to
   // localStorage so widths survive refreshes.
@@ -776,6 +779,29 @@ export default function OkrHierarchyTable() {
       localStorage.setItem('okr-hier-widths', JSON.stringify(widths))
     } catch {}
   }, [widths])
+  // Hover preview state (for the row title tooltip card).
+  const [hoverRow, setHoverRow] = useState<{ row: Row; x: number; y: number } | null>(null)
+  const hoverTimer = useRef<number | null>(null)
+  const [portalMounted, setPortalMounted] = useState(false)
+  useEffect(() => {
+    setPortalMounted(true)
+  }, [])
+
+  const scheduleHoverPreview = (row: Row, e: React.MouseEvent<HTMLElement>) => {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    const x = rect.right + 12
+    const y = rect.top
+    if (hoverTimer.current) window.clearTimeout(hoverTimer.current)
+    hoverTimer.current = window.setTimeout(() => setHoverRow({ row, x, y }), 350)
+  }
+  const cancelHoverPreview = () => {
+    if (hoverTimer.current) {
+      window.clearTimeout(hoverTimer.current)
+      hoverTimer.current = null
+    }
+    setHoverRow(null)
+  }
+
   const startResize = useCallback((key: string, startX: number) => {
     const startWidth = widths[key]
     const min = key === '__name' ? NAME_COL_MIN : COL_MIN
@@ -944,11 +970,19 @@ export default function OkrHierarchyTable() {
                   <div
                     key={row.rowId}
                     className={`group flex items-stretch border-b border-gray-100 ${rowBase} ${rowHover}`}
-                    onClick={() => setSelected(row)}
+                    onClick={() => {
+                      if (row.kind === 'INIT') {
+                        router.push(`/dashboard/todos?open=${row.data.id}`)
+                      } else {
+                        setSelected(row)
+                      }
+                    }}
                   >
                     <div
                       style={{ width: widths.__name, paddingLeft: 12 + row.depth * 16 }}
                       className={`sticky left-0 z-10 pr-3 py-2 shrink-0 flex items-center gap-1 border-r border-gray-200 ${rowBase} group-hover:bg-blue-50`}
+                      onMouseEnter={(e) => scheduleHoverPreview(row, e)}
+                      onMouseLeave={cancelHoverPreview}
                     >
                       <button
                         type="button"
@@ -999,6 +1033,85 @@ export default function OkrHierarchyTable() {
           )}
         </div>
       </div>
+
+      {/* Hover preview card (portaled so it escapes the sticky header's
+          stacking context and isn't clipped by the overflow container). */}
+      {portalMounted &&
+        hoverRow &&
+        createPortal(
+          <div
+            style={{
+              position: 'fixed',
+              top: Math.min(hoverRow.y, window.innerHeight - 220),
+              left: Math.min(hoverRow.x, window.innerWidth - 360),
+              zIndex: 9999,
+            }}
+            className="w-80 rounded-lg border border-gray-200 bg-white shadow-xl p-3 pointer-events-none"
+          >
+            <div className="flex items-start justify-between gap-2 mb-1">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-gray-900 leading-snug">{hoverRow.row.data.title}</p>
+              </div>
+              {typeof hoverRow.row.data.progress === 'number' && (
+                <span className="text-xs font-medium text-gray-700 tabular-nums shrink-0">
+                  {Math.round(hoverRow.row.data.progress)}%
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2 mb-2 text-[11px] uppercase tracking-wide text-gray-500">
+              {(() => {
+                const v =
+                  hoverRow.row.data.goalStatus ??
+                  hoverRow.row.data.confidence ??
+                  hoverRow.row.data.status
+                if (!v) return <span>—</span>
+                return (
+                  <span
+                    className={`text-[10px] font-semibold uppercase tracking-wide rounded px-1.5 py-0.5 ${STATUS_PILL[v] ?? 'bg-slate-100 text-slate-700'}`}
+                  >
+                    {String(v).replace(/_/g, ' ')}
+                  </span>
+                )
+              })()}
+              <span className="ml-auto text-[11px] text-gray-500">
+                {hoverRow.row.kind === 'OBJ'
+                  ? hoverRow.row.data.level
+                  : hoverRow.row.kind === 'KR'
+                    ? 'Key result'
+                    : 'Initiative'}
+              </span>
+            </div>
+            {typeof hoverRow.row.data.progress === 'number' && (
+              <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden mb-2">
+                <div
+                  className={
+                    'h-full rounded-full ' +
+                    (hoverRow.row.data.progress >= 70
+                      ? 'bg-emerald-500'
+                      : hoverRow.row.data.progress >= 30
+                        ? 'bg-amber-500'
+                        : 'bg-red-500')
+                  }
+                  style={{ width: `${Math.min(100, hoverRow.row.data.progress)}%` }}
+                />
+              </div>
+            )}
+            {hoverRow.row.data.owner && (
+              <p className="text-xs text-gray-600">
+                Owner: <span className="text-gray-800">{hoverRow.row.data.owner.name ?? '—'}</span>
+              </p>
+            )}
+            {hoverRow.row.data.period && (
+              <p className="text-xs text-gray-500">Period: {hoverRow.row.data.period.name}</p>
+            )}
+            {hoverRow.row.kind === 'KR' && (
+              <p className="text-xs text-gray-500 mt-1">
+                {hoverRow.row.data.currentValue} / {hoverRow.row.data.targetValue} {hoverRow.row.data.unit}
+              </p>
+            )}
+          </div>,
+          document.body,
+        )}
 
       {/* Detail drawer */}
       <SideDrawer

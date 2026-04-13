@@ -240,7 +240,7 @@ export default function KeyResultsList({
                   </div>
                 </div>
 
-                <ToDoList keyResultId={kr.id} keyResult={kr} users={users} onChanged={afterMutation} />
+                <ToDoList keyResultId={kr.id} keyResult={kr} users={users} variant="embedded" onChanged={afterMutation} />
               </li>
               )
             })}
@@ -349,7 +349,7 @@ export default function KeyResultsList({
                     </div>
                   </div>
 
-                  <ToDoList keyResultId={kr.id} keyResult={kr} users={users} onChanged={afterMutation} />
+                  <ToDoList keyResultId={kr.id} keyResult={kr} users={users} variant="embedded" onChanged={afterMutation} />
                 </li>
               ))}
             </ul>

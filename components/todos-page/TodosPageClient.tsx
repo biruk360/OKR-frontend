@@ -100,6 +100,16 @@ export default function TodosPageClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Deep-link support: /dashboard/todos?open=<id> auto-opens that initiative's
+  // detail panel. Used by the OKR hierarchy + other deep-links.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const sp = new URLSearchParams(window.location.search)
+    const openId = sp.get('open')
+    if (openId) setOpenTodoId(openId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   function toggleViewMode() {
     setTodoViewMode(viewMode === 'modal' ? 'sidebar' : 'modal')
   }

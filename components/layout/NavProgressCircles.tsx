@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
 
 interface NavKeyResult {
@@ -35,12 +36,20 @@ const confidenceColour: Record<string, string> = {
 /**
  * Compact cascade of tiny coloured circles — one per active objective of the
  * current user. Hovering a circle expands a popover with the objective title,
- * progress, and its KR rollup. Clicking opens the objective detail page.
+ * progress, and its KR rollup. The popover is rendered via React portal to
+ * document.body so it escapes sticky/backdrop-blur stacking contexts (e.g.
+ * the OKR hierarchy table's sticky header).
  */
 export default function NavProgressCircles() {
   const [objectives, setObjectives] = useState<NavObjective[]>([])
   const [hovered, setHovered] = useState<string | null>(null)
+  const [anchor, setAnchor] = useState<{ top: number; right: number } | null>(null)
+  const [mounted, setMounted] = useState(false)
   const wrapperRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     fetch('/api/my/nav-progress')
@@ -55,20 +64,33 @@ export default function NavProgressCircles() {
 
   const visible = objectives.slice(0, 8)
   const overflow = objectives.length - visible.length
+  const obj = hovered ? objectives.find((o) => o.id === hovered) ?? null : null
+
+  const handleEnter = (
+    e: React.MouseEvent<HTMLElement> | React.FocusEvent<HTMLElement>,
+    id: string,
+  ) => {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    setHovered(id)
+    setAnchor({ top: rect.bottom + 8, right: Math.max(8, window.innerWidth - rect.right) })
+  }
 
   return (
     <div
       ref={wrapperRef}
       className="relative hidden md:flex items-center"
-      onMouseLeave={() => setHovered(null)}
+      onMouseLeave={() => {
+        setHovered(null)
+        setAnchor(null)
+      }}
     >
       <div className="flex items-center -space-x-1.5">
         {visible.map((o) => (
           <Link
             key={o.id}
             href={`/dashboard/objectives/${o.id}`}
-            onMouseEnter={() => setHovered(o.id)}
-            onFocus={() => setHovered(o.id)}
+            onMouseEnter={(e) => handleEnter(e, o.id)}
+            onFocus={(e) => handleEnter(e, o.id)}
             className={`relative block h-5 w-5 rounded-full border-2 border-white ring-1 ring-black/5 transition-transform hover:scale-110 ${statusColour[o.goalStatus] ?? 'bg-slate-400'}`}
             aria-label={`${o.title} — ${Math.round(o.progress)}%`}
           >
@@ -82,11 +104,19 @@ export default function NavProgressCircles() {
         )}
       </div>
 
-      {hovered && (() => {
-        const obj = objectives.find((o) => o.id === hovered)
-        if (!obj) return null
-        return (
-          <div className="absolute right-0 top-full mt-2 w-80 rounded-lg border border-gray-200 bg-white shadow-lg z-50 p-3">
+      {mounted &&
+        obj &&
+        anchor &&
+        createPortal(
+          <div
+            style={{ position: 'fixed', top: anchor.top, right: anchor.right, zIndex: 9999 }}
+            className="w-80 rounded-lg border border-gray-200 bg-white shadow-xl p-3"
+            onMouseEnter={() => setHovered(obj.id)}
+            onMouseLeave={() => {
+              setHovered(null)
+              setAnchor(null)
+            }}
+          >
             <div className="flex items-center justify-between gap-2 mb-2">
               <Link
                 href={`/dashboard/objectives/${obj.id}`}
@@ -128,9 +158,9 @@ export default function NavProgressCircles() {
                 )}
               </ul>
             )}
-          </div>
-        )
-      })()}
+          </div>,
+          document.body,
+        )}
     </div>
   )
 }

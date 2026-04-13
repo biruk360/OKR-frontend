@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { signOut } from 'next-auth/react'
 import { usePathname, useRouter } from 'next/navigation'
 import { User, LogOut, Settings, Bell, Menu } from 'lucide-react'
@@ -22,6 +22,27 @@ interface HeaderProps {
 export default function Header({ user, onMobileNavOpen }: HeaderProps) {
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
+  const profileRef = useRef<HTMLDivElement | null>(null)
+
+  // Close the profile dropdown when the user clicks outside OR moves the cursor
+  // away from the trigger+menu area.
+  useEffect(() => {
+    if (!isProfileOpen) return
+    function onDown(e: MouseEvent) {
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+        setIsProfileOpen(false)
+      }
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setIsProfileOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [isProfileOpen])
   const router = useRouter()
   const pathname = usePathname()
   const { overrideTitle } = useDashboardTitleContext()
@@ -103,7 +124,11 @@ export default function Header({ user, onMobileNavOpen }: HeaderProps) {
 
           <NavProgressCircles />
 
-          <div className="relative">
+          <div
+            ref={profileRef}
+            className="relative"
+            onMouseLeave={() => setIsProfileOpen(false)}
+          >
             <button
               type="button"
               className="flex items-center rounded-pill text-body-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"

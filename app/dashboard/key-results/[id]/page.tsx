@@ -8,6 +8,8 @@ import {
   canEditKeyResultWithObjectiveContext,
 } from '@/lib/permissions'
 import { KeyResultDetailClient } from '@/features/key-results'
+import OkrBreadcrumb from '@/components/shared/OkrBreadcrumb'
+import type { BreadcrumbNode } from '@/components/shared/OkrBreadcrumb'
 
 interface PageProps {
   params: { id: string } | Promise<{ id: string }>
@@ -31,14 +33,17 @@ export default async function KeyResultDetailPage({ params }: PageProps) {
         select: { id: true, name: true, avatar: true },
       },
       objective: {
-        include: {
-          owner: {
-            select: { id: true, name: true, avatar: true },
-          },
+        select: {
+          id: true,
+          title: true,
+          level: true,
+          ownerId: true,
+          departmentId: true,
+          isPrivate: true,
+          parentObjectiveId: true,
+          owner: { select: { id: true, name: true, avatar: true } },
           timeframe: true,
-          department: {
-            select: { id: true, name: true },
-          },
+          department: { select: { id: true, name: true } },
         },
       },
       checkIns: {
@@ -149,8 +154,49 @@ export default async function KeyResultDetailPage({ params }: PageProps) {
 
   const objFull = objective
 
+  // Build breadcrumb: objective ancestors → objective → KR
+  const ancestors: Array<{ id: string; title: string }> = []
+  {
+    let cursorId: string | null = objFull.parentObjectiveId
+    const seen = new Set<string>()
+    while (cursorId && !seen.has(cursorId)) {
+      seen.add(cursorId)
+      const parent = await prisma.objective.findUnique({
+        where: { id: cursorId },
+        select: { id: true, title: true, parentObjectiveId: true },
+      })
+      if (!parent) break
+      ancestors.unshift({ id: parent.id, title: parent.title })
+      cursorId = parent.parentObjectiveId
+    }
+  }
+  const breadcrumbNodes: BreadcrumbNode[] = [
+    ...ancestors.map((a) => ({
+      id: a.id,
+      title: a.title,
+      kind: 'OBJ' as const,
+      href: `/dashboard/objectives/${a.id}`,
+    })),
+    {
+      id: objFull.id,
+      title: objFull.title,
+      kind: 'OBJ',
+      href: `/dashboard/objectives/${objFull.id}`,
+    },
+    {
+      id: keyResult.id,
+      title: krForClient.title,
+      kind: 'KR',
+      progress: keyResult.progress,
+      status: keyResult.confidence,
+      ownerName: keyResult.owner.name ?? undefined,
+    },
+  ]
+
   return (
-    <KeyResultDetailClient
+    <div className="space-y-4">
+      <OkrBreadcrumb nodes={breadcrumbNodes} />
+      <KeyResultDetailClient
       keyResult={krForClient}
       objective={{
         id: objFull.id,
@@ -166,5 +212,6 @@ export default async function KeyResultDetailPage({ params }: PageProps) {
       isRedacted={isRedacted}
       todoCount={keyResult._count.todos}
     />
+    </div>
   )
 }

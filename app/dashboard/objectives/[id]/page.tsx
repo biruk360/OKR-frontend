@@ -21,6 +21,8 @@ import {
   AlignsToParentBadge,
   ObjectiveActionsMenu,
 } from '@/features/objectives'
+import OkrBreadcrumb from '@/components/shared/OkrBreadcrumb'
+import type { BreadcrumbNode } from '@/components/shared/OkrBreadcrumb'
 import { KeyResultsList } from '@/features/key-results'
 import { PageTitleSetter } from '@/components/layout/DashboardTitleContext'
 import { ActivityLogPanel } from '@/components/shared/ActivityLogPanel'
@@ -133,6 +135,39 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
 
   if (!objective) notFound()
 
+  // Walk up the objective hierarchy to build a breadcrumb chain.
+  const ancestors: Array<{ id: string; title: string }> = []
+  {
+    let cursorId: string | null = objective.parentObjectiveId
+    const seen = new Set<string>()
+    while (cursorId && !seen.has(cursorId)) {
+      seen.add(cursorId)
+      const parent = await prisma.objective.findUnique({
+        where: { id: cursorId },
+        select: { id: true, title: true, parentObjectiveId: true },
+      })
+      if (!parent) break
+      ancestors.unshift({ id: parent.id, title: parent.title })
+      cursorId = parent.parentObjectiveId
+    }
+  }
+  const breadcrumbNodes: BreadcrumbNode[] = [
+    ...ancestors.map((a) => ({
+      id: a.id,
+      title: a.title,
+      kind: 'OBJ' as const,
+      href: `/dashboard/objectives/${a.id}`,
+    })),
+    {
+      id: objective.id,
+      title: objective.title,
+      kind: 'OBJ' as const,
+      progress: objective.progress,
+      status: objective.goalStatus,
+      ownerName: objective.owner.name ?? undefined,
+    },
+  ]
+
   const snapshots = await prisma.confidenceSnapshot.findMany({
     where: { entityType: 'OBJECTIVE', entityId: objective.id },
     orderBy: { periodStart: 'asc' },
@@ -206,6 +241,8 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
             <DeleteObjectiveButton objective={objective} className="px-3 py-2" />
           </div>
         </div>
+
+        <OkrBreadcrumb nodes={breadcrumbNodes} />
 
         {/* Two-column layout: main column (8/12) + sidebar (4/12) on lg+ */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">

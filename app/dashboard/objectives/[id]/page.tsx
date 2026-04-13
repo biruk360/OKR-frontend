@@ -23,6 +23,7 @@ import {
 } from '@/features/objectives'
 import OkrBreadcrumb from '@/components/shared/OkrBreadcrumb'
 import type { BreadcrumbNode } from '@/components/shared/OkrBreadcrumb'
+import OkrComments from '@/components/shared/OkrComments'
 import { KeyResultsList } from '@/features/key-results'
 import { PageTitleSetter } from '@/components/layout/DashboardTitleContext'
 import { ActivityLogPanel } from '@/components/shared/ActivityLogPanel'
@@ -366,6 +367,8 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
               objective={objective}
               users={users}
             />
+
+            <OkrComments endpoint="objectives" entityId={objective.id} users={users} />
           </div>
 
           {/* -------- Sidebar -------- */}

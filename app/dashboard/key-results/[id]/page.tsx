@@ -10,6 +10,7 @@ import {
 import { KeyResultDetailClient } from '@/features/key-results'
 import OkrBreadcrumb from '@/components/shared/OkrBreadcrumb'
 import type { BreadcrumbNode } from '@/components/shared/OkrBreadcrumb'
+import OkrComments from '@/components/shared/OkrComments'
 
 interface PageProps {
   params: { id: string } | Promise<{ id: string }>
@@ -212,6 +213,9 @@ export default async function KeyResultDetailPage({ params }: PageProps) {
       isRedacted={isRedacted}
       todoCount={keyResult._count.todos}
     />
+      {!isRedacted && (
+        <OkrComments endpoint="keyresults" entityId={keyResult.id} users={users} />
+      )}
     </div>
   )
 }

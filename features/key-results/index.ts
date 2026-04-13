@@ -19,6 +19,7 @@ export { default as KeyResultDetailClient } from './components/KeyResultDetailCl
 export { default as KeyResultProgressChart } from './components/KeyResultProgressChart'
 export { default as KeyResultsList } from './components/KeyResultsList'
 export { default as UnarchiveKeyResultButton } from './components/UnarchiveKeyResultButton'
+export { default as KeyResultActionsMenu } from './components/KeyResultActionsMenu'
 
 export type {
   CreateKeyResultForm,

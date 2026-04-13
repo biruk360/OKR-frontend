@@ -14,6 +14,7 @@ import CloneKeyResultButton from './CloneKeyResultButton'
 import CreateCheckInButton from './CreateCheckInButton'
 import { ToDoList } from '@/features/todos'
 import { useUsersForSelection } from '@/hooks'
+import KeyResultActionsMenu from './KeyResultActionsMenu'
 
 function safeProgressPercent(value: unknown): number {
   const n = typeof value === 'number' ? value : Number(value)
@@ -50,7 +51,8 @@ export default function KeyResultsList({
   onKeyResultsChange,
 }: KeyResultsListProps) {
   const router = useRouter()
-  const [showArchived, setShowArchived] = useState(false)
+  // Show archived KRs by default, appended at the end of the active list.
+  const [showArchived, setShowArchived] = useState(true)
   const [perm, setPerm] = useState<KeyResultPermissions | null>(null)
 
   // Fetch shared users list only when the parent didn't supply one (cached via React Query).
@@ -143,6 +145,14 @@ export default function KeyResultsList({
           canDelete={canDelete}
           onDeleted={afterMutation}
         />
+        {/* Overflow menu surfaces the newer actions (mark complete, request check-in,
+            audit log, download chart) without duplicating the inline buttons above. */}
+        <KeyResultActionsMenu
+          keyResult={kr}
+          extrasOnly
+          chartElementId={`kr-chart-${kr.id}`}
+          onChanged={afterMutation}
+        />
       </div>
     )
   }
@@ -230,7 +240,7 @@ export default function KeyResultsList({
                   </div>
                 </div>
 
-                <ToDoList keyResultId={kr.id} keyResult={kr} users={users} />
+                <ToDoList keyResultId={kr.id} keyResult={kr} users={users} onChanged={afterMutation} />
               </li>
               )
             })}
@@ -339,7 +349,7 @@ export default function KeyResultsList({
                     </div>
                   </div>
 
-                  <ToDoList keyResultId={kr.id} keyResult={kr} users={users} />
+                  <ToDoList keyResultId={kr.id} keyResult={kr} users={users} onChanged={afterMutation} />
                 </li>
               ))}
             </ul>

@@ -15,10 +15,12 @@ interface ToDoListProps {
   keyResultId: string
   keyResult: any
   users: any[]
-  /** When false (default), initiatives / to-dos are hidden until the row is expanded. */
+  /** When true (default), initiatives are visible on first render. */
   defaultExpanded?: boolean
   /** Use `embedded` inside the key-result detail card to avoid a nested gray panel. */
   variant?: 'card' | 'embedded'
+  /** Fires after any mutation (toggle/value change) so parents can refresh derived state. */
+  onChanged?: () => void
 }
 
 interface Todo {
@@ -31,6 +33,7 @@ interface Todo {
   assigneeId: string
   creatorId: string
   keyResultId: string
+  progressValue?: number | null
   createdAt: string
   updatedAt: string
   assignee: {
@@ -47,15 +50,21 @@ interface Todo {
 
 export default function ToDoList({
   keyResultId,
-  keyResult: _keyResult,
+  keyResult,
   users,
-  defaultExpanded = false,
+  defaultExpanded = true,
   variant = 'card',
+  onChanged,
 }: ToDoListProps) {
   const [todos, setTodos] = useState<Todo[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [expanded, setExpanded] = useState(defaultExpanded)
   const { data: session } = useSession()
+
+  // KR unit drives the initiative value input ("5 ETB", "2 pcs", etc). Percent-
+  // based KRs don't need a per-initiative value — the KR current % stands alone.
+  const krUnit: string = typeof keyResult?.unit === 'string' ? keyResult.unit : ''
+  const showInitiativeValue = krUnit && krUnit !== '%'
 
   // Fetch todos for this key result
   useEffect(() => {
@@ -125,22 +134,50 @@ export default function ToDoList({
       })
 
       if (response.ok) {
-        setTodos(prev => prev.map(todo => 
-          todo.id === todoId 
-            ? { 
-                ...todo, 
+        setTodos(prev => prev.map(todo =>
+          todo.id === todoId
+            ? {
+                ...todo,
                 status: newStatus,
                 completedAt: newStatus === 'COMPLETED' ? new Date().toISOString() : null
               }
             : todo
         ))
         toast.success(newStatus === 'COMPLETED' ? 'Initiative completed!' : 'Initiative marked as pending')
+        onChanged?.()
       } else {
         const error = await response.json()
         toast.error(error.error || 'Failed to update initiative')
       }
     } catch (error) {
       toast.error('An error occurred. Please try again.')
+    }
+  }
+
+  // Update an initiative's progressValue (in the parent KR's unit). The server
+  // re-aggregates the KR's currentValue + progress and cascades to the objective.
+  const handleUpdateTodoValue = async (todoId: string, raw: string) => {
+    const parsed = raw.trim() === '' ? null : parseFloat(raw)
+    if (parsed !== null && (!Number.isFinite(parsed) || parsed < 0)) {
+      toast.error('Value must be a non-negative number')
+      return
+    }
+    try {
+      const response = await fetch(`/api/todos/${todoId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ progressValue: parsed }),
+      })
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}))
+        throw new Error(err.error || 'Failed to update value')
+      }
+      setTodos(prev =>
+        prev.map(t => (t.id === todoId ? { ...t, progressValue: parsed } : t)),
+      )
+      onChanged?.()
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update value')
     }
   }
 
@@ -339,7 +376,7 @@ export default function ToDoList({
               return (
                 <li
                   key={todo.id}
-                  className="group flex h-8 items-center gap-2 rounded-sm px-2 hover:bg-[color:var(--notion-hover)]"
+                  className="group flex min-h-[40px] items-center gap-2 rounded-sm px-2 py-1 hover:bg-[color:var(--notion-hover)]"
                 >
                   <input
                     type="checkbox"
@@ -350,7 +387,7 @@ export default function ToDoList({
                   />
                   <span
                     className={cn(
-                      'min-w-0 flex-1 truncate text-[13px]',
+                      'min-w-0 flex-1 truncate text-sm',
                       isDone
                         ? 'text-[color:var(--notion-text-tertiary)] line-through'
                         : 'text-[color:var(--notion-text)]'
@@ -359,6 +396,38 @@ export default function ToDoList({
                   >
                     {todo.title}
                   </span>
+
+                  {/* Per-initiative progressValue input (in parent KR's unit).
+                      Blurs commit to the API; Enter commits too. */}
+                  {showInitiativeValue && (
+                    <span className="flex items-center gap-1" title={`Contribution in ${krUnit}`}>
+                      <input
+                        type="number"
+                        min="0"
+                        step="any"
+                        defaultValue={
+                          todo.progressValue !== null && todo.progressValue !== undefined
+                            ? String(todo.progressValue)
+                            : ''
+                        }
+                        onBlur={(e) => {
+                          const current =
+                            todo.progressValue !== null && todo.progressValue !== undefined
+                              ? String(todo.progressValue)
+                              : ''
+                          if (e.target.value === current) return
+                          handleUpdateTodoValue(todo.id, e.target.value)
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+                        }}
+                        placeholder="—"
+                        className="w-16 rounded border border-gray-200 bg-white px-1.5 py-0.5 text-xs text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        aria-label={`Contribution in ${krUnit}`}
+                      />
+                      <span className="text-[10px] text-gray-500 uppercase tracking-wide">{krUnit}</span>
+                    </span>
+                  )}
 
                   {/* Inline metadata: assignee + due date */}
                   {todo.assignee && (

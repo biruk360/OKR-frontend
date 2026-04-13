@@ -153,6 +153,11 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
   const checkInCadence = normalizeCadence(rawCadence)
   const sanitizedDepartmentId = departmentId || null
   const sanitizedParentObjectiveId = parentObjectiveId || null
+  // Optional list of User ids collaborating on this objective (never includes ownerId).
+  const rawContributorIds: unknown = (body as any).contributorIds
+  const contributorIds: string[] = Array.isArray(rawContributorIds)
+    ? Array.from(new Set(rawContributorIds.filter((v) => typeof v === 'string' && v && v !== ownerId)))
+    : []
   const normalizedDescription = description?.trim() ? description.trim() : null
 
   const normalizedIsPrivate =
@@ -252,6 +257,10 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
         goalStatus: goalStatus || 'ON_TRACK',
         startDate: parsedStartDate,
         endDate: parsedEndDate,
+        contributors:
+          contributorIds.length > 0
+            ? { create: contributorIds.map((uid) => ({ userId: uid })) }
+            : undefined,
       },
       include: {
         owner: { select: { id: true, name: true, avatar: true } },

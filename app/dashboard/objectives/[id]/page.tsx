@@ -12,26 +12,25 @@ import {
   Archive,
   Users,
   TrendingUp,
+  UserPlus,
 } from 'lucide-react'
 import {
   EditObjectiveButton,
-  ArchiveObjectiveButton,
-  UnarchiveObjectiveButton,
   DeleteObjectiveButton,
   CloneObjectiveButton,
   AlignsToParentBadge,
+  ObjectiveActionsMenu,
 } from '@/features/objectives'
 import { KeyResultsList } from '@/features/key-results'
 import { PageTitleSetter } from '@/components/layout/DashboardTitleContext'
 import { ActivityLogPanel } from '@/components/shared/ActivityLogPanel'
-import { formatRelativeTime, getConfidenceColor, getProgressBarClass } from '@/lib/utils'
+import { formatRelativeTime, getProgressBarClass } from '@/lib/utils'
 import ObjectiveProgressTimeline from './ObjectiveProgressTimeline'
 
 interface ObjectiveDetailPageProps {
   params: { id: string } | Promise<{ id: string }>
 }
 
-/** Map ON_TRACK/AT_RISK/OFF_TRACK to the small status pill shown next to progress. */
 function confidenceLabel(goalStatus: string | null | undefined): {
   label: string
   classes: string
@@ -108,6 +107,11 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
       parentObjective: {
         select: { id: true, title: true, level: true, goalStatus: true, progress: true },
       },
+      contributors: {
+        include: {
+          user: { select: { id: true, name: true, avatar: true, email: true } },
+        },
+      },
       childObjectives: {
         where: { status: 'ACTIVE' },
         include: {
@@ -129,19 +133,31 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
 
   if (!objective) notFound()
 
-  // Bi-weekly confidence snapshots power the Progress Timeline chart.
   const snapshots = await prisma.confidenceSnapshot.findMany({
     where: { entityType: 'OBJECTIVE', entityId: objective.id },
     orderBy: { periodStart: 'asc' },
     select: { periodStart: true, score: true },
   })
 
-  // Collaborators = deduplicated set of everyone who owns a KR under this objective,
-  // excluding the objective's own owner (who's shown separately).
-  const collaboratorsMap = new Map<string, { id: string; name: string; avatar: string | null }>()
+  // Explicit contributors (distinct from KR-owner-derived collaborators).
+  const contributors: Array<{ id: string; name: string; avatar: string | null; email: string | null }> =
+    ((objective as any).contributors ?? [])
+      .map((c: any) => c.user)
+      .filter((u: any) => u && u.id !== objective.ownerId)
+
+  // Collaborators = contributors ∪ KR owners (deduped, minus primary owner).
+  const collaboratorsMap = new Map<
+    string,
+    { id: string; name: string; avatar: string | null; source: 'contributor' | 'kr-owner' }
+  >()
+  for (const u of contributors) {
+    collaboratorsMap.set(u.id, { id: u.id, name: u.name, avatar: u.avatar, source: 'contributor' })
+  }
   for (const kr of objective.keyResults) {
     if (kr.owner.id === objective.ownerId) continue
-    collaboratorsMap.set(kr.owner.id, kr.owner)
+    if (!collaboratorsMap.has(kr.owner.id)) {
+      collaboratorsMap.set(kr.owner.id, { ...kr.owner, source: 'kr-owner' })
+    }
   }
   const collaborators = Array.from(collaboratorsMap.values())
 
@@ -155,11 +171,14 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
   const activeKrCount = objective.keyResults.filter((kr) => kr.status === 'ACTIVE').length
   const progressRounded = Math.round(objective.progress)
 
+  const TIMELINE_ELEMENT_ID = `obj-timeline-${objective.id}`
+  const ACTIVITY_ELEMENT_ID = `obj-activity-${objective.id}`
+
   return (
     <>
       <PageTitleSetter title={objective.title} />
       <div className="space-y-4">
-        {/* Breadcrumb + actions */}
+        {/* Breadcrumb + top actions */}
         <div className="flex items-center justify-between">
           <Link
             href="/dashboard/objectives"
@@ -169,12 +188,7 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
             Back to Objectives
           </Link>
           <div className="flex items-center space-x-2">
-            {objective.status === 'ARCHIVED' ? (
-              <>
-                <UnarchiveObjectiveButton objective={objective} className="px-3 py-2" />
-                <DeleteObjectiveButton objective={objective} className="px-3 py-2" />
-              </>
-            ) : (
+            {objective.status !== 'ARCHIVED' && (
               <>
                 <CloneObjectiveButton
                   objective={objective}
@@ -182,10 +196,14 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
                   className="px-3 py-2"
                 />
                 <EditObjectiveButton objective={objective} className="px-3 py-2" />
-                <ArchiveObjectiveButton objective={objective} className="px-3 py-2" />
-                <DeleteObjectiveButton objective={objective} className="px-3 py-2" />
               </>
             )}
+            <ObjectiveActionsMenu
+              objective={objective}
+              auditLogElementId={ACTIVITY_ELEMENT_ID}
+              chartElementId={TIMELINE_ELEMENT_ID}
+            />
+            <DeleteObjectiveButton objective={objective} className="px-3 py-2" />
           </div>
         </div>
 
@@ -193,7 +211,6 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
           {/* -------- Main column -------- */}
           <div className="lg:col-span-8 space-y-4">
-            {/* Archived banner */}
             {objective.status === 'ARCHIVED' && (
               <div className="bg-orange-50 border border-orange-200 rounded-lg px-4 py-3 flex items-center">
                 <Archive className="h-5 w-5 text-orange-600 mr-2" />
@@ -203,7 +220,7 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
               </div>
             )}
 
-            {/* Header card: level badge, title, description, progress summary */}
+            {/* Combined Objective card: header + description + progress summary + timeline */}
             <section className="bg-white shadow rounded-lg p-6">
               <div className="flex items-start justify-between gap-6">
                 <div className="flex-1 min-w-0">
@@ -237,14 +254,14 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
                     </div>
                   )}
 
+                  {/* Slightly larger description per product feedback */}
                   {objective.description && (
-                    <p className="mt-3 text-sm text-gray-600 leading-relaxed">
+                    <p className="mt-3 text-base text-gray-700 leading-relaxed">
                       {objective.description}
                     </p>
                   )}
                 </div>
 
-                {/* Right: progress summary */}
                 <div className="flex-shrink-0 text-right min-w-[180px]">
                   <div className="flex items-center justify-end gap-2 mb-1">
                     <span className="text-3xl font-bold text-gray-900">{progressRounded}%</span>
@@ -281,53 +298,41 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
                   </div>
                 </div>
               </div>
-            </section>
 
-            {/* Progress timeline */}
-            <section className="bg-white shadow rounded-lg p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">
-                    Progress Timeline
-                  </h2>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    Expected (linear) vs actual (bi-weekly confidence snapshots)
-                  </p>
+              {/* Progress timeline lives inside the objective card */}
+              <div className="mt-6 pt-6 border-t border-gray-200" id={TIMELINE_ELEMENT_ID}>
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">
+                      Progress Timeline
+                    </h2>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Expected (linear) vs actual (bi-weekly confidence snapshots)
+                    </p>
+                  </div>
+                  <TrendingUp className="h-4 w-4 text-gray-400" />
                 </div>
-                <TrendingUp className="h-4 w-4 text-gray-400" />
-              </div>
-              <ObjectiveProgressTimeline
-                snapshots={snapshots}
-                currentProgress={objective.progress}
-                timeframeStart={objective.timeframe.startDate}
-                timeframeEnd={objective.timeframe.endDate}
-              />
-            </section>
-
-            {/* Key Results */}
-            <section className="bg-white shadow rounded-lg">
-              <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">
-                  Key Results{' '}
-                  <span className="text-gray-400 font-normal">
-                    ({objective.keyResults.length})
-                  </span>
-                </h2>
-              </div>
-              <div className="px-6 py-4">
-                <KeyResultsList
-                  keyResults={objective.keyResults}
-                  objectiveId={objective.id}
-                  objective={objective}
-                  users={users}
+                <ObjectiveProgressTimeline
+                  snapshots={snapshots}
+                  currentProgress={objective.progress}
+                  timeframeStart={objective.timeframe.startDate}
+                  timeframeEnd={objective.timeframe.endDate}
                 />
               </div>
             </section>
+
+            {/* Key Results — no outer wrapping card; list renders its own Active/Archived
+                sections with the Add-KR button inline on the header row. */}
+            <KeyResultsList
+              keyResults={objective.keyResults}
+              objectiveId={objective.id}
+              objective={objective}
+              users={users}
+            />
           </div>
 
           {/* -------- Sidebar -------- */}
           <aside className="lg:col-span-4 space-y-4">
-            {/* Objective Details */}
             <section className="bg-white shadow rounded-lg p-5">
               <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-4">
                 Objective Details
@@ -348,6 +353,34 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
                       <div className="text-xs text-gray-500 truncate">{objective.owner.email}</div>
                     </div>
                   </div>
+                </div>
+
+                {/* Contributors — explicit ObjectiveContributor rows, independent of KR owners */}
+                <div>
+                  <div className="flex items-center text-[11px] text-gray-500 uppercase tracking-wide mb-1.5">
+                    <UserPlus className="h-3 w-3 mr-1" />
+                    Contributors
+                  </div>
+                  {contributors.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {contributors.map((c) => (
+                        <div
+                          key={c.id}
+                          className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50 pl-1 pr-2 py-0.5"
+                          title={c.email || c.name}
+                        >
+                          <Avatar name={c.name ?? '?'} avatar={c.avatar} size="xs" />
+                          <span className="text-xs text-gray-700 truncate max-w-[120px]">
+                            {c.name}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-400 italic">
+                      None — add via Edit Objective
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -413,7 +446,6 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
               </div>
             </section>
 
-            {/* Collaborators */}
             {collaborators.length > 0 && (
               <section className="bg-white shadow rounded-lg p-5">
                 <div className="flex items-center justify-between mb-3">
@@ -428,19 +460,18 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
                     <div
                       key={c.id}
                       className="flex items-center"
-                      title={c.name ?? undefined}
+                      title={`${c.name ?? '?'} (${c.source === 'contributor' ? 'Contributor' : 'KR owner'})`}
                     >
                       <Avatar name={c.name ?? '?'} avatar={c.avatar} size="sm" />
                     </div>
                   ))}
                 </div>
                 <p className="text-[11px] text-gray-500 mt-3">
-                  Derived from Key Result owners on this objective.
+                  Union of Contributors and Key Result owners.
                 </p>
               </section>
             )}
 
-            {/* Contributing OKRs */}
             {objective.childObjectives.length > 0 && (
               <section className="bg-white shadow rounded-lg p-5">
                 <div className="flex items-center justify-between mb-3">
@@ -487,8 +518,9 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
               </section>
             )}
 
-            {/* Recent Activity — existing shared component */}
-            <ActivityLogPanel entityType="objective" entityId={objective.id} />
+            <div id={ACTIVITY_ELEMENT_ID}>
+              <ActivityLogPanel entityType="objective" entityId={objective.id} />
+            </div>
           </aside>
         </div>
       </div>

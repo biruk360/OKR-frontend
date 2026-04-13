@@ -8,6 +8,8 @@ export type ActivityAction =
   | 'STATUS_CHANGED'
   | 'PROGRESS_UPDATED'
   | 'CHECKIN'
+  | 'CHECKIN_REQUESTED'
+  | 'COMPLETED'
   | 'ARCHIVED'
   | 'UNARCHIVED'
   | 'DELETED'

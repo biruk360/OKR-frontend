@@ -197,14 +197,11 @@ export default function AddKeyResultModal({
             {...register('unit')}
             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           >
-            <option value="%">%</option>
-            <option value="$">$</option>
-            <option value="users">users</option>
-            <option value="customers">customers</option>
-            <option value="revenue">revenue</option>
-            <option value="hours">hours</option>
-            <option value="days">days</option>
-            <option value="count">count</option>
+            <option value="%">% (percent)</option>
+            <option value="pcs">pcs (pieces)</option>
+            <option value="qty">qty (quantity)</option>
+            <option value="ETB">ETB (birr)</option>
+            <option value="time">time (hours)</option>
             <option value="other">other</option>
           </select>
         </div>

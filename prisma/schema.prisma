@@ -44,6 +44,7 @@ model User {
   activityLogs        ActivityLog[]
   objectiveViews      ObjectiveView[]
   keyResultViews      KeyResultView[]
+  objectiveContributions ObjectiveContributor[]
   ownedSprints        Sprint[]        @relation("SprintOwner")
   ownedSprintActivities SprintActivity[] @relation("SprintActivityOwner")
   sprintActivityComments SprintActivityComment[] @relation("SprintActivityCommentAuthor")
@@ -164,8 +165,25 @@ model Objective {
   views            ObjectiveView[]
   sprintActivities SprintActivity[]  @relation("SprintActivityObjective")
   todos            Todo[]            @relation("TodoObjective")
+  contributors     ObjectiveContributor[]
 
   @@map("objectives")
+}
+
+/// Additional people collaborating on an objective besides the sole owner.
+/// Contributors can edit KRs and check in; they do NOT inherit admin rights.
+model ObjectiveContributor {
+  id          String    @id @default(cuid())
+  objectiveId String
+  userId      String
+  addedAt     DateTime  @default(now())
+
+  objective   Objective @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([objectiveId, userId])
+  @@index([userId])
+  @@map("objective_contributors")
 }
 
 model KeyResult {
@@ -237,6 +255,10 @@ model Todo {
   /// Optional link to an Objective — use when the work spans a whole objective
   /// rather than a single KR. Mutually informative with keyResultId; both can be set.
   objectiveId String?
+  /// Numeric contribution in the parent KR's unit (ETB, pcs, qty, hours, %, …).
+  /// When the initiative is marked COMPLETED, this value is summed into the
+  /// parent KR's currentValue (see lib/objectiveProgress.ts → recalcKrFromInitiatives).
+  progressValue Float?
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 

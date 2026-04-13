@@ -10,6 +10,7 @@ import ParentObjectiveSelector from './ParentObjectiveSelector'
 import { CHECK_IN_CADENCES, CHECK_IN_CADENCE_LABELS, normalizeCadence, type CheckInCadence } from '@/lib/check-in-cadence'
 import { Modal } from '@/components/ui'
 import { useReferenceData } from '@/hooks'
+import ContributorsPicker from './ContributorsPicker'
 
 interface EditObjectiveModalProps {
   isOpen: boolean
@@ -28,6 +29,7 @@ interface FormData {
   alignmentType: 'LOOSE' | 'STRICT_DEPENDENCY'
   rollupCalculation: 'NONE' | 'AVERAGE' | 'SUM'
   checkInCadence: CheckInCadence
+  contributorIds?: string[]
 }
 
 export default function EditObjectiveModal({ isOpen, onClose, objective }: EditObjectiveModalProps) {
@@ -47,6 +49,9 @@ export default function EditObjectiveModal({ isOpen, onClose, objective }: EditO
 
   useEffect(() => {
     if (isOpen && objective) {
+      const existingContributorIds: string[] = Array.isArray((objective as any).contributors)
+        ? (objective as any).contributors.map((c: any) => c?.user?.id ?? c?.userId).filter(Boolean)
+        : []
       reset({
         title: objective.title || '',
         description: objective.description || '',
@@ -62,6 +67,7 @@ export default function EditObjectiveModal({ isOpen, onClose, objective }: EditO
             ? objective.rollupCalculation
             : 'NONE',
         checkInCadence: normalizeCadence(objective.checkInCadence),
+        contributorIds: existingContributorIds,
       })
     }
   }, [isOpen, objective, reset])
@@ -79,6 +85,9 @@ export default function EditObjectiveModal({ isOpen, onClose, objective }: EditO
           rollupCalculation:
             data.alignmentType === 'LOOSE' ? 'NONE' : data.rollupCalculation,
           checkInCadence: normalizeCadence(data.checkInCadence),
+          contributorIds: (data.contributorIds ?? []).filter(
+            (id) => id && id !== data.ownerId,
+          ),
         }),
       })
 
@@ -145,6 +154,19 @@ export default function EditObjectiveModal({ isOpen, onClose, objective }: EditO
               ))}
             </select>
             {errors.ownerId && <p className="mt-1 text-sm text-red-600">{errors.ownerId.message}</p>}
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Contributors</label>
+            <ContributorsPicker
+              users={users}
+              ownerId={watch('ownerId') || ''}
+              value={watch('contributorIds') ?? []}
+              onChange={(ids) => setValue('contributorIds', ids)}
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Teammates collaborating on this objective. Saved separately from the owner.
+            </p>
           </div>
 
           <div>

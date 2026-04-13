@@ -25,6 +25,7 @@ export { default as ObjectivesList } from './components/ObjectivesList'
 export { default as OKRLevelView } from './components/OKRLevelView'
 export { default as ParentObjectiveSelector } from './components/ParentObjectiveSelector'
 export { default as UnarchiveObjectiveButton } from './components/UnarchiveObjectiveButton'
+export { default as ObjectiveActionsMenu } from './components/ObjectiveActionsMenu'
 
 export type {
   CreateObjectiveForm,

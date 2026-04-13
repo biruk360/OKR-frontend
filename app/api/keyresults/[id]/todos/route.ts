@@ -52,10 +52,19 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
   const { id: keyResultId } = await resolveParams(params)
   if (!keyResultId) return apiBadRequest('Invalid key result id')
 
-  const { title, description, assigneeId, creatorId } = await request.json()
+  const { title, description, assigneeId, creatorId, progressValue } = await request.json()
 
   if (!title || !assigneeId || !creatorId) {
     return apiBadRequest('Title, assignee, and creator are required')
+  }
+
+  let parsedProgressValue: number | null = null
+  if (progressValue !== undefined && progressValue !== null) {
+    const n = typeof progressValue === 'number' ? progressValue : parseFloat(progressValue)
+    if (!Number.isFinite(n) || n < 0) {
+      return apiBadRequest('progressValue must be a non-negative number')
+    }
+    parsedProgressValue = n
   }
 
   const keyResult = await prisma.keyResult.findUnique({
@@ -89,6 +98,7 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
       creatorId,
       keyResultId,
       status: 'PENDING',
+      progressValue: parsedProgressValue,
     },
     include: {
       assignee: { select: { id: true, name: true, avatar: true } },

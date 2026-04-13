@@ -31,6 +31,11 @@ export const GET = withAuth<RouteIdParams>(async (_request, { session, params })
       timeframe: true,
       department: { select: { id: true, name: true } },
       parentObjective: { select: { id: true, title: true, goalStatus: true, progress: true } },
+      contributors: {
+        include: {
+          user: { select: { id: true, name: true, avatar: true, email: true } },
+        },
+      },
       childObjectives: {
         include: {
           owner: { select: { id: true, name: true, avatar: true } },
@@ -121,7 +126,10 @@ export const PUT = withAuth<RouteIdParams>(async (request: NextRequest, { sessio
   const { id } = await resolveParams(params)
   if (!id) return apiBadRequest('Invalid objective id')
 
-  const body = (await request.json()) as UpdateObjectiveForm & { checkInCadence?: string }
+  const body = (await request.json()) as UpdateObjectiveForm & {
+    checkInCadence?: string
+    contributorIds?: string[]
+  }
   const {
     title,
     description,
@@ -133,6 +141,19 @@ export const PUT = withAuth<RouteIdParams>(async (request: NextRequest, { sessio
     checkInCadence: rawCadence,
   } = body
   const cadencePatch = rawCadence !== undefined ? { checkInCadence: normalizeCadence(rawCadence) } : null
+
+  // contributorIds undefined → leave existing contributors alone.
+  // contributorIds provided (array, possibly empty) → replace full set.
+  const contributorIdsProvided = Array.isArray(body.contributorIds)
+  const nextContributorIds: string[] = contributorIdsProvided
+    ? Array.from(
+        new Set(
+          body.contributorIds!.filter(
+            (v): v is string => typeof v === 'string' && !!v,
+          ),
+        ),
+      )
+    : []
 
   const existingObjective = await prisma.objective.findUnique({ where: { id } })
   if (!existingObjective) return apiNotFound('Objective not found')
@@ -191,6 +212,19 @@ export const PUT = withAuth<RouteIdParams>(async (request: NextRequest, { sessio
   const oldParentId = existingObjective.parentObjectiveId
 
   const updatedObjective = await prisma.$transaction(async (tx) => {
+    // Replace contributor set if provided (exclude the owner automatically).
+    if (contributorIdsProvided) {
+      const effectiveOwnerId = ownerId || existingObjective.ownerId
+      const filtered = nextContributorIds.filter((uid) => uid !== effectiveOwnerId)
+      await tx.objectiveContributor.deleteMany({ where: { objectiveId: id } })
+      if (filtered.length > 0) {
+        await tx.objectiveContributor.createMany({
+          data: filtered.map((uid) => ({ objectiveId: id, userId: uid })),
+          skipDuplicates: true,
+        })
+      }
+    }
+
     const updated = await tx.objective.update({
       where: { id },
       data: {

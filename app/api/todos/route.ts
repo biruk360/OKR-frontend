@@ -101,6 +101,15 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
 
   const description = typeof body.description === 'string' ? body.description.trim() || null : null
   const dueDate = body.dueDate ? new Date(body.dueDate) : null
+
+  let progressValue: number | null = null
+  if (body.progressValue !== undefined && body.progressValue !== null) {
+    const n = typeof body.progressValue === 'number' ? body.progressValue : parseFloat(body.progressValue)
+    if (!Number.isFinite(n) || n < 0) {
+      return apiBadRequest('progressValue must be a non-negative number')
+    }
+    progressValue = n
+  }
   if (dueDate && Number.isNaN(dueDate.getTime())) {
     return apiBadRequest('Invalid dueDate')
   }
@@ -156,6 +165,7 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
       creatorId: session.user.id,
       keyResultId,
       objectiveId,
+      progressValue,
     },
     include: {
       assignee: { select: { id: true, name: true, avatar: true } },

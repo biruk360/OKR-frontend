@@ -12,6 +12,7 @@ import { pickCurrentTimeframe } from '@/lib/timeframe-utils'
 import { CHECK_IN_CADENCES, CHECK_IN_CADENCE_LABELS, normalizeCadence } from '@/lib/check-in-cadence'
 import { Modal } from '@/components/ui'
 import { useReferenceData } from '@/hooks'
+import ContributorsPicker from './ContributorsPicker'
 
 interface CreateObjectiveModalProps {
   isOpen: boolean
@@ -33,6 +34,7 @@ interface FormData {
   parentObjectiveId?: string
   isPrivate?: boolean
   checkInCadence?: string
+  contributorIds?: string[]
 }
 
 export default function CreateObjectiveModal({
@@ -79,6 +81,7 @@ export default function CreateObjectiveModal({
         departmentId: '',
         parentObjectiveId: '',
         isPrivate: false,
+        contributorIds: [],
       })
     }
   }, [isOpen, defaultLevel, defaultOwnerId, session?.user?.id, reset])
@@ -109,6 +112,7 @@ export default function CreateObjectiveModal({
         parentObjectiveId: data.parentObjectiveId || null,
         isPrivate: data.isPrivate || false,
         checkInCadence: normalizeCadence(data.checkInCadence),
+        contributorIds: (data.contributorIds ?? []).filter((id) => id && id !== data.ownerId),
       }
 
       const response = await fetch('/api/objectives', {
@@ -254,6 +258,22 @@ export default function CreateObjectiveModal({
               Owner is automatically set to you for individual objectives
             </p>
           )}
+        </div>
+
+        {/* Contributors — additional users collaborating on this objective (not the owner) */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Contributors
+          </label>
+          <ContributorsPicker
+            users={users}
+            ownerId={watch('ownerId') || ''}
+            value={watch('contributorIds') ?? []}
+            onChange={(ids) => setValue('contributorIds', ids)}
+          />
+          <p className="mt-1 text-xs text-gray-500">
+            Teammates who help deliver this objective. They&apos;re distinct from the owner.
+          </p>
         </div>
 
         {selectedLevel === 'DEPARTMENT' && (

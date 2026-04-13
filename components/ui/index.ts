@@ -15,3 +15,6 @@ export type { StatGridProps } from './StatGrid'
 
 export { PageHeader } from './PageHeader'
 export type { PageHeaderProps } from './PageHeader'
+
+export { ActionsMenu } from './ActionsMenu'
+export type { ActionsMenuProps, ActionsMenuItem } from './ActionsMenu'

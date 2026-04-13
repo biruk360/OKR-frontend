@@ -59,6 +59,62 @@ export async function recalcObjectiveStoredProgress(tx: DbLike, objectiveId: str
   return rounded
 }
 
+/**
+ * Recompute a Key Result's currentValue from its initiatives' contributions.
+ *
+ * Every initiative (Todo) linked to a KR may carry a `progressValue` in the KR's unit
+ * (ETB, pcs, qty, hours, %, …). When an initiative is COMPLETED, its value counts;
+ * the total is added to the KR's startValue to produce currentValue, which is then
+ * clamped and used to recompute KR.progress %.
+ *
+ * Returns the new KR currentValue, or null if the KR no longer exists.
+ */
+export async function recalcKrFromInitiatives(
+  tx: DbLike,
+  keyResultId: string,
+): Promise<number | null> {
+  const kr = await tx.keyResult.findUnique({
+    where: { id: keyResultId },
+    select: {
+      id: true,
+      objectiveId: true,
+      startValue: true,
+      targetValue: true,
+      currentValue: true,
+    },
+  })
+  if (!kr) return null
+
+  const initiatives = await tx.todo.findMany({
+    where: { keyResultId, status: 'COMPLETED' },
+    select: { progressValue: true },
+  })
+
+  const contributed = initiatives.reduce(
+    (sum, t) => sum + (typeof t.progressValue === 'number' ? t.progressValue : 0),
+    0,
+  )
+
+  // currentValue = startValue + contribution, clamped to [startValue, targetValue].
+  const nextCurrent = Math.max(
+    kr.startValue,
+    Math.min(kr.startValue + contributed, kr.targetValue),
+  )
+
+  const span = kr.targetValue - kr.startValue
+  const progress = span > 0 ? Math.min(100, Math.max(0, ((nextCurrent - kr.startValue) / span) * 100)) : 0
+
+  await tx.keyResult.update({
+    where: { id: keyResultId },
+    data: {
+      currentValue: nextCurrent,
+      progress: Math.round(progress),
+    },
+  })
+
+  return nextCurrent
+}
+
 /** Recompute this objective, then each ancestor up to the root (e.g. after KR change or moving alignment). */
 export async function recalcNodeAndAncestors(tx: DbLike, startObjectiveId: string): Promise<void> {
   let cur: string | null = startObjectiveId

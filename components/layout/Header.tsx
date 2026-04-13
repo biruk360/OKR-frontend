@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { User, LogOut, Settings, Bell, Menu } from 'lucide-react'
 import { getDashboardPageTitle } from '@/lib/dashboard-page-titles'
 import { useDashboardTitleContext } from '@/components/layout/DashboardTitleContext'
+import NavProgressCircles from '@/components/layout/NavProgressCircles'
 
 interface HeaderProps {
   user: {
@@ -99,6 +100,8 @@ export default function Header({ user, onMobileNavOpen }: HeaderProps) {
               </div>
             )}
           </div>
+
+          <NavProgressCircles />
 
           <div className="relative">
             <button

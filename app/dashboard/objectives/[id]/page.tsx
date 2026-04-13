@@ -24,6 +24,7 @@ import {
 import OkrBreadcrumb from '@/components/shared/OkrBreadcrumb'
 import type { BreadcrumbNode } from '@/components/shared/OkrBreadcrumb'
 import OkrComments from '@/components/shared/OkrComments'
+import WorkItemsKanban from '@/components/shared/WorkItemsKanban'
 import { KeyResultsList } from '@/features/key-results'
 import { PageTitleSetter } from '@/components/layout/DashboardTitleContext'
 import { ActivityLogPanel } from '@/components/shared/ActivityLogPanel'
@@ -152,6 +153,21 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
       cursorId = parent.parentObjectiveId
     }
   }
+  // Gather initiatives for the Work Items kanban (attached to either the
+  // objective or one of its KRs).
+  const krIdsForKanban = objective.keyResults.map((k) => k.id)
+  const kanbanInitiatives = await prisma.todo.findMany({
+    where: {
+      status: { not: 'CANCELLED' },
+      OR: [
+        { objectiveId: id },
+        krIdsForKanban.length > 0 ? { keyResultId: { in: krIdsForKanban } } : { id: '___none___' },
+      ],
+    },
+    select: { id: true, title: true, status: true, keyResultId: true },
+    orderBy: { updatedAt: 'desc' },
+  })
+
   const breadcrumbNodes: BreadcrumbNode[] = [
     ...ancestors.map((a) => ({
       id: a.id,
@@ -366,6 +382,18 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
               objectiveId={objective.id}
               objective={objective}
               users={users}
+            />
+
+            <WorkItemsKanban
+              keyResults={objective.keyResults.map((kr) => ({
+                id: kr.id,
+                title: kr.title,
+                progress: kr.progress,
+                confidence: kr.confidence,
+                status: kr.status,
+              }))}
+              initiatives={kanbanInitiatives}
+              title="Work items"
             />
 
             <OkrComments endpoint="objectives" entityId={objective.id} users={users} />

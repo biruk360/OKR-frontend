@@ -11,6 +11,7 @@ import { KeyResultDetailClient } from '@/features/key-results'
 import OkrBreadcrumb from '@/components/shared/OkrBreadcrumb'
 import type { BreadcrumbNode } from '@/components/shared/OkrBreadcrumb'
 import OkrComments from '@/components/shared/OkrComments'
+import WorkItemsKanban from '@/components/shared/WorkItemsKanban'
 
 interface PageProps {
   params: { id: string } | Promise<{ id: string }>
@@ -155,6 +156,13 @@ export default async function KeyResultDetailPage({ params }: PageProps) {
 
   const objFull = objective
 
+  // Initiatives for this KR's kanban view.
+  const krInitiatives = await prisma.todo.findMany({
+    where: { keyResultId: keyResult.id, status: { not: 'CANCELLED' } },
+    select: { id: true, title: true, status: true, keyResultId: true },
+    orderBy: { updatedAt: 'desc' },
+  })
+
   // Build breadcrumb: objective ancestors → objective → KR
   const ancestors: Array<{ id: string; title: string }> = []
   {
@@ -214,7 +222,22 @@ export default async function KeyResultDetailPage({ params }: PageProps) {
       todoCount={keyResult._count.todos}
     />
       {!isRedacted && (
-        <OkrComments endpoint="keyresults" entityId={keyResult.id} users={users} />
+        <>
+          <WorkItemsKanban
+            keyResults={[
+              {
+                id: keyResult.id,
+                title: krForClient.title,
+                progress: keyResult.progress,
+                confidence: keyResult.confidence,
+                status: keyResult.status,
+              },
+            ]}
+            initiatives={krInitiatives}
+            title="Work items"
+          />
+          <OkrComments endpoint="keyresults" entityId={keyResult.id} users={users} />
+        </>
       )}
     </div>
   )

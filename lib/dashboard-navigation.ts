@@ -68,6 +68,8 @@ export const navigationGroups: NavGroup[] = [
     items: [
       { name: 'Progress Tracking', href: '/dashboard/progress', icon: TrendingUp },
       { name: 'Progress Dashboard', href: '/dashboard/progress-report', icon: BarChart3 },
+      { name: 'Timeline', href: '/dashboard/timeline', icon: Calendar },
+      { name: 'OKR Hierarchy', href: '/dashboard/okr-hierarchy', icon: Network },
       { name: 'Reports', href: '/dashboard/reports', icon: FileText },
       { name: 'Initiative Report', href: '/dashboard/initiative-report', icon: FileText },
       { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },

@@ -8,6 +8,7 @@ import {
   apiNotFound,
   withAuth,
 } from '@/lib/api'
+import { hydrateActivityLogs } from '@/lib/activity-log-hydrate'
 
 export const GET = withAuth<RouteIdParams>(async (_request, { session, params }) => {
   const { id } = await resolveParams(params)
@@ -37,15 +38,10 @@ export const GET = withAuth<RouteIdParams>(async (_request, { session, params })
     }),
   ])
 
-  const parsed = logs.map((log) => ({
-    ...log,
-    changes: log.changes ? safeParse(log.changes) : null,
-    metadata: log.metadata ? safeParse(log.metadata) : null,
-  }))
+  // changes/metadata are JSONB now — Prisma returns parsed objects directly.
+  // hydrateActivityLogs replaces reference ids (ownerId, parentObjectiveId, …) with
+  // { __ref, label, href } envelopes so the UI can render names + links.
+  const hydrated = await hydrateActivityLogs(logs as any)
 
-  return apiSuccess({ logs: parsed, views })
+  return apiSuccess({ logs: hydrated, views })
 })
-
-function safeParse(s: string): unknown {
-  try { return JSON.parse(s) } catch { return s }
-}

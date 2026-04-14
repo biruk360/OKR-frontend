@@ -517,8 +517,11 @@ model ActivityLog {
   keyResultId  String?
   action       String
   actorId      String?
-  changes      String?  // JSON-encoded { field: { from, to } } map
-  metadata     String?  // JSON-encoded extra context (e.g. ip, source page)
+  /// JSONB on Postgres — `{ field: { from, to } }`. Was `String` (JSON-encoded) before
+  /// the 2026-04-14 migration; existing rows were converted with `changes::jsonb`.
+  changes      Json?
+  /// JSONB on Postgres — extra context (e.g. ip, source page, snippet).
+  metadata     Json?
   createdAt    DateTime @default(now())
 
   actor     User?      @relation(fields: [actorId], references: [id], onDelete: SetNull)

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 
 type EntityType = 'objective' | 'key-result'
 
@@ -8,6 +9,19 @@ interface Actor {
   id: string
   name: string
   avatar: string | null
+}
+
+/**
+ * Hydrated reference produced by lib/activity-log-hydrate. When a change diff
+ * field's value is one of these, render it as a clickable link instead of the
+ * raw cuid.
+ */
+interface Ref {
+  __ref: true
+  kind: 'user' | 'objective' | 'department' | 'timeframe'
+  id: string
+  label: string
+  href: string
 }
 
 interface ActivityLogEntry {
@@ -116,7 +130,16 @@ export function ActivityLogPanel({ entityType, entityId }: Props) {
                   <Avatar name={log.actor?.name} avatar={log.actor?.avatar} />
                   <div className="min-w-0 flex-1">
                     <p className="text-neutral-800">
-                      <span className="font-medium">{log.actor?.name || 'System'}</span>{' '}
+                      {log.actor ? (
+                        <Link
+                          href={`/dashboard/org/users/${log.actor.id}`}
+                          className="font-medium text-neutral-900 hover:text-blue-600 hover:underline"
+                        >
+                          {log.actor.name}
+                        </Link>
+                      ) : (
+                        <span className="font-medium">System</span>
+                      )}{' '}
                       <span className="text-neutral-600">{ACTION_LABEL[log.action] || log.action.toLowerCase()}</span>
                     </p>
                     {log.changes && <ChangeList changes={log.changes} />}
@@ -169,20 +192,39 @@ function ChangeList({ changes }: { changes: Record<string, { from: unknown; to: 
       {entries.map(([field, { from, to }]) => (
         <li key={field}>
           <span className="font-medium text-neutral-700">{humanField(field)}</span>:{' '}
-          <span className="text-neutral-500">{formatVal(from)}</span>
+          <ValueCell value={from} tone="muted" />
           <span className="mx-1 text-neutral-400">→</span>
-          <span className="text-neutral-800">{formatVal(to)}</span>
+          <ValueCell value={to} tone="strong" />
         </li>
       ))}
     </ul>
   )
 }
 
+/** Reference fields like ownerId/parentObjectiveId end with "Id" — strip for display. */
 function humanField(field: string): string {
-  return field
+  const stripped = field.replace(/Id$/, '')
+  return stripped
     .replace(/([A-Z])/g, ' $1')
     .replace(/^./, (c) => c.toUpperCase())
     .trim()
+}
+
+function isRef(v: unknown): v is Ref {
+  return !!v && typeof v === 'object' && (v as any).__ref === true
+}
+
+/** Renders one side of a change. Hydrated refs become clickable links to the entity. */
+function ValueCell({ value, tone }: { value: unknown; tone: 'muted' | 'strong' }) {
+  const cls = tone === 'muted' ? 'text-neutral-500' : 'text-neutral-800'
+  if (isRef(value)) {
+    return (
+      <Link href={value.href} className="font-medium text-blue-600 hover:underline">
+        {value.label}
+      </Link>
+    )
+  }
+  return <span className={cls}>{formatVal(value)}</span>
 }
 
 function formatVal(v: unknown): string {

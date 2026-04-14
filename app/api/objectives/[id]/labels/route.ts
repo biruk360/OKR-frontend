@@ -8,8 +8,9 @@ import {
   apiConflict,
   withAuth,
 } from '@/lib/api'
+import { recordActivity } from '@/lib/activity-log'
 
-export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { params }) => {
+export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { session, params }) => {
   const { id: objectiveId } = await resolveParams(params)
   if (!objectiveId) return apiBadRequest('Invalid objective id')
 
@@ -28,6 +29,13 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { param
       data: { objectiveId, labelId },
       include: { label: true },
     })
+    await recordActivity({
+      entityType: 'OBJECTIVE',
+      objectiveId,
+      action: 'UPDATED',
+      actorId: session.user.id,
+      metadata: { labelAdded: { id: label.id, name: label.name } },
+    })
     return apiSuccess(objectiveLabel, { status: 201 })
   } catch (error: any) {
     if (error?.code === 'P2002') {
@@ -37,7 +45,7 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { param
   }
 })
 
-export const DELETE = withAuth<RouteIdParams>(async (request: NextRequest, { params }) => {
+export const DELETE = withAuth<RouteIdParams>(async (request: NextRequest, { session, params }) => {
   const { id: objectiveId } = await resolveParams(params)
   if (!objectiveId) return apiBadRequest('Invalid objective id')
 
@@ -45,8 +53,17 @@ export const DELETE = withAuth<RouteIdParams>(async (request: NextRequest, { par
   const labelId = searchParams.get('labelId')
   if (!labelId) return apiBadRequest('Label ID is required')
 
+  const label = await prisma.label.findUnique({ where: { id: labelId }, select: { id: true, name: true } })
   await prisma.objectiveLabel.delete({
     where: { objectiveId_labelId: { objectiveId, labelId } },
+  })
+
+  await recordActivity({
+    entityType: 'OBJECTIVE',
+    objectiveId,
+    action: 'UPDATED',
+    actorId: session.user.id,
+    metadata: { labelRemoved: label ? { id: label.id, name: label.name } : { id: labelId } },
   })
 
   return apiSuccess(null, { message: 'Label removed from objective' })

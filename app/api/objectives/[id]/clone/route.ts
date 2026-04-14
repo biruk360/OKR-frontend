@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
+import { recordActivity } from '@/lib/activity-log'
 import {
   apiSuccess,
   apiBadRequest,
@@ -92,6 +93,14 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
       },
       _count: { select: { keyResults: true, childObjectives: true } },
     },
+  })
+
+  await recordActivity({
+    entityType: 'OBJECTIVE',
+    objectiveId: result.id,
+    action: 'CREATED',
+    actorId: session.user.id,
+    metadata: { clonedFromId: objectiveId, source: 'clone' },
   })
 
   return apiSuccess(completeClonedObjective, {

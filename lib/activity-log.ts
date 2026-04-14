@@ -49,8 +49,9 @@ export async function recordActivity(params: RecordParams): Promise<void> {
         keyResultId: params.keyResultId ?? null,
         action: params.action,
         actorId: params.actorId ?? null,
-        changes: params.changes ? JSON.stringify(params.changes) : null,
-        metadata: params.metadata ? JSON.stringify(params.metadata) : null,
+        // JSONB columns — Prisma stores the object directly. No JSON.stringify.
+        changes: (params.changes ?? undefined) as any,
+        metadata: (params.metadata ?? undefined) as any,
       },
     })
   } catch (err) {
@@ -156,4 +157,32 @@ export async function recordUpdateIfChanged(
     actorId,
     changes,
   })
+}
+
+/**
+ * Delete activity log rows older than `retentionDays` (default 540 = ~18 months).
+ * Runs in batches so the table can be pruned without long lock contention.
+ * Returns total rows deleted.
+ */
+export async function pruneActivityLog(opts: { retentionDays?: number; batchSize?: number } = {}): Promise<{
+  deleted: number
+  cutoff: string
+}> {
+  const retentionDays = opts.retentionDays ?? 540
+  const batchSize = opts.batchSize ?? 5000
+  const cutoff = new Date(Date.now() - retentionDays * 86400_000)
+  let deleted = 0
+  // Loop deleting in chunks (Prisma deleteMany doesn't take a LIMIT, so use raw SQL).
+  for (;;) {
+    const rows = await prisma.$executeRaw`
+      DELETE FROM activity_logs
+       WHERE id IN (
+         SELECT id FROM activity_logs WHERE "createdAt" < ${cutoff} LIMIT ${batchSize}
+       )
+    `
+    if (rows === 0) break
+    deleted += rows
+    if (rows < batchSize) break
+  }
+  return { deleted, cutoff: cutoff.toISOString() }
 }

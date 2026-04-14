@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { parseStartAndTarget } from '@/lib/keyResultNumbers'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { recalcNodeAndAncestors } from '@/lib/objectiveProgress'
+import { recordActivity } from '@/lib/activity-log'
 import {
   apiSuccess,
   apiBadRequest,
@@ -80,6 +81,15 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
 
     await recalcNodeAndAncestors(tx, objectiveId)
     return clonedKeyResult
+  })
+
+  await recordActivity({
+    entityType: 'KEY_RESULT',
+    keyResultId: result.id,
+    objectiveId: result.objectiveId,
+    action: 'CREATED',
+    actorId: session.user.id,
+    metadata: { clonedFromId: keyResultId, source: 'clone' },
   })
 
   return apiSuccess(result, { status: 201, message: 'Key Result cloned successfully.' })

@@ -54,6 +54,7 @@ export const navigationGroups: NavGroup[] = [
     name: 'OKRs',
     icon: Target,
     items: [
+      { name: 'OKR Explorer', href: '/dashboard/okrs-all', icon: Target },
       { name: 'Plans', href: '/dashboard/plans', icon: FileText },
       { name: 'Company OKRs', href: '/dashboard/company-okrs', icon: Building2 },
       { name: 'Department OKRs', href: '/dashboard/department-okrs', icon: Users },

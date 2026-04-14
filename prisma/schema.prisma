@@ -54,8 +54,25 @@ model User {
   userPreferences     UserPreference?
   notificationPrefs   NotificationPreference[]
   watchers            Watcher[]
+  favorites           Favorite[]
 
   @@map("users")
+}
+
+/// User-starred OKRs surfaced under the "Watched" tab of the OKR Explorer.
+/// Per-user, per-entity. Extend entityType to KEY_RESULT / TODO later.
+model Favorite {
+  id         String   @id @default(cuid())
+  userId     String
+  entityType String   // "OBJECTIVE" for now
+  entityId   String
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, entityType, entityId])
+  @@index([userId, entityType])
+  @@map("favorites")
 }
 
 /// Stores per-user UI preferences (sidebar vs modal for todo view, etc).

@@ -31,10 +31,12 @@ import {
   CheckSquare,
   Plus,
   AlertTriangle,
+  Star,
 } from 'lucide-react'
 import SideDrawer from '@/components/ui/SideDrawer'
 import { StatCard, StatGrid } from '@/components/ui'
 import { useInitiativeDetailStore } from '@/lib/stores/initiative-detail-store'
+import { useOkrFavoritesStore } from '@/lib/stores/okr-favorites-store'
 import {
   CreateCompanyObjectiveButton,
   CreateDepartmentObjectiveButton,
@@ -187,7 +189,9 @@ function computeGrade(progress: number | null | undefined): string {
 /** Tab preset filters applied client-side on top of the toolbar filters. */
 function matchesTab(row: Row, tab: Tab, currentUser: CurrentUser): boolean {
   if (tab === 'all') return true
-  if (tab === 'watched') return false // Phase 2 — Favorite table not wired yet.
+  // `watched` is handled in the `filteredRows` memo where we have access to the
+  // favorites set — return true here as a pass-through and let the caller prune.
+  if (tab === 'watched') return true
   if (tab === 'mine') {
     const ownerId = row.data.owner?.id
     const collaborators: Array<{ id: string }> = row.data.collaborators ?? []
@@ -843,6 +847,9 @@ export default function OkrsAllClient({ currentUser }: { currentUser: CurrentUse
   const [hideFinished, setHideFinished] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
   const router = useRouter()
+  const { ids: favoriteIds, loaded: favLoaded, load: loadFavorites, toggle: toggleFavorite } =
+    useOkrFavoritesStore()
+  useEffect(() => { loadFavorites() }, [loadFavorites])
 
   // Per-column widths (resizable). Seeded from defaults; persisted to
   // localStorage so widths survive refreshes.
@@ -993,9 +1000,35 @@ export default function OkrsAllClient({ currentUser }: { currentUser: CurrentUse
   const filteredRows = useMemo<Row[]>(() => {
     if (enrichedRows.length === 0) return enrichedRows
     const keep = new Set<string>()
+    // When on the Watched tab, "match" means the row itself is a favorited
+    // objective OR a descendant of one. Precompute the descendant set so the
+    // tree displays favorited OBJ plus their children (KRs + INITs) too.
+    const watchedDescendantOf = new Set<string>()
+    if (tab === 'watched') {
+      const childIds = new Map<string, string[]>()
+      for (const r of enrichedRows) {
+        if (r.parentRowId) {
+          if (!childIds.has(r.parentRowId)) childIds.set(r.parentRowId, [])
+          childIds.get(r.parentRowId)!.push(r.rowId)
+        }
+      }
+      const markDesc = (rowId: string): void => {
+        for (const cid of childIds.get(rowId) ?? []) {
+          watchedDescendantOf.add(cid)
+          markDesc(cid)
+        }
+      }
+      for (const r of enrichedRows) {
+        if (r.kind === 'OBJ' && favoriteIds.has(r.data.id)) markDesc(r.rowId)
+      }
+    }
     for (const r of enrichedRows) {
-      if (matchesTab(r, tab, currentUser) && matchesHideFinished(r, hideFinished)) {
-        // Walk ancestors (via parentRowId) to keep the tree structure.
+      let tabOk = matchesTab(r, tab, currentUser)
+      if (tab === 'watched') {
+        const isOwnFav = r.kind === 'OBJ' && favoriteIds.has(r.data.id)
+        tabOk = isOwnFav || watchedDescendantOf.has(r.rowId)
+      }
+      if (tabOk && matchesHideFinished(r, hideFinished)) {
         let cursor: string | null | undefined = r.rowId
         while (cursor) {
           if (keep.has(cursor)) break
@@ -1006,7 +1039,7 @@ export default function OkrsAllClient({ currentUser }: { currentUser: CurrentUse
       }
     }
     return enrichedRows.filter((r) => keep.has(r.rowId))
-  }, [enrichedRows, tab, hideFinished, currentUser])
+  }, [enrichedRows, tab, hideFinished, currentUser, favoriteIds])
 
   const tree = useMemo(() => buildTree(filteredRows), [filteredRows])
   const flat = useMemo(() => flatten(tree, expanded), [tree, expanded])
@@ -1092,8 +1125,7 @@ export default function OkrsAllClient({ currentUser }: { currentUser: CurrentUse
           <TabButton
             active={tab === 'watched'}
             onClick={() => setTab('watched')}
-            disabled
-            title="Favorites ship in Phase 2"
+            count={favoriteIds.size || null}
             label="Watched ⭐"
           />
           <TabButton active={tab === 'mine'} onClick={() => setTab('mine')} count={null} label="My OKRs" />
@@ -1269,6 +1301,22 @@ export default function OkrsAllClient({ currentUser }: { currentUser: CurrentUse
                           <ChevronRight className="h-4 w-4 opacity-0" />
                         )}
                       </button>
+                      {row.kind === 'OBJ' && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            toggleFavorite(row.data.id)
+                          }}
+                          className="shrink-0 text-gray-300 hover:text-yellow-500"
+                          aria-label={favoriteIds.has(row.data.id) ? 'Unfavorite' : 'Favorite'}
+                          title={favoriteIds.has(row.data.id) ? 'Remove from Watched' : 'Add to Watched'}
+                        >
+                          <Star
+                            className={`h-3.5 w-3.5 ${favoriteIds.has(row.data.id) ? 'fill-yellow-400 text-yellow-500' : ''}`}
+                          />
+                        </button>
+                      )}
                       <KindBadge row={row} />
                       {row.data.href ? (
                         <Link

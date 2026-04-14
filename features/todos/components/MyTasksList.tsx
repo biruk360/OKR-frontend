@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { CheckSquare, Square, Target, User, Calendar, Building, Clock } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import toast from 'react-hot-toast'
+import { useInitiativeDetailStore } from '@/lib/stores/initiative-detail-store'
 
 interface MyTasksListProps {
   assignedTodos: any[]
@@ -162,13 +163,17 @@ export default function MyTasksList({ assignedTodos, completedTodos }: MyTasksLi
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <h3 className={`text-sm font-medium ${
-                          todo.status === 'COMPLETED' 
-                            ? 'text-gray-500 line-through' 
-                            : 'text-gray-900'
-                        }`}>
+                        <button
+                          type="button"
+                          onClick={() => useInitiativeDetailStore.getState().open(todo.id)}
+                          className={`text-left text-sm font-medium hover:text-blue-600 ${
+                            todo.status === 'COMPLETED'
+                              ? 'text-gray-500 line-through'
+                              : 'text-gray-900'
+                          }`}
+                        >
                           {todo.title}
-                        </h3>
+                        </button>
                         
                         {todo.description && (
                           <p className={`text-sm mt-1 ${

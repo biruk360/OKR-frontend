@@ -17,6 +17,7 @@ import {
   CheckSquare,
 } from 'lucide-react'
 import SideDrawer from '@/components/ui/SideDrawer'
+import { useInitiativeDetailStore } from '@/lib/stores/initiative-detail-store'
 
 /* ----------------------------- Types --------------------------------- */
 
@@ -972,7 +973,7 @@ export default function OkrHierarchyTable() {
                     className={`group flex items-stretch border-b border-gray-100 ${rowBase} ${rowHover}`}
                     onClick={() => {
                       if (row.kind === 'INIT') {
-                        router.push(`/dashboard/todos?open=${row.data.id}`)
+                        useInitiativeDetailStore.getState().open(row.data.id)
                       } else {
                         setSelected(row)
                       }

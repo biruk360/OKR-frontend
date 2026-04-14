@@ -13,6 +13,51 @@ import {
   withAuth,
 } from '@/lib/api'
 
+/**
+ * GET /api/todos/[id] — single initiative/todo with relations matching the list endpoint shape.
+ * Powers the global initiative detail modal opened from anywhere in the app.
+ */
+export const GET = withAuth<RouteIdParams>(async (_request, { params }) => {
+  const { id: todoId } = await resolveParams(params)
+  if (!todoId) return apiBadRequest('Invalid todo id')
+  const todo = await prisma.todo.findUnique({
+    where: { id: todoId },
+    include: {
+      assignee: { select: { id: true, name: true, avatar: true } },
+      creator: { select: { id: true, name: true, avatar: true } },
+      keyResult: {
+        select: {
+          id: true, title: true,
+          objective: { select: { id: true, title: true, level: true, timeframe: { select: { name: true } } } },
+        },
+      },
+      objective: { select: { id: true, title: true, level: true, timeframe: { select: { name: true } } } },
+    },
+  })
+  if (!todo) return apiNotFound('To-do not found')
+  // Shape into the same TodoRow envelope the list page uses (timeframeName flattened).
+  const shaped = {
+    ...todo,
+    keyResult: todo.keyResult ? {
+      id: todo.keyResult.id,
+      title: todo.keyResult.title,
+      objective: {
+        id: todo.keyResult.objective.id,
+        title: todo.keyResult.objective.title,
+        level: todo.keyResult.objective.level,
+        timeframeName: todo.keyResult.objective.timeframe?.name ?? '',
+      },
+    } : null,
+    objective: todo.objective ? {
+      id: todo.objective.id,
+      title: todo.objective.title,
+      level: todo.objective.level,
+      timeframeName: todo.objective.timeframe?.name ?? '',
+    } : null,
+  }
+  return apiSuccess(shaped)
+})
+
 export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { session, params }) => {
   const { id: todoId } = await resolveParams(params)
   if (!todoId) return apiBadRequest('Invalid todo id')

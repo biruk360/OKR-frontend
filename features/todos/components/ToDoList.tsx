@@ -5,6 +5,7 @@ import { CheckSquare, Square, ChevronDown, ChevronRight, User, Calendar } from '
 import { useSession } from 'next-auth/react'
 import toast from 'react-hot-toast'
 import { cn } from '@/lib/utils'
+import { useInitiativeDetailStore } from '@/lib/stores/initiative-detail-store'
 import AddToDo from './AddToDo'
 import AssignUserButton from './AssignUserButton'
 import SetDueDateButton from './SetDueDateButton'
@@ -385,9 +386,11 @@ export default function ToDoList({
                     className="notion-checkbox"
                     aria-label={isDone ? 'Mark as pending' : 'Mark as completed'}
                   />
-                  <span
+                  <button
+                    type="button"
+                    onClick={() => useInitiativeDetailStore.getState().open(todo.id)}
                     className={cn(
-                      'min-w-0 flex-1 truncate text-sm',
+                      'min-w-0 flex-1 truncate text-left text-sm hover:text-blue-600',
                       isDone
                         ? 'text-[color:var(--notion-text-tertiary)] line-through'
                         : 'text-[color:var(--notion-text)]'
@@ -395,7 +398,7 @@ export default function ToDoList({
                     title={todo.title}
                   >
                     {todo.title}
-                  </span>
+                  </button>
 
                   {/* Per-initiative progressValue input (in parent KR's unit).
                       Blurs commit to the API; Enter commits too. */}

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Target, ListTodo, GripVertical } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { useInitiativeDetailStore } from '@/lib/stores/initiative-detail-store'
 
 type ColumnKey = 'TODO' | 'IN_PROGRESS' | 'DONE'
 
@@ -235,13 +236,25 @@ export default function WorkItemsKanban({
                             <span className="text-[10px] text-gray-500 uppercase tracking-wide truncate">{it.meta}</span>
                           )}
                         </div>
-                        <Link
-                          href={it.href}
-                          className="block text-sm text-gray-800 hover:text-blue-600 line-clamp-2"
-                          onClick={(e) => { if (isDragging) e.preventDefault() }}
-                        >
-                          {it.title}
-                        </Link>
+                        {it.kind === 'INITIATIVE' ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              if (isDragging) { e.preventDefault(); return }
+                              useInitiativeDetailStore.getState().open(it.raw)
+                            }}
+                            className="block w-full text-left text-sm text-gray-800 hover:text-blue-600 line-clamp-2"
+                          >
+                            {it.title}
+                          </button>
+                        ) : (
+                          <Link
+                            href={it.href}
+                            className="block text-sm text-gray-800 hover:text-blue-600 line-clamp-2"
+                          >
+                            {it.title}
+                          </Link>
+                        )}
                       </li>
                     )
                   })}

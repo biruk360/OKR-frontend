@@ -9,6 +9,7 @@
 
 import { prisma } from '@/lib/prisma'
 import nodemailer from 'nodemailer'
+import { renderInvitationEmail } from '@/lib/email/templates/invitation'
 
 interface UserInvitationEmailData {
   email: string
@@ -133,58 +134,34 @@ export async function sendMail(message: MailMessage): Promise<{ id: string; stat
   }
 }
 
-export async function sendUserInvitationEmail(data: UserInvitationEmailData) {
-  const { email, name, activationToken, role } = data
-  
-  // In a real application, you would send an actual email here
-  // For now, we'll just log the email content
-  const activationUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/auth/activate?token=${activationToken}`
+/**
+ * Send the rich HTML welcome / invitation email to a new (or re-onboarded) user.
+ * Uses lib/email/templates/invitation for the body so the bulk-send script and
+ * the new-user API both render identical content. The activation link points at
+ * /auth/reset-password (which handles both first-time setup and password reset).
+ */
+export async function sendUserInvitationEmail(data: UserInvitationEmailData & { expiresInHours?: number }) {
+  const { email, name, activationToken, role, expiresInHours } = data
+  const base = process.env.NEXTAUTH_URL || 'http://localhost:3000'
+  const activationUrl = `${base}/auth/reset-password?token=${activationToken}`
+
+  const rendered = renderInvitationEmail({
+    name,
+    email,
+    role,
+    activationUrl,
+    expiresInHours,
+  })
 
   await sendMail({
     to: email,
     toName: name,
-    subject: 'Welcome to OKR System - Set up your account',
-    text: `Dear ${name},
-
-Welcome to the OKR Management System! You have been invited to join as a ${role.replace(/_/g, ' ').toLowerCase()}.
-
-To activate your account and set up your password, please click the link below:
-
-${activationUrl}
-
-This link will expire in 24 hours.
-
-If you have any questions, please contact your administrator.
-
-Best regards,
-The OKR System Team
-`,
+    subject: rendered.subject,
+    text: rendered.text,
+    html: rendered.html,
+    template: 'user-invitation',
+    metadata: { role },
   })
-
-  // In production, you would use a real email service:
-  /*
-  const sgMail = require('@sendgrid/mail')
-  sgMail.setApiKey(process.env.SENDGRID_API_KEY)
-  
-  const msg = {
-    to: email,
-    from: process.env.FROM_EMAIL,
-    subject: 'Welcome to OKR System - Set up your account',
-    html: `
-      <h2>Welcome to the OKR Management System!</h2>
-      <p>Dear ${name},</p>
-      <p>You have been invited to join as a ${role.replace(/_/g, ' ').toLowerCase()}.</p>
-      <p>To activate your account and set up your password, please click the link below:</p>
-      <a href="${process.env.NEXTAUTH_URL}/auth/activate?token=${activationToken}">
-        Activate Account
-      </a>
-      <p>This link will expire in 24 hours.</p>
-      <p>Best regards,<br>The OKR System Team</p>
-    `
-  }
-  
-  await sgMail.send(msg)
-  */
 
   return { success: true }
 }

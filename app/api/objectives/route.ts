@@ -5,6 +5,7 @@ import { canCreateObjective, canViewObjective, redactObjective } from '@/lib/per
 import { recalcNodeAndAncestors } from '@/lib/objectiveProgress'
 import { recordActivity } from '@/lib/activity-log'
 import { normalizeCadence } from '@/lib/check-in-cadence'
+import { emit } from '@/lib/notifications'
 import {
   apiSuccess,
   apiPaginated,
@@ -280,6 +281,39 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
     actorId: session.user.id,
     metadata: { title: objective.title, level: objective.level },
   })
+
+  // Notifications: OBJECTIVE_ASSIGNED (if owner != actor), OBJECTIVE_CREATED_IN_TEAM (team),
+  // OBJECTIVE_ALIGNED_CHILD_ADDED (if has parent).
+  if (objective.ownerId !== session.user.id) {
+    await emit('OBJECTIVE_ASSIGNED', {
+      actorId: session.user.id,
+      entityType: 'OBJECTIVE', entityId: objective.id, entityTitle: objective.title,
+      isPrivate: objective.isPrivate,
+      data: { actorName: session.user.name, deepLink: `/dashboard/objectives/${objective.id}` },
+    })
+  }
+  if (objective.departmentId) {
+    await emit('OBJECTIVE_CREATED_IN_TEAM', {
+      actorId: session.user.id,
+      entityType: 'OBJECTIVE', entityId: objective.id, entityTitle: objective.title,
+      isPrivate: objective.isPrivate,
+      data: { actorName: session.user.name, departmentId: objective.departmentId, deepLink: `/dashboard/objectives/${objective.id}` },
+    })
+  }
+  if (objective.parentObjectiveId) {
+    await emit('OBJECTIVE_ALIGNED_CHILD_ADDED', {
+      actorId: session.user.id,
+      entityType: 'OBJECTIVE', entityId: objective.parentObjectiveId, entityTitle: objective.parentObjective?.title ?? undefined,
+      isPrivate: objective.isPrivate,
+      data: {
+        actorName: session.user.name,
+        parentObjectiveId: objective.parentObjectiveId,
+        childObjectiveId: objective.id,
+        childTitle: objective.title,
+        deepLink: `/dashboard/objectives/${objective.parentObjectiveId}`,
+      },
+    })
+  }
 
   return apiSuccess(objective, { status: 201, message: 'Objective created successfully' })
 })

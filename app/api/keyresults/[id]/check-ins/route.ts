@@ -8,6 +8,7 @@ import { parseProgressInput } from '@/lib/keyResultNumbers'
 import { recalcNodeAndAncestors } from '@/lib/objectiveProgress'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { recordActivity } from '@/lib/activity-log'
+import { emit } from '@/lib/notifications'
 import {
   apiSuccess,
   apiBadRequest,
@@ -144,6 +145,28 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
     },
     metadata: { asOfDate: parsedDate.toISOString(), analysis: analysisStr || null },
   })
+
+  // Fire: KR_PROGRESS_UPDATED, plus KR_AT_RISK/KR_COMPLETED on transition.
+  const emitBase = {
+    actorId: session.user.id,
+    entityType: 'KEY_RESULT' as const,
+    entityId: existingKeyResult.id,
+    entityTitle: existingKeyResult.title,
+    isPrivate: existingKeyResult.isPrivate,
+    data: {
+      actorName: session.user.name,
+      objectiveId: existingKeyResult.objectiveId,
+      progress: Math.round(nextKrProgress),
+      deepLink: `/dashboard/objectives/${existingKeyResult.objectiveId}`,
+    },
+  }
+  await emit('KR_PROGRESS_UPDATED', emitBase)
+  if (confidence !== 'ON_TRACK' && existingKeyResult.confidence === 'ON_TRACK') {
+    await emit('KR_AT_RISK', emitBase)
+  }
+  if (nextKrProgress >= 100 && existingKeyResult.progress < 100) {
+    await emit('KR_COMPLETED', emitBase)
+  }
 
   return apiSuccess(result, { status: 201, message: 'Check-in saved.' })
 })

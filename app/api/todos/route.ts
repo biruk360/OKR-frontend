@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { canEditKeyResultWithObjectiveContext, canViewObjective, type UserRole } from '@/lib/permissions'
 import { recordActivity } from '@/lib/activity-log'
+import { emit } from '@/lib/notifications'
 import {
   apiSuccess,
   apiBadRequest,
@@ -189,6 +190,18 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
       action: 'INITIATIVE_ADDED',
       actorId: session.user.id,
       metadata: { initiativeId: todo.id, title: todo.title, assigneeId },
+    })
+  }
+
+  if (todo.assigneeId !== session.user.id) {
+    await emit('TODO_ASSIGNED', {
+      actorId: session.user.id,
+      entityType: 'TODO', entityId: todo.id, entityTitle: todo.title,
+      data: {
+        actorName: session.user.name,
+        dueDate: todo.dueDate ? todo.dueDate.toISOString().slice(0, 10) : null,
+        deepLink: `/dashboard/todos`,
+      },
     })
   }
 

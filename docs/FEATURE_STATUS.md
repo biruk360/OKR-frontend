@@ -16,9 +16,15 @@
 | Feature | Status | Path | Key Exports | Notes |
 |---------|--------|------|-------------|-------|
 | Authentication | DONE | `app/auth/`, `lib/auth.ts` | Sign-in, sign-up, session | NextAuth Credentials provider, JWT |
-| Permissions (RBAC) | DONE, NEEDS REFACTOR | `lib/permissions.ts` | 13 permission functions | Competing logic in `lib/utils.ts` — needs cleanup |
+| Permissions (RBAC) | DONE | `lib/rbac.ts` + `lib/permissions.ts` | `can(action, resource, actor)` unified API | Covers all 40 matrix actions — `lib/permissions.ts` is wrapped by `rbac.ts` |
 | Activity Logging | DONE | `lib/activity-log.ts` | `recordActivity()` | Append-only audit trail |
 | Real-time Notifications | DONE | `lib/pusher.ts`, `lib/stores/notification-store.ts` | Pusher integration | |
+| Notification Dispatcher | DONE | `lib/notifications/` | `emit(event, payload)`, 40 canonical events, per-user prefs, org defaults, digest queue | Wired into objective/KR/todo/user/timeframe/comment mutations |
+| Email Templates | DONE | `lib/email/templates/index.ts` | `renderTemplate(eventKey, data)` | One template per event; redaction-aware |
+| Notification Preferences | DONE | `app/dashboard/settings/notifications/`, `/api/notifications/preferences` | Per-category in-app/email/cadence | Account category is mandatory |
+| Org Notification Defaults | DONE | `app/dashboard/settings/notification-defaults/`, `/api/settings/notification-defaults` | Admin-only | Fallback when user has no row |
+| Watchers | DONE | `/api/watchers` | Opt-in watch on objective/KR/todo | Receives applicable dispatcher events |
+| Notification Cron Jobs | DONE | `lib/notifications/jobs.ts`, `/api/cron/notifications` | Digest drain, escalation, todo reminders, timeframe watcher, admin digests | See `deploy/notifications-crontab.example` |
 
 ## OKR Management
 

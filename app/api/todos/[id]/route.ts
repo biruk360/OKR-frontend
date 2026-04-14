@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { canEditKeyResultWithObjectiveContext, type UserRole } from '@/lib/permissions'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { recordActivity } from '@/lib/activity-log'
+import { emit } from '@/lib/notifications'
 import { recalcKrFromInitiatives, recalcNodeAndAncestors } from '@/lib/objectiveProgress'
 import {
   apiSuccess,
@@ -111,6 +112,14 @@ export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { sess
   if (status !== undefined && status !== existingTodo.status) initiativeChanges.status = { from: existingTodo.status, to: status }
   if (parsedProgressValue !== undefined && parsedProgressValue !== existingTodo.progressValue) {
     initiativeChanges.progressValue = { from: existingTodo.progressValue, to: parsedProgressValue }
+  }
+
+  if (status === 'COMPLETED' && existingTodo.status !== 'COMPLETED') {
+    await emit('TODO_COMPLETED', {
+      actorId: session.user.id,
+      entityType: 'TODO', entityId: todoId, entityTitle: updatedTodo.title,
+      data: { actorName: session.user.name, deepLink: `/dashboard/todos` },
+    })
   }
 
   if (Object.keys(initiativeChanges).length > 0 && existingTodo.keyResult) {

@@ -5,6 +5,7 @@ import { parseCurrentValue, parseStartAndTarget } from '@/lib/keyResultNumbers'
 import { recalcNodeAndAncestors } from '@/lib/objectiveProgress'
 import { recordActivity } from '@/lib/activity-log'
 import { normalizeCadence } from '@/lib/check-in-cadence'
+import { emit } from '@/lib/notifications'
 import {
   apiSuccess,
   apiBadRequest,
@@ -93,6 +94,24 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
     actorId: session.user.id,
     metadata: { title: result.title },
   })
+
+  // KR_ASSIGNED to owner (if different from actor) + KR_ADDED_TO_OBJECTIVE to objective owner.
+  if (result.ownerId !== session.user.id) {
+    await emit('KR_ASSIGNED', {
+      actorId: session.user.id,
+      entityType: 'KEY_RESULT', entityId: result.id, entityTitle: result.title,
+      isPrivate: result.isPrivate,
+      data: { actorName: session.user.name, objectiveId, deepLink: `/dashboard/objectives/${objectiveId}` },
+    })
+  }
+  if (objective.ownerId !== session.user.id) {
+    await emit('KR_ADDED_TO_OBJECTIVE', {
+      actorId: session.user.id,
+      entityType: 'KEY_RESULT', entityId: result.id, entityTitle: result.title,
+      isPrivate: result.isPrivate,
+      data: { actorName: session.user.name, objectiveId, deepLink: `/dashboard/objectives/${objectiveId}` },
+    })
+  }
 
   return apiSuccess(result, { status: 201, message: 'Key Result added successfully.' })
 })

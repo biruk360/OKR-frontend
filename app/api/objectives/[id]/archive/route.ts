@@ -3,6 +3,7 @@ import { canEditObjective } from '@/lib/permissions'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { recordActivity } from '@/lib/activity-log'
 import { recalcNodeAndAncestors } from '@/lib/objectiveProgress'
+import { emit } from '@/lib/notifications'
 import {
   apiSuccess,
   apiBadRequest,
@@ -60,6 +61,27 @@ export const POST = withAuth<RouteIdParams>(async (_request, { session, params }
     actorId: session.user.id,
     metadata: { title: existing.title, level: existing.level },
   })
+
+  await emit('OBJECTIVE_ARCHIVED', {
+    actorId: session.user.id,
+    entityType: 'OBJECTIVE', entityId: id, entityTitle: existing.title,
+    isPrivate: existing.isPrivate,
+    data: { actorName: session.user.name, deepLink: `/dashboard/objectives/${id}` },
+  })
+
+  // If any children were orphaned, notify their owners.
+  const orphans = await prisma.objective.findMany({
+    where: { parentObjectiveId: id, status: 'ACTIVE' },
+    select: { id: true, ownerId: true, title: true, isPrivate: true },
+  })
+  for (const child of orphans) {
+    await emit('PARENT_OBJECTIVE_ARCHIVED_ORPHAN', {
+      actorId: session.user.id,
+      entityType: 'OBJECTIVE', entityId: child.id, entityTitle: child.title,
+      isPrivate: child.isPrivate,
+      data: { orphanedObjectiveId: child.id, actorName: session.user.name, deepLink: `/dashboard/objectives/${child.id}` },
+    })
+  }
 
   return apiSuccess(result, { message: 'Objective archived.' })
 })

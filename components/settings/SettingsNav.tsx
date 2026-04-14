@@ -46,14 +46,23 @@ const settingsNavItems = [
     icon: Calendar,
     available: false, // Only for admins
   },
+  {
+    name: 'Notification defaults',
+    href: '/dashboard/settings/notification-defaults',
+    icon: Bell,
+    available: false, // Only for admins
+  },
 ]
 
 export default function SettingsNav({ userRole }: SettingsNavProps) {
   const pathname = usePathname()
   const isAdmin = userRole === 'ADMIN'
 
-  const navItems = settingsNavItems.filter(item => 
-    item.available || (item.name === 'Users' && isAdmin) || (item.name === 'Timeframes' && isAdmin)
+  const navItems = settingsNavItems.filter(item =>
+    item.available
+      || (item.name === 'Users' && isAdmin)
+      || (item.name === 'Timeframes' && isAdmin)
+      || (item.name === 'Notification defaults' && isAdmin)
   )
 
   return (

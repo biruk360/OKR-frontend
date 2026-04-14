@@ -3,6 +3,7 @@ import { canEditKeyResultWithObjectiveContext } from '@/lib/permissions'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { recalcNodeAndAncestors } from '@/lib/objectiveProgress'
 import { recordActivity } from '@/lib/activity-log'
+import { emit } from '@/lib/notifications'
 import {
   apiSuccess,
   apiBadRequest,
@@ -70,6 +71,13 @@ export const POST = withAuth<RouteIdParams>(async (_request, { session, params }
     objectiveId: existingKeyResult.objectiveId,
     action: 'ARCHIVED',
     actorId: session.user.id,
+  })
+
+  await emit('KR_ARCHIVED', {
+    actorId: session.user.id,
+    entityType: 'KEY_RESULT', entityId: keyResultId, entityTitle: existingKeyResult.title,
+    isPrivate: existingKeyResult.isPrivate,
+    data: { actorName: session.user.name, objectiveId: existingKeyResult.objectiveId, deepLink: `/dashboard/objectives/${existingKeyResult.objectiveId}` },
   })
 
   return apiSuccess(result, { message: 'Key Result archived.' })

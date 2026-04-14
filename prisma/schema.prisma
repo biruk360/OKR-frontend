@@ -52,6 +52,8 @@ model User {
   emailDigestSent     EmailDigestState?
   initiativeUpdates   InitiativeUpdate[]  @relation("InitiativeUpdateAuthor")
   userPreferences     UserPreference?
+  notificationPrefs   NotificationPreference[]
+  watchers            Watcher[]
 
   @@map("users")
 }
@@ -343,20 +345,106 @@ model Comment {
   @@map("comments")
 }
 
+/// In-app notification row. One row per (user, event) recipient.
+/// `eventKey` is the canonical event code from lib/notifications/events.ts (e.g. "KR_AT_RISK").
+/// `category` buckets multiple events for preference toggling (see NotificationPreference).
+/// Email-related columns track the companion OutboundEmail send (if any).
 model Notification {
-  id        String           @id @default(cuid())
-  type      String           // OBJECTIVE_CREATED, OBJECTIVE_UPDATED, etc.
-  title     String
-  message   String
-  isRead    Boolean          @default(false)
-  userId    String
-  metadata  String?          // Additional data like objectiveId, keyResultId, etc. (JSON string)
-  createdAt DateTime         @default(now())
+  id         String    @id @default(cuid())
+  type       String    // legacy OBJECTIVE_CREATED etc. — kept for backwards compat
+  eventKey   String?   // canonical event code (e.g. "KR_AT_RISK")
+  category   String?   // ACCOUNT | OBJECTIVE | KEY_RESULT | CHECK_IN | TODO | TIMEFRAME | ALIGNMENT | COMMENT | ADMIN
+  title      String
+  message    String
+  isRead     Boolean   @default(false)
+  userId     String
+  metadata   String?   // JSON: { objectiveId?, keyResultId?, todoId?, actorId?, entityTitle?, redacted? }
+  /// When true, the recipient should NOT see the entity title/values — dispatcher already
+  /// wrote placeholder text into `title`/`message`, but downstream deep-link rendering
+  /// should continue to respect isPrivate on the linked entity.
+  redacted   Boolean   @default(false)
+  /// Companion email delivery fields (null if no email was intended for this row).
+  emailMode  String?   // IMMEDIATE | DIGEST_DAILY | DIGEST_WEEKLY | DIGEST_MONTHLY | DISABLED
+  emailSent  Boolean   @default(false)
+  emailAt    DateTime?
+  outboundEmailId String? // FK-ish pointer to OutboundEmail.id (no FK — OutboundEmail rows may be pruned)
+  createdAt  DateTime  @default(now())
 
-  // Relationships
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId, isRead, createdAt])
+  @@index([eventKey, createdAt])
   @@map("notifications")
+}
+
+/// Per-user notification preferences. One row per (user, category).
+/// `inApp` / `email` toggle each channel. `emailCadence` controls batching for this category.
+/// Missing rows fall back to the org defaults in OrgNotificationDefault.
+model NotificationPreference {
+  id           String   @id @default(cuid())
+  userId       String
+  category     String   // ACCOUNT | OBJECTIVE | KEY_RESULT | CHECK_IN | TODO | TIMEFRAME | ALIGNMENT | COMMENT | ADMIN
+  inApp        Boolean  @default(true)
+  email        Boolean  @default(true)
+  emailCadence String   @default("IMMEDIATE") // IMMEDIATE | DAILY | WEEKLY | DISABLED
+  updatedAt    DateTime @updatedAt
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, category])
+  @@map("notification_preferences")
+}
+
+/// Org-level notification defaults set by Admin in Settings. Applied when the user has no
+/// explicit NotificationPreference row for a category. One row per category.
+model OrgNotificationDefault {
+  id           String   @id @default(cuid())
+  category     String   @unique
+  inApp        Boolean  @default(true)
+  email        Boolean  @default(true)
+  emailCadence String   @default("IMMEDIATE")
+  updatedAt    DateTime @updatedAt
+  createdAt    DateTime @default(now())
+
+  @@map("org_notification_defaults")
+}
+
+/// Opt-in watchers on an entity (objective, KR, or todo). Watchers receive dispatcher events
+/// matching their subscription. Use the composite key to scope.
+model Watcher {
+  id         String   @id @default(cuid())
+  userId     String
+  entityType String   // OBJECTIVE | KEY_RESULT | TODO
+  entityId   String
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, entityType, entityId])
+  @@index([entityType, entityId])
+  @@map("watchers")
+}
+
+/// Pending email digest entries. The dispatcher writes here when a user's preference for
+/// a category is DAILY/WEEKLY/MONTHLY instead of IMMEDIATE. The digest cron drains these
+/// rows into bundled OutboundEmail rows.
+model EmailDigestQueue {
+  id         String   @id @default(cuid())
+  userId     String
+  cadence    String   // DAILY | WEEKLY | MONTHLY
+  category   String
+  eventKey   String
+  subject    String
+  bodyText   String
+  bodyHtml   String?
+  metadata   String?  // JSON: { entityType, entityId, redacted, ... }
+  queuedAt   DateTime @default(now())
+  sentAt     DateTime?
+
+  @@index([userId, cadence, sentAt])
+  @@index([sentAt])
+  @@map("email_digest_queue")
 }
 
 model SystemSettings {

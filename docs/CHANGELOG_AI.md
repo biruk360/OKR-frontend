@@ -13,6 +13,72 @@
 
 ---
 
+## 2026-04-14 — Global RBAC + notification matrix implementation
+
+Implemented the full RBAC matrix and email notification matrix from `docs/User_Permissions.md`. Additive-only schema changes; domain mutations now fire canonical events through a single dispatcher.
+
+### Schema (additive, safe `prisma db push`)
+
+- `Notification` — added `eventKey`, `category`, `redacted`, `emailMode`, `emailSent`, `emailAt`, `outboundEmailId`; added composite indexes.
+- `NotificationPreference` — new; per-user per-category in-app/email/cadence toggle.
+- `OrgNotificationDefault` — new; admin-set org defaults (fallback when user has no row).
+- `Watcher` — new; opt-in watchers on `OBJECTIVE`/`KEY_RESULT`/`TODO`.
+- `EmailDigestQueue` — new; pending rows drained by daily/weekly/monthly cron.
+
+### New modules
+
+- `lib/rbac.ts` — single `can(action, resource, actor)` API wrapping `lib/permissions.ts`; covers 40+ actions across users, departments, objectives, KRs, todos, timeframes, settings, watchers, comments.
+- `lib/notifications/events.ts` — canonical `EventKey` registry (40 events, 9 categories, default cadence per event).
+- `lib/notifications/redact.ts` — `isPrivate`-aware title/data redaction.
+- `lib/notifications/preferences.ts` — `getUserPref` / `getUserPrefsBulk` / `ensureOrgDefaults`.
+- `lib/notifications/recipients.ts` — recipient resolvers (owners, managers, parent-owner, watchers, admins, team).
+- `lib/notifications/dispatcher.ts` — `emit(event, payload)` fan-out: writes in-app `Notification` rows, sends IMMEDIATE emails or enqueues to `EmailDigestQueue`.
+- `lib/notifications/jobs.ts` — cron jobs: digest drain (daily/weekly/monthly), check-in escalation (7d/14d), todo reminders (due-tomorrow + overdue), timeframe watcher, admin weekly health, admin monthly exec summary.
+- `lib/email/templates/index.ts` — `renderTemplate(eventKey, data) → { subject, text, html }` for every event.
+
+### API routes (new)
+
+- `app/api/notifications/preferences/route.ts` — GET / PATCH current user's prefs.
+- `app/api/settings/notification-defaults/route.ts` — GET / PATCH org defaults (Admin only).
+- `app/api/watchers/route.ts` — GET / POST / DELETE watcher opt-in.
+- `app/api/cron/notifications/route.ts` — unified cron entrypoint (`?job=daily|weekly|monthly|escalation|todos|timeframes|admin-weekly|admin-monthly`).
+
+### Dispatcher wiring (existing mutations)
+
+- `app/api/objectives/route.ts` (POST) — `OBJECTIVE_ASSIGNED`, `OBJECTIVE_CREATED_IN_TEAM`, `OBJECTIVE_ALIGNED_CHILD_ADDED`.
+- `app/api/objectives/[id]/archive/route.ts` — `OBJECTIVE_ARCHIVED` + `PARENT_OBJECTIVE_ARCHIVED_ORPHAN` for children.
+- `app/api/keyresults/route.ts` (POST) — `KR_ASSIGNED`, `KR_ADDED_TO_OBJECTIVE`.
+- `app/api/keyresults/[id]/archive/route.ts` — `KR_ARCHIVED`.
+- `app/api/keyresults/[id]/check-ins/route.ts` — `KR_PROGRESS_UPDATED`, `KR_AT_RISK` (on transition), `KR_COMPLETED` (≥100%).
+- `app/api/todos/route.ts` (POST) — `TODO_ASSIGNED` (when assignee ≠ actor).
+- `app/api/todos/[id]/route.ts` (PATCH) — `TODO_COMPLETED` on status transition.
+- `app/api/users/route.ts` (POST) — `ADMIN_USER_CREATED` (invite email unchanged).
+- `app/api/timeframes/route.ts` (POST) — `TIMEFRAME_OPENED`.
+- `app/api/objectives/[id]/comments/route.ts` & `app/api/keyresults/[id]/comments/route.ts` — `USER_MENTIONED`, `COMMENT_ON_OWNED_ENTITY`.
+
+### UI
+
+- `app/dashboard/settings/notifications/page.tsx` — per-category in-app/email/cadence grid wired to the preferences API.
+- `app/dashboard/settings/notification-defaults/page.tsx` — Admin-only org defaults editor.
+- `components/settings/SettingsNav.tsx` — new "Notification defaults" admin entry.
+
+### Ops
+
+- `deploy/notifications-crontab.example` — documented cron schedule (curl-driven, protected by `CRON_SECRET`).
+
+### Tests
+
+- **Tests:** not run (no existing test suite for affected paths).
+- **Typecheck:** `npx tsc --noEmit` — 0 errors.
+- **Schema:** `npx prisma validate` + `prisma generate` — pass. **Not yet `db push`ed** — run `scripts/deploy.sh` (or `prisma db push`) on production to apply the additive migration.
+
+### Docs updated
+
+- `docs/CHANGELOG_AI.md` (this entry)
+- `docs/FEATURE_STATUS.md` (notifications + RBAC status)
+
+---
+
 ## 2026-04-13 — Final Pass: Sprint API + Modal Extension + Phase 5 Physical Migration
 
 ### Sprint API route migration (11 route files, ~25 handlers)

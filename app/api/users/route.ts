@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { sendUserInvitationEmail } from '@/lib/email'
 import { apiSuccess, apiBadRequest, apiConflict, withRole } from '@/lib/api'
+import { emit } from '@/lib/notifications'
 
 export const GET = withRole('ADMIN', async () => {
   const users = await prisma.user.findMany({
@@ -49,7 +50,7 @@ export const POST = withRole('ADMIN', async (request: NextRequest) => {
       isActive: false,
       password: null,
       activationToken,
-      activationTokenExpires: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      activationTokenExpires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     },
     select: {
       id: true,
@@ -71,6 +72,13 @@ export const POST = withRole('ADMIN', async (request: NextRequest) => {
   } catch (emailError) {
     console.error('Error sending invitation email:', emailError)
   }
+
+  // In-app + admin notifications for new user. Invite email is sent directly above,
+  // so we only emit ADMIN_USER_CREATED (not ACCOUNT_INVITE) here to avoid double send.
+  await emit('ADMIN_USER_CREATED', {
+    entityType: 'USER', entityId: user.id,
+    data: { newUserName: user.name, newUserEmail: user.email, newUserRole: user.role },
+  })
 
   return apiSuccess(user, {
     status: 201,

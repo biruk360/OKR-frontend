@@ -3,6 +3,7 @@ import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { apiSuccess, apiBadRequest, apiNotFound, withAuth } from '@/lib/api'
 import { recordActivity } from '@/lib/activity-log'
 import { resolveMentions, fanOutCommentNotifications } from '@/lib/comments'
+import { emit } from '@/lib/notifications'
 
 export const GET = withAuth<RouteIdParams>(async (_req, { params }) => {
   const { id } = await resolveParams(params)
@@ -69,6 +70,25 @@ export const POST = withAuth<RouteIdParams>(async (req, { session, params }) => 
     action: 'COMMENTED',
     actorId: session.user.id,
     metadata: { commentId: comment.id, mentionCount: mentionedIds.length },
+  })
+
+  const snippet = content.slice(0, 140)
+  if (mentionedIds.length > 0) {
+    await emit('USER_MENTIONED', {
+      actorId: session.user.id,
+      entityType: 'OBJECTIVE', entityId: id, entityTitle: objective.title,
+      explicitRecipients: mentionedIds,
+      data: { actorName: session.user.name, snippet, deepLink: `/dashboard/objectives/${id}` },
+    })
+  }
+  await emit('COMMENT_ON_OWNED_ENTITY', {
+    actorId: session.user.id,
+    entityType: 'OBJECTIVE', entityId: id, entityTitle: objective.title,
+    data: {
+      actorName: session.user.name, snippet,
+      ownedEntityType: 'OBJECTIVE', ownedEntityId: id,
+      deepLink: `/dashboard/objectives/${id}`,
+    },
   })
 
   return apiSuccess(comment, { message: 'Comment added.' })

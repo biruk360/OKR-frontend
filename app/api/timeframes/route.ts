@@ -7,6 +7,7 @@ import {
   withAuth,
   withRole,
 } from '@/lib/api'
+import { emit } from '@/lib/notifications'
 
 export const GET = withAuth(async (request: NextRequest) => {
   const { searchParams } = new URL(request.url)
@@ -62,5 +63,15 @@ export const POST = withRole('ADMIN', async (request: NextRequest) => {
   const timeframe = await prisma.timeframe.create({
     data: { name, type: timeframeType, startDate: start, endDate: end, isActive },
   })
+
+  await emit('TIMEFRAME_OPENED', {
+    entityType: 'TIMEFRAME', entityId: timeframe.id,
+    data: {
+      timeframeName: timeframe.name,
+      startDate: timeframe.startDate.toISOString().slice(0, 10),
+      endDate: timeframe.endDate.toISOString().slice(0, 10),
+    },
+  })
+
   return apiSuccess(timeframe, { status: 201 })
 })

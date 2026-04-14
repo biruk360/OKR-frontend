@@ -138,80 +138,79 @@ export default function KeyResultDetailClient({
   const showCheckIn = canEdit && kr.status === 'ACTIVE' && !isRedacted
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="sticky top-0 z-30 border-b border-gray-200 bg-white/95 backdrop-blur">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center gap-3 justify-between">
-          <div className="flex items-center gap-3 min-w-0 flex-1">
-            <Link
-              href={`/dashboard/objectives/${objective.id}`}
-              className="shrink-0 text-gray-500 hover:text-gray-800 p-1 rounded-md hover:bg-gray-100"
-              title="Back to objective"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Link>
-            <p className="text-sm text-gray-600 truncate hidden sm:block max-w-md lg:max-w-xl">
-              {objective.title}
-            </p>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {showCheckIn ? (
-              <button
-                type="button"
-                onClick={() => setCheckInOpen(true)}
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md border border-gray-300 bg-white text-gray-900 shadow-sm hover:bg-gray-50"
-              >
-                Create check-in
-              </button>
-            ) : null}
+    <div className="space-y-6">
+      {/* Action bar (was a sticky page header). Lives inside the dashboard shell so the sidebar stays visible. */}
+      <div className="flex flex-wrap items-center gap-3 justify-between">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <Link
+            href={`/dashboard/objectives/${objective.id}`}
+            className="shrink-0 text-gray-500 hover:text-gray-800 p-1 rounded-md hover:bg-gray-100"
+            title="Back to objective"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+          <p className="text-sm text-gray-600 truncate hidden sm:block max-w-md lg:max-w-xl">
+            {objective.title}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {showCheckIn ? (
             <button
               type="button"
-              onClick={copyShare}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700"
+              onClick={() => setCheckInOpen(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md border border-gray-300 bg-white text-gray-900 shadow-sm hover:bg-gray-50"
             >
-              <Share2 className="h-4 w-4" />
-              Share
+              Create check-in
             </button>
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setMenuOpen((m) => !m)}
-                className="p-2 rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
-                aria-expanded={menuOpen}
-              >
-                <MoreHorizontal className="h-5 w-5" />
-              </button>
-              {menuOpen ? (
-                <>
-                  <button
-                    type="button"
-                    className="fixed inset-0 z-40 cursor-default"
-                    aria-label="Close menu"
-                    onClick={() => setMenuOpen(false)}
-                  />
-                  <div className="absolute right-0 top-full mt-1 z-50 w-48 rounded-md border border-gray-200 bg-white shadow-lg py-1 text-sm">
-                    <Link
-                      href={`/dashboard/objectives/${objective.id}`}
-                      className="block px-3 py-2 text-gray-700 hover:bg-gray-50"
-                      onClick={() => setMenuOpen(false)}
-                    >
-                      View objective
-                    </Link>
-                  </div>
-                </>
-              ) : null}
-            </div>
-            <Link
-              href={`/dashboard/objectives/${objective.id}`}
-              className="p-2 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100"
-              title="Close"
+          ) : null}
+          <button
+            type="button"
+            onClick={copyShare}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700"
+          >
+            <Share2 className="h-4 w-4" />
+            Share
+          </button>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setMenuOpen((m) => !m)}
+              className="p-2 rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+              aria-expanded={menuOpen}
             >
-              <X className="h-5 w-5" />
-            </Link>
+              <MoreHorizontal className="h-5 w-5" />
+            </button>
+            {menuOpen ? (
+              <>
+                <button
+                  type="button"
+                  className="fixed inset-0 z-40 cursor-default"
+                  aria-label="Close menu"
+                  onClick={() => setMenuOpen(false)}
+                />
+                <div className="absolute right-0 top-full mt-1 z-50 w-48 rounded-md border border-gray-200 bg-white shadow-lg py-1 text-sm">
+                  <Link
+                    href={`/dashboard/objectives/${objective.id}`}
+                    className="block px-3 py-2 text-gray-700 hover:bg-gray-50"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    View objective
+                  </Link>
+                </div>
+              </>
+            ) : null}
           </div>
+          <Link
+            href={`/dashboard/objectives/${objective.id}`}
+            className="p-2 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+            title="Close"
+          >
+            <X className="h-5 w-5" />
+          </Link>
         </div>
-      </header>
+      </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+      <div>
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px] gap-8">
           <main className="space-y-6 min-w-0">
             <div className="flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50/80 px-3 py-2 text-sm text-amber-950">

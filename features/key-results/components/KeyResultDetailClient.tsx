@@ -257,38 +257,30 @@ export default function KeyResultDetailClient({
 
             <p className="text-lg font-semibold leading-snug text-gray-900 sm:text-xl">{kr.title}</p>
 
-            <div className="rounded-xl border border-gray-200 bg-white p-4 sm:p-6 shadow-sm">
-              <KeyResultProgressChart
-                keyResult={kr}
-                checkIns={chartCheckIns}
-                timeframe={timeframe}
-                height={320}
-                showTodayMarker={!isRedacted}
-              />
-              <div className="mt-4">
-                <div className="flex items-center justify-between text-sm mb-2">
-                  <span className="font-medium text-gray-700">Goal</span>
-                  <span className={`font-semibold ${getProgressColor(safePct(pct))}`}>{Math.round(safePct(pct))}%</span>
-                </div>
-                <div className="h-2.5 w-full bg-gray-200 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all ${
-                      getProgressColor(safePct(pct)).split(' ')[0].replace('text-', 'bg-')
-                    }`}
-                    style={{ width: `${safePct(pct)}%` }}
-                  />
-                </div>
-                <p className="mt-2 text-xs text-gray-500">
-                  {isRedacted ? (
-                    'Progress details are hidden for this private key result.'
-                  ) : (
-                    <>
-                      Starting {unit} {formatAxisValue(Number(kr.startValue) || 0)} → target {unit}{' '}
-                      {formatAxisValue(Number(kr.targetValue) || 0)}
-                    </>
-                  )}
-                </p>
+            {/* Compact goal bar — full progress timeline is now in the right sidebar. */}
+            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+              <div className="flex items-center justify-between text-sm mb-2">
+                <span className="font-medium text-gray-700">Goal</span>
+                <span className={`font-semibold ${getProgressColor(safePct(pct))}`}>{Math.round(safePct(pct))}%</span>
               </div>
+              <div className="h-2.5 w-full bg-gray-200 rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${
+                    getProgressColor(safePct(pct)).split(' ')[0].replace('text-', 'bg-')
+                  }`}
+                  style={{ width: `${safePct(pct)}%` }}
+                />
+              </div>
+              <p className="mt-2 text-xs text-gray-500">
+                {isRedacted ? (
+                  'Progress details are hidden for this private key result.'
+                ) : (
+                  <>
+                    Starting {unit} {formatAxisValue(Number(kr.startValue) || 0)} → target {unit}{' '}
+                    {formatAxisValue(Number(kr.targetValue) || 0)}
+                  </>
+                )}
+              </p>
             </div>
 
             <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -401,6 +393,19 @@ export default function KeyResultDetailClient({
           </main>
 
           <aside className="space-y-4 lg:sticky lg:top-24 self-start">
+            <div className="rounded-lg border border-gray-200 bg-white p-4">
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                Progress Timeline
+              </h3>
+              <KeyResultProgressChart
+                keyResult={kr}
+                checkIns={chartCheckIns}
+                timeframe={timeframe}
+                height={220}
+                showTodayMarker={!isRedacted}
+              />
+            </div>
+
             <div className="rounded-lg border border-gray-200 bg-white p-4">
               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Data connector</h3>
               <button

@@ -353,26 +353,6 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
                 </div>
               </div>
 
-              {/* Progress timeline lives inside the objective card */}
-              <div className="mt-6 pt-6 border-t border-gray-200" id={TIMELINE_ELEMENT_ID}>
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">
-                      Progress Timeline
-                    </h2>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      Expected (linear) vs actual (bi-weekly confidence snapshots)
-                    </p>
-                  </div>
-                  <TrendingUp className="h-4 w-4 text-gray-400" />
-                </div>
-                <ObjectiveProgressTimeline
-                  snapshots={snapshots}
-                  currentProgress={objective.progress}
-                  timeframeStart={objective.timeframe.startDate}
-                  timeframeEnd={objective.timeframe.endDate}
-                />
-              </div>
             </section>
 
             {/* Key Results — no outer wrapping card; list renders its own Active/Archived
@@ -401,6 +381,24 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
 
           {/* -------- Sidebar -------- */}
           <aside className="lg:col-span-4 space-y-4">
+            <section className="bg-white shadow rounded-lg p-5" id={TIMELINE_ELEMENT_ID}>
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">
+                    Progress Timeline
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-0.5">Expected vs actual</p>
+                </div>
+                <TrendingUp className="h-4 w-4 text-gray-400" />
+              </div>
+              <ObjectiveProgressTimeline
+                snapshots={snapshots}
+                currentProgress={objective.progress}
+                timeframeStart={objective.timeframe.startDate}
+                timeframeEnd={objective.timeframe.endDate}
+              />
+            </section>
+
             <section className="bg-white shadow rounded-lg p-5">
               <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-4">
                 Objective Details

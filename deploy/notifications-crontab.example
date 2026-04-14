@@ -32,3 +32,6 @@
 
 # Weekly per-user owner digest (existing endpoint) — Monday 07:25
 25 7 * * 1 curl -fsS -X POST "$BASE/api/cron/weekly-digest?key=$CRON_SECRET" >/dev/null
+
+# Daily auto-confidence recompute for stale (>14d) OKRs — every day at 03:00
+0 3 * * *  curl -fsS -X POST "$BASE/api/cron/auto-confidence?key=$CRON_SECRET" >/dev/null

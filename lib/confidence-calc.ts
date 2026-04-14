@@ -143,6 +143,118 @@ export function computeKrConfidence(kr: KrForCalc, now: Date = new Date()): Scor
   }
 }
 
+/**
+ * Daily auto-confidence recompute for *stale* OKRs only.
+ *
+ * Triggered once per day. For each active KR whose last user-driven update
+ * (i.e. last KeyResultCheckIn.asOfDate) is more than `staleDays` ago, recompute
+ * confidence using the same scoring function used by the bi-weekly job, then
+ * propagate to the parent objective's goalStatus. Snapshots are stored with
+ * today's date as the periodStart so we get one row per (entity, day).
+ *
+ * Does NOT send emails — daily noise would be excessive. The bi-weekly job
+ * still owns the emailing.
+ */
+export async function runDailyAutoConfidence(opts: { staleDays?: number; now?: Date } = {}): Promise<{
+  scanned: number
+  staleProcessed: number
+  objectivesUpdated: number
+  errors: number
+}> {
+  const now = opts.now ?? new Date()
+  const staleDays = opts.staleDays ?? 14
+  const cutoff = new Date(now.getTime() - staleDays * 86400_000)
+  const periodStart = now.toISOString().slice(0, 10)
+
+  let scanned = 0
+  let staleProcessed = 0
+  let objectivesUpdated = 0
+  let errors = 0
+
+  // Stale = no check-in since cutoff. We pull all active KRs and filter in JS to
+  // keep the query simple; volume is bounded by org size (typically <10k KRs).
+  const krs = await prisma.keyResult.findMany({
+    where: { status: 'ACTIVE' },
+    include: {
+      objective: {
+        select: {
+          id: true,
+          title: true,
+          ownerId: true,
+          startDate: true,
+          endDate: true,
+          departmentId: true,
+          timeframe: { select: { startDate: true, endDate: true } },
+        },
+      },
+      todos: { select: { status: true } },
+      checkIns: {
+        select: { asOfDate: true, value: true },
+        orderBy: { asOfDate: 'desc' },
+        take: 30,
+      },
+      _count: { select: { checkIns: true, todos: true } },
+    },
+  })
+  scanned = krs.length
+
+  // Map of objectiveId → list of recomputed confidences for the worst-of rollup.
+  const perObjective = new Map<string, Array<'ON_TRACK' | 'AT_RISK' | 'OFF_TRACK'>>()
+
+  for (const kr of krs) {
+    const lastCheckIn = kr.checkIns[0]?.asOfDate ?? kr.createdAt
+    if (lastCheckIn >= cutoff) continue // user updated recently — skip
+    try {
+      const result = computeKrConfidence(kr as unknown as KrForCalc, now)
+      await prisma.confidenceSnapshot.upsert({
+        where: { entityType_entityId_periodStart: { entityType: 'KEY_RESULT', entityId: kr.id, periodStart } },
+        create: {
+          entityType: 'KEY_RESULT', entityId: kr.id, periodStart,
+          confidence: result.confidence, score: result.score,
+          factors: JSON.stringify({ ...result.factors, source: 'daily-auto', staleDays }),
+          previousConf: kr.confidence,
+        },
+        update: {
+          confidence: result.confidence, score: result.score,
+          factors: JSON.stringify({ ...result.factors, source: 'daily-auto', staleDays }),
+          previousConf: kr.confidence,
+        },
+      })
+      if (kr.confidence !== result.confidence) {
+        await prisma.keyResult.update({ where: { id: kr.id }, data: { confidence: result.confidence } })
+      }
+      if (!perObjective.has(kr.objectiveId)) perObjective.set(kr.objectiveId, [])
+      perObjective.get(kr.objectiveId)!.push(result.confidence)
+      staleProcessed++
+    } catch (err) {
+      console.error(`[auto-confidence] failed for KR ${kr.id}:`, err)
+      errors++
+    }
+  }
+
+  // Rollup objective goalStatus = worst-of(stale recomputed children + non-stale current confidences)
+  for (const [objectiveId] of Array.from(perObjective.entries())) {
+    try {
+      const allChildren = await prisma.keyResult.findMany({
+        where: { objectiveId, status: 'ACTIVE' },
+        select: { confidence: true },
+      })
+      const worst: 'ON_TRACK' | 'AT_RISK' | 'OFF_TRACK' = allChildren.some((c) => c.confidence === 'OFF_TRACK')
+        ? 'OFF_TRACK'
+        : allChildren.some((c) => c.confidence === 'AT_RISK')
+        ? 'AT_RISK'
+        : 'ON_TRACK'
+      await prisma.objective.update({ where: { id: objectiveId }, data: { goalStatus: worst } })
+      objectivesUpdated++
+    } catch (err) {
+      console.error(`[auto-confidence] objective rollup failed for ${objectiveId}:`, err)
+      errors++
+    }
+  }
+
+  return { scanned, staleProcessed, objectivesUpdated, errors }
+}
+
 // ─── Bi-weekly period helpers ───
 
 /** Returns the current bi-weekly period start date: 1st or 15th of the month. */

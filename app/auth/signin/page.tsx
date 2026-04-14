@@ -4,8 +4,7 @@ import { useState } from 'react'
 import { signIn, getSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Eye, EyeOff, Mail, Lock, Info, ChevronDown, ChevronUp } from 'lucide-react'
-import { DEMO_SEED_ACCOUNTS, DEMO_SEED_PASSWORD } from '@/lib/demo-seed-info'
+import { Eye, EyeOff, Mail, Lock } from 'lucide-react'
 
 export default function SignInPage() {
   const [email, setEmail] = useState('')
@@ -13,7 +12,6 @@ export default function SignInPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-  const [showTestAccounts, setShowTestAccounts] = useState(false)
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -162,62 +160,6 @@ export default function SignInPage() {
             </button>
           </div>
         </form>
-
-        {/* Seeded demo accounts (see prisma/seed.ts) */}
-        <div className="mt-6">
-          <button
-            type="button"
-            onClick={() => setShowTestAccounts(!showTestAccounts)}
-            className="flex w-full items-center justify-between rounded-card-lg bg-surface-card p-3 text-body-sm text-ink-secondary shadow-card transition-colors duration-[180ms] hover:bg-surface-hover"
-          >
-            <div className="flex items-center">
-              <Info className="mr-2 h-4 w-4 text-primary-500" strokeWidth={2} />
-              <span className="font-medium">Demo login credentials</span>
-            </div>
-            {showTestAccounts ? (
-              <ChevronUp className="h-4 w-4" />
-            ) : (
-              <ChevronDown className="h-4 w-4" />
-            )}
-          </button>
-
-          {showTestAccounts && (
-            <div className="mt-3 rounded-card-lg bg-primary-500/10 p-4">
-              <p className="mb-3 text-body-sm font-semibold text-ink-primary">
-                All seeded accounts use password:{' '}
-                <code className="rounded bg-white/80 px-1 py-0.5">{DEMO_SEED_PASSWORD}</code>
-              </p>
-              <p className="mb-3 text-body-sm text-ink-secondary">
-                Run <code className="rounded bg-white/80 px-1 py-0.5 text-[11px]">npm run db:seed</code> if these
-                users are missing.
-              </p>
-              <div className="space-y-2 text-body-sm">
-                {DEMO_SEED_ACCOUNTS.map((account) => (
-                  <div
-                    key={account.email}
-                    className="flex items-center justify-between gap-2 rounded-card bg-surface-card p-2 shadow-card"
-                  >
-                    <div className="min-w-0">
-                      <span className="font-medium text-ink-primary">{account.label}</span>
-                      <span className="ml-2 text-ink-secondary">({account.role})</span>
-                      <div className="truncate text-ink-secondary">{account.email}</div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEmail(account.email)
-                        setPassword(DEMO_SEED_PASSWORD)
-                      }}
-                      className="shrink-0 font-medium text-primary-500 hover:text-primary-700"
-                    >
-                      Use
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
       </div>
     </div>
   )

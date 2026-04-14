@@ -53,6 +53,9 @@ async function resolveRecipients(eventKey: EventKey, p: EventPayload): Promise<M
       break
 
     case 'ACCOUNT_PASSWORD_CHANGED':
+      // Self-only — security-sensitive. Other roles do NOT get notified.
+      if (p.entityId) add(p.entityId, 'EXPLICIT')
+      break
     case 'ACCOUNT_ROLE_CHANGED':
     case 'ACCOUNT_DEACTIVATED':
       if (p.entityId) {

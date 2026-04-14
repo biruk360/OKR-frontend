@@ -9,6 +9,7 @@
  */
 
 import type { EventKey } from '@/lib/notifications/events'
+import { absoluteUrl } from '@/lib/notifications/deep-link'
 
 export interface RenderedEmail {
   subject: string
@@ -39,7 +40,8 @@ export function renderTemplate(eventKey: EventKey, data: Data): RenderedEmail {
   const name = String(data.recipientName ?? '')
   const entityTitle = String(data.entityTitle ?? '(item)')
   const actorName = String(data.actorName ?? 'someone')
-  const deepLink = String(data.deepLink ?? appUrl('/dashboard'))
+  // Always render the deep link as an absolute URL so it is clickable from a mail client.
+  const deepLink = absoluteUrl(String(data.deepLink ?? '/dashboard'))
 
   switch (eventKey) {
     case 'ACCOUNT_INVITE':
@@ -53,11 +55,11 @@ export function renderTemplate(eventKey: EventKey, data: Data): RenderedEmail {
     case 'ACCOUNT_PASSWORD_RESET_REQUESTED':
       return simple('Password reset requested', `Hi ${name},\n\nReset your password: ${data.resetUrl ?? appUrl('/auth/reset-password')}\nIf you didn't request this, contact your admin.`, name)
     case 'ACCOUNT_PASSWORD_CHANGED':
-      return simple('Your password was changed', `Hi ${name},\n\nYour account password was changed. If this wasn't you, contact your admin immediately.`, name)
+      return simple('Your password was changed', `Hi ${name},\n\nYour account password was changed. If this wasn't you, contact your admin immediately.\nReview your account: ${deepLink}`, name)
     case 'ACCOUNT_ROLE_CHANGED':
-      return simple('Your role was updated', `Hi ${name},\n\nYour role is now ${data.newRole ?? 'updated'}. Department: ${data.newDepartment ?? '—'}.`, name)
+      return simple('Your role was updated', `Hi ${name},\n\nYour role is now ${data.newRole ?? 'updated'}. Department: ${data.newDepartment ?? '—'}.\nView profile: ${deepLink}`, name)
     case 'ACCOUNT_DEACTIVATED':
-      return simple('Your account was deactivated', `Hi ${name},\n\nYour account has been deactivated.`, name)
+      return simple('Your account was deactivated', `Hi ${name},\n\nYour account has been deactivated.\nDetails: ${deepLink}`, name)
 
     case 'OBJECTIVE_ASSIGNED':
       return simple(`Objective assigned: ${entityTitle}`, `Hi ${name},\n\n${actorName} assigned you an objective: ${entityTitle}.\nOpen: ${deepLink}`, name)
@@ -125,15 +127,15 @@ export function renderTemplate(eventKey: EventKey, data: Data): RenderedEmail {
       return simple(`New comment on "${entityTitle}"`, `Hi ${name},\n\n${actorName} commented on "${entityTitle}".\n${data.snippet ?? ''}\nOpen: ${deepLink}`, name)
 
     case 'ADMIN_USER_CREATED':
-      return simple(`New user: ${data.newUserName ?? ''}`, `A new user was created: ${data.newUserName ?? ''} (${data.newUserEmail ?? ''}), role ${data.newUserRole ?? ''}.`, name)
+      return simple(`New user: ${data.newUserName ?? ''}`, `A new user was created: ${data.newUserName ?? ''} (${data.newUserEmail ?? ''}), role ${data.newUserRole ?? ''}.\nOpen user: ${deepLink}`, name)
     case 'ADMIN_BULK_JOB_DONE':
-      return simple(`Bulk job complete: ${data.jobName ?? ''}`, `Your bulk job ${data.jobName ?? ''} finished with status ${data.jobStatus ?? 'OK'}.`, name)
+      return simple(`Bulk job complete: ${data.jobName ?? ''}`, `Your bulk job ${data.jobName ?? ''} finished with status ${data.jobStatus ?? 'OK'}.\nOpen settings: ${deepLink}`, name)
     case 'ADMIN_SECURITY_ALERT':
-      return simple(`⚠️ Security alert`, `Security event: ${data.summary ?? 'see admin panel'}.`, name)
+      return simple(`⚠️ Security alert`, `Security event: ${data.summary ?? 'see admin panel'}.\nReview audit log: ${deepLink}`, name)
     case 'ADMIN_WEEKLY_HEALTH_DIGEST':
-      return simple(`Weekly org OKR health`, `Active objectives: ${data.activeObjectives ?? 0}. At-risk: ${data.atRisk ?? 0}. Off-track: ${data.offTrack ?? 0}.`, name)
+      return simple(`Weekly org OKR health`, `Active objectives: ${data.activeObjectives ?? 0}. At-risk: ${data.atRisk ?? 0}. Off-track: ${data.offTrack ?? 0}.\nOpen reports: ${deepLink}`, name)
     case 'ADMIN_MONTHLY_EXEC_SUMMARY':
-      return simple(`Monthly executive summary`, `Avg progress: ${data.avgProgress ?? 0}%. Objectives completed: ${data.completed ?? 0}.`, name)
+      return simple(`Monthly executive summary`, `Avg progress: ${data.avgProgress ?? 0}%. Objectives completed: ${data.completed ?? 0}.\nOpen reports: ${deepLink}`, name)
 
     default:
       return simple(`Notification`, `Event: ${eventKey}.`, name)
@@ -142,9 +144,14 @@ export function renderTemplate(eventKey: EventKey, data: Data): RenderedEmail {
 
 function simple(subject: string, text: string, name?: string): RenderedEmail {
   const body = text + signOff(name)
+  // Auto-linkify any http(s) URL inside the text body so the HTML version is clickable.
+  const escaped = escapeHtml(text)
+  const linkified = escaped.replace(/(https?:\/\/[^\s<]+)(?=[\s<.,;)!?]|$)/g, (url) =>
+    `<a href="${url}" style="color:#2563eb;text-decoration:underline;">${url}</a>`
+  )
   const html = wrapHtml(
     `<h2 style="margin:0 0 8px;">${escapeHtml(subject)}</h2>` +
-    `<p style="white-space:pre-line;color:#374151;">${escapeHtml(text)}</p>`
+    `<p style="white-space:pre-line;color:#374151;">${linkified}</p>`
   )
   return { subject, text: body, html }
 }

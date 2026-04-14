@@ -34,6 +34,18 @@ export async function runDigestDrain(cadence: 'DAILY' | 'WEEKLY' | 'MONTHLY'): P
   const userById = new Map(users.map((u) => [u.id, u]))
 
   let sent = 0, errors = 0
+  // Helper: pull deepLink out of each row's metadata JSON.
+  const linkFor = (i: QueueRow): string | null => {
+    if (!i.metadata) return null
+    try {
+      const m = JSON.parse(i.metadata)
+      return typeof m.deepLink === 'string' ? m.deepLink : null
+    } catch { return null }
+  }
+
+  const base = (process.env.NEXTAUTH_URL || 'http://localhost:3000').replace(/\/+$/, '')
+  const abs = (l: string) => /^https?:\/\//i.test(l) ? l : `${base}${l.startsWith('/') ? l : `/${l}`}`
+
   for (const [userId, items] of Array.from(byUser.entries())) {
     const user = userById.get(userId)
     if (!user) continue
@@ -44,7 +56,12 @@ export async function runDigestDrain(cadence: 'DAILY' | 'WEEKLY' | 'MONTHLY'): P
         '',
         `Here is your ${cadence.toLowerCase()} digest bundling ${items.length} update(s):`,
         '',
-        ...items.map((i: QueueRow, idx: number) => `${idx + 1}. ${i.subject}`),
+        ...items.map((i: QueueRow, idx: number) => {
+          const link = linkFor(i)
+          return link
+            ? `${idx + 1}. ${i.subject}\n   Open: ${abs(link)}`
+            : `${idx + 1}. ${i.subject}`
+        }),
         '',
         '—\nThe OKR Management System',
       ].join('\n')
@@ -52,8 +69,13 @@ export async function runDigestDrain(cadence: 'DAILY' | 'WEEKLY' | 'MONTHLY'): P
         <div style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:24px;">
           <h2>Your ${cadence.toLowerCase()} OKR digest</h2>
           <p>Hi ${escapeHtml(user.name)}, here are ${items.length} update(s):</p>
-          <ol>${items.map((i: QueueRow) => `<li>${escapeHtml(i.subject)}</li>`).join('')}</ol>
-          <p style="color:#9ca3af;font-size:11px;">Change cadence in <a href="${process.env.NEXTAUTH_URL || ''}/dashboard/settings/notifications">Settings</a>.</p>
+          <ol>${items.map((i: QueueRow) => {
+            const link = linkFor(i)
+            return link
+              ? `<li>${escapeHtml(i.subject)} — <a href="${abs(link)}" style="color:#2563eb;">Open</a></li>`
+              : `<li>${escapeHtml(i.subject)}</li>`
+          }).join('')}</ol>
+          <p style="color:#9ca3af;font-size:11px;">Change cadence in <a href="${base}/dashboard/settings/notifications">Settings</a>.</p>
         </div></body></html>`
       await sendMail({ to: user.email, toName: user.name, subject, text, html, template: `digest-${cadence.toLowerCase()}` })
       await prisma.emailDigestQueue.updateMany({

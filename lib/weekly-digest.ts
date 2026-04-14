@@ -1,6 +1,14 @@
 import { prisma } from '@/lib/prisma'
 import { sendMail } from '@/lib/email'
 import { isCheckInOverdue, type CheckInCadence } from '@/lib/check-in-cadence'
+import { absoluteUrl } from '@/lib/notifications/deep-link'
+
+function entityLink(kind: 'OBJECTIVE' | 'KEY_RESULT', id: string): string {
+  return absoluteUrl(kind === 'OBJECTIVE' ? `/dashboard/objectives/${id}` : `/dashboard/key-results/${id}`)
+}
+function initiativeLink(id: string): string {
+  return absoluteUrl(`/dashboard/todos?open=${id}`)
+}
 
 interface DigestEntity {
   kind: 'OBJECTIVE' | 'KEY_RESULT'
@@ -87,9 +95,17 @@ function renderDigestText(name: string, digest: NonNullable<Awaited<ReturnType<t
     for (const e of digest.overdue.slice(0, 20)) {
       const tag = e.kind === 'OBJECTIVE' ? '[Obj]' : '[KR]'
       lines.push(`  ${tag} ${e.title} — last updated ${e.lastUpdate.toISOString().slice(0, 10)} (cadence: ${e.cadence})`)
+      lines.push(`     Open: ${entityLink(e.kind, e.id)}`)
     }
   } else {
     lines.push('All your check-ins are up to date — nice work.')
+  }
+  if (digest.initiatives.length > 0) {
+    lines.push('')
+    lines.push(`Open initiatives (${digest.initiatives.length}):`)
+    for (const i of digest.initiatives.slice(0, 20)) {
+      lines.push(`  • ${i.title} [${i.status}] — ${initiativeLink(i.id)}`)
+    }
   }
   lines.push('')
   lines.push('— OKR Management System')
@@ -102,11 +118,17 @@ function renderDigestHtml(name: string, digest: NonNullable<Awaited<ReturnType<t
     .map(
       (e) => `<tr>
         <td style="padding:4px 8px;font-size:12px;color:#6b7280;">${e.kind === 'OBJECTIVE' ? 'Objective' : 'Key result'}</td>
-        <td style="padding:4px 8px;font-size:13px;color:#111827;"><strong>${escapeHtml(e.title)}</strong></td>
+        <td style="padding:4px 8px;font-size:13px;color:#111827;"><a href="${entityLink(e.kind, e.id)}" style="color:#111827;text-decoration:none;"><strong>${escapeHtml(e.title)}</strong></a></td>
         <td style="padding:4px 8px;font-size:12px;color:#6b7280;">last update ${e.lastUpdate.toISOString().slice(0, 10)}</td>
         <td style="padding:4px 8px;font-size:12px;color:#6b7280;">cadence: ${e.cadence}</td>
+        <td style="padding:4px 8px;font-size:12px;"><a href="${entityLink(e.kind, e.id)}" style="color:#2563eb;">Open</a></td>
       </tr>`
     )
+    .join('')
+
+  const initiativeRows = digest.initiatives
+    .slice(0, 20)
+    .map((i) => `<li><a href="${initiativeLink(i.id)}" style="color:#2563eb;">${escapeHtml(i.title)}</a> <span style="color:#6b7280;">[${i.status}]</span></li>`)
     .join('')
 
   return `<!doctype html>
@@ -124,6 +146,12 @@ function renderDigestHtml(name: string, digest: NonNullable<Awaited<ReturnType<t
         ? `<h3 style="margin:16px 0 4px;color:#b45309;font-size:14px;">${digest.overdue.length} check-in(s) overdue</h3>
            <table style="width:100%;border-collapse:collapse;border:1px solid #f3f4f6;">${overdueRows}</table>`
         : '<p style="color:#059669;font-weight:500;">All your check-ins are up to date — nice work.</p>'
+    }
+    ${
+      digest.initiatives.length > 0
+        ? `<h3 style="margin:16px 0 4px;color:#374151;font-size:14px;">Open initiatives (${digest.initiatives.length})</h3>
+           <ul style="margin:4px 0;padding-left:18px;color:#374151;font-size:13px;">${initiativeRows}</ul>`
+        : ''
     }
     <p style="margin-top:24px;color:#9ca3af;font-size:11px;">Sent by the OKR Management System weekly digest.</p>
   </div>

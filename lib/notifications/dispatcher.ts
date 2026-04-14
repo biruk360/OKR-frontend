@@ -21,6 +21,7 @@ import {
   resolveParentObjectiveOwner, resolveTeamMembers, resolveWatchers, uniqueIds,
 } from './recipients'
 import { renderTemplate } from '@/lib/email/templates'
+import { buildDeepLink } from './deep-link'
 
 type RecipientRoleTag = 'OWNER' | 'MANAGER' | 'PARENT_OWNER' | 'ADMIN' | 'WATCHER' | 'TEAM' | 'EXPLICIT' | 'ASSIGNEE'
 
@@ -334,8 +335,17 @@ export async function emit(eventKey: EventKey, payload: EventPayload): Promise<v
         entityTitle: payload.entityTitle,
       })
 
+      // Auto-attach a deep link for every event so the email always points back to
+      // the page that initiated it. Caller-supplied data.deepLink wins if present.
+      const autoDeepLink = buildDeepLink({
+        eventKey,
+        entityType: payload.entityType,
+        entityId: payload.entityId,
+        data: payload.data ?? {},
+      })
       const templateData = redactData({
         ...payload.data,
+        deepLink: (payload.data?.deepLink as string | undefined) || autoDeepLink,
         entityTitle: title,
         entityType: payload.entityType,
         entityId: payload.entityId,
@@ -402,6 +412,7 @@ export async function emit(eventKey: EventKey, payload: EventPayload): Promise<v
               entityType: payload.entityType,
               entityId: payload.entityId,
               redacted,
+              deepLink: templateData.deepLink,
             }),
           },
         })

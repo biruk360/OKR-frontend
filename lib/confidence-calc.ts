@@ -1,5 +1,10 @@
 import { prisma } from '@/lib/prisma'
 import { sendMail } from '@/lib/email'
+import { absoluteUrl } from '@/lib/notifications/deep-link'
+
+function krLink(id: string): string {
+  return absoluteUrl(`/dashboard/key-results/${id}`)
+}
 
 /**
  * Bi-weekly confidence auto-calculation.
@@ -473,6 +478,7 @@ async function sendConfidenceEmails(
       lines.push('OFF TRACK key results:')
       for (const r of offTrack) {
         lines.push(`  - ${r.kr.title} (score: ${r.result.score}, progress: ${r.result.factors.progressPct}% vs expected ${r.result.factors.expectedProgressPct}%)`)
+        lines.push(`    Open: ${krLink(r.kr.id)}`)
       }
       lines.push('')
     }
@@ -480,6 +486,7 @@ async function sendConfidenceEmails(
       lines.push('AT RISK key results:')
       for (const r of atRisk) {
         lines.push(`  - ${r.kr.title} (score: ${r.result.score})`)
+        lines.push(`    Open: ${krLink(r.kr.id)}`)
       }
     }
     lines.push('', '— OKR System')
@@ -520,7 +527,10 @@ async function sendConfidenceEmails(
     ]
     if (offTrack.length > 0) {
       lines.push('Off-track:')
-      for (const r of offTrack) lines.push(`  - ${r.kr.title} (${r.kr.objective.title}) score=${r.result.score}`)
+      for (const r of offTrack) {
+        lines.push(`  - ${r.kr.title} (${r.kr.objective.title}) score=${r.result.score}`)
+        lines.push(`    Open: ${krLink(r.kr.id)}`)
+      }
     }
     lines.push('', '— OKR System')
 
@@ -549,9 +559,10 @@ async function sendConfidenceEmails(
         `Organization-wide confidence assessment for ${periodStart}:`,
         `  ${krResults.length} KRs total · ${offTrack.length} off track · ${atRisk.length} at risk`,
         '',
-        ...offTrack.slice(0, 20).map((r) =>
-          `  OFF: ${r.kr.title} (${r.kr.objective.title}) score=${r.result.score}`
-        ),
+        ...offTrack.slice(0, 20).flatMap((r) => [
+          `  OFF: ${r.kr.title} (${r.kr.objective.title}) score=${r.result.score}`,
+          `       Open: ${krLink(r.kr.id)}`,
+        ]),
         '',
         '— OKR System',
       ].join('\n'),

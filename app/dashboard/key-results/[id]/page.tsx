@@ -8,10 +8,7 @@ import {
   canEditKeyResultWithObjectiveContext,
 } from '@/lib/permissions'
 import { KeyResultDetailClient } from '@/features/key-results'
-import OkrBreadcrumb from '@/components/shared/OkrBreadcrumb'
 import type { BreadcrumbNode } from '@/components/shared/OkrBreadcrumb'
-import OkrComments from '@/components/shared/OkrComments'
-import WorkItemsKanban from '@/components/shared/WorkItemsKanban'
 
 interface PageProps {
   params: { id: string } | Promise<{ id: string }>
@@ -98,6 +95,12 @@ export default async function KeyResultDetailPage({ params }: PageProps) {
   const isRedacted = krVisibility.isRedacted || objectiveVisibility.isRedacted
   const checkInsForClient = isRedacted ? [] : keyResult.checkIns
 
+  // Hydrate the owner's email for the sidebar; the KR include has only a narrow selection.
+  const krOwnerFull = await prisma.user.findUnique({
+    where: { id: keyResult.ownerId },
+    select: { id: true, name: true, avatar: true, email: true },
+  })
+
   const krForClient = {
     id: keyResult.id,
     title: isRedacted ? '[Private Key Result]' : keyResult.title,
@@ -115,7 +118,7 @@ export default async function KeyResultDetailPage({ params }: PageProps) {
     createdAt: keyResult.createdAt,
     updatedAt: keyResult.updatedAt,
     archivedAt: keyResult.archivedAt,
-    owner: keyResult.owner,
+    owner: krOwnerFull ?? keyResult.owner,
   }
 
   const canEdit = await canEditKeyResultWithObjectiveContext(
@@ -203,13 +206,12 @@ export default async function KeyResultDetailPage({ params }: PageProps) {
   ]
 
   return (
-    <div className="space-y-4">
-      <OkrBreadcrumb nodes={breadcrumbNodes} />
-      <KeyResultDetailClient
+    <KeyResultDetailClient
       keyResult={krForClient}
       objective={{
         id: objFull.id,
         title: objFull.title,
+        level: objFull.level,
         timeframe: objFull.timeframe,
         department: objFull.department,
         owner: objFull.owner,
@@ -220,25 +222,8 @@ export default async function KeyResultDetailPage({ params }: PageProps) {
       users={users}
       isRedacted={isRedacted}
       todoCount={keyResult._count.todos}
+      breadcrumbNodes={breadcrumbNodes}
+      initiatives={krInitiatives}
     />
-      {!isRedacted && (
-        <>
-          <WorkItemsKanban
-            keyResults={[
-              {
-                id: keyResult.id,
-                title: krForClient.title,
-                progress: keyResult.progress,
-                confidence: keyResult.confidence,
-                status: keyResult.status,
-              },
-            ]}
-            initiatives={krInitiatives}
-            title="Work items"
-          />
-          <OkrComments endpoint="keyresults" entityId={keyResult.id} users={users} />
-        </>
-      )}
-    </div>
   )
 }

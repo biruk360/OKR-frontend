@@ -11,6 +11,30 @@ import { prisma } from '@/lib/prisma'
 import nodemailer from 'nodemailer'
 import { renderInvitationEmail } from '@/lib/email/templates/invitation'
 
+// Hard block-list: addresses/domains that are known NOT to be real mailboxes
+// (demo-seed fakes, role-placeholder users from the 360Ground import).
+// Sending to them produces Gmail bounce DSNs back to the admin inbox.
+// Rows for these recipients land in outbound_emails with status='FAILED' and
+// a clear error, so the audit trail is preserved but nothing leaves the server.
+const BLOCKED_RECIPIENT_DOMAINS = ['@company.com']
+const BLOCKED_RECIPIENT_ADDRESSES = new Set<string>([
+  'unassigned@360ground.com',
+  'delivery@360ground.com',
+  'all.ses@360ground.com',
+  'finance@360ground.com',
+  'hr@360ground.com',
+  'wessagn@360ground.com',
+  'pm.lead@360ground.com',
+  'kalkidan@360ground.com',
+  'biruk.hailu@360ground.et',
+])
+
+function isBlockedRecipient(email: string): boolean {
+  const normalized = email.trim().toLowerCase()
+  if (BLOCKED_RECIPIENT_ADDRESSES.has(normalized)) return true
+  return BLOCKED_RECIPIENT_DOMAINS.some((d) => normalized.endsWith(d))
+}
+
 interface UserInvitationEmailData {
   email: string
   name: string
@@ -100,7 +124,13 @@ export async function sendMail(message: MailMessage): Promise<{ id: string; stat
   let status: 'SENT' | 'LOGGED_ONLY' | 'FAILED' = 'LOGGED_ONLY'
   let error: string | null = null
 
-  if (driver !== 'log') {
+  // Hard block before any SMTP handoff — prevents bounce DSNs from known-fake recipients
+  // regardless of DB state. Row is still persisted so the audit trail is intact.
+  if (isBlockedRecipient(message.to)) {
+    status = 'FAILED'
+    error = 'blocked: recipient on fake-address block-list (see lib/email.ts)'
+    console.warn('[email] blocked send to fake recipient', message.to)
+  } else if (driver !== 'log') {
     try {
       await deliverEmail(message)
       status = 'SENT'

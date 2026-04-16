@@ -289,7 +289,7 @@ export async function emit(eventKey: EventKey, payload: EventPayload): Promise<v
     const userIds = Array.from(recipients.keys())
     const [users, prefs] = await Promise.all([
       prisma.user.findMany({
-        where: { id: { in: userIds } },
+        where: { id: { in: userIds }, isActive: true },
         select: { id: true, email: true, name: true, role: true },
       }),
       getUserPrefsBulk(userIds, meta.category),

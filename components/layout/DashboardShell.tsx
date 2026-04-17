@@ -21,14 +21,9 @@ interface DashboardShellProps {
   children: ReactNode
 }
 
-/**
- * Single collapsible sidebar + header + main. Sidebar width syncs with grid column.
- */
 export default function DashboardShell({ user, children }: DashboardShellProps) {
   const pathname = usePathname()
   const isStrategyMap = pathname === '/dashboard/alignment-map'
-  // Full-width routes bypass the content max-width so wide tables can
-  // stretch edge-to-edge (minus sidebar).
   const isFullWidth =
     pathname === '/dashboard/okr-hierarchy' ||
     pathname === '/dashboard/timeline' ||
@@ -57,13 +52,13 @@ export default function DashboardShell({ user, children }: DashboardShellProps) 
 
       <div
         className={cn(
-          'grid min-h-[100dvh] w-full max-w-[100vw] overflow-x-hidden bg-surface-app',
+          'grid min-h-[100dvh] w-full max-w-[100vw] overflow-x-hidden bg-background',
           'grid-cols-1 grid-rows-[auto_minmax(0,1fr)]',
           !sidebarReady
-            ? 'lg:grid-cols-[280px_minmax(0,1fr)] lg:grid-rows-[3.5rem_minmax(0,1fr)]'
+            ? 'lg:grid-cols-[260px_minmax(0,1fr)] lg:grid-rows-[3.5rem_minmax(0,1fr)]'
             : sidebarCollapsed
               ? 'lg:grid-cols-[4rem_minmax(0,1fr)] lg:grid-rows-[3.5rem_minmax(0,1fr)]'
-              : 'lg:grid-cols-[280px_minmax(0,1fr)] lg:grid-rows-[3.5rem_minmax(0,1fr)]'
+              : 'lg:grid-cols-[260px_minmax(0,1fr)] lg:grid-rows-[3.5rem_minmax(0,1fr)]'
         )}
       >
         <SidebarDesktopColumn
@@ -72,7 +67,7 @@ export default function DashboardShell({ user, children }: DashboardShellProps) 
           className="lg:col-start-1 lg:row-start-1 lg:row-span-2"
         />
 
-        <div className="col-start-1 row-start-1 min-w-0 border-b border-black/[0.06] bg-surface-card/90 backdrop-blur-md supports-[backdrop-filter]:bg-surface-card/75 lg:col-start-2">
+        <div className="col-start-1 row-start-1 min-w-0 border-b border-border bg-card lg:col-start-2">
           <Header user={user} onMobileNavOpen={() => setMobileNavOpen(true)} />
         </div>
 

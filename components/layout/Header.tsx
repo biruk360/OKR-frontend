@@ -1,12 +1,20 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
 import { signOut } from 'next-auth/react'
 import { usePathname, useRouter } from 'next/navigation'
 import { User, LogOut, Settings, Bell, Menu } from 'lucide-react'
 import { getDashboardPageTitle } from '@/lib/dashboard-page-titles'
 import { useDashboardTitleContext } from '@/components/layout/DashboardTitleContext'
 import NavProgressCircles from '@/components/layout/NavProgressCircles'
+import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Separator } from '@/components/ui/separator'
 
 interface HeaderProps {
   user: {
@@ -15,42 +23,14 @@ interface HeaderProps {
     avatar?: string | null
     role?: string
   }
-  /** Opens the mobile nav drawer (grid shell — no fixed overlap). */
   onMobileNavOpen?: () => void
 }
 
 export default function Header({ user, onMobileNavOpen }: HeaderProps) {
-  const [isProfileOpen, setIsProfileOpen] = useState(false)
-  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
-  const profileRef = useRef<HTMLDivElement | null>(null)
-
-  // Close the profile dropdown when the user clicks outside OR moves the cursor
-  // away from the trigger+menu area.
-  useEffect(() => {
-    if (!isProfileOpen) return
-    function onDown(e: MouseEvent) {
-      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
-        setIsProfileOpen(false)
-      }
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setIsProfileOpen(false)
-    }
-    document.addEventListener('mousedown', onDown)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onDown)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [isProfileOpen])
   const router = useRouter()
   const pathname = usePathname()
   const { overrideTitle } = useDashboardTitleContext()
   const pageTitle = overrideTitle ?? getDashboardPageTitle(pathname)
-
-  const handleSignOut = async () => {
-    await signOut({ callbackUrl: '/auth/signin' })
-  }
 
   const getInitials = (name: string) => {
     return name
@@ -64,132 +44,99 @@ export default function Header({ user, onMobileNavOpen }: HeaderProps) {
   return (
     <header className="bg-transparent">
       <div className="flex h-14 items-center gap-2 px-3 sm:px-4 lg:px-6">
-        {onMobileNavOpen ? (
-          <button
-            type="button"
-            className="inline-flex shrink-0 items-center justify-center rounded-lg p-2 text-ink-secondary transition-colors duration-[180ms] hover:bg-surface-hover hover:text-ink-primary lg:hidden"
+        {onMobileNavOpen && (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="lg:hidden"
             onClick={onMobileNavOpen}
             aria-label="Open navigation menu"
           >
-            <Menu className="h-5 w-5 stroke-[1.75]" />
-          </button>
-        ) : null}
+            <Menu className="size-5" />
+          </Button>
+        )}
+
         <div className="min-w-0 flex-1">
-          <h1 className="truncate text-page-title text-ink-primary">{pageTitle}</h1>
+          <h1 className="truncate text-lg font-semibold">{pageTitle}</h1>
         </div>
 
         <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-          <div className="relative">
-            <button
-              type="button"
-              className="relative rounded-pill p-2 text-ink-secondary transition-colors duration-[180ms] hover:bg-surface-hover hover:text-ink-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
-              onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
-            >
-              <Bell className="h-5 w-5 stroke-[1.75]" />
-              <span className="absolute -right-0.5 -top-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-pill bg-danger-500 text-[10px] font-medium text-white">
-                3
-              </span>
-            </button>
-
-            {isNotificationsOpen && (
-              <div className="absolute right-0 z-10 mt-2 w-72 origin-top-right rounded-card-lg bg-surface-card py-1 shadow-popover focus:outline-none">
-                <div className="list-divider px-4 py-2">
-                  <h3 className="text-overline text-ink-secondary">Notifications</h3>
-                </div>
-                <div className="max-h-56 overflow-y-auto">
-                  <div className="px-4 py-2.5 transition-colors duration-[180ms] hover:bg-surface-hover">
-                    <p className="text-body text-ink-primary">New comment on your objective</p>
-                    <p className="mt-0.5 text-body-sm text-ink-secondary">2 minutes ago</p>
-                  </div>
-                  <div className="px-4 py-2.5 transition-colors duration-[180ms] hover:bg-surface-hover">
-                    <p className="text-body text-ink-primary">Key result progress updated</p>
-                    <p className="mt-0.5 text-body-sm text-ink-secondary">1 hour ago</p>
-                  </div>
-                  <div className="px-4 py-2.5 transition-colors duration-[180ms] hover:bg-surface-hover">
-                    <p className="text-body text-ink-primary">New objective assigned to you</p>
-                    <p className="mt-0.5 text-body-sm text-ink-secondary">3 hours ago</p>
-                  </div>
-                </div>
-                <div className="list-divider px-4 py-2">
-                  <button
-                    type="button"
-                    className="text-body-sm font-medium text-primary-500 hover:text-primary-700"
-                  >
-                    View all notifications
-                  </button>
-                </div>
+          {/* Notifications */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="relative">
+                <Bell className="size-4" />
+                <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-destructive text-[10px] font-medium text-destructive-foreground">
+                  3
+                </span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-72">
+              <div className="px-3 py-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Notifications</p>
               </div>
-            )}
-          </div>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="flex-col items-start gap-0.5 py-2.5">
+                <p className="text-sm">New comment on your objective</p>
+                <p className="text-xs text-muted-foreground">2 minutes ago</p>
+              </DropdownMenuItem>
+              <DropdownMenuItem className="flex-col items-start gap-0.5 py-2.5">
+                <p className="text-sm">Key result progress updated</p>
+                <p className="text-xs text-muted-foreground">1 hour ago</p>
+              </DropdownMenuItem>
+              <DropdownMenuItem className="flex-col items-start gap-0.5 py-2.5">
+                <p className="text-sm">New objective assigned to you</p>
+                <p className="text-xs text-muted-foreground">3 hours ago</p>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="justify-center text-sm font-medium text-primary-500"
+                onSelect={() => router.push('/dashboard/notifications')}
+              >
+                View all notifications
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           <NavProgressCircles />
 
-          <div
-            ref={profileRef}
-            className="relative"
-            onMouseLeave={() => setIsProfileOpen(false)}
-          >
-            <button
-              type="button"
-              className="flex items-center rounded-pill text-body-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
-              onClick={() => setIsProfileOpen(!isProfileOpen)}
-            >
-              <span className="sr-only">Open user menu</span>
-              {user.avatar ? (
-                <img
-                  className="h-8 w-8 rounded-pill object-cover"
-                  src={user.avatar}
-                  alt={user.name || 'User'}
-                />
-              ) : (
-                <div className="flex h-8 w-8 items-center justify-center rounded-pill bg-primary-500/15">
-                  <span className="text-body-sm font-semibold text-primary-600">
-                    {user.name ? getInitials(user.name) : 'U'}
-                  </span>
-                </div>
-              )}
-            </button>
-
-            {isProfileOpen && (
-              <div className="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-card-lg bg-surface-card py-1 shadow-popover focus:outline-none">
-                <div className="list-divider px-4 py-2">
-                  <p className="truncate text-body font-medium text-ink-primary">{user.name}</p>
-                  <p className="truncate text-body-sm text-ink-secondary">{user.email}</p>
-                  <p className="mt-1 text-body-sm capitalize text-primary-600">{user.role?.toLowerCase()}</p>
-                </div>
-                <button
-                  type="button"
-                  className="flex w-full items-center px-4 py-2 text-left text-body text-ink-primary transition-colors duration-[180ms] hover:bg-surface-hover"
-                  onClick={() => {
-                    setIsProfileOpen(false)
-                    router.push('/dashboard/settings/profile')
-                  }}
-                >
-                  <User className="mr-2 h-4 w-4 stroke-[1.75]" />
-                  Your Profile
-                </button>
-                <button
-                  type="button"
-                  className="flex w-full items-center px-4 py-2 text-left text-body text-ink-primary transition-colors duration-[180ms] hover:bg-surface-hover"
-                  onClick={() => {
-                    setIsProfileOpen(false)
-                    router.push('/dashboard/settings')
-                  }}
-                >
-                  <Settings className="mr-2 h-4 w-4 stroke-[1.75]" />
-                  Settings
-                </button>
-                <button
-                  type="button"
-                  className="flex w-full items-center px-4 py-2 text-left text-body text-ink-primary transition-colors duration-[180ms] hover:bg-surface-hover"
-                  onClick={handleSignOut}
-                >
-                  <LogOut className="mr-2 h-4 w-4 stroke-[1.75]" />
-                  Sign out
-                </button>
+          {/* Profile dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="rounded-full">
+                {user.avatar ? (
+                  <img className="size-7 rounded-full object-cover" src={user.avatar} alt={user.name || 'User'} />
+                ) : (
+                  <div className="flex size-7 items-center justify-center rounded-full bg-primary/10">
+                    <span className="text-xs font-semibold text-primary-600">
+                      {user.name ? getInitials(user.name) : 'U'}
+                    </span>
+                  </div>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              <div className="px-3 py-2">
+                <p className="truncate text-sm font-medium">{user.name}</p>
+                <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+                <p className="mt-1 text-xs capitalize text-primary-600">{user.role?.toLowerCase()}</p>
               </div>
-            )}
-          </div>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={() => router.push('/dashboard/settings/profile')}>
+                <User className="size-4" />
+                <span>Your Profile</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => router.push('/dashboard/settings')}>
+                <Settings className="size-4" />
+                <span>Settings</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={() => signOut({ callbackUrl: '/auth/signin' })}>
+                <LogOut className="size-4" />
+                <span>Sign out</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </header>

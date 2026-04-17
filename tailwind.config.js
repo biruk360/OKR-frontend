@@ -7,7 +7,40 @@ module.exports = {
   ],
   theme: {
     extend: {
+      borderRadius: {
+        lg: 'var(--radius)',
+        md: 'calc(var(--radius) - 2px)',
+        sm: 'calc(var(--radius) - 4px)',
+        card: '0.75rem',
+        'card-lg': '1rem',
+        pill: '999px',
+      },
       colors: {
+        background: 'hsl(var(--background))',
+        foreground: 'hsl(var(--foreground))',
+        card: {
+          DEFAULT: 'hsl(var(--card))',
+          foreground: 'hsl(var(--card-foreground))',
+        },
+        popover: {
+          DEFAULT: 'hsl(var(--popover))',
+          foreground: 'hsl(var(--popover-foreground))',
+        },
+        muted: {
+          DEFAULT: 'hsl(var(--muted))',
+          foreground: 'hsl(var(--muted-foreground))',
+        },
+        accent: {
+          DEFAULT: 'hsl(var(--accent))',
+          foreground: 'hsl(var(--accent-foreground))',
+        },
+        destructive: {
+          DEFAULT: 'hsl(var(--destructive))',
+          foreground: 'hsl(var(--destructive-foreground))',
+        },
+        border: 'hsl(var(--border))',
+        input: 'hsl(var(--input))',
+        ring: 'hsl(var(--ring))',
         surface: {
           app: '#F2F2F7',
           card: '#FFFFFF',
@@ -77,11 +110,7 @@ module.exports = {
         'body': ['0.9375rem', { lineHeight: '1.5', fontWeight: '400' }],
         'body-sm': ['0.8125rem', { lineHeight: '1.4', fontWeight: '400' }],
       },
-      borderRadius: {
-        card: '0.75rem',
-        'card-lg': '1rem',
-        pill: '999px',
-      },
+
       boxShadow: {
         card: '0 4px 24px rgba(0, 0, 0, 0.04)',
         'card-hover': '0 8px 32px rgba(0, 0, 0, 0.06)',

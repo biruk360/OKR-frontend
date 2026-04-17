@@ -2,8 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { ChevronRight, ChevronDown, Target, Link2, Plus, CheckCircle2, AlertTriangle, TrendingDown } from 'lucide-react'
-import type { TopSummaryData } from './TopSummaryBoxes'
+import { ChevronRight, ChevronDown, Target, Link2, Plus } from 'lucide-react'
 
 export interface OkrTreeObjective {
   id: string
@@ -24,7 +23,6 @@ export interface OkrTreeKeyResult {
 
 interface Props {
   objectives: OkrTreeObjective[]
-  confidenceData?: TopSummaryData
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -33,67 +31,26 @@ const STATUS_COLORS: Record<string, string> = {
   OFF_TRACK: '#dc2626',
 }
 
-export default function UserOkrTree({ objectives, confidenceData }: Props) {
+export default function UserOkrTree({ objectives }: Props) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
 
   function toggle(id: string) {
     setExpanded((prev) => ({ ...prev, [id]: !(prev[id] ?? false) }))
   }
 
-  const scoreColor = confidenceData
-    ? confidenceData.confidenceScore >= 65 ? '#059669' : confidenceData.confidenceScore >= 35 ? '#d97706' : '#dc2626'
-    : '#059669'
-  const total = confidenceData ? confidenceData.onTrack + confidenceData.atRisk + confidenceData.offTrack : 0
-
   return (
-    <section className="rounded-lg border border-border bg-card">
-      <header className="px-4 py-3 border-b border-border">
+    <section className="rounded-xl border border-border bg-card">
+      <header className="flex items-center justify-between px-4 py-3 border-b border-border">
         <h3 className="text-sm font-semibold">My Active Objectives</h3>
+        <Link href="/dashboard/goals" className="text-xs text-primary-500 hover:underline">
+          View all
+        </Link>
       </header>
 
-      {/* Confidence tracker strip */}
-      {confidenceData && total > 0 && (
-        <div className="px-4 py-3 border-b border-border bg-muted/30">
-          <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Confidence Tracker</div>
-          <div className="flex items-center gap-4">
-            <div className="text-3xl font-bold tabular-nums leading-none" style={{ color: scoreColor }}>
-              {confidenceData.confidenceScore}
-            </div>
-            <div className="flex-1">
-              <p className="text-xs text-muted-foreground">Overall confidence score</p>
-              <div className="mt-1 flex items-center gap-3 text-[11px]">
-                <span className="inline-flex items-center gap-1 text-emerald-600">
-                  <CheckCircle2 className="size-3" /> {confidenceData.onTrack} on track
-                </span>
-                <span className="inline-flex items-center gap-1 text-amber-600">
-                  <AlertTriangle className="size-3" /> {confidenceData.atRisk} at risk
-                </span>
-                <span className="inline-flex items-center gap-1 text-red-600">
-                  <TrendingDown className="size-3" /> {confidenceData.offTrack} off track
-                </span>
-              </div>
-            </div>
-          </div>
-          {/* Stacked bar */}
-          <div className="flex h-2 rounded-full overflow-hidden mt-2">
-            {confidenceData.onTrack > 0 && (
-              <div className="bg-emerald-500" style={{ width: `${(confidenceData.onTrack / total) * 100}%` }} />
-            )}
-            {confidenceData.atRisk > 0 && (
-              <div className="bg-amber-500" style={{ width: `${(confidenceData.atRisk / total) * 100}%` }} />
-            )}
-            {confidenceData.offTrack > 0 && (
-              <div className="bg-red-500" style={{ width: `${(confidenceData.offTrack / total) * 100}%` }} />
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Objectives tree */}
       {objectives.length === 0 ? (
-        <div className="p-6 text-center text-xs text-muted-foreground">
-          <Target className="mx-auto size-6 mb-2 text-muted-foreground" />
-          No objectives assigned to you in the current cycle.
+        <div className="p-8 text-center">
+          <Target className="mx-auto size-8 mb-2 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">No objectives assigned to you in the current cycle.</p>
         </div>
       ) : (
         <div className="py-1">
@@ -104,7 +61,7 @@ export default function UserOkrTree({ objectives, confidenceData }: Props) {
                 <button
                   type="button"
                   onClick={() => toggle(obj.id)}
-                  className="group w-full flex items-center gap-2 px-4 py-2.5 hover:bg-muted transition text-left"
+                  className="group w-full flex items-center gap-2.5 px-4 py-2.5 hover:bg-muted transition text-left"
                 >
                   {isOpen
                     ? <ChevronDown className="size-3.5 text-muted-foreground shrink-0" />
@@ -115,7 +72,7 @@ export default function UserOkrTree({ objectives, confidenceData }: Props) {
                     style={{ background: STATUS_COLORS[obj.goalStatus] || '#c1c7d0' }}
                   />
                   <span className="text-sm font-medium truncate flex-1">{obj.title}</span>
-                  <span className="text-xs text-muted-foreground tabular-nums font-medium">
+                  <span className="text-xs text-muted-foreground tabular-nums font-medium ml-2">
                     {Math.round(obj.progress)}%
                   </span>
                   <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden ml-1">
@@ -145,7 +102,7 @@ export default function UserOkrTree({ objectives, confidenceData }: Props) {
                         </span>
                         {kr.initiativeCount > 0 && (
                           <span className="text-[10px] text-muted-foreground bg-muted rounded px-1">
-                            {kr.initiativeCount} todo{kr.initiativeCount !== 1 ? 's' : ''}
+                            {kr.initiativeCount}
                           </span>
                         )}
                       </Link>

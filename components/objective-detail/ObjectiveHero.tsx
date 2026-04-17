@@ -77,7 +77,7 @@ export default function ObjectiveHero({ objective, expectedProgress, daysLeft, a
       </div>
 
       {/* Metric row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 border-t border-border divide-x divide-border">
+      <div className="grid grid-cols-2 sm:grid-cols-4 border-t border-border divide-x divide-border bg-muted/30">
         <div className="px-4 py-3">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Progress</p>
           <p className="text-2xl font-bold tabular-nums mt-0.5">{Math.round(objective.progress)}%</p>

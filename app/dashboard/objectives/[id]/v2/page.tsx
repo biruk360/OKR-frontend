@@ -16,7 +16,7 @@ import { PageTitleSetter } from '@/components/layout/DashboardTitleContext'
 import { computeExpectedProgress, countUnassignedKRs } from '@/lib/okr/compute'
 import { daysUntilDeadline, daysSince, weekLabel } from '@/lib/okr/dates'
 
-// New components
+// New components  //////////////////////////////
 import CriticalBanner from '@/components/objective-detail/CriticalBanner'
 import ObjectiveHero from '@/components/objective-detail/ObjectiveHero'
 import KRList from '@/components/objective-detail/KRList'
@@ -202,11 +202,11 @@ export default async function ObjectiveDetailV2({ params }: Props) {
         />
 
         {/* Two-column: KR list + sidebar */}
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          <div className="lg:col-span-2 space-y-4">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
+          <div className="lg:col-span-3 space-y-4">
             <KRList keyResults={objective.keyResults} objectiveId={objective.id} />
           </div>
-          <div className="space-y-4">
+          <div className="lg:col-span-2 space-y-4">
             <ProgressTimelineChart
               snapshots={snapshots}
               expectedProgress={expectedProgress}

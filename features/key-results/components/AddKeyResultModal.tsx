@@ -107,40 +107,40 @@ export default function AddKeyResultModal({
     <Modal open={isOpen} onClose={onClose} title="Add Key Result" icon={Target} iconClassName="text-blue-600" size="sm">
       <form onSubmit={handleSubmit(onSubmit)}>
         <div className="mb-4">
-          <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
+          <label htmlFor="title" className="block text-sm font-medium text-muted-foreground mb-2">
             Title <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
             id="title"
             {...register('title', { required: 'Title is required' })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-blue-500"
             placeholder="Enter key result title"
           />
           {errors.title && <p className="mt-1 text-sm text-red-600">{errors.title.message}</p>}
         </div>
 
         <div className="mb-4">
-          <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
+          <label htmlFor="description" className="block text-sm font-medium text-muted-foreground mb-2">
             Description
           </label>
           <textarea
             id="description"
             {...register('description')}
             rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-blue-500"
             placeholder="Enter key result description (optional)"
           />
         </div>
 
         <div className="mb-4">
-          <label htmlFor="owner" className="block text-sm font-medium text-gray-700 mb-2">
+          <label htmlFor="owner" className="block text-sm font-medium text-muted-foreground mb-2">
             Owner <span className="text-red-500">*</span>
           </label>
           <select
             id="owner"
             {...register('ownerId', { required: 'Owner is required' })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-blue-500"
           >
             <option value="">Select an owner</option>
             {users.map((user) => (
@@ -154,7 +154,7 @@ export default function AddKeyResultModal({
 
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div>
-            <label htmlFor="startValue" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="startValue" className="block text-sm font-medium text-muted-foreground mb-2">
               Start Value
             </label>
             <input
@@ -164,14 +164,14 @@ export default function AddKeyResultModal({
                 required: 'Start value is required',
                 min: { value: 0, message: 'Start value must be 0 or greater' },
               })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-blue-500"
               placeholder="0"
             />
             {errors.startValue && <p className="mt-1 text-sm text-red-600">{errors.startValue.message}</p>}
           </div>
 
           <div>
-            <label htmlFor="targetValue" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="targetValue" className="block text-sm font-medium text-muted-foreground mb-2">
               Target Value <span className="text-red-500">*</span>
             </label>
             <input
@@ -181,7 +181,7 @@ export default function AddKeyResultModal({
                 required: 'Target value is required',
                 min: { value: 0.01, message: 'Target value must be greater than 0' },
               })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-blue-500"
               placeholder="100"
             />
             {errors.targetValue && <p className="mt-1 text-sm text-red-600">{errors.targetValue.message}</p>}
@@ -189,13 +189,13 @@ export default function AddKeyResultModal({
         </div>
 
         <div className="mb-6">
-          <label htmlFor="unit" className="block text-sm font-medium text-gray-700 mb-2">
+          <label htmlFor="unit" className="block text-sm font-medium text-muted-foreground mb-2">
             Unit
           </label>
           <select
             id="unit"
             {...register('unit')}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-blue-500"
           >
             <option value="%">% (percent)</option>
             <option value="pcs">pcs (pieces)</option>
@@ -227,7 +227,7 @@ export default function AddKeyResultModal({
         )}
 
         <div className="mb-4">
-          <label htmlFor="kr-checkInCadence" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="kr-checkInCadence" className="block text-sm font-medium text-muted-foreground mb-1">
             Check-in cadence *
           </label>
           <select {...register('checkInCadence', { required: 'A check-in cadence is required.' })} className="input">
@@ -237,7 +237,7 @@ export default function AddKeyResultModal({
               </option>
             ))}
           </select>
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs text-muted-foreground">
             Owner gets a reminder on the dashboard and in the Monday digest.
           </p>
         </div>
@@ -247,11 +247,11 @@ export default function AddKeyResultModal({
             <input
               type="checkbox"
               {...register('isPrivate')}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              className="h-4 w-4 text-blue-600 focus:ring-ring border-border rounded"
             />
-            <span className="ml-2 text-sm text-gray-700">Make this key result private</span>
+            <span className="ml-2 text-sm text-muted-foreground">Make this key result private</span>
           </label>
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs text-muted-foreground">
             Private key results will show as &quot;[Private Key Result]&quot; to other users, but progress percentage will remain visible.
           </p>
         </div>
@@ -262,7 +262,7 @@ export default function AddKeyResultModal({
           </button>
           <button
             type="submit"
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring disabled:opacity-50"
             disabled={isLoading || (startValue >= targetValue && startValue > 0 && targetValue > 0)}
           >
             {isLoading ? (

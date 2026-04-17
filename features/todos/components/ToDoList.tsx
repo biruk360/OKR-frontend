@@ -320,7 +320,7 @@ export default function ToDoList({
   // Compact / Notion-style design: single-line rows, hover-revealed actions, no per-row card.
   const shellClass = cn(
     'notion-surface',
-    variant === 'card' && 'mt-4 rounded-md border border-[color:var(--notion-divider)] bg-white',
+    variant === 'card' && 'mt-4 rounded-md border border-[color:var(--notion-divider)] bg-card',
     variant === 'embedded' && 'mt-0'
   )
 
@@ -425,10 +425,10 @@ export default function ToDoList({
                           if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
                         }}
                         placeholder="—"
-                        className="w-16 rounded border border-gray-200 bg-white px-1.5 py-0.5 text-xs text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        className="w-16 rounded border border-border bg-card px-1.5 py-0.5 text-xs text-right focus:outline-none focus:ring-1 focus:ring-ring"
                         aria-label={`Contribution in ${krUnit}`}
                       />
-                      <span className="text-[10px] text-gray-500 uppercase tracking-wide">{krUnit}</span>
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-wide">{krUnit}</span>
                     </span>
                   )}
 

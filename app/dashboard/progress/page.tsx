@@ -62,7 +62,7 @@ export default async function ProgressTrackingPage() {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-gray-500">
+      <p className="text-sm text-muted-foreground">
         Monitor progress across all your objectives and key results.
       </p>
 
@@ -73,15 +73,15 @@ export default async function ProgressTrackingPage() {
         <StatCard label="Avg Progress" value={`${avgProgress}%`} iconText="%" tone="blue" />
       </StatGrid>
 
-      <div className="bg-white shadow rounded-lg">
+      <div className="bg-card shadow rounded-lg">
         <div className="px-4 py-5 sm:p-6">
-          <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">Detailed Progress</h3>
+          <h3 className="text-lg leading-6 font-medium text-foreground mb-4">Detailed Progress</h3>
           <div className="space-y-4">
             {objectives.map((objective) => (
               <div key={objective.id} className="border rounded-lg p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-sm font-medium text-gray-900">{objective.title}</h4>
-                  <span className="text-sm text-gray-500">{objective.progress}%</span>
+                  <h4 className="text-sm font-medium text-foreground">{objective.title}</h4>
+                  <span className="text-sm text-muted-foreground">{objective.progress}%</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
                   <div
@@ -93,7 +93,7 @@ export default async function ProgressTrackingPage() {
                   />
                 </div>
                 <div className="flex items-center space-x-3 text-xs">
-                  <div className="flex items-center bg-gray-50 px-2 py-1 rounded-md border border-gray-200">
+                  <div className="flex items-center bg-muted px-2 py-1 rounded-md border border-border">
                     {objective.owner?.avatar ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -106,9 +106,9 @@ export default async function ProgressTrackingPage() {
                         <User className="h-2.5 w-2.5 text-white" />
                       </div>
                     )}
-                    <span className="font-medium text-gray-700">{objective.owner?.name || 'Unknown'}</span>
+                    <span className="font-medium text-muted-foreground">{objective.owner?.name || 'Unknown'}</span>
                   </div>
-                  <span className="text-gray-500">
+                  <span className="text-muted-foreground">
                     {objective.keyResults.length} Key Results • {objective.timeframe.name}
                     {objective.timeframe.type && (
                       <span className="ml-1 text-xs bg-blue-100 text-blue-800 px-1 rounded">

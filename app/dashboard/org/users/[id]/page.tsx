@@ -287,7 +287,7 @@ export default async function UserProfilePage({ params }: PageProps) {
       <div className="space-y-6">
         <Link
           href="/dashboard/org/users"
-          className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700"
+          className="inline-flex items-center text-sm text-muted-foreground hover:text-muted-foreground"
         >
           <ArrowLeft className="h-4 w-4 mr-1" />
           Back to directory
@@ -296,7 +296,7 @@ export default async function UserProfilePage({ params }: PageProps) {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
           {/* Sidebar */}
           <aside className="lg:col-span-4 space-y-4">
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 text-center">
+            <div className="bg-card rounded-lg border border-border shadow-sm p-6 text-center">
               {profileUser.avatar ? (
                 <img
                   src={profileUser.avatar}
@@ -308,18 +308,18 @@ export default async function UserProfilePage({ params }: PageProps) {
                   {(profileUser.name || '?').slice(0, 1).toUpperCase()}
                 </div>
               )}
-              <h1 className="mt-4 text-xl font-bold text-gray-900">{profileUser.name}</h1>
-              <p className="text-sm text-gray-500 mt-1">{profileUser.email}</p>
-              <p className="text-xs text-gray-400 mt-3">0 following · 0 followers</p>
+              <h1 className="mt-4 text-xl font-bold text-foreground">{profileUser.name}</h1>
+              <p className="text-sm text-muted-foreground mt-1">{profileUser.email}</p>
+              <p className="text-xs text-muted-foreground mt-3">0 following · 0 followers</p>
             </div>
 
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+            <div className="bg-card rounded-lg border border-border shadow-sm p-4">
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                     Key results
                   </p>
-                  <p className="text-lg font-semibold tabular-nums text-gray-900 mt-1">
+                  <p className="text-lg font-semibold tabular-nums text-foreground mt-1">
                     {metrics.avgKrProgress}%
                   </p>
                   <div className="mt-1 h-1.5 w-full rounded-full bg-sky-100 overflow-hidden">
@@ -330,23 +330,23 @@ export default async function UserProfilePage({ params }: PageProps) {
                   </div>
                 </div>
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                     Initiatives
                   </p>
-                  <p className="text-lg font-semibold tabular-nums text-gray-900 mt-1">
+                  <p className="text-lg font-semibold tabular-nums text-foreground mt-1">
                     {metrics.initiativeTotal > 0
                       ? `${metrics.initiativeDone}/${metrics.initiativeTotal}`
                       : '—'}
                   </p>
                 </div>
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 flex items-center justify-center gap-0.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center justify-center gap-0.5">
                     Confidence
                     <span title="Approximate score from key result confidence (NCS-style)">
-                      <HelpCircle className="h-3 w-3 text-gray-400" />
+                      <HelpCircle className="h-3 w-3 text-muted-foreground" />
                     </span>
                   </p>
-                  <p className="text-lg font-semibold tabular-nums text-gray-900 mt-1">
+                  <p className="text-lg font-semibold tabular-nums text-foreground mt-1">
                     {metrics.ncsScore} NCS
                   </p>
                   <div className="mt-1 h-1.5 w-full rounded-full bg-amber-100 overflow-hidden">
@@ -359,9 +359,9 @@ export default async function UserProfilePage({ params }: PageProps) {
               </div>
             </div>
 
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+            <div className="bg-card rounded-lg border border-border shadow-sm p-4">
               <div className="flex items-center justify-between mb-3">
-                <h2 className="text-sm font-semibold text-gray-900">Org network</h2>
+                <h2 className="text-sm font-semibold text-foreground">Org network</h2>
                 {manageOrgHref && (
                   <Link
                     href={manageOrgHref}
@@ -372,25 +372,25 @@ export default async function UserProfilePage({ params }: PageProps) {
                 )}
               </div>
               <ul className="space-y-2 text-sm">
-                <li className="flex items-start gap-2 text-gray-700">
-                  <UserCircle className="h-4 w-4 text-gray-400 shrink-0 mt-0.5" />
+                <li className="flex items-start gap-2 text-muted-foreground">
+                  <UserCircle className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
                   <span>
-                    <span className="text-gray-500">Manager</span>{' '}
+                    <span className="text-muted-foreground">Manager</span>{' '}
                     {manager ? (
-                      <Link href={`/dashboard/org/users/${manager.id}`} className="font-medium text-gray-900 hover:text-blue-600">
+                      <Link href={`/dashboard/org/users/${manager.id}`} className="font-medium text-foreground hover:text-blue-600">
                         {manager.name}
                       </Link>
                     ) : (
-                      <span className="text-gray-500">Not set</span>
+                      <span className="text-muted-foreground">Not set</span>
                     )}
                   </span>
                 </li>
-                <li className="flex items-start gap-2 text-gray-700">
-                  <UserCircle className="h-4 w-4 text-gray-400 shrink-0 mt-0.5" />
+                <li className="flex items-start gap-2 text-muted-foreground">
+                  <UserCircle className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
                   <span>
-                    <span className="text-gray-500">Direct reports</span>{' '}
+                    <span className="text-muted-foreground">Direct reports</span>{' '}
                     {directReports.length > 0 ? (
-                      <span className="text-gray-900">
+                      <span className="text-foreground">
                         {directReports.slice(0, 4).map((u, i) => (
                           <span key={u.id}>
                             {i > 0 ? ', ' : null}
@@ -403,20 +403,20 @@ export default async function UserProfilePage({ params }: PageProps) {
                           </span>
                         ))}
                         {directReports.length > 4 ? (
-                          <span className="text-gray-500">+{directReports.length - 4} more</span>
+                          <span className="text-muted-foreground">+{directReports.length - 4} more</span>
                         ) : null}
                       </span>
                     ) : (
-                      <span className="text-gray-500">Not set</span>
+                      <span className="text-muted-foreground">Not set</span>
                     )}
                   </span>
                 </li>
-                <li className="flex items-start gap-2 text-gray-700">
-                  <Building2 className="h-4 w-4 text-gray-400 shrink-0 mt-0.5" />
+                <li className="flex items-start gap-2 text-muted-foreground">
+                  <Building2 className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
                   <span>
-                    <span className="text-gray-500">Teams</span>{' '}
+                    <span className="text-muted-foreground">Teams</span>{' '}
                     {profileUser.departmentMemberships.length > 0 ? (
-                      <span className="text-gray-900">
+                      <span className="text-foreground">
                         {profileUser.departmentMemberships.map((m) => (
                           <Link
                             key={m.id}
@@ -428,18 +428,18 @@ export default async function UserProfilePage({ params }: PageProps) {
                         ))}
                       </span>
                     ) : (
-                      <span className="text-gray-500">Not in any teams</span>
+                      <span className="text-muted-foreground">Not in any teams</span>
                     )}
                   </span>
                 </li>
               </ul>
             </div>
 
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
-              <h2 className="text-sm font-semibold text-gray-900 mb-2">Latest standup</h2>
+            <div className="bg-card rounded-lg border border-border shadow-sm p-4">
+              <h2 className="text-sm font-semibold text-foreground mb-2">Latest standup</h2>
               {latestStandup ? (
-                <div className="text-sm text-gray-700">
-                  <p className="text-xs text-gray-500">
+                <div className="text-sm text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     {new Date(latestStandup.createdAt).toLocaleDateString(undefined, {
                       dateStyle: 'medium',
                     })}{' '}
@@ -452,11 +452,11 @@ export default async function UserProfilePage({ params }: PageProps) {
                     {latestStandup.keyResult.title}
                   </Link>
                   {latestStandup.analysis ? (
-                    <p className="text-gray-600 mt-2 line-clamp-3">{latestStandup.analysis}</p>
+                    <p className="text-muted-foreground mt-2 line-clamp-3">{latestStandup.analysis}</p>
                   ) : null}
                 </div>
               ) : (
-                <p className="text-sm text-gray-500">There are no standups to display</p>
+                <p className="text-sm text-muted-foreground">There are no standups to display</p>
               )}
             </div>
           </aside>
@@ -470,27 +470,27 @@ export default async function UserProfilePage({ params }: PageProps) {
               timeframeEnd={tfEnd.toISOString()}
             />
 
-            <section className="bg-white rounded-lg border border-gray-200 shadow-sm">
-              <div className="px-4 py-3 border-b border-gray-100">
-                <h2 className="text-base font-semibold text-gray-900">Objectives & key results</h2>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mt-1">
+            <section className="bg-card rounded-lg border border-border shadow-sm">
+              <div className="px-4 py-3 border-b border-border">
+                <h2 className="text-base font-semibold text-foreground">Objectives & key results</h2>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mt-1">
                   Grouped by objective
                   {pendingCount > 0 ? ` · ${pendingCount} need attention` : ''}
                 </p>
               </div>
               {krsByObjective.size === 0 ? (
-                <p className="p-6 text-sm text-gray-500">No visible key results for this person.</p>
+                <p className="p-6 text-sm text-muted-foreground">No visible key results for this person.</p>
               ) : (
-                <ul className="divide-y divide-gray-100">
+                <ul className="divide-y divide-border">
                   {Array.from(krsByObjective.values()).map((group) => (
                     <li key={group.objectiveId} className="px-4 py-3">
                       <Link
                         href={`/dashboard/objectives/${group.objectiveId}`}
-                        className="text-sm font-semibold text-gray-900 hover:text-blue-600"
+                        className="text-sm font-semibold text-foreground hover:text-blue-600"
                       >
                         {group.objectiveTitle}
                       </Link>
-                      <ul className="mt-2 space-y-1 border-l border-gray-100 pl-4">
+                      <ul className="mt-2 space-y-1 border-l border-border pl-4">
                         {group.krs.map((kr) => {
                           const ds = getKrDisplayStatus({
                             unit: kr.unit,
@@ -511,14 +511,14 @@ export default async function UserProfilePage({ params }: PageProps) {
                               />
                               <Link
                                 href={`/dashboard/key-results/${kr.id}`}
-                                className="text-gray-800 hover:text-blue-600 flex-1 min-w-0 truncate"
+                                className="text-foreground hover:text-blue-600 flex-1 min-w-0 truncate"
                               >
                                 {kr.title}
                               </Link>
-                              <span className="text-xs tabular-nums text-gray-500">
+                              <span className="text-xs tabular-nums text-muted-foreground">
                                 {Math.round(kr.progress)}%
                               </span>
-                              <span className="text-[11px] text-gray-500 w-20 text-right truncate">
+                              <span className="text-[11px] text-muted-foreground w-20 text-right truncate">
                                 {statusLabel(ds)}
                               </span>
                             </li>
@@ -531,23 +531,23 @@ export default async function UserProfilePage({ params }: PageProps) {
               )}
             </section>
 
-            <section className="bg-white rounded-lg border border-gray-200 shadow-sm">
-              <div className="px-4 py-3 border-b border-gray-100">
-                <h2 className="text-base font-semibold text-gray-900">Active initiatives</h2>
+            <section className="bg-card rounded-lg border border-border shadow-sm">
+              <div className="px-4 py-3 border-b border-border">
+                <h2 className="text-base font-semibold text-foreground">Active initiatives</h2>
               </div>
               {visibleTodos.length === 0 ? (
-                <p className="p-6 text-sm text-gray-500">No initiatives owned</p>
+                <p className="p-6 text-sm text-muted-foreground">No initiatives owned</p>
               ) : (
-                <ul className="divide-y divide-gray-100">
+                <ul className="divide-y divide-border">
                   {visibleTodos.map((t) => (
                     <li key={t.id} className="px-4 py-3 flex items-center justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="text-sm font-medium text-gray-900">{t.title}</p>
-                        <p className="text-xs text-gray-500 truncate">
+                        <p className="text-sm font-medium text-foreground">{t.title}</p>
+                        <p className="text-xs text-muted-foreground truncate">
                           {t.keyResult?.objective.title ?? 'Personal to-do'}
                         </p>
                       </div>
-                      <span className="text-xs text-gray-500 shrink-0 capitalize">
+                      <span className="text-xs text-muted-foreground shrink-0 capitalize">
                         {t.status.replace(/_/g, ' ').toLowerCase()}
                       </span>
                     </li>
@@ -570,26 +570,26 @@ export default async function UserProfilePage({ params }: PageProps) {
               addReportsHref={addReportsHref}
             />
 
-            <section className="bg-white rounded-lg border border-gray-200 shadow-sm">
-              <div className="px-4 py-3 border-b border-gray-100">
-                <h2 className="text-base font-semibold text-gray-900">Check-ins & updates</h2>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mt-1">
+            <section className="bg-card rounded-lg border border-border shadow-sm">
+              <div className="px-4 py-3 border-b border-border">
+                <h2 className="text-base font-semibold text-foreground">Check-ins & updates</h2>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mt-1">
                   {recentCheckIns.length === 0 ? 'No activity yet' : `Last ${recentCheckIns.length} entries`}
                 </p>
               </div>
               {recentCheckIns.length === 0 ? (
-                <p className="p-6 text-sm text-gray-500">
+                <p className="p-6 text-sm text-muted-foreground">
                   No check-ins or updates from this person yet.
                 </p>
               ) : (
-                <ul className="divide-y divide-gray-100">
+                <ul className="divide-y divide-border">
                   {recentCheckIns.map((ci) => (
                     <li key={ci.id} className="px-4 py-3 flex items-start gap-3">
-                      <div className="h-8 w-8 rounded-full bg-gray-100 text-gray-700 text-xs font-semibold flex items-center justify-center shrink-0">
+                      <div className="h-8 w-8 rounded-full bg-muted text-muted-foreground text-xs font-semibold flex items-center justify-center shrink-0">
                         {(profileUser.name ?? '?').slice(0, 1).toUpperCase()}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-muted-foreground">
                           {new Date(ci.createdAt).toLocaleString(undefined, {
                             dateStyle: 'medium',
                             timeStyle: 'short',
@@ -597,31 +597,31 @@ export default async function UserProfilePage({ params }: PageProps) {
                         </p>
                         <Link
                           href={`/dashboard/key-results/${ci.keyResultId}`}
-                          className="text-sm font-medium text-gray-900 hover:text-blue-600 line-clamp-1"
+                          className="text-sm font-medium text-foreground hover:text-blue-600 line-clamp-1"
                         >
                           {ci.keyResult.title}
                         </Link>
-                        <p className="text-xs text-gray-500 truncate">
+                        <p className="text-xs text-muted-foreground truncate">
                           {ci.keyResult.objective.title}
                         </p>
-                        <p className="text-xs text-gray-600 mt-1">
+                        <p className="text-xs text-muted-foreground mt-1">
                           Updated to{' '}
-                          <span className="font-medium text-gray-900 tabular-nums">
+                          <span className="font-medium text-foreground tabular-nums">
                             {ci.value} {ci.keyResult.unit}
                           </span>{' '}
                           {typeof ci.keyResult.targetValue === 'number' && ci.keyResult.targetValue > 0 ? (
-                            <span className="text-gray-500">
+                            <span className="text-muted-foreground">
                               / {ci.keyResult.targetValue} {ci.keyResult.unit}
                             </span>
                           ) : null}
                           {ci.confidence ? (
-                            <span className="ml-2 text-[11px] uppercase tracking-wide text-gray-500">
+                            <span className="ml-2 text-[11px] uppercase tracking-wide text-muted-foreground">
                               {ci.confidence}
                             </span>
                           ) : null}
                         </p>
                         {ci.analysis ? (
-                          <p className="text-sm text-gray-700 mt-1 line-clamp-3 whitespace-pre-wrap">
+                          <p className="text-sm text-muted-foreground mt-1 line-clamp-3 whitespace-pre-wrap">
                             {ci.analysis}
                           </p>
                         ) : null}

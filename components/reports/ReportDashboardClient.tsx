@@ -428,13 +428,13 @@ export default function ReportDashboardClient({
       {/* Filter column */}
       <aside
         className={cn(
-          'w-full shrink-0 rounded-lg border border-gray-200 bg-gray-50/80 lg:w-64',
+          'w-full shrink-0 rounded-lg border border-border bg-muted/80 lg:w-64',
           !filterOpen && 'hidden lg:block'
         )}
       >
-        <div className="border-b border-gray-200 px-3 py-2.5">
+        <div className="border-b border-border px-3 py-2.5">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold text-gray-900">Filters</span>
+            <span className="text-sm font-semibold text-foreground">Filters</span>
             <button
               type="button"
               className="lg:hidden text-xs text-primary-600"
@@ -444,13 +444,13 @@ export default function ReportDashboardClient({
             </button>
           </div>
           <div className="relative mt-2">
-            <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
               type="search"
               placeholder="Search objectives, KRs, plans…"
               value={segmentQuery}
               onChange={(e) => setSegmentQuery(e.target.value)}
-              className="w-full rounded-md border border-gray-200 bg-white py-1.5 pl-8 pr-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="w-full rounded-md border border-border bg-card py-1.5 pl-8 pr-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
             />
           </div>
         </div>
@@ -494,11 +494,11 @@ export default function ReportDashboardClient({
         {/* Dynamic filter chip bar */}
         <div className="flex flex-wrap items-center gap-2">
           {dynamicFilters.map((f) => (
-            <span key={`${f.type}-${f.id}`} className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs font-medium text-gray-700">
-              <span className="text-gray-400 capitalize">{f.type}:</span> {f.label}
+            <span key={`${f.type}-${f.id}`} className="inline-flex items-center gap-1 rounded-md border border-border bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">
+              <span className="text-muted-foreground capitalize">{f.type}:</span> {f.label}
               <button
                 onClick={() => removeDynamicFilter(f.type, f.id)}
-                className="ml-0.5 text-gray-400 hover:text-gray-700"
+                className="ml-0.5 text-muted-foreground hover:text-muted-foreground"
               >
                 <X className="h-3 w-3" />
               </button>
@@ -509,53 +509,53 @@ export default function ReportDashboardClient({
           <div className="relative">
             <button
               onClick={() => setAddingFilterType(addingFilterType ? null : '_pick')}
-              className="inline-flex items-center gap-1 rounded-md border border-dashed border-gray-300 bg-white px-2 py-1 text-xs text-gray-500 hover:border-gray-400 hover:text-gray-700"
+              className="inline-flex items-center gap-1 rounded-md border border-dashed border-border bg-card px-2 py-1 text-xs text-muted-foreground hover:border-gray-400 hover:text-muted-foreground"
             >
               <Filter className="h-3 w-3" /> Add filter
             </button>
 
             {addingFilterType === '_pick' && (
-              <div className="absolute left-0 top-8 z-20 rounded-md border border-gray-200 bg-white p-1 shadow-lg min-w-[160px]">
-                <button onClick={() => setAddingFilterType('user')} className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 rounded">User</button>
-                <button onClick={() => setAddingFilterType('department')} className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 rounded">Department</button>
-                <button onClick={() => setAddingFilterType('timeframe')} className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 rounded">Timeframe</button>
-                <button onClick={() => setAddingFilterType('confidence')} className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 rounded">Confidence</button>
-                <button onClick={() => setAddingFilterType('status')} className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 rounded">Status</button>
+              <div className="absolute left-0 top-8 z-20 rounded-md border border-border bg-card p-1 shadow-lg min-w-[160px]">
+                <button onClick={() => setAddingFilterType('user')} className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted rounded">User</button>
+                <button onClick={() => setAddingFilterType('department')} className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted rounded">Department</button>
+                <button onClick={() => setAddingFilterType('timeframe')} className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted rounded">Timeframe</button>
+                <button onClick={() => setAddingFilterType('confidence')} className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted rounded">Confidence</button>
+                <button onClick={() => setAddingFilterType('status')} className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted rounded">Status</button>
               </div>
             )}
 
             {addingFilterType === 'user' && filterOptions && (
-              <div className="absolute left-0 top-8 z-20 rounded-md border border-gray-200 bg-white p-1 shadow-lg min-w-[200px] max-h-[240px] overflow-auto">
+              <div className="absolute left-0 top-8 z-20 rounded-md border border-border bg-card p-1 shadow-lg min-w-[200px] max-h-[240px] overflow-auto">
                 {filterOptions.users.map((u) => (
-                  <button key={u.id} onClick={() => addDynamicFilter('user', u.id, u.name)} className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 rounded truncate">{u.name}</button>
+                  <button key={u.id} onClick={() => addDynamicFilter('user', u.id, u.name)} className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted rounded truncate">{u.name}</button>
                 ))}
               </div>
             )}
             {addingFilterType === 'department' && filterOptions && (
-              <div className="absolute left-0 top-8 z-20 rounded-md border border-gray-200 bg-white p-1 shadow-lg min-w-[200px] max-h-[240px] overflow-auto">
+              <div className="absolute left-0 top-8 z-20 rounded-md border border-border bg-card p-1 shadow-lg min-w-[200px] max-h-[240px] overflow-auto">
                 {filterOptions.departments.map((d) => (
-                  <button key={d.id} onClick={() => addDynamicFilter('department', d.id, d.name)} className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 rounded truncate">{d.name}</button>
+                  <button key={d.id} onClick={() => addDynamicFilter('department', d.id, d.name)} className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted rounded truncate">{d.name}</button>
                 ))}
               </div>
             )}
             {addingFilterType === 'timeframe' && filterOptions && (
-              <div className="absolute left-0 top-8 z-20 rounded-md border border-gray-200 bg-white p-1 shadow-lg min-w-[200px] max-h-[240px] overflow-auto">
+              <div className="absolute left-0 top-8 z-20 rounded-md border border-border bg-card p-1 shadow-lg min-w-[200px] max-h-[240px] overflow-auto">
                 {filterOptions.timeframes.map((t) => (
-                  <button key={t.id} onClick={() => addDynamicFilter('timeframe', t.id, t.name)} className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 rounded truncate">{t.name}</button>
+                  <button key={t.id} onClick={() => addDynamicFilter('timeframe', t.id, t.name)} className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted rounded truncate">{t.name}</button>
                 ))}
               </div>
             )}
             {addingFilterType === 'confidence' && (
-              <div className="absolute left-0 top-8 z-20 rounded-md border border-gray-200 bg-white p-1 shadow-lg min-w-[160px]">
-                <button onClick={() => addDynamicFilter('confidence', 'ON_TRACK', 'On track')} className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 rounded">On track</button>
-                <button onClick={() => addDynamicFilter('confidence', 'AT_RISK', 'At risk')} className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 rounded">At risk</button>
-                <button onClick={() => addDynamicFilter('confidence', 'OFF_TRACK', 'Off track')} className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 rounded">Off track</button>
+              <div className="absolute left-0 top-8 z-20 rounded-md border border-border bg-card p-1 shadow-lg min-w-[160px]">
+                <button onClick={() => addDynamicFilter('confidence', 'ON_TRACK', 'On track')} className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted rounded">On track</button>
+                <button onClick={() => addDynamicFilter('confidence', 'AT_RISK', 'At risk')} className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted rounded">At risk</button>
+                <button onClick={() => addDynamicFilter('confidence', 'OFF_TRACK', 'Off track')} className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted rounded">Off track</button>
               </div>
             )}
             {addingFilterType === 'status' && (
-              <div className="absolute left-0 top-8 z-20 rounded-md border border-gray-200 bg-white p-1 shadow-lg min-w-[160px]">
-                <button onClick={() => addDynamicFilter('status', 'ACTIVE', 'Active')} className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 rounded">Active</button>
-                <button onClick={() => addDynamicFilter('status', 'DRAFT', 'Draft')} className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 rounded">Draft</button>
+              <div className="absolute left-0 top-8 z-20 rounded-md border border-border bg-card p-1 shadow-lg min-w-[160px]">
+                <button onClick={() => addDynamicFilter('status', 'ACTIVE', 'Active')} className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted rounded">Active</button>
+                <button onClick={() => addDynamicFilter('status', 'DRAFT', 'Draft')} className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted rounded">Draft</button>
               </div>
             )}
           </div>
@@ -571,7 +571,7 @@ export default function ReportDashboardClient({
 
           <button
             type="button"
-            className="ml-auto inline-flex items-center gap-1 self-start rounded-md border border-gray-300 bg-white px-2 py-1 text-sm text-gray-700 lg:hidden"
+            className="ml-auto inline-flex items-center gap-1 self-start rounded-md border border-border bg-card px-2 py-1 text-sm text-muted-foreground lg:hidden"
             onClick={() => setFilterOpen(true)}
           >
             <SlidersHorizontal className="h-4 w-4" />
@@ -580,7 +580,7 @@ export default function ReportDashboardClient({
         </div>
 
         {/* Main tabs */}
-        <div className="flex border-b border-gray-200">
+        <div className="flex border-b border-border">
           {(
             [
               ['objectives', 'Objectives'],
@@ -596,7 +596,7 @@ export default function ReportDashboardClient({
                 '-mb-px border-b-2 px-4 py-2.5 text-sm font-semibold uppercase tracking-wide',
                 mainTab === id
                   ? 'border-primary-600 text-primary-700'
-                  : 'border-transparent text-gray-500 hover:text-gray-800'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
               )}
             >
               {label}
@@ -605,16 +605,16 @@ export default function ReportDashboardClient({
         </div>
 
         {/* Toolbar */}
-        <div className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-white p-3 shadow-sm sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3 shadow-sm sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs font-medium text-gray-700">
+            <span className="inline-flex items-center gap-1 rounded-md border border-border bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">
               <Filter className="h-3.5 w-3.5" />
               Filters
             </span>
             <select
               value={planStatus}
               onChange={(e) => setPlanStatus(e.target.value)}
-              className="rounded-md border border-gray-200 bg-white px-2 py-1.5 text-xs font-medium uppercase text-gray-700"
+              className="rounded-md border border-border bg-card px-2 py-1.5 text-xs font-medium uppercase text-muted-foreground"
             >
               <option value="all">Plan status — all</option>
               <option value="ON_TRACK">On track</option>
@@ -625,7 +625,7 @@ export default function ReportDashboardClient({
             <select
               value={confidenceFilter}
               onChange={(e) => setConfidenceFilter(e.target.value)}
-              className="rounded-md border border-gray-200 bg-white px-2 py-1.5 text-xs font-medium uppercase text-gray-700"
+              className="rounded-md border border-border bg-card px-2 py-1.5 text-xs font-medium uppercase text-muted-foreground"
             >
               <option value="all">Confidence — all</option>
               <option value="ON_TRACK">On track</option>
@@ -642,22 +642,22 @@ export default function ReportDashboardClient({
             </button>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-muted-foreground">
               {mainTab === 'key-results' && (
                 <>
-                  <span className="font-semibold text-gray-900">{filteredKrs.length}</span> key
+                  <span className="font-semibold text-foreground">{filteredKrs.length}</span> key
                   results match
                 </>
               )}
               {mainTab === 'objectives' && (
                 <>
-                  <span className="font-semibold text-gray-900">{filteredObjectives.length}</span>{' '}
+                  <span className="font-semibold text-foreground">{filteredObjectives.length}</span>{' '}
                   objectives match
                 </>
               )}
               {mainTab === 'initiatives' && (
                 <>
-                  <span className="font-semibold text-gray-900">{filteredTodos.length}</span>{' '}
+                  <span className="font-semibold text-foreground">{filteredTodos.length}</span>{' '}
                   initiatives match
                 </>
               )}
@@ -665,7 +665,7 @@ export default function ReportDashboardClient({
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                className="rounded-md border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                className="rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted"
               >
                 Save segment
               </button>
@@ -678,11 +678,11 @@ export default function ReportDashboardClient({
                 Share
               </button>
               <div className="flex items-center gap-1">
-                <span className="text-xs text-gray-500">Sort</span>
+                <span className="text-xs text-muted-foreground">Sort</span>
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as SortKey)}
-                  className="rounded-md border border-gray-200 bg-white py-1 pl-2 pr-7 text-xs text-gray-800"
+                  className="rounded-md border border-border bg-card py-1 pl-2 pr-7 text-xs text-foreground"
                   disabled={mainTab !== 'key-results'}
                 >
                   <option value="plan">Plan</option>
@@ -716,11 +716,11 @@ export default function ReportDashboardClient({
             */}
 
             {/* KR table */}
-            <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-              <div className="border-b border-gray-100 bg-gray-50/80 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <div className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
+              <div className="border-b border-border bg-muted/80 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Key results
               </div>
-              <div className="divide-y divide-gray-100">
+              <div className="divide-y divide-border">
                 {Array.from(groupedByObjective.entries()).map(([objId, rows]) => {
                   const title = rows[0]?.objectiveTitle ?? 'Objective'
                   const open = expandedObjectives[objId] ?? true
@@ -729,19 +729,19 @@ export default function ReportDashboardClient({
                       <button
                         type="button"
                         onClick={() => toggleObjective(objId)}
-                        className="flex w-full items-center gap-2 bg-gray-50 px-3 py-2 text-left text-sm font-semibold text-gray-900 hover:bg-gray-100"
+                        className="flex w-full items-center gap-2 bg-muted px-3 py-2 text-left text-sm font-semibold text-foreground hover:bg-muted"
                       >
                         {open ? (
-                          <ChevronDown className="h-4 w-4 shrink-0 text-gray-500" />
+                          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
                         ) : (
-                          <ChevronRight className="h-4 w-4 shrink-0 text-gray-500" />
+                          <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
                         )}
                         <span className="truncate">{title}</span>
                       </button>
                       {open && (
                         <table className="w-full text-sm">
                           <thead>
-                            <tr className="border-b border-gray-100 text-left text-xs text-gray-500">
+                            <tr className="border-b border-border text-left text-xs text-muted-foreground">
                               <th className="px-3 py-2 font-medium">Key result</th>
                               <th className="hidden px-2 py-2 font-medium sm:table-cell">Plan</th>
                               <th className="px-2 py-2 font-medium">Progress</th>
@@ -750,7 +750,7 @@ export default function ReportDashboardClient({
                           </thead>
                           <tbody>
                             {rows.map((kr) => (
-                              <tr key={kr.id} className="border-b border-gray-50 hover:bg-gray-50/80">
+                              <tr key={kr.id} className="border-b border-gray-50 hover:bg-muted/80">
                                 <td className="max-w-md px-3 py-2.5">
                                   <Link
                                     href={`/dashboard/key-results/${kr.id}`}
@@ -759,7 +759,7 @@ export default function ReportDashboardClient({
                                     {kr.title}
                                   </Link>
                                 </td>
-                                <td className="hidden max-w-[10rem] truncate px-2 py-2.5 text-gray-600 sm:table-cell">
+                                <td className="hidden max-w-[10rem] truncate px-2 py-2.5 text-muted-foreground sm:table-cell">
                                   {kr.planLabel}
                                 </td>
                                 <td className="whitespace-nowrap px-2 py-2.5">
@@ -769,13 +769,13 @@ export default function ReportDashboardClient({
                                       kr.displayStatus === 'off_track' && 'bg-red-50 text-red-800',
                                       kr.displayStatus === 'at_risk' && 'bg-amber-50 text-amber-900',
                                       kr.displayStatus === 'on_track' && 'bg-emerald-50 text-emerald-900',
-                                      kr.displayStatus === 'pending' && 'bg-gray-100 text-gray-700',
+                                      kr.displayStatus === 'pending' && 'bg-muted text-muted-foreground',
                                       kr.displayStatus === 'not_measurable' && 'bg-gray-900 text-white'
                                     )}
                                   >
                                     {statusLabel(kr.displayStatus)}
                                   </span>
-                                  <span className="ml-2 text-gray-600">
+                                  <span className="ml-2 text-muted-foreground">
                                     {Math.round(kr.progress)}%
                                   </span>
                                 </td>
@@ -794,7 +794,7 @@ export default function ReportDashboardClient({
                 })}
               </div>
               {sortedKrs.length > tableLimit && (
-                <div className="border-t border-gray-100 p-3 text-center">
+                <div className="border-t border-border p-3 text-center">
                   <button
                     type="button"
                     onClick={() => setTableLimit((n) => n + 25)}
@@ -805,17 +805,17 @@ export default function ReportDashboardClient({
                 </div>
               )}
               {sortedKrs.length === 0 && (
-                <p className="p-8 text-center text-sm text-gray-500">No key results match these filters.</p>
+                <p className="p-8 text-center text-sm text-muted-foreground">No key results match these filters.</p>
               )}
             </div>
           </>
         )}
 
         {mainTab === 'objectives' && (
-          <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+          <div className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs uppercase text-gray-500">
+                <tr className="border-b border-border bg-muted text-left text-xs uppercase text-muted-foreground">
                   <th className="px-4 py-3 font-medium">Objective</th>
                   <th className="hidden px-3 py-3 font-medium sm:table-cell">Plan</th>
                   <th className="px-3 py-3 font-medium">Progress</th>
@@ -825,7 +825,7 @@ export default function ReportDashboardClient({
               </thead>
               <tbody>
                 {filteredObjectives.map((o) => (
-                  <tr key={o.id} className="border-b border-gray-100 hover:bg-gray-50/80">
+                  <tr key={o.id} className="border-b border-border hover:bg-muted/80">
                     <td className="px-4 py-3">
                       <Link
                         href={`/dashboard/objectives/${o.id}`}
@@ -833,15 +833,15 @@ export default function ReportDashboardClient({
                       >
                         {o.title}
                       </Link>
-                      <div className="text-xs text-gray-500">{o.level.replace('_', ' ')}</div>
+                      <div className="text-xs text-muted-foreground">{o.level.replace('_', ' ')}</div>
                     </td>
-                    <td className="hidden max-w-[10rem] truncate px-3 py-3 text-gray-600 sm:table-cell">
+                    <td className="hidden max-w-[10rem] truncate px-3 py-3 text-muted-foreground sm:table-cell">
                       {o.planLabel}
                     </td>
                     <td className="whitespace-nowrap px-3 py-3">
-                      <span className="font-medium text-gray-900">{Math.round(o.progress)}%</span>
+                      <span className="font-medium text-foreground">{Math.round(o.progress)}%</span>
                     </td>
-                    <td className="hidden px-3 py-3 text-gray-600 md:table-cell">{o.keyResultCount}</td>
+                    <td className="hidden px-3 py-3 text-muted-foreground md:table-cell">{o.keyResultCount}</td>
                     <td className="px-3 py-3">
                       <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary-100 text-xs font-semibold text-primary-800">
                         {initials(o.ownerName)}
@@ -852,16 +852,16 @@ export default function ReportDashboardClient({
               </tbody>
             </table>
             {filteredObjectives.length === 0 && (
-              <p className="p-8 text-center text-sm text-gray-500">No objectives match these filters.</p>
+              <p className="p-8 text-center text-sm text-muted-foreground">No objectives match these filters.</p>
             )}
           </div>
         )}
 
         {mainTab === 'initiatives' && (
-          <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+          <div className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs uppercase text-gray-500">
+                <tr className="border-b border-border bg-muted text-left text-xs uppercase text-muted-foreground">
                   <th className="px-4 py-3 font-medium">Initiative</th>
                   <th className="hidden px-3 py-3 font-medium lg:table-cell">Key result</th>
                   <th className="px-3 py-3 font-medium">Status</th>
@@ -870,12 +870,12 @@ export default function ReportDashboardClient({
               </thead>
               <tbody>
                 {filteredTodos.map((t) => (
-                  <tr key={t.id} className="border-b border-gray-100 hover:bg-gray-50/80">
+                  <tr key={t.id} className="border-b border-border hover:bg-muted/80">
                     <td className="px-4 py-3">
-                      <div className="font-medium text-gray-900">{t.title}</div>
-                      <div className="text-xs text-gray-500">{t.objectiveTitle}</div>
+                      <div className="font-medium text-foreground">{t.title}</div>
+                      <div className="text-xs text-muted-foreground">{t.objectiveTitle}</div>
                     </td>
-                    <td className="hidden max-w-xs truncate px-3 py-3 text-gray-600 lg:table-cell">
+                    <td className="hidden max-w-xs truncate px-3 py-3 text-muted-foreground lg:table-cell">
                       <Link
                         href={`/dashboard/key-results/${t.keyResultId}`}
                         className="text-primary-700 hover:underline"
@@ -884,17 +884,17 @@ export default function ReportDashboardClient({
                       </Link>
                     </td>
                     <td className="px-3 py-3">
-                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-800">
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-foreground">
                         {t.status.replace('_', ' ')}
                       </span>
                     </td>
-                    <td className="hidden px-3 py-3 text-gray-700 md:table-cell">{t.assigneeName}</td>
+                    <td className="hidden px-3 py-3 text-muted-foreground md:table-cell">{t.assigneeName}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
             {filteredTodos.length === 0 && (
-              <p className="p-8 text-center text-sm text-gray-500">No initiatives in this scope.</p>
+              <p className="p-8 text-center text-sm text-muted-foreground">No initiatives in this scope.</p>
             )}
           </div>
         )}
@@ -920,7 +920,7 @@ function FilterChip({
         'rounded-full border px-2.5 py-1 text-xs font-medium transition-colors',
         active
           ? 'border-primary-500 bg-primary-50 text-primary-900'
-          : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+          : 'border-border bg-card text-muted-foreground hover:border-border'
       )}
     >
       {children}
@@ -941,7 +941,7 @@ function PresetGroup({
 }) {
   return (
     <div>
-      <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-gray-500">{title}</p>
+      <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">{title}</p>
       <ul className="space-y-0.5">
         {items.map((item) => (
           <li key={item.id}>
@@ -952,7 +952,7 @@ function PresetGroup({
                 'w-full rounded-md px-2 py-1.5 text-left text-sm transition-colors',
                 active === item.id
                   ? 'bg-primary-50 font-medium text-primary-900'
-                  : 'text-gray-700 hover:bg-white hover:text-gray-900'
+                  : 'text-muted-foreground hover:bg-card hover:text-foreground'
               )}
             >
               {item.label}
@@ -974,10 +974,10 @@ function StatusCard({
   accent: string
 }) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
+    <div className="rounded-lg border border-border bg-card p-3 shadow-sm">
       <div className={cn('mb-2 h-1 w-full rounded-full', accent)} />
-      <div className="text-2xl font-bold tabular-nums text-gray-900">{value}</div>
-      <div className="text-xs font-medium text-gray-500">{label}</div>
+      <div className="text-2xl font-bold tabular-nums text-foreground">{value}</div>
+      <div className="text-xs font-medium text-muted-foreground">{label}</div>
     </div>
   )
 }

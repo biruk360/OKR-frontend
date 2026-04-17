@@ -42,8 +42,8 @@ export default function DeleteTodoModal({ isOpen, onClose, todo, onConfirm }: De
       isLoading={isLoading}
       details={
         <>
-          <h3 className="font-medium text-gray-900 mb-2">To-Do Details:</h3>
-          <div className="text-sm text-gray-600 space-y-1">
+          <h3 className="font-medium text-foreground mb-2">To-Do Details:</h3>
+          <div className="text-sm text-muted-foreground space-y-1">
             <p><strong>Title:</strong> {todo.title}</p>
             {todo.description && (
               <p><strong>Description:</strong> {todo.description}</p>

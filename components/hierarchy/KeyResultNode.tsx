@@ -50,11 +50,11 @@ const KeyResultNode = memo(({ data, selected }: NodeProps<KeyResultNodeData>) =>
   }
 
   return (
-    <div className={`px-4 py-3 bg-gray-50 border-2 rounded-lg shadow-md min-w-[240px] max-w-[280px] ${
-      selected ? 'border-blue-500' : 'border-gray-300'
+    <div className={`px-4 py-3 bg-muted border-2 rounded-lg shadow-md min-w-[240px] max-w-[280px] ${
+      selected ? 'border-blue-500' : 'border-border'
     }`}>
       {/* Title */}
-      <h4 className="font-medium text-gray-900 text-sm mb-3 line-clamp-2">
+      <h4 className="font-medium text-foreground text-sm mb-3 line-clamp-2">
         {title}
       </h4>
 
@@ -66,7 +66,7 @@ const KeyResultNode = memo(({ data, selected }: NodeProps<KeyResultNodeData>) =>
             style={{ width: `${Math.min(progress, 100)}%` }}
           />
           <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-xs font-medium text-gray-800">
+            <span className="text-xs font-medium text-foreground">
               {formatValue(currentValue, unit)}
             </span>
           </div>
@@ -74,7 +74,7 @@ const KeyResultNode = memo(({ data, selected }: NodeProps<KeyResultNodeData>) =>
       </div>
 
       {/* Target Value */}
-      <div className="text-xs text-gray-600 text-center">
+      <div className="text-xs text-muted-foreground text-center">
         Target: {formatValue(targetValue, unit)}
       </div>
 

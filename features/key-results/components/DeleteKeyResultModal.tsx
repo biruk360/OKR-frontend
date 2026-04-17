@@ -63,12 +63,12 @@ export default function DeleteKeyResultModal({ isOpen, onClose, keyResult, onSuc
       bulletsTitle="What will be deleted:"
       details={
         <>
-          <h4 className="text-sm font-medium text-gray-900 mb-2">Key Result Details:</h4>
-          <p className="text-sm text-gray-700 font-medium">{keyResult.title}</p>
-          <p className="text-xs text-gray-500 mt-1">
+          <h4 className="text-sm font-medium text-foreground mb-2">Key Result Details:</h4>
+          <p className="text-sm text-muted-foreground font-medium">{keyResult.title}</p>
+          <p className="text-xs text-muted-foreground mt-1">
             Target: {keyResult.targetValue} {keyResult.unit} • Current: {keyResult.currentValue} {keyResult.unit}
           </p>
-          <p className="text-xs text-gray-500">Owner: {keyResult.owner?.name}</p>
+          <p className="text-xs text-muted-foreground">Owner: {keyResult.owner?.name}</p>
         </>
       }
       extraContent={

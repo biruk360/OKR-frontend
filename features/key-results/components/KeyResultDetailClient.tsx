@@ -172,7 +172,7 @@ export default function KeyResultDetailClient({
       <div className="flex items-center justify-between">
         <Link
           href={`/dashboard/objectives/${objective.id}`}
-          className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700"
+          className="inline-flex items-center text-sm text-muted-foreground hover:text-muted-foreground"
         >
           <ArrowLeft className="h-4 w-4 mr-1" />
           Back to Objective
@@ -182,7 +182,7 @@ export default function KeyResultDetailClient({
             <button
               type="button"
               onClick={() => setCheckInOpen(true)}
-              className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md border border-gray-300 bg-white text-gray-900 shadow-sm hover:bg-gray-50"
+              className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md border border-border bg-card text-foreground shadow-sm hover:bg-muted"
             >
               Create check-in
             </button>
@@ -202,7 +202,7 @@ export default function KeyResultDetailClient({
             <button
               type="button"
               onClick={() => setMenuOpen((m) => !m)}
-              className="p-2 rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+              className="p-2 rounded-md border border-border bg-card text-muted-foreground hover:bg-muted"
               aria-expanded={menuOpen}
             >
               <MoreHorizontal className="h-5 w-5" />
@@ -215,24 +215,24 @@ export default function KeyResultDetailClient({
                   aria-label="Close menu"
                   onClick={() => setMenuOpen(false)}
                 />
-                <div className="absolute right-0 top-full mt-1 z-50 w-48 rounded-md border border-gray-200 bg-white shadow-lg py-1 text-sm">
+                <div className="absolute right-0 top-full mt-1 z-50 w-48 rounded-md border border-border bg-card shadow-lg py-1 text-sm">
                   <Link
                     href={`/dashboard/objectives/${objective.id}`}
-                    className="block px-3 py-2 text-gray-700 hover:bg-gray-50"
+                    className="block px-3 py-2 text-muted-foreground hover:bg-muted"
                     onClick={() => setMenuOpen(false)}
                   >
                     View objective
                   </Link>
                   <a
                     href={`#${TIMELINE_ELEMENT_ID}`}
-                    className="block px-3 py-2 text-gray-700 hover:bg-gray-50"
+                    className="block px-3 py-2 text-muted-foreground hover:bg-muted"
                     onClick={() => setMenuOpen(false)}
                   >
                     Jump to Progress Timeline
                   </a>
                   <a
                     href={`#${ACTIVITY_ELEMENT_ID}`}
-                    className="block px-3 py-2 text-gray-700 hover:bg-gray-50"
+                    className="block px-3 py-2 text-muted-foreground hover:bg-muted"
                     onClick={() => setMenuOpen(false)}
                   >
                     Jump to Activity log
@@ -247,27 +247,27 @@ export default function KeyResultDetailClient({
       <OkrBreadcrumb nodes={breadcrumbNodes} />
 
       {siblingNav.total > 1 && (
-        <div className="flex items-center gap-1 text-sm text-gray-600">
+        <div className="flex items-center gap-1 text-sm text-muted-foreground">
           {siblingNav.prevId ? (
             <Link
               href={`/dashboard/key-results/${siblingNav.prevId}`}
-              className="p-2 rounded-md border border-gray-200 bg-white hover:bg-gray-50 text-gray-700"
+              className="p-2 rounded-md border border-border bg-card hover:bg-muted text-muted-foreground"
             >
               <ChevronLeft className="h-4 w-4" />
             </Link>
           ) : (
-            <span className="p-2 text-gray-300"><ChevronLeft className="h-4 w-4" /></span>
+            <span className="p-2 text-muted-foreground"><ChevronLeft className="h-4 w-4" /></span>
           )}
           <span className="px-2 tabular-nums">KR {siblingNav.index + 1} of {siblingNav.total} on this objective</span>
           {siblingNav.nextId ? (
             <Link
               href={`/dashboard/key-results/${siblingNav.nextId}`}
-              className="p-2 rounded-md border border-gray-200 bg-white hover:bg-gray-50 text-gray-700"
+              className="p-2 rounded-md border border-border bg-card hover:bg-muted text-muted-foreground"
             >
               <ChevronRight className="h-4 w-4" />
             </Link>
           ) : (
-            <span className="p-2 text-gray-300"><ChevronRight className="h-4 w-4" /></span>
+            <span className="p-2 text-muted-foreground"><ChevronRight className="h-4 w-4" /></span>
           )}
         </div>
       )}
@@ -286,53 +286,53 @@ export default function KeyResultDetailClient({
           )}
 
           {/* Header card: KR badge, title, parent objective, description, big progress */}
-          <section className="bg-white shadow rounded-lg p-6">
+          <section className="bg-card shadow rounded-lg p-6">
             <div className="flex items-start justify-between gap-6">
               <div className="flex-1 min-w-0">
                 <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                   <Target className="h-3.5 w-3.5 mr-1" />
                   Key Result
                 </span>
-                <h1 className="mt-3 text-2xl font-semibold text-gray-900 leading-tight">
+                <h1 className="mt-3 text-2xl font-semibold text-foreground leading-tight">
                   {kr.title}
                 </h1>
                 <div className="mt-2">
                   <Link
                     href={`/dashboard/objectives/${objective.id}`}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-gray-700 hover:bg-gray-100"
+                    className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted px-2 py-1 text-xs text-muted-foreground hover:bg-muted"
                   >
-                    <Target className="h-3 w-3 text-gray-500" />
+                    <Target className="h-3 w-3 text-muted-foreground" />
                     Supports: {objective.title}
-                    {deadline && <span className="text-gray-500 ml-1">· Target {deadline}</span>}
+                    {deadline && <span className="text-muted-foreground ml-1">· Target {deadline}</span>}
                   </Link>
                 </div>
                 {kr.description && !isRedacted && (
-                  <p className="mt-3 text-base text-gray-700 leading-relaxed">{kr.description}</p>
+                  <p className="mt-3 text-base text-muted-foreground leading-relaxed">{kr.description}</p>
                 )}
               </div>
 
               <div className="flex-shrink-0 text-right min-w-[180px]">
                 <div className="flex items-center justify-end gap-2 mb-1">
-                  <span className="text-3xl font-bold text-gray-900">{progressRounded}%</span>
+                  <span className="text-3xl font-bold text-foreground">{progressRounded}%</span>
                   {status && (
                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${status.classes}`}>
                       {status.label}
                     </span>
                   )}
                 </div>
-                <div className="text-xs text-gray-500">Key Result Progress</div>
+                <div className="text-xs text-muted-foreground">Key Result Progress</div>
                 <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
                   <div
                     className={`h-2 rounded-full transition-all duration-300 ${getProgressBarClass(pct)}`}
                     style={{ width: `${Math.min(progressRounded, 100)}%` }}
                   />
                 </div>
-                <div className="text-[11px] text-gray-400 mt-2">
+                <div className="text-[11px] text-muted-foreground mt-2">
                   Last updated {formatRelativeTime(kr.updatedAt)}
                 </div>
                 {!isRedacted && (
-                  <div className="mt-1 text-[11px] text-gray-500">
-                    <span className="font-semibold text-gray-700">{unit} {formatAxisValue(Number(kr.currentValue) || 0)}</span>
+                  <div className="mt-1 text-[11px] text-muted-foreground">
+                    <span className="font-semibold text-muted-foreground">{unit} {formatAxisValue(Number(kr.currentValue) || 0)}</span>
                     {' '} / {unit} {formatAxisValue(Number(kr.targetValue) || 0)}
                   </div>
                 )}
@@ -341,19 +341,19 @@ export default function KeyResultDetailClient({
           </section>
 
           {/* Check-in history */}
-          <section className="bg-white shadow rounded-lg p-6">
+          <section className="bg-card shadow rounded-lg p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Check-in history</h2>
-              <span className="text-xs text-gray-500">{isRedacted ? '—' : `${checkIns.length} total`}</span>
+              <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">Check-in history</h2>
+              <span className="text-xs text-muted-foreground">{isRedacted ? '—' : `${checkIns.length} total`}</span>
             </div>
 
             {!isRedacted && checkIns.length === 0 ? (
-              <div className="text-center py-10 px-4 border-2 border-dashed border-gray-200 rounded-lg bg-gray-50/50">
+              <div className="text-center py-10 px-4 border-2 border-dashed border-border rounded-lg bg-muted/50">
                 <div className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-violet-100 text-violet-600 mb-4">
                   <Bot className="h-8 w-8" />
                 </div>
-                <p className="text-gray-700 font-medium mb-1">Waiting for the first check-in</p>
-                <p className="text-sm text-gray-500 mb-6 max-w-md mx-auto">
+                <p className="text-muted-foreground font-medium mb-1">Waiting for the first check-in</p>
+                <p className="text-sm text-muted-foreground mb-6 max-w-md mx-auto">
                   Record progress to see trends and history on this key result.
                 </p>
                 <div className="flex flex-wrap gap-3 justify-center">
@@ -369,7 +369,7 @@ export default function KeyResultDetailClient({
                   <button
                     type="button"
                     disabled
-                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-gray-300 bg-white text-sm text-gray-400 cursor-not-allowed"
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-border bg-card text-sm text-muted-foreground cursor-not-allowed"
                     title="Coming soon"
                   >
                     <Plug className="h-4 w-4" /> Connect a data source
@@ -381,10 +381,10 @@ export default function KeyResultDetailClient({
                 {[...checkIns].reverse().map((c) => (
                   <li key={c.id} className="border-l-2 border-blue-500 pl-4 py-1">
                     <div className="flex flex-wrap items-baseline gap-2 text-sm">
-                      <time className="font-medium text-gray-900">
+                      <time className="font-medium text-foreground">
                         {format(new Date(c.asOfDate), 'PP')}
                       </time>
-                      <span className="text-gray-600">{unit} {formatAxisValue(c.value)}</span>
+                      <span className="text-muted-foreground">{unit} {formatAxisValue(c.value)}</span>
                       <span
                         className={`text-xs px-2 py-0.5 rounded-full ${
                           c.confidence === 'ON_TRACK' ? 'bg-green-100 text-green-800'
@@ -396,21 +396,21 @@ export default function KeyResultDetailClient({
                       </span>
                     </div>
                     {c.analysis && (
-                      <p className="mt-2 text-sm text-gray-600 whitespace-pre-wrap">{c.analysis}</p>
+                      <p className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap">{c.analysis}</p>
                     )}
-                    <p className="mt-1 text-xs text-gray-400">by {c.createdBy?.name ?? 'Unknown'}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">by {c.createdBy?.name ?? 'Unknown'}</p>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-gray-500">Check-in history is hidden for this private key result.</p>
+              <p className="text-sm text-muted-foreground">Check-in history is hidden for this private key result.</p>
             )}
           </section>
 
           {/* Initiatives under this KR */}
-          <section className="bg-white shadow rounded-lg overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">
+          <section className="bg-card shadow rounded-lg overflow-hidden">
+            <div className="px-6 py-4 border-b border-border flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">
                 Initiatives ({todoCount})
               </h2>
               <span
@@ -424,7 +424,7 @@ export default function KeyResultDetailClient({
               {!isRedacted ? (
                 <ToDoList keyResultId={kr.id} keyResult={kr} users={users} variant="embedded" />
               ) : (
-                <p className="text-sm text-gray-500">Initiatives are managed from the objective page.</p>
+                <p className="text-sm text-muted-foreground">Initiatives are managed from the objective page.</p>
               )}
             </div>
           </section>
@@ -451,15 +451,15 @@ export default function KeyResultDetailClient({
 
         {/* -------- Sidebar -------- */}
         <aside className="lg:col-span-4 space-y-4">
-          <section className="bg-white shadow rounded-lg p-5" id={TIMELINE_ELEMENT_ID}>
+          <section className="bg-card shadow rounded-lg p-5" id={TIMELINE_ELEMENT_ID}>
             <div className="flex items-center justify-between mb-3">
               <div>
-                <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">
+                <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">
                   Progress Timeline
                 </h3>
-                <p className="text-xs text-gray-500 mt-0.5">Expected vs actual</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Expected vs actual</p>
               </div>
-              <TrendingUp className="h-4 w-4 text-gray-400" />
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </div>
             <KeyResultProgressChart
               keyResult={kr}
@@ -470,37 +470,37 @@ export default function KeyResultDetailClient({
             />
           </section>
 
-          <section className="bg-white shadow rounded-lg p-5">
-            <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-4">
+          <section className="bg-card shadow rounded-lg p-5">
+            <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide mb-4">
               Key Result Details
             </h3>
             <div className="space-y-4">
               <div>
-                <div className="flex items-center text-[11px] text-gray-500 uppercase tracking-wide mb-1.5">
+                <div className="flex items-center text-[11px] text-muted-foreground uppercase tracking-wide mb-1.5">
                   <User className="h-3 w-3 mr-1" /> Owner
                 </div>
                 <div className="flex items-center space-x-2">
                   <Avatar name={kr.owner?.name ?? '?'} avatar={kr.owner?.avatar} size="sm" />
                   <div className="min-w-0">
-                    <div className="text-sm font-medium text-gray-900 truncate">{kr.owner?.name ?? 'Unknown'}</div>
+                    <div className="text-sm font-medium text-foreground truncate">{kr.owner?.name ?? 'Unknown'}</div>
                     {kr.owner?.email && (
-                      <div className="text-xs text-gray-500 truncate">{kr.owner.email}</div>
+                      <div className="text-xs text-muted-foreground truncate">{kr.owner.email}</div>
                     )}
                   </div>
                 </div>
               </div>
 
               <div>
-                <div className="flex items-center text-[11px] text-gray-500 uppercase tracking-wide mb-1.5">
+                <div className="flex items-center text-[11px] text-muted-foreground uppercase tracking-wide mb-1.5">
                   <Target className="h-3 w-3 mr-1" /> Parent Objective
                 </div>
                 <Link
                   href={`/dashboard/objectives/${objective.id}`}
-                  className="block rounded-md border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-colors px-3 py-2"
+                  className="block rounded-md border border-border hover:border-border hover:bg-muted transition-colors px-3 py-2"
                 >
-                  <div className="text-sm font-medium text-gray-900 line-clamp-2">{objective.title}</div>
+                  <div className="text-sm font-medium text-foreground line-clamp-2">{objective.title}</div>
                   {objective.level && (
-                    <div className="text-xs text-gray-500 mt-0.5">
+                    <div className="text-xs text-muted-foreground mt-0.5">
                       {objective.level === 'COMPANY' ? 'Company Objective'
                         : objective.level === 'DEPARTMENT' ? 'Department Objective'
                         : 'Individual Objective'}
@@ -511,12 +511,12 @@ export default function KeyResultDetailClient({
 
               {timeframe && (
                 <div>
-                  <div className="flex items-center text-[11px] text-gray-500 uppercase tracking-wide mb-1.5">
+                  <div className="flex items-center text-[11px] text-muted-foreground uppercase tracking-wide mb-1.5">
                     <Calendar className="h-3 w-3 mr-1" /> Timeframe
                   </div>
                   <div className="flex items-center gap-2">
                     {timeframe.name && (
-                      <span className="text-sm font-medium text-gray-900">{timeframe.name}</span>
+                      <span className="text-sm font-medium text-foreground">{timeframe.name}</span>
                     )}
                     {timeframeTypeLabel && (
                       <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-800">
@@ -529,23 +529,23 @@ export default function KeyResultDetailClient({
 
               {objective.department && (
                 <div>
-                  <div className="flex items-center text-[11px] text-gray-500 uppercase tracking-wide mb-1.5">
+                  <div className="flex items-center text-[11px] text-muted-foreground uppercase tracking-wide mb-1.5">
                     <Building2 className="h-3 w-3 mr-1" /> Department
                   </div>
-                  <div className="text-sm font-medium text-gray-900">{objective.department.name}</div>
+                  <div className="text-sm font-medium text-foreground">{objective.department.name}</div>
                 </div>
               )}
 
               {!isRedacted && (
                 <div>
-                  <div className="flex items-center text-[11px] text-gray-500 uppercase tracking-wide mb-1.5">
+                  <div className="flex items-center text-[11px] text-muted-foreground uppercase tracking-wide mb-1.5">
                     <TrendingUp className="h-3 w-3 mr-1" /> Measurement
                   </div>
-                  <div className="text-sm text-gray-900">
+                  <div className="text-sm text-foreground">
                     Start <span className="font-semibold">{unit} {formatAxisValue(Number(kr.startValue) || 0)}</span>
                     {' '}→ Target <span className="font-semibold">{unit} {formatAxisValue(Number(kr.targetValue) || 0)}</span>
                   </div>
-                  <div className="text-xs text-gray-500 mt-0.5">
+                  <div className="text-xs text-muted-foreground mt-0.5">
                     Current: {unit} {formatAxisValue(Number(kr.currentValue) || 0)}
                   </div>
                 </div>

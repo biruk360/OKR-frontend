@@ -52,21 +52,21 @@ export default function IntegrationsManagement() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Integrations & API Keys</h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <h1 className="text-2xl font-bold text-foreground">Integrations & API Keys</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
           Configure email and Slack integrations for reminders and notifications.
         </p>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         {/* Email Integration */}
-        <div className="bg-white shadow rounded-lg p-6">
+        <div className="bg-card shadow rounded-lg p-6">
           <div className="flex items-center mb-4">
-            <Mail className="h-5 w-5 text-gray-400 mr-2" />
-            <h3 className="text-lg font-medium text-gray-900">Email Integration</h3>
+            <Mail className="h-5 w-5 text-muted-foreground mr-2" />
+            <h3 className="text-lg font-medium text-foreground">Email Integration</h3>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-muted-foreground mb-2">
               Email API Key
             </label>
             <input
@@ -75,21 +75,21 @@ export default function IntegrationsManagement() {
               className="input"
               placeholder="Enter email service API key"
             />
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-muted-foreground">
               API key for sending email reminders and notifications.
             </p>
           </div>
         </div>
 
         {/* Slack Integration */}
-        <div className="bg-white shadow rounded-lg p-6">
+        <div className="bg-card shadow rounded-lg p-6">
           <div className="flex items-center mb-4">
-            <MessageSquare className="h-5 w-5 text-gray-400 mr-2" />
-            <h3 className="text-lg font-medium text-gray-900">Slack Integration</h3>
+            <MessageSquare className="h-5 w-5 text-muted-foreground mr-2" />
+            <h3 className="text-lg font-medium text-foreground">Slack Integration</h3>
           </div>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-muted-foreground mb-2">
                 Slack Webhook URL
               </label>
               <input
@@ -98,12 +98,12 @@ export default function IntegrationsManagement() {
                 className="input"
                 placeholder="https://hooks.slack.com/services/..."
               />
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="mt-1 text-xs text-muted-foreground">
                 Webhook URL for sending Slack notifications.
               </p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-muted-foreground mb-2">
                 Slack API Key (Optional)
               </label>
               <input
@@ -112,7 +112,7 @@ export default function IntegrationsManagement() {
                 className="input"
                 placeholder="xoxb-..."
               />
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="mt-1 text-xs text-muted-foreground">
                 Slack Bot Token for advanced integrations.
               </p>
             </div>

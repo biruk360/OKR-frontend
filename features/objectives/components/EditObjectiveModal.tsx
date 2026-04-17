@@ -113,7 +113,7 @@ export default function EditObjectiveModal({ isOpen, onClose, objective }: EditO
     <Modal open={isOpen} onClose={onClose} title="Edit Objective" icon={Target} iconClassName="text-primary-600" size="lg">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         <div>
-          <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="title" className="block text-sm font-medium text-muted-foreground mb-1">
             Objective Title *
           </label>
           <input
@@ -126,7 +126,7 @@ export default function EditObjectiveModal({ isOpen, onClose, objective }: EditO
         </div>
 
         <div>
-          <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="description" className="block text-sm font-medium text-muted-foreground mb-1">
             Description
           </label>
           <textarea
@@ -139,7 +139,7 @@ export default function EditObjectiveModal({ isOpen, onClose, objective }: EditO
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label htmlFor="ownerId" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="ownerId" className="block text-sm font-medium text-muted-foreground mb-1">
               Owner *
             </label>
             <select
@@ -157,20 +157,20 @@ export default function EditObjectiveModal({ isOpen, onClose, objective }: EditO
           </div>
 
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Contributors</label>
+            <label className="block text-sm font-medium text-muted-foreground mb-1">Contributors</label>
             <ContributorsPicker
               users={users}
               ownerId={watch('ownerId') || ''}
               value={watch('contributorIds') ?? []}
               onChange={(ids) => setValue('contributorIds', ids)}
             />
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-muted-foreground">
               Teammates collaborating on this objective. Saved separately from the owner.
             </p>
           </div>
 
           <div>
-            <label htmlFor="timeframeId" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="timeframeId" className="block text-sm font-medium text-muted-foreground mb-1">
               Timeframe *
             </label>
             <select
@@ -199,7 +199,7 @@ export default function EditObjectiveModal({ isOpen, onClose, objective }: EditO
 
         {objective.level === 'DEPARTMENT' && (
           <div>
-            <label htmlFor="departmentId" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="departmentId" className="block text-sm font-medium text-muted-foreground mb-1">
               Department *
             </label>
             <select
@@ -241,7 +241,7 @@ export default function EditObjectiveModal({ isOpen, onClose, objective }: EditO
         )}
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Check-in cadence *</label>
+          <label className="block text-sm font-medium text-muted-foreground mb-1">Check-in cadence *</label>
           <select {...register('checkInCadence', { required: true })} className="input">
             {CHECK_IN_CADENCES.map((c) => (
               <option key={c} value={c}>
@@ -249,28 +249,28 @@ export default function EditObjectiveModal({ isOpen, onClose, objective }: EditO
               </option>
             ))}
           </select>
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs text-muted-foreground">
             Owner gets a reminder on the dashboard and via the Monday email digest.
           </p>
         </div>
 
-        <div className="rounded-lg border border-gray-200 bg-gray-50/80 p-4 space-y-3">
-          <p className="text-sm font-medium text-gray-800">Progress roll-up (aligned children)</p>
-          <p className="text-xs text-gray-600">
+        <div className="rounded-lg border border-border bg-muted/80 p-4 space-y-3">
+          <p className="text-sm font-medium text-foreground">Progress roll-up (aligned children)</p>
+          <p className="text-xs text-muted-foreground">
             When <strong>Strict</strong> is on and you choose average or sum, this objective&apos;s
             progress is derived from its active child objectives (not from key results) as long as it
             has at least one child. Otherwise progress follows key results as usual.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Alignment mode</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Alignment mode</label>
               <select {...register('alignmentType')} className="input text-sm">
                 <option value="LOOSE">Loose (visual link only)</option>
                 <option value="STRICT_DEPENDENCY">Strict (roll up from children)</option>
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Roll-up calculation</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Roll-up calculation</label>
               <select
                 {...register('rollupCalculation')}
                 className="input text-sm"
@@ -289,16 +289,16 @@ export default function EditObjectiveModal({ isOpen, onClose, objective }: EditO
             <input
               type="checkbox"
               {...register('isPrivate')}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              className="h-4 w-4 text-blue-600 focus:ring-ring border-border rounded"
             />
-            <span className="ml-2 text-sm text-gray-700">Make this objective private</span>
+            <span className="ml-2 text-sm text-muted-foreground">Make this objective private</span>
           </label>
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs text-muted-foreground">
             Private objectives will show as &quot;[Private Objective]&quot; to other users, but progress percentage will remain visible.
           </p>
         </div>
 
-        <div className="flex items-center justify-end space-x-3 pt-6 border-t border-gray-200">
+        <div className="flex items-center justify-end space-x-3 pt-6 border-t border-border">
           <button type="button" onClick={onClose} className="btn-outline" disabled={isLoading}>
             Cancel
           </button>

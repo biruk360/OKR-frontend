@@ -156,16 +156,16 @@ export default function OkrComments({ endpoint, entityId, users }: Props) {
   }
 
   return (
-    <section className="bg-white shadow rounded-lg p-4 space-y-4">
+    <section className="bg-card shadow rounded-lg p-4 space-y-4">
       <div className="flex items-baseline justify-between">
-        <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Comments</h3>
-        <span className="text-xs text-gray-500">{comments.length} total</span>
+        <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">Comments</h3>
+        <span className="text-xs text-muted-foreground">{comments.length} total</span>
       </div>
 
       {loading ? (
-        <p className="text-sm text-gray-500">Loading comments…</p>
+        <p className="text-sm text-muted-foreground">Loading comments…</p>
       ) : comments.length === 0 ? (
-        <p className="text-sm text-gray-500">No comments yet. Start the conversation.</p>
+        <p className="text-sm text-muted-foreground">No comments yet. Start the conversation.</p>
       ) : (
         <ul className="space-y-3">
           {comments.map((c) => (
@@ -175,10 +175,10 @@ export default function OkrComments({ endpoint, entityId, users }: Props) {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-baseline gap-2">
-                  <span className="font-medium text-sm text-gray-900">{c.author.name ?? c.author.email}</span>
-                  <span className="text-xs text-gray-500">{formatRelativeTime(new Date(c.createdAt))}</span>
+                  <span className="font-medium text-sm text-foreground">{c.author.name ?? c.author.email}</span>
+                  <span className="text-xs text-muted-foreground">{formatRelativeTime(new Date(c.createdAt))}</span>
                 </div>
-                <p className="text-sm text-gray-800 whitespace-pre-wrap break-words">
+                <p className="text-sm text-foreground whitespace-pre-wrap break-words">
                   {renderContentWithMentions(c.content)}
                 </p>
               </div>
@@ -195,10 +195,10 @@ export default function OkrComments({ endpoint, entityId, users }: Props) {
           onKeyDown={handleKeyDown}
           placeholder="Write a comment — type @ to mention someone. Cmd/Ctrl+Enter to post."
           rows={3}
-          className="w-full border rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full border rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
         />
         {mentionQuery != null && matches.length > 0 && (
-          <div className="absolute z-20 mt-1 w-64 bg-white border border-gray-200 rounded-md shadow-lg py-1 text-sm">
+          <div className="absolute z-20 mt-1 w-64 bg-card border border-border rounded-md shadow-lg py-1 text-sm">
             {matches.map((u, i) => (
               <button
                 key={u.id}
@@ -209,14 +209,14 @@ export default function OkrComments({ endpoint, entityId, users }: Props) {
                 }}
                 className={
                   'w-full text-left px-3 py-1.5 flex items-center gap-2 ' +
-                  (i === mentionIndex ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50')
+                  (i === mentionIndex ? 'bg-blue-50 text-blue-700' : 'text-muted-foreground hover:bg-muted')
                 }
               >
                 <span className="h-6 w-6 rounded-full bg-blue-500 text-white text-[10px] flex items-center justify-center">
                   {(u.name ?? u.email).slice(0, 1).toUpperCase()}
                 </span>
                 <span className="truncate">{u.name ?? u.email}</span>
-                <span className="ml-auto text-xs text-gray-400 truncate">{u.email}</span>
+                <span className="ml-auto text-xs text-muted-foreground truncate">{u.email}</span>
               </button>
             ))}
           </div>

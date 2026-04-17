@@ -138,7 +138,7 @@ export default function ParentObjectiveSelector({
 
   return (
     <div className={className}>
-      <label className="block text-sm font-medium text-gray-700 mb-2">
+      <label className="block text-sm font-medium text-muted-foreground mb-2">
         Align to (parent goal)
       </label>
 
@@ -168,26 +168,26 @@ export default function ParentObjectiveSelector({
           </div>
         </div>
       ) : (
-        <div className="mb-3 p-3 bg-gray-50 border border-gray-200 rounded-md">
-          <p className="text-sm text-gray-500">No parent goal selected</p>
+        <div className="mb-3 p-3 bg-muted border border-border rounded-md">
+          <p className="text-sm text-muted-foreground">No parent goal selected</p>
         </div>
       )}
 
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-left text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:bg-gray-50"
+        className="w-full px-3 py-2 border border-border rounded-md shadow-sm bg-card text-left text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-blue-500 hover:bg-muted"
       >
         <div className="flex items-center">
-          <Target className="h-4 w-4 text-gray-400 mr-2" />
-          <span className="text-gray-700">
+          <Target className="h-4 w-4 text-muted-foreground mr-2" />
+          <span className="text-muted-foreground">
             {displayParent ? 'Change parent goal' : 'Search parent goals…'}
           </span>
         </div>
       </button>
 
       {currentObjectiveLevel ? (
-        <p className="mt-1 text-xs text-gray-500">
+        <p className="mt-1 text-xs text-muted-foreground">
           Search all objectives in this timeframe (excluding archived and your subtree). Same timeframe
           required.
         </p>
@@ -205,41 +205,41 @@ export default function ParentObjectiveSelector({
             <div className="flex min-h-screen items-center justify-center p-4">
               <button
                 type="button"
-                className="fixed inset-0 bg-gray-500 bg-opacity-75 cursor-default"
+                className="fixed inset-0 bg-muted0 bg-opacity-75 cursor-default"
                 aria-label="Close picker"
                 onClick={() => setIsOpen(false)}
               />
 
-              <div className="relative z-[1] bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col">
-                <div className="flex items-center justify-between p-6 border-b border-gray-200 shrink-0">
+              <div className="relative z-[1] bg-card rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col">
+                <div className="flex items-center justify-between p-6 border-b border-border shrink-0">
                   <div className="flex items-center">
                     <Building2 className="h-6 w-6 text-blue-600 mr-2" />
-                    <h2 id="alignment-picker-title" className="text-lg font-semibold text-gray-900">
+                    <h2 id="alignment-picker-title" className="text-lg font-semibold text-foreground">
                       Relationship picker
                     </h2>
                   </div>
                   <button
                     type="button"
                     onClick={() => setIsOpen(false)}
-                    className="text-gray-400 hover:text-gray-600"
+                    className="text-muted-foreground hover:text-muted-foreground"
                   >
                     <X className="h-6 w-6" />
                   </button>
                 </div>
 
-                <div className="p-6 border-b border-gray-100 shrink-0 space-y-3">
+                <div className="p-6 border-b border-border shrink-0 space-y-3">
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <input
                       type="text"
                       placeholder="Search by title or description…"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full pl-10 pr-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-blue-500"
                     />
                   </div>
                   <div className="flex flex-wrap items-center gap-3 text-sm">
-                    <span className="inline-flex items-center gap-1 text-gray-600">
+                    <span className="inline-flex items-center gap-1 text-muted-foreground">
                       <Filter className="h-4 w-4" />
                       Filters
                     </span>
@@ -248,14 +248,14 @@ export default function ParentObjectiveSelector({
                         type="checkbox"
                         checked={activeTimeframeOnly}
                         onChange={(e) => setActiveTimeframeOnly(e.target.checked)}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        className="rounded border-border text-blue-600 focus:ring-ring"
                       />
                       <span>Active timeframe only</span>
                     </label>
                     <select
                       value={levelFilter}
                       onChange={(e) => setLevelFilter(e.target.value as LevelFilter)}
-                      className="border border-gray-300 rounded-md text-sm py-1 pl-2 pr-6"
+                      className="border border-border rounded-md text-sm py-1 pl-2 pr-6"
                     >
                       <option value="ALL">All levels</option>
                       <option value="COMPANY">Company only</option>
@@ -269,7 +269,7 @@ export default function ParentObjectiveSelector({
                   {isLoading ? (
                     <div className="text-center py-8">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto" />
-                      <p className="mt-2 text-sm text-gray-500">Loading objectives…</p>
+                      <p className="mt-2 text-sm text-muted-foreground">Loading objectives…</p>
                     </div>
                   ) : filteredObjectives.length > 0 ? (
                     <div className="space-y-2">
@@ -278,24 +278,24 @@ export default function ParentObjectiveSelector({
                           key={objective.id}
                           type="button"
                           onClick={() => handleSelectParent(objective)}
-                          className="w-full p-4 text-left border border-gray-200 rounded-md hover:bg-blue-50 hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full p-4 text-left border border-border rounded-md hover:bg-blue-50 hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-ring"
                         >
                           <div className="flex items-start">
                             <Building2 className="h-5 w-5 text-blue-600 mr-3 mt-0.5 shrink-0" />
                             <div className="flex-1 min-w-0">
                               <div className="flex flex-wrap items-center gap-2">
-                                <h3 className="text-sm font-medium text-gray-900">{objective.title}</h3>
+                                <h3 className="text-sm font-medium text-foreground">{objective.title}</h3>
                                 <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
                                   {objective.level}
                                 </span>
-                                <span className="text-xs tabular-nums text-gray-600">
+                                <span className="text-xs tabular-nums text-muted-foreground">
                                   {Math.round(Number(objective.progress) || 0)}%
                                 </span>
                               </div>
                               {objective.description && (
-                                <p className="text-sm text-gray-600 mt-1 line-clamp-2">{objective.description}</p>
+                                <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{objective.description}</p>
                               )}
-                              <div className="flex flex-wrap items-center mt-2 text-xs text-gray-500 gap-x-3">
+                              <div className="flex flex-wrap items-center mt-2 text-xs text-muted-foreground gap-x-3">
                                 <span>Owner: {objective.owner.name}</span>
                                 <span>Timeframe: {objective.timeframe.name}</span>
                                 {objective.department && <span>{objective.department.name}</span>}
@@ -307,9 +307,9 @@ export default function ParentObjectiveSelector({
                     </div>
                   ) : (
                     <div className="text-center py-8">
-                      <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                      <h3 className="text-sm font-medium text-gray-900 mb-2">No goals found</h3>
-                      <p className="text-sm text-gray-500">
+                      <Target className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <h3 className="text-sm font-medium text-foreground mb-2">No goals found</h3>
+                      <p className="text-sm text-muted-foreground">
                         {searchTerm
                           ? 'Nothing matches your search. Try clearing filters or the query.'
                           : 'No eligible parent objectives in this timeframe.'}
@@ -318,11 +318,11 @@ export default function ParentObjectiveSelector({
                   )}
                 </div>
 
-                <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 shrink-0">
+                <div className="flex items-center justify-end gap-3 p-6 border-t border-border shrink-0">
                   <button
                     type="button"
                     onClick={() => setIsOpen(false)}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                    className="px-4 py-2 text-sm font-medium text-muted-foreground bg-card border border-border rounded-md hover:bg-muted"
                   >
                     Cancel
                   </button>

@@ -75,7 +75,7 @@ export default function EditTodoModal({ isOpen, onClose, todo, onSave }: EditTod
     <Modal open={isOpen} onClose={handleCancel} title="Edit To-Do" icon={Edit3} iconClassName="text-blue-600" size="sm">
       <div>
         <div className="mb-4">
-          <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
+          <label htmlFor="title" className="block text-sm font-medium text-muted-foreground mb-2">
             Title <span className="text-red-500">*</span>
           </label>
           <input
@@ -83,7 +83,7 @@ export default function EditTodoModal({ isOpen, onClose, todo, onSave }: EditTod
             id="title"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-blue-500"
             placeholder="Enter initiative title"
             disabled={isLoading}
           />
@@ -91,7 +91,7 @@ export default function EditTodoModal({ isOpen, onClose, todo, onSave }: EditTod
         </div>
 
         <div className="mb-4">
-          <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
+          <label htmlFor="description" className="block text-sm font-medium text-muted-foreground mb-2">
             Description
           </label>
           <textarea
@@ -99,15 +99,15 @@ export default function EditTodoModal({ isOpen, onClose, todo, onSave }: EditTod
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={4}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-blue-500"
             placeholder="Enter initiative description (optional)"
             disabled={isLoading}
           />
         </div>
 
-        <div className="mb-4 p-3 bg-gray-50 rounded-md">
-          <h3 className="text-sm font-medium text-gray-700 mb-2">Current Values:</h3>
-          <div className="text-sm text-gray-600">
+        <div className="mb-4 p-3 bg-muted rounded-md">
+          <h3 className="text-sm font-medium text-muted-foreground mb-2">Current Values:</h3>
+          <div className="text-sm text-muted-foreground">
             <p><strong>Title:</strong> {todo.title || 'No title'}</p>
             <p><strong>Description:</strong> {todo.description || 'No description'}</p>
           </div>
@@ -124,13 +124,13 @@ export default function EditTodoModal({ isOpen, onClose, todo, onSave }: EditTod
           </div>
         )}
 
-        <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+        <div className="flex items-center justify-between pt-4 border-t border-border">
           <div>
             {hasChanges && (
               <button
                 onClick={handleReset}
                 disabled={isLoading}
-                className="inline-flex items-center px-3 py-2 text-sm text-gray-600 hover:text-gray-700 disabled:opacity-50"
+                className="inline-flex items-center px-3 py-2 text-sm text-muted-foreground hover:text-muted-foreground disabled:opacity-50"
               >
                 <RotateCcw className="h-4 w-4 mr-1" />
                 Reset
@@ -143,7 +143,7 @@ export default function EditTodoModal({ isOpen, onClose, todo, onSave }: EditTod
             </button>
             <button
               onClick={handleSave}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring disabled:opacity-50"
               disabled={isLoading || !title.trim()}
             >
               {isLoading ? (

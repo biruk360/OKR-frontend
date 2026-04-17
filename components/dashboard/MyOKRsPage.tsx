@@ -241,7 +241,7 @@ export default function MyOKRsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-muted-foreground">
             Manage and track your personal objectives and key results.
           </p>
         </div>
@@ -260,12 +260,12 @@ export default function MyOKRsPage() {
       </StatGrid>
 
       {/* Filter Bar */}
-      <div className="bg-white p-4 rounded-lg border border-gray-200">
+      <div className="bg-card p-4 rounded-lg border border-border">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
+            <label className="block text-sm font-medium text-muted-foreground mb-1">Search</label>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
                 type="text"
                 placeholder="Search objectives..."
@@ -277,7 +277,7 @@ export default function MyOKRsPage() {
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Level</label>
+            <label className="block text-sm font-medium text-muted-foreground mb-1">Level</label>
             <select
               value={filters.level}
               onChange={(e) => handleFilterChange('level', e.target.value)}
@@ -291,7 +291,7 @@ export default function MyOKRsPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Timeframe</label>
+            <label className="block text-sm font-medium text-muted-foreground mb-1">Timeframe</label>
             <select
               value={filters.timeframe}
               onChange={(e) => handleFilterChange('timeframe', e.target.value)}
@@ -318,13 +318,13 @@ export default function MyOKRsPage() {
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <span className="ml-2 text-gray-600">Loading objectives...</span>
+          <span className="ml-2 text-muted-foreground">Loading objectives...</span>
         </div>
       ) : objectives.length === 0 ? (
         <div className="text-center py-12">
-          <Target className="mx-auto h-12 w-12 text-gray-400" />
-          <h3 className="mt-2 text-sm font-medium text-gray-900">No objectives found</h3>
-          <p className="mt-1 text-sm text-gray-500">
+          <Target className="mx-auto h-12 w-12 text-muted-foreground" />
+          <h3 className="mt-2 text-sm font-medium text-foreground">No objectives found</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
             {filters.search || filters.timeframe
               ? "Try adjusting your filters to see more results."
               : "Get started by creating your first objective."

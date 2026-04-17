@@ -161,7 +161,7 @@ export default function CreateObjectiveModal({
     <Modal open={isOpen} onClose={onClose} title={modalTitle} icon={Target} iconClassName="text-primary-600" size="lg">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         <div>
-          <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="title" className="block text-sm font-medium text-muted-foreground mb-1">
             Objective Title *
           </label>
           <input
@@ -174,7 +174,7 @@ export default function CreateObjectiveModal({
         </div>
 
         <div>
-          <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="description" className="block text-sm font-medium text-muted-foreground mb-1">
             Description
           </label>
           <textarea
@@ -187,7 +187,7 @@ export default function CreateObjectiveModal({
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label htmlFor="level" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="level" className="block text-sm font-medium text-muted-foreground mb-1">
               Level *
             </label>
             <select
@@ -204,7 +204,7 @@ export default function CreateObjectiveModal({
           </div>
 
           <div>
-            <label htmlFor="timeframeId" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="timeframeId" className="block text-sm font-medium text-muted-foreground mb-1">
               Timeframe *
             </label>
             <select
@@ -237,7 +237,7 @@ export default function CreateObjectiveModal({
         </div>
 
         <div>
-          <label htmlFor="ownerId" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="ownerId" className="block text-sm font-medium text-muted-foreground mb-1">
             Owner *
           </label>
           <select
@@ -254,7 +254,7 @@ export default function CreateObjectiveModal({
           </select>
           {errors.ownerId && <p className="mt-1 text-sm text-red-600">{errors.ownerId.message}</p>}
           {defaultOwnerId && (
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-sm text-muted-foreground">
               Owner is automatically set to you for individual objectives
             </p>
           )}
@@ -262,7 +262,7 @@ export default function CreateObjectiveModal({
 
         {/* Contributors — additional users collaborating on this objective (not the owner) */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-muted-foreground mb-1">
             Contributors
           </label>
           <ContributorsPicker
@@ -271,14 +271,14 @@ export default function CreateObjectiveModal({
             value={watch('contributorIds') ?? []}
             onChange={(ids) => setValue('contributorIds', ids)}
           />
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs text-muted-foreground">
             Teammates who help deliver this objective. They&apos;re distinct from the owner.
           </p>
         </div>
 
         {selectedLevel === 'DEPARTMENT' && (
           <div>
-            <label htmlFor="departmentId" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="departmentId" className="block text-sm font-medium text-muted-foreground mb-1">
               Department *
             </label>
             <select
@@ -309,7 +309,7 @@ export default function CreateObjectiveModal({
         )}
 
         <div>
-          <label htmlFor="checkInCadence" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="checkInCadence" className="block text-sm font-medium text-muted-foreground mb-1">
             Check-in cadence *
           </label>
           <select
@@ -323,7 +323,7 @@ export default function CreateObjectiveModal({
               </option>
             ))}
           </select>
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs text-muted-foreground">
             We&apos;ll remind the owner on their dashboard and via the Monday email digest.
           </p>
         </div>
@@ -333,16 +333,16 @@ export default function CreateObjectiveModal({
             <input
               type="checkbox"
               {...register('isPrivate')}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              className="h-4 w-4 text-blue-600 focus:ring-ring border-border rounded"
             />
-            <span className="ml-2 text-sm text-gray-700">Make this objective private</span>
+            <span className="ml-2 text-sm text-muted-foreground">Make this objective private</span>
           </label>
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs text-muted-foreground">
             Private objectives will show as &quot;[Private Objective]&quot; to other users, but progress percentage will remain visible.
           </p>
         </div>
 
-        <div className="flex items-center justify-end space-x-3 pt-6 border-t border-gray-200">
+        <div className="flex items-center justify-end space-x-3 pt-6 border-t border-border">
           <button type="button" onClick={onClose} className="btn-outline" disabled={isLoading}>
             Cancel
           </button>

@@ -17,11 +17,11 @@ export default async function NotificationsPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-muted-foreground">
           Stay updated with OKR activities and important updates.
         </p>
         {unreadCount > 0 && (
-          <button className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+          <button className="inline-flex items-center px-3 py-2 border border-border shadow-sm text-sm leading-4 font-medium rounded-md text-muted-foreground bg-card hover:bg-muted">
             Mark All as Read
           </button>
         )}
@@ -33,14 +33,14 @@ export default async function NotificationsPage() {
         <StatCard label="Read" value={notifications.length - unreadCount} iconText="✓" tone="green" />
       </StatGrid>
 
-      <div className="bg-white shadow rounded-lg">
+      <div className="bg-card shadow rounded-lg">
         <div className="px-4 py-5 sm:p-6">
-          <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">All Notifications</h3>
+          <h3 className="text-lg leading-6 font-medium text-foreground mb-4">All Notifications</h3>
           <div className="space-y-4">
             {notifications.length === 0 ? (
               <div className="text-center py-8">
-                <div className="text-gray-500">No notifications yet.</div>
-                <div className="text-sm text-gray-400 mt-1">
+                <div className="text-muted-foreground">No notifications yet.</div>
+                <div className="text-sm text-muted-foreground mt-1">
                   You&apos;ll receive notifications when there are updates to your OKRs.
                 </div>
               </div>
@@ -49,13 +49,13 @@ export default async function NotificationsPage() {
                 <div
                   key={notification.id}
                   className={`border rounded-lg p-4 ${
-                    !notification.isRead ? 'bg-blue-50 border-blue-200' : 'bg-white'
+                    !notification.isRead ? 'bg-blue-50 border-blue-200' : 'bg-card'
                   }`}
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center space-x-2">
-                        <h4 className="text-sm font-medium text-gray-900">
+                        <h4 className="text-sm font-medium text-foreground">
                           {notification.title}
                         </h4>
                         {!notification.isRead && (
@@ -64,8 +64,8 @@ export default async function NotificationsPage() {
                           </span>
                         )}
                       </div>
-                      <p className="text-sm text-gray-700 mt-1">{notification.message}</p>
-                      <div className="mt-2 flex items-center space-x-4 text-xs text-gray-500">
+                      <p className="text-sm text-muted-foreground mt-1">{notification.message}</p>
+                      <div className="mt-2 flex items-center space-x-4 text-xs text-muted-foreground">
                         <span>{new Date(notification.createdAt).toLocaleDateString()}</span>
                         <span>{new Date(notification.createdAt).toLocaleTimeString()}</span>
                         <span className="capitalize">{notification.type.replace(/_/g, ' ')}</span>

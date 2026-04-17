@@ -89,7 +89,7 @@ export default async function ObjectivesPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-muted-foreground">
             Manage and track your organization's objectives and key results.
           </p>
         </div>

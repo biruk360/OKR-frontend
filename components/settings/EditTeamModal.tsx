@@ -64,13 +64,13 @@ export default function EditTeamModal({ isOpen, onClose, team, onTeamUpdated }: 
     <Modal open={isOpen} onClose={onClose} title="Edit Team" icon={Building2} iconClassName="text-blue-600" size="sm">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Team Name *</label>
+          <label className="block text-sm font-medium text-muted-foreground mb-1">Team Name *</label>
           <input {...register('name', { required: 'Team name is required' })} type="text" className="input" />
           {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>}
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+          <label className="block text-sm font-medium text-muted-foreground mb-1">Description</label>
           <textarea {...register('description')} rows={3} className="input" />
         </div>
 
@@ -79,13 +79,13 @@ export default function EditTeamModal({ isOpen, onClose, team, onTeamUpdated }: 
             <input
               type="checkbox"
               {...register('isActive')}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              className="h-4 w-4 text-blue-600 focus:ring-ring border-border rounded"
             />
-            <span className="ml-2 text-sm text-gray-700">Active</span>
+            <span className="ml-2 text-sm text-muted-foreground">Active</span>
           </label>
         </div>
 
-        <div className="flex items-center justify-end space-x-3 pt-4 border-t border-gray-200">
+        <div className="flex items-center justify-end space-x-3 pt-4 border-t border-border">
           <button type="button" onClick={onClose} className="btn-outline" disabled={isLoading}>
             Cancel
           </button>

@@ -12,8 +12,8 @@ export default async function OkrHierarchyPage() {
     <div className="space-y-4">
       <header className="flex items-baseline justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">OKR Hierarchy</h1>
-          <p className="text-sm text-gray-500">
+          <h1 className="text-2xl font-bold text-foreground">OKR Hierarchy</h1>
+          <p className="text-sm text-muted-foreground">
             Tree view of objectives, key results, and initiatives with per-column filters.
           </p>
         </div>

@@ -177,10 +177,10 @@ export default function WorkItemsKanban({
   }
 
   return (
-    <section className="bg-white shadow rounded-lg p-4">
+    <section className="bg-card shadow rounded-lg p-4">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">{title}</h3>
-        <span className="text-xs text-gray-500">Drag initiatives to change status</span>
+        <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">{title}</h3>
+        <span className="text-xs text-muted-foreground">Drag initiatives to change status</span>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {columns.map((col) => {
@@ -197,11 +197,11 @@ export default function WorkItemsKanban({
               }`}
             >
               <div className="flex items-baseline justify-between mb-2">
-                <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-700">{col.label}</h4>
-                <span className="text-xs text-gray-500 tabular-nums">{colItems.length}</span>
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{col.label}</h4>
+                <span className="text-xs text-muted-foreground tabular-nums">{colItems.length}</span>
               </div>
               {colItems.length === 0 ? (
-                <p className="text-xs text-gray-400 py-3 text-center">
+                <p className="text-xs text-muted-foreground py-3 text-center">
                   {isHover ? 'Drop here' : 'No items'}
                 </p>
               ) : (
@@ -220,20 +220,20 @@ export default function WorkItemsKanban({
                         draggable={it.kind === 'INITIATIVE'}
                         onDragStart={(e) => onDragStart(e, it)}
                         onDragEnd={onDragEnd}
-                        className={`group rounded-md bg-white border border-gray-200 p-2 text-sm transition-all ${
-                          it.kind === 'INITIATIVE' ? 'cursor-grab active:cursor-grabbing hover:border-gray-300 hover:shadow-sm' : ''
+                        className={`group rounded-md bg-card border border-border p-2 text-sm transition-all ${
+                          it.kind === 'INITIATIVE' ? 'cursor-grab active:cursor-grabbing hover:border-border hover:shadow-sm' : ''
                         } ${isDragging ? 'opacity-40' : ''} ${isSaving ? 'opacity-60' : ''}`}
                       >
                         <div className="flex items-center gap-1.5 mb-1">
                           {it.kind === 'INITIATIVE' && (
-                            <GripVertical className="h-3.5 w-3.5 text-gray-300 group-hover:text-gray-400 shrink-0" />
+                            <GripVertical className="h-3.5 w-3.5 text-muted-foreground group-hover:text-muted-foreground shrink-0" />
                           )}
                           <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${chipColour}`}>
                             <Icon className="h-3 w-3" />
                             {it.kind === 'KR' ? 'KR' : 'Init'}
                           </span>
                           {it.meta && (
-                            <span className="text-[10px] text-gray-500 uppercase tracking-wide truncate">{it.meta}</span>
+                            <span className="text-[10px] text-muted-foreground uppercase tracking-wide truncate">{it.meta}</span>
                           )}
                         </div>
                         {it.kind === 'INITIATIVE' ? (
@@ -243,14 +243,14 @@ export default function WorkItemsKanban({
                               if (isDragging) { e.preventDefault(); return }
                               useInitiativeDetailStore.getState().open(it.raw)
                             }}
-                            className="block w-full text-left text-sm text-gray-800 hover:text-blue-600 line-clamp-2"
+                            className="block w-full text-left text-sm text-foreground hover:text-blue-600 line-clamp-2"
                           >
                             {it.title}
                           </button>
                         ) : (
                           <Link
                             href={it.href}
-                            className="block text-sm text-gray-800 hover:text-blue-600 line-clamp-2"
+                            className="block text-sm text-foreground hover:text-blue-600 line-clamp-2"
                           >
                             {it.title}
                           </Link>

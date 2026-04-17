@@ -96,7 +96,7 @@ export function ActivityLogPanel({ entityType, entityId }: Props) {
   }, [entityType, entityId])
 
   return (
-    <section className="rounded-md border border-neutral-200 bg-white">
+    <section className="rounded-md border border-neutral-200 bg-card">
       <header className="flex items-center justify-between border-b border-neutral-200 px-4 py-3">
         <div className="flex items-center gap-4">
           <h3 className="text-sm font-semibold text-neutral-900">Activity</h3>

@@ -65,21 +65,21 @@ export default function OKRRulesManagement() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">OKR Rules</h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <h1 className="text-2xl font-bold text-foreground">OKR Rules</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
           Configure default settings and rules for OKRs in your organization.
         </p>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         {/* Default Visibility */}
-        <div className="bg-white shadow rounded-lg p-6">
+        <div className="bg-card shadow rounded-lg p-6">
           <div className="flex items-center mb-4">
-            <Eye className="h-5 w-5 text-gray-400 mr-2" />
-            <h3 className="text-lg font-medium text-gray-900">Default Visibility</h3>
+            <Eye className="h-5 w-5 text-muted-foreground mr-2" />
+            <h3 className="text-lg font-medium text-foreground">Default Visibility</h3>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-muted-foreground mb-2">
               Default visibility for new objectives
             </label>
             <select
@@ -89,20 +89,20 @@ export default function OKRRulesManagement() {
               <option value="PUBLIC">Public (visible to all)</option>
               <option value="PRIVATE">Private (visible to owner and managers)</option>
             </select>
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-muted-foreground">
               This setting applies to newly created objectives. Users can override this when creating objectives.
             </p>
           </div>
         </div>
 
         {/* Grading Scale */}
-        <div className="bg-white shadow rounded-lg p-6">
+        <div className="bg-card shadow rounded-lg p-6">
           <div className="flex items-center mb-4">
-            <Calendar className="h-5 w-5 text-gray-400 mr-2" />
-            <h3 className="text-lg font-medium text-gray-900">Grading Scale</h3>
+            <Calendar className="h-5 w-5 text-muted-foreground mr-2" />
+            <h3 className="text-lg font-medium text-foreground">Grading Scale</h3>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-muted-foreground mb-2">
               Progress measurement scale
             </label>
             <select
@@ -114,20 +114,20 @@ export default function OKRRulesManagement() {
               <option value="CURRENCY">Currency</option>
               <option value="BOOLEAN">Completed/Not Completed</option>
             </select>
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-muted-foreground">
               Default scale for measuring progress on key results.
             </p>
           </div>
         </div>
 
         {/* Check-in Cadence */}
-        <div className="bg-white shadow rounded-lg p-6">
+        <div className="bg-card shadow rounded-lg p-6">
           <div className="flex items-center mb-4">
-            <Calendar className="h-5 w-5 text-gray-400 mr-2" />
-            <h3 className="text-lg font-medium text-gray-900">Check-in Cadence</h3>
+            <Calendar className="h-5 w-5 text-muted-foreground mr-2" />
+            <h3 className="text-lg font-medium text-foreground">Check-in Cadence</h3>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-muted-foreground mb-2">
               Recommended check-in frequency
             </label>
             <select
@@ -139,17 +139,17 @@ export default function OKRRulesManagement() {
               <option value="BIWEEKLY">Bi-weekly</option>
               <option value="MONTHLY">Monthly</option>
             </select>
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-muted-foreground">
               Recommended frequency for updating progress on key results.
             </p>
           </div>
         </div>
 
         {/* Reminders */}
-        <div className="bg-white shadow rounded-lg p-6">
+        <div className="bg-card shadow rounded-lg p-6">
           <div className="flex items-center mb-4">
-            <Bell className="h-5 w-5 text-gray-400 mr-2" />
-            <h3 className="text-lg font-medium text-gray-900">Reminders</h3>
+            <Bell className="h-5 w-5 text-muted-foreground mr-2" />
+            <h3 className="text-lg font-medium text-foreground">Reminders</h3>
           </div>
           <div className="space-y-4">
             <div>
@@ -157,13 +157,13 @@ export default function OKRRulesManagement() {
                 <input
                   type="checkbox"
                   {...register('reminderEnabled')}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  className="h-4 w-4 text-blue-600 focus:ring-ring border-border rounded"
                 />
-                <span className="ml-2 text-sm text-gray-700">Enable check-in reminders</span>
+                <span className="ml-2 text-sm text-muted-foreground">Enable check-in reminders</span>
               </label>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-muted-foreground mb-2">
                 Remind users every (days)
               </label>
               <input
@@ -173,7 +173,7 @@ export default function OKRRulesManagement() {
                 min="1"
                 max="30"
               />
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="mt-1 text-xs text-muted-foreground">
                 Number of days between reminder notifications.
               </p>
             </div>

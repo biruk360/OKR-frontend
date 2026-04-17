@@ -20,9 +20,9 @@ export default function GoalsFeedView({ objectives, onRefresh }: GoalsFeedViewPr
       case 'OFF_TRACK':
         return 'bg-red-100 text-red-800 border-red-200'
       case 'CLOSED':
-        return 'bg-gray-100 text-gray-800 border-gray-200'
+        return 'bg-muted text-foreground border-border'
       default:
-        return 'bg-gray-100 text-gray-800 border-gray-200'
+        return 'bg-muted text-foreground border-border'
     }
   }
 
@@ -43,8 +43,8 @@ export default function GoalsFeedView({ objectives, onRefresh }: GoalsFeedViewPr
 
   if (objectives.length === 0) {
     return (
-      <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
-        <p className="text-gray-500">No goals found. Create your first goal to get started.</p>
+      <div className="text-center py-12 bg-card rounded-lg border border-border">
+        <p className="text-muted-foreground">No goals found. Create your first goal to get started.</p>
       </div>
     )
   }
@@ -54,7 +54,7 @@ export default function GoalsFeedView({ objectives, onRefresh }: GoalsFeedViewPr
       {objectives.map((objective) => (
         <div
           key={objective.id}
-          className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow"
+          className="bg-card rounded-lg border border-border p-6 hover:shadow-md transition-shadow"
         >
           {/* Header */}
           <div className="flex items-start justify-between mb-4">
@@ -74,7 +74,7 @@ export default function GoalsFeedView({ objectives, onRefresh }: GoalsFeedViewPr
                 <div className="flex items-center space-x-2">
                   <Link
                     href={`/dashboard/objectives/${objective.id}`}
-                    className="text-lg font-semibold text-gray-900 hover:text-blue-600"
+                    className="text-lg font-semibold text-foreground hover:text-blue-600"
                   >
                     {objective.title}
                   </Link>
@@ -82,7 +82,7 @@ export default function GoalsFeedView({ objectives, onRefresh }: GoalsFeedViewPr
                     {getStatusLabel(objective.goalStatus || objective.status || 'NO_STATUS')}
                   </span>
                 </div>
-                <div className="flex items-center space-x-4 mt-1 text-sm text-gray-500">
+                <div className="flex items-center space-x-4 mt-1 text-sm text-muted-foreground">
                   <span>{objective.owner.name}</span>
                   {objective.department && (
                     <>
@@ -109,7 +109,7 @@ export default function GoalsFeedView({ objectives, onRefresh }: GoalsFeedViewPr
 
           {/* Description */}
           {objective.description && (
-            <p className="text-sm text-gray-700 mb-4 line-clamp-3">
+            <p className="text-sm text-muted-foreground mb-4 line-clamp-3">
               {objective.description}
             </p>
           )}
@@ -117,8 +117,8 @@ export default function GoalsFeedView({ objectives, onRefresh }: GoalsFeedViewPr
           {/* Progress */}
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-700">Progress</span>
-              <span className="text-sm font-semibold text-gray-900">{Math.round(objective.progress)}%</span>
+              <span className="text-sm font-medium text-muted-foreground">Progress</span>
+              <span className="text-sm font-semibold text-foreground">{Math.round(objective.progress)}%</span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div
@@ -129,7 +129,7 @@ export default function GoalsFeedView({ objectives, onRefresh }: GoalsFeedViewPr
           </div>
 
           {/* Key Results Count */}
-          <div className="flex items-center justify-between text-sm text-gray-500">
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
             <div className="flex items-center space-x-4">
               <span className="flex items-center">
                 <Target className="h-4 w-4 mr-1" />

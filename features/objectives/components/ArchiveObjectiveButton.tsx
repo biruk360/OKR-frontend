@@ -73,10 +73,10 @@ export default function ArchiveObjectiveButton({ objective, className = '' }: Ar
         isLoading={isLoading}
         details={
           <>
-            <h4 className="text-sm font-medium text-gray-900 mb-2">Objective:</h4>
-            <p className="text-sm text-gray-700 font-medium">{objective.title}</p>
+            <h4 className="text-sm font-medium text-foreground mb-2">Objective:</h4>
+            <p className="text-sm text-muted-foreground font-medium">{objective.title}</p>
             {objective.level && (
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 {objective.level} • Owner: {objective.owner?.name || 'Unknown'}
               </p>
             )}

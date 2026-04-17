@@ -59,7 +59,7 @@ export default function SetDueDateButton({ todo, onSetDueDate, className = '' }:
       case 'future':
         return 'text-green-600 hover:text-green-700 hover:bg-green-50'
       default:
-        return 'text-gray-600 hover:text-gray-700 hover:bg-gray-50'
+        return 'text-muted-foreground hover:text-muted-foreground hover:bg-muted'
     }
   }
 

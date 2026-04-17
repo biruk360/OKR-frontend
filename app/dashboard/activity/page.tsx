@@ -69,7 +69,7 @@ export default async function ActivityFeedPage() {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-gray-500">
+      <p className="text-sm text-muted-foreground">
         Recent check-ins, edits, comments, and assignments across your OKRs.
       </p>
 
@@ -80,14 +80,14 @@ export default async function ActivityFeedPage() {
         <StatCard label="KR Updates" value={krUpdateCount} iconText="✓" tone="purple" />
       </StatGrid>
 
-      <div className="bg-white shadow rounded-lg">
+      <div className="bg-card shadow rounded-lg">
         <div className="px-4 py-5 sm:p-6">
-          <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">Recent Activity</h3>
+          <h3 className="text-lg leading-6 font-medium text-foreground mb-4">Recent Activity</h3>
           <div className="space-y-4">
             {activities.length === 0 ? (
               <div className="text-center py-8">
-                <div className="text-gray-500">No activity yet.</div>
-                <div className="text-sm text-gray-400 mt-1">
+                <div className="text-muted-foreground">No activity yet.</div>
+                <div className="text-sm text-muted-foreground mt-1">
                   Activity will appear here as you and your team work on OKRs.
                 </div>
               </div>
@@ -105,7 +105,7 @@ export default async function ActivityFeedPage() {
                         />
                       ) : (
                         <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
-                          <span className="text-sm font-medium text-gray-700">
+                          <span className="text-sm font-medium text-muted-foreground">
                             {activity.user.name.charAt(0).toUpperCase()}
                           </span>
                         </div>
@@ -113,15 +113,15 @@ export default async function ActivityFeedPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center space-x-2">
-                        <p className="text-sm font-medium text-gray-900">{activity.user.name}</p>
-                        <span className="text-xs text-gray-500">
+                        <p className="text-sm font-medium text-foreground">{activity.user.name}</p>
+                        <span className="text-xs text-muted-foreground">
                           {new Date(activity.timestamp).toLocaleDateString()} at{' '}
                           {new Date(activity.timestamp).toLocaleTimeString()}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-700 mt-1">{activity.content}</p>
+                      <p className="text-sm text-muted-foreground mt-1">{activity.content}</p>
                       {activity.target && (
-                        <div className="mt-2 text-xs text-gray-500">
+                        <div className="mt-2 text-xs text-muted-foreground">
                           {activity.target.type === 'objective' ? (
                             <a
                               href={`/dashboard/objectives/${activity.target.id}`}

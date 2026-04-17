@@ -68,7 +68,7 @@ const STATUS_BADGE: Record<string, { label: string; className: string }> = {
   ON_TRACK: { label: 'On track', className: 'bg-emerald-50 text-emerald-800 ring-emerald-600/20' },
   AT_RISK: { label: 'At risk', className: 'bg-amber-50 text-amber-900 ring-amber-600/25' },
   OFF_TRACK: { label: 'Behind', className: 'bg-red-50 text-red-800 ring-red-600/20' },
-  CLOSED: { label: 'Closed', className: 'bg-gray-100 text-gray-700 ring-gray-500/20' },
+  CLOSED: { label: 'Closed', className: 'bg-muted text-muted-foreground ring-gray-500/20' },
 }
 
 function confidenceDot(confidence: string) {
@@ -150,24 +150,24 @@ const ObjectiveNode = memo(({ data, selected }: NodeProps<ObjectiveNodeData>) =>
 
   return (
     <div
-      className={`flex max-w-[420px] min-w-[360px] flex-col rounded-xl border bg-white shadow-md ${
-        selected ? 'border-primary-500 ring-2 ring-primary-500/20' : 'border-gray-200'
+      className={`flex max-w-[420px] min-w-[360px] flex-col rounded-xl border bg-card shadow-md ${
+        selected ? 'border-primary-500 ring-2 ring-primary-500/20' : 'border-border'
       }`}
     >
-      <div className="border-b border-gray-100 px-4 pt-3 pb-2">
+      <div className="border-b border-border px-4 pt-3 pb-2">
         <div className="flex items-start justify-between gap-2">
           <div className="flex min-w-0 flex-1 items-start gap-2">
-            <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-50 text-gray-600">
+            <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
               <PlanIcon className="h-4 w-4" />
             </div>
             <div className="min-w-0">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                 {hierarchySubtitle.line1}
               </p>
               {hierarchySubtitle.line2 ? (
-                <p className="mt-0.5 text-[10px] leading-snug text-gray-500">{hierarchySubtitle.line2}</p>
+                <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">{hierarchySubtitle.line2}</p>
               ) : null}
-              <h3 className="mt-0.5 line-clamp-3 text-[15px] font-semibold leading-snug text-gray-900">
+              <h3 className="mt-0.5 line-clamp-3 text-[15px] font-semibold leading-snug text-foreground">
                 {title}
               </h3>
             </div>
@@ -180,11 +180,11 @@ const ObjectiveNode = memo(({ data, selected }: NodeProps<ObjectiveNodeData>) =>
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-2 border-b border-gray-100 px-4 py-3">
+      <div className="grid grid-cols-3 gap-2 border-b border-border px-4 py-3">
         <div>
-          <p className="text-[10px] font-medium uppercase tracking-wide text-gray-500">Key results</p>
-          <p className="text-lg font-semibold tabular-nums text-gray-900">{metrics.avgKrProgress}%</p>
-          <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
+          <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Key results</p>
+          <p className="text-lg font-semibold tabular-nums text-foreground">{metrics.avgKrProgress}%</p>
+          <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-muted">
             <div
               className="h-full rounded-full bg-[#0d6efd]"
               style={{ width: `${Math.min(metrics.avgKrProgress, 100)}%` }}
@@ -192,9 +192,9 @@ const ObjectiveNode = memo(({ data, selected }: NodeProps<ObjectiveNodeData>) =>
           </div>
         </div>
         <div>
-          <p className="text-[10px] font-medium uppercase tracking-wide text-gray-500">Initiatives</p>
-          <p className="text-lg font-semibold tabular-nums text-gray-900">{initiativeLabel}</p>
-          <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
+          <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Initiatives</p>
+          <p className="text-lg font-semibold tabular-nums text-foreground">{initiativeLabel}</p>
+          <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-muted">
             <div
               className="h-full rounded-full bg-[#198754]"
               style={{
@@ -207,9 +207,9 @@ const ObjectiveNode = memo(({ data, selected }: NodeProps<ObjectiveNodeData>) =>
           </div>
         </div>
         <div>
-          <p className="text-[10px] font-medium uppercase tracking-wide text-gray-500">Confidence</p>
-          <p className="text-lg font-semibold tabular-nums text-gray-900">{metrics.ncsScore} NCS</p>
-          <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
+          <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Confidence</p>
+          <p className="text-lg font-semibold tabular-nums text-foreground">{metrics.ncsScore} NCS</p>
+          <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-muted">
             <div
               className="h-full rounded-full bg-[#fd7e14]"
               style={{ width: `${Math.min(metrics.ncsScore, 100)}%` }}
@@ -222,7 +222,7 @@ const ObjectiveNode = memo(({ data, selected }: NodeProps<ObjectiveNodeData>) =>
         <button
           type="button"
           onClick={() => setContentOpen((o) => !o)}
-          className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-sm font-medium text-gray-600 hover:bg-gray-50"
+          className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-sm font-medium text-muted-foreground hover:bg-muted"
         >
           <span>{contentOpen ? 'Hide plan content' : 'Show plan content'}</span>
           {contentOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
@@ -230,8 +230,8 @@ const ObjectiveNode = memo(({ data, selected }: NodeProps<ObjectiveNodeData>) =>
       </div>
 
       {contentOpen && keyResults.length > 0 && (
-        <div className="flex max-h-[320px] flex-col gap-2 overflow-y-auto border-t border-gray-100 px-4 py-3">
-          <p className="text-xs font-semibold text-gray-800">
+        <div className="flex max-h-[320px] flex-col gap-2 overflow-y-auto border-t border-border px-4 py-3">
+          <p className="text-xs font-semibold text-foreground">
             Key results ({keyResults.length})
           </p>
           <ul className="space-y-2">
@@ -245,13 +245,13 @@ const ObjectiveNode = memo(({ data, selected }: NodeProps<ObjectiveNodeData>) =>
                     className={`mt-1.5 h-2 w-2 shrink-0 rounded-sm ${confidenceDot(kr.confidence)}`}
                     title={kr.confidence}
                   />
-                  <span className="text-xs leading-snug text-gray-800">{kr.title}</span>
+                  <span className="text-xs leading-snug text-foreground">{kr.title}</span>
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-0.5">
-                  <span className="text-xs font-medium tabular-nums text-gray-900">
+                  <span className="text-xs font-medium tabular-nums text-foreground">
                     {formatKrValue(kr.currentValue, kr.unit)}
                   </span>
-                  <div className="h-1 w-14 overflow-hidden rounded-full bg-gray-100">
+                  <div className="h-1 w-14 overflow-hidden rounded-full bg-muted">
                     <div
                       className="h-full rounded-full bg-[#0d6efd]"
                       style={{ width: `${Math.min(kr.progress, 100)}%` }}
@@ -265,12 +265,12 @@ const ObjectiveNode = memo(({ data, selected }: NodeProps<ObjectiveNodeData>) =>
       )}
 
       {contentOpen && keyResults.length === 0 && (
-        <div className="border-t border-gray-100 px-4 py-3 text-xs text-gray-500">
+        <div className="border-t border-border px-4 py-3 text-xs text-muted-foreground">
           No key results yet. Open the objective and add key results to see them here.
         </div>
       )}
 
-      <div className="flex items-center justify-between gap-1 border-t border-gray-100 px-2 py-2">
+      <div className="flex items-center justify-between gap-1 border-t border-border px-2 py-2">
         <Link
           href={`/dashboard/objectives/${data.id}`}
           className="px-2 py-1 text-[11px] font-medium text-blue-600 hover:text-blue-800 hover:underline"
@@ -283,7 +283,7 @@ const ObjectiveNode = memo(({ data, selected }: NodeProps<ObjectiveNodeData>) =>
           <button
             type="button"
             onClick={() => onToggleExpand(data.id)}
-            className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100"
+            className="rounded-md p-1.5 text-muted-foreground hover:bg-muted"
             title={isExpanded ? 'Collapse aligned plans' : 'Expand aligned plans'}
           >
             {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}

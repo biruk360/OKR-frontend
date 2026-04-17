@@ -55,7 +55,7 @@ export default function CreateTeamModal({ isOpen, onClose, onTeamCreated }: Crea
     <Modal open={isOpen} onClose={onClose} title="Create Team" icon={Building2} iconClassName="text-blue-600" size="sm">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Team Name *</label>
+          <label className="block text-sm font-medium text-muted-foreground mb-1">Team Name *</label>
           <input
             {...register('name', { required: 'Team name is required' })}
             type="text"
@@ -66,7 +66,7 @@ export default function CreateTeamModal({ isOpen, onClose, onTeamCreated }: Crea
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+          <label className="block text-sm font-medium text-muted-foreground mb-1">Description</label>
           <textarea
             {...register('description')}
             rows={3}
@@ -75,7 +75,7 @@ export default function CreateTeamModal({ isOpen, onClose, onTeamCreated }: Crea
           />
         </div>
 
-        <div className="flex items-center justify-end space-x-3 pt-4 border-t border-gray-200">
+        <div className="flex items-center justify-end space-x-3 pt-4 border-t border-border">
           <button type="button" onClick={onClose} className="btn-outline" disabled={isLoading}>
             Cancel
           </button>

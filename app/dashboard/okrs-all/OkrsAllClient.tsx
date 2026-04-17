@@ -249,7 +249,7 @@ function FilterTrigger({
       type="button"
       onClick={onClick}
       className={
-        'inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-gray-600 hover:text-gray-900 ' +
+        'inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground ' +
         (active ? 'text-blue-600' : '')
       }
     >
@@ -290,18 +290,18 @@ function MultiSelectPopover<T extends { id: string }>({
   return (
     <div
       ref={ref}
-      className="absolute z-30 top-full left-0 mt-1 w-72 rounded-md border border-gray-200 bg-white shadow-lg"
+      className="absolute z-30 top-full left-0 mt-1 w-72 rounded-md border border-border bg-card shadow-lg"
     >
-      <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between">
-        <span className="text-xs font-semibold text-gray-700">{title}</span>
-        <button type="button" className="text-gray-400 hover:text-gray-700" onClick={onClose}>
+      <div className="px-3 py-2 border-b border-border flex items-center justify-between">
+        <span className="text-xs font-semibold text-muted-foreground">{title}</span>
+        <button type="button" className="text-muted-foreground hover:text-muted-foreground" onClick={onClose}>
           <X className="h-4 w-4" />
         </button>
       </div>
       {searchable && (
         <div className="px-3 pt-2">
-          <div className="flex items-center gap-1 rounded border border-gray-200 px-2">
-            <Search className="h-3.5 w-3.5 text-gray-400" />
+          <div className="flex items-center gap-1 rounded border border-border px-2">
+            <Search className="h-3.5 w-3.5 text-muted-foreground" />
             <input
               autoFocus
               value={q}
@@ -313,23 +313,23 @@ function MultiSelectPopover<T extends { id: string }>({
         </div>
       )}
       <ul className="max-h-72 overflow-y-auto py-1">
-        {filtered.length === 0 && <li className="px-3 py-2 text-xs text-gray-500">No matches</li>}
+        {filtered.length === 0 && <li className="px-3 py-2 text-xs text-muted-foreground">No matches</li>}
         {filtered.map((o) => (
           <li key={o.id}>
-            <label className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-gray-50">
+            <label className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-muted">
               <input
                 type="checkbox"
                 checked={selected.includes(o.id)}
                 onChange={() => toggle(o.id)}
                 className="h-3.5 w-3.5"
               />
-              <span className="text-sm text-gray-800 truncate">{render(o)}</span>
+              <span className="text-sm text-foreground truncate">{render(o)}</span>
             </label>
           </li>
         ))}
       </ul>
       {selected.length > 0 && (
-        <div className="border-t border-gray-100 px-3 py-2 text-right">
+        <div className="border-t border-border px-3 py-2 text-right">
           <button
             type="button"
             className="text-xs text-blue-600 hover:text-blue-800"
@@ -359,11 +359,11 @@ function RangePopover({
   return (
     <div
       ref={ref}
-      className="absolute z-30 top-full left-0 mt-1 w-60 rounded-md border border-gray-200 bg-white shadow-lg p-3"
+      className="absolute z-30 top-full left-0 mt-1 w-60 rounded-md border border-border bg-card shadow-lg p-3"
     >
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-semibold text-gray-700">Progress %</span>
-        <button type="button" className="text-gray-400 hover:text-gray-700" onClick={onClose}>
+        <span className="text-xs font-semibold text-muted-foreground">Progress %</span>
+        <button type="button" className="text-muted-foreground hover:text-muted-foreground" onClick={onClose}>
           <X className="h-4 w-4" />
         </button>
       </div>
@@ -377,7 +377,7 @@ function RangePopover({
           onChange={(e) => setLocal((p) => ({ ...p, min: e.target.value }))}
           className="w-20 border rounded px-2 py-1 text-sm"
         />
-        <span className="text-gray-400">–</span>
+        <span className="text-muted-foreground">–</span>
         <input
           type="number"
           min={0}
@@ -387,7 +387,7 @@ function RangePopover({
           onChange={(e) => setLocal((p) => ({ ...p, max: e.target.value }))}
           className="w-20 border rounded px-2 py-1 text-sm"
         />
-        <span className="text-xs text-gray-500">%</span>
+        <span className="text-xs text-muted-foreground">%</span>
       </div>
       <div className="flex justify-between mt-3">
         <button
@@ -396,7 +396,7 @@ function RangePopover({
             onChange({ min: '', max: '' })
             onClose()
           }}
-          className="text-xs text-gray-600 hover:text-gray-800"
+          className="text-xs text-muted-foreground hover:text-foreground"
         >
           Clear
         </button>
@@ -433,7 +433,7 @@ const COLUMNS: Column[] = [
     label: 'Period',
     width: 160,
     filterable: true,
-    render: (row) => <span className="text-sm text-gray-700">{row.data.period?.name ?? '—'}</span>,
+    render: (row) => <span className="text-sm text-muted-foreground">{row.data.period?.name ?? '—'}</span>,
     filterMenu: ({ refs, filters, setFilters, close }) => (
       <MultiSelectPopover
         title="Period"
@@ -456,10 +456,10 @@ const COLUMNS: Column[] = [
       row.data.owner ? (
         <div className="flex items-center gap-1.5">
           <UserAvatar user={row.data.owner} />
-          <span className="text-sm text-gray-800 truncate">{row.data.owner.name ?? '—'}</span>
+          <span className="text-sm text-foreground truncate">{row.data.owner.name ?? '—'}</span>
         </div>
       ) : (
-        <span className="text-gray-400">—</span>
+        <span className="text-muted-foreground">—</span>
       ),
     filterMenu: ({ refs, filters, setFilters, close }) => (
       <MultiSelectPopover
@@ -488,7 +488,7 @@ const COLUMNS: Column[] = [
           {row.data.team.name}
         </span>
       ) : (
-        <span className="text-gray-400">—</span>
+        <span className="text-muted-foreground">—</span>
       ),
     filterMenu: ({ refs, filters, setFilters, close }) => (
       <MultiSelectPopover
@@ -521,11 +521,11 @@ const COLUMNS: Column[] = [
             </span>
           ))}
           {row.data.labels.length > 3 && (
-            <span className="text-[10px] text-gray-500">+{row.data.labels.length - 3}</span>
+            <span className="text-[10px] text-muted-foreground">+{row.data.labels.length - 3}</span>
           )}
         </div>
       ) : (
-        <span className="text-gray-400">—</span>
+        <span className="text-muted-foreground">—</span>
       ),
     filterMenu: ({ refs, filters, setFilters, close }) => (
       <MultiSelectPopover
@@ -549,7 +549,7 @@ const COLUMNS: Column[] = [
       if (row.kind === 'OBJ') {
         const b = LEVEL_BADGE[row.data.level] ?? LEVEL_BADGE.INDIVIDUAL
         return (
-          <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-700">
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
             <span className={`h-4 w-4 rounded-sm text-[10px] font-bold flex items-center justify-center ${b.bg} ${b.fg}`}>
               {b.letter}
             </span>
@@ -557,8 +557,8 @@ const COLUMNS: Column[] = [
           </span>
         )
       }
-      if (row.kind === 'KR') return <span className="text-xs text-gray-600">Key Result</span>
-      return <span className="text-xs text-gray-600">Initiative</span>
+      if (row.kind === 'KR') return <span className="text-xs text-muted-foreground">Key Result</span>
+      return <span className="text-xs text-muted-foreground">Initiative</span>
     },
     filterMenu: ({ filters, setFilters, close }) => (
       <MultiSelectPopover
@@ -579,10 +579,10 @@ const COLUMNS: Column[] = [
     filterable: true,
     render: (row) => {
       const p = row.data.progress
-      if (typeof p !== 'number') return <span className="text-gray-400">—</span>
+      if (typeof p !== 'number') return <span className="text-muted-foreground">—</span>
       return (
         <div className="flex items-center gap-2">
-          <div className="flex-1 h-1.5 rounded-full bg-gray-100 overflow-hidden min-w-[50px]">
+          <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden min-w-[50px]">
             <div
               className={
                 'h-full rounded-full ' +
@@ -591,7 +591,7 @@ const COLUMNS: Column[] = [
               style={{ width: `${Math.min(100, p)}%` }}
             />
           </div>
-          <span className="tabular-nums text-xs text-gray-700 w-10 text-right">{Math.round(p)}%</span>
+          <span className="tabular-nums text-xs text-muted-foreground w-10 text-right">{Math.round(p)}%</span>
         </div>
       )
     },
@@ -612,7 +612,7 @@ const COLUMNS: Column[] = [
     filterable: true,
     render: (row) => {
       const list: RefUser[] = row.data.collaborators ?? []
-      if (list.length === 0) return <span className="text-gray-400">—</span>
+      if (list.length === 0) return <span className="text-muted-foreground">—</span>
       return (
         <div className="flex items-center -space-x-1">
           {list.slice(0, 4).map((u) => (
@@ -646,7 +646,7 @@ const COLUMNS: Column[] = [
     filterable: true,
     render: (row) => {
       const v = row.data.goalStatus ?? row.data.confidence ?? row.data.status
-      if (!v) return <span className="text-gray-400">—</span>
+      if (!v) return <span className="text-muted-foreground">—</span>
       return (
         <span className={`text-[10px] font-semibold uppercase tracking-wide rounded px-1.5 py-0.5 ${STATUS_PILL[v] ?? 'bg-slate-100 text-slate-700'}`}>
           {String(v).replace(/_/g, ' ')}
@@ -671,9 +671,9 @@ const COLUMNS: Column[] = [
     width: 80,
     render: (row) =>
       typeof row.data.weight === 'number' ? (
-        <span className="tabular-nums text-sm text-gray-700">{row.data.weight}</span>
+        <span className="tabular-nums text-sm text-muted-foreground">{row.data.weight}</span>
       ) : (
-        <span className="text-gray-400">—</span>
+        <span className="text-muted-foreground">—</span>
       ),
   },
   {
@@ -681,7 +681,7 @@ const COLUMNS: Column[] = [
     label: 'Latest Update',
     width: 240,
     render: (row) => (
-      <span className="text-xs text-gray-600 line-clamp-1" title={row.data.latestUpdateText ?? ''}>
+      <span className="text-xs text-muted-foreground line-clamp-1" title={row.data.latestUpdateText ?? ''}>
         {row.data.latestUpdateText ?? row.kind === 'INIT' ? '—' : 'Key result created.'}
       </span>
     ),
@@ -692,32 +692,32 @@ const COLUMNS: Column[] = [
     width: 130,
     render: (row) => {
       const n = daysSince(row.data.lastUpdate)
-      return n == null ? <span className="text-gray-400">—</span> : <span className="tabular-nums text-sm text-gray-700">{n}</span>
+      return n == null ? <span className="text-muted-foreground">—</span> : <span className="tabular-nums text-sm text-muted-foreground">{n}</span>
     },
   },
   {
     key: 'dateOfLastUpdate',
     label: 'Date of last update',
     width: 130,
-    render: (row) => <span className="text-sm text-gray-700">{formatDate(row.data.lastUpdate)}</span>,
+    render: (row) => <span className="text-sm text-muted-foreground">{formatDate(row.data.lastUpdate)}</span>,
   },
   {
     key: 'expectedStart',
     label: 'Expected start date',
     width: 130,
-    render: (row) => <span className="text-sm text-gray-700">{formatDate(row.data.startDate)}</span>,
+    render: (row) => <span className="text-sm text-muted-foreground">{formatDate(row.data.startDate)}</span>,
   },
   {
     key: 'expectedEnd',
     label: 'Expected end date',
     width: 130,
-    render: (row) => <span className="text-sm text-gray-700">{formatDate(row.data.endDate ?? row.data.dueDate)}</span>,
+    render: (row) => <span className="text-sm text-muted-foreground">{formatDate(row.data.endDate ?? row.data.dueDate)}</span>,
   },
   {
     key: 'grade',
     label: 'Grade',
     width: 80,
-    render: (row) => <span className="tabular-nums text-sm text-gray-700">{computeGrade(row.data.progress)}</span>,
+    render: (row) => <span className="tabular-nums text-sm text-muted-foreground">{computeGrade(row.data.progress)}</span>,
   },
   {
     key: 'startValue',
@@ -725,11 +725,11 @@ const COLUMNS: Column[] = [
     width: 100,
     render: (row) =>
       row.kind === 'KR' ? (
-        <span className="tabular-nums text-sm text-gray-700">
+        <span className="tabular-nums text-sm text-muted-foreground">
           {row.data.startValue} {row.data.unit}
         </span>
       ) : (
-        <span className="text-gray-400">—</span>
+        <span className="text-muted-foreground">—</span>
       ),
   },
   {
@@ -738,11 +738,11 @@ const COLUMNS: Column[] = [
     width: 100,
     render: (row) =>
       row.kind === 'KR' ? (
-        <span className="tabular-nums text-sm text-gray-700">
+        <span className="tabular-nums text-sm text-muted-foreground">
           {row.data.currentValue} {row.data.unit}
         </span>
       ) : (
-        <span className="text-gray-400">—</span>
+        <span className="text-muted-foreground">—</span>
       ),
   },
   {
@@ -751,11 +751,11 @@ const COLUMNS: Column[] = [
     width: 100,
     render: (row) =>
       row.kind === 'KR' ? (
-        <span className="tabular-nums text-sm text-gray-700">
+        <span className="tabular-nums text-sm text-muted-foreground">
           {row.data.targetValue} {row.data.unit}
         </span>
       ) : (
-        <span className="text-gray-400">—</span>
+        <span className="text-muted-foreground">—</span>
       ),
   },
   {
@@ -768,7 +768,7 @@ const COLUMNS: Column[] = [
     render: (row) => {
       const total = (row.data.__initTotal ?? 0) as number
       const closed = (row.data.__initClosed ?? 0) as number
-      if (total === 0) return <span className="text-gray-400">—</span>
+      if (total === 0) return <span className="text-muted-foreground">—</span>
       const tone = total === closed ? 'text-emerald-700 bg-emerald-50' : closed > 0 ? 'text-amber-700 bg-amber-50' : 'text-slate-700 bg-slate-50'
       return (
         <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium tabular-nums ${tone}`}>
@@ -1120,7 +1120,7 @@ export default function OkrsAllClient({ currentUser }: { currentUser: CurrentUse
 
       {/* Tabs + Create menu */}
       <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-1 border-b border-gray-200">
+        <div className="flex items-center gap-1 border-b border-border">
           <TabButton active={tab === 'all'} onClick={() => setTab('all')} count={null} label="All" />
           <TabButton
             active={tab === 'watched'}
@@ -1149,7 +1149,7 @@ export default function OkrsAllClient({ currentUser }: { currentUser: CurrentUse
           {createOpen && (
             <>
               <button type="button" className="fixed inset-0 z-40 cursor-default" aria-label="Close menu" onClick={() => setCreateOpen(false)} />
-              <div className="absolute right-0 top-full z-50 mt-1 w-56 rounded-md border border-gray-200 bg-white p-1 shadow-lg">
+              <div className="absolute right-0 top-full z-50 mt-1 w-56 rounded-md border border-border bg-card p-1 shadow-lg">
                 {canCreateCompany && (
                   <div onClick={() => setCreateOpen(false)} className="px-1 py-0.5">
                     <CreateCompanyObjectiveButton />
@@ -1169,11 +1169,11 @@ export default function OkrsAllClient({ currentUser }: { currentUser: CurrentUse
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow">
+      <div className="bg-card rounded-lg shadow">
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-gray-200 px-3 py-2">
-        <div className="flex items-center gap-1 rounded border border-gray-200 px-2 py-1 w-64">
-          <Search className="h-4 w-4 text-gray-400" />
+      <div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2">
+        <div className="flex items-center gap-1 rounded border border-border px-2 py-1 w-64">
+          <Search className="h-4 w-4 text-muted-foreground" />
           <input
             value={filters.q}
             onChange={(e) => setFilters({ ...filters, q: e.target.value })}
@@ -1181,7 +1181,7 @@ export default function OkrsAllClient({ currentUser }: { currentUser: CurrentUse
             className="w-full text-sm focus:outline-none"
           />
         </div>
-        <label className="inline-flex items-center gap-1.5 text-xs text-gray-700">
+        <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
           <input
             type="checkbox"
             checked={hideFinished}
@@ -1193,14 +1193,14 @@ export default function OkrsAllClient({ currentUser }: { currentUser: CurrentUse
         <button
           type="button"
           onClick={expandAll}
-          className="text-xs text-gray-700 hover:text-gray-900 inline-flex items-center gap-1"
+          className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
         >
           <Layers className="h-3.5 w-3.5" /> Expand all
         </button>
         <button
           type="button"
           onClick={collapseAll}
-          className="text-xs text-gray-700 hover:text-gray-900 inline-flex items-center gap-1"
+          className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
         >
           <Layers className="h-3.5 w-3.5 rotate-180" /> Collapse all
         </button>
@@ -1219,10 +1219,10 @@ export default function OkrsAllClient({ currentUser }: { currentUser: CurrentUse
       <div className="overflow-x-auto">
         <div style={{ minWidth: totalWidth }}>
           {/* Header row */}
-          <div className="flex items-center sticky top-0 z-20 bg-gray-50 border-b border-gray-200">
+          <div className="flex items-center sticky top-0 z-20 bg-muted border-b border-border">
             <div
               style={{ width: widths.__name }}
-              className="relative sticky left-0 z-20 bg-gray-50 px-3 py-2 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-gray-600 border-r border-gray-200"
+              className="relative sticky left-0 z-20 bg-muted px-3 py-2 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground border-r border-border"
             >
               OKR Name
               <ResizeHandle onStart={(x) => startResize('__name', x)} />
@@ -1231,7 +1231,7 @@ export default function OkrsAllClient({ currentUser }: { currentUser: CurrentUse
               <div
                 key={c.key}
                 style={{ width: widths[c.key] ?? c.width }}
-                className="relative px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-gray-600 border-r border-gray-100 shrink-0"
+                className="relative px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground border-r border-border shrink-0"
               >
                 {c.filterable ? (
                   <FilterTrigger
@@ -1250,11 +1250,11 @@ export default function OkrsAllClient({ currentUser }: { currentUser: CurrentUse
 
           {/* Body */}
           {loading ? (
-            <div className="p-8 text-sm text-gray-500 text-center">Loading…</div>
+            <div className="p-8 text-sm text-muted-foreground text-center">Loading…</div>
           ) : error ? (
             <div className="p-8 text-sm text-red-600 text-center">{error}</div>
           ) : flat.length === 0 ? (
-            <div className="p-8 text-sm text-gray-500 text-center">No OKRs match these filters.</div>
+            <div className="p-8 text-sm text-muted-foreground text-center">No OKRs match these filters.</div>
           ) : (
             <div>
               {flat.map((row, idx) => {
@@ -1262,12 +1262,12 @@ export default function OkrsAllClient({ currentUser }: { currentUser: CurrentUse
                 const isExpanded = expanded.has(row.rowId)
                 // Alternate row bg is solid so the sticky left-column stays opaque
                 // on hover (prevents the text-overlap bug).
-                const rowBase = idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                const rowBase = idx % 2 === 0 ? 'bg-card' : 'bg-muted'
                 const rowHover = 'hover:bg-blue-50'
                 return (
                   <div
                     key={row.rowId}
-                    className={`group flex items-stretch border-b border-gray-100 ${rowBase} ${rowHover}`}
+                    className={`group flex items-stretch border-b border-border ${rowBase} ${rowHover}`}
                     onClick={() => {
                       if (row.kind === 'INIT') {
                         useInitiativeDetailStore.getState().open(row.data.id)
@@ -1278,7 +1278,7 @@ export default function OkrsAllClient({ currentUser }: { currentUser: CurrentUse
                   >
                     <div
                       style={{ width: widths.__name, paddingLeft: 12 + row.depth * 16 }}
-                      className={`sticky left-0 z-10 pr-3 py-2 shrink-0 flex items-center gap-1 border-r border-gray-200 ${rowBase} group-hover:bg-blue-50`}
+                      className={`sticky left-0 z-10 pr-3 py-2 shrink-0 flex items-center gap-1 border-r border-border ${rowBase} group-hover:bg-blue-50`}
                       onMouseEnter={(e) => scheduleHoverPreview(row, e)}
                       onMouseLeave={cancelHoverPreview}
                     >
@@ -1288,7 +1288,7 @@ export default function OkrsAllClient({ currentUser }: { currentUser: CurrentUse
                           e.stopPropagation()
                           if (isExpandable) toggle(row.rowId)
                         }}
-                        className={isExpandable ? 'text-gray-500 hover:text-gray-900' : 'text-transparent'}
+                        className={isExpandable ? 'text-muted-foreground hover:text-foreground' : 'text-transparent'}
                         aria-label={isExpanded ? 'Collapse' : 'Expand'}
                       >
                         {isExpandable ? (
@@ -1308,7 +1308,7 @@ export default function OkrsAllClient({ currentUser }: { currentUser: CurrentUse
                             e.stopPropagation()
                             toggleFavorite(row.data.id)
                           }}
-                          className="shrink-0 text-gray-300 hover:text-yellow-500"
+                          className="shrink-0 text-muted-foreground hover:text-yellow-500"
                           aria-label={favoriteIds.has(row.data.id) ? 'Unfavorite' : 'Favorite'}
                           title={favoriteIds.has(row.data.id) ? 'Remove from Watched' : 'Add to Watched'}
                         >
@@ -1321,21 +1321,21 @@ export default function OkrsAllClient({ currentUser }: { currentUser: CurrentUse
                       {row.data.href ? (
                         <Link
                           href={row.data.href}
-                          className="text-sm text-gray-900 hover:text-blue-600 truncate"
+                          className="text-sm text-foreground hover:text-blue-600 truncate"
                           title={row.data.title}
                           onClick={(e) => e.stopPropagation()}
                         >
                           {row.data.title}
                         </Link>
                       ) : (
-                        <span className="text-sm text-gray-900 truncate">{row.data.title}</span>
+                        <span className="text-sm text-foreground truncate">{row.data.title}</span>
                       )}
                     </div>
                     {COLUMNS.map((c) => (
                       <div
                         key={c.key}
                         style={{ width: widths[c.key] ?? c.width }}
-                        className="px-3 py-2 shrink-0 border-r border-gray-100 overflow-hidden"
+                        className="px-3 py-2 shrink-0 border-r border-border overflow-hidden"
                       >
                         {c.render(row, refs)}
                       </div>
@@ -1360,19 +1360,19 @@ export default function OkrsAllClient({ currentUser }: { currentUser: CurrentUse
               left: Math.min(hoverRow.x, window.innerWidth - 360),
               zIndex: 9999,
             }}
-            className="w-80 rounded-lg border border-gray-200 bg-white shadow-xl p-3 pointer-events-none"
+            className="w-80 rounded-lg border border-border bg-card shadow-xl p-3 pointer-events-none"
           >
             <div className="flex items-start justify-between gap-2 mb-1">
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-gray-900 leading-snug">{hoverRow.row.data.title}</p>
+                <p className="text-sm font-semibold text-foreground leading-snug">{hoverRow.row.data.title}</p>
               </div>
               {typeof hoverRow.row.data.progress === 'number' && (
-                <span className="text-xs font-medium text-gray-700 tabular-nums shrink-0">
+                <span className="text-xs font-medium text-muted-foreground tabular-nums shrink-0">
                   {Math.round(hoverRow.row.data.progress)}%
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-2 mb-2 text-[11px] uppercase tracking-wide text-gray-500">
+            <div className="flex items-center gap-2 mb-2 text-[11px] uppercase tracking-wide text-muted-foreground">
               {(() => {
                 const v =
                   hoverRow.row.data.goalStatus ??
@@ -1387,7 +1387,7 @@ export default function OkrsAllClient({ currentUser }: { currentUser: CurrentUse
                   </span>
                 )
               })()}
-              <span className="ml-auto text-[11px] text-gray-500">
+              <span className="ml-auto text-[11px] text-muted-foreground">
                 {hoverRow.row.kind === 'OBJ'
                   ? hoverRow.row.data.level
                   : hoverRow.row.kind === 'KR'
@@ -1396,7 +1396,7 @@ export default function OkrsAllClient({ currentUser }: { currentUser: CurrentUse
               </span>
             </div>
             {typeof hoverRow.row.data.progress === 'number' && (
-              <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden mb-2">
+              <div className="h-1.5 rounded-full bg-muted overflow-hidden mb-2">
                 <div
                   className={
                     'h-full rounded-full ' +
@@ -1411,15 +1411,15 @@ export default function OkrsAllClient({ currentUser }: { currentUser: CurrentUse
               </div>
             )}
             {hoverRow.row.data.owner && (
-              <p className="text-xs text-gray-600">
-                Owner: <span className="text-gray-800">{hoverRow.row.data.owner.name ?? '—'}</span>
+              <p className="text-xs text-muted-foreground">
+                Owner: <span className="text-foreground">{hoverRow.row.data.owner.name ?? '—'}</span>
               </p>
             )}
             {hoverRow.row.data.period && (
-              <p className="text-xs text-gray-500">Period: {hoverRow.row.data.period.name}</p>
+              <p className="text-xs text-muted-foreground">Period: {hoverRow.row.data.period.name}</p>
             )}
             {hoverRow.row.kind === 'KR' && (
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 {hoverRow.row.data.currentValue} / {hoverRow.row.data.targetValue} {hoverRow.row.data.unit}
               </p>
             )}
@@ -1442,10 +1442,10 @@ export default function OkrsAllClient({ currentUser }: { currentUser: CurrentUse
             {typeof selected.data.progress === 'number' && (
               <Field label="Progress">
                 <div className="flex items-center gap-2">
-                  <div className="flex-1 h-2 rounded-full bg-gray-100 overflow-hidden">
+                  <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
                     <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min(100, selected.data.progress)}%` }} />
                   </div>
-                  <span className="tabular-nums text-gray-700">{Math.round(selected.data.progress)}%</span>
+                  <span className="tabular-nums text-muted-foreground">{Math.round(selected.data.progress)}%</span>
                 </div>
               </Field>
             )}
@@ -1482,8 +1482,8 @@ export default function OkrsAllClient({ currentUser }: { currentUser: CurrentUse
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <p className="text-[10px] uppercase tracking-wide text-gray-500">{label}</p>
-      <div className="font-medium text-gray-900 mt-0.5">{children}</div>
+      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
+      <div className="font-medium text-foreground mt-0.5">{children}</div>
     </div>
   )
 }
@@ -1546,12 +1546,12 @@ function TabButton({
       className={`inline-flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
         active
           ? 'border-blue-600 text-blue-700'
-          : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
-      } ${disabled ? 'opacity-40 cursor-not-allowed hover:text-gray-600 hover:border-transparent' : ''}`}
+          : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+      } ${disabled ? 'opacity-40 cursor-not-allowed hover:text-muted-foreground hover:border-transparent' : ''}`}
     >
       {label}
       {count != null && count > 0 && (
-        <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${active ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-700'}`}>
+        <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${active ? 'bg-blue-100 text-blue-800' : 'bg-muted text-muted-foreground'}`}>
           {count}
         </span>
       )}
@@ -1563,7 +1563,7 @@ function KindBadgeLarge({ row }: { row: Row }) {
   return (
     <div className="inline-flex items-center gap-2">
       <KindBadge row={row} />
-      <span className="text-xs uppercase tracking-wide text-gray-500">
+      <span className="text-xs uppercase tracking-wide text-muted-foreground">
         {row.kind === 'OBJ' ? `${row.data.level?.toLowerCase()} objective` : row.kind === 'KR' ? 'Key result' : 'Initiative'}
       </span>
     </div>

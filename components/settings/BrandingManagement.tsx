@@ -55,21 +55,21 @@ export default function BrandingManagement() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Branding</h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <h1 className="text-2xl font-bold text-foreground">Branding</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
           Customize your workspace name and logo.
         </p>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         {/* Workspace Name */}
-        <div className="bg-white shadow rounded-lg p-6">
+        <div className="bg-card shadow rounded-lg p-6">
           <div className="flex items-center mb-4">
-            <Building2 className="h-5 w-5 text-gray-400 mr-2" />
-            <h3 className="text-lg font-medium text-gray-900">Workspace Name</h3>
+            <Building2 className="h-5 w-5 text-muted-foreground mr-2" />
+            <h3 className="text-lg font-medium text-foreground">Workspace Name</h3>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-muted-foreground mb-2">
               Workspace Name
             </label>
             <input
@@ -81,20 +81,20 @@ export default function BrandingManagement() {
             {errors.workspaceName && (
               <p className="mt-1 text-sm text-red-600">{errors.workspaceName.message}</p>
             )}
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-muted-foreground">
               This name will appear in the sidebar and throughout the application.
             </p>
           </div>
         </div>
 
         {/* Logo */}
-        <div className="bg-white shadow rounded-lg p-6">
+        <div className="bg-card shadow rounded-lg p-6">
           <div className="flex items-center mb-4">
-            <Upload className="h-5 w-5 text-gray-400 mr-2" />
-            <h3 className="text-lg font-medium text-gray-900">Logo</h3>
+            <Upload className="h-5 w-5 text-muted-foreground mr-2" />
+            <h3 className="text-lg font-medium text-foreground">Logo</h3>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-muted-foreground mb-2">
               Logo URL
             </label>
             <input
@@ -103,7 +103,7 @@ export default function BrandingManagement() {
               className="input"
               placeholder="https://example.com/logo.png"
             />
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-muted-foreground">
               Enter a URL to your logo image. Recommended size: 200x50px.
             </p>
           </div>

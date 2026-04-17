@@ -209,7 +209,7 @@ export default async function TeamProfilePage({ params }: PageProps) {
       <div className="space-y-6">
         <Link
           href="/dashboard/org/teams"
-          className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700"
+          className="inline-flex items-center text-sm text-muted-foreground hover:text-muted-foreground"
         >
           <ArrowLeft className="h-4 w-4 mr-1" />
           Back to teams
@@ -217,27 +217,27 @@ export default async function TeamProfilePage({ params }: PageProps) {
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
           <aside className="lg:col-span-4 space-y-4">
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 text-center">
+            <div className="bg-card rounded-lg border border-border shadow-sm p-6 text-center">
               <div className="mx-auto h-20 w-20 rounded-2xl bg-emerald-100 flex items-center justify-center">
                 <Building2 className="h-10 w-10 text-emerald-700" />
               </div>
-              <h1 className="mt-4 text-xl font-bold text-gray-900">{department.name}</h1>
+              <h1 className="mt-4 text-xl font-bold text-foreground">{department.name}</h1>
               {department.description ? (
-                <p className="text-sm text-gray-500 mt-2">{department.description}</p>
+                <p className="text-sm text-muted-foreground mt-2">{department.description}</p>
               ) : null}
-              <p className="text-xs text-gray-400 mt-3">
+              <p className="text-xs text-muted-foreground mt-3">
                 {department.memberships.length} member
                 {department.memberships.length === 1 ? '' : 's'}
               </p>
             </div>
 
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+            <div className="bg-card rounded-lg border border-border shadow-sm p-4">
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                     Key results
                   </p>
-                  <p className="text-lg font-semibold tabular-nums text-gray-900 mt-1">
+                  <p className="text-lg font-semibold tabular-nums text-foreground mt-1">
                     {metrics.avgKrProgress}%
                   </p>
                   <div className="mt-1 h-1.5 w-full rounded-full bg-sky-100 overflow-hidden">
@@ -248,23 +248,23 @@ export default async function TeamProfilePage({ params }: PageProps) {
                   </div>
                 </div>
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                     Initiatives
                   </p>
-                  <p className="text-lg font-semibold tabular-nums text-gray-900 mt-1">
+                  <p className="text-lg font-semibold tabular-nums text-foreground mt-1">
                     {metrics.initiativeTotal > 0
                       ? `${metrics.initiativeDone}/${metrics.initiativeTotal}`
                       : '—'}
                   </p>
                 </div>
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 flex items-center justify-center gap-0.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center justify-center gap-0.5">
                     Confidence
                     <span title="Approximate score from key result confidence (NCS-style)">
-                      <HelpCircle className="h-3 w-3 text-gray-400" />
+                      <HelpCircle className="h-3 w-3 text-muted-foreground" />
                     </span>
                   </p>
-                  <p className="text-lg font-semibold tabular-nums text-gray-900 mt-1">
+                  <p className="text-lg font-semibold tabular-nums text-foreground mt-1">
                     {metrics.ncsScore} NCS
                   </p>
                   <div className="mt-1 h-1.5 w-full rounded-full bg-amber-100 overflow-hidden">
@@ -277,24 +277,24 @@ export default async function TeamProfilePage({ params }: PageProps) {
               </div>
             </div>
 
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+            <div className="bg-card rounded-lg border border-border shadow-sm p-4">
               <div className="flex items-center justify-between mb-3">
-                <h2 className="text-sm font-semibold text-gray-900">Org network</h2>
+                <h2 className="text-sm font-semibold text-foreground">Org network</h2>
                 {manageHref && (
                   <Link href={manageHref} className="text-xs font-medium text-blue-600 hover:text-blue-800">
                     Manage
                   </Link>
                 )}
               </div>
-              <ul className="space-y-2 text-sm text-gray-700">
+              <ul className="space-y-2 text-sm text-muted-foreground">
                 <li className="flex items-start gap-2">
-                  <Users className="h-4 w-4 text-gray-400 shrink-0 mt-0.5" />
+                  <Users className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
                   <span>
-                    <span className="text-gray-500">Members</span>{' '}
+                    <span className="text-muted-foreground">Members</span>{' '}
                     {department.memberships.length === 0 ? (
-                      <span className="text-gray-500">None</span>
+                      <span className="text-muted-foreground">None</span>
                     ) : (
-                      <span className="text-gray-900">
+                      <span className="text-foreground">
                         {department.memberships.map((m) => (
                           <Link
                             key={m.id}
@@ -311,11 +311,11 @@ export default async function TeamProfilePage({ params }: PageProps) {
               </ul>
             </div>
 
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
-              <h2 className="text-sm font-semibold text-gray-900 mb-2">Latest standup</h2>
+            <div className="bg-card rounded-lg border border-border shadow-sm p-4">
+              <h2 className="text-sm font-semibold text-foreground mb-2">Latest standup</h2>
               {latestStandup ? (
-                <div className="text-sm text-gray-700">
-                  <p className="text-xs text-gray-500">
+                <div className="text-sm text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     {new Date(latestStandup.createdAt).toLocaleDateString(undefined, {
                       dateStyle: 'medium',
                     })}{' '}
@@ -329,24 +329,24 @@ export default async function TeamProfilePage({ params }: PageProps) {
                   </Link>
                 </div>
               ) : (
-                <p className="text-sm text-gray-500">There are no standups to display</p>
+                <p className="text-sm text-muted-foreground">There are no standups to display</p>
               )}
             </div>
           </aside>
 
           <div className="lg:col-span-8 space-y-6">
-            <section className="bg-white rounded-lg border border-gray-200 shadow-sm">
-              <div className="px-4 py-3 border-b border-gray-100">
-                <h2 className="text-base font-semibold text-gray-900">Active key results</h2>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mt-1">
+            <section className="bg-card rounded-lg border border-border shadow-sm">
+              <div className="px-4 py-3 border-b border-border">
+                <h2 className="text-base font-semibold text-foreground">Active key results</h2>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mt-1">
                   Pending check-ins
                   {pendingCount > 0 ? ` · ${pendingCount} need attention` : ''}
                 </p>
               </div>
               {krsWithStatus.length === 0 ? (
-                <p className="p-6 text-sm text-gray-500">No visible key results for this team.</p>
+                <p className="p-6 text-sm text-muted-foreground">No visible key results for this team.</p>
               ) : (
-                <ul className="divide-y divide-gray-100">
+                <ul className="divide-y divide-border">
                   {krsWithStatus.map(({ kr, displayStatus }) => {
                     const statusText = statusLabel(displayStatus)
                     const valueHint = formatKrValueLabel(kr.currentValue, kr.unit)
@@ -354,7 +354,7 @@ export default async function TeamProfilePage({ params }: PageProps) {
                       <li key={kr.id} className="px-4 py-3 flex items-start gap-3">
                         <div
                           className={cn(
-                            'mt-1.5 h-2.5 w-2.5 shrink-0 rounded-sm border border-gray-200/80',
+                            'mt-1.5 h-2.5 w-2.5 shrink-0 rounded-sm border border-border/80',
                             confidenceDot(displayStatus)
                           )}
                           title={statusText}
@@ -362,18 +362,18 @@ export default async function TeamProfilePage({ params }: PageProps) {
                         <div className="min-w-0 flex-1">
                           <Link
                             href={`/dashboard/key-results/${kr.id}`}
-                            className="text-sm font-medium text-gray-900 hover:text-blue-600 line-clamp-2"
+                            className="text-sm font-medium text-foreground hover:text-blue-600 line-clamp-2"
                           >
                             {kr.title}
                           </Link>
-                          <p className="text-xs text-gray-500 mt-0.5 truncate">{kr.objective.title}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5 truncate">{kr.objective.title}</p>
                         </div>
                         <div className="shrink-0 flex items-center gap-2 text-right">
                           <div>
-                            <p className="text-xs text-gray-600 max-w-[140px] truncate" title={valueHint}>
+                            <p className="text-xs text-muted-foreground max-w-[140px] truncate" title={valueHint}>
                               {valueHint}
                             </p>
-                            <p className="text-[11px] text-gray-500">{statusText}</p>
+                            <p className="text-[11px] text-muted-foreground">{statusText}</p>
                           </div>
                           <Link href={`/dashboard/org/users/${kr.owner.id}`} className="shrink-0">
                             {kr.owner.avatar ? (
@@ -396,23 +396,23 @@ export default async function TeamProfilePage({ params }: PageProps) {
               )}
             </section>
 
-            <section className="bg-white rounded-lg border border-gray-200 shadow-sm">
-              <div className="px-4 py-3 border-b border-gray-100">
-                <h2 className="text-base font-semibold text-gray-900">Active initiatives</h2>
+            <section className="bg-card rounded-lg border border-border shadow-sm">
+              <div className="px-4 py-3 border-b border-border">
+                <h2 className="text-base font-semibold text-foreground">Active initiatives</h2>
               </div>
               {visibleTodos.length === 0 ? (
-                <p className="p-6 text-sm text-gray-500">No initiatives for this team</p>
+                <p className="p-6 text-sm text-muted-foreground">No initiatives for this team</p>
               ) : (
-                <ul className="divide-y divide-gray-100">
+                <ul className="divide-y divide-border">
                   {visibleTodos.map((t) => (
                     <li key={t.id} className="px-4 py-3 flex items-center justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="text-sm font-medium text-gray-900">{t.title}</p>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-sm font-medium text-foreground">{t.title}</p>
+                        <p className="text-xs text-muted-foreground">
                           {t.assignee.name} · {t.keyResult?.objective.title ?? 'Personal to-do'}
                         </p>
                       </div>
-                      <span className="text-xs text-gray-500 shrink-0 capitalize">
+                      <span className="text-xs text-muted-foreground shrink-0 capitalize">
                         {t.status.replace(/_/g, ' ').toLowerCase()}
                       </span>
                     </li>

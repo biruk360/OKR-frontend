@@ -68,17 +68,17 @@ export default function MyTeamView() {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        <span className="ml-2 text-gray-600">Loading team data...</span>
+        <span className="ml-2 text-muted-foreground">Loading team data...</span>
       </div>
     )
   }
 
   if (directReports.length === 0) {
     return (
-      <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
-        <User className="mx-auto h-12 w-12 text-gray-400" />
-        <h3 className="mt-2 text-sm font-medium text-gray-900">No direct reports</h3>
-        <p className="mt-1 text-sm text-gray-500">
+      <div className="text-center py-12 bg-card rounded-lg border border-border">
+        <User className="mx-auto h-12 w-12 text-muted-foreground" />
+        <h3 className="mt-2 text-sm font-medium text-foreground">No direct reports</h3>
+        <p className="mt-1 text-sm text-muted-foreground">
           You don't have any direct reports assigned to you.
         </p>
       </div>
@@ -94,7 +94,7 @@ export default function MyTeamView() {
           const offset = circumference - (stats.avgProgress / 100) * circumference
 
           return (
-            <div key={user.id} className="bg-white rounded-lg border border-gray-200 p-6">
+            <div key={user.id} className="bg-card rounded-lg border border-border p-6">
               {/* User Header */}
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center space-x-3">
@@ -110,8 +110,8 @@ export default function MyTeamView() {
                     </div>
                   )}
                   <div>
-                    <h3 className="text-sm font-medium text-gray-900">{user.name}</h3>
-                    <p className="text-xs text-gray-500">{user.email}</p>
+                    <h3 className="text-sm font-medium text-foreground">{user.name}</h3>
+                    <p className="text-xs text-muted-foreground">{user.email}</p>
                   </div>
                 </div>
                 <button
@@ -154,7 +154,7 @@ export default function MyTeamView() {
                   </svg>
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="text-center">
-                      <div className="text-lg font-bold text-gray-900">{stats.avgProgress}%</div>
+                      <div className="text-lg font-bold text-foreground">{stats.avgProgress}%</div>
                     </div>
                   </div>
                 </div>
@@ -164,15 +164,15 @@ export default function MyTeamView() {
               <div className="grid grid-cols-3 gap-2 mb-4">
                 <div className="text-center">
                   <div className="text-lg font-bold text-green-600">{stats.onTrack}</div>
-                  <div className="text-xs text-gray-500">On Track</div>
+                  <div className="text-xs text-muted-foreground">On Track</div>
                 </div>
                 <div className="text-center">
                   <div className="text-lg font-bold text-yellow-600">{stats.atRisk}</div>
-                  <div className="text-xs text-gray-500">At Risk</div>
+                  <div className="text-xs text-muted-foreground">At Risk</div>
                 </div>
                 <div className="text-center">
                   <div className="text-lg font-bold text-red-600">{stats.offTrack}</div>
-                  <div className="text-xs text-gray-500">Off Track</div>
+                  <div className="text-xs text-muted-foreground">Off Track</div>
                 </div>
               </div>
 
@@ -183,9 +183,9 @@ export default function MyTeamView() {
                     <a
                       key={objective.id}
                       href={`/dashboard/objectives/${objective.id}`}
-                      className="block p-2 rounded-md hover:bg-gray-50 transition-colors"
+                      className="block p-2 rounded-md hover:bg-muted transition-colors"
                     >
-                      <div className="text-sm font-medium text-gray-900 line-clamp-1">
+                      <div className="text-sm font-medium text-foreground line-clamp-1">
                         {objective.title}
                       </div>
                       <div className="flex items-center justify-between mt-1">
@@ -195,12 +195,12 @@ export default function MyTeamView() {
                             style={{ width: `${Math.min(objective.progress, 100)}%` }}
                           />
                         </div>
-                        <span className="text-xs text-gray-500">{Math.round(objective.progress)}%</span>
+                        <span className="text-xs text-muted-foreground">{Math.round(objective.progress)}%</span>
                       </div>
                     </a>
                   ))
                 ) : (
-                  <p className="text-sm text-gray-500 text-center py-4">No goals yet</p>
+                  <p className="text-sm text-muted-foreground text-center py-4">No goals yet</p>
                 )}
               </div>
             </div>

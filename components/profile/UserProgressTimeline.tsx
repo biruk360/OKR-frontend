@@ -85,10 +85,10 @@ export default function UserProgressTimeline({
   const nowWithin = now >= new Date(timeframeStart).getTime() && now <= new Date(timeframeEnd).getTime()
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+    <div className="bg-card rounded-lg border border-border shadow-sm p-4">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-semibold text-gray-900">Overall Progress Timeline</h2>
-        <div className="text-xs text-gray-500 flex items-center gap-3">
+        <h2 className="text-sm font-semibold text-foreground">Overall Progress Timeline</h2>
+        <div className="text-xs text-muted-foreground flex items-center gap-3">
           <span className="flex items-center gap-1">
             <span className="inline-block h-2 w-4 border-t-2 border-dashed border-gray-400" />
             Expected

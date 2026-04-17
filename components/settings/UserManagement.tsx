@@ -128,7 +128,7 @@ export default function UserManagement({ initialUsers }: UserManagementProps) {
       case 'EMPLOYEE':
         return 'bg-green-100 text-green-800'
       default:
-        return 'bg-gray-100 text-gray-800'
+        return 'bg-muted text-foreground'
     }
   }
 
@@ -147,14 +147,14 @@ export default function UserManagement({ initialUsers }: UserManagementProps) {
   }
 
   return (
-    <div className="bg-white shadow rounded-lg">
+    <div className="bg-card shadow rounded-lg">
       <div className="px-4 py-5 sm:p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h3 className="text-lg leading-6 font-medium text-gray-900">
+            <h3 className="text-lg leading-6 font-medium text-foreground">
               User Management
             </h3>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-sm text-muted-foreground">
               Manage user accounts and permissions
             </p>
           </div>
@@ -170,21 +170,21 @@ export default function UserManagement({ initialUsers }: UserManagementProps) {
         {/* Users Table */}
         <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
           <table className="min-w-full divide-y divide-gray-300">
-            <thead className="bg-gray-50">
+            <thead className="bg-muted">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   User
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Role
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Status
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Created
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Last Login
                 </th>
                 <th className="relative px-6 py-3">
@@ -192,24 +192,24 @@ export default function UserManagement({ initialUsers }: UserManagementProps) {
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-card divide-y divide-border">
               {users.map((user) => (
-                <tr key={user.id} className="hover:bg-gray-50">
+                <tr key={user.id} className="hover:bg-muted">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="flex-shrink-0 h-10 w-10">
                         <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
-                          <User className="h-5 w-5 text-gray-600" />
+                          <User className="h-5 w-5 text-muted-foreground" />
                         </div>
                       </div>
                       <div className="ml-4">
                         <Link
                           href={`/dashboard/org/users/${user.id}`}
-                          className="text-sm font-medium text-gray-900 hover:text-blue-600 hover:underline"
+                          className="text-sm font-medium text-foreground hover:text-blue-600 hover:underline"
                         >
                           {user.name}
                         </Link>
-                        <div className="text-sm text-gray-500">
+                        <div className="text-sm text-muted-foreground">
                           {user.email}
                         </div>
                       </div>
@@ -226,13 +226,13 @@ export default function UserManagement({ initialUsers }: UserManagementProps) {
                       {user.isActive ? 'Active' : 'Pending'}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                     <div className="flex items-center">
                       <Calendar className="h-4 w-4 mr-1" />
                       {formatDate(user.createdAt)}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                     {user.lastLoginAt ? formatDate(user.lastLoginAt) : 'Never'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -270,9 +270,9 @@ export default function UserManagement({ initialUsers }: UserManagementProps) {
 
         {users.length === 0 && (
           <div className="text-center py-12">
-            <User className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No users</h3>
-            <p className="mt-1 text-sm text-gray-500">Get started by creating a new user.</p>
+            <User className="mx-auto h-12 w-12 text-muted-foreground" />
+            <h3 className="mt-2 text-sm font-medium text-foreground">No users</h3>
+            <p className="mt-1 text-sm text-muted-foreground">Get started by creating a new user.</p>
             <div className="mt-6">
               <button
                 onClick={() => setIsAddUserModalOpen(true)}
@@ -418,26 +418,26 @@ function AddUserModal({ isOpen, onClose, onUserCreated }: AddUserModalProps) {
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
         <div className="fixed inset-0 transition-opacity" aria-hidden="true">
-          <div className="absolute inset-0 bg-gray-500 opacity-75" onClick={onClose}></div>
+          <div className="absolute inset-0 bg-muted0 opacity-75" onClick={onClose}></div>
         </div>
 
         <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
 
-        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+        <div className="inline-block align-bottom bg-card rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
           <form onSubmit={handleSubmit}>
-            <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+            <div className="bg-card px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
               <div className="sm:flex sm:items-start">
                 <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10">
                   <User className="h-6 w-6 text-blue-600" />
                 </div>
                 <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
-                  <h3 className="text-lg leading-6 font-medium text-gray-900">
+                  <h3 className="text-lg leading-6 font-medium text-foreground">
                     Add New User
                   </h3>
                   <div className="mt-4 space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">
+                        <label htmlFor="firstName" className="block text-sm font-medium text-muted-foreground">
                           First Name *
                         </label>
                         <input
@@ -445,8 +445,8 @@ function AddUserModal({ isOpen, onClose, onUserCreated }: AddUserModalProps) {
                           id="firstName"
                           value={formData.firstName}
                           onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
-                          className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
-                            errors.firstName ? 'border-red-300' : 'border-gray-300'
+                          className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-ring focus:border-blue-500 sm:text-sm ${
+                            errors.firstName ? 'border-red-300' : 'border-border'
                           }`}
                           placeholder="Enter first name"
                         />
@@ -455,7 +455,7 @@ function AddUserModal({ isOpen, onClose, onUserCreated }: AddUserModalProps) {
                         )}
                       </div>
                       <div>
-                        <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">
+                        <label htmlFor="lastName" className="block text-sm font-medium text-muted-foreground">
                           Last Name *
                         </label>
                         <input
@@ -463,8 +463,8 @@ function AddUserModal({ isOpen, onClose, onUserCreated }: AddUserModalProps) {
                           id="lastName"
                           value={formData.lastName}
                           onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))}
-                          className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
-                            errors.lastName ? 'border-red-300' : 'border-gray-300'
+                          className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-ring focus:border-blue-500 sm:text-sm ${
+                            errors.lastName ? 'border-red-300' : 'border-border'
                           }`}
                           placeholder="Enter last name"
                         />
@@ -475,7 +475,7 @@ function AddUserModal({ isOpen, onClose, onUserCreated }: AddUserModalProps) {
                     </div>
 
                     <div>
-                      <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                      <label htmlFor="email" className="block text-sm font-medium text-muted-foreground">
                         Email Address *
                       </label>
                       <input
@@ -483,8 +483,8 @@ function AddUserModal({ isOpen, onClose, onUserCreated }: AddUserModalProps) {
                         id="email"
                         value={formData.email}
                         onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                        className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
-                          errors.email ? 'border-red-300' : 'border-gray-300'
+                        className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-ring focus:border-blue-500 sm:text-sm ${
+                          errors.email ? 'border-red-300' : 'border-border'
                         }`}
                         placeholder="Enter email address"
                       />
@@ -494,14 +494,14 @@ function AddUserModal({ isOpen, onClose, onUserCreated }: AddUserModalProps) {
                     </div>
 
                     <div>
-                      <label htmlFor="role" className="block text-sm font-medium text-gray-700">
+                      <label htmlFor="role" className="block text-sm font-medium text-muted-foreground">
                         Role
                       </label>
                       <select
                         id="role"
                         value={formData.role}
                         onChange={(e) => setFormData(prev => ({ ...prev, role: e.target.value }))}
-                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        className="mt-1 block w-full border border-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-ring focus:border-blue-500 sm:text-sm"
                       >
                         <option value="EMPLOYEE">Employee</option>
                         <option value="DEPARTMENT_LEAD">Department Lead</option>
@@ -513,18 +513,18 @@ function AddUserModal({ isOpen, onClose, onUserCreated }: AddUserModalProps) {
                 </div>
               </div>
             </div>
-            <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+            <div className="bg-muted px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
+                className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
               >
                 {isLoading ? 'Sending...' : 'Send Invite'}
               </button>
               <button
                 type="button"
                 onClick={onClose}
-                className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                className="mt-3 w-full inline-flex justify-center rounded-md border border-border shadow-sm px-4 py-2 bg-card text-base font-medium text-muted-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
               >
                 Cancel
               </button>
@@ -611,25 +611,25 @@ function EditUserModal({ isOpen, onClose, onUserUpdated, user }: EditUserModalPr
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
         <div className="fixed inset-0 transition-opacity" aria-hidden="true">
-          <div className="absolute inset-0 bg-gray-500 opacity-75" onClick={onClose}></div>
+          <div className="absolute inset-0 bg-muted0 opacity-75" onClick={onClose}></div>
         </div>
 
         <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
 
-        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+        <div className="inline-block align-bottom bg-card rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
           <form onSubmit={handleSubmit}>
-            <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+            <div className="bg-card px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
               <div className="sm:flex sm:items-start">
                 <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10">
                   <Edit className="h-6 w-6 text-blue-600" />
                 </div>
                 <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
-                  <h3 className="text-lg leading-6 font-medium text-gray-900">
+                  <h3 className="text-lg leading-6 font-medium text-foreground">
                     Edit User
                   </h3>
                   <div className="mt-4 space-y-4">
                     <div>
-                      <label htmlFor="edit-name" className="block text-sm font-medium text-gray-700">
+                      <label htmlFor="edit-name" className="block text-sm font-medium text-muted-foreground">
                         Name *
                       </label>
                       <input
@@ -637,8 +637,8 @@ function EditUserModal({ isOpen, onClose, onUserUpdated, user }: EditUserModalPr
                         id="edit-name"
                         value={formData.name}
                         onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                        className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
-                          errors.name ? 'border-red-300' : 'border-gray-300'
+                        className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-ring focus:border-blue-500 sm:text-sm ${
+                          errors.name ? 'border-red-300' : 'border-border'
                         }`}
                         placeholder="Enter full name"
                       />
@@ -648,7 +648,7 @@ function EditUserModal({ isOpen, onClose, onUserUpdated, user }: EditUserModalPr
                     </div>
 
                     <div>
-                      <label htmlFor="edit-email" className="block text-sm font-medium text-gray-700">
+                      <label htmlFor="edit-email" className="block text-sm font-medium text-muted-foreground">
                         Email Address *
                       </label>
                       <input
@@ -656,8 +656,8 @@ function EditUserModal({ isOpen, onClose, onUserUpdated, user }: EditUserModalPr
                         id="edit-email"
                         value={formData.email}
                         onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                        className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
-                          errors.email ? 'border-red-300' : 'border-gray-300'
+                        className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-ring focus:border-blue-500 sm:text-sm ${
+                          errors.email ? 'border-red-300' : 'border-border'
                         }`}
                         placeholder="Enter email address"
                       />
@@ -667,14 +667,14 @@ function EditUserModal({ isOpen, onClose, onUserUpdated, user }: EditUserModalPr
                     </div>
 
                     <div>
-                      <label htmlFor="edit-role" className="block text-sm font-medium text-gray-700">
+                      <label htmlFor="edit-role" className="block text-sm font-medium text-muted-foreground">
                         Role
                       </label>
                       <select
                         id="edit-role"
                         value={formData.role}
                         onChange={(e) => setFormData(prev => ({ ...prev, role: e.target.value }))}
-                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        className="mt-1 block w-full border border-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-ring focus:border-blue-500 sm:text-sm"
                       >
                         <option value="EMPLOYEE">Employee</option>
                         <option value="DEPARTMENT_LEAD">Department Lead</option>
@@ -689,11 +689,11 @@ function EditUserModal({ isOpen, onClose, onUserUpdated, user }: EditUserModalPr
                           type="checkbox"
                           checked={formData.isActive}
                           onChange={(e) => setFormData(prev => ({ ...prev, isActive: e.target.checked }))}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                          className="h-4 w-4 text-blue-600 focus:ring-ring border-border rounded"
                         />
-                        <span className="ml-2 text-sm text-gray-700">Active Account</span>
+                        <span className="ml-2 text-sm text-muted-foreground">Active Account</span>
                       </label>
-                      <p className="mt-1 text-xs text-gray-500">
+                      <p className="mt-1 text-xs text-muted-foreground">
                         Inactive users cannot log in to the system
                       </p>
                     </div>
@@ -701,18 +701,18 @@ function EditUserModal({ isOpen, onClose, onUserUpdated, user }: EditUserModalPr
                 </div>
               </div>
             </div>
-            <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+            <div className="bg-muted px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
+                className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
               >
                 {isLoading ? 'Updating...' : 'Update User'}
               </button>
               <button
                 type="button"
                 onClick={onClose}
-                className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                className="mt-3 w-full inline-flex justify-center rounded-md border border-border shadow-sm px-4 py-2 bg-card text-base font-medium text-muted-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
               >
                 Cancel
               </button>
@@ -740,33 +740,33 @@ function DeleteUserModal({ isOpen, onClose, onConfirm, user, isLoading }: Delete
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
         <div className="fixed inset-0 transition-opacity" aria-hidden="true">
-          <div className="absolute inset-0 bg-gray-500 opacity-75" onClick={onClose}></div>
+          <div className="absolute inset-0 bg-muted0 opacity-75" onClick={onClose}></div>
         </div>
 
         <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
 
-        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-          <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+        <div className="inline-block align-bottom bg-card rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+          <div className="bg-card px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
             <div className="sm:flex sm:items-start">
               <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
                 <AlertTriangle className="h-6 w-6 text-red-600" />
               </div>
               <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
-                <h3 className="text-lg leading-6 font-medium text-gray-900">
+                <h3 className="text-lg leading-6 font-medium text-foreground">
                   Delete User
                 </h3>
                 <div className="mt-2">
-                  <p className="text-sm text-gray-500">
-                    Are you sure you want to delete <span className="font-medium text-gray-900">{user.name}</span>?
+                  <p className="text-sm text-muted-foreground">
+                    Are you sure you want to delete <span className="font-medium text-foreground">{user.name}</span>?
                   </p>
-                  <p className="text-sm text-gray-500 mt-2">
+                  <p className="text-sm text-muted-foreground mt-2">
                     This action cannot be undone. All data associated with this user will be permanently deleted.
                   </p>
                 </div>
               </div>
             </div>
           </div>
-          <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+          <div className="bg-muted px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
             <button
               type="button"
               onClick={onConfirm}
@@ -778,7 +778,7 @@ function DeleteUserModal({ isOpen, onClose, onConfirm, user, isLoading }: Delete
             <button
               type="button"
               onClick={onClose}
-              className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+              className="mt-3 w-full inline-flex justify-center rounded-md border border-border shadow-sm px-4 py-2 bg-card text-base font-medium text-muted-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
             >
               Cancel
             </button>
@@ -805,34 +805,34 @@ function PasswordResetModal({ isOpen, onClose, onConfirm, user, isLoading }: Pas
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
         <div className="fixed inset-0 transition-opacity" aria-hidden="true">
-          <div className="absolute inset-0 bg-gray-500 opacity-75" onClick={onClose}></div>
+          <div className="absolute inset-0 bg-muted0 opacity-75" onClick={onClose}></div>
         </div>
 
         <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
 
-        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-          <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+        <div className="inline-block align-bottom bg-card rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+          <div className="bg-card px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
             <div className="sm:flex sm:items-start">
               <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-orange-100 sm:mx-0 sm:h-10 sm:w-10">
                 <AlertTriangle className="h-6 w-6 text-orange-600" />
               </div>
               <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
-                <h3 className="text-lg leading-6 font-medium text-gray-900">
+                <h3 className="text-lg leading-6 font-medium text-foreground">
                   Send Password Reset
                 </h3>
                 <div className="mt-2">
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-muted-foreground">
                     Are you sure you want to send a password reset email to{' '}
-                    <span className="font-medium text-gray-900">{user.name}</span>?
+                    <span className="font-medium text-foreground">{user.name}</span>?
                   </p>
-                  <p className="text-sm text-gray-500 mt-2">
+                  <p className="text-sm text-muted-foreground mt-2">
                     This will send a password reset link to <span className="font-medium">{user.email}</span> and invalidate any active sessions for this user.
                   </p>
                 </div>
               </div>
             </div>
           </div>
-          <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+          <div className="bg-muted px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
             <button
               type="button"
               onClick={onConfirm}
@@ -844,7 +844,7 @@ function PasswordResetModal({ isOpen, onClose, onConfirm, user, isLoading }: Pas
             <button
               type="button"
               onClick={onClose}
-              className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+              className="mt-3 w-full inline-flex justify-center rounded-md border border-border shadow-sm px-4 py-2 bg-card text-base font-medium text-muted-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
             >
               Cancel
             </button>

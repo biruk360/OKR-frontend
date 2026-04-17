@@ -121,7 +121,7 @@ export default function TodoDetailPanel({
   const isDone = todo.status === 'COMPLETED'
 
   const containerClass = mode === 'sidebar'
-    ? 'fixed inset-y-0 right-0 z-50 w-[480px] max-w-full bg-white shadow-[-4px_0_24px_rgba(9,30,66,0.15)] flex flex-col atlas-surface'
+    ? 'fixed inset-y-0 right-0 z-50 w-[480px] max-w-full bg-card shadow-[-4px_0_24px_rgba(9,30,66,0.15)] flex flex-col atlas-surface'
     : 'fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 pt-[5vh] atlas-surface'
 
   const innerClass = mode === 'sidebar'

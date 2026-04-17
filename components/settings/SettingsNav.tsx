@@ -80,7 +80,7 @@ export default function SettingsNav({ userRole }: SettingsNavProps) {
               'flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors relative z-10 cursor-pointer',
               isActive
                 ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
             )}
           >
             <Icon className="h-5 w-5" />

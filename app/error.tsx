@@ -25,10 +25,10 @@ export default function Error({
 
   return (
     <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 px-4">
-      <h2 className="text-xl font-semibold text-gray-900">Something went wrong</h2>
-      <p className="max-w-md text-center text-gray-600 text-sm">{error.message}</p>
+      <h2 className="text-xl font-semibold text-foreground">Something went wrong</h2>
+      <p className="max-w-md text-center text-muted-foreground text-sm">{error.message}</p>
       {error.digest ? (
-        <p className="text-xs text-gray-400">Reference: {error.digest}</p>
+        <p className="text-xs text-muted-foreground">Reference: {error.digest}</p>
       ) : null}
       <button
         type="button"

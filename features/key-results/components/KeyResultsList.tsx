@@ -161,7 +161,7 @@ export default function KeyResultsList({
     <div className="space-y-4">
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-semibold text-gray-900">
+          <h3 className="text-lg font-semibold text-foreground">
             Active Key Results ({activeKeyResults.length})
           </h3>
           {perm && (
@@ -178,24 +178,24 @@ export default function KeyResultsList({
             {activeKeyResults.map((kr) => {
               const confidence = kr.confidence ?? 'ON_TRACK'
               return (
-              <li key={kr.id} className="bg-gray-50 p-4 rounded-md border border-gray-200">
+              <li key={kr.id} className="bg-muted p-4 rounded-md border border-border">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center space-x-2 mb-2">
-                      <Target className="h-4 w-4 text-gray-500" />
+                      <Target className="h-4 w-4 text-muted-foreground" />
                       <Link
                         href={`/dashboard/key-results/${kr.id}`}
-                        className="font-medium text-gray-800 hover:text-blue-700 hover:underline"
+                        className="font-medium text-foreground hover:text-blue-700 hover:underline"
                       >
                         {kr.title}
                       </Link>
                       {perm ? renderKeyResultActions(kr) : null}
                     </div>
-                    <div className="text-sm text-gray-600 mb-2">
+                    <div className="text-sm text-muted-foreground mb-2">
                       Target: {kr.targetValue} {kr.unit} • Current: {kr.currentValue} {kr.unit}
                     </div>
                     <div className="flex items-center space-x-4 text-xs">
-                      <div className="flex items-center bg-gray-50 px-2 py-1 rounded-md border border-gray-200">
+                      <div className="flex items-center bg-muted px-2 py-1 rounded-md border border-border">
                         {kr.owner?.avatar ? (
                           <img
                             src={kr.owner.avatar}
@@ -207,7 +207,7 @@ export default function KeyResultsList({
                             <User className="h-2.5 w-2.5 text-white" />
                           </div>
                         )}
-                        <span className="font-medium text-gray-700">{kr.owner?.name || 'Unknown'}</span>
+                        <span className="font-medium text-muted-foreground">{kr.owner?.name || 'Unknown'}</span>
                       </div>
                       <span
                         className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -223,7 +223,7 @@ export default function KeyResultsList({
                     </div>
                     <div className="mt-2">
                       <div className="flex items-center justify-between text-sm mb-1">
-                        <span className="text-gray-600">Progress</span>
+                        <span className="text-muted-foreground">Progress</span>
                         <span className={`font-semibold ${getProgressColor(safeProgressPercent(kr.progress))}`}>
                           {Math.round(safeProgressPercent(kr.progress))}%
                         </span>
@@ -251,13 +251,13 @@ export default function KeyResultsList({
       {archivedKeyResults.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-lg font-semibold text-gray-900">
+            <h3 className="text-lg font-semibold text-foreground">
               Archived Key Results ({archivedKeyResults.length})
             </h3>
             <button
               type="button"
               onClick={() => setShowArchived(!showArchived)}
-              className="text-sm text-gray-500 hover:text-gray-700 flex items-center"
+              className="text-sm text-muted-foreground hover:text-muted-foreground flex items-center"
             >
               <Archive className="h-4 w-4 mr-1" />
               {showArchived ? 'Hide' : 'Show'} Archived
@@ -274,7 +274,7 @@ export default function KeyResultsList({
                         <Archive className="h-4 w-4 text-orange-600" />
                         <Link
                           href={`/dashboard/key-results/${kr.id}`}
-                          className="font-medium text-gray-800 line-through hover:text-blue-700 hover:no-underline"
+                          className="font-medium text-foreground line-through hover:text-blue-700 hover:no-underline"
                         >
                           {kr.title}
                         </Link>
@@ -308,11 +308,11 @@ export default function KeyResultsList({
                           </div>
                         ) : null}
                       </div>
-                      <div className="text-sm text-gray-600 mb-2">
+                      <div className="text-sm text-muted-foreground mb-2">
                         Target: {kr.targetValue} {kr.unit} • Current: {kr.currentValue} {kr.unit}
                       </div>
                       <div className="flex items-center space-x-4 text-xs">
-                        <div className="flex items-center bg-gray-50 px-2 py-1 rounded-md border border-gray-200">
+                        <div className="flex items-center bg-muted px-2 py-1 rounded-md border border-border">
                           {kr.owner?.avatar ? (
                             <img
                               src={kr.owner.avatar}
@@ -324,15 +324,15 @@ export default function KeyResultsList({
                               <User className="h-2.5 w-2.5 text-white" />
                             </div>
                           )}
-                          <span className="font-medium text-gray-700">{kr.owner?.name || 'Unknown'}</span>
+                          <span className="font-medium text-muted-foreground">{kr.owner?.name || 'Unknown'}</span>
                         </div>
-                        <span className="text-gray-500">
+                        <span className="text-muted-foreground">
                           Archived: {new Date(kr.archivedAt).toLocaleDateString()}
                         </span>
                       </div>
                       <div className="mt-2">
                         <div className="flex items-center justify-between text-sm mb-1">
-                          <span className="text-gray-600">Progress (at time of archiving)</span>
+                          <span className="text-muted-foreground">Progress (at time of archiving)</span>
                           <span className={`font-semibold ${getProgressColor(safeProgressPercent(kr.progress))}`}>
                             {Math.round(safeProgressPercent(kr.progress))}%
                           </span>
@@ -359,9 +359,9 @@ export default function KeyResultsList({
 
       {list.length === 0 && (
         <div className="text-center py-8">
-          <Target className="mx-auto h-12 w-12 text-gray-400" />
-          <h3 className="mt-2 text-sm font-medium text-gray-900">No key results</h3>
-          <p className="mt-1 text-sm text-gray-500">
+          <Target className="mx-auto h-12 w-12 text-muted-foreground" />
+          <h3 className="mt-2 text-sm font-medium text-foreground">No key results</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
             No key results have been defined for this objective yet.
           </p>
           {perm && (

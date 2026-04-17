@@ -78,27 +78,27 @@ export default function CloneObjectiveModal({ isOpen, onClose, objective, timefr
     <Modal open={isOpen} onClose={onClose} title="Clone Objective" icon={Copy} iconClassName="text-blue-600" size="sm">
       <form onSubmit={handleSubmit(onSubmit)}>
         <div className="mb-6">
-          <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
+          <label htmlFor="title" className="block text-sm font-medium text-muted-foreground mb-2">
             Objective Title
           </label>
           <input
             type="text"
             id="title"
             {...register('title', { required: 'Title is required' })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-blue-500"
             placeholder="Enter objective title"
           />
           {errors.title && <p className="mt-1 text-sm text-red-600">{errors.title.message}</p>}
         </div>
 
         <div className="mb-6">
-          <label htmlFor="timeframe" className="block text-sm font-medium text-gray-700 mb-2">
+          <label htmlFor="timeframe" className="block text-sm font-medium text-muted-foreground mb-2">
             Timeframe <span className="text-red-500">*</span>
           </label>
           <select
             id="timeframe"
             {...register('timeframeId', { required: 'Timeframe is required' })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-blue-500"
           >
             <option value="">Select a timeframe</option>
             {timeframes.map((timeframe) => {
@@ -123,13 +123,13 @@ export default function CloneObjectiveModal({ isOpen, onClose, objective, timefr
               type="checkbox"
               id="includeKeyResults"
               {...register('includeKeyResults')}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              className="h-4 w-4 text-blue-600 focus:ring-ring border-border rounded"
             />
-            <label htmlFor="includeKeyResults" className="ml-2 block text-sm text-gray-700">
+            <label htmlFor="includeKeyResults" className="ml-2 block text-sm text-muted-foreground">
               Include Key Results
             </label>
           </div>
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs text-muted-foreground">
             {includeKeyResults
               ? `Will clone ${objective._count?.keyResults || 0} key result(s) with progress reset to 0`
               : 'Will create objective without key results'}
@@ -156,7 +156,7 @@ export default function CloneObjectiveModal({ isOpen, onClose, objective, timefr
           </button>
           <button
             type="submit"
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring disabled:opacity-50"
             disabled={isLoading}
           >
             {isLoading ? (

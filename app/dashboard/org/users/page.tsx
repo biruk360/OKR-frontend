@@ -36,7 +36,7 @@ export default async function UsersDirectoryPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-muted-foreground">
             View all users in your organization.
           </p>
         </div>
@@ -56,7 +56,7 @@ export default async function UsersDirectoryPage() {
           <Link
             key={user.id}
             href={`/dashboard/org/users/${user.id}`}
-            className="block bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            className="block bg-card rounded-lg border border-border p-6 hover:shadow-md transition-shadow focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
           >
             <div className="flex items-center space-x-4 mb-4">
               {user.avatar ? (
@@ -71,8 +71,8 @@ export default async function UsersDirectoryPage() {
                 </div>
               )}
               <div className="flex-1 min-w-0">
-                <h3 className="text-lg font-semibold text-gray-900 truncate">{user.name}</h3>
-                <p className="text-sm text-gray-500 truncate">{user.email}</p>
+                <h3 className="text-lg font-semibold text-foreground truncate">{user.name}</h3>
+                <p className="text-sm text-muted-foreground truncate">{user.email}</p>
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 mt-1">
                   {user.role}
                 </span>
@@ -80,16 +80,16 @@ export default async function UsersDirectoryPage() {
             </div>
 
             <div className="space-y-2">
-              <div className="flex items-center text-sm text-gray-600">
+              <div className="flex items-center text-sm text-muted-foreground">
                 <Target className="h-4 w-4 mr-2" />
                 <span>{user._count.ownedObjectives} Objectives</span>
               </div>
               {user.departmentMemberships.length > 0 && (
-                <div className="flex items-center text-sm text-gray-600">
+                <div className="flex items-center text-sm text-muted-foreground">
                   <Building2 className="h-4 w-4 mr-2" />
                   <div className="flex flex-wrap gap-1">
                     {user.departmentMemberships.map((membership) => (
-                      <span key={membership.id} className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">
+                      <span key={membership.id} className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded">
                         {membership.department.name}
                       </span>
                     ))}
@@ -102,9 +102,9 @@ export default async function UsersDirectoryPage() {
       </div>
 
       {users.length === 0 && (
-        <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
-          <Users className="mx-auto h-12 w-12 text-gray-400" />
-          <h3 className="mt-2 text-sm font-medium text-gray-900">No users found</h3>
+        <div className="text-center py-12 bg-card rounded-lg border border-border">
+          <Users className="mx-auto h-12 w-12 text-muted-foreground" />
+          <h3 className="mt-2 text-sm font-medium text-foreground">No users found</h3>
         </div>
       )}
     </div>

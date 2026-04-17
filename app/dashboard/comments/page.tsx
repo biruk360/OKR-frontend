@@ -67,14 +67,14 @@ export default async function CommentsPage() {
   return (
     <div className="space-y-4">
       <div>
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-muted-foreground">
           View and manage comments on objectives and key results.
         </p>
       </div>
 
       {/* Comments Stats */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
-        <div className="bg-white overflow-hidden shadow rounded-lg">
+        <div className="bg-card overflow-hidden shadow rounded-lg">
           <div className="p-5">
             <div className="flex items-center">
               <div className="flex-shrink-0">
@@ -84,15 +84,15 @@ export default async function CommentsPage() {
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Total Comments</dt>
-                  <dd className="text-lg font-medium text-gray-900">{comments.length}</dd>
+                  <dt className="text-sm font-medium text-muted-foreground truncate">Total Comments</dt>
+                  <dd className="text-lg font-medium text-foreground">{comments.length}</dd>
                 </dl>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="bg-white overflow-hidden shadow rounded-lg">
+        <div className="bg-card overflow-hidden shadow rounded-lg">
           <div className="p-5">
             <div className="flex items-center">
               <div className="flex-shrink-0">
@@ -102,8 +102,8 @@ export default async function CommentsPage() {
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">This Week</dt>
-                  <dd className="text-lg font-medium text-gray-900">
+                  <dt className="text-sm font-medium text-muted-foreground truncate">This Week</dt>
+                  <dd className="text-lg font-medium text-foreground">
                     {comments.filter(comment => {
                       const weekAgo = new Date()
                       weekAgo.setDate(weekAgo.getDate() - 7)
@@ -116,7 +116,7 @@ export default async function CommentsPage() {
           </div>
         </div>
 
-        <div className="bg-white overflow-hidden shadow rounded-lg">
+        <div className="bg-card overflow-hidden shadow rounded-lg">
           <div className="p-5">
             <div className="flex items-center">
               <div className="flex-shrink-0">
@@ -126,8 +126,8 @@ export default async function CommentsPage() {
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Active Users</dt>
-                  <dd className="text-lg font-medium text-gray-900">
+                  <dt className="text-sm font-medium text-muted-foreground truncate">Active Users</dt>
+                  <dd className="text-lg font-medium text-foreground">
                     {new Set(comments.map(comment => comment.authorId)).size}
                   </dd>
                 </dl>
@@ -138,15 +138,15 @@ export default async function CommentsPage() {
       </div>
 
       {/* Comments List */}
-      <div className="bg-white shadow rounded-lg">
+      <div className="bg-card shadow rounded-lg">
         <div className="px-4 py-5 sm:p-6">
-          <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+          <h3 className="text-lg leading-6 font-medium text-foreground mb-4">
             Recent Comments
           </h3>
           <div className="space-y-4">
             {comments.length === 0 ? (
               <div className="text-center py-8">
-                <div className="text-gray-500">No comments found.</div>
+                <div className="text-muted-foreground">No comments found.</div>
               </div>
             ) : (
               comments.map((comment) => (
@@ -154,22 +154,22 @@ export default async function CommentsPage() {
                   <div className="flex items-start space-x-3">
                     <div className="flex-shrink-0">
                       <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
-                        <span className="text-sm font-medium text-gray-700">
+                        <span className="text-sm font-medium text-muted-foreground">
                           {comment.author.name.charAt(0).toUpperCase()}
                         </span>
                       </div>
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center space-x-2">
-                        <p className="text-sm font-medium text-gray-900">
+                        <p className="text-sm font-medium text-foreground">
                           {comment.author.name}
                         </p>
-                        <span className="text-xs text-gray-500">
+                        <span className="text-xs text-muted-foreground">
                           {new Date(comment.createdAt).toLocaleDateString()}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-700 mt-1">{comment.content}</p>
-                      <div className="mt-2 text-xs text-gray-500">
+                      <p className="text-sm text-muted-foreground mt-1">{comment.content}</p>
+                      <div className="mt-2 text-xs text-muted-foreground">
                         {comment.objective && (
                           <span>On Objective: {comment.objective.title}</span>
                         )}

@@ -36,7 +36,7 @@ export default function ProgressReportWeeklyBars({ objectives, keyResults }: Pro
 function Chart({ title, data }: { title: string; data: WeeklyRow[] }) {
   return (
     <div>
-      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">{title}</p>
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">{title}</p>
       <div style={{ width: '100%', height: 180 }}>
         <ResponsiveContainer>
           <BarChart data={data}>

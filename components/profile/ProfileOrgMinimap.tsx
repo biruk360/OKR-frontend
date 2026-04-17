@@ -37,7 +37,7 @@ const OrgPersonNode = memo(({ data }: NodeProps<OrgPersonData>) => {
   const inner = (
     <div
       className={cn(
-        'rounded-lg border border-gray-200 bg-white shadow-sm',
+        'rounded-lg border border-border bg-card shadow-sm',
         isCenter ? 'w-[220px] p-3' : 'w-[140px] p-2'
       )}
     >
@@ -57,13 +57,13 @@ const OrgPersonNode = memo(({ data }: NodeProps<OrgPersonData>) => {
             {name.slice(0, 1).toUpperCase()}
           </div>
         )}
-        <p className={cn('font-medium text-gray-900 truncate', isCenter ? 'text-sm' : 'text-xs')}>{name}</p>
+        <p className={cn('font-medium text-foreground truncate', isCenter ? 'text-sm' : 'text-xs')}>{name}</p>
       </div>
       {metrics && showMetrics && isCenter && (
-        <div className="mt-3 grid grid-cols-3 gap-1 text-center border-t border-gray-100 pt-2">
+        <div className="mt-3 grid grid-cols-3 gap-1 text-center border-t border-border pt-2">
           <div>
-            <p className="text-[9px] font-medium uppercase tracking-wide text-gray-500">Key results</p>
-            <p className="text-sm font-semibold tabular-nums text-gray-900">{metrics.avgKrProgress}%</p>
+            <p className="text-[9px] font-medium uppercase tracking-wide text-muted-foreground">Key results</p>
+            <p className="text-sm font-semibold tabular-nums text-foreground">{metrics.avgKrProgress}%</p>
             <div className="mt-0.5 h-1 w-full rounded-full bg-sky-100 overflow-hidden">
               <div
                 className="h-full rounded-full bg-sky-500"
@@ -72,14 +72,14 @@ const OrgPersonNode = memo(({ data }: NodeProps<OrgPersonData>) => {
             </div>
           </div>
           <div>
-            <p className="text-[9px] font-medium uppercase tracking-wide text-gray-500">Initiatives</p>
-            <p className="text-sm font-semibold tabular-nums text-gray-900">
+            <p className="text-[9px] font-medium uppercase tracking-wide text-muted-foreground">Initiatives</p>
+            <p className="text-sm font-semibold tabular-nums text-foreground">
               {metrics.initiativeTotal > 0 ? `${metrics.initiativeDone}/${metrics.initiativeTotal}` : '—'}
             </p>
           </div>
           <div>
-            <p className="text-[9px] font-medium uppercase tracking-wide text-gray-500">Confidence</p>
-            <p className="text-sm font-semibold tabular-nums text-gray-900">{metrics.ncsScore} NCS</p>
+            <p className="text-[9px] font-medium uppercase tracking-wide text-muted-foreground">Confidence</p>
+            <p className="text-sm font-semibold tabular-nums text-foreground">{metrics.ncsScore} NCS</p>
             <div className="mt-0.5 h-1 w-full rounded-full bg-amber-100 overflow-hidden">
               <div
                 className="h-full rounded-full bg-amber-500"
@@ -245,25 +245,25 @@ function MinimapInner(props: ProfileOrgMinimapProps) {
   }, [])
 
   const wrapperClass = full
-    ? 'fixed inset-0 z-50 bg-gray-100 p-4'
-    : 'relative rounded-lg border border-gray-200 bg-gray-50/80 overflow-hidden min-h-[320px]'
+    ? 'fixed inset-0 z-50 bg-muted p-4'
+    : 'relative rounded-lg border border-border bg-muted/80 overflow-hidden min-h-[320px]'
 
   return (
     <div className={wrapperClass}>
-      <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 bg-white/90">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Org minimap</p>
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-card/90">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Org minimap</p>
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => setShowData((s) => !s)}
-            className="text-xs text-gray-600 hover:text-gray-900 px-2 py-1 rounded hover:bg-gray-100"
+            className="text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded hover:bg-muted"
           >
             {showData ? 'Hide data' : 'Show data'}
           </button>
           <button
             type="button"
             onClick={onFullscreen}
-            className="text-xs text-gray-600 hover:text-gray-900 px-2 py-1 rounded hover:bg-gray-100"
+            className="text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded hover:bg-muted"
           >
             {full ? 'Exit full screen' : 'Full screen'}
           </button>
@@ -296,7 +296,7 @@ function MinimapInner(props: ProfileOrgMinimapProps) {
         <div className="absolute bottom-14 left-1/2 -translate-x-1/2 z-10">
           <Link
             href={props.addReportsHref}
-            className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground shadow-sm hover:bg-muted"
           >
             <UserPlus className="h-3.5 w-3.5" />
             Add direct reports

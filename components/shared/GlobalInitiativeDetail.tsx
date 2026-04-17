@@ -51,7 +51,7 @@ export default function GlobalInitiativeDetail() {
         className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center"
         onClick={close}
       >
-        <div className="bg-white rounded-lg px-6 py-4 text-sm text-gray-700 shadow">Loading initiative…</div>
+        <div className="bg-card rounded-lg px-6 py-4 text-sm text-muted-foreground shadow">Loading initiative…</div>
       </div>
     )
   }

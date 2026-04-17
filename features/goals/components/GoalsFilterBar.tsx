@@ -34,13 +34,13 @@ export default function GoalsFilterBar({ filters, onFilterChange }: GoalsFilterB
   }, [])
 
   return (
-    <div className="bg-white p-4 rounded-lg border border-gray-200">
+    <div className="bg-card p-4 rounded-lg border border-border">
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         {/* Search */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
+          <label className="block text-sm font-medium text-muted-foreground mb-1">Search</label>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               type="text"
               placeholder="Search goals..."
@@ -53,7 +53,7 @@ export default function GoalsFilterBar({ filters, onFilterChange }: GoalsFilterB
 
         {/* Timeframe */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Timeframe</label>
+          <label className="block text-sm font-medium text-muted-foreground mb-1">Timeframe</label>
           <select
             value={filters.timeframe}
             onChange={(e) => onFilterChange('timeframe', e.target.value)}
@@ -68,7 +68,7 @@ export default function GoalsFilterBar({ filters, onFilterChange }: GoalsFilterB
 
         {/* Start Date */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+          <label className="block text-sm font-medium text-muted-foreground mb-1">Start Date</label>
           <input
             type="date"
             value={filters.startDate}
@@ -79,7 +79,7 @@ export default function GoalsFilterBar({ filters, onFilterChange }: GoalsFilterB
 
         {/* End Date */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+          <label className="block text-sm font-medium text-muted-foreground mb-1">End Date</label>
           <input
             type="date"
             value={filters.endDate}
@@ -90,9 +90,9 @@ export default function GoalsFilterBar({ filters, onFilterChange }: GoalsFilterB
 
         {/* Owner */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Owner</label>
+          <label className="block text-sm font-medium text-muted-foreground mb-1">Owner</label>
           <div className="relative">
-            <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               type="text"
               placeholder="Search by owner..."
@@ -107,7 +107,7 @@ export default function GoalsFilterBar({ filters, onFilterChange }: GoalsFilterB
       {/* Labels Filter */}
       {labels.length > 0 && (
         <div className="mt-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Labels</label>
+          <label className="block text-sm font-medium text-muted-foreground mb-2">Labels</label>
           <div className="flex flex-wrap gap-2">
             {labels.map((label) => (
               <button
@@ -121,7 +121,7 @@ export default function GoalsFilterBar({ filters, onFilterChange }: GoalsFilterB
                 className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
                   filters.labels.includes(label.id)
                     ? 'bg-blue-100 text-blue-800 border border-blue-300'
-                    : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
+                    : 'bg-muted text-muted-foreground border border-border hover:bg-muted'
                 }`}
                 style={{
                   borderColor: filters.labels.includes(label.id) ? label.color : undefined

@@ -371,7 +371,7 @@ export default function SprintBoardClient({ initial, users, keyResults, objectiv
 
                 {/* Add card */}
                 {addingCardCol === col.id ? (
-                  <div className="rounded-md border border-[color:var(--notion-border)] bg-white p-2">
+                  <div className="rounded-md border border-[color:var(--notion-border)] bg-card p-2">
                     <textarea
                       autoFocus
                       value={newCardTitle}
@@ -491,7 +491,7 @@ function BoardCard({
       onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', activity.id); onDragStart() }}
       onDragEnd={onDragEnd}
       onClick={onOpen}
-      className="group rounded-md border border-[color:var(--notion-border)] bg-white p-2 shadow-[0_1px_0_rgba(15,15,15,0.04)] cursor-pointer hover:border-[color:var(--notion-border-strong)] transition"
+      className="group rounded-md border border-[color:var(--notion-border)] bg-card p-2 shadow-[0_1px_0_rgba(15,15,15,0.04)] cursor-pointer hover:border-[color:var(--notion-border-strong)] transition"
     >
       <div className="text-[13px] text-[color:var(--notion-text)] whitespace-pre-wrap break-words">
         {activity.title}

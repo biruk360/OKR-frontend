@@ -87,16 +87,16 @@ export default function TimelineBoard({ rows }: Props) {
   const totalSpan = Math.max(1, rangeEnd.getTime() - rangeStart.getTime())
 
   return (
-    <div className="bg-white rounded-lg shadow overflow-hidden">
+    <div className="bg-card rounded-lg shadow overflow-hidden">
       <div className="overflow-x-auto">
         <table className="min-w-[900px] w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-200">
+          <thead className="bg-muted border-b border-border">
             <tr>
-              <th className="sticky left-0 z-10 bg-gray-50 px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 w-80">
+              <th className="sticky left-0 z-10 bg-muted px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground w-80">
                 Objective
               </th>
               {quarters.map((q) => (
-                <th key={q.label} className="px-2 py-2 text-center text-xs font-medium text-gray-600">
+                <th key={q.label} className="px-2 py-2 text-center text-xs font-medium text-muted-foreground">
                   {q.label}
                 </th>
               ))}
@@ -105,7 +105,7 @@ export default function TimelineBoard({ rows }: Props) {
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={quarters.length + 1} className="px-4 py-10 text-center text-sm text-gray-500">
+                <td colSpan={quarters.length + 1} className="px-4 py-10 text-center text-sm text-muted-foreground">
                   No active objectives to display.
                 </td>
               </tr>
@@ -154,13 +154,13 @@ function TimelineRow({
 
   return (
     <>
-      <tr className="border-b border-gray-100 hover:bg-gray-50">
-        <td className="sticky left-0 z-10 bg-white px-3 py-2 w-80">
+      <tr className="border-b border-border hover:bg-muted">
+        <td className="sticky left-0 z-10 bg-card px-3 py-2 w-80">
           <div className="flex items-start gap-1">
             <button
               type="button"
               onClick={onToggle}
-              className="mt-0.5 text-gray-400 hover:text-gray-700"
+              className="mt-0.5 text-muted-foreground hover:text-muted-foreground"
               aria-label={expanded ? 'Collapse' : 'Expand'}
             >
               {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
@@ -168,12 +168,12 @@ function TimelineRow({
             <div className="min-w-0 flex-1">
               <Link
                 href={`/dashboard/objectives/${row.id}`}
-                className="text-sm font-medium text-gray-900 hover:text-blue-600 line-clamp-1"
+                className="text-sm font-medium text-foreground hover:text-blue-600 line-clamp-1"
                 title={row.title}
               >
                 {row.title}
               </Link>
-              <p className="text-[11px] text-gray-500 mt-0.5">
+              <p className="text-[11px] text-muted-foreground mt-0.5">
                 {row.level} · {row.ownerName} · {Math.round(row.progress)}%
               </p>
             </div>
@@ -184,7 +184,7 @@ function TimelineRow({
             {quarters.map((_, i) => (
               <div
                 key={i}
-                className="absolute top-0 bottom-0 border-l border-gray-100"
+                className="absolute top-0 bottom-0 border-l border-border"
                 style={{ left: `${(i / quarters.length) * 100}%` }}
               />
             ))}
@@ -206,12 +206,12 @@ function TimelineRow({
         row.keyResults.map((kr) => {
           // KRs inherit the objective's window for placement since they don't carry dates themselves.
           return (
-            <tr key={kr.id} className="border-b border-gray-50 bg-gray-50/40">
-              <td className="sticky left-0 z-10 bg-gray-50/40 px-3 py-1.5 w-80">
+            <tr key={kr.id} className="border-b border-gray-50 bg-muted/40">
+              <td className="sticky left-0 z-10 bg-muted/40 px-3 py-1.5 w-80">
                 <div className="pl-6 min-w-0">
                   <Link
                     href={`/dashboard/key-results/${kr.id}`}
-                    className="text-xs text-gray-700 hover:text-blue-600 line-clamp-1"
+                    className="text-xs text-muted-foreground hover:text-blue-600 line-clamp-1"
                     title={kr.title}
                   >
                     <span className="mr-1 inline-block text-[9px] font-semibold px-1 py-0.5 rounded bg-blue-100 text-blue-700">
@@ -219,7 +219,7 @@ function TimelineRow({
                     </span>
                     {kr.title}
                   </Link>
-                  <p className="text-[10px] text-gray-500 mt-0.5">
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
                     {Math.round(kr.progress)}% · {kr.confidence.replace(/_/g, ' ').toLowerCase()}
                   </p>
                 </div>

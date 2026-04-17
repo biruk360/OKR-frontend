@@ -85,9 +85,9 @@ export default function DeleteObjectiveModal({ isOpen, onClose, objective }: Del
       bulletsTitle="What will be deleted:"
       details={
         <>
-          <h4 className="text-sm font-medium text-gray-900 mb-2">Objective Details:</h4>
-          <p className="text-sm text-gray-700 font-medium">{objective.title}</p>
-          <p className="text-xs text-gray-500 mt-1">
+          <h4 className="text-sm font-medium text-foreground mb-2">Objective Details:</h4>
+          <p className="text-sm text-muted-foreground font-medium">{objective.title}</p>
+          <p className="text-xs text-muted-foreground mt-1">
             {objective.level} • {objective.owner?.name}
           </p>
         </>
@@ -106,7 +106,7 @@ export default function DeleteObjectiveModal({ isOpen, onClose, objective }: Del
           )}
 
           <div>
-            <label htmlFor="confirmation" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="confirmation" className="block text-sm font-medium text-muted-foreground mb-2">
               To confirm deletion, type the objective title exactly:
             </label>
             <input
@@ -115,7 +115,7 @@ export default function DeleteObjectiveModal({ isOpen, onClose, objective }: Del
               value={confirmationText}
               onChange={(e) => setConfirmationText(e.target.value)}
               placeholder={objective.title}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+              className="w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
             />
             {confirmationText && !isConfirmationValid && (
               <p className="mt-1 text-sm text-red-600">

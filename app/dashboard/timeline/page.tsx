@@ -49,8 +49,8 @@ export default async function TimelinePage() {
   return (
     <div className="space-y-4">
       <header>
-        <h1 className="text-2xl font-bold text-gray-900">OKR Timeline</h1>
-        <p className="text-sm text-gray-500">Schedule of all active objectives across quarters.</p>
+        <h1 className="text-2xl font-bold text-foreground">OKR Timeline</h1>
+        <p className="text-sm text-muted-foreground">Schedule of all active objectives across quarters.</p>
       </header>
       <TimelineBoard rows={rows} />
     </div>

@@ -41,8 +41,8 @@ export default function AlignsToParentBadge({
         <span>Aligns to: {parent.title}</span>
       </button>
       {open && (
-        <div className="absolute left-0 top-full z-20 mt-1 w-72 rounded-lg border border-gray-200 bg-white p-3 shadow-lg">
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Parent goal</p>
+        <div className="absolute left-0 top-full z-20 mt-1 w-72 rounded-lg border border-border bg-card p-3 shadow-lg">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Parent goal</p>
           <Link
             href={`/dashboard/objectives/${parent.id}`}
             className="mt-1 block text-sm font-semibold text-blue-700 hover:underline line-clamp-2"
@@ -50,11 +50,11 @@ export default function AlignsToParentBadge({
             {parent.title}
           </Link>
           <div className="mt-2 flex justify-between text-sm">
-            <span className="text-gray-600">Progress</span>
+            <span className="text-muted-foreground">Progress</span>
             <span className="font-medium tabular-nums">{Math.round(Number(parent.progress) || 0)}%</span>
           </div>
           <div className="mt-1 flex justify-between text-sm">
-            <span className="text-gray-600">Status</span>
+            <span className="text-muted-foreground">Status</span>
             <span className="font-medium">{statusLabel[parent.goalStatus] ?? parent.goalStatus}</span>
           </div>
           <Link

@@ -82,7 +82,7 @@ export default async function MyTasksPage() {
   return (
     <div className="space-y-4">
       <div>
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-muted-foreground">
           Manage your assigned initiatives and track your progress
         </p>
       </div>

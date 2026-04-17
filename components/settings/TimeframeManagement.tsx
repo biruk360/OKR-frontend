@@ -216,10 +216,10 @@ export default function TimeframeManagement({ timeframes }: TimeframeManagementP
   }
 
   return (
-    <div className="bg-white shadow rounded-lg">
+    <div className="bg-card shadow rounded-lg">
       <div className="px-4 py-5 sm:p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg leading-6 font-medium text-gray-900">
+          <h3 className="text-lg leading-6 font-medium text-foreground">
             Timeframe Management
           </h3>
           <button
@@ -234,15 +234,15 @@ export default function TimeframeManagement({ timeframes }: TimeframeManagementP
 
         {/* Create New Timeframe */}
         {isCreating && (
-          <div className="mb-6 p-4 border border-gray-200 rounded-lg bg-gray-50">
-            <h4 className="text-sm font-medium text-gray-900 mb-3">Create New Timeframe</h4>
+          <div className="mb-6 p-4 border border-border rounded-lg bg-muted">
+            <h4 className="text-sm font-medium text-foreground mb-3">Create New Timeframe</h4>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Timeframe Type *</label>
+                <label className="block text-sm font-medium text-muted-foreground mb-1">Timeframe Type *</label>
                 <select
                   value={newTimeframe.type}
                   onChange={(e) => setNewTimeframe(prev => ({ ...prev, type: e.target.value as TimeframeType }))}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm cursor-pointer relative z-10"
+                  className="mt-1 block w-full border-border rounded-md shadow-sm focus:ring-ring focus:border-blue-500 sm:text-sm cursor-pointer relative z-10"
                 >
                   <option value="MONTHLY">Monthly</option>
                   <option value="QUARTERLY">Quarterly</option>
@@ -251,29 +251,29 @@ export default function TimeframeManagement({ timeframes }: TimeframeManagementP
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Base Date *</label>
+                <label className="block text-sm font-medium text-muted-foreground mb-1">Base Date *</label>
                 <input
                   type="date"
                   value={newTimeframe.baseDate}
                   onChange={(e) => setNewTimeframe(prev => ({ ...prev, baseDate: e.target.value }))}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm cursor-pointer relative z-10"
+                  className="mt-1 block w-full border-border rounded-md shadow-sm focus:ring-ring focus:border-blue-500 sm:text-sm cursor-pointer relative z-10"
                 />
-                <p className="mt-1 text-xs text-gray-500">Start date will be auto-calculated</p>
+                <p className="mt-1 text-xs text-muted-foreground">Start date will be auto-calculated</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Name (Auto-generated)</label>
+                <label className="block text-sm font-medium text-muted-foreground mb-1">Name (Auto-generated)</label>
                 <input
                   type="text"
                   value={newTimeframe.name}
                   onChange={(e) => setNewTimeframe(prev => ({ ...prev, name: e.target.value }))}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm bg-gray-50"
+                  className="mt-1 block w-full border-border rounded-md shadow-sm focus:ring-ring focus:border-blue-500 sm:text-sm bg-muted"
                   placeholder="Auto-generated from type"
                   readOnly
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Date Range</label>
-                <div className="mt-1 text-sm text-gray-600">
+                <label className="block text-sm font-medium text-muted-foreground mb-1">Date Range</label>
+                <div className="mt-1 text-sm text-muted-foreground">
                   <div>{newTimeframe.startDate ? new Date(newTimeframe.startDate).toLocaleDateString() : 'N/A'}</div>
                   <div className="text-xs">to</div>
                   <div>{newTimeframe.endDate ? new Date(newTimeframe.endDate).toLocaleDateString() : 'N/A'}</div>
@@ -292,7 +292,7 @@ export default function TimeframeManagement({ timeframes }: TimeframeManagementP
               <button
                 type="button"
                 onClick={() => setIsCreating(false)}
-                className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 cursor-pointer relative z-10"
+                className="inline-flex items-center px-3 py-2 border border-border text-sm leading-4 font-medium rounded-md text-muted-foreground bg-card hover:bg-muted cursor-pointer relative z-10"
               >
                 <X className="h-4 w-4 mr-1" />
                 Cancel
@@ -308,11 +308,11 @@ export default function TimeframeManagement({ timeframes }: TimeframeManagementP
               {editingId === timeframe.id ? (
                 <div className="flex-1 grid grid-cols-1 gap-4 sm:grid-cols-4">
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Type</label>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">Type</label>
                     <select
                       value={editTimeframe.type}
                       onChange={(e) => setEditTimeframe(prev => ({ ...prev, type: e.target.value as TimeframeType }))}
-                      className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm cursor-pointer relative z-10"
+                      className="block w-full border-border rounded-md shadow-sm focus:ring-ring focus:border-blue-500 sm:text-sm cursor-pointer relative z-10"
                     >
                       <option value="MONTHLY">Monthly</option>
                       <option value="QUARTERLY">Quarterly</option>
@@ -321,30 +321,30 @@ export default function TimeframeManagement({ timeframes }: TimeframeManagementP
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Name</label>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">Name</label>
                     <input
                       type="text"
                       value={editTimeframe.name}
                       onChange={(e) => setEditTimeframe(prev => ({ ...prev, name: e.target.value }))}
-                      className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm cursor-text relative z-10"
+                      className="block w-full border-border rounded-md shadow-sm focus:ring-ring focus:border-blue-500 sm:text-sm cursor-text relative z-10"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Start Date</label>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">Start Date</label>
                     <input
                       type="date"
                       value={editTimeframe.startDate}
                       onChange={(e) => setEditTimeframe(prev => ({ ...prev, startDate: e.target.value }))}
-                      className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm cursor-pointer relative z-10"
+                      className="block w-full border-border rounded-md shadow-sm focus:ring-ring focus:border-blue-500 sm:text-sm cursor-pointer relative z-10"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">End Date</label>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">End Date</label>
                     <input
                       type="date"
                       value={editTimeframe.endDate}
                       onChange={(e) => setEditTimeframe(prev => ({ ...prev, endDate: e.target.value }))}
-                      className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm cursor-pointer relative z-10"
+                      className="block w-full border-border rounded-md shadow-sm focus:ring-ring focus:border-blue-500 sm:text-sm cursor-pointer relative z-10"
                     />
                   </div>
                 </div>
@@ -352,17 +352,17 @@ export default function TimeframeManagement({ timeframes }: TimeframeManagementP
                 <div className="flex-1">
                   <div className="flex items-center space-x-4">
                     <div className="flex items-center">
-                      <Calendar className="h-5 w-5 text-gray-400 mr-2" />
+                      <Calendar className="h-5 w-5 text-muted-foreground mr-2" />
                       <div>
                         <div className="flex items-center space-x-2">
-                          <span className="text-sm font-medium text-gray-900">
+                          <span className="text-sm font-medium text-foreground">
                             {timeframe.name}
                           </span>
                           <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
                             {getTimeframeTypeLabel((timeframe.type || 'QUARTERLY') as TimeframeType)}
                           </span>
                         </div>
-                        <div className="text-sm text-gray-500">
+                        <div className="text-sm text-muted-foreground">
                           {new Date(timeframe.startDate).toLocaleDateString()} - {new Date(timeframe.endDate).toLocaleDateString()}
                         </div>
                       </div>
@@ -370,7 +370,7 @@ export default function TimeframeManagement({ timeframes }: TimeframeManagementP
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                       timeframe.isActive 
                         ? 'bg-green-100 text-green-800' 
-                        : 'bg-gray-100 text-gray-800'
+                        : 'bg-muted text-foreground'
                     }`}>
                       {timeframe.isActive ? 'Active' : 'Inactive'}
                     </span>
@@ -391,7 +391,7 @@ export default function TimeframeManagement({ timeframes }: TimeframeManagementP
                     <button
                       type="button"
                       onClick={cancelEditing}
-                      className="p-2 text-gray-600 hover:text-gray-700 cursor-pointer"
+                      className="p-2 text-muted-foreground hover:text-muted-foreground cursor-pointer"
                     >
                       <X className="h-4 w-4" />
                     </button>
@@ -403,7 +403,7 @@ export default function TimeframeManagement({ timeframes }: TimeframeManagementP
                       onClick={() => handleToggleActive(timeframe.id, timeframe.isActive)}
                       className={`px-3 py-1 text-xs font-medium rounded-md cursor-pointer ${
                         timeframe.isActive
-                          ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          ? 'bg-muted text-muted-foreground hover:bg-muted'
                           : 'bg-green-100 text-green-700 hover:bg-green-200'
                       }`}
                     >
@@ -432,9 +432,9 @@ export default function TimeframeManagement({ timeframes }: TimeframeManagementP
 
         {timeframesList.length === 0 && (
           <div className="text-center py-6">
-            <Calendar className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No timeframes</h3>
-            <p className="mt-1 text-sm text-gray-500">Get started by creating a new timeframe.</p>
+            <Calendar className="mx-auto h-12 w-12 text-muted-foreground" />
+            <h3 className="mt-2 text-sm font-medium text-foreground">No timeframes</h3>
+            <p className="mt-1 text-sm text-muted-foreground">Get started by creating a new timeframe.</p>
           </div>
         )}
       </div>

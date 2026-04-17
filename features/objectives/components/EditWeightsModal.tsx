@@ -98,20 +98,20 @@ export default function EditWeightsModal({
   return (
     <Modal open={open} onClose={onClose} title="Edit weights of contributing KRs & sub-objectives" size="lg">
       <div className="space-y-4">
-        <p className="text-sm text-gray-600">
+        <p className="text-sm text-muted-foreground">
           Weight increases or decreases the significance of a key result or sub-objective when contributing
           to <span className="font-medium">{objectiveTitle}</span>&apos;s progress. Leave <code>0</code> to let the system
           split weight equally. Contribution % updates live.
         </p>
 
         {loading ? (
-          <div className="py-8 text-center text-sm text-gray-500">Loading…</div>
+          <div className="py-8 text-center text-sm text-muted-foreground">Loading…</div>
         ) : rows.length === 0 ? (
-          <div className="py-8 text-center text-sm text-gray-500">No key results or sub-objectives yet.</div>
+          <div className="py-8 text-center text-sm text-muted-foreground">No key results or sub-objectives yet.</div>
         ) : (
           <div className="border rounded-md overflow-hidden">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+              <thead className="bg-muted text-xs uppercase text-muted-foreground">
                 <tr>
                   <th className="text-left px-3 py-2">OKR</th>
                   <th className="text-left px-3 py-2 w-28">Status</th>
@@ -128,9 +128,9 @@ export default function EditWeightsModal({
                       >
                         {row.kind}
                       </span>
-                      <span className="text-gray-800">{row.title}</span>
+                      <span className="text-foreground">{row.title}</span>
                     </td>
-                    <td className="px-3 py-2 text-gray-600">{row.status}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{row.status}</td>
                     <td className="px-3 py-2">
                       <input
                         type="number"
@@ -139,10 +139,10 @@ export default function EditWeightsModal({
                         step="any"
                         value={row.weight}
                         onChange={(e) => updateRow(row.id, Number(e.target.value))}
-                        className="w-20 border rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-20 border rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                       />
                     </td>
-                    <td className="px-3 py-2 text-gray-700">
+                    <td className="px-3 py-2 text-muted-foreground">
                       {contributions[row.id]?.toFixed(0) ?? 0}%
                     </td>
                   </tr>
@@ -155,7 +155,7 @@ export default function EditWeightsModal({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm rounded-md border hover:bg-gray-50"
+            className="px-4 py-2 text-sm rounded-md border hover:bg-muted"
           >
             Cancel
           </button>

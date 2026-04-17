@@ -20,16 +20,16 @@ export default function AuditLogsView({ initialLogs }: AuditLogsViewProps) {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Audit Logs</h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <h1 className="text-2xl font-bold text-foreground">Audit Logs</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
           Security and compliance log of admin and system actions.
         </p>
       </div>
 
       {/* Search */}
-      <div className="bg-white p-4 rounded-lg border border-gray-200">
+      <div className="bg-card p-4 rounded-lg border border-border">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
             type="text"
             placeholder="Search audit logs..."
@@ -41,28 +41,28 @@ export default function AuditLogsView({ initialLogs }: AuditLogsViewProps) {
       </div>
 
       {/* Audit Logs Table */}
-      <div className="bg-white shadow rounded-lg overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+      <div className="bg-card shadow rounded-lg overflow-hidden">
+        <table className="min-w-full divide-y divide-border">
+          <thead className="bg-muted">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Timestamp
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Action
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Key
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Value
               </th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className="bg-card divide-y divide-border">
             {filteredLogs.map((log) => (
               <tr key={log.id}>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                   <div className="flex items-center">
                     <Calendar className="h-4 w-4 mr-1" />
                     {formatDate(log.updatedAt, 'MMM dd, yyyy HH:mm')}
@@ -74,10 +74,10 @@ export default function AuditLogsView({ initialLogs }: AuditLogsViewProps) {
                     Settings Change
                   </span>
                 </td>
-                <td className="px-6 py-4 text-sm text-gray-900">
+                <td className="px-6 py-4 text-sm text-foreground">
                   {log.key}
                 </td>
-                <td className="px-6 py-4 text-sm text-gray-500">
+                <td className="px-6 py-4 text-sm text-muted-foreground">
                   {log.value.length > 50 ? `${log.value.substring(0, 50)}...` : log.value}
                 </td>
               </tr>
@@ -87,10 +87,10 @@ export default function AuditLogsView({ initialLogs }: AuditLogsViewProps) {
       </div>
 
       {filteredLogs.length === 0 && (
-        <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
-          <Settings className="mx-auto h-12 w-12 text-gray-400" />
-          <h3 className="mt-2 text-sm font-medium text-gray-900">No audit logs found</h3>
-          <p className="mt-1 text-sm text-gray-500">
+        <div className="text-center py-12 bg-card rounded-lg border border-border">
+          <Settings className="mx-auto h-12 w-12 text-muted-foreground" />
+          <h3 className="mt-2 text-sm font-medium text-foreground">No audit logs found</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
             {searchTerm ? 'Try a different search term.' : 'Audit logs will appear here as actions are performed.'}
           </p>
         </div>

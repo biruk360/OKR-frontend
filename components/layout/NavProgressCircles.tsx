@@ -110,7 +110,7 @@ export default function NavProgressCircles() {
         createPortal(
           <div
             style={{ position: 'fixed', top: anchor.top, right: anchor.right, zIndex: 9999 }}
-            className="w-80 rounded-lg border border-gray-200 bg-white shadow-xl p-3"
+            className="w-80 rounded-lg border border-border bg-card shadow-xl p-3"
             onMouseEnter={() => setHovered(obj.id)}
             onMouseLeave={() => {
               setHovered(null)
@@ -120,39 +120,39 @@ export default function NavProgressCircles() {
             <div className="flex items-center justify-between gap-2 mb-2">
               <Link
                 href={`/dashboard/objectives/${obj.id}`}
-                className="text-sm font-semibold text-gray-900 hover:text-blue-600 line-clamp-2"
+                className="text-sm font-semibold text-foreground hover:text-blue-600 line-clamp-2"
               >
                 {obj.title}
               </Link>
-              <span className="text-xs font-medium text-gray-700 tabular-nums shrink-0">
+              <span className="text-xs font-medium text-muted-foreground tabular-nums shrink-0">
                 {Math.round(obj.progress)}%
               </span>
             </div>
-            <div className="flex items-center gap-2 mb-2 text-[11px] uppercase tracking-wide text-gray-500">
+            <div className="flex items-center gap-2 mb-2 text-[11px] uppercase tracking-wide text-muted-foreground">
               <span className={`inline-block h-1.5 w-1.5 rounded-full ${statusColour[obj.goalStatus] ?? 'bg-slate-400'}`} />
               {obj.goalStatus.replace(/_/g, ' ')}
               <span className="ml-auto">{obj.level}</span>
             </div>
             {obj.keyResults.length === 0 ? (
-              <p className="text-xs text-gray-500">No key results yet.</p>
+              <p className="text-xs text-muted-foreground">No key results yet.</p>
             ) : (
               <ul className="space-y-1">
                 {obj.keyResults.slice(0, 5).map((kr) => (
                   <li key={kr.id} className="flex items-center gap-2 text-xs">
                     <Link
                       href={`/dashboard/key-results/${kr.id}`}
-                      className="flex-1 min-w-0 truncate text-gray-700 hover:text-blue-600"
+                      className="flex-1 min-w-0 truncate text-muted-foreground hover:text-blue-600"
                     >
                       {kr.title}
                     </Link>
-                    <span className="tabular-nums text-gray-500">{Math.round(kr.progress)}%</span>
-                    <span className={`text-[10px] ${confidenceColour[kr.confidence] ?? 'text-gray-500'}`}>
+                    <span className="tabular-nums text-muted-foreground">{Math.round(kr.progress)}%</span>
+                    <span className={`text-[10px] ${confidenceColour[kr.confidence] ?? 'text-muted-foreground'}`}>
                       {kr.confidence.replace(/_/g, ' ')}
                     </span>
                   </li>
                 ))}
                 {obj.keyResults.length > 5 && (
-                  <li className="text-[11px] text-gray-500 pt-1">
+                  <li className="text-[11px] text-muted-foreground pt-1">
                     +{obj.keyResults.length - 5} more key results
                   </li>
                 )}

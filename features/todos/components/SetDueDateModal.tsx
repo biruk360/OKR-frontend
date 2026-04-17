@@ -64,16 +64,16 @@ export default function SetDueDateModal({ isOpen, onClose, todo, onSetDueDate }:
     <Modal open={isOpen} onClose={onClose} title="Set Due Date" icon={Calendar} iconClassName="text-blue-600" size="sm">
       <div>
         <div className="mb-4">
-          <h3 className="text-sm font-medium text-gray-700 mb-2">To-Do:</h3>
-          <p className="text-sm text-gray-900 bg-gray-50 p-3 rounded-md">{todo.title}</p>
+          <h3 className="text-sm font-medium text-muted-foreground mb-2">To-Do:</h3>
+          <p className="text-sm text-foreground bg-muted p-3 rounded-md">{todo.title}</p>
         </div>
 
         {todo.dueDate && (
           <div className="mb-4">
-            <h3 className="text-sm font-medium text-gray-700 mb-2">Current Due Date:</h3>
+            <h3 className="text-sm font-medium text-muted-foreground mb-2">Current Due Date:</h3>
             <div className="flex items-center space-x-2 p-3 bg-blue-50 rounded-md">
               <Calendar className="h-4 w-4 text-blue-600" />
-              <span className="text-sm text-gray-900">
+              <span className="text-sm text-foreground">
                 {new Date(todo.dueDate).toLocaleDateString('en-US', {
                   month: 'short',
                   day: 'numeric',
@@ -85,7 +85,7 @@ export default function SetDueDateModal({ isOpen, onClose, todo, onSetDueDate }:
         )}
 
         <div className="mb-4">
-          <label htmlFor="dueDate" className="block text-sm font-medium text-gray-700 mb-2">
+          <label htmlFor="dueDate" className="block text-sm font-medium text-muted-foreground mb-2">
             Select Due Date:
           </label>
           <input
@@ -94,7 +94,7 @@ export default function SetDueDateModal({ isOpen, onClose, todo, onSetDueDate }:
             value={selectedDate}
             onChange={(e) => setSelectedDate(e.target.value)}
             min={new Date().toISOString().split('T')[0]}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-blue-500"
           />
         </div>
 
@@ -146,8 +146,8 @@ export default function SetDueDateModal({ isOpen, onClose, todo, onSetDueDate }:
 
         {selectedDate && (
           <div className="mb-4">
-            <h3 className="text-sm font-medium text-gray-700 mb-2">Preview:</h3>
-            <div className="text-sm text-gray-900 bg-gray-50 p-3 rounded-md">
+            <h3 className="text-sm font-medium text-muted-foreground mb-2">Preview:</h3>
+            <div className="text-sm text-foreground bg-muted p-3 rounded-md">
               Due:{' '}
               {new Date(selectedDate).toLocaleDateString('en-US', {
                 month: 'short',
@@ -158,7 +158,7 @@ export default function SetDueDateModal({ isOpen, onClose, todo, onSetDueDate }:
           </div>
         )}
 
-        <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+        <div className="flex items-center justify-between pt-4 border-t border-border">
           <div>
             {todo.dueDate && (
               <button
@@ -177,7 +177,7 @@ export default function SetDueDateModal({ isOpen, onClose, todo, onSetDueDate }:
             </button>
             <button
               onClick={handleSave}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring disabled:opacity-50"
               disabled={isLoading}
             >
               {isLoading ? (

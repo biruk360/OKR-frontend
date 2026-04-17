@@ -48,26 +48,26 @@ export default function NotificationDefaultsPage() {
   }
 
   return (
-    <div className="bg-white shadow rounded-lg">
+    <div className="bg-card shadow rounded-lg">
       <div className="px-4 py-5 sm:p-6">
-        <h3 className="text-lg font-medium text-gray-900">Organization notification defaults</h3>
-        <p className="text-sm text-gray-500 mt-1">
+        <h3 className="text-lg font-medium text-foreground">Organization notification defaults</h3>
+        <p className="text-sm text-muted-foreground mt-1">
           These defaults apply to every user who hasn't customized their own preferences (Admins only).
         </p>
         <div className="mt-6 overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead>
-              <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
+              <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
                 <th className="py-2 pr-4">Category</th>
                 <th className="py-2 pr-4">In-app</th>
                 <th className="py-2 pr-4">Email</th>
                 <th className="py-2 pr-4">Email cadence</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-border">
               {rows.map((r) => (
                 <tr key={r.category}>
-                  <td className="py-2 pr-4 font-medium text-gray-900">{LABELS[r.category] ?? r.category}</td>
+                  <td className="py-2 pr-4 font-medium text-foreground">{LABELS[r.category] ?? r.category}</td>
                   <td className="py-2 pr-4">
                     <input type="checkbox" checked={r.inApp} onChange={(e) => update(r.category, { inApp: e.target.checked })} />
                   </td>

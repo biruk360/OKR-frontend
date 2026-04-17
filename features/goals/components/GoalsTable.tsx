@@ -36,9 +36,9 @@ export default function GoalsTable({ objectives, onRefresh, users }: GoalsTableP
       case 'OFF_TRACK':
         return 'bg-red-100 text-red-800'
       case 'CLOSED':
-        return 'bg-gray-100 text-gray-800'
+        return 'bg-muted text-foreground'
       default:
-        return 'bg-gray-100 text-gray-800'
+        return 'bg-muted text-foreground'
     }
   }
 
@@ -59,55 +59,55 @@ export default function GoalsTable({ objectives, onRefresh, users }: GoalsTableP
 
   if (objectives.length === 0) {
     return (
-      <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
-        <p className="text-gray-500">No goals found. Create your first goal to get started.</p>
+      <div className="text-center py-12 bg-card rounded-lg border border-border">
+        <p className="text-muted-foreground">No goals found. Create your first goal to get started.</p>
       </div>
     )
   }
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+    <div className="bg-card rounded-lg border border-border overflow-hidden">
       <div className="overflow-x-auto">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
+      <table className="min-w-full divide-y divide-border">
+        <thead className="bg-muted">
           <tr>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
+            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider w-12">
               {/* Expand/Collapse column */}
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
               Owner
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
               Goal Title
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
               Labels
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
               Progress
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
               Status
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
               End Date
             </th>
           </tr>
         </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
+        <tbody className="bg-card divide-y divide-border">
           {objectives.map((objective) => {
             const isExpanded = expandedRows.has(objective.id)
             const keyResults = objective.keyResults ?? []
 
             return (
               <Fragment key={objective.id}>
-                <tr className="hover:bg-gray-50">
+                <tr className="hover:bg-muted">
                   {/* Expand/Collapse */}
                   <td className="px-6 py-4 whitespace-nowrap">
                     <button
                       type="button"
                       onClick={() => toggleRow(objective.id)}
-                      className="text-gray-400 hover:text-gray-600"
+                      className="text-muted-foreground hover:text-muted-foreground"
                       title="Key results"
                     >
                       {isExpanded ? (
@@ -132,7 +132,7 @@ export default function GoalsTable({ objectives, onRefresh, users }: GoalsTableP
                           <User className="h-4 w-4 text-white" />
                         </div>
                       )}
-                      <span className="ml-2 text-sm text-gray-900">{objective.owner.name}</span>
+                      <span className="ml-2 text-sm text-foreground">{objective.owner.name}</span>
                     </div>
                   </td>
 
@@ -140,12 +140,12 @@ export default function GoalsTable({ objectives, onRefresh, users }: GoalsTableP
                   <td className="px-6 py-4">
                     <Link
                       href={`/dashboard/objectives/${objective.id}`}
-                      className="text-sm font-medium text-gray-900 hover:text-blue-600"
+                      className="text-sm font-medium text-foreground hover:text-blue-600"
                     >
                       {objective.title}
                     </Link>
                     {objective.description && (
-                      <p className="text-sm text-gray-500 mt-1 line-clamp-1">
+                      <p className="text-sm text-muted-foreground mt-1 line-clamp-1">
                         {objective.description}
                       </p>
                     )}
@@ -181,7 +181,7 @@ export default function GoalsTable({ objectives, onRefresh, users }: GoalsTableP
                           style={{ width: `${Math.min(objective.progress, 100)}%` }}
                         />
                       </div>
-                      <span className="text-sm font-medium text-gray-900">
+                      <span className="text-sm font-medium text-foreground">
                         {Math.round(objective.progress)}%
                       </span>
                     </div>
@@ -195,7 +195,7 @@ export default function GoalsTable({ objectives, onRefresh, users }: GoalsTableP
                   </td>
 
                   {/* End Date */}
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                     {objective.endDate ? (
                       <div className="flex items-center">
                         <Calendar className="h-4 w-4 mr-1" />
@@ -215,9 +215,9 @@ export default function GoalsTable({ objectives, onRefresh, users }: GoalsTableP
                 {/* Expanded Key Results Row */}
                 {isExpanded && (
                   <tr>
-                    <td colSpan={7} className="px-6 py-4 bg-gray-50">
+                    <td colSpan={7} className="px-6 py-4 bg-muted">
                       <div className="pl-8">
-                        <h4 className="text-sm font-medium text-gray-700 mb-3">
+                        <h4 className="text-sm font-medium text-muted-foreground mb-3">
                           Key Results ({keyResults.length})
                         </h4>
                         <KeyResultsList

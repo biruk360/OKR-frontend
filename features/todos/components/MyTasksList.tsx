@@ -74,43 +74,43 @@ export default function MyTasksList({ assignedTodos, completedTodos }: MyTasksLi
     <div className="space-y-6">
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
+        <div className="bg-card p-4 rounded-lg border border-border">
           <div className="flex items-center">
             <div className="flex-shrink-0">
               <Target className="h-8 w-8 text-blue-600" />
             </div>
             <div className="ml-3">
-              <p className="text-sm font-medium text-gray-500">Total Assigned</p>
-              <p className="text-2xl font-semibold text-gray-900">{totalAssigned}</p>
+              <p className="text-sm font-medium text-muted-foreground">Total Assigned</p>
+              <p className="text-2xl font-semibold text-foreground">{totalAssigned}</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
+        <div className="bg-card p-4 rounded-lg border border-border">
           <div className="flex items-center">
             <div className="flex-shrink-0">
               <Square className="h-8 w-8 text-yellow-600" />
             </div>
             <div className="ml-3">
-              <p className="text-sm font-medium text-gray-500">Pending</p>
-              <p className="text-2xl font-semibold text-gray-900">{pendingCount}</p>
+              <p className="text-sm font-medium text-muted-foreground">Pending</p>
+              <p className="text-2xl font-semibold text-foreground">{pendingCount}</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
+        <div className="bg-card p-4 rounded-lg border border-border">
           <div className="flex items-center">
             <div className="flex-shrink-0">
               <CheckSquare className="h-8 w-8 text-green-600" />
             </div>
             <div className="ml-3">
-              <p className="text-sm font-medium text-gray-500">Completed</p>
-              <p className="text-2xl font-semibold text-gray-900">{completedCount}</p>
+              <p className="text-sm font-medium text-muted-foreground">Completed</p>
+              <p className="text-2xl font-semibold text-foreground">{completedCount}</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
+        <div className="bg-card p-4 rounded-lg border border-border">
           <div className="flex items-center">
             <div className="flex-shrink-0">
               <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
@@ -118,18 +118,18 @@ export default function MyTasksList({ assignedTodos, completedTodos }: MyTasksLi
               </div>
             </div>
             <div className="ml-3">
-              <p className="text-sm font-medium text-gray-500">Completion Rate</p>
-              <p className="text-2xl font-semibold text-gray-900">{completionRate}%</p>
+              <p className="text-sm font-medium text-muted-foreground">Completion Rate</p>
+              <p className="text-2xl font-semibold text-foreground">{completionRate}%</p>
             </div>
           </div>
         </div>
       </div>
 
       {/* Assigned Initiatives */}
-      <div className="bg-white rounded-lg border border-gray-200">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Assigned Initiatives</h2>
-          <p className="text-sm text-gray-500">Initiatives currently assigned to you</p>
+      <div className="bg-card rounded-lg border border-border">
+        <div className="px-6 py-4 border-b border-border">
+          <h2 className="text-lg font-semibold text-foreground">Assigned Initiatives</h2>
+          <p className="text-sm text-muted-foreground">Initiatives currently assigned to you</p>
         </div>
 
         <div className="p-6">
@@ -141,7 +141,7 @@ export default function MyTasksList({ assignedTodos, completedTodos }: MyTasksLi
                   className={`flex items-start space-x-4 p-4 rounded-lg border ${
                     todo.status === 'COMPLETED' 
                       ? 'border-green-200 bg-green-50' 
-                      : 'border-gray-200 bg-gray-50'
+                      : 'border-border bg-muted'
                   }`}
                 >
                   <button
@@ -149,7 +149,7 @@ export default function MyTasksList({ assignedTodos, completedTodos }: MyTasksLi
                     className={`flex-shrink-0 mt-1 ${
                       todo.status === 'COMPLETED' 
                         ? 'text-green-600 hover:text-green-700' 
-                        : 'text-gray-400 hover:text-gray-600'
+                        : 'text-muted-foreground hover:text-muted-foreground'
                     }`}
                     title={todo.status === 'COMPLETED' ? 'Mark as pending' : 'Mark as completed'}
                   >
@@ -168,8 +168,8 @@ export default function MyTasksList({ assignedTodos, completedTodos }: MyTasksLi
                           onClick={() => useInitiativeDetailStore.getState().open(todo.id)}
                           className={`text-left text-sm font-medium hover:text-blue-600 ${
                             todo.status === 'COMPLETED'
-                              ? 'text-gray-500 line-through'
-                              : 'text-gray-900'
+                              ? 'text-muted-foreground line-through'
+                              : 'text-foreground'
                           }`}
                         >
                           {todo.title}
@@ -178,14 +178,14 @@ export default function MyTasksList({ assignedTodos, completedTodos }: MyTasksLi
                         {todo.description && (
                           <p className={`text-sm mt-1 ${
                             todo.status === 'COMPLETED' 
-                              ? 'text-gray-400 line-through' 
-                              : 'text-gray-600'
+                              ? 'text-muted-foreground line-through' 
+                              : 'text-muted-foreground'
                           }`}>
                             {todo.description}
                           </p>
                         )}
 
-                        <div className="mt-2 flex items-center space-x-4 text-xs text-gray-500">
+                        <div className="mt-2 flex items-center space-x-4 text-xs text-muted-foreground">
                           <div className="flex items-center">
                             <Target className="h-3 w-3 mr-1" />
                             <span>Key Result: {todo.keyResult.title}</span>
@@ -233,9 +233,9 @@ export default function MyTasksList({ assignedTodos, completedTodos }: MyTasksLi
             </div>
           ) : (
             <div className="text-center py-8">
-              <Target className="mx-auto h-12 w-12 text-gray-400" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">No assigned initiatives</h3>
-              <p className="mt-1 text-sm text-gray-500">
+              <Target className="mx-auto h-12 w-12 text-muted-foreground" />
+              <h3 className="mt-2 text-sm font-medium text-foreground">No assigned initiatives</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
                 You don&apos;t have any initiatives assigned to you at the moment.
               </p>
             </div>
@@ -245,12 +245,12 @@ export default function MyTasksList({ assignedTodos, completedTodos }: MyTasksLi
 
       {/* Completed Tasks */}
       {completedTodos.length > 0 && (
-        <div className="bg-white rounded-lg border border-gray-200">
-          <div className="px-6 py-4 border-b border-gray-200">
+        <div className="bg-card rounded-lg border border-border">
+          <div className="px-6 py-4 border-b border-border">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">Recently Completed</h2>
-                <p className="text-sm text-gray-500">Initiatives completed in the last 30 days</p>
+                <h2 className="text-lg font-semibold text-foreground">Recently Completed</h2>
+                <p className="text-sm text-muted-foreground">Initiatives completed in the last 30 days</p>
               </div>
               <button
                 onClick={() => setShowCompleted(!showCompleted)}
@@ -274,17 +274,17 @@ export default function MyTasksList({ assignedTodos, completedTodos }: MyTasksLi
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-medium text-gray-500 line-through">
+                      <h3 className="text-sm font-medium text-muted-foreground line-through">
                         {todo.title}
                       </h3>
                       
                       {todo.description && (
-                        <p className="text-sm mt-1 text-gray-400 line-through">
+                        <p className="text-sm mt-1 text-muted-foreground line-through">
                           {todo.description}
                         </p>
                       )}
 
-                      <div className="mt-2 flex items-center space-x-4 text-xs text-gray-500">
+                      <div className="mt-2 flex items-center space-x-4 text-xs text-muted-foreground">
                         <div className="flex items-center">
                           <Target className="h-3 w-3 mr-1" />
                           <span>Key Result: {todo.keyResult.title}</span>

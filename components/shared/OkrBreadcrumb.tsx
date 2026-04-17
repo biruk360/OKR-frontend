@@ -37,7 +37,7 @@ export default function OkrBreadcrumb({ nodes, right, className }: Props) {
   return (
     <div
       className={
-        'flex flex-wrap items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm ' +
+        'flex flex-wrap items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm ' +
         (className ?? '')
       }
     >
@@ -54,7 +54,7 @@ export default function OkrBreadcrumb({ nodes, right, className }: Props) {
               <Icon className="h-3 w-3" />
               {n.code ?? n.kind}
             </span>
-            <span className={isLast ? 'font-medium text-gray-900' : 'text-gray-600 hover:text-gray-900'}>
+            <span className={isLast ? 'font-medium text-foreground' : 'text-muted-foreground hover:text-foreground'}>
               {n.title}
             </span>
           </span>
@@ -66,18 +66,18 @@ export default function OkrBreadcrumb({ nodes, right, className }: Props) {
             ) : (
               content
             )}
-            {!isLast && <ChevronRight className="h-4 w-4 text-gray-400" />}
+            {!isLast && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
           </span>
         )
       })}
 
-      <div className="ml-auto flex items-center gap-3 text-xs text-gray-500">
+      <div className="ml-auto flex items-center gap-3 text-xs text-muted-foreground">
         {typeof last.progress === 'number' && (
           <span className="tabular-nums">{Math.round(last.progress)}%</span>
         )}
         {last.status && <span className="uppercase tracking-wide">{last.status}</span>}
         {last.ownerName && (
-          <span className="inline-flex items-center gap-1 text-gray-600">
+          <span className="inline-flex items-center gap-1 text-muted-foreground">
             <span className="h-5 w-5 rounded-full bg-emerald-500 text-[10px] text-white flex items-center justify-center">
               {(last.ownerName[0] ?? '?').toUpperCase()}
             </span>

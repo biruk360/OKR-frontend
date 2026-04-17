@@ -139,7 +139,7 @@ export default function NestedObjectivesList({
       case 'INDIVIDUAL':
         return 'bg-success-100 text-success-800'
       default:
-        return 'bg-gray-100 text-gray-800'
+        return 'bg-muted text-foreground'
     }
   }
 
@@ -166,7 +166,7 @@ export default function NestedObjectivesList({
       <div key={objective.id} className="relative">
         {/* Objective Card */}
         <div
-          className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow mb-2"
+          className="bg-card border border-border rounded-lg p-6 hover:shadow-md transition-shadow mb-2"
           style={{ marginLeft: `${indentLevel}px` }}
         >
           <div className="flex items-start justify-between">
@@ -177,13 +177,13 @@ export default function NestedObjectivesList({
                   {hasChildren && (
                     <button
                       onClick={() => toggleExpand(objective.id)}
-                      className="p-1 hover:bg-gray-100 rounded transition-colors"
+                      className="p-1 hover:bg-muted rounded transition-colors"
                       aria-label={isExpanded ? 'Collapse' : 'Expand'}
                     >
                       {isExpanded ? (
-                        <ChevronDown className="h-4 w-4 text-gray-500" />
+                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
                       ) : (
-                        <ChevronRight className="h-4 w-4 text-gray-500" />
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
                       )}
                     </button>
                   )}
@@ -223,19 +223,19 @@ export default function NestedObjectivesList({
 
               <Link
                 href={`/dashboard/objectives/${objective.id}`}
-                className="text-lg font-semibold text-gray-900 hover:text-primary-600 block"
+                className="text-lg font-semibold text-foreground hover:text-primary-600 block"
               >
                 {objective.title}
               </Link>
 
               {objective.description && (
-                <p className="mt-1 text-sm text-gray-600 line-clamp-2">
+                <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
                   {objective.description}
                 </p>
               )}
 
               <div className="mt-3 flex items-center space-x-4 text-sm">
-                <div className="flex items-center bg-gray-50 px-2 py-1 rounded-md border border-gray-200">
+                <div className="flex items-center bg-muted px-2 py-1 rounded-md border border-border">
                   {objective.owner.avatar ? (
                     <img 
                       src={objective.owner.avatar} 
@@ -247,14 +247,14 @@ export default function NestedObjectivesList({
                       <User className="h-3 w-3 text-white" />
                     </div>
                   )}
-                  <span className="font-medium text-gray-700">{objective.owner.name}</span>
+                  <span className="font-medium text-muted-foreground">{objective.owner.name}</span>
                 </div>
-                <div className="flex items-center text-gray-500">
+                <div className="flex items-center text-muted-foreground">
                   <Calendar className="h-4 w-4 mr-1" />
                   <span>{objective.timeframe.name}</span>
                 </div>
                 {objective.department && (
-                  <div className="flex items-center text-gray-500">
+                  <div className="flex items-center text-muted-foreground">
                     <Building2 className="h-4 w-4 mr-1" />
                     {objective.department.name}
                   </div>
@@ -262,13 +262,13 @@ export default function NestedObjectivesList({
               </div>
 
               <div className="mt-3 flex items-center justify-between">
-                <div className="flex items-center space-x-4 text-sm text-gray-500">
+                <div className="flex items-center space-x-4 text-sm text-muted-foreground">
                   <span>{objective._count?.keyResults || 0} Key Results</span>
                   {objective._count?.childObjectives > 0 && (
                     <span>{objective._count.childObjectives} Child Objectives</span>
                   )}
                 </div>
-                <div className="text-sm text-gray-500">
+                <div className="text-sm text-muted-foreground">
                   Updated {formatDate(objective.updatedAt, 'MMM dd')}
                 </div>
               </div>
@@ -276,7 +276,7 @@ export default function NestedObjectivesList({
 
             <div className="ml-6 flex-shrink-0">
               <div className="text-right">
-                <div className="text-lg font-semibold text-gray-900">
+                <div className="text-lg font-semibold text-foreground">
                   {Math.round(objective.progress)}%
                 </div>
                 <div className="w-24 bg-gray-200 rounded-full h-2 mt-1">
@@ -305,10 +305,10 @@ export default function NestedObjectivesList({
   return (
     <div className="space-y-6">
       {/* Filters */}
-      <div className="bg-white p-4 rounded-lg border border-gray-200">
+      <div className="bg-card p-4 rounded-lg border border-border">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
+            <label className="block text-sm font-medium text-muted-foreground mb-1">Search</label>
             <input
               type="text"
               placeholder="Search objectives..."
@@ -319,7 +319,7 @@ export default function NestedObjectivesList({
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Level</label>
+            <label className="block text-sm font-medium text-muted-foreground mb-1">Level</label>
             <select
               value={filters.level}
               onChange={(e) => setFilters({ ...filters, level: e.target.value })}
@@ -333,7 +333,7 @@ export default function NestedObjectivesList({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Timeframe</label>
+            <label className="block text-sm font-medium text-muted-foreground mb-1">Timeframe</label>
             <select
               value={filters.timeframe}
               onChange={(e) => setFilters({ ...filters, timeframe: e.target.value })}
@@ -356,7 +356,7 @@ export default function NestedObjectivesList({
 
           {departments.length > 0 && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+              <label className="block text-sm font-medium text-muted-foreground mb-1">Department</label>
               <select
                 value={filters.department}
                 onChange={(e) => setFilters({ ...filters, department: e.target.value })}
@@ -377,9 +377,9 @@ export default function NestedObjectivesList({
       {/* Nested Objectives Tree */}
       {objectiveTree.length === 0 ? (
         <div className="text-center py-12">
-          <Target className="mx-auto h-12 w-12 text-gray-400" />
-          <h3 className="mt-2 text-sm font-medium text-gray-900">No objectives found</h3>
-          <p className="mt-1 text-sm text-gray-500">
+          <Target className="mx-auto h-12 w-12 text-muted-foreground" />
+          <h3 className="mt-2 text-sm font-medium text-foreground">No objectives found</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
             {objectives.length === 0 
               ? "Get started by creating your first objective."
               : "Try adjusting your filters to see more results."

@@ -19,7 +19,7 @@ export default function GoalsSummaryDashboard({ stats }: GoalsSummaryDashboardPr
   const offset = circumference - (stats.avgProgress / 100) * circumference
 
   return (
-    <div className="bg-white p-6 rounded-lg border border-gray-200">
+    <div className="bg-card p-6 rounded-lg border border-border">
       <div className="grid grid-cols-1 lg:grid-cols-6 gap-6">
         {/* Overall Progress Donut Chart */}
         <div className="lg:col-span-2 flex flex-col items-center justify-center">
@@ -49,8 +49,8 @@ export default function GoalsSummaryDashboard({ stats }: GoalsSummaryDashboardPr
             </svg>
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-center">
-                <div className="text-2xl font-bold text-gray-900">{stats.avgProgress}%</div>
-                <div className="text-xs text-gray-500">Overall Progress</div>
+                <div className="text-2xl font-bold text-foreground">{stats.avgProgress}%</div>
+                <div className="text-xs text-muted-foreground">Overall Progress</div>
               </div>
             </div>
           </div>
@@ -58,12 +58,12 @@ export default function GoalsSummaryDashboard({ stats }: GoalsSummaryDashboardPr
 
         {/* Status Summary Cards */}
         <div className="lg:col-span-4 grid grid-cols-2 md:grid-cols-5 gap-4">
-          <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+          <div className="bg-muted rounded-lg p-4 border border-border">
             <div className="flex items-center space-x-2 mb-1">
               <div className="w-2 h-2 rounded-full bg-gray-400"></div>
-              <span className="text-xs font-medium text-gray-600">No Status</span>
+              <span className="text-xs font-medium text-muted-foreground">No Status</span>
             </div>
-            <div className="text-2xl font-bold text-gray-900">{stats.noStatus}</div>
+            <div className="text-2xl font-bold text-foreground">{stats.noStatus}</div>
           </div>
 
           <div className="bg-green-50 rounded-lg p-4 border border-green-200">
@@ -90,12 +90,12 @@ export default function GoalsSummaryDashboard({ stats }: GoalsSummaryDashboardPr
             <div className="text-2xl font-bold text-red-900">{stats.offTrack}</div>
           </div>
 
-          <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+          <div className="bg-muted rounded-lg p-4 border border-border">
             <div className="flex items-center space-x-2 mb-1">
-              <div className="w-2 h-2 rounded-full bg-gray-500"></div>
-              <span className="text-xs font-medium text-gray-700">Closed</span>
+              <div className="w-2 h-2 rounded-full bg-muted0"></div>
+              <span className="text-xs font-medium text-muted-foreground">Closed</span>
             </div>
-            <div className="text-2xl font-bold text-gray-900">{stats.closed}</div>
+            <div className="text-2xl font-bold text-foreground">{stats.closed}</div>
           </div>
         </div>
       </div>

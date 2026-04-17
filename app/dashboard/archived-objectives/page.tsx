@@ -85,7 +85,7 @@ export default async function ArchivedObjectivesPage() {
   return (
     <div className="space-y-4">
       <div>
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-muted-foreground">
           Objectives that have been archived. Restore them from each objective&apos;s detail page when
           permitted.
         </p>

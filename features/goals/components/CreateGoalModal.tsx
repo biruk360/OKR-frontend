@@ -179,7 +179,7 @@ export default function CreateGoalModal({
     <Modal open={isOpen} onClose={onClose} title="Create New Goal" icon={Target} iconClassName="text-primary-600" size="lg">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Owner(s) *</label>
+          <label className="block text-sm font-medium text-muted-foreground mb-1">Owner(s) *</label>
           <select {...register('ownerId', { required: 'Owner is required' })} className="input">
             <option value="">Select owner</option>
             {users.map((user) => (
@@ -201,7 +201,7 @@ export default function CreateGoalModal({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Type *</label>
+          <label className="block text-sm font-medium text-muted-foreground mb-2">Type *</label>
           <div className="flex flex-wrap gap-2">
             {(['INDIVIDUAL', 'DEPARTMENT', 'COMPANY'] as ObjectiveLevel[]).map((level) => (
               <button
@@ -211,7 +211,7 @@ export default function CreateGoalModal({
                 className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                   selectedLevel === level
                     ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    : 'bg-muted text-muted-foreground hover:bg-muted'
                 }`}
               >
                 {level === 'INDIVIDUAL' ? 'Individual' : level === 'DEPARTMENT' ? 'Department' : 'Company'}
@@ -222,7 +222,7 @@ export default function CreateGoalModal({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
+          <label className="block text-sm font-medium text-muted-foreground mb-1">Title *</label>
           <input
             {...register('title', { required: 'Title is required' })}
             type="text"
@@ -233,12 +233,12 @@ export default function CreateGoalModal({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+          <label className="block text-sm font-medium text-muted-foreground mb-1">Description</label>
           <textarea {...register('description')} rows={3} className="input" placeholder="Enter goal description" />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Timeframe *</label>
+          <label className="block text-sm font-medium text-muted-foreground mb-1">Timeframe *</label>
           <select {...register('timeframeId', { required: 'Timeframe is required' })} className="input">
             <option value="">Select timeframe</option>
             {timeframes.map((timeframe) => (
@@ -252,7 +252,7 @@ export default function CreateGoalModal({
 
         {selectedLevel === 'DEPARTMENT' && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Department *</label>
+            <label className="block text-sm font-medium text-muted-foreground mb-1">Department *</label>
             <select {...register('departmentId', { required: 'Department is required' })} className="input">
               <option value="">Select department</option>
               {departments.map((department) => (
@@ -277,18 +277,18 @@ export default function CreateGoalModal({
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+            <label className="block text-sm font-medium text-muted-foreground mb-1">Start Date</label>
             <input {...register('startDate')} type="date" className="input" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+            <label className="block text-sm font-medium text-muted-foreground mb-1">End Date</label>
             <input {...register('endDate')} type="date" className="input" />
           </div>
         </div>
 
         {labels.length > 0 && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Labels</label>
+            <label className="block text-sm font-medium text-muted-foreground mb-2">Labels</label>
             <div className="flex flex-wrap gap-2">
               {labels.map((label) => (
                 <button
@@ -302,7 +302,7 @@ export default function CreateGoalModal({
                     setValue('labels', newLabels)
                   }}
                   className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                    (watch('labels') || []).includes(label.id) ? 'border-2' : 'border border-gray-300'
+                    (watch('labels') || []).includes(label.id) ? 'border-2' : 'border border-border'
                   }`}
                   style={{
                     backgroundColor: (watch('labels') || []).includes(label.id) ? `${label.color}20` : 'transparent',
@@ -318,7 +318,7 @@ export default function CreateGoalModal({
         )}
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Check-in cadence *</label>
+          <label className="block text-sm font-medium text-muted-foreground mb-1">Check-in cadence *</label>
           <select {...register('checkInCadence', { required: 'A check-in cadence is required.' })} className="input">
             {CHECK_IN_CADENCES.map((c) => (
               <option key={c} value={c}>
@@ -326,7 +326,7 @@ export default function CreateGoalModal({
               </option>
             ))}
           </select>
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs text-muted-foreground">
             We&apos;ll remind the owner on the dashboard and via the Monday email digest.
           </p>
         </div>
@@ -336,17 +336,17 @@ export default function CreateGoalModal({
             <input
               type="checkbox"
               {...register('isPrivate')}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              className="h-4 w-4 text-blue-600 focus:ring-ring border-border rounded"
             />
-            <span className="ml-2 text-sm text-gray-700">Make this goal private</span>
+            <span className="ml-2 text-sm text-muted-foreground">Make this goal private</span>
           </label>
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs text-muted-foreground">
             Private goals will show as &quot;[Private Goal]&quot; to other users, but progress percentage will remain visible.
           </p>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+          <label className="block text-sm font-medium text-muted-foreground mb-1">Status</label>
           <select {...register('goalStatus')} className="input">
             <option value="ON_TRACK">On Track</option>
             <option value="AT_RISK">At Risk</option>
@@ -355,7 +355,7 @@ export default function CreateGoalModal({
           </select>
         </div>
 
-        <div className="flex items-center justify-end space-x-3 pt-6 border-t border-gray-200">
+        <div className="flex items-center justify-end space-x-3 pt-6 border-t border-border">
           <button type="button" onClick={onClose} className="btn-outline" disabled={isLoading}>
             Cancel
           </button>

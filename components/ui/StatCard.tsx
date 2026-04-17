@@ -20,7 +20,7 @@ const toneClasses: Record<StatCardTone, string> = {
   yellow: 'bg-yellow-500',
   red: 'bg-red-500',
   purple: 'bg-purple-500',
-  gray: 'bg-gray-500',
+  gray: 'bg-muted0',
   indigo: 'bg-indigo-500',
 }
 

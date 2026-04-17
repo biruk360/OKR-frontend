@@ -182,11 +182,11 @@ export default async function AlignmentMapPage({ searchParams }: PageProps) {
 
   if (timeframes.length === 0) {
     return (
-      <div className="flex h-full min-h-[240px] items-center justify-center bg-gray-50 px-4">
+      <div className="flex h-full min-h-[240px] items-center justify-center bg-muted px-4">
         <div className="text-center">
-          <AlertCircle className="mx-auto h-10 w-10 text-gray-400" />
-          <h2 className="mt-2 text-sm font-medium text-gray-900">No timeframes</h2>
-          <p className="mt-1 text-xs text-gray-500">
+          <AlertCircle className="mx-auto h-10 w-10 text-muted-foreground" />
+          <h2 className="mt-2 text-sm font-medium text-foreground">No timeframes</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
             Create a timeframe to view the strategy map.
           </p>
         </div>
@@ -228,8 +228,8 @@ export default async function AlignmentMapPage({ searchParams }: PageProps) {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-gray-50">
-      <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-gray-200 bg-white px-3 py-2 text-xs text-gray-600">
+    <div className="flex h-full min-h-0 flex-col bg-muted">
+      <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-border bg-card px-3 py-2 text-xs text-muted-foreground">
         <TimeframeDropdown
           timeframes={timeframes.map((t) => ({
             id: t.id,
@@ -241,7 +241,7 @@ export default async function AlignmentMapPage({ searchParams }: PageProps) {
           }))}
           selectedId={currentTimeframe.id}
         />
-        <span className="hidden sm:inline text-gray-300">|</span>
+        <span className="hidden sm:inline text-muted-foreground">|</span>
         <span className="inline-flex items-center gap-1">
           <Target className="h-3.5 w-3.5 text-blue-600" />
           {stats.total} objectives
@@ -265,11 +265,11 @@ export default async function AlignmentMapPage({ searchParams }: PageProps) {
           {objectives.length === 0 ? (
             <div className="flex h-full min-h-[240px] items-center justify-center px-4">
               <div className="text-center max-w-md">
-                <AlertCircle className="mx-auto h-10 w-10 text-gray-400" />
-                <h2 className="mt-2 text-sm font-medium text-gray-900">
+                <AlertCircle className="mx-auto h-10 w-10 text-muted-foreground" />
+                <h2 className="mt-2 text-sm font-medium text-foreground">
                   No objectives in {currentTimeframe.name}
                 </h2>
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="mt-1 text-xs text-muted-foreground">
                   Use the timeframe dropdown above to pick another period, or create an objective for this cycle.
                 </p>
               </div>
@@ -278,7 +278,7 @@ export default async function AlignmentMapPage({ searchParams }: PageProps) {
             <Suspense
               fallback={
                 <div className="flex h-64 items-center justify-center">
-                  <div className="h-7 w-7 animate-spin rounded-full border-2 border-gray-200 border-t-blue-600" />
+                  <div className="h-7 w-7 animate-spin rounded-full border-2 border-border border-t-blue-600" />
                 </div>
               }
             >
@@ -293,8 +293,8 @@ export default async function AlignmentMapPage({ searchParams }: PageProps) {
           )}
         </div>
 
-        <div className="shrink-0 border-t border-gray-200 bg-white px-3 py-1.5 text-[11px] leading-snug text-gray-600">
-          <span className="font-medium text-gray-700">Legend:</span> Top = company (workspace); next row =
+        <div className="shrink-0 border-t border-border bg-card px-3 py-1.5 text-[11px] leading-snug text-muted-foreground">
+          <span className="font-medium text-muted-foreground">Legend:</span> Top = company (workspace); next row =
           company OKR plans; below = sub-OKRs aligned under each parent. Status pill = goal health (on track /
           at risk / behind). Configure strict progress roll-up (average/sum of child %) in Edit objective.
           Zoom/pan the canvas; use controls to fit.

@@ -42,7 +42,7 @@ export default function TimeframeDropdown({ timeframes, selectedId }: Props) {
 
   return (
     <label className="relative inline-flex items-center gap-1.5">
-      <Calendar className="h-3.5 w-3.5 text-gray-500" />
+      <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
       <span className="sr-only">Timeframe</span>
       <div className="relative">
         <select
@@ -50,7 +50,7 @@ export default function TimeframeDropdown({ timeframes, selectedId }: Props) {
           onChange={onChange}
           disabled={isPending}
           aria-label="Select timeframe"
-          className="appearance-none rounded-md border border-gray-200 bg-white py-1 pl-2 pr-7 text-xs font-medium text-gray-800 hover:border-gray-300 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100 disabled:opacity-60"
+          className="appearance-none rounded-md border border-border bg-card py-1 pl-2 pr-7 text-xs font-medium text-foreground hover:border-border focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100 disabled:opacity-60"
         >
           {timeframes.map((t) => {
             const start = new Date(t.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })
@@ -62,10 +62,10 @@ export default function TimeframeDropdown({ timeframes, selectedId }: Props) {
             )
           })}
         </select>
-        <ChevronDown className="pointer-events-none absolute right-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-gray-500" />
+        <ChevronDown className="pointer-events-none absolute right-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
       </div>
       {selected && (
-        <span className="font-normal text-gray-500">
+        <span className="font-normal text-muted-foreground">
           · {new Date(selected.startDate).toLocaleDateString()} – {new Date(selected.endDate).toLocaleDateString()}
         </span>
       )}

@@ -48,7 +48,7 @@ function confidenceLabel(goalStatus: string | null | undefined): {
     case 'OFF_TRACK':
       return { label: 'OFF TRACK', classes: 'bg-red-100 text-red-800' }
     case 'CLOSED':
-      return { label: 'CLOSED', classes: 'bg-gray-100 text-gray-700' }
+      return { label: 'CLOSED', classes: 'bg-muted text-muted-foreground' }
     default:
       return null
   }
@@ -79,7 +79,7 @@ function Avatar({
   const sizeClass = size === 'xs' ? 'h-6 w-6 text-[10px]' : size === 'md' ? 'h-10 w-10 text-sm' : 'h-8 w-8 text-xs'
   if (avatar) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={avatar} alt={name} className={`${sizeClass} rounded-full border border-gray-200 object-cover`} />
+    return <img src={avatar} alt={name} className={`${sizeClass} rounded-full border border-border object-cover`} />
   }
   const initials = name
     .split(' ')
@@ -89,7 +89,7 @@ function Avatar({
     .join('')
     .toUpperCase()
   return (
-    <div className={`${sizeClass} rounded-full bg-blue-500 text-white flex items-center justify-center font-medium border border-gray-200`}>
+    <div className={`${sizeClass} rounded-full bg-blue-500 text-white flex items-center justify-center font-medium border border-border`}>
       {initials || '?'}
     </div>
   )
@@ -234,7 +234,7 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
         <div className="flex items-center justify-between">
           <Link
             href="/dashboard/objectives"
-            className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700"
+            className="inline-flex items-center text-sm text-muted-foreground hover:text-muted-foreground"
           >
             <ArrowLeft className="h-4 w-4 mr-1" />
             Back to Objectives
@@ -275,7 +275,7 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
             )}
 
             {/* Combined Objective card: header + description + progress summary + timeline */}
-            <section className="bg-white shadow rounded-lg p-6">
+            <section className="bg-card shadow rounded-lg p-6">
               <div className="flex items-start justify-between gap-6">
                 <div className="flex-1 min-w-0">
                   <span
@@ -291,7 +291,7 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
                     {levelLabel(objective.level)}
                   </span>
 
-                  <h1 className="mt-3 text-2xl font-semibold text-gray-900 leading-tight">
+                  <h1 className="mt-3 text-2xl font-semibold text-foreground leading-tight">
                     {objective.title}
                   </h1>
 
@@ -310,7 +310,7 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
 
                   {/* Slightly larger description per product feedback */}
                   {objective.description && (
-                    <p className="mt-3 text-base text-gray-700 leading-relaxed">
+                    <p className="mt-3 text-base text-muted-foreground leading-relaxed">
                       {objective.description}
                     </p>
                   )}
@@ -318,7 +318,7 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
 
                 <div className="flex-shrink-0 text-right min-w-[180px]">
                   <div className="flex items-center justify-end gap-2 mb-1">
-                    <span className="text-3xl font-bold text-gray-900">{progressRounded}%</span>
+                    <span className="text-3xl font-bold text-foreground">{progressRounded}%</span>
                     {status && (
                       <span
                         className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${status.classes}`}
@@ -327,7 +327,7 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
                       </span>
                     )}
                   </div>
-                  <div className="text-xs text-gray-500">Overall Progress</div>
+                  <div className="text-xs text-muted-foreground">Overall Progress</div>
                   <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
                     <div
                       className={`h-2 rounded-full transition-all duration-300 ${getProgressBarClass(
@@ -336,15 +336,15 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
                       style={{ width: `${Math.min(progressRounded, 100)}%` }}
                     />
                   </div>
-                  <div className="text-[11px] text-gray-400 mt-2">
+                  <div className="text-[11px] text-muted-foreground mt-2">
                     Last updated {formatRelativeTime(objective.updatedAt)}
                   </div>
-                  <div className="mt-1 flex items-center justify-end gap-3 text-[11px] text-gray-500">
+                  <div className="mt-1 flex items-center justify-end gap-3 text-[11px] text-muted-foreground">
                     <span>
-                      <span className="font-semibold text-gray-700">{activeKrCount}</span> Active KRs
+                      <span className="font-semibold text-muted-foreground">{activeKrCount}</span> Active KRs
                     </span>
                     <span>
-                      <span className="font-semibold text-gray-700">
+                      <span className="font-semibold text-muted-foreground">
                         {objective._count.keyResults}
                       </span>{' '}
                       Total
@@ -381,15 +381,15 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
 
           {/* -------- Sidebar -------- */}
           <aside className="lg:col-span-4 space-y-4">
-            <section className="bg-white shadow rounded-lg p-5" id={TIMELINE_ELEMENT_ID}>
+            <section className="bg-card shadow rounded-lg p-5" id={TIMELINE_ELEMENT_ID}>
               <div className="flex items-center justify-between mb-3">
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">
+                  <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">
                     Progress Timeline
                   </h3>
-                  <p className="text-xs text-gray-500 mt-0.5">Expected vs actual</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Expected vs actual</p>
                 </div>
-                <TrendingUp className="h-4 w-4 text-gray-400" />
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </div>
               <ObjectiveProgressTimeline
                 snapshots={snapshots}
@@ -399,31 +399,31 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
               />
             </section>
 
-            <section className="bg-white shadow rounded-lg p-5">
-              <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-4">
+            <section className="bg-card shadow rounded-lg p-5">
+              <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide mb-4">
                 Objective Details
               </h3>
 
               <div className="space-y-4">
                 <div>
-                  <div className="flex items-center text-[11px] text-gray-500 uppercase tracking-wide mb-1.5">
+                  <div className="flex items-center text-[11px] text-muted-foreground uppercase tracking-wide mb-1.5">
                     <User className="h-3 w-3 mr-1" />
                     Owner
                   </div>
                   <div className="flex items-center space-x-2">
                     <Avatar name={objective.owner.name ?? '?'} avatar={objective.owner.avatar} size="sm" />
                     <div className="min-w-0">
-                      <div className="text-sm font-medium text-gray-900 truncate">
+                      <div className="text-sm font-medium text-foreground truncate">
                         {objective.owner.name}
                       </div>
-                      <div className="text-xs text-gray-500 truncate">{objective.owner.email}</div>
+                      <div className="text-xs text-muted-foreground truncate">{objective.owner.email}</div>
                     </div>
                   </div>
                 </div>
 
                 {/* Contributors — explicit ObjectiveContributor rows, independent of KR owners */}
                 <div>
-                  <div className="flex items-center text-[11px] text-gray-500 uppercase tracking-wide mb-1.5">
+                  <div className="flex items-center text-[11px] text-muted-foreground uppercase tracking-wide mb-1.5">
                     <UserPlus className="h-3 w-3 mr-1" />
                     Contributors
                   </div>
@@ -432,30 +432,30 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
                       {contributors.map((c) => (
                         <div
                           key={c.id}
-                          className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50 pl-1 pr-2 py-0.5"
+                          className="flex items-center gap-1.5 rounded-full border border-border bg-muted pl-1 pr-2 py-0.5"
                           title={c.email || c.name}
                         >
                           <Avatar name={c.name ?? '?'} avatar={c.avatar} size="xs" />
-                          <span className="text-xs text-gray-700 truncate max-w-[120px]">
+                          <span className="text-xs text-muted-foreground truncate max-w-[120px]">
                             {c.name}
                           </span>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-xs text-gray-400 italic">
+                    <p className="text-xs text-muted-foreground italic">
                       None — add via Edit Objective
                     </p>
                   )}
                 </div>
 
                 <div>
-                  <div className="flex items-center text-[11px] text-gray-500 uppercase tracking-wide mb-1.5">
+                  <div className="flex items-center text-[11px] text-muted-foreground uppercase tracking-wide mb-1.5">
                     <Calendar className="h-3 w-3 mr-1" />
                     Timeframe
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-gray-900">
+                    <span className="text-sm font-medium text-foreground">
                       {objective.timeframe.name}
                     </span>
                     {objective.timeframe.type && (
@@ -476,18 +476,18 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
 
                 {objective.parentObjective && (
                   <div>
-                    <div className="flex items-center text-[11px] text-gray-500 uppercase tracking-wide mb-1.5">
+                    <div className="flex items-center text-[11px] text-muted-foreground uppercase tracking-wide mb-1.5">
                       <Target className="h-3 w-3 mr-1" />
                       Primary Alignment
                     </div>
                     <Link
                       href={`/dashboard/objectives/${objective.parentObjective.id}`}
-                      className="block rounded-md border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-colors px-3 py-2"
+                      className="block rounded-md border border-border hover:border-border hover:bg-muted transition-colors px-3 py-2"
                     >
-                      <div className="text-sm font-medium text-gray-900 line-clamp-2">
+                      <div className="text-sm font-medium text-foreground line-clamp-2">
                         {objective.parentObjective.title}
                       </div>
-                      <div className="text-xs text-gray-500 mt-0.5">
+                      <div className="text-xs text-muted-foreground mt-0.5">
                         {objective.parentObjective.level === 'COMPANY'
                           ? 'Company Objective'
                           : objective.parentObjective.level === 'DEPARTMENT'
@@ -500,11 +500,11 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
 
                 {objective.department && (
                   <div>
-                    <div className="flex items-center text-[11px] text-gray-500 uppercase tracking-wide mb-1.5">
+                    <div className="flex items-center text-[11px] text-muted-foreground uppercase tracking-wide mb-1.5">
                       <Building2 className="h-3 w-3 mr-1" />
                       Department
                     </div>
-                    <div className="text-sm font-medium text-gray-900">
+                    <div className="text-sm font-medium text-foreground">
                       {objective.department.name}
                     </div>
                   </div>
@@ -513,13 +513,13 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
             </section>
 
             {collaborators.length > 0 && (
-              <section className="bg-white shadow rounded-lg p-5">
+              <section className="bg-card shadow rounded-lg p-5">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide flex items-center">
-                    <Users className="h-4 w-4 mr-1.5 text-gray-500" />
+                  <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide flex items-center">
+                    <Users className="h-4 w-4 mr-1.5 text-muted-foreground" />
                     Collaborators
                   </h3>
-                  <span className="text-xs text-gray-500">{collaborators.length} total</span>
+                  <span className="text-xs text-muted-foreground">{collaborators.length} total</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {collaborators.map((c) => (
@@ -532,19 +532,19 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
                     </div>
                   ))}
                 </div>
-                <p className="text-[11px] text-gray-500 mt-3">
+                <p className="text-[11px] text-muted-foreground mt-3">
                   Union of Contributors and Key Result owners.
                 </p>
               </section>
             )}
 
             {objective.childObjectives.length > 0 && (
-              <section className="bg-white shadow rounded-lg p-5">
+              <section className="bg-card shadow rounded-lg p-5">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">
+                  <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">
                     Contributing OKRs
                   </h3>
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-muted-foreground">
                     {objective.childObjectives.length}
                   </span>
                 </div>
@@ -558,10 +558,10 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
                           className="block group"
                         >
                           <div className="flex items-center justify-between gap-2 text-sm">
-                            <span className="text-gray-800 group-hover:text-blue-600 truncate">
+                            <span className="text-foreground group-hover:text-blue-600 truncate">
                               {child.title}
                             </span>
-                            <span className="text-xs font-medium text-gray-600 flex-shrink-0">
+                            <span className="text-xs font-medium text-muted-foreground flex-shrink-0">
                               {pct}%
                             </span>
                           </div>
@@ -577,7 +577,7 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
                   })}
                 </ul>
                 {objective.childObjectives.length > 8 && (
-                  <p className="text-xs text-gray-500 mt-3">
+                  <p className="text-xs text-muted-foreground mt-3">
                     Showing 8 of {objective.childObjectives.length}
                   </p>
                 )}

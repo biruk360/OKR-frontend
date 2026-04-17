@@ -64,28 +64,28 @@ export default function NotificationsSettingsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="bg-white shadow rounded-lg">
+      <div className="bg-card shadow rounded-lg">
         <div className="px-4 py-5 sm:p-6">
-          <h3 className="text-lg font-medium text-gray-900">Notification preferences</h3>
-          <p className="text-sm text-gray-500 mt-1">
+          <h3 className="text-lg font-medium text-foreground">Notification preferences</h3>
+          <p className="text-sm text-muted-foreground mt-1">
             Control which events reach you in-app and by email. Account &amp; security emails are always delivered.
           </p>
           <div className="mt-6 overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead>
-                <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
+                <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
                   <th className="py-2 pr-4">Category</th>
                   <th className="py-2 pr-4">In-app</th>
                   <th className="py-2 pr-4">Email</th>
                   <th className="py-2 pr-4">Email cadence</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-border">
                 {rows.map((r) => (
                   <tr key={r.category}>
                     <td className="py-2 pr-4">
-                      <div className="font-medium text-gray-900">{CATEGORY_LABEL[r.category]}</div>
-                      {r.mandatory && <div className="text-xs text-gray-500">Always on</div>}
+                      <div className="font-medium text-foreground">{CATEGORY_LABEL[r.category]}</div>
+                      {r.mandatory && <div className="text-xs text-muted-foreground">Always on</div>}
                     </td>
                     <td className="py-2 pr-4">
                       <input

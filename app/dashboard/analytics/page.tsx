@@ -30,7 +30,7 @@ export default async function AnalyticsPage() {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-gray-500">
+      <p className="text-sm text-muted-foreground">
         Advanced analytics and insights for your OKR system.
       </p>
 
@@ -42,9 +42,9 @@ export default async function AnalyticsPage() {
       </StatGrid>
 
       {/* Department Performance */}
-      <div className="bg-white shadow rounded-lg">
+      <div className="bg-card shadow rounded-lg">
         <div className="px-4 py-5 sm:p-6">
-          <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+          <h3 className="text-lg leading-6 font-medium text-foreground mb-4">
             Department Performance
           </h3>
           <div className="space-y-4">
@@ -57,8 +57,8 @@ export default async function AnalyticsPage() {
               return (
                 <div key={department.id} className="border rounded-lg p-4">
                   <div className="flex items-center justify-between mb-2">
-                    <h4 className="text-sm font-medium text-gray-900">{department.name}</h4>
-                    <span className="text-sm text-gray-500">{deptAvgProgress}%</span>
+                    <h4 className="text-sm font-medium text-foreground">{department.name}</h4>
+                    <span className="text-sm text-muted-foreground">{deptAvgProgress}%</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
                     <div
@@ -69,7 +69,7 @@ export default async function AnalyticsPage() {
                       style={{ width: `${deptAvgProgress}%` }}
                     />
                   </div>
-                  <div className="text-xs text-gray-500">{deptObjectives.length} Objectives</div>
+                  <div className="text-xs text-muted-foreground">{deptObjectives.length} Objectives</div>
                 </div>
               )
             })}
@@ -78,9 +78,9 @@ export default async function AnalyticsPage() {
       </div>
 
       {/* OKR Level Distribution */}
-      <div className="bg-white shadow rounded-lg">
+      <div className="bg-card shadow rounded-lg">
         <div className="px-4 py-5 sm:p-6">
-          <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+          <h3 className="text-lg leading-6 font-medium text-foreground mb-4">
             OKR Level Distribution
           </h3>
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
@@ -88,19 +88,19 @@ export default async function AnalyticsPage() {
               <div className="text-2xl font-bold text-blue-600">
                 {objectives.filter((obj) => obj.level === 'COMPANY').length}
               </div>
-              <div className="text-sm text-gray-500">Company Level</div>
+              <div className="text-sm text-muted-foreground">Company Level</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-green-600">
                 {objectives.filter((obj) => obj.level === 'DEPARTMENT').length}
               </div>
-              <div className="text-sm text-gray-500">Department Level</div>
+              <div className="text-sm text-muted-foreground">Department Level</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-purple-600">
                 {objectives.filter((obj) => obj.level === 'INDIVIDUAL').length}
               </div>
-              <div className="text-sm text-gray-500">Individual Level</div>
+              <div className="text-sm text-muted-foreground">Individual Level</div>
             </div>
           </div>
         </div>

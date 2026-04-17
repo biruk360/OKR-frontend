@@ -16,8 +16,8 @@ export default async function OkrsAllPage() {
     <div className="space-y-4">
       <header className="flex items-baseline justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">OKR Explorer</h1>
-          <p className="text-sm text-gray-500">
+          <h1 className="text-2xl font-bold text-foreground">OKR Explorer</h1>
+          <p className="text-sm text-muted-foreground">
             One place for all objectives, key results, and initiatives — with live KPIs,
             per-column filters, tabs, and a role-aware create menu.
           </p>

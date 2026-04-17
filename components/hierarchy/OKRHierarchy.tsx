@@ -286,12 +286,12 @@ const OKRHierarchy = ({
     return (
       <div
         className={cn(
-          'flex items-center justify-center bg-gray-50',
+          'flex items-center justify-center bg-muted',
           layout === 'fullscreen' ? 'h-full min-h-[200px]' : 'h-96 rounded-lg'
         )}
       >
         <div className="text-center">
-          <div className="mb-2 text-gray-400">
+          <div className="mb-2 text-muted-foreground">
             <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
                 strokeLinecap="round"
@@ -301,8 +301,8 @@ const OKRHierarchy = ({
               />
             </svg>
           </div>
-          <h3 className="mb-1 text-lg font-medium text-gray-900">No OKRs in this timeframe</h3>
-          <p className="text-gray-500">Create company or team objectives for the active timeframe.</p>
+          <h3 className="mb-1 text-lg font-medium text-foreground">No OKRs in this timeframe</h3>
+          <p className="text-muted-foreground">Create company or team objectives for the active timeframe.</p>
         </div>
       </div>
     )
@@ -311,7 +311,7 @@ const OKRHierarchy = ({
   const frameClass =
     layout === 'fullscreen'
       ? 'h-full min-h-0 w-full bg-[#f4f4f5]'
-      : 'h-[min(640px,calc(100vh-12rem))] min-h-[400px] w-full rounded-lg border border-gray-200 bg-[#f4f4f5]'
+      : 'h-[min(640px,calc(100vh-12rem))] min-h-[400px] w-full rounded-lg border border-border bg-[#f4f4f5]'
 
   return (
     <div className={frameClass}>

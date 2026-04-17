@@ -131,8 +131,8 @@ export default async function ProgressReportPage() {
     <div className="space-y-6">
       <header className="flex items-baseline justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Progress Dashboard</h1>
-          <p className="text-sm text-gray-500">Snapshot of where all active OKRs stand.</p>
+          <h1 className="text-2xl font-bold text-foreground">Progress Dashboard</h1>
+          <p className="text-sm text-muted-foreground">Snapshot of where all active OKRs stand.</p>
         </div>
       </header>
 
@@ -161,8 +161,8 @@ export default async function ProgressReportPage() {
         />
       </section>
 
-      <section className="bg-white rounded-lg shadow p-5">
-        <h2 className="text-base font-semibold text-gray-900 mb-4">Statuses over time</h2>
+      <section className="bg-card rounded-lg shadow p-5">
+        <h2 className="text-base font-semibold text-foreground mb-4">Statuses over time</h2>
         <ProgressReportWeeklyBars objectives={objectiveWeekly} keyResults={keyResultWeekly} />
       </section>
 
@@ -238,16 +238,16 @@ function SummaryCard({
   offTrack: number
 }) {
   return (
-    <div className="bg-white rounded-lg shadow p-5">
+    <div className="bg-card rounded-lg shadow p-5">
       <div className="flex items-baseline justify-between mb-3">
-        <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
-        <span className="text-xs text-gray-500">{Math.round(completionPct)}% complete</span>
+        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+        <span className="text-xs text-muted-foreground">{Math.round(completionPct)}% complete</span>
       </div>
       <div className="flex items-baseline gap-2 mb-3">
-        <span className="text-3xl font-bold tabular-nums text-gray-900">{completed}</span>
-        <span className="text-sm text-gray-500">/ {total}</span>
+        <span className="text-3xl font-bold tabular-nums text-foreground">{completed}</span>
+        <span className="text-sm text-muted-foreground">/ {total}</span>
       </div>
-      <div className="h-2 rounded-full bg-gray-100 overflow-hidden mb-4">
+      <div className="h-2 rounded-full bg-muted overflow-hidden mb-4">
         <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min(100, completionPct)}%` }} />
       </div>
       <dl className="grid grid-cols-3 gap-2 text-center">
@@ -286,16 +286,16 @@ function StatusList({
   }>
 }) {
   return (
-    <div className="bg-white rounded-lg shadow">
-      <div className="px-4 py-3 border-b border-gray-100">
-        <h2 className="text-base font-semibold text-gray-900">{title}</h2>
-        <p className="text-xs text-gray-500 mt-1">{subtitle}</p>
+    <div className="bg-card rounded-lg shadow">
+      <div className="px-4 py-3 border-b border-border">
+        <h2 className="text-base font-semibold text-foreground">{title}</h2>
+        <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>
       </div>
       {rows.length === 0 ? (
-        <p className="p-5 text-sm text-gray-500">Nothing here. Good news.</p>
+        <p className="p-5 text-sm text-muted-foreground">Nothing here. Good news.</p>
       ) : (
         <table className="w-full text-sm">
-          <thead className="text-left text-[10px] uppercase tracking-wide text-gray-500">
+          <thead className="text-left text-[10px] uppercase tracking-wide text-muted-foreground">
             <tr>
               <th className="px-4 py-2">OKR</th>
               <th className="px-4 py-2 w-20 text-right">Progress</th>
@@ -305,9 +305,9 @@ function StatusList({
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={`${r.kind}-${r.id}`} className="border-t border-gray-100">
+              <tr key={`${r.kind}-${r.id}`} className="border-t border-border">
                 <td className="px-4 py-2">
-                  <Link href={r.href} className="text-gray-800 hover:text-blue-600 line-clamp-1">
+                  <Link href={r.href} className="text-foreground hover:text-blue-600 line-clamp-1">
                     <span className={`inline-block text-[10px] font-semibold mr-2 px-1.5 py-0.5 rounded ${r.kind === 'KR' ? 'bg-blue-100 text-blue-700' : 'bg-violet-100 text-violet-700'}`}>
                       {r.kind}
                     </span>
@@ -320,7 +320,7 @@ function StatusList({
                     {r.status}
                   </span>
                 </td>
-                <td className="px-4 py-2 text-gray-700 truncate">{r.owner}</td>
+                <td className="px-4 py-2 text-muted-foreground truncate">{r.owner}</td>
               </tr>
             ))}
           </tbody>

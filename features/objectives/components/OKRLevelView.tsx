@@ -93,7 +93,7 @@ export default async function OKRLevelView({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-gray-500">{description}</p>
+        <p className="text-sm text-muted-foreground">{description}</p>
         {createButton}
       </div>
 

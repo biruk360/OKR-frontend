@@ -25,10 +25,10 @@ export default function DashboardError({
 
   return (
     <div className="flex min-h-[400px] flex-col items-center justify-center gap-4 px-4">
-      <h2 className="text-2xl font-bold text-gray-900">Something went wrong</h2>
-      <p className="text-gray-600">{error.message}</p>
+      <h2 className="text-2xl font-bold text-foreground">Something went wrong</h2>
+      <p className="text-muted-foreground">{error.message}</p>
       {error.digest ? (
-        <p className="text-xs text-gray-400">Reference: {error.digest}</p>
+        <p className="text-xs text-muted-foreground">Reference: {error.digest}</p>
       ) : null}
       <button
         type="button"

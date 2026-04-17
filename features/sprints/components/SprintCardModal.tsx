@@ -307,7 +307,7 @@ export default function SprintCardModal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-[768px] rounded-lg bg-white shadow-[0_20px_60px_rgba(15,15,15,0.2)] border border-[color:var(--notion-border)]"
+        className="relative w-full max-w-[768px] rounded-lg bg-card shadow-[0_20px_60px_rgba(15,15,15,0.2)] border border-[color:var(--notion-border)]"
       >
         {/* Header */}
         <div className="flex items-start justify-between gap-2 border-b border-[color:var(--notion-divider)] px-6 py-4">
@@ -479,7 +479,7 @@ export default function SprintCardModal({
                     </button>
 
                     {taskAssigneeOpen === task.id && (
-                      <div className="absolute right-8 top-6 z-20 w-48 rounded-md border border-[color:var(--notion-border)] bg-white p-1 shadow-[0_8px_32px_rgba(15,15,15,0.08)] max-h-60 overflow-auto">
+                      <div className="absolute right-8 top-6 z-20 w-48 rounded-md border border-[color:var(--notion-border)] bg-card p-1 shadow-[0_8px_32px_rgba(15,15,15,0.08)] max-h-60 overflow-auto">
                         <button
                           type="button"
                           onClick={() => assignTask(task.id, null)}
@@ -733,7 +733,7 @@ function Picker({
   const [q, setQ] = useState('')
   const filtered = items.filter((i) => !q.trim() || i.label.toLowerCase().includes(q.trim().toLowerCase()))
   return (
-    <div className="rounded-md border border-[color:var(--notion-border)] bg-white p-1 shadow-[0_8px_32px_rgba(15,15,15,0.08)]">
+    <div className="rounded-md border border-[color:var(--notion-border)] bg-card p-1 shadow-[0_8px_32px_rgba(15,15,15,0.08)]">
       <input
         autoFocus
         type="text"

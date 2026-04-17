@@ -1,8 +1,9 @@
 'use client'
 
-import { ReactNode } from 'react'
+import { type ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Card, CardContent } from '@/components/ui/card'
 
 export type StatCardTone =
   | 'blue'
@@ -26,9 +27,7 @@ const toneClasses: Record<StatCardTone, string> = {
 export interface StatCardProps {
   label: string
   value: ReactNode
-  /** Lucide icon for the colored badge */
   icon?: LucideIcon
-  /** Short text fallback for the icon badge (e.g. "O", "KR") */
   iconText?: string
   tone?: StatCardTone
   trend?: {
@@ -53,31 +52,30 @@ export function StatCard({
 }: StatCardProps) {
   const trendColor =
     trend?.direction === 'up'
-      ? 'text-green-600'
+      ? 'text-emerald-600'
       : trend?.direction === 'down'
-      ? 'text-red-600'
-      : 'text-gray-500'
+      ? 'text-destructive'
+      : 'text-muted-foreground'
 
   return (
-    <div
+    <Card
       className={cn(
-        'bg-white overflow-hidden shadow rounded-lg',
-        onClick && 'cursor-pointer hover:shadow-md transition-shadow',
+        onClick && 'cursor-pointer transition-shadow hover:shadow-md',
         className
       )}
       onClick={onClick}
     >
-      <div className="p-5">
+      <CardContent className="pt-5">
         <div className="flex items-center">
-          <div className="flex-shrink-0">
+          <div className="shrink-0">
             <div
               className={cn(
-                'w-8 h-8 rounded-md flex items-center justify-center',
+                'size-8 rounded-md flex items-center justify-center',
                 toneClasses[tone]
               )}
             >
               {Icon ? (
-                <Icon className="h-5 w-5 text-white" />
+                <Icon className="size-5 text-white" />
               ) : (
                 <span className="text-white text-sm font-medium">
                   {iconText ?? label.charAt(0).toUpperCase()}
@@ -87,8 +85,8 @@ export function StatCard({
           </div>
           <div className="ml-5 w-0 flex-1">
             <dl>
-              <dt className="text-sm font-medium text-gray-500 truncate">{label}</dt>
-              <dd className="text-lg font-medium text-gray-900">{value}</dd>
+              <dt className="text-sm font-medium text-muted-foreground truncate">{label}</dt>
+              <dd className="text-lg font-medium">{value}</dd>
             </dl>
           </div>
         </div>
@@ -101,11 +99,11 @@ export function StatCard({
                 {trend.value}
               </span>
             )}
-            {helperText && <span className="text-gray-500">{helperText}</span>}
+            {helperText && <span className="text-muted-foreground">{helperText}</span>}
           </div>
         )}
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   )
 }
 

@@ -1,9 +1,10 @@
 'use client'
 
-import { ReactNode } from 'react'
+import { type ReactNode } from 'react'
 import { AlertCircle, AlertTriangle, Trash2, Archive } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Modal } from './Modal'
+import { Button } from './button'
 import { cn } from '@/lib/utils'
 
 export type ConfirmVariant = 'danger' | 'warning' | 'info'
@@ -15,39 +16,36 @@ interface VariantConfig {
   alertBoxClassName: string
   alertTitleClassName: string
   alertTextClassName: string
-  confirmButtonClassName: string
+  confirmVariant: 'destructive' | 'default'
 }
 
 const variants: Record<ConfirmVariant, VariantConfig> = {
   danger: {
     icon: Trash2,
-    iconClassName: 'text-red-600',
-    alertIconClassName: 'text-red-500',
-    alertBoxClassName: 'bg-red-50 border border-red-200',
-    alertTitleClassName: 'text-red-800',
-    alertTextClassName: 'text-red-700',
-    confirmButtonClassName:
-      'bg-red-600 hover:bg-red-700 focus:ring-red-500',
+    iconClassName: 'text-destructive',
+    alertIconClassName: 'text-destructive',
+    alertBoxClassName: 'bg-destructive/5 border border-destructive/20 rounded-lg',
+    alertTitleClassName: 'text-destructive',
+    alertTextClassName: 'text-destructive/80',
+    confirmVariant: 'destructive',
   },
   warning: {
     icon: Archive,
     iconClassName: 'text-orange-600',
     alertIconClassName: 'text-orange-500',
-    alertBoxClassName: 'bg-orange-50 border border-orange-200',
+    alertBoxClassName: 'bg-orange-50 border border-orange-200 rounded-lg',
     alertTitleClassName: 'text-orange-800',
     alertTextClassName: 'text-orange-700',
-    confirmButtonClassName:
-      'bg-orange-600 hover:bg-orange-700 focus:ring-orange-500',
+    confirmVariant: 'default',
   },
   info: {
     icon: AlertCircle,
-    iconClassName: 'text-blue-600',
-    alertIconClassName: 'text-blue-500',
-    alertBoxClassName: 'bg-blue-50 border border-blue-200',
-    alertTitleClassName: 'text-blue-800',
-    alertTextClassName: 'text-blue-700',
-    confirmButtonClassName:
-      'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500',
+    iconClassName: 'text-primary',
+    alertIconClassName: 'text-primary',
+    alertBoxClassName: 'bg-primary/5 border border-primary/20 rounded-lg',
+    alertTitleClassName: 'text-primary',
+    alertTextClassName: 'text-primary/80',
+    confirmVariant: 'default',
   },
 }
 
@@ -103,47 +101,38 @@ export function ConfirmDialog({
       size="sm"
       footer={
         <>
-          <button
-            type="button"
-            onClick={onClose}
-            className="btn-outline"
-            disabled={isLoading}
-          >
+          <Button variant="outline" onClick={onClose} disabled={isLoading}>
             {cancelLabel}
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant={v.confirmVariant}
             onClick={onConfirm}
             disabled={isLoading || disabled}
-            className={cn(
-              'text-white px-4 py-2 rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50',
-              v.confirmButtonClassName
-            )}
           >
             {isLoading ? (
               <span className="flex items-center">
-                <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                <span className="animate-spin rounded-full size-4 border-b-2 border-current mr-2" />
                 {loadingLabel ?? `${confirmLabel}...`}
               </span>
             ) : (
               confirmLabel
             )}
-          </button>
+          </Button>
         </>
       }
     >
-      <div className="flex items-start space-x-3 mb-4">
-        <AlertCircle className={cn('h-6 w-6 mt-0.5 flex-shrink-0', v.alertIconClassName)} />
+      <div className="flex items-start gap-3 mb-4">
+        <AlertCircle className={cn('size-5 mt-0.5 shrink-0', v.alertIconClassName)} />
         <div>
-          <h3 className="text-sm font-medium text-gray-900 mb-2">{message}</h3>
-          {description && <p className="text-sm text-gray-500">{description}</p>}
+          <h3 className="text-sm font-medium mb-2">{message}</h3>
+          {description && <p className="text-sm text-muted-foreground">{description}</p>}
         </div>
       </div>
 
       {bullets && bullets.length > 0 && (
-        <div className={cn('rounded-lg p-4 mb-4', v.alertBoxClassName)}>
-          <div className="flex items-start space-x-2">
-            <AlertTriangle className={cn('h-5 w-5 mt-0.5 flex-shrink-0', v.alertIconClassName)} />
+        <div className={cn('p-4 mb-4', v.alertBoxClassName)}>
+          <div className="flex items-start gap-2">
+            <AlertTriangle className={cn('size-5 mt-0.5 shrink-0', v.alertIconClassName)} />
             <div>
               <h4 className={cn('text-sm font-medium mb-2', v.alertTitleClassName)}>{bulletsTitle}</h4>
               <ul className={cn('text-sm space-y-1', v.alertTextClassName)}>
@@ -157,7 +146,7 @@ export function ConfirmDialog({
       )}
 
       {details && (
-        <div className="bg-gray-50 rounded-lg p-4 mb-4">{details}</div>
+        <div className="bg-muted rounded-lg p-4 mb-4">{details}</div>
       )}
 
       {extraContent}

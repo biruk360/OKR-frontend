@@ -54,7 +54,7 @@ export default function ProgressOverview({ userId }: ProgressOverviewProps) {
     return (
       <section className="rounded-lg border border-border bg-card">
         <header className="px-3 py-2 border-b border-border">
-          <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Progress overview</h3>
+          <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Momentum</h3>
         </header>
         <div className="p-3 space-y-2">
           <div className="skeleton h-6 w-20" />
@@ -71,7 +71,7 @@ export default function ProgressOverview({ userId }: ProgressOverviewProps) {
   return (
     <section className="rounded-lg border border-border bg-card">
       <header className="flex items-center justify-between px-3 py-2 border-b border-border">
-        <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Progress overview</h3>
+        <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Momentum</h3>
         <div className="flex items-center gap-1">
           {trend === 'up' && <TrendingUp className="h-3 w-3 text-emerald-600" strokeWidth={2} />}
           {trend === 'down' && <TrendingDown className="h-3 w-3 text-destructive" strokeWidth={2} />}

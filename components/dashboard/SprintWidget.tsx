@@ -24,7 +24,7 @@ export default function SprintWidget({ sprint, recommendedActivities }: Props) {
     return (
       <section className="rounded-lg border border-border bg-card">
         <header className="flex items-center justify-between px-3 py-2 border-b border-border">
-          <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Current sprint</h3>
+          <h3 className="text-sm font-semibold">Team Activity</h3>
           <Link href={`/dashboard/sprints/${sprint.id}`} className="text-sm text-primary-500 hover:underline text-[11px]">
             Open board <ArrowRight className="h-3 w-3 inline" />
           </Link>
@@ -55,7 +55,7 @@ export default function SprintWidget({ sprint, recommendedActivities }: Props) {
   return (
     <section className="rounded-lg border border-border bg-card">
       <header className="px-3 py-2 border-b border-border">
-        <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Recommended sprint activities</h3>
+        <h3 className="text-sm font-semibold">Team Activity</h3>
       </header>
       <div className="px-3 py-3">
         {recommendedActivities.length === 0 ? (

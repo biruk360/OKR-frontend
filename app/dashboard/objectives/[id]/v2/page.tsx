@@ -9,8 +9,7 @@ import {
   CloneObjectiveButton,
   ObjectiveActionsMenu,
 } from '@/features/objectives'
-import OkrBreadcrumb from '@/components/shared/OkrBreadcrumb'
-import type { BreadcrumbNode } from '@/components/shared/OkrBreadcrumb'
+// OkrBreadcrumb removed — hero card now contains all context inline
 import WorkItemsKanban from '@/components/shared/WorkItemsKanban'
 import { PageTitleSetter } from '@/components/layout/DashboardTitleContext'
 import { computeExpectedProgress, countUnassignedKRs } from '@/lib/okr/compute'
@@ -137,17 +136,20 @@ export default async function ObjectiveDetailV2({ params }: Props) {
   const unassignedKrCount = countUnassignedKRs(objective.keyResults)
   const wkLabel = weekLabel(cycleStart, cycleEnd)
 
-  const breadcrumbNodes: BreadcrumbNode[] = [
-    ...ancestors.map(a => ({
-      id: a.id, title: a.title, kind: 'OBJ' as const,
-      href: `/dashboard/objectives/${a.id}/v2`,
-    })),
-    {
-      id: objective.id, title: objective.title, kind: 'OBJ' as const,
-      progress: objective.progress, status: objective.goalStatus,
-      ownerName: objective.owner.name ?? undefined,
-    },
-  ]
+  // Owner OKR summary for hover card
+  const [ownerObjCount, ownerKrAgg] = await Promise.all([
+    prisma.objective.count({ where: { ownerId: objective.ownerId, status: 'ACTIVE' } }),
+    prisma.keyResult.aggregate({
+      where: { ownerId: objective.ownerId, status: 'ACTIVE' },
+      _avg: { progress: true },
+      _count: { _all: true },
+    }),
+  ])
+  const ownerSummary = {
+    objectiveCount: ownerObjCount,
+    krCount: ownerKrAgg._count._all,
+    avgProgress: Math.round(ownerKrAgg._avg.progress ?? 0),
+  }
 
   const showCriticalBanner =
     (expectedProgress - objective.progress > 20) ||
@@ -177,24 +179,21 @@ export default async function ObjectiveDetailV2({ params }: Props) {
           </div>
         </div>
 
-        {/* Critical banner — full width */}
-        {showCriticalBanner && (
-          <CriticalBanner
-            progress={objective.progress}
-            expectedProgress={expectedProgress}
-            unassignedCount={unassignedKrCount}
-            lastUpdatedDays={lastUpdatedDays}
-          />
-        )}
-
-        {/* Breadcrumb — full width */}
-        <OkrBreadcrumb nodes={breadcrumbNodes} />
-
         {/* ═══ MAIN 2-COLUMN GRID: content left, sidebar right ═══ */}
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_320px]">
 
           {/* ─── LEFT COLUMN ─── */}
           <div className="min-w-0 space-y-4">
+            {/* Critical banner */}
+            {showCriticalBanner && (
+              <CriticalBanner
+                progress={objective.progress}
+                expectedProgress={expectedProgress}
+                unassignedCount={unassignedKrCount}
+                lastUpdatedDays={lastUpdatedDays}
+              />
+            )}
+
             {/* Hero card */}
             <ObjectiveHero
               objective={objective}
@@ -203,6 +202,7 @@ export default async function ObjectiveDetailV2({ params }: Props) {
               activeKrCount={activeKrs.length}
               unassignedKrCount={unassignedKrCount}
               weekLabel={wkLabel}
+              ownerSummary={ownerSummary}
             />
 
             {/* Key Results */}

@@ -302,15 +302,15 @@ export default function SprintCardModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 pt-[5vh] notion-surface"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 pt-[5vh] "
       onClick={onClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-[768px] rounded-lg bg-card shadow-[0_20px_60px_rgba(15,15,15,0.2)] border border-[color:var(--notion-border)]"
+        className="relative w-full max-w-[768px] rounded-lg bg-card shadow-[0_20px_60px_rgba(15,15,15,0.2)] border border-[color:#e5e7eb]"
       >
         {/* Header */}
-        <div className="flex items-start justify-between gap-2 border-b border-[color:var(--notion-divider)] px-6 py-4">
+        <div className="flex items-start justify-between gap-2 border-b border-[color:var(--border-t border-border)] px-6 py-4">
           <div className="min-w-0 flex-1">
             <input
               type="text"
@@ -320,13 +320,13 @@ export default function SprintCardModal({
               onKeyDown={(e) => {
                 if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLInputElement).blur() }
               }}
-              className="w-full bg-transparent text-[20px] font-semibold text-[color:var(--notion-text)] focus:outline-none"
+              className="w-full bg-transparent text-[20px] font-semibold text-[color:var(--text-sm)] focus:outline-none"
             />
-            <p className="notion-text-tertiary mt-1">
-              In column · <span className="text-[color:var(--notion-text-secondary)]">{/* column label passed via parent if needed */}</span>
+            <p className="text-xs text-muted-foreground mt-1">
+              In column · <span className="text-[color:var(--text-sm text-muted-foreground)]">{/* column label passed via parent if needed */}</span>
             </p>
           </div>
-          <button onClick={onClose} className="notion-icon-button" aria-label="Close">
+          <button onClick={onClose} className="inline-flex items-center justify-center size-6 rounded hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer" aria-label="Close">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -335,11 +335,11 @@ export default function SprintCardModal({
           {/* Main column */}
           <div className="min-w-0 space-y-6">
             {/* Metadata pills */}
-            <div className="flex flex-wrap items-center gap-2 notion-text-secondary">
+            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
               <button
                 type="button"
                 onClick={() => setPicker(picker === 'owner' ? null : 'owner')}
-                className="notion-pill"
+                className="inline-flex items-center h-5 px-1.5 text-xs font-medium rounded bg-muted text-muted-foreground"
                 data-tone="gray"
                 title={`Owner · ${activity.owner.name}`}
               >
@@ -348,7 +348,7 @@ export default function SprintCardModal({
               {activity.keyResult && (
                 <Link
                   href={`/dashboard/key-results/${activity.keyResult.id}`}
-                  className="notion-pill"
+                  className="inline-flex items-center h-5 px-1.5 text-xs font-medium rounded bg-muted text-muted-foreground"
                   data-tone="blue"
                   title={activity.keyResult.objective.title}
                 >
@@ -359,20 +359,20 @@ export default function SprintCardModal({
               {activity.objective && (
                 <Link
                   href={`/dashboard/objectives/${activity.objective.id}`}
-                  className="notion-pill"
+                  className="inline-flex items-center h-5 px-1.5 text-xs font-medium rounded bg-muted text-muted-foreground"
                   data-tone="blue"
                 >
                   <Target className="h-3 w-3" /> {activity.objective.title}
                 </Link>
               )}
               {activity.dueDate && (
-                <span className="notion-pill" data-tone="gray">
+                <span className="inline-flex items-center h-5 px-1.5 text-xs font-medium rounded bg-muted text-muted-foreground" data-tone="gray">
                   <Calendar className="h-3 w-3" />
                   {new Date(activity.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                 </span>
               )}
               {activity.convertedInitiativeId && (
-                <span className="notion-pill" data-tone="green">
+                <span className="inline-flex items-center h-5 px-1.5 text-xs font-medium rounded bg-muted text-muted-foreground" data-tone="green">
                   <CheckCircle2 className="h-3 w-3" /> Converted to initiative
                 </span>
               )}
@@ -380,21 +380,21 @@ export default function SprintCardModal({
 
             {/* Description */}
             <section>
-              <h3 className="notion-eyebrow mb-2">Description</h3>
+              <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Description</h3>
               {editingDescription ? (
                 <div>
                   <textarea
                     autoFocus
                     value={descriptionDraft}
                     onChange={(e) => setDescriptionDraft(e.target.value)}
-                    className="notion-input min-h-[120px] resize-y"
+                    className="input min-h-[120px] resize-y"
                     placeholder="Add a more detailed description…"
                   />
                   <div className="mt-2 flex items-center gap-2">
-                    <button onClick={saveDescription} className="notion-button notion-button-primary">Save</button>
+                    <button onClick={saveDescription} className="btn-outline btn-primary">Save</button>
                     <button
                       onClick={() => { setDescriptionDraft(activity.description || ''); setEditingDescription(false) }}
-                      className="notion-button"
+                      className="btn-outline"
                     >
                       Cancel
                     </button>
@@ -404,7 +404,7 @@ export default function SprintCardModal({
                 <button
                   type="button"
                   onClick={() => setEditingDescription(true)}
-                  className="w-full rounded-md px-2 py-2 text-left text-[13px] text-[color:var(--notion-text-secondary)] hover:bg-[color:var(--notion-hover)]"
+                  className="w-full rounded-md px-2 py-2 text-left text-[13px] text-[color:var(--text-sm text-muted-foreground)] hover:bg-[color:#f9fafb]"
                 >
                   {activity.description || 'Add a more detailed description…'}
                 </button>
@@ -414,19 +414,19 @@ export default function SprintCardModal({
             {/* Sub-tasks */}
             <section>
               <div className="mb-2 flex items-center justify-between">
-                <h3 className="notion-eyebrow flex items-center gap-1">
+                <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1">
                   <CheckCircle2 className="h-3 w-3" /> Tasks
                 </h3>
                 {totalTasks > 0 && (
-                  <span className="notion-text-tertiary">
+                  <span className="text-xs text-muted-foreground">
                     {completedTasks}/{totalTasks}
                   </span>
                 )}
               </div>
               {totalTasks > 0 && (
-                <div className="mb-3 notion-progress">
+                <div className="mb-3 h-1 w-full bg-muted rounded-full overflow-hidden">
                   <div
-                    className="notion-progress-fill"
+                    className="h-full bg-primary-500 rounded-full transition-all"
                     style={{ width: `${totalTasks === 0 ? 0 : (completedTasks / totalTasks) * 100}%` }}
                   />
                 </div>
@@ -435,19 +435,19 @@ export default function SprintCardModal({
                 {tasks.map((task) => (
                   <li
                     key={task.id}
-                    className="group relative flex items-center gap-2 rounded-sm px-2 py-1 hover:bg-[color:var(--notion-hover)]"
+                    className="group relative flex items-center gap-2 rounded-sm px-2 py-1 hover:bg-[color:#f9fafb]"
                   >
                     <input
                       type="checkbox"
                       checked={task.status === 'COMPLETED'}
                       onChange={() => toggleTask(task)}
-                      className="notion-checkbox"
+                      className="appearance-none w-3.5 h-3.5 rounded border border-border"
                     />
                     <span
                       className={`flex-1 text-[13px] ${
                         task.status === 'COMPLETED'
-                          ? 'text-[color:var(--notion-text-tertiary)] line-through'
-                          : 'text-[color:var(--notion-text)]'
+                          ? 'text-[color:var(--text-xs text-muted-foreground)] line-through'
+                          : 'text-[color:var(--text-sm)]'
                       }`}
                     >
                       {task.title}
@@ -455,7 +455,7 @@ export default function SprintCardModal({
                     <button
                       type="button"
                       onClick={() => setTaskAssigneeOpen(taskAssigneeOpen === task.id ? null : task.id)}
-                      className="notion-avatar cursor-pointer"
+                      className="inline-flex items-center justify-center size-5 rounded-full bg-muted text-xs font-semibold cursor-pointer"
                       title={task.assignee ? `Assigned to ${task.assignee.name}` : 'Unassigned'}
                     >
                       {task.assignee ? (
@@ -466,24 +466,24 @@ export default function SprintCardModal({
                           task.assignee.name.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase()
                         )
                       ) : (
-                        <UserIcon className="h-3 w-3 text-[color:var(--notion-text-tertiary)]" />
+                        <UserIcon className="h-3 w-3 text-[color:var(--text-xs text-muted-foreground)]" />
                       )}
                     </button>
                     <button
                       type="button"
                       onClick={() => deleteTask(task.id)}
-                      className="notion-icon-button opacity-0 group-hover:opacity-100"
+                      className="inline-flex items-center justify-center size-6 rounded hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer opacity-0 group-hover:opacity-100"
                       title="Delete task"
                     >
                       <Trash2 className="h-3 w-3" />
                     </button>
 
                     {taskAssigneeOpen === task.id && (
-                      <div className="absolute right-8 top-6 z-20 w-48 rounded-md border border-[color:var(--notion-border)] bg-card p-1 shadow-[0_8px_32px_rgba(15,15,15,0.08)] max-h-60 overflow-auto">
+                      <div className="absolute right-8 top-6 z-20 w-48 rounded-md border border-[color:#e5e7eb] bg-card p-1 shadow-[0_8px_32px_rgba(15,15,15,0.08)] max-h-60 overflow-auto">
                         <button
                           type="button"
                           onClick={() => assignTask(task.id, null)}
-                          className="flex w-full items-center gap-2 rounded-sm px-2 py-1 text-left text-[12px] hover:bg-[color:var(--notion-hover)]"
+                          className="flex w-full items-center gap-2 rounded-sm px-2 py-1 text-left text-[12px] hover:bg-[color:#f9fafb]"
                         >
                           <X className="h-3 w-3" /> Unassigned
                         </button>
@@ -492,9 +492,9 @@ export default function SprintCardModal({
                             key={u.id}
                             type="button"
                             onClick={() => assignTask(task.id, u.id)}
-                            className="flex w-full items-center gap-2 rounded-sm px-2 py-1 text-left text-[12px] hover:bg-[color:var(--notion-hover)]"
+                            className="flex w-full items-center gap-2 rounded-sm px-2 py-1 text-left text-[12px] hover:bg-[color:#f9fafb]"
                           >
-                            <span className="notion-avatar">
+                            <span className="inline-flex items-center justify-center size-5 rounded-full bg-muted text-xs font-semibold">
                               {u.avatar ? (
                                 // eslint-disable-next-line @next/next/no-img-element
                                 <img src={u.avatar} alt="" />
@@ -512,18 +512,18 @@ export default function SprintCardModal({
                 ))}
               </ul>
 
-              <div className="mt-2 flex items-center gap-1.5 rounded-sm px-2 py-1 hover:bg-[color:var(--notion-hover)]">
-                <Plus className="h-3.5 w-3.5 text-[color:var(--notion-text-tertiary)]" />
+              <div className="mt-2 flex items-center gap-1.5 rounded-sm px-2 py-1 hover:bg-[color:#f9fafb]">
+                <Plus className="h-3.5 w-3.5 text-[color:var(--text-xs text-muted-foreground)]" />
                 <input
                   type="text"
                   value={newTaskTitle}
                   onChange={(e) => setNewTaskTitle(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addTask() } }}
                   placeholder="Add a task…"
-                  className="flex-1 bg-transparent text-[13px] placeholder:text-[color:var(--notion-text-tertiary)] focus:outline-none"
+                  className="flex-1 bg-transparent text-[13px] placeholder:text-[color:var(--text-xs text-muted-foreground)] focus:outline-none"
                 />
                 {newTaskTitle.trim() && (
-                  <button onClick={addTask} className="notion-button notion-button-primary h-6 px-2 text-[12px]">
+                  <button onClick={addTask} className="btn-outline btn-primary h-6 px-2 text-[12px]">
                     Add
                   </button>
                 )}
@@ -532,16 +532,16 @@ export default function SprintCardModal({
 
             {/* Comments */}
             <section>
-              <h3 className="notion-eyebrow mb-2 flex items-center gap-1">
+              <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1">
                 <MessageSquare className="h-3 w-3" /> Comments
               </h3>
               <div className="space-y-3">
                 {comments.length === 0 && !loading && (
-                  <p className="notion-text-tertiary">No comments yet.</p>
+                  <p className="text-xs text-muted-foreground">No comments yet.</p>
                 )}
                 {comments.map((c) => (
                   <div key={c.id} className="group flex gap-2">
-                    <span className="notion-avatar mt-0.5">
+                    <span className="inline-flex items-center justify-center size-5 rounded-full bg-muted text-xs font-semibold mt-0.5">
                       {c.author?.avatar ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={c.author.avatar} alt="" />
@@ -551,26 +551,26 @@ export default function SprintCardModal({
                     </span>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-baseline gap-2">
-                        <span className="text-[13px] font-medium text-[color:var(--notion-text)]">
+                        <span className="text-[13px] font-medium text-[color:var(--text-sm)]">
                           {c.author?.name || 'Unknown'}
                         </span>
-                        <span className="notion-text-tertiary">{relativeTime(c.createdAt)}</span>
+                        <span className="text-xs text-muted-foreground">{relativeTime(c.createdAt)}</span>
                         <button
                           type="button"
                           onClick={() => deleteComment(c.id)}
-                          className="notion-icon-button ml-auto opacity-0 group-hover:opacity-100"
+                          className="inline-flex items-center justify-center size-6 rounded hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer ml-auto opacity-0 group-hover:opacity-100"
                           title="Delete"
                         >
                           <Trash2 className="h-3 w-3" />
                         </button>
                       </div>
-                      <p className="mt-0.5 whitespace-pre-wrap text-[13px] text-[color:var(--notion-text)]">{c.content}</p>
+                      <p className="mt-0.5 whitespace-pre-wrap text-[13px] text-[color:var(--text-sm)]">{c.content}</p>
                     </div>
                   </div>
                 ))}
                 <div className="flex gap-2">
-                  <span className="notion-avatar mt-1">
-                    <UserIcon className="h-3 w-3 text-[color:var(--notion-text-tertiary)]" />
+                  <span className="inline-flex items-center justify-center size-5 rounded-full bg-muted text-xs font-semibold mt-1">
+                    <UserIcon className="h-3 w-3 text-[color:var(--text-xs text-muted-foreground)]" />
                   </span>
                   <div className="flex-1">
                     <textarea
@@ -583,18 +583,18 @@ export default function SprintCardModal({
                         }
                       }}
                       placeholder="Write a comment…"
-                      className="notion-input min-h-[60px] resize-y"
+                      className="input min-h-[60px] resize-y"
                     />
                     {commentDraft.trim() && (
                       <div className="mt-1">
                         <button
                           onClick={postComment}
                           disabled={postingComment}
-                          className="notion-button notion-button-primary"
+                          className="btn-outline btn-primary"
                         >
                           {postingComment ? 'Posting…' : 'Post'}
                         </button>
-                        <span className="notion-text-tertiary ml-2">⌘+Enter</span>
+                        <span className="text-xs text-muted-foreground ml-2">⌘+Enter</span>
                       </div>
                     )}
                   </div>
@@ -605,12 +605,12 @@ export default function SprintCardModal({
 
           {/* Side column */}
           <aside className="flex flex-col gap-1.5">
-            <h4 className="notion-eyebrow mb-1">Add to card</h4>
+            <h4 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">Add to card</h4>
 
             <button
               type="button"
               onClick={() => setPicker(picker === 'owner' ? null : 'owner')}
-              className="notion-button notion-button-bordered w-full justify-start"
+              className="btn-outline btn-outline w-full justify-start"
             >
               <UserIcon className="h-3.5 w-3.5" /> Owner
             </button>
@@ -618,7 +618,7 @@ export default function SprintCardModal({
             <button
               type="button"
               onClick={() => setPicker(picker === 'kr' ? null : 'kr')}
-              className="notion-button notion-button-bordered w-full justify-start"
+              className="btn-outline btn-outline w-full justify-start"
             >
               <Link2 className="h-3.5 w-3.5" /> Link Key Result
             </button>
@@ -626,18 +626,18 @@ export default function SprintCardModal({
             <button
               type="button"
               onClick={() => setPicker(picker === 'objective' ? null : 'objective')}
-              className="notion-button notion-button-bordered w-full justify-start"
+              className="btn-outline btn-outline w-full justify-start"
             >
               <Target className="h-3.5 w-3.5" /> Link Objective
             </button>
 
-            <h4 className="notion-eyebrow mb-1 mt-4">Actions</h4>
+            <h4 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1 mt-4">Actions</h4>
 
             <button
               type="button"
               onClick={convertToInitiative}
               disabled={!!activity.convertedInitiativeId}
-              className="notion-button notion-button-bordered w-full justify-start"
+              className="btn-outline btn-outline w-full justify-start"
               title={activity.convertedInitiativeId ? 'Already converted' : 'Create an Initiative from this card'}
             >
               <ArrowRight className="h-3.5 w-3.5" />
@@ -647,7 +647,7 @@ export default function SprintCardModal({
             {activity.convertedInitiativeId && activity.keyResult && (
               <Link
                 href={`/dashboard/key-results/${activity.keyResult.id}`}
-                className="notion-button notion-button-bordered w-full justify-start"
+                className="btn-outline btn-outline w-full justify-start"
               >
                 <Link2 className="h-3.5 w-3.5" /> Open in KR
               </Link>
@@ -661,7 +661,7 @@ export default function SprintCardModal({
                   onClose()
                 }
               }}
-              className="notion-button notion-button-danger w-full justify-start"
+              className="btn-outline btn-outline text-destructive w-full justify-start"
             >
               <Trash2 className="h-3.5 w-3.5" /> Delete card
             </button>
@@ -733,14 +733,14 @@ function Picker({
   const [q, setQ] = useState('')
   const filtered = items.filter((i) => !q.trim() || i.label.toLowerCase().includes(q.trim().toLowerCase()))
   return (
-    <div className="rounded-md border border-[color:var(--notion-border)] bg-card p-1 shadow-[0_8px_32px_rgba(15,15,15,0.08)]">
+    <div className="rounded-md border border-[color:#e5e7eb] bg-card p-1 shadow-[0_8px_32px_rgba(15,15,15,0.08)]">
       <input
         autoFocus
         type="text"
         value={q}
         onChange={(e) => setQ(e.target.value)}
         placeholder="Search…"
-        className="notion-input mb-1 h-7 text-[12px]"
+        className="input mb-1 h-7 text-[12px]"
       />
       <div className="max-h-52 overflow-auto">
         {filtered.map((i) => (
@@ -748,10 +748,10 @@ function Picker({
             key={i.id}
             type="button"
             onClick={() => onPick(i.id)}
-            className="flex w-full items-start gap-2 rounded-sm px-2 py-1 text-left text-[12px] hover:bg-[color:var(--notion-hover)]"
+            className="flex w-full items-start gap-2 rounded-sm px-2 py-1 text-left text-[12px] hover:bg-[color:#f9fafb]"
           >
             {i.avatar !== null && (
-              <span className="notion-avatar mt-0.5">
+              <span className="inline-flex items-center justify-center size-5 rounded-full bg-muted text-xs font-semibold mt-0.5">
                 {i.avatar ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={i.avatar} alt="" />
@@ -761,14 +761,14 @@ function Picker({
               </span>
             )}
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-[color:var(--notion-text)]">{i.label}</span>
-              {i.sublabel && <span className="block truncate text-[10px] text-[color:var(--notion-text-tertiary)]">{i.sublabel}</span>}
+              <span className="block truncate text-[color:var(--text-sm)]">{i.label}</span>
+              {i.sublabel && <span className="block truncate text-[10px] text-[color:var(--text-xs text-muted-foreground)]">{i.sublabel}</span>}
             </span>
-            {i.id === selectedId && <Check className="h-3 w-3 flex-shrink-0 text-[color:var(--notion-text-secondary)]" />}
+            {i.id === selectedId && <Check className="h-3 w-3 flex-shrink-0 text-[color:var(--text-sm text-muted-foreground)]" />}
           </button>
         ))}
         {filtered.length === 0 && (
-          <div className="px-2 py-2 text-[11px] text-[color:var(--notion-text-tertiary)]">No matches</div>
+          <div className="px-2 py-2 text-[11px] text-[color:var(--text-xs text-muted-foreground)]">No matches</div>
         )}
       </div>
     </div>

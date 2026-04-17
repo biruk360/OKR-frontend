@@ -66,10 +66,10 @@ function ResetPasswordForm() {
         <div className="rounded-card-lg bg-danger-500/10 px-4 py-3 text-body-sm text-danger-700">{error}</div>
       )}
       <div>
-        <label htmlFor="password" className="label mb-1 block text-ink-primary">New password</label>
+        <label htmlFor="password" className="label mb-1 block text-foreground">New password</label>
         <div className="relative mt-1">
           <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-            <Lock className="h-5 w-5 text-ink-secondary" strokeWidth={1.75} />
+            <Lock className="h-5 w-5 text-muted-foreground" strokeWidth={1.75} />
           </div>
           <input
             id="password"
@@ -83,12 +83,12 @@ function ResetPasswordForm() {
             placeholder="At least 8 characters"
           />
           <button type="button" className="absolute inset-y-0 right-0 flex items-center pr-3" onClick={() => setShow(!show)}>
-            {show ? <EyeOff className="h-5 w-5 text-ink-secondary" /> : <Eye className="h-5 w-5 text-ink-secondary" />}
+            {show ? <EyeOff className="h-5 w-5 text-muted-foreground" /> : <Eye className="h-5 w-5 text-muted-foreground" />}
           </button>
         </div>
       </div>
       <div>
-        <label htmlFor="confirm" className="label mb-1 block text-ink-primary">Confirm new password</label>
+        <label htmlFor="confirm" className="label mb-1 block text-foreground">Confirm new password</label>
         <input
           id="confirm"
           name="confirm"
@@ -110,16 +110,16 @@ function ResetPasswordForm() {
 
 export default function ResetPasswordPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-surface-app py-12 px-4 sm:px-6 lg:px-8">
+    <div className="flex min-h-screen items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
       <div className="w-full max-w-md space-y-6">
         <div>
-          <h2 className="text-center text-page-title text-ink-primary">Choose a new password</h2>
-          <p className="mt-2 text-center text-body-sm text-ink-secondary">
+          <h2 className="text-center text-page-title text-foreground">Choose a new password</h2>
+          <p className="mt-2 text-center text-body-sm text-muted-foreground">
             Enter your new password below. The reset link is valid for one hour.
           </p>
         </div>
 
-        <Suspense fallback={<div className="text-center text-body-sm text-ink-secondary">Loading…</div>}>
+        <Suspense fallback={<div className="text-center text-body-sm text-muted-foreground">Loading…</div>}>
           <ResetPasswordForm />
         </Suspense>
 

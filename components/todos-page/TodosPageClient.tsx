@@ -199,23 +199,23 @@ export default function TodosPageClient({
 
   // ---------- Render ----------
   return (
-    <div className="atlas-surface -m-3 sm:-m-6 min-h-full p-4 sm:p-6">
+    <div className=" -m-3 sm:-m-6 min-h-full p-4 sm:p-6">
       <div className="mx-auto max-w-[1200px]">
         {/* Header */}
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <h1 className="atlas-h1">To-dos</h1>
-            <p className="atlas-text-tertiary mt-1">
+            <h1 className="text-xl font-semibold">To-dos</h1>
+            <p className="text-xs text-muted-foreground mt-1">
               Everything on your plate — linked to OKRs or standalone. {counts.open} open
-              {counts.overdue > 0 && <span className="text-[color:var(--atlas-danger)]"> · {counts.overdue} overdue</span>}
-              {counts.dueToday > 0 && <span className="text-[color:var(--atlas-warning)]"> · {counts.dueToday} due today</span>}
+              {counts.overdue > 0 && <span className="text-destructive"> · {counts.overdue} overdue</span>}
+              {counts.dueToday > 0 && <span className="text-amber-600"> · {counts.dueToday} due today</span>}
             </p>
           </div>
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={toggleViewMode}
-              className="atlas-btn atlas-btn-ghost"
+              className="btn-outline btn-ghost"
               title={`View mode: ${viewMode}. Click to switch.`}
             >
               {viewMode === 'modal' ? <Maximize2 className="h-3.5 w-3.5" /> : <PanelRight className="h-3.5 w-3.5" />}
@@ -224,7 +224,7 @@ export default function TodosPageClient({
             <button
               type="button"
               onClick={() => setShowCreate(true)}
-              className="atlas-btn atlas-btn-primary"
+              className="btn-outline btn-primary"
             >
               <Plus className="h-3.5 w-3.5" /> Create to-do
             </button>
@@ -232,21 +232,21 @@ export default function TodosPageClient({
         </div>
 
         {/* Filter bar */}
-        <div className="atlas-card mb-4 p-2 flex flex-wrap items-center gap-2">
+        <div className="rounded-lg border border-border bg-card mb-4 p-2 flex flex-wrap items-center gap-2">
           <div className="relative flex-1 min-w-[220px]">
-            <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[color:var(--atlas-n100)]" />
+            <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <input
               type="search"
               placeholder="Filter by title, description, KR, or objective"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="atlas-input pl-7"
+              className="input pl-7"
             />
           </div>
           <select
             value={scopeFilter}
             onChange={(e) => setScopeFilter(e.target.value as ScopeFilter)}
-            className="atlas-input atlas-select w-auto"
+            className="input input w-auto"
           >
             <option value="assigned">Assigned to me</option>
             <option value="created">Created by me</option>
@@ -255,7 +255,7 @@ export default function TodosPageClient({
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-            className="atlas-input atlas-select w-auto"
+            className="input input w-auto"
           >
             <option value="open">Open</option>
             <option value="completed">Completed</option>
@@ -264,7 +264,7 @@ export default function TodosPageClient({
           <select
             value={linkFilter}
             onChange={(e) => setLinkFilter(e.target.value as LinkFilter)}
-            className="atlas-input atlas-select w-auto"
+            className="input input w-auto"
           >
             <option value="all">Any link</option>
             <option value="linked">Linked to OKR</option>
@@ -273,14 +273,14 @@ export default function TodosPageClient({
         </div>
 
         {/* View switcher */}
-        <div className="mb-3 flex items-center gap-1 border-b border-[color:var(--atlas-n30)]">
+        <div className="mb-3 flex items-center gap-1 border-b border-border">
           {(['list', 'kanban', 'tree'] as const).map((v) => (
             <button
               key={v}
               type="button"
               role="tab"
               aria-selected={viewType === v}
-              className="atlas-tab"
+              className="inline-flex items-center gap-1 px-2.5 py-2 text-sm font-medium border-b-2 border-transparent cursor-pointer text-muted-foreground hover:text-foreground"
               onClick={() => setViewType(v)}
             >
               {v === 'list' ? 'List' : v === 'kanban' ? 'Board' : 'Tree'}
@@ -290,8 +290,8 @@ export default function TodosPageClient({
 
         {/* Views */}
         {viewType === 'list' && (
-          <div className="atlas-card overflow-hidden">
-            <table className="atlas-table">
+          <div className="rounded-lg border border-border bg-card overflow-hidden">
+            <table className="inline-flex items-center gap-1 px-2.5 py-2 text-sm font-medium border-b-2 border-transparent cursor-pointer text-muted-foreground hover:text-foregroundle">
               <thead>
                 <tr>
                   <th style={{ width: '34px' }}></th>
@@ -307,7 +307,7 @@ export default function TodosPageClient({
               <tbody>
                 {filteredRows.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="atlas-text-tertiary text-center !py-10">
+                    <td colSpan={8} className="text-xs text-muted-foreground text-center !py-10">
                       No to-dos match your filters.
                     </td>
                   </tr>
@@ -413,7 +413,7 @@ function TodoTableRow({
           type="checkbox"
           checked={isDone}
           onChange={onToggle}
-          className="atlas-checkbox"
+          className="appearance-none w-3.5 h-3.5 rounded border border-border"
           aria-label={isDone ? 'Mark pending' : 'Mark completed'}
         />
       </td>
@@ -421,13 +421,13 @@ function TodoTableRow({
         <div className="min-w-0">
           <div
             className={`truncate text-[14px] ${
-              isDone ? 'text-[color:var(--atlas-n100)] line-through' : 'text-[color:var(--atlas-n800)]'
+              isDone ? 'text-muted-foreground line-through' : 'text-foreground'
             }`}
           >
             {row.title}
           </div>
           {row.description && (
-            <div className="truncate text-[12px] text-[color:var(--atlas-n100)]">
+            <div className="truncate text-[12px] text-muted-foreground">
               {row.description}
             </div>
           )}
@@ -437,7 +437,7 @@ function TodoTableRow({
         {row.keyResult ? (
           <Link
             href={`/dashboard/key-results/${row.keyResult.id}`}
-            className="inline-flex items-center gap-1.5 atlas-chip"
+            className="inline-flex items-center gap-1.5 inline-flex items-center h-5 px-1.5 text-xs font-medium rounded"
             data-tone="primary"
             title={row.keyResult.objective.title}
           >
@@ -447,26 +447,26 @@ function TodoTableRow({
         ) : row.objective ? (
           <Link
             href={`/dashboard/objectives/${row.objective.id}`}
-            className="inline-flex items-center gap-1.5 atlas-chip"
+            className="inline-flex items-center gap-1.5 inline-flex items-center h-5 px-1.5 text-xs font-medium rounded"
             data-tone="primary"
           >
             <Target className="h-3 w-3" />
             <span className="max-w-[170px] truncate">{row.objective.title}</span>
           </Link>
         ) : (
-          <span className="atlas-text-tertiary">—</span>
+          <span className="text-xs text-muted-foreground">—</span>
         )}
         {link && 'objective' in (row.keyResult ?? {}) && (
-          <div className="truncate text-[11px] text-[color:var(--atlas-n100)] mt-0.5">
+          <div className="truncate text-[11px] text-muted-foreground mt-0.5">
             {row.keyResult?.objective.title}
           </div>
         )}
       </td>
       <td>
         {timeframeName ? (
-          <span className="text-[12px] text-[color:var(--atlas-n200)]">{timeframeName}</span>
+          <span className="text-[12px] text-muted-foreground">{timeframeName}</span>
         ) : (
-          <span className="atlas-text-tertiary">—</span>
+          <span className="text-xs text-muted-foreground">—</span>
         )}
       </td>
       <td>
@@ -474,19 +474,19 @@ function TodoTableRow({
           <span
             className={`inline-flex items-center gap-1 text-[12px] ${
               overdue
-                ? 'text-[color:var(--atlas-danger)] font-medium'
-                : 'text-[color:var(--atlas-n200)]'
+                ? 'text-destructive font-medium'
+                : 'text-muted-foreground'
             }`}
           >
             <Calendar className="h-3 w-3" />
             {new Date(row.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
           </span>
         ) : (
-          <span className="atlas-text-tertiary">—</span>
+          <span className="text-xs text-muted-foreground">—</span>
         )}
       </td>
       <td>
-        <span className="atlas-avatar" title={`Assigned to ${row.assignee.name}`}>
+        <span className="inline-flex items-center justify-center size-6 rounded-full bg-muted text-xs font-semibold" title={`Assigned to ${row.assignee.name}`}>
           {row.assignee.avatar ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={row.assignee.avatar} alt="" />
@@ -502,7 +502,7 @@ function TodoTableRow({
         <button
           type="button"
           onClick={onDelete}
-          className="atlas-icon-btn opacity-0 group-hover:opacity-100"
+          className="inline-flex items-center justify-center size-6 rounded hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer opacity-0 group-hover:opacity-100"
           title="Delete"
         >
           <Trash2 className="h-3.5 w-3.5" />
@@ -521,7 +521,7 @@ function StatusLozenge({ status }: { status: string }) {
   }
   const v = map[status] ?? { label: status.toLowerCase(), tone: 'default' }
   return (
-    <span className="atlas-lozenge" data-tone={v.tone === 'default' ? undefined : v.tone}>
+    <span className="inline-flex items-center h-4 px-1 text-[11px] font-bold uppercase rounded" data-tone={v.tone === 'default' ? undefined : v.tone}>
       {v.label}
     </span>
   )
@@ -636,53 +636,53 @@ function CreateTodoModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 pt-[8vh] atlas-surface"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 pt-[8vh] "
       onClick={onClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="atlas-card relative w-full max-w-[560px]"
-        style={{ boxShadow: 'var(--atlas-shadow-popover)' }}
+        className="rounded-lg border border-border bg-card relative w-full max-w-[560px]"
+        style={{ boxShadow: '0 4px 8px -2px rgba(0,0,0,0.12), 0 0 1px rgba(0,0,0,0.08)' }}
       >
-        <div className="flex items-center justify-between px-5 py-3 border-b border-[color:var(--atlas-n30)]">
-          <h2 className="atlas-h2">Create to-do</h2>
-          <button onClick={onClose} className="atlas-icon-btn" aria-label="Close">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-border">
+          <h2 className="text-base font-semibold">Create to-do</h2>
+          <button onClick={onClose} className="inline-flex items-center justify-center size-6 rounded hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer" aria-label="Close">
             <X className="h-4 w-4" />
           </button>
         </div>
 
         <form onSubmit={submit} className="px-5 py-4 space-y-3">
           <div>
-            <label className="atlas-eyebrow block mb-1">Title</label>
+            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground block mb-1">Title</label>
             <input
               autoFocus
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="What needs doing?"
-              className="atlas-input"
+              className="input"
               required
             />
           </div>
 
           <div>
-            <label className="atlas-eyebrow block mb-1">Description (optional)</label>
+            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground block mb-1">Description (optional)</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
               placeholder="Add any context…"
-              className="atlas-input min-h-[80px] py-2"
+              className="input min-h-[80px] py-2"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="atlas-eyebrow block mb-1">Assignee</label>
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground block mb-1">Assignee</label>
               <select
                 value={assigneeId}
                 onChange={(e) => setAssigneeId(e.target.value)}
-                className="atlas-input atlas-select"
+                className="input input"
               >
                 {users.map((u) => (
                   <option key={u.id} value={u.id}>
@@ -692,32 +692,32 @@ function CreateTodoModal({
               </select>
             </div>
             <div>
-              <label className="atlas-eyebrow block mb-1">Due date</label>
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground block mb-1">Due date</label>
               <input
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                className="atlas-input"
+                className="input"
               />
             </div>
           </div>
 
           <div>
-            <label className="atlas-eyebrow block mb-1">Link to Key Result (optional)</label>
-            <div className="atlas-card p-1 max-h-[140px] overflow-auto">
+            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground block mb-1">Link to Key Result (optional)</label>
+            <div className="rounded-lg border border-border bg-card p-1 max-h-[140px] overflow-auto">
               <div className="px-2 py-1">
                 <input
                   type="text"
                   value={krSearch}
                   onChange={(e) => setKrSearch(e.target.value)}
                   placeholder="Search key results…"
-                  className="atlas-input"
+                  className="input"
                 />
               </div>
               <button
                 type="button"
                 onClick={() => setKeyResultId('')}
-                className={`atlas-menu-item ${keyResultId === '' ? 'bg-[color:var(--atlas-primary-bg)]' : ''}`}
+                className={`flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded hover:bg-muted cursor-pointer ${keyResultId === '' ? 'bg-[color:#dbeafe]' : ''}`}
               >
                 <X className="h-3 w-3" /> None
               </button>
@@ -726,12 +726,12 @@ function CreateTodoModal({
                   key={kr.id}
                   type="button"
                   onClick={() => setKeyResultId(kr.id)}
-                  className={`atlas-menu-item ${keyResultId === kr.id ? 'bg-[color:var(--atlas-primary-bg)]' : ''}`}
+                  className={`flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded hover:bg-muted cursor-pointer ${keyResultId === kr.id ? 'bg-[color:#dbeafe]' : ''}`}
                 >
-                  <Link2 className="h-3 w-3 flex-shrink-0 text-[color:var(--atlas-n100)]" />
+                  <Link2 className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate">{kr.title}</span>
-                    <span className="block truncate text-[11px] text-[color:var(--atlas-n100)]">
+                    <span className="block truncate text-[11px] text-muted-foreground">
                       {kr.objective.title}
                     </span>
                   </span>
@@ -742,21 +742,21 @@ function CreateTodoModal({
           </div>
 
           <div>
-            <label className="atlas-eyebrow block mb-1">Or link to Objective (optional)</label>
-            <div className="atlas-card p-1 max-h-[140px] overflow-auto">
+            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground block mb-1">Or link to Objective (optional)</label>
+            <div className="rounded-lg border border-border bg-card p-1 max-h-[140px] overflow-auto">
               <div className="px-2 py-1">
                 <input
                   type="text"
                   value={objSearch}
                   onChange={(e) => setObjSearch(e.target.value)}
                   placeholder="Search objectives…"
-                  className="atlas-input"
+                  className="input"
                 />
               </div>
               <button
                 type="button"
                 onClick={() => setObjectiveId('')}
-                className={`atlas-menu-item ${objectiveId === '' ? 'bg-[color:var(--atlas-primary-bg)]' : ''}`}
+                className={`flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded hover:bg-muted cursor-pointer ${objectiveId === '' ? 'bg-[color:#dbeafe]' : ''}`}
               >
                 <X className="h-3 w-3" /> None
               </button>
@@ -765,22 +765,22 @@ function CreateTodoModal({
                   key={o.id}
                   type="button"
                   onClick={() => setObjectiveId(o.id)}
-                  className={`atlas-menu-item ${objectiveId === o.id ? 'bg-[color:var(--atlas-primary-bg)]' : ''}`}
+                  className={`flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded hover:bg-muted cursor-pointer ${objectiveId === o.id ? 'bg-[color:#dbeafe]' : ''}`}
                 >
-                  <Target className="h-3 w-3 flex-shrink-0 text-[color:var(--atlas-n100)]" />
+                  <Target className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
                   <span className="truncate flex-1">{o.title}</span>
-                  <span className="atlas-text-tertiary text-[10px]">{o.level.toLowerCase()}</span>
+                  <span className="text-xs text-muted-foreground text-[10px]">{o.level.toLowerCase()}</span>
                   {objectiveId === o.id && <Check className="h-3 w-3 flex-shrink-0" />}
                 </button>
               ))}
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-2 border-t border-[color:var(--atlas-n30)]">
-            <button type="button" onClick={onClose} className="atlas-btn">
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+            <button type="button" onClick={onClose} className="btn-outline">
               Cancel
             </button>
-            <button type="submit" disabled={!title.trim() || submitting} className="atlas-btn atlas-btn-primary">
+            <button type="submit" disabled={!title.trim() || submitting} className="btn-outline btn-primary">
               {submitting ? 'Creating…' : 'Create to-do'}
             </button>
           </div>

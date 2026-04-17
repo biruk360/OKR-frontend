@@ -86,16 +86,16 @@ export default function PlansList({
   const otherRows = filteredRows.filter((r) => !favorites.has(r.id))
 
   return (
-    <div className="atlas-surface -m-3 sm:-m-6 min-h-full p-4 sm:p-6">
+    <div className=" -m-3 sm:-m-6 min-h-full p-4 sm:p-6">
       <div className="mx-auto max-w-[1280px]">
         {/* Tabs + create button */}
-        <div className="mb-3 flex items-center justify-between border-b border-[color:var(--atlas-n30)]">
+        <div className="mb-3 flex items-center justify-between border-b border-border">
           <div className="flex items-center gap-1">
             <button
               type="button"
               role="tab"
               aria-selected={tab === 'all'}
-              className="atlas-tab"
+              className="inline-flex items-center gap-1 px-2.5 py-2 text-sm font-medium border-b-2 border-transparent cursor-pointer text-muted-foreground hover:text-foreground"
               onClick={() => setTab('all')}
             >
               All plans
@@ -104,7 +104,7 @@ export default function PlansList({
               type="button"
               role="tab"
               aria-selected={tab === 'watched'}
-              className="atlas-tab"
+              className="inline-flex items-center gap-1 px-2.5 py-2 text-sm font-medium border-b-2 border-transparent cursor-pointer text-muted-foreground hover:text-foreground"
               onClick={() => setTab('watched')}
             >
               Watched plans
@@ -113,11 +113,11 @@ export default function PlansList({
           <div className="flex items-center gap-2 pb-1">
             <Link
               href="/dashboard/objectives?create=1"
-              className="atlas-btn atlas-btn-primary"
+              className="btn-outline btn-primary"
             >
               Create a plan
             </Link>
-            <button className="atlas-icon-btn" aria-label="More">
+            <button className="inline-flex items-center justify-center size-6 rounded hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer" aria-label="More">
               <MoreHorizontal className="h-4 w-4" />
             </button>
           </div>
@@ -126,16 +126,16 @@ export default function PlansList({
         {/* Filter row */}
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <div className="relative">
-            <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[color:var(--atlas-n100)]" />
+            <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <input
-              className="atlas-input pl-7 w-[220px]"
+              className="input pl-7 w-[220px]"
               placeholder="Filter plans by name"
               value={nameFilter}
               onChange={(e) => setNameFilter(e.target.value)}
             />
           </div>
           <select
-            className="atlas-input atlas-select w-[180px]"
+            className="input input w-[180px]"
             value={teamFilter}
             onChange={(e) => setTeamFilter(e.target.value)}
           >
@@ -145,7 +145,7 @@ export default function PlansList({
             ))}
           </select>
           <select
-            className="atlas-input atlas-select w-[180px]"
+            className="input input w-[180px]"
             value={insightFilter}
             onChange={(e) => setInsightFilter(e.target.value)}
           >
@@ -154,20 +154,20 @@ export default function PlansList({
             <option value="at-risk">At risk (NCS 34–66)</option>
             <option value="off-track">Off track (NCS ≤ 33)</option>
           </select>
-          <label className="ml-auto inline-flex items-center gap-2 text-[12px] text-[color:var(--atlas-n200)]">
+          <label className="ml-auto inline-flex items-center gap-2 text-[12px] text-muted-foreground">
             <input
               type="checkbox"
               checked={hideFinished}
               onChange={(e) => setHideFinished(e.target.checked)}
-              className="atlas-checkbox"
+              className="appearance-none w-3.5 h-3.5 rounded border border-border"
             />
             Hide finished plans
           </label>
         </div>
 
         {/* Table */}
-        <div className="atlas-card overflow-hidden">
-          <table className="atlas-table">
+        <div className="rounded-lg border border-border bg-card overflow-hidden">
+          <table className="inline-flex items-center gap-1 px-2.5 py-2 text-sm font-medium border-b-2 border-transparent cursor-pointer text-muted-foreground hover:text-foregroundle">
             <thead>
               <tr>
                 <th style={{ width: '40%' }}>Plan</th>
@@ -182,7 +182,7 @@ export default function PlansList({
               {favoriteRows.length > 0 && (
                 <>
                   <tr>
-                    <td colSpan={6} className="!py-1.5 !pl-3 atlas-eyebrow !border-b-0">Favorite plans</td>
+                    <td colSpan={6} className="!py-1.5 !pl-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground !border-b-0">Favorite plans</td>
                   </tr>
                   {favoriteRows.map((row) => (
                     <PlanTableRow key={row.id} row={row} isFavorite onToggleFavorite={toggleFavorite} />
@@ -191,7 +191,7 @@ export default function PlansList({
               )}
               {(favoriteRows.length > 0 && otherRows.length > 0) && (
                 <tr>
-                  <td colSpan={6} className="!py-1.5 !pl-3 atlas-eyebrow !border-b-0">All plans</td>
+                  <td colSpan={6} className="!py-1.5 !pl-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground !border-b-0">All plans</td>
                 </tr>
               )}
               {otherRows.map((row) => (
@@ -199,7 +199,7 @@ export default function PlansList({
               ))}
               {filteredRows.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="text-center !py-8 atlas-text-tertiary">
+                  <td colSpan={6} className="text-center !py-8 text-xs text-muted-foreground">
                     No plans match your filters.
                   </td>
                 </tr>
@@ -236,41 +236,41 @@ function PlanTableRow({
           <button
             type="button"
             onClick={() => onToggleFavorite(row.id)}
-            className="atlas-icon-btn"
+            className="inline-flex items-center justify-center size-6 rounded hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
             aria-label={isFavorite ? 'Unfavorite' : 'Favorite'}
             title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
           >
             <Star className={`h-3.5 w-3.5 ${isFavorite ? 'fill-yellow-400 text-yellow-500' : ''}`} />
           </button>
-          <Link href={planLink} className="font-medium text-[color:var(--atlas-n800)] hover:underline">
+          <Link href={planLink} className="font-medium text-foreground hover:underline">
             {row.title}
           </Link>
           {row.department && (
-            <span className="atlas-chip">{row.department}</span>
+            <span className="inline-flex items-center h-5 px-1.5 text-xs font-medium rounded">{row.department}</span>
           )}
         </div>
       </td>
       <td>
         <div className="flex items-center gap-2">
-          <span className="atlas-text-secondary tabular-nums">{row.keyResultsProgressPct}%</span>
-          <div className="w-16 atlas-progress">
-            <div className="atlas-progress-fill" style={{ width: `${row.keyResultsProgressPct}%` }} />
+          <span className="text-sm text-muted-foreground tabular-nums">{row.keyResultsProgressPct}%</span>
+          <div className="w-16 h-1 w-full bg-muted rounded-full overflow-hidden">
+            <div className="h-full bg-primary-500 rounded-full transition-all" style={{ width: `${row.keyResultsProgressPct}%` }} />
           </div>
         </div>
       </td>
       <td>
-        <span className="atlas-text-secondary tabular-nums">
+        <span className="text-sm text-muted-foreground tabular-nums">
           {row.initiativesClosed}/{row.initiativesTotal}
         </span>
       </td>
       <td>
-        <span className="atlas-lozenge" data-tone={ncsTone}>
+        <span className="inline-flex items-center h-4 px-1 text-[11px] font-bold uppercase rounded" data-tone={ncsTone}>
           {row.ncs} NCS
         </span>
       </td>
-      <td className="atlas-text-tertiary">{timeline}</td>
+      <td className="text-xs text-muted-foreground">{timeline}</td>
       <td>
-        <span className="atlas-lozenge" data-tone={statusTone}>{statusLabel}</span>
+        <span className="inline-flex items-center h-4 px-1 text-[11px] font-bold uppercase rounded" data-tone={statusTone}>{statusLabel}</span>
       </td>
     </tr>
   )

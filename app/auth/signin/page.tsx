@@ -44,14 +44,14 @@ export default function SignInPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-surface-app py-12 px-4 sm:px-6 lg:px-8">
+    <div className="flex min-h-screen items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
       <div className="w-full max-w-md space-y-8">
         <div>
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-pill bg-primary-500/15">
             <Lock className="h-6 w-6 text-primary-600" strokeWidth={1.75} />
           </div>
-          <h2 className="mt-6 text-center text-page-title text-ink-primary">Sign in to your account</h2>
-          <p className="mt-2 text-center text-body-sm text-ink-secondary">
+          <h2 className="mt-6 text-center text-page-title text-foreground">Sign in to your account</h2>
+          <p className="mt-2 text-center text-body-sm text-muted-foreground">
             Or{' '}
             <Link href="/auth/signup" className="font-medium text-primary-500 hover:text-primary-700">
               create a new account
@@ -68,12 +68,12 @@ export default function SignInPage() {
           
           <div className="space-y-4">
             <div>
-              <label htmlFor="email" className="label mb-1 block text-ink-primary">
+              <label htmlFor="email" className="label mb-1 block text-foreground">
                 Email address
               </label>
               <div className="relative mt-1">
                 <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                  <Mail className="h-5 w-5 text-ink-secondary" strokeWidth={1.75} />
+                  <Mail className="h-5 w-5 text-muted-foreground" strokeWidth={1.75} />
                 </div>
                 <input
                   id="email"
@@ -90,12 +90,12 @@ export default function SignInPage() {
             </div>
             
             <div>
-              <label htmlFor="password" className="label mb-1 block text-ink-primary">
+              <label htmlFor="password" className="label mb-1 block text-foreground">
                 Password
               </label>
               <div className="relative mt-1">
                 <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                  <Lock className="h-5 w-5 text-ink-secondary" strokeWidth={1.75} />
+                  <Lock className="h-5 w-5 text-muted-foreground" strokeWidth={1.75} />
                 </div>
                 <input
                   id="password"
@@ -114,9 +114,9 @@ export default function SignInPage() {
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? (
-                    <EyeOff className="h-5 w-5 text-ink-secondary" strokeWidth={1.75} />
+                    <EyeOff className="h-5 w-5 text-muted-foreground" strokeWidth={1.75} />
                   ) : (
-                    <Eye className="h-5 w-5 text-ink-secondary" strokeWidth={1.75} />
+                    <Eye className="h-5 w-5 text-muted-foreground" strokeWidth={1.75} />
                   )}
                 </button>
               </div>
@@ -129,9 +129,9 @@ export default function SignInPage() {
                 id="remember-me"
                 name="remember-me"
                 type="checkbox"
-                className="h-4 w-4 rounded border-surface-muted text-primary-500 focus:ring-primary-500"
+                className="h-4 w-4 rounded border-border text-primary-500 focus:ring-primary-500"
               />
-              <label htmlFor="remember-me" className="ml-2 block text-body-sm text-ink-primary">
+              <label htmlFor="remember-me" className="ml-2 block text-body-sm text-foreground">
                 Remember me
               </label>
             </div>

@@ -35,22 +35,22 @@ export default function AddToDo({ onAddTodo }: AddToDoProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex h-7 items-center gap-1.5 rounded-sm px-1 hover:bg-[color:var(--notion-hover)]">
-      <Plus className="h-3.5 w-3.5 text-[color:var(--notion-text-tertiary)]" />
+    <form onSubmit={handleSubmit} className="flex h-7 items-center gap-1.5 rounded-sm px-1 hover:bg-[color:#f9fafb]">
+      <Plus className="h-3.5 w-3.5 text-[color:var(--text-xs text-muted-foreground)]" />
       <input
         type="text"
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         onKeyPress={handleKeyPress}
         placeholder="Add an initiative…"
-        className="flex-1 bg-transparent text-[13px] text-[color:var(--notion-text)] placeholder:text-[color:var(--notion-text-tertiary)] focus:outline-none"
+        className="flex-1 bg-transparent text-[13px] text-[color:var(--text-sm)] placeholder:text-[color:var(--text-xs text-muted-foreground)] focus:outline-none"
         disabled={isLoading}
       />
       {title.trim() && (
         <button
           type="submit"
           disabled={isLoading}
-          className="notion-button notion-button-primary h-6 px-2 text-[12px]"
+          className="btn-outline btn-primary h-6 px-2 text-[12px]"
         >
           {isLoading ? '…' : 'Add'}
         </button>

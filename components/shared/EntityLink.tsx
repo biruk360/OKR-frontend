@@ -46,7 +46,7 @@ export default function EntityLink({ type, id, label, avatar, className, chipSty
     return (
       <Link
         href={href}
-        className={`atlas-chip inline-flex items-center gap-1 hover:bg-[color:var(--atlas-primary-bg)] transition ${className || ''}`}
+        className={`inline-flex items-center h-5 px-1.5 text-xs font-medium rounded inline-flex items-center gap-1 hover:bg-[color:#dbeafe] transition ${className || ''}`}
         data-tone="primary"
         title={label}
       >
@@ -64,7 +64,7 @@ export default function EntityLink({ type, id, label, avatar, className, chipSty
   return (
     <Link
       href={href}
-      className={`inline-flex items-center gap-1 text-[color:var(--atlas-primary)] hover:underline ${className || ''}`}
+      className={`inline-flex items-center gap-1 text-primary-500 hover:underline ${className || ''}`}
       title={label}
     >
       {type === 'user' && avatar ? (

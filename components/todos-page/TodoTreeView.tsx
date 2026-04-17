@@ -100,7 +100,7 @@ export default function TodoTreeView({ rows, users, onToggle, onOpen, onStatusCh
   return (
     <div className="space-y-0.5">
       {tree.length === 0 && (
-        <div className="atlas-card p-8 text-center atlas-text-tertiary">No to-dos to display.</div>
+        <div className="rounded-lg border border-border bg-card p-8 text-center text-xs text-muted-foreground">No to-dos to display.</div>
       )}
       {tree.map((node) => (
         <TreeNodeRow
@@ -151,9 +151,9 @@ function TreeNodeRow({
     node.children.reduce((s, c) => s + c.todos.filter((t) => t.status === 'COMPLETED').length, 0)
 
   const levelBadge = node.type === 'objective'
-    ? node.level === 'COMPANY' ? 'bg-[color:var(--atlas-primary-bg)] text-[color:var(--atlas-primary)]'
-      : node.level === 'DEPARTMENT' ? 'bg-[color:var(--atlas-purple-bg)] text-[color:var(--atlas-purple)]'
-      : 'bg-[color:var(--atlas-n20)] text-[color:var(--atlas-n400)]'
+    ? node.level === 'COMPANY' ? 'bg-[color:#dbeafe] text-primary-500'
+      : node.level === 'DEPARTMENT' ? 'bg-[color:#ede9fe] text-purple-600'
+      : 'bg-[color:#ebecf0] text-muted-foreground'
     : null
 
   const icon = node.type === 'objective' ? <Target className="h-3.5 w-3.5" />
@@ -166,17 +166,17 @@ function TreeNodeRow({
     <div>
       {/* Node header */}
       <div
-        className="group flex items-center gap-1.5 rounded-md px-2 py-1.5 hover:bg-[color:var(--atlas-n10)] transition cursor-pointer"
+        className="group flex items-center gap-1.5 rounded-md px-2 py-1.5 hover:bg-muted transition cursor-pointer"
         style={{ paddingLeft: `${depth * 20 + 8}px` }}
         onClick={() => hasChildren && toggle(node.id)}
       >
         {hasChildren ? (
-          isOpen ? <ChevronDown className="h-3.5 w-3.5 text-[color:var(--atlas-n100)] flex-shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-[color:var(--atlas-n100)] flex-shrink-0" />
+          isOpen ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
         ) : (
           <span className="w-3.5" />
         )}
-        <span className="text-[color:var(--atlas-n200)] flex-shrink-0">{icon}</span>
-        <span className="text-[13px] font-medium text-[color:var(--atlas-n800)] truncate flex-1">
+        <span className="text-muted-foreground flex-shrink-0">{icon}</span>
+        <span className="text-[13px] font-medium text-foreground truncate flex-1">
           {node.label}
         </span>
         {levelBadge && (
@@ -184,11 +184,11 @@ function TreeNodeRow({
             {node.level?.toLowerCase()}
           </span>
         )}
-        <span className="text-[11px] text-[color:var(--atlas-n100)] tabular-nums ml-2">
+        <span className="text-[11px] text-muted-foreground tabular-nums ml-2">
           {completedTodos}/{totalTodos}
         </span>
-        <div className="w-12 atlas-progress ml-1">
-          <div className="atlas-progress-fill" style={{ width: `${progressPct}%` }} />
+        <div className="w-12 h-1 w-full bg-muted rounded-full overflow-hidden ml-1">
+          <div className="h-full bg-primary-500 rounded-full transition-all" style={{ width: `${progressPct}%` }} />
         </div>
       </div>
 
@@ -255,19 +255,19 @@ function TodoLeafRow({
 
   return (
     <div
-      className="group flex items-center gap-2 rounded-md px-2 py-1 hover:bg-[color:var(--atlas-n10)] transition"
+      className="group flex items-center gap-2 rounded-md px-2 py-1 hover:bg-muted transition"
       style={{ paddingLeft: `${depth * 20 + 8}px` }}
     >
       <input
         type="checkbox"
         checked={isDone}
         onChange={() => onToggle(todo)}
-        className="atlas-checkbox"
+        className="appearance-none w-3.5 h-3.5 rounded border border-border"
         onClick={(e) => e.stopPropagation()}
       />
       <span
         className={`flex-1 text-[13px] truncate cursor-pointer ${
-          isDone ? 'text-[color:var(--atlas-n100)] line-through' : 'text-[color:var(--atlas-n800)]'
+          isDone ? 'text-muted-foreground line-through' : 'text-foreground'
         }`}
         onClick={() => onOpen(todo.id)}
       >
@@ -278,21 +278,21 @@ function TodoLeafRow({
       <div className="relative">
         <button
           onClick={(e) => { e.stopPropagation(); setEditingAssignee(!editingAssignee) }}
-          className="atlas-avatar"
+          className="inline-flex items-center justify-center size-6 rounded-full bg-muted text-xs font-semibold"
           style={{ width: 20, height: 20, fontSize: 9 }}
           title={todo.assignee.name}
         >
           {todo.assignee.name.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase()}
         </button>
         {editingAssignee && (
-          <div className="absolute right-0 top-6 z-20 atlas-menu max-h-[200px] overflow-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="absolute right-0 top-6 z-20 bg-popover border border-border rounded-lg shadow-lg p-1 min-w-[200px] max-h-[200px] overflow-auto" onClick={(e) => e.stopPropagation()}>
             {users.map((u) => (
               <button
                 key={u.id}
-                className="atlas-menu-item"
+                className="flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded hover:bg-muted cursor-pointer"
                 onClick={() => { onAssigneeChange(todo.id, u.id); setEditingAssignee(false) }}
               >
-                <span className="atlas-avatar" style={{ width: 16, height: 16, fontSize: 8 }}>
+                <span className="inline-flex items-center justify-center size-6 rounded-full bg-muted text-xs font-semibold" style={{ width: 16, height: 16, fontSize: 8 }}>
                   {u.name.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase()}
                 </span>
                 {u.name}
@@ -307,7 +307,7 @@ function TodoLeafRow({
         value={todo.status}
         onChange={(e) => { e.stopPropagation(); onStatusChange(todo.id, e.target.value) }}
         onClick={(e) => e.stopPropagation()}
-        className="atlas-input atlas-select text-[11px] w-[90px] h-5 px-1 py-0"
+        className="input input text-[11px] w-[90px] h-5 px-1 py-0"
         style={{ fontSize: 11 }}
       >
         <option value="PENDING">To do</option>
@@ -326,13 +326,13 @@ function TodoLeafRow({
             onChange={(e) => { onDueDateChange(todo.id, e.target.value || null); setEditingDate(false) }}
             onBlur={() => setEditingDate(false)}
             onClick={(e) => e.stopPropagation()}
-            className="atlas-input text-[11px] w-[110px] h-5 px-1 py-0"
+            className="input text-[11px] w-[110px] h-5 px-1 py-0"
           />
         ) : (
           <button
             onClick={(e) => { e.stopPropagation(); setEditingDate(true) }}
             className={`text-[11px] inline-flex items-center gap-0.5 ${
-              overdue ? 'text-[color:var(--atlas-danger)]' : 'text-[color:var(--atlas-n100)]'
+              overdue ? 'text-destructive' : 'text-muted-foreground'
             }`}
           >
             <Calendar className="h-2.5 w-2.5" />

@@ -295,16 +295,16 @@ export default function SprintBoardClient({ initial, users, keyResults, objectiv
   // ---------- Render ----------
 
   return (
-    <div className="notion-surface min-h-screen">
-      <div className="px-6 py-4 border-b border-[color:var(--notion-divider)]">
-        <Link href="/dashboard/sprints" className="inline-flex items-center gap-1 text-[12px] text-[color:var(--notion-text-tertiary)] hover:text-[color:var(--notion-text)]">
+    <div className=" min-h-screen">
+      <div className="px-6 py-4 border-b border-[color:var(--border-t border-border)]">
+        <Link href="/dashboard/sprints" className="inline-flex items-center gap-1 text-[12px] text-[color:var(--text-xs text-muted-foreground)] hover:text-[color:var(--text-sm)]">
           <ArrowLeft className="h-3 w-3" /> All sprints
         </Link>
         <div className="mt-2 flex items-center justify-between">
           <div>
-            <h1 className="notion-h1">{board.name}</h1>
-            {board.description && <p className="notion-text-secondary mt-1">{board.description}</p>}
-            <p className="notion-text-tertiary mt-1">Owner · {board.ownerName}</p>
+            <h1 className="text-2xl font-bold">{board.name}</h1>
+            {board.description && <p className="text-sm text-muted-foreground mt-1">{board.description}</p>}
+            <p className="text-xs text-muted-foreground mt-1">Owner · {board.ownerName}</p>
           </div>
         </div>
       </div>
@@ -314,12 +314,12 @@ export default function SprintBoardClient({ initial, users, keyResults, objectiv
           {board.columns.map((col) => (
             <div
               key={col.id}
-              className="w-[280px] flex-shrink-0 rounded-md bg-[color:var(--notion-bg-secondary)] border border-[color:var(--notion-divider)]"
+              className="w-[280px] flex-shrink-0 rounded-md bg-[color:#fafafa] border border-[color:var(--border-t border-border)]"
               onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
               onDrop={(e) => { e.preventDefault(); onDropOnColumn(col.id) }}
             >
               {/* Column header */}
-              <div className="flex items-center gap-1.5 px-3 py-2 border-b border-[color:var(--notion-divider)]">
+              <div className="flex items-center gap-1.5 px-3 py-2 border-b border-[color:var(--border-t border-border)]">
                 {col.color && <span className="h-2 w-2 rounded-full" style={{ backgroundColor: col.color }} />}
                 {editingColumn === col.id ? (
                   <input
@@ -332,25 +332,25 @@ export default function SprintBoardClient({ initial, users, keyResults, objectiv
                       if (e.key === 'Enter') renameColumn(col.id)
                       if (e.key === 'Escape') setEditingColumn(null)
                     }}
-                    className="notion-input h-6 text-[13px] font-semibold"
+                    className="input h-6 text-[13px] font-semibold"
                   />
                 ) : (
                   <button
                     type="button"
                     onClick={() => { setEditingColumn(col.id); setEditingColumnName(col.name) }}
-                    className="text-[13px] font-semibold text-[color:var(--notion-text)] hover:underline"
+                    className="text-[13px] font-semibold text-[color:var(--text-sm)] hover:underline"
                     title="Click to rename"
                   >
                     {col.name}
                   </button>
                 )}
-                <span className="ml-1 inline-flex h-4 min-w-[18px] items-center justify-center rounded-sm bg-[color:var(--notion-hover)] px-1 text-[10px] font-semibold text-[color:var(--notion-text-secondary)]">
+                <span className="ml-1 inline-flex h-4 min-w-[18px] items-center justify-center rounded-sm bg-[color:#f9fafb] px-1 text-[10px] font-semibold text-[color:var(--text-sm text-muted-foreground)]">
                   {col.activities.length}
                 </span>
                 <button
                   type="button"
                   onClick={() => deleteColumn(col.id)}
-                  className="notion-icon-button ml-auto"
+                  className="inline-flex items-center justify-center size-6 rounded hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer ml-auto"
                   aria-label="Delete column"
                 >
                   <Trash2 className="h-3 w-3" />
@@ -371,7 +371,7 @@ export default function SprintBoardClient({ initial, users, keyResults, objectiv
 
                 {/* Add card */}
                 {addingCardCol === col.id ? (
-                  <div className="rounded-md border border-[color:var(--notion-border)] bg-card p-2">
+                  <div className="rounded-md border border-[color:#e5e7eb] bg-card p-2">
                     <textarea
                       autoFocus
                       value={newCardTitle}
@@ -382,13 +382,13 @@ export default function SprintBoardClient({ initial, users, keyResults, objectiv
                       }}
                       placeholder="Enter activity title…"
                       rows={2}
-                      className="w-full resize-none bg-transparent text-[13px] text-[color:var(--notion-text)] placeholder:text-[color:var(--notion-text-tertiary)] focus:outline-none"
+                      className="w-full resize-none bg-transparent text-[13px] text-[color:var(--text-sm)] placeholder:text-[color:var(--text-xs text-muted-foreground)] focus:outline-none"
                     />
                     <div className="mt-1 flex items-center gap-1">
-                      <button onClick={() => addCard(col.id)} className="notion-button notion-button-primary">Add card</button>
+                      <button onClick={() => addCard(col.id)} className="btn-outline btn-primary">Add card</button>
                       <button
                         onClick={() => { setAddingCardCol(null); setNewCardTitle('') }}
-                        className="notion-icon-button"
+                        className="inline-flex items-center justify-center size-6 rounded hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
                       >
                         <X className="h-3 w-3" />
                       </button>
@@ -398,7 +398,7 @@ export default function SprintBoardClient({ initial, users, keyResults, objectiv
                   <button
                     type="button"
                     onClick={() => setAddingCardCol(col.id)}
-                    className="flex w-full items-center gap-1 rounded-md px-2 py-1 text-[12px] text-[color:var(--notion-text-tertiary)] hover:bg-[color:var(--notion-hover)] hover:text-[color:var(--notion-text)]"
+                    className="flex w-full items-center gap-1 rounded-md px-2 py-1 text-[12px] text-[color:var(--text-xs text-muted-foreground)] hover:bg-[color:#f9fafb] hover:text-[color:var(--text-sm)]"
                   >
                     <Plus className="h-3 w-3" /> Add card
                   </button>
@@ -410,7 +410,7 @@ export default function SprintBoardClient({ initial, users, keyResults, objectiv
           {/* Add column */}
           <div className="w-[280px] flex-shrink-0">
             {addingColumn ? (
-              <div className="rounded-md border border-[color:var(--notion-divider)] bg-[color:var(--notion-bg-secondary)] p-2">
+              <div className="rounded-md border border-[color:var(--border-t border-border)] bg-[color:#fafafa] p-2">
                 <input
                   autoFocus
                   type="text"
@@ -420,12 +420,12 @@ export default function SprintBoardClient({ initial, users, keyResults, objectiv
                     if (e.key === 'Enter') addColumn()
                     if (e.key === 'Escape') { setAddingColumn(false); setNewColumnName('') }
                   }}
-                  className="notion-input"
+                  className="input"
                   placeholder="Column name"
                 />
                 <div className="mt-1 flex items-center gap-1">
-                  <button onClick={addColumn} className="notion-button notion-button-primary">Add column</button>
-                  <button onClick={() => { setAddingColumn(false); setNewColumnName('') }} className="notion-icon-button">
+                  <button onClick={addColumn} className="btn-outline btn-primary">Add column</button>
+                  <button onClick={() => { setAddingColumn(false); setNewColumnName('') }} className="inline-flex items-center justify-center size-6 rounded hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer">
                     <X className="h-3 w-3" />
                   </button>
                 </div>
@@ -434,7 +434,7 @@ export default function SprintBoardClient({ initial, users, keyResults, objectiv
               <button
                 type="button"
                 onClick={() => setAddingColumn(true)}
-                className="flex w-full items-center gap-1 rounded-md border border-dashed border-[color:var(--notion-border)] bg-transparent px-3 py-2 text-[13px] text-[color:var(--notion-text-tertiary)] hover:bg-[color:var(--notion-hover)] hover:text-[color:var(--notion-text)]"
+                className="flex w-full items-center gap-1 rounded-md border border-dashed border-[color:#e5e7eb] bg-transparent px-3 py-2 text-[13px] text-[color:var(--text-xs text-muted-foreground)] hover:bg-[color:#f9fafb] hover:text-[color:var(--text-sm)]"
               >
                 <Plus className="h-3.5 w-3.5" /> Add column
               </button>
@@ -491,22 +491,22 @@ function BoardCard({
       onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', activity.id); onDragStart() }}
       onDragEnd={onDragEnd}
       onClick={onOpen}
-      className="group rounded-md border border-[color:var(--notion-border)] bg-card p-2 shadow-[0_1px_0_rgba(15,15,15,0.04)] cursor-pointer hover:border-[color:var(--notion-border-strong)] transition"
+      className="group rounded-md border border-[color:#e5e7eb] bg-card p-2 shadow-[0_1px_0_rgba(15,15,15,0.04)] cursor-pointer hover:border-[color:#d1d5db] transition"
     >
-      <div className="text-[13px] text-[color:var(--notion-text)] whitespace-pre-wrap break-words">
+      <div className="text-[13px] text-[color:var(--text-sm)] whitespace-pre-wrap break-words">
         {activity.title}
       </div>
 
       {(activity.keyResult || activity.objective) && (
         <div className="mt-1.5 flex flex-wrap gap-1">
           {activity.keyResult && (
-            <span className="notion-pill" data-tone="blue" title={activity.keyResult.objective.title}>
+            <span className="inline-flex items-center h-5 px-1.5 text-xs font-medium rounded bg-muted text-muted-foreground" data-tone="blue" title={activity.keyResult.objective.title}>
               <Link2 className="h-3 w-3" />
               <span className="truncate max-w-[160px]">{activity.keyResult.title}</span>
             </span>
           )}
           {activity.objective && !activity.keyResult && (
-            <span className="notion-pill" data-tone="blue">
+            <span className="inline-flex items-center h-5 px-1.5 text-xs font-medium rounded bg-muted text-muted-foreground" data-tone="blue">
               <Target className="h-3 w-3" />
               <span className="truncate max-w-[160px]">{activity.objective.title}</span>
             </span>
@@ -516,7 +516,7 @@ function BoardCard({
 
       {/* Badges row */}
       <div className="mt-2 flex items-center gap-2">
-        <span className="notion-avatar" title={`Owner · ${activity.owner.name}`}>
+        <span className="inline-flex items-center justify-center size-5 rounded-full bg-muted text-xs font-semibold" title={`Owner · ${activity.owner.name}`}>
           {activity.owner.avatar ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={activity.owner.avatar} alt="" />
@@ -525,9 +525,9 @@ function BoardCard({
           )}
         </span>
 
-        <div className="ml-auto flex items-center gap-2 text-[11px] text-[color:var(--notion-text-tertiary)]">
+        <div className="ml-auto flex items-center gap-2 text-[11px] text-[color:var(--text-xs text-muted-foreground)]">
           {activity.convertedInitiativeId && (
-            <span title="Converted to Initiative" className="text-[color:var(--notion-green)]">
+            <span title="Converted to Initiative" className="text-[color:#059669]">
               <CheckCircle2 className="h-3 w-3" />
             </span>
           )}
@@ -539,7 +539,7 @@ function BoardCard({
           )}
           {hasTasks && (
             <span
-              className={`inline-flex items-center gap-0.5 ${allTasksDone ? 'text-[color:var(--notion-green)]' : ''}`}
+              className={`inline-flex items-center gap-0.5 ${allTasksDone ? 'text-[color:#059669]' : ''}`}
               title={`${activity.tasksCompleted}/${activity.tasksTotal} tasks`}
             >
               <CheckSquare className="h-3 w-3" />

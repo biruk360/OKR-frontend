@@ -319,36 +319,36 @@ export default function ToDoList({
 
   // Compact / Notion-style design: single-line rows, hover-revealed actions, no per-row card.
   const shellClass = cn(
-    'notion-surface',
-    variant === 'card' && 'mt-4 rounded-md border border-[color:var(--notion-divider)] bg-card',
+    '',
+    variant === 'card' && 'mt-4 rounded-md border border-[color:var(--border-t border-border)] bg-card',
     variant === 'embedded' && 'mt-0'
   )
 
   const summaryRight = isLoading ? (
-    <span className="notion-text-tertiary">Loading…</span>
+    <span className="text-xs text-muted-foreground">Loading…</span>
   ) : totalTodos > 0 ? (
-    <span className="notion-text-tertiary">
+    <span className="text-xs text-muted-foreground">
       {completedTodos}/{totalTodos} done · {completionPercentage}%
     </span>
   ) : (
-    <span className="notion-text-tertiary">empty</span>
+    <span className="text-xs text-muted-foreground">empty</span>
   )
 
   const toggleRow = (
     <button
       type="button"
       onClick={() => setExpanded((e) => !e)}
-      className="flex w-full min-w-0 items-center gap-1.5 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-[color:var(--notion-hover)]"
+      className="flex w-full min-w-0 items-center gap-1.5 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-[color:#f9fafb]"
       aria-expanded={expanded}
     >
       {expanded ? (
-        <ChevronDown className="h-3.5 w-3.5 shrink-0 text-[color:var(--notion-text-tertiary)]" />
+        <ChevronDown className="h-3.5 w-3.5 shrink-0 text-[color:var(--text-xs text-muted-foreground)]" />
       ) : (
-        <ChevronRight className="h-3.5 w-3.5 shrink-0 text-[color:var(--notion-text-tertiary)]" />
+        <ChevronRight className="h-3.5 w-3.5 shrink-0 text-[color:var(--text-xs text-muted-foreground)]" />
       )}
-      <span className="text-[13px] font-semibold text-[color:var(--notion-text)]">Initiatives</span>
+      <span className="text-[13px] font-semibold text-[color:var(--text-sm)]">Initiatives</span>
       {totalTodos > 0 && (
-        <span className="ml-1 inline-flex h-4 min-w-[18px] items-center justify-center rounded-sm bg-[color:var(--notion-hover)] px-1 text-[10px] font-semibold text-[color:var(--notion-text-secondary)]">
+        <span className="ml-1 inline-flex h-4 min-w-[18px] items-center justify-center rounded-sm bg-[color:#f9fafb] px-1 text-[10px] font-semibold text-[color:var(--text-sm text-muted-foreground)]">
           {totalTodos}
         </span>
       )}
@@ -359,9 +359,9 @@ export default function ToDoList({
   const listBody =
     isLoading && expanded ? (
       <div className="px-2 py-3 animate-pulse">
-        <div className="h-3 w-1/3 bg-[color:var(--notion-divider)] rounded mb-2" />
-        <div className="h-3 w-3/4 bg-[color:var(--notion-divider)] rounded mb-1" />
-        <div className="h-3 w-1/2 bg-[color:var(--notion-divider)] rounded" />
+        <div className="h-3 w-1/3 bg-[color:var(--border-t border-border)] rounded mb-2" />
+        <div className="h-3 w-3/4 bg-[color:var(--border-t border-border)] rounded mb-1" />
+        <div className="h-3 w-1/2 bg-[color:var(--border-t border-border)] rounded" />
       </div>
     ) : (
       <div className="px-1 pb-1">
@@ -377,13 +377,13 @@ export default function ToDoList({
               return (
                 <li
                   key={todo.id}
-                  className="group flex min-h-[40px] items-center gap-2 rounded-sm px-2 py-1 hover:bg-[color:var(--notion-hover)]"
+                  className="group flex min-h-[40px] items-center gap-2 rounded-sm px-2 py-1 hover:bg-[color:#f9fafb]"
                 >
                   <input
                     type="checkbox"
                     checked={isDone}
                     onChange={() => handleToggleTodo(todo.id, todo.status)}
-                    className="notion-checkbox"
+                    className="appearance-none w-3.5 h-3.5 rounded border border-border"
                     aria-label={isDone ? 'Mark as pending' : 'Mark as completed'}
                   />
                   <button
@@ -392,8 +392,8 @@ export default function ToDoList({
                     className={cn(
                       'min-w-0 flex-1 truncate text-left text-sm hover:text-blue-600',
                       isDone
-                        ? 'text-[color:var(--notion-text-tertiary)] line-through'
-                        : 'text-[color:var(--notion-text)]'
+                        ? 'text-[color:var(--text-xs text-muted-foreground)] line-through'
+                        : 'text-[color:var(--text-sm)]'
                     )}
                     title={todo.title}
                   >
@@ -434,7 +434,7 @@ export default function ToDoList({
 
                   {/* Inline metadata: assignee + due date */}
                   {todo.assignee && (
-                    <span className="notion-avatar" title={todo.assignee.name}>
+                    <span className="inline-flex items-center justify-center size-5 rounded-full bg-muted text-xs font-semibold" title={todo.assignee.name}>
                       {todo.assignee.avatar ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={todo.assignee.avatar} alt="" />
@@ -445,7 +445,7 @@ export default function ToDoList({
                   )}
                   {todo.dueDate && (
                     <span
-                      className="notion-pill"
+                      className="inline-flex items-center h-5 px-1.5 text-xs font-medium rounded bg-muted text-muted-foreground"
                       data-tone={
                         dueStatus === 'overdue' ? 'red' :
                         dueStatus === 'due-today' ? 'yellow' :
@@ -479,16 +479,16 @@ export default function ToDoList({
             })}
           </ul>
         ) : (
-          <div className="px-2 py-2 text-[12px] text-[color:var(--notion-text-tertiary)]">
+          <div className="px-2 py-2 text-[12px] text-[color:var(--text-xs text-muted-foreground)]">
             No initiatives yet — add one above.
           </div>
         )}
 
         {totalTodos > 0 && (
           <div className="mt-2 px-2 pb-1">
-            <div className="notion-progress">
+            <div className="h-1 w-full bg-muted rounded-full overflow-hidden">
               <div
-                className="notion-progress-fill"
+                className="h-full bg-primary-500 rounded-full transition-all"
                 style={{ width: `${completionPercentage}%` }}
               />
             </div>

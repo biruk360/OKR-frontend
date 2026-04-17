@@ -105,15 +105,15 @@ export default function InitiativeReportClient() {
   }).length
 
   return (
-    <div className="atlas-surface -m-3 sm:-m-6 min-h-full p-4 sm:p-6">
+    <div className=" -m-3 sm:-m-6 min-h-full p-4 sm:p-6">
       <div className="mx-auto max-w-[1400px]">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <h1 className="atlas-h1">Initiative Report</h1>
-            <p className="atlas-text-tertiary mt-1">
+            <h1 className="text-xl font-semibold">Initiative Report</h1>
+            <p className="text-xs text-muted-foreground mt-1">
               Daily mandatory updates. {overallCompliance}% compliance
               {missingToday > 0 && (
-                <span className="text-[color:var(--atlas-danger)]"> · {missingToday} missing today</span>
+                <span className="text-destructive"> · {missingToday} missing today</span>
               )}
             </p>
           </div>
@@ -122,43 +122,43 @@ export default function InitiativeReportClient() {
               type="date"
               value={from}
               onChange={(e) => setFrom(e.target.value)}
-              className="atlas-input w-[140px]"
+              className="input w-[140px]"
             />
-            <span className="atlas-text-tertiary">to</span>
+            <span className="text-xs text-muted-foreground">to</span>
             <input
               type="date"
               value={to}
               onChange={(e) => setTo(e.target.value)}
-              className="atlas-input w-[140px]"
+              className="input w-[140px]"
             />
           </div>
         </div>
 
         <div className="mb-3 flex items-center gap-2">
           <div className="relative flex-1 max-w-[320px]">
-            <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[color:var(--atlas-n100)]" />
+            <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <input
               type="search"
               placeholder="Filter by initiative, owner, or objective"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="atlas-input pl-7"
+              className="input pl-7"
             />
           </div>
         </div>
 
         {loading ? (
-          <div className="atlas-card p-8 text-center atlas-text-secondary">Loading report...</div>
+          <div className="rounded-lg border border-border bg-card p-8 text-center text-sm text-muted-foreground">Loading report...</div>
         ) : filteredRows.length === 0 ? (
-          <div className="atlas-card p-8 text-center atlas-text-tertiary">
+          <div className="rounded-lg border border-border bg-card p-8 text-center text-xs text-muted-foreground">
             No initiatives match your filters.
           </div>
         ) : (
-          <div className="atlas-card overflow-x-auto">
-            <table className="atlas-table min-w-max">
+          <div className="rounded-lg border border-border bg-card overflow-x-auto">
+            <table className="inline-flex items-center gap-1 px-2.5 py-2 text-sm font-medium border-b-2 border-transparent cursor-pointer text-muted-foreground hover:text-foregroundle min-w-max">
               <thead>
                 <tr>
-                  <th style={{ width: 280, position: 'sticky', left: 0, background: 'var(--atlas-n0)', zIndex: 10 }}>
+                  <th style={{ width: 280, position: 'sticky', left: 0, background: '#ffffff', zIndex: 10 }}>
                     Initiative
                   </th>
                   <th style={{ width: 80 }}>Compliance</th>
@@ -171,7 +171,7 @@ export default function InitiativeReportClient() {
                       <div className="text-[10px]">
                         {new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'narrow' })}
                       </div>
-                      <div className="text-[10px] font-normal text-[color:var(--atlas-n100)]">
+                      <div className="text-[10px] font-normal text-muted-foreground">
                         {new Date(d + 'T12:00:00').getDate()}
                       </div>
                     </th>
@@ -183,21 +183,21 @@ export default function InitiativeReportClient() {
                   const isExpanded = expandedRow === row.id
                   return (
                     <tr key={row.id} className="group">
-                      <td style={{ position: 'sticky', left: 0, background: 'var(--atlas-n0)', zIndex: 5 }}>
+                      <td style={{ position: 'sticky', left: 0, background: '#ffffff', zIndex: 5 }}>
                         <button
                           type="button"
                           onClick={() => setExpandedRow(isExpanded ? null : row.id)}
                           className="flex items-center gap-1.5 text-left w-full"
                         >
                           {isExpanded
-                            ? <ChevronDown className="h-3 w-3 text-[color:var(--atlas-n100)]" />
-                            : <ChevronRight className="h-3 w-3 text-[color:var(--atlas-n100)]" />
+                            ? <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                            : <ChevronRight className="h-3 w-3 text-muted-foreground" />
                           }
                           <div className="min-w-0">
-                            <div className="truncate text-[13px] font-medium text-[color:var(--atlas-n800)]">
+                            <div className="truncate text-[13px] font-medium text-foreground">
                               {row.title}
                             </div>
-                            <div className="truncate text-[11px] text-[color:var(--atlas-n100)]">
+                            <div className="truncate text-[11px] text-muted-foreground">
                               {row.assignee.name}
                               {row.objectiveTitle && <> · {row.objectiveTitle}</>}
                             </div>
@@ -206,20 +206,20 @@ export default function InitiativeReportClient() {
                       </td>
                       <td>
                         <div className="flex items-center gap-1">
-                          <div className="atlas-progress w-12">
+                          <div className="h-1 w-full bg-muted rounded-full overflow-hidden w-12">
                             <div
-                              className="atlas-progress-fill"
+                              className="h-full bg-primary-500 rounded-full transition-all"
                               style={{
                                 width: `${row.compliancePct}%`,
                                 background: row.compliancePct >= 80
-                                  ? 'var(--atlas-success)'
+                                  ? '#059669'
                                   : row.compliancePct >= 50
-                                  ? 'var(--atlas-warning)'
-                                  : 'var(--atlas-danger)',
+                                  ? '#d97706'
+                                  : '#dc2626',
                               }}
                             />
                           </div>
-                          <span className="text-[11px] text-[color:var(--atlas-n200)] tabular-nums">
+                          <span className="text-[11px] text-muted-foreground tabular-nums">
                             {row.compliancePct}%
                           </span>
                         </div>
@@ -243,25 +243,25 @@ export default function InitiativeReportClient() {
                             }}
                           >
                             {isEditing ? (
-                              <div className="absolute z-20 mt-1 w-60 p-2 atlas-card" style={{ boxShadow: 'var(--atlas-shadow-popover)' }}>
+                              <div className="absolute z-20 mt-1 w-60 p-2 rounded-lg border border-border bg-card" style={{ boxShadow: '0 4px 8px -2px rgba(0,0,0,0.12), 0 0 1px rgba(0,0,0,0.08)' }}>
                                 <textarea
                                   autoFocus
                                   value={editContent}
                                   onChange={(e) => setEditContent(e.target.value)}
                                   rows={3}
-                                  className="atlas-input min-h-[60px] text-[12px]"
+                                  className="input min-h-[60px] text-[12px]"
                                   placeholder="What did you do today?"
                                 />
                                 <div className="mt-1 flex gap-1">
                                   <button
                                     onClick={(e) => { e.stopPropagation(); submitUpdate(row.id, day.date) }}
-                                    className="atlas-btn atlas-btn-primary atlas-btn-sm"
+                                    className="btn-outline btn-primary btn-sm"
                                   >
                                     Save
                                   </button>
                                   <button
                                     onClick={(e) => { e.stopPropagation(); setEditingCell(null) }}
-                                    className="atlas-btn atlas-btn-sm"
+                                    className="btn-outline btn-sm"
                                   >
                                     Cancel
                                   </button>
@@ -269,10 +269,10 @@ export default function InitiativeReportClient() {
                               </div>
                             ) : day.hasUpdate ? (
                               <CheckCircle2
-                                className="mx-auto h-4 w-4 text-[color:var(--atlas-success)]"
+                                className="mx-auto h-4 w-4 text-emerald-600"
                               />
                             ) : (
-                              <div className="mx-auto h-4 w-4 rounded-sm bg-[color:var(--atlas-danger-bg)] border border-[color:var(--atlas-danger)] opacity-60" />
+                              <div className="mx-auto h-4 w-4 rounded-sm bg-[color:#fee2e2] border border-[color:#dc2626] opacity-60" />
                             )}
                           </td>
                         )

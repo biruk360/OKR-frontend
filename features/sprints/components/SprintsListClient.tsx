@@ -49,26 +49,26 @@ export default function SprintsListClient({ sprints }: { sprints: SprintRow[] })
   }
 
   return (
-    <div className="notion-surface min-h-screen">
+    <div className=" min-h-screen">
       <div className="mx-auto max-w-[1200px] px-6 py-6">
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h1 className="notion-h1">Sprints</h1>
-            <p className="notion-text-secondary mt-1">
+            <h1 className="text-2xl font-bold">Sprints</h1>
+            <p className="text-sm text-muted-foreground mt-1">
               Trello-style boards for marketing &amp; business teams. Each board has dynamic columns for status.
             </p>
           </div>
           <button
             type="button"
             onClick={() => setCreating(true)}
-            className="notion-button notion-button-primary"
+            className="btn-outline btn-primary"
           >
             <Plus className="h-3.5 w-3.5" /> New sprint
           </button>
         </div>
 
         {creating && (
-          <div className="mb-4 notion-card p-3">
+          <div className="mb-4 rounded-lg border border-border bg-card p-3">
             <input
               autoFocus
               type="text"
@@ -78,14 +78,14 @@ export default function SprintsListClient({ sprints }: { sprints: SprintRow[] })
                 if (e.key === 'Enter') createSprint()
                 if (e.key === 'Escape') { setCreating(false); setName('') }
               }}
-              className="notion-input"
+              className="input"
               placeholder="Sprint name (e.g. Marketing Q2 W14)"
             />
             <div className="mt-2 flex items-center gap-2">
-              <button onClick={createSprint} disabled={!name.trim() || submitting} className="notion-button notion-button-primary">
+              <button onClick={createSprint} disabled={!name.trim() || submitting} className="btn-outline btn-primary">
                 {submitting ? 'Creating…' : 'Create'}
               </button>
-              <button onClick={() => { setCreating(false); setName('') }} className="notion-button">
+              <button onClick={() => { setCreating(false); setName('') }} className="btn-outline">
                 Cancel
               </button>
             </div>
@@ -93,9 +93,9 @@ export default function SprintsListClient({ sprints }: { sprints: SprintRow[] })
         )}
 
         {sprints.length === 0 ? (
-          <div className="notion-card p-8 text-center">
-            <Layout className="mx-auto h-8 w-8 text-[color:var(--notion-text-tertiary)]" />
-            <p className="mt-2 notion-text-secondary">No sprints yet. Create one to get started.</p>
+          <div className="rounded-lg border border-border bg-card p-8 text-center">
+            <Layout className="mx-auto h-8 w-8 text-[color:var(--text-xs text-muted-foreground)]" />
+            <p className="mt-2 text-sm text-muted-foreground">No sprints yet. Create one to get started.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
@@ -103,18 +103,18 @@ export default function SprintsListClient({ sprints }: { sprints: SprintRow[] })
               <Link
                 key={s.id}
                 href={`/dashboard/sprints/${s.id}`}
-                className="notion-card group block p-4 transition hover:border-[color:var(--notion-border-strong)]"
+                className="rounded-lg border border-border bg-card group block p-4 transition hover:border-[color:#d1d5db]"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
-                    <h3 className="text-[14px] font-semibold text-[color:var(--notion-text)] truncate">{s.name}</h3>
+                    <h3 className="text-[14px] font-semibold text-[color:var(--text-sm)] truncate">{s.name}</h3>
                     {s.description && (
-                      <p className="mt-0.5 notion-text-secondary line-clamp-2">{s.description}</p>
+                      <p className="mt-0.5 text-sm text-muted-foreground line-clamp-2">{s.description}</p>
                     )}
                   </div>
-                  <Layout className="h-4 w-4 text-[color:var(--notion-text-tertiary)] group-hover:text-[color:var(--notion-text)]" />
+                  <Layout className="h-4 w-4 text-[color:var(--text-xs text-muted-foreground)] group-hover:text-[color:var(--text-sm)]" />
                 </div>
-                <div className="mt-3 flex items-center gap-3 text-[11px] text-[color:var(--notion-text-tertiary)]">
+                <div className="mt-3 flex items-center gap-3 text-[11px] text-[color:var(--text-xs text-muted-foreground)]">
                   <span>{s.activitiesCount} activities</span>
                   <span>·</span>
                   <span>{s.columnsCount} columns</span>
@@ -130,7 +130,7 @@ export default function SprintsListClient({ sprints }: { sprints: SprintRow[] })
                     </>
                   )}
                 </div>
-                <div className="mt-2 notion-text-tertiary">Owner · {s.ownerName}</div>
+                <div className="mt-2 text-xs text-muted-foreground">Owner · {s.ownerName}</div>
               </Link>
             ))}
           </div>

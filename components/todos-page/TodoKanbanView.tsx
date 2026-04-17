@@ -5,10 +5,10 @@ import { Calendar, Link2, Target, User as UserIcon } from 'lucide-react'
 import type { TodoRow, UserOption } from './TodosPageClient'
 
 const COLUMNS: Array<{ key: string; label: string; color: string }> = [
-  { key: 'PENDING', label: 'To do', color: 'var(--atlas-n40)' },
-  { key: 'IN_PROGRESS', label: 'In progress', color: 'var(--atlas-primary)' },
-  { key: 'COMPLETED', label: 'Done', color: 'var(--atlas-success)' },
-  { key: 'CANCELLED', label: 'Cancelled', color: 'var(--atlas-n50)' },
+  { key: 'PENDING', label: 'To do', color: '#c1c7d0' },
+  { key: 'IN_PROGRESS', label: 'In progress', color: '#2563eb' },
+  { key: 'COMPLETED', label: 'Done', color: '#059669' },
+  { key: 'CANCELLED', label: 'Cancelled', color: '#a5adba' },
 ]
 
 interface Props {
@@ -44,16 +44,16 @@ export default function TodoKanbanView({ rows, users, onToggle, onStatusChange, 
         return (
           <div
             key={col.key}
-            className="w-[260px] flex-shrink-0 rounded-md bg-[color:var(--atlas-n10)] border border-[color:var(--atlas-n30)]"
+            className="w-[260px] flex-shrink-0 rounded-md bg-muted border border-border"
             onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
             onDrop={(e) => { e.preventDefault(); onDrop(col.key) }}
           >
-            <div className="flex items-center gap-2 px-3 py-2 border-b border-[color:var(--atlas-n30)]">
+            <div className="flex items-center gap-2 px-3 py-2 border-b border-border">
               <span className="h-2 w-2 rounded-full" style={{ background: col.color }} />
-              <span className="text-[12px] font-semibold text-[color:var(--atlas-n700)] uppercase tracking-wide">
+              <span className="text-[12px] font-semibold text-foreground uppercase tracking-wide">
                 {col.label}
               </span>
-              <span className="ml-auto text-[11px] text-[color:var(--atlas-n100)]">{colRows.length}</span>
+              <span className="ml-auto text-[11px] text-muted-foreground">{colRows.length}</span>
             </div>
             <div className="p-1.5 space-y-1.5 min-h-[60px]">
               {colRows.map((row) => (
@@ -94,11 +94,11 @@ function KanbanCard({
       draggable
       onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; onDragStart() }}
       onClick={onOpen}
-      className="atlas-card p-2 cursor-pointer hover:border-[color:var(--atlas-n40)] transition"
+      className="rounded-lg border border-border bg-card p-2 cursor-pointer hover:border-[color:#c1c7d0] transition"
     >
-      <div className="text-[13px] font-medium text-[color:var(--atlas-n800)] break-words">{row.title}</div>
+      <div className="text-[13px] font-medium text-foreground break-words">{row.title}</div>
       {(row.keyResult || row.objective) && (
-        <div className="mt-1 text-[11px] text-[color:var(--atlas-n100)] truncate">
+        <div className="mt-1 text-[11px] text-muted-foreground truncate">
           {row.keyResult ? (
             <span className="inline-flex items-center gap-0.5"><Link2 className="h-2.5 w-2.5" /> {row.keyResult.title}</span>
           ) : row.objective ? (
@@ -107,7 +107,7 @@ function KanbanCard({
         </div>
       )}
       <div className="mt-2 flex items-center gap-1.5">
-        <span className="atlas-avatar" style={{ width: 20, height: 20, fontSize: 9 }} title={row.assignee.name}>
+        <span className="inline-flex items-center justify-center size-6 rounded-full bg-muted text-xs font-semibold" style={{ width: 20, height: 20, fontSize: 9 }} title={row.assignee.name}>
           {row.assignee.avatar ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={row.assignee.avatar} alt="" />
@@ -118,7 +118,7 @@ function KanbanCard({
         {row.dueDate && (
           <span
             className={`inline-flex items-center gap-0.5 text-[11px] ${
-              overdue ? 'text-[color:var(--atlas-danger)] font-medium' : 'text-[color:var(--atlas-n100)]'
+              overdue ? 'text-destructive font-medium' : 'text-muted-foreground'
             }`}
           >
             <Calendar className="h-2.5 w-2.5" />

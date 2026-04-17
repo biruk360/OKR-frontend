@@ -121,37 +121,37 @@ export default function TodoDetailPanel({
   const isDone = todo.status === 'COMPLETED'
 
   const containerClass = mode === 'sidebar'
-    ? 'fixed inset-y-0 right-0 z-50 w-[480px] max-w-full bg-card shadow-[-4px_0_24px_rgba(9,30,66,0.15)] flex flex-col atlas-surface'
-    : 'fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 pt-[5vh] atlas-surface'
+    ? 'fixed inset-y-0 right-0 z-50 w-[480px] max-w-full bg-card shadow-[-4px_0_24px_rgba(9,30,66,0.15)] flex flex-col '
+    : 'fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 pt-[5vh] '
 
   const innerClass = mode === 'sidebar'
     ? 'flex-1 overflow-y-auto'
-    : 'w-full max-w-[640px] atlas-card'
+    : 'w-full max-w-[640px] rounded-lg border border-border bg-card'
 
   const panel = (
     <div className={mode === 'modal' ? innerClass : undefined} onClick={(e) => e.stopPropagation()}>
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[color:var(--atlas-n30)]">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <div className="flex items-center gap-2 min-w-0">
           <input
             type="checkbox"
             checked={isDone}
             onChange={() => patchField('status', isDone ? 'PENDING' : 'COMPLETED')}
-            className="atlas-checkbox"
+            className="appearance-none w-3.5 h-3.5 rounded border border-border"
           />
-          <h2 className={`atlas-h2 truncate ${isDone ? 'line-through text-[color:var(--atlas-n100)]' : ''}`}>
+          <h2 className={`text-base font-semibold truncate ${isDone ? 'line-through text-muted-foreground' : ''}`}>
             {todo.title}
           </h2>
         </div>
         <div className="flex items-center gap-1">
           <button
             onClick={onToggleMode}
-            className="atlas-icon-btn"
+            className="inline-flex items-center justify-center size-6 rounded hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
             title={mode === 'modal' ? 'Switch to sidebar' : 'Switch to modal'}
           >
             {mode === 'modal' ? <PanelRight className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
           </button>
-          <button onClick={onClose} className="atlas-icon-btn" aria-label="Close">
+          <button onClick={onClose} className="inline-flex items-center justify-center size-6 rounded hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer" aria-label="Close">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -160,21 +160,21 @@ export default function TodoDetailPanel({
       <div className="px-4 py-4 space-y-5">
         {/* Meta chips */}
         <div className="flex flex-wrap items-center gap-2">
-          <span className="atlas-chip" title={`Assigned to ${todo.assignee.name}`}>
+          <span className="inline-flex items-center h-5 px-1.5 text-xs font-medium rounded" title={`Assigned to ${todo.assignee.name}`}>
             <UserIcon className="h-3 w-3" /> {todo.assignee.name}
           </span>
           {todo.keyResult && (
-            <Link href={`/dashboard/key-results/${todo.keyResult.id}`} className="atlas-chip" data-tone="primary">
+            <Link href={`/dashboard/key-results/${todo.keyResult.id}`} className="inline-flex items-center h-5 px-1.5 text-xs font-medium rounded" data-tone="primary">
               <Link2 className="h-3 w-3" /> {todo.keyResult.title}
             </Link>
           )}
           {todo.objective && (
-            <Link href={`/dashboard/objectives/${todo.objective.id}`} className="atlas-chip" data-tone="primary">
+            <Link href={`/dashboard/objectives/${todo.objective.id}`} className="inline-flex items-center h-5 px-1.5 text-xs font-medium rounded" data-tone="primary">
               <Target className="h-3 w-3" /> {todo.objective.title}
             </Link>
           )}
           {todo.dueDate && (
-            <span className="atlas-chip">
+            <span className="inline-flex items-center h-5 px-1.5 text-xs font-medium rounded">
               <Calendar className="h-3 w-3" />
               {new Date(todo.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
             </span>
@@ -184,26 +184,26 @@ export default function TodoDetailPanel({
 
         {/* Description */}
         <section>
-          <h4 className="atlas-eyebrow mb-1">Description</h4>
+          <h4 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">Description</h4>
           {editingDesc ? (
             <div>
               <textarea
                 autoFocus
                 value={descDraft}
                 onChange={(e) => setDescDraft(e.target.value)}
-                className="atlas-input min-h-[80px]"
+                className="input min-h-[80px]"
                 placeholder="Add details..."
               />
               <div className="mt-1 flex gap-1">
-                <button onClick={saveDesc} className="atlas-btn atlas-btn-primary atlas-btn-sm">Save</button>
-                <button onClick={() => { setDescDraft(todo.description || ''); setEditingDesc(false) }} className="atlas-btn atlas-btn-sm">Cancel</button>
+                <button onClick={saveDesc} className="btn-outline btn-primary btn-sm">Save</button>
+                <button onClick={() => { setDescDraft(todo.description || ''); setEditingDesc(false) }} className="btn-outline btn-sm">Cancel</button>
               </div>
             </div>
           ) : (
             <button
               type="button"
               onClick={() => setEditingDesc(true)}
-              className="w-full rounded px-2 py-1.5 text-left text-[13px] text-[color:var(--atlas-n200)] hover:bg-[color:var(--atlas-n10)]"
+              className="w-full rounded px-2 py-1.5 text-left text-[13px] text-muted-foreground hover:bg-muted"
             >
               {todo.description || 'Click to add a description...'}
             </button>
@@ -212,7 +212,7 @@ export default function TodoDetailPanel({
 
         {/* Daily Update (mandatory) */}
         <section>
-          <h4 className="atlas-eyebrow mb-1 flex items-center gap-1">
+          <h4 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1 flex items-center gap-1">
             <Pencil className="h-3 w-3" /> Daily Update
           </h4>
           <div className="flex gap-2 mb-3">
@@ -223,35 +223,35 @@ export default function TodoDetailPanel({
                 if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); postDailyUpdate() }
               }}
               rows={2}
-              className="atlas-input flex-1 min-h-[48px]"
+              className="input flex-1 min-h-[48px]"
               placeholder="What did you do on this today?"
             />
             {updateDraft.trim() && (
-              <button onClick={postDailyUpdate} className="atlas-btn atlas-btn-primary self-end">
+              <button onClick={postDailyUpdate} className="btn-outline btn-primary self-end">
                 Post
               </button>
             )}
           </div>
 
           {loadingUpdates ? (
-            <p className="atlas-text-tertiary">Loading updates...</p>
+            <p className="text-xs text-muted-foreground">Loading updates...</p>
           ) : updates.length === 0 ? (
-            <p className="atlas-text-tertiary">No daily updates yet.</p>
+            <p className="text-xs text-muted-foreground">No daily updates yet.</p>
           ) : (
             <ul className="space-y-2 max-h-[200px] overflow-y-auto">
               {updates.map((u) => (
                 <li key={u.id} className="flex gap-2 text-[13px]">
-                  <div className="atlas-avatar mt-0.5">
+                  <div className="inline-flex items-center justify-center size-6 rounded-full bg-muted text-xs font-semibold mt-0.5">
                     {u.author?.name?.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase() ?? '?'}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-baseline gap-2">
-                      <span className="font-medium text-[color:var(--atlas-n800)]">{u.author?.name ?? 'Unknown'}</span>
-                      <span className="atlas-text-tertiary">{u.updateDate}</span>
+                      <span className="font-medium text-foreground">{u.author?.name ?? 'Unknown'}</span>
+                      <span className="text-xs text-muted-foreground">{u.updateDate}</span>
                     </div>
-                    <p className="whitespace-pre-wrap text-[color:var(--atlas-n700)]">{u.content}</p>
+                    <p className="whitespace-pre-wrap text-foreground">{u.content}</p>
                     {u.blockers && (
-                      <p className="mt-0.5 text-[12px] text-[color:var(--atlas-danger)]">Blocker: {u.blockers}</p>
+                      <p className="mt-0.5 text-[12px] text-destructive">Blocker: {u.blockers}</p>
                     )}
                   </div>
                 </li>
@@ -261,12 +261,12 @@ export default function TodoDetailPanel({
         </section>
 
         {/* Actions */}
-        <section className="border-t border-[color:var(--atlas-n30)] pt-3">
+        <section className="border-t border-border pt-3">
           <div className="flex flex-wrap gap-2">
             <select
               value={todo.status}
               onChange={(e) => patchField('status', e.target.value)}
-              className="atlas-input atlas-select w-auto"
+              className="input input w-auto"
             >
               <option value="PENDING">To do</option>
               <option value="IN_PROGRESS">In progress</option>
@@ -281,7 +281,7 @@ export default function TodoDetailPanel({
                   onClose()
                 }
               }}
-              className="atlas-btn atlas-btn-danger"
+              className="btn-outline btn-outline text-destructive"
             >
               <Trash2 className="h-3.5 w-3.5" /> Delete
             </button>
@@ -302,7 +302,7 @@ export default function TodoDetailPanel({
 
   return (
     <div className={containerClass} onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} style={{ boxShadow: 'var(--atlas-shadow-popover)' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ boxShadow: '0 4px 8px -2px rgba(0,0,0,0.12), 0 0 1px rgba(0,0,0,0.08)' }}>
         {panel}
       </div>
     </div>
@@ -318,7 +318,7 @@ function StatusLozenge({ status }: { status: string }) {
   }
   const v = map[status] ?? { label: status, tone: '' }
   return (
-    <span className="atlas-lozenge" data-tone={v.tone || undefined}>
+    <span className="inline-flex items-center h-4 px-1 text-[11px] font-bold uppercase rounded" data-tone={v.tone || undefined}>
       {v.label}
     </span>
   )

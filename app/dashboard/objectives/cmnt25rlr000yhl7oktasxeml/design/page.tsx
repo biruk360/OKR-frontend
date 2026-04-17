@@ -73,106 +73,106 @@ const recentActivity = [
 
 export default function ObjectiveDesignPage() {
   return (
-    <div className="atlas-surface -m-3 sm:-m-6 min-h-full p-4 sm:p-6">
+    <div className=" -m-3 sm:-m-6 min-h-full p-4 sm:p-6">
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="space-y-4">
-          <section className="atlas-card p-5 lg:p-6">
+          <section className="rounded-lg border border-border bg-card p-5 lg:p-6">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="space-y-3">
                 <span className="badge-secondary">Individual Objective</span>
-                <h1 className="text-2xl font-semibold text-[color:var(--atlas-n800)]">
+                <h1 className="text-2xl font-semibold text-foreground">
                   Implement Authentication System
                 </h1>
-                <p className="text-body text-[color:var(--atlas-n200)] max-w-xl">
+                <p className="text-body text-muted-foreground max-w-xl">
                   Build a secure, scalable authentication system for the new product features to
                   ensure user data protection and seamless access.
                 </p>
                 <div className="flex flex-wrap items-center gap-2">
-                  <button className="atlas-btn atlas-btn-sm">
+                  <button className="btn-outline btn-sm">
                     <Pencil className="mr-2 h-3.5 w-3.5" /> Edit
                   </button>
-                  <button className="atlas-btn atlas-btn-primary atlas-btn-sm">
+                  <button className="btn-outline btn-primary btn-sm">
                     <Plus className="mr-2 h-3.5 w-3.5" /> Add Key Result
                   </button>
                 </div>
               </div>
-              <div className="atlas-card w-full max-w-sm border-[color:var(--atlas-n30)] p-4 shadow-none">
+              <div className="rounded-lg border border-border bg-card w-full max-w-sm border-border p-4 shadow-none">
                 <div className="flex items-center gap-4">
                   <div className="relative h-14 w-14">
                     <svg viewBox="0 0 36 36" className="h-14 w-14">
                       <path
                         d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                         fill="none"
-                        stroke="var(--atlas-n20)"
+                        stroke="#ebecf0"
                         strokeWidth="4"
                       />
                       <path
                         d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                         fill="none"
-                        stroke="var(--atlas-warning)"
+                        stroke="#d97706"
                         strokeWidth="4"
                         strokeDasharray="9, 100"
                       />
                     </svg>
-                    <span className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-[color:var(--atlas-n800)]">
+                    <span className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-foreground">
                       9%
                     </span>
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-[color:var(--atlas-n800)]">Overall Progress</p>
+                    <p className="text-sm font-semibold text-foreground">Overall Progress</p>
                     <div className="mt-1 flex items-center gap-2">
                       <span className="badge-warning">At Risk</span>
-                      <span className="text-xs text-[color:var(--atlas-n100)]">Last updated: 10:27 AM</span>
+                      <span className="text-xs text-muted-foreground">Last updated: 10:27 AM</span>
                     </div>
                   </div>
                 </div>
                 <div className="mt-4 grid grid-cols-2 gap-3">
                   <div>
-                    <p className="text-[11px] uppercase tracking-wide text-[color:var(--atlas-n100)]">Total KRs</p>
-                    <p className="text-lg font-semibold text-[color:var(--atlas-n800)]">2 Active</p>
+                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Total KRs</p>
+                    <p className="text-lg font-semibold text-foreground">2 Active</p>
                   </div>
                   <div>
-                    <p className="text-[11px] uppercase tracking-wide text-[color:var(--atlas-n100)]">Avg Progress</p>
-                    <p className="text-lg font-semibold text-[color:var(--atlas-n800)]">9%</p>
+                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Avg Progress</p>
+                    <p className="text-lg font-semibold text-foreground">9%</p>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="mt-6 border-t border-[color:var(--atlas-n30)] pt-4">
+            <div className="mt-6 border-t border-border pt-4">
               <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold uppercase tracking-wide text-[color:var(--atlas-n100)]">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Progress Timeline
                 </p>
-                <div className="flex items-center gap-4 text-xs text-[color:var(--atlas-n100)]">
+                <div className="flex items-center gap-4 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1">
-                    <span className="h-1.5 w-4 rounded-full bg-[color:var(--atlas-n30)]" /> Expected
+                    <span className="h-1.5 w-4 rounded-full bg-[color:hsl(var(--border))]" /> Expected
                   </span>
                   <span className="flex items-center gap-1">
-                    <span className="h-1.5 w-4 rounded-full bg-[color:var(--atlas-primary)]" /> Actual
+                    <span className="h-1.5 w-4 rounded-full bg-[color:#2563eb]" /> Actual
                   </span>
                 </div>
               </div>
-              <div className="mt-4 rounded-lg border border-[color:var(--atlas-n20)] bg-[color:var(--atlas-n0)] p-3">
+              <div className="mt-4 rounded-lg border border-border bg-card p-3">
                 <svg viewBox="0 0 320 120" className="h-28 w-full">
                   <polyline
                     points="10,90 90,80 170,60 250,40 310,20"
                     fill="none"
-                    stroke="var(--atlas-n30)"
+                    stroke="#dfe1e6"
                     strokeWidth="2"
                     strokeDasharray="4 4"
                   />
                   <polyline
                     points="10,96 90,94 170,93 250,92 310,91"
                     fill="none"
-                    stroke="var(--atlas-primary)"
+                    stroke="#2563eb"
                     strokeWidth="2"
                   />
-                  <circle cx="250" cy="92" r="5" fill="var(--atlas-primary)" />
-                  <rect x="220" y="60" width="70" height="20" rx="10" fill="var(--atlas-primary)" />
+                  <circle cx="250" cy="92" r="5" fill="#2563eb" />
+                  <rect x="220" y="60" width="70" height="20" rx="10" fill="#2563eb" />
                   <text x="255" y="74" textAnchor="middle" fontSize="10" fill="white">9% (Current)</text>
                 </svg>
-                <div className="flex justify-between text-[10px] text-[color:var(--atlas-n100)]">
+                <div className="flex justify-between text-[10px] text-muted-foreground">
                   <span>Jan 1</span>
                   <span>Feb 1</span>
                   <span>Mar 1</span>
@@ -184,28 +184,28 @@ export default function ObjectiveDesignPage() {
 
           <section className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-[color:var(--atlas-n800)]">Key Results</h2>
-              <p className="text-body-sm text-[color:var(--atlas-n100)]">{keyResults.length} total</p>
+              <h2 className="text-lg font-semibold text-foreground">Key Results</h2>
+              <p className="text-body-sm text-muted-foreground">{keyResults.length} total</p>
             </div>
-            <button className="atlas-btn atlas-btn-primary atlas-btn-sm">
+            <button className="btn-outline btn-primary btn-sm">
               <Plus className="mr-2 h-3.5 w-3.5" /> Add KR
             </button>
           </section>
 
           <div className="space-y-4">
             {keyResults.map((kr) => (
-              <article key={kr.title} className="atlas-card p-5">
+              <article key={kr.title} className="rounded-lg border border-border bg-card p-5">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div className="flex items-start gap-3">
-                    <div className="mt-1 flex h-10 w-10 items-center justify-center rounded-full bg-[color:var(--atlas-primary-bg)]">
-                      <Target className="h-5 w-5 text-[color:var(--atlas-primary)]" />
+                    <div className="mt-1 flex h-10 w-10 items-center justify-center rounded-full bg-[color:#dbeafe]">
+                      <Target className="h-5 w-5 text-primary-500" />
                     </div>
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="text-lg font-semibold text-[color:var(--atlas-n800)]">{kr.title}</h3>
+                        <h3 className="text-lg font-semibold text-foreground">{kr.title}</h3>
                         <span className="badge-warning">{kr.status}</span>
                       </div>
-                      <div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-[color:var(--atlas-n200)]">
+                      <div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <Users className="h-4 w-4" /> {kr.owner}
                         </span>
@@ -219,36 +219,36 @@ export default function ObjectiveDesignPage() {
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <button className="atlas-btn atlas-btn-sm">
+                    <button className="btn-outline btn-sm">
                       <Pencil className="mr-2 h-3.5 w-3.5" /> Edit
                     </button>
-                    <button className="atlas-btn atlas-btn-primary atlas-btn-sm">Check-in</button>
+                    <button className="btn-outline btn-primary btn-sm">Check-in</button>
                   </div>
                 </div>
 
                 <div className="mt-4 grid gap-3 sm:grid-cols-4">
-                  <div className="rounded-lg border border-[color:var(--atlas-n20)] p-3">
-                    <p className="text-xs uppercase tracking-wide text-[color:var(--atlas-n100)]">Target</p>
-                    <p className="mt-1 text-lg font-semibold text-[color:var(--atlas-n800)]">{kr.target}</p>
+                  <div className="rounded-lg border border-border p-3">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Target</p>
+                    <p className="mt-1 text-lg font-semibold text-foreground">{kr.target}</p>
                   </div>
-                  <div className="rounded-lg border border-[color:var(--atlas-n20)] p-3 bg-[color:var(--atlas-primary-bg)]/40">
-                    <p className="text-xs uppercase tracking-wide text-[color:var(--atlas-n100)]">Current</p>
-                    <p className="mt-1 text-lg font-semibold text-[color:var(--atlas-primary)]">{kr.current}</p>
+                  <div className="rounded-lg border border-border p-3 bg-[color:#dbeafe]/40">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Current</p>
+                    <p className="mt-1 text-lg font-semibold text-primary-500">{kr.current}</p>
                   </div>
-                  <div className="rounded-lg border border-[color:var(--atlas-n20)] p-3">
-                    <p className="text-xs uppercase tracking-wide text-[color:var(--atlas-n100)]">Confidence</p>
-                    <p className="mt-1 text-lg font-semibold text-[color:var(--atlas-n800)]">{kr.confidence}</p>
+                  <div className="rounded-lg border border-border p-3">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Confidence</p>
+                    <p className="mt-1 text-lg font-semibold text-foreground">{kr.confidence}</p>
                   </div>
-                  <div className="rounded-lg border border-[color:var(--atlas-n20)] p-3">
-                    <p className="text-xs uppercase tracking-wide text-[color:var(--atlas-n100)]">Initiatives</p>
-                    <p className="mt-1 text-lg font-semibold text-[color:var(--atlas-n800)]">{kr.initiativesDone}</p>
+                  <div className="rounded-lg border border-border p-3">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Initiatives</p>
+                    <p className="mt-1 text-lg font-semibold text-foreground">{kr.initiativesDone}</p>
                   </div>
                 </div>
 
                 <div className="mt-4">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-[color:var(--atlas-n200)]">Progress</span>
-                    <span className="font-semibold text-[color:var(--atlas-n800)]">{kr.progress}%</span>
+                    <span className="text-muted-foreground">Progress</span>
+                    <span className="font-semibold text-foreground">{kr.progress}%</span>
                   </div>
                   <div className="progress-bar mt-2">
                     <div className="progress-fill" style={{ width: `${kr.progress}%` }} />
@@ -257,10 +257,10 @@ export default function ObjectiveDesignPage() {
 
                 <div className="mt-5">
                   <div className="flex items-center justify-between">
-                    <button className="atlas-btn atlas-btn-sm">
+                    <button className="btn-outline btn-sm">
                       <ChevronDown className="mr-2 h-3.5 w-3.5" /> Initiatives ({kr.initiatives.length})
                     </button>
-                    <button className="atlas-btn atlas-btn-sm">
+                    <button className="btn-outline btn-sm">
                       <Plus className="mr-2 h-3.5 w-3.5" /> Add initiative
                     </button>
                   </div>
@@ -269,26 +269,26 @@ export default function ObjectiveDesignPage() {
                     {kr.initiatives.map((item) => (
                       <div
                         key={item.title}
-                        className="flex items-center justify-between rounded-lg border border-[color:var(--atlas-n20)] bg-[color:var(--atlas-n0)] p-3"
+                        className="flex items-center justify-between rounded-lg border border-border bg-card p-3"
                       >
                         <div className="flex items-start gap-3">
                           <div
                             className={`mt-1 h-3.5 w-3.5 rounded-full border-2 ${
                               item.done
-                                ? 'border-[color:var(--atlas-primary)] bg-[color:var(--atlas-primary)]/20'
-                                : 'border-[color:var(--atlas-primary)]'
+                                ? 'border-[color:#2563eb] bg-[color:#2563eb]/20'
+                                : 'border-[color:#2563eb]'
                             }`}
                           />
                           <div>
-                            <p className={`text-sm font-medium ${item.done ? 'line-through text-[color:var(--atlas-n100)]' : 'text-[color:var(--atlas-n800)]'}`}>
+                            <p className={`text-sm font-medium ${item.done ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
                               {item.title}
                             </p>
-                            <p className="text-xs text-[color:var(--atlas-n100)]">
+                            <p className="text-xs text-muted-foreground">
                               Owner {item.owner} · Due {item.due}
                             </p>
                           </div>
                         </div>
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[color:var(--atlas-n20)] text-xs font-semibold text-[color:var(--atlas-n700)]">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[color:#ebecf0] text-xs font-semibold text-foreground">
                           {item.owner}
                         </div>
                       </div>
@@ -301,86 +301,86 @@ export default function ObjectiveDesignPage() {
         </div>
 
         <aside className="space-y-4">
-          <section className="atlas-card p-5">
-            <h3 className="text-sm font-semibold text-[color:var(--atlas-n800)]">Objective Details</h3>
+          <section className="rounded-lg border border-border bg-card p-5">
+            <h3 className="text-sm font-semibold text-foreground">Objective Details</h3>
             <div className="mt-4 space-y-4 text-sm">
               <div>
-                <p className="text-xs uppercase tracking-wide text-[color:var(--atlas-n100)]">Owner</p>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Owner</p>
                 <div className="mt-2 flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[color:var(--atlas-primary-bg)] text-xs font-semibold text-[color:var(--atlas-primary)]">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[color:#dbeafe] text-xs font-semibold text-primary-500">
                     AR
                   </div>
                   <div>
-                    <p className="font-semibold text-[color:var(--atlas-n800)]">Alex Rodriguez</p>
-                    <p className="text-xs text-[color:var(--atlas-n100)]">engineer1@company.com</p>
+                    <p className="font-semibold text-foreground">Alex Rodriguez</p>
+                    <p className="text-xs text-muted-foreground">engineer1@company.com</p>
                   </div>
                 </div>
               </div>
 
               <div>
-                <p className="text-xs uppercase tracking-wide text-[color:var(--atlas-n100)]">Timeframe</p>
-                <div className="mt-2 flex items-center gap-2 rounded-lg border border-[color:var(--atlas-n20)] px-3 py-2">
-                  <Clock className="h-4 w-4 text-[color:var(--atlas-n100)]" />
-                  <span className="font-medium text-[color:var(--atlas-n800)]">Q1 2026</span>
-                  <span className="text-xs text-[color:var(--atlas-n100)]">Quarterly</span>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Timeframe</p>
+                <div className="mt-2 flex items-center gap-2 rounded-lg border border-border px-3 py-2">
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-medium text-foreground">Q1 2026</span>
+                  <span className="text-xs text-muted-foreground">Quarterly</span>
                 </div>
               </div>
 
               <div>
-                <p className="text-xs uppercase tracking-wide text-[color:var(--atlas-n100)]">Primary Alignment</p>
-                <div className="mt-2 rounded-lg border border-[color:var(--atlas-n20)] px-3 py-2">
-                  <div className="flex items-center gap-2 text-[color:var(--atlas-primary)]">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Primary Alignment</p>
+                <div className="mt-2 rounded-lg border border-border px-3 py-2">
+                  <div className="flex items-center gap-2 text-primary-500">
                     <Link2 className="h-4 w-4" />
                     <p className="text-sm font-semibold">Launch New Product Features</p>
                   </div>
-                  <p className="text-xs text-[color:var(--atlas-n100)]">Company Objective</p>
+                  <p className="text-xs text-muted-foreground">Company Objective</p>
                 </div>
               </div>
 
               <div>
-                <p className="text-xs uppercase tracking-wide text-[color:var(--atlas-n100)]">Department</p>
-                <div className="mt-2 flex items-center gap-2 rounded-lg border border-[color:var(--atlas-n20)] px-3 py-2">
-                  <Users className="h-4 w-4 text-[color:var(--atlas-n100)]" />
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Department</p>
+                <div className="mt-2 flex items-center gap-2 rounded-lg border border-border px-3 py-2">
+                  <Users className="h-4 w-4 text-muted-foreground" />
                   <div>
-                    <p className="text-sm font-medium text-[color:var(--atlas-n800)]">Engineering</p>
-                    <p className="text-xs text-[color:var(--atlas-n100)]">Product & Engineering Div.</p>
+                    <p className="text-sm font-medium text-foreground">Engineering</p>
+                    <p className="text-xs text-muted-foreground">Product & Engineering Div.</p>
                   </div>
                 </div>
               </div>
             </div>
           </section>
 
-          <section className="atlas-card p-5">
+          <section className="rounded-lg border border-border bg-card p-5">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-[color:var(--atlas-n800)]">Collaborators</h3>
-              <span className="text-xs text-[color:var(--atlas-n100)]">{collaborators.length} total</span>
+              <h3 className="text-sm font-semibold text-foreground">Collaborators</h3>
+              <span className="text-xs text-muted-foreground">{collaborators.length} total</span>
             </div>
             <div className="mt-3 flex items-center gap-2">
               {collaborators.map((c) => (
                 <span
                   key={c}
-                  className="flex h-8 w-8 items-center justify-center rounded-full bg-[color:var(--atlas-n20)] text-xs font-semibold text-[color:var(--atlas-n700)]"
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-[color:#ebecf0] text-xs font-semibold text-foreground"
                 >
                   {c}
                 </span>
               ))}
-              <button className="atlas-icon-btn">
+              <button className="inline-flex items-center justify-center size-6 rounded hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer">
                 <Plus className="h-4 w-4" />
               </button>
             </div>
           </section>
 
-          <section className="atlas-card p-5">
+          <section className="rounded-lg border border-border bg-card p-5">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-[color:var(--atlas-n800)]">Contributing OKRs</h3>
-              <span className="text-xs text-[color:var(--atlas-n100)]">{contributingOkrs.length} total</span>
+              <h3 className="text-sm font-semibold text-foreground">Contributing OKRs</h3>
+              <span className="text-xs text-muted-foreground">{contributingOkrs.length} total</span>
             </div>
             <div className="mt-4 space-y-3">
               {contributingOkrs.map((okr) => (
                 <div key={okr.name}>
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-[color:var(--atlas-n700)]">{okr.name}</span>
-                    <span className="text-[color:var(--atlas-n100)]">{okr.progress}%</span>
+                    <span className="text-foreground">{okr.name}</span>
+                    <span className="text-muted-foreground">{okr.progress}%</span>
                   </div>
                   <div className="progress-bar mt-2">
                     <div className="progress-fill" style={{ width: `${okr.progress}%` }} />
@@ -390,21 +390,21 @@ export default function ObjectiveDesignPage() {
             </div>
           </section>
 
-          <section className="atlas-card p-5">
+          <section className="rounded-lg border border-border bg-card p-5">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-[color:var(--atlas-n800)]">Recent Activity</h3>
-              <button className="text-xs font-medium text-[color:var(--atlas-primary)]">View all</button>
+              <h3 className="text-sm font-semibold text-foreground">Recent Activity</h3>
+              <button className="text-xs font-medium text-primary-500">View all</button>
             </div>
             <div className="mt-4 space-y-4">
               {recentActivity.map((item) => (
                 <div key={item.title} className="flex gap-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[color:var(--atlas-primary-bg)]">
-                    <CheckCircle2 className="h-4 w-4 text-[color:var(--atlas-primary)]" />
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[color:#dbeafe]">
+                    <CheckCircle2 className="h-4 w-4 text-primary-500" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-[color:var(--atlas-n800)]">{item.title}</p>
-                    <p className="text-xs text-[color:var(--atlas-n100)]">{item.detail}</p>
-                    <p className="text-xs text-[color:var(--atlas-n100)]">{item.time}</p>
+                    <p className="text-sm font-medium text-foreground">{item.title}</p>
+                    <p className="text-xs text-muted-foreground">{item.detail}</p>
+                    <p className="text-xs text-muted-foreground">{item.time}</p>
                   </div>
                 </div>
               ))}

@@ -34,11 +34,11 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-surface-app py-12 px-4 sm:px-6 lg:px-8">
+    <div className="flex min-h-screen items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
       <div className="w-full max-w-md space-y-6">
         <div>
-          <h2 className="text-center text-page-title text-ink-primary">Reset your password</h2>
-          <p className="mt-2 text-center text-body-sm text-ink-secondary">
+          <h2 className="text-center text-page-title text-foreground">Reset your password</h2>
+          <p className="mt-2 text-center text-body-sm text-muted-foreground">
             Enter the email associated with your account and we'll send you a reset link.
           </p>
         </div>
@@ -53,10 +53,10 @@ export default function ForgotPasswordPage() {
               <div className="rounded-card-lg bg-danger-500/10 px-4 py-3 text-body-sm text-danger-700">{error}</div>
             )}
             <div>
-              <label htmlFor="email" className="label mb-1 block text-ink-primary">Email address</label>
+              <label htmlFor="email" className="label mb-1 block text-foreground">Email address</label>
               <div className="relative mt-1">
                 <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                  <Mail className="h-5 w-5 text-ink-secondary" strokeWidth={1.75} />
+                  <Mail className="h-5 w-5 text-muted-foreground" strokeWidth={1.75} />
                 </div>
                 <input
                   id="email"

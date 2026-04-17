@@ -70,6 +70,9 @@ npx prisma db push --skip-generate --accept-data-loss=false
 npx prisma generate
 
 # --- 4. Build + restart -------------------------------------------------------
+# Clean stale .next to prevent "ENOENT build-manifest.json" errors when
+# the build output shape changes between deploys (e.g. new dependencies).
+rm -rf .next
 npm run build
 pm2 startOrReload ecosystem.config.cjs --only okr
 pm2 save

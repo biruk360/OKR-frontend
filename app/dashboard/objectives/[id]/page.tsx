@@ -235,13 +235,11 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
             />
 
             {/* Activity + Comments — in sidebar */}
-            <section className="rounded-xl border border-border bg-card px-4 py-3">
-              <ActivityTabs
-                objectiveId={objective.id}
-                activityElementId={`obj-activity-${objective.id}`}
-                users={users}
-              />
-            </section>
+            <ActivityTabs
+              objectiveId={objective.id}
+              activityElementId={`obj-activity-${objective.id}`}
+              users={users}
+            />
           </div>
         </div>
       </div>

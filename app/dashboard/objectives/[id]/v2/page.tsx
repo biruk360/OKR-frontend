@@ -21,7 +21,7 @@ import CriticalBanner from '@/components/objective-detail/CriticalBanner'
 import ObjectiveHero from '@/components/objective-detail/ObjectiveHero'
 import KRList from '@/components/objective-detail/KRList'
 import AlignmentCard from '@/components/objective-detail/AlignmentCard'
-import ContributorsCard from '@/components/objective-detail/ContributorsCard'
+import ObjectiveDetailsCard from '@/components/objective-detail/ObjectiveDetailsCard'
 import ProgressTimelineChart from '@/components/objective-detail/ProgressTimelineChart'
 import ActivityTabs from '@/components/objective-detail/ActivityTabs'
 
@@ -212,17 +212,20 @@ export default async function ObjectiveDetailV2({ params }: Props) {
               expectedProgress={expectedProgress}
               timeframe={objective.timeframe}
             />
+            <ObjectiveDetailsCard
+              owner={objective.owner}
+              contributors={contributorUsers}
+              timeframe={objective.timeframe}
+              department={objective.department}
+              collaborators={collaborators}
+              unassignedKrCount={unassignedKrCount}
+            />
             <AlignmentCard
               parentObjective={objective.parentObjective}
               childObjectives={objective.childObjectives.map(c => ({
                 id: c.id, title: c.title, level: c.level,
                 goalStatus: c.goalStatus, progress: c.progress,
               }))}
-            />
-            <ContributorsCard
-              owner={objective.owner}
-              collaborators={collaborators}
-              unassignedKrCount={unassignedKrCount}
             />
           </div>
         </div>

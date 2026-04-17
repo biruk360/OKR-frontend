@@ -16,13 +16,12 @@ import { PageTitleSetter } from '@/components/layout/DashboardTitleContext'
 import { computeExpectedProgress, countUnassignedKRs } from '@/lib/okr/compute'
 import { daysUntilDeadline, daysSince, weekLabel } from '@/lib/okr/dates'
 
-// New components  //////////////////////////////
 import CriticalBanner from '@/components/objective-detail/CriticalBanner'
 import ObjectiveHero from '@/components/objective-detail/ObjectiveHero'
 import KRList from '@/components/objective-detail/KRList'
 import AlignmentCard from '@/components/objective-detail/AlignmentCard'
 import ObjectiveDetailsCard from '@/components/objective-detail/ObjectiveDetailsCard'
-import ProgressTimelineChart from '@/components/objective-detail/ProgressTimelineChart'
+import ObjectiveProgressTimeline from '../ObjectiveProgressTimeline'
 import ActivityTabs from '@/components/objective-detail/ActivityTabs'
 
 interface Props {
@@ -159,7 +158,7 @@ export default async function ObjectiveDetailV2({ params }: Props) {
     <>
       <PageTitleSetter title={objective.title} />
       <div className="space-y-4">
-        {/* Breadcrumb + actions */}
+        {/* Top bar: back + actions */}
         <div className="flex items-center justify-between">
           <Link
             href="/dashboard/objectives"
@@ -178,7 +177,7 @@ export default async function ObjectiveDetailV2({ params }: Props) {
           </div>
         </div>
 
-        {/* Critical banner */}
+        {/* Critical banner — full width */}
         {showCriticalBanner && (
           <CriticalBanner
             progress={objective.progress}
@@ -188,30 +187,67 @@ export default async function ObjectiveDetailV2({ params }: Props) {
           />
         )}
 
-        {/* Breadcrumb */}
+        {/* Breadcrumb — full width */}
         <OkrBreadcrumb nodes={breadcrumbNodes} />
 
-        {/* Hero card */}
-        <ObjectiveHero
-          objective={objective}
-          expectedProgress={expectedProgress}
-          daysLeft={daysLeft}
-          activeKrCount={activeKrs.length}
-          unassignedKrCount={unassignedKrCount}
-          weekLabel={wkLabel}
-        />
+        {/* ═══ MAIN 2-COLUMN GRID: content left, sidebar right ═══ */}
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_320px]">
 
-        {/* Two-column: KR list + sidebar */}
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-          <div className="lg:col-span-3 space-y-4">
-            <KRList keyResults={objective.keyResults} objectiveId={objective.id} />
-          </div>
-          <div className="lg:col-span-2 space-y-4">
-            <ProgressTimelineChart
-              snapshots={snapshots}
+          {/* ─── LEFT COLUMN ─── */}
+          <div className="min-w-0 space-y-4">
+            {/* Hero card */}
+            <ObjectiveHero
+              objective={objective}
               expectedProgress={expectedProgress}
-              timeframe={objective.timeframe}
+              daysLeft={daysLeft}
+              activeKrCount={activeKrs.length}
+              unassignedKrCount={unassignedKrCount}
+              weekLabel={wkLabel}
             />
+
+            {/* Key Results */}
+            <KRList keyResults={objective.keyResults} objectiveId={objective.id} />
+
+            {/* Work items kanban */}
+            <WorkItemsKanban
+              keyResults={objective.keyResults.map(kr => ({
+                id: kr.id, title: kr.title, progress: kr.progress,
+                confidence: kr.confidence, status: kr.status,
+              }))}
+              initiatives={kanbanInitiatives.map(i => ({
+                id: i.id, title: i.title,
+                status: i.status as any,
+                keyResultId: i.keyResultId,
+              }))}
+            />
+
+            {/* Activity / Comments tabs */}
+            <ActivityTabs
+              objectiveId={objective.id}
+              activityElementId={`obj-activity-${objective.id}`}
+              users={users}
+            />
+          </div>
+
+          {/* ─── RIGHT SIDEBAR ─── */}
+          <div className="space-y-4">
+            {/* Progress Timeline (reuses existing chart) */}
+            <section className="rounded-xl border border-border bg-card">
+              <header className="px-4 py-3 border-b border-border">
+                <h3 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Progress Timeline</h3>
+                <p className="text-[11px] text-muted-foreground">Expected vs actual</p>
+              </header>
+              <div className="p-3">
+                <ObjectiveProgressTimeline
+                  snapshots={snapshots}
+                  currentProgress={objective.progress}
+                  timeframeStart={objective.timeframe.startDate}
+                  timeframeEnd={objective.timeframe.endDate}
+                />
+              </div>
+            </section>
+
+            {/* Objective Details (owner, contributors, timeframe, dept) */}
             <ObjectiveDetailsCard
               owner={objective.owner}
               contributors={contributorUsers}
@@ -220,6 +256,8 @@ export default async function ObjectiveDetailV2({ params }: Props) {
               collaborators={collaborators}
               unassignedKrCount={unassignedKrCount}
             />
+
+            {/* Alignment (parent + children) */}
             <AlignmentCard
               parentObjective={objective.parentObjective}
               childObjectives={objective.childObjectives.map(c => ({
@@ -229,30 +267,6 @@ export default async function ObjectiveDetailV2({ params }: Props) {
             />
           </div>
         </div>
-
-        {/* Work items kanban */}
-        <WorkItemsKanban
-          keyResults={objective.keyResults.map(kr => ({
-            id: kr.id,
-            title: kr.title,
-            progress: kr.progress,
-            confidence: kr.confidence,
-            status: kr.status,
-          }))}
-          initiatives={kanbanInitiatives.map(i => ({
-            id: i.id,
-            title: i.title,
-            status: i.status as any,
-            keyResultId: i.keyResultId,
-          }))}
-        />
-
-        {/* Activity / Comments tabs */}
-        <ActivityTabs
-          objectiveId={objective.id}
-          activityElementId={`obj-activity-${objective.id}`}
-          users={users}
-        />
       </div>
     </>
   )

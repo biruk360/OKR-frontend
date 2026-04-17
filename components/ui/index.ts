@@ -18,3 +18,9 @@ export type { PageHeaderProps } from './PageHeader'
 
 export { ActionsMenu } from './ActionsMenu'
 export type { ActionsMenuProps, ActionsMenuItem } from './ActionsMenu'
+
+// shadcn/ui primitives
+export { Button, buttonVariants } from './button'
+export { Card, CardHeader, CardFooter, CardTitle, CardAction, CardDescription, CardContent } from './card'
+export { Badge, badgeVariants } from './badge'
+export { Separator } from './separator'

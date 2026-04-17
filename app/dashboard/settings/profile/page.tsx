@@ -1,163 +1,146 @@
 import { getServerSessionSafe } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { redirect } from 'next/navigation'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Separator } from '@/components/ui/separator'
+import { Button } from '@/components/ui/button'
+import { Building2, Users, UserCheck } from 'lucide-react'
 
 export default async function ProfileSettingsPage() {
   const session = await getServerSessionSafe()
-  
+
   if (!session) {
     redirect('/auth/signin')
   }
 
-  // Get user's departments
-  const userDepartments = await prisma.departmentMembership.findMany({
-    where: { userId: session.user.id },
-    include: {
-      department: {
-        select: { id: true, name: true }
-      }
-    }
-  })
-
-  // Get user's manager relationships
-  const managerRelationships = await prisma.managerRelationship.findMany({
-    where: { directReportId: session.user.id },
-    include: {
-      manager: {
-        select: { id: true, name: true, email: true }
-      }
-    }
-  })
-
-  const directReports = await prisma.managerRelationship.findMany({
-    where: { managerId: session.user.id },
-    include: {
-      directReport: {
-        select: { id: true, name: true, email: true }
-      }
-    }
-  })
+  const [userDepartments, managerRelationships, directReports] = await Promise.all([
+    prisma.departmentMembership.findMany({
+      where: { userId: session.user.id },
+      include: { department: { select: { id: true, name: true } } },
+    }),
+    prisma.managerRelationship.findMany({
+      where: { directReportId: session.user.id },
+      include: { manager: { select: { id: true, name: true, email: true } } },
+    }),
+    prisma.managerRelationship.findMany({
+      where: { managerId: session.user.id },
+      include: { directReport: { select: { id: true, name: true, email: true } } },
+    }),
+  ])
 
   return (
     <div className="space-y-6">
       {/* Profile Information */}
-      <div className="bg-white shadow rounded-lg">
-        <div className="px-4 py-5 sm:p-6">
-          <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-            Profile Information
-          </h3>
+      <Card>
+        <CardHeader>
+          <CardTitle>Profile Information</CardTitle>
+        </CardHeader>
+        <CardContent>
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Name</label>
-              <div className="mt-1 text-sm text-gray-900">{session.user.name}</div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">Name</p>
+              <p className="text-sm">{session.user.name}</p>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Email</label>
-              <div className="mt-1 text-sm text-gray-900">{session.user.email}</div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">Email</p>
+              <p className="text-sm">{session.user.email}</p>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Role</label>
-              <div className="mt-1 text-sm text-gray-900 capitalize">
-                {session.user.role.replace(/_/g, ' ').toLowerCase()}
-              </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">Role</p>
+              <p className="text-sm capitalize">{session.user.role.replace(/_/g, ' ').toLowerCase()}</p>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Status</label>
-              <div className="mt-1">
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                  Active
-                </span>
-              </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">Status</p>
+              <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-700">Active</Badge>
             </div>
           </div>
-          <div className="mt-6">
-            <button className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
-              Edit Profile
-            </button>
-          </div>
-        </div>
-      </div>
+          <Separator className="my-6" />
+          <Button variant="outline">Edit Profile</Button>
+        </CardContent>
+      </Card>
 
       {/* Department Memberships */}
-      <div className="bg-white shadow rounded-lg">
-        <div className="px-4 py-5 sm:p-6">
-          <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Building2 className="size-4" />
             Department Memberships
-          </h3>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
           {userDepartments.length === 0 ? (
-            <div className="text-sm text-gray-500">No department memberships.</div>
+            <p className="text-sm text-muted-foreground">No department memberships.</p>
           ) : (
             <div className="space-y-3">
               {userDepartments.map((membership) => (
-                <div key={membership.id} className="flex items-center justify-between p-3 border rounded-lg">
+                <div
+                  key={membership.id}
+                  className="flex items-center justify-between rounded-lg border p-3"
+                >
                   <div>
-                    <div className="text-sm font-medium text-gray-900">
-                      {membership.department.name}
-                    </div>
+                    <p className="text-sm font-medium">{membership.department.name}</p>
                     {membership.role && (
-                      <div className="text-sm text-gray-500">
-                        Role: {membership.role}
-                      </div>
+                      <p className="text-sm text-muted-foreground">Role: {membership.role}</p>
                     )}
                   </div>
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                    Member
-                  </span>
+                  <Badge variant="secondary">Member</Badge>
                 </div>
               ))}
             </div>
           )}
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {/* Manager Relationships */}
-      <div className="bg-white shadow rounded-lg">
-        <div className="px-4 py-5 sm:p-6">
-          <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="size-4" />
             Manager Relationships
-          </h3>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
             <div>
-              <h4 className="text-sm font-medium text-gray-700 mb-3">Your Manager</h4>
+              <h4 className="mb-3 flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <UserCheck className="size-3.5" />
+                Your Manager
+              </h4>
               {managerRelationships.length === 0 ? (
-                <div className="text-sm text-gray-500">No manager assigned.</div>
+                <p className="text-sm text-muted-foreground">No manager assigned.</p>
               ) : (
                 <div className="space-y-2">
                   {managerRelationships.map((relationship) => (
-                    <div key={relationship.id} className="p-3 border rounded-lg">
-                      <div className="text-sm font-medium text-gray-900">
-                        {relationship.manager.name}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {relationship.manager.email}
-                      </div>
+                    <div key={relationship.id} className="rounded-lg border p-3">
+                      <p className="text-sm font-medium">{relationship.manager.name}</p>
+                      <p className="text-sm text-muted-foreground">{relationship.manager.email}</p>
                     </div>
                   ))}
                 </div>
               )}
             </div>
             <div>
-              <h4 className="text-sm font-medium text-gray-700 mb-3">Direct Reports</h4>
+              <h4 className="mb-3 flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <Users className="size-3.5" />
+                Direct Reports
+              </h4>
               {directReports.length === 0 ? (
-                <div className="text-sm text-gray-500">No direct reports.</div>
+                <p className="text-sm text-muted-foreground">No direct reports.</p>
               ) : (
                 <div className="space-y-2">
                   {directReports.map((relationship) => (
-                    <div key={relationship.id} className="p-3 border rounded-lg">
-                      <div className="text-sm font-medium text-gray-900">
-                        {relationship.directReport.name}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {relationship.directReport.email}
-                      </div>
+                    <div key={relationship.id} className="rounded-lg border p-3">
+                      <p className="text-sm font-medium">{relationship.directReport.name}</p>
+                      <p className="text-sm text-muted-foreground">{relationship.directReport.email}</p>
                     </div>
                   ))}
                 </div>
               )}
             </div>
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

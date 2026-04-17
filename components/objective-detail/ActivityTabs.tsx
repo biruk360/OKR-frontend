@@ -12,35 +12,31 @@ interface Props {
 
 export default function ActivityTabs({ objectiveId, activityElementId, users }: Props) {
   return (
-    <section className="rounded-xl border border-border bg-card">
-      <Tabs defaultValue="activity">
-        <div className="border-b border-border px-4">
-          <TabsList className="h-10 bg-transparent p-0 gap-4">
-            <TabsTrigger
-              value="activity"
-              className="rounded-none border-b-2 border-transparent px-0 pb-2.5 pt-2.5 text-sm font-medium text-muted-foreground data-[state=active]:border-primary-500 data-[state=active]:text-foreground data-[state=active]:shadow-none"
-            >
-              Activity
-            </TabsTrigger>
-            <TabsTrigger
-              value="comments"
-              className="rounded-none border-b-2 border-transparent px-0 pb-2.5 pt-2.5 text-sm font-medium text-muted-foreground data-[state=active]:border-primary-500 data-[state=active]:text-foreground data-[state=active]:shadow-none"
-            >
-              Comments
-            </TabsTrigger>
-          </TabsList>
+    <Tabs defaultValue="activity">
+      <TabsList className="h-9 w-full justify-start bg-transparent p-0 gap-0 border-b border-border rounded-none">
+        <TabsTrigger
+          value="activity"
+          className="rounded-none border-b-2 border-transparent px-3 pb-2 pt-2 text-xs font-medium text-muted-foreground data-[state=active]:border-primary-500 data-[state=active]:text-foreground data-[state=active]:shadow-none"
+        >
+          Activity
+        </TabsTrigger>
+        <TabsTrigger
+          value="comments"
+          className="rounded-none border-b-2 border-transparent px-3 pb-2 pt-2 text-xs font-medium text-muted-foreground data-[state=active]:border-primary-500 data-[state=active]:text-foreground data-[state=active]:shadow-none"
+        >
+          Comments
+        </TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="activity" className="mt-0 pt-3">
+        <div id={activityElementId}>
+          <ActivityLogPanel entityType="objective" entityId={objectiveId} />
         </div>
+      </TabsContent>
 
-        <TabsContent value="activity" className="mt-0 p-4">
-          <div id={activityElementId}>
-            <ActivityLogPanel entityType="objective" entityId={objectiveId} />
-          </div>
-        </TabsContent>
-
-        <TabsContent value="comments" className="mt-0 p-4">
-          <OkrComments endpoint="objectives" entityId={objectiveId} users={users} />
-        </TabsContent>
-      </Tabs>
-    </section>
+      <TabsContent value="comments" className="mt-0 pt-3">
+        <OkrComments endpoint="objectives" entityId={objectiveId} users={users} />
+      </TabsContent>
+    </Tabs>
   )
 }

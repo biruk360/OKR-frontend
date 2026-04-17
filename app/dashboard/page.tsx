@@ -29,10 +29,10 @@ export default async function DashboardPage() {
     ])
 
   return (
-    <div className="atlas-surface -m-3 sm:-m-6 min-h-full p-4 sm:p-6 space-y-4">
+    <div className="space-y-4">
       <div>
-        <h1 className="atlas-h1">Welcome back, {session.user.name}</h1>
-        <p className="atlas-text-tertiary mt-0.5">Here&apos;s what&apos;s happening with your OKRs today.</p>
+        <h1 className="text-xl font-semibold">Welcome back, {session.user.name}</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">Here&apos;s what&apos;s happening with your OKRs today.</p>
       </div>
 
       <AtAGlanceRow counts={glanceCounts} />

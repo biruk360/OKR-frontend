@@ -52,9 +52,9 @@ export default function ProgressOverview({ userId }: ProgressOverviewProps) {
 
   if (isLoading) {
     return (
-      <section className="atlas-card">
-        <header className="px-3 py-2 border-b border-[color:var(--atlas-n30)]">
-          <h3 className="atlas-eyebrow">Progress overview</h3>
+      <section className="rounded-lg border border-border bg-card">
+        <header className="px-3 py-2 border-b border-border">
+          <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Progress overview</h3>
         </header>
         <div className="p-3 space-y-2">
           <div className="skeleton h-6 w-20" />
@@ -69,20 +69,20 @@ export default function ProgressOverview({ userId }: ProgressOverviewProps) {
   const progressChange = latestProgress - previousProgress
 
   return (
-    <section className="atlas-card">
-      <header className="flex items-center justify-between px-3 py-2 border-b border-[color:var(--atlas-n30)]">
-        <h3 className="atlas-eyebrow">Progress overview</h3>
+    <section className="rounded-lg border border-border bg-card">
+      <header className="flex items-center justify-between px-3 py-2 border-b border-border">
+        <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Progress overview</h3>
         <div className="flex items-center gap-1">
-          {trend === 'up' && <TrendingUp className="h-3 w-3 text-[color:var(--atlas-success)]" strokeWidth={2} />}
-          {trend === 'down' && <TrendingDown className="h-3 w-3 text-[color:var(--atlas-danger)]" strokeWidth={2} />}
-          {trend === 'stable' && <Minus className="h-3 w-3 text-[color:var(--atlas-n100)]" strokeWidth={2} />}
+          {trend === 'up' && <TrendingUp className="h-3 w-3 text-emerald-600" strokeWidth={2} />}
+          {trend === 'down' && <TrendingDown className="h-3 w-3 text-destructive" strokeWidth={2} />}
+          {trend === 'stable' && <Minus className="h-3 w-3 text-muted-foreground" strokeWidth={2} />}
           <span
             className={`text-[11px] font-medium ${
               trend === 'up'
-                ? 'text-[color:var(--atlas-success)]'
+                ? 'text-emerald-600'
                 : trend === 'down'
-                ? 'text-[color:var(--atlas-danger)]'
-                : 'text-[color:var(--atlas-n100)]'
+                ? 'text-destructive'
+                : 'text-muted-foreground'
             }`}
           >
             {progressChange > 0 ? '+' : ''}
@@ -92,10 +92,10 @@ export default function ProgressOverview({ userId }: ProgressOverviewProps) {
       </header>
 
       <div className="px-3 pt-3">
-        <div className="text-[24px] font-semibold text-[color:var(--atlas-n800)] leading-none">
+        <div className="text-[24px] font-semibold text-foreground leading-none">
           {latestProgress.toFixed(1)}%
         </div>
-        <div className="text-[11px] text-[color:var(--atlas-n100)] mt-0.5">
+        <div className="text-[11px] text-muted-foreground mt-0.5">
           Average progress across all objectives
         </div>
       </div>
@@ -155,20 +155,20 @@ export default function ProgressOverview({ userId }: ProgressOverviewProps) {
         </ResponsiveContainer>
       </div>
 
-      <div className="grid grid-cols-2 divide-x divide-[color:var(--atlas-n20)] border-t border-[color:var(--atlas-n30)]">
+      <div className="grid grid-cols-2 divide-x divide-border border-t border-border">
         <div className="px-3 py-2">
-          <div className="text-[18px] font-semibold text-[color:var(--atlas-n800)] leading-none">
+          <div className="text-[18px] font-semibold text-foreground leading-none">
             {progressData[progressData.length - 1]?.objectives || 0}
           </div>
-          <div className="text-[11px] text-[color:var(--atlas-n100)] uppercase tracking-wide mt-1">
+          <div className="text-[11px] text-muted-foreground uppercase tracking-wide mt-1">
             Active objectives
           </div>
         </div>
         <div className="px-3 py-2">
-          <div className="text-[18px] font-semibold text-[color:var(--atlas-n800)] leading-none">
+          <div className="text-[18px] font-semibold text-foreground leading-none">
             {progressData[progressData.length - 1]?.keyResults || 0}
           </div>
-          <div className="text-[11px] text-[color:var(--atlas-n100)] uppercase tracking-wide mt-1">
+          <div className="text-[11px] text-muted-foreground uppercase tracking-wide mt-1">
             Key results
           </div>
         </div>

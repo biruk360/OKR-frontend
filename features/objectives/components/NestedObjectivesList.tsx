@@ -2,22 +2,16 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { formatDate, getProgressColor } from '@/lib/utils'
-import { 
-  Target, 
-  Calendar, 
-  User, 
-  Building2, 
-  Link as LinkIcon,
+import { getProgressColor } from '@/lib/utils'
+import {
+  Target,
+  Calendar,
+  User,
+  Building2,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
 } from 'lucide-react'
-import { ObjectiveWithRelations } from '@/types'
-import EditObjectiveButton from './EditObjectiveButton'
-import ArchiveObjectiveButton from './ArchiveObjectiveButton'
-import UnarchiveObjectiveButton from './UnarchiveObjectiveButton'
-import DeleteObjectiveButton from './DeleteObjectiveButton'
-import CloneObjectiveButton from './CloneObjectiveButton'
+import ObjectiveActionsMenu from './ObjectiveActionsMenu'
 
 interface NestedObjectivesListProps {
   objectives: any[]
@@ -32,366 +26,196 @@ interface NestedObjectivesListProps {
 interface ObjectiveNode {
   objective: any
   children: ObjectiveNode[]
-  level: number // 0 = Company, 1 = Department, 2 = Individual
+  level: number
 }
 
-export default function NestedObjectivesList({ 
-  objectives, 
-  timeframes, 
-  departments, 
+const LEVEL_BADGE: Record<string, string> = {
+  COMPANY:    'bg-blue-50 text-blue-700 border border-blue-200',
+  DEPARTMENT: 'bg-amber-50 text-amber-700 border border-amber-200',
+  INDIVIDUAL: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+}
+const LEVEL_LABEL: Record<string, string> = {
+  COMPANY: 'Co', DEPARTMENT: 'Dept', INDIVIDUAL: 'Me',
+}
+
+function progressBarColor(p: number): string {
+  if (p >= 70) return 'bg-emerald-500'
+  if (p >= 35) return 'bg-amber-500'
+  return 'bg-red-500'
+}
+
+export default function NestedObjectivesList({
+  objectives,
+  timeframes,
+  departments,
   userRole,
-  showPersonalOnly = false,
-  showCompanyOnly = false,
-  showDepartmentOnly = false
 }: NestedObjectivesListProps) {
-  const [expandedObjectives, setExpandedObjectives] = useState<Set<string>>(new Set())
-  const [filters, setFilters] = useState({
-    level: '',
-    timeframe: '',
-    department: '',
-    search: ''
-  })
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
-  // Build hierarchical tree structure
-  const objectiveTree = useMemo(() => {
-    // First, filter objectives based on filters
-    let filtered = objectives.filter(objective => {
-      if (filters.level && objective.level !== filters.level) return false
-      if (filters.timeframe && objective.timeframeId !== filters.timeframe) return false
-      if (filters.department && objective.departmentId !== filters.department) return false
-      if (filters.search) {
-        const searchLower = filters.search.toLowerCase()
-        if (!objective.title.toLowerCase().includes(searchLower) && 
-            !objective.description?.toLowerCase().includes(searchLower)) {
-          return false
-        }
-      }
-      return true
-    })
-
-    // Create a map of all objectives by ID
-    const objectiveMap = new Map<string, any>()
-    filtered.forEach(obj => {
-      objectiveMap.set(obj.id, obj)
-    })
-
-    // Build parent-child relationships
-    const childrenMap = new Map<string, any[]>()
-    filtered.forEach(obj => {
+  const tree = useMemo(() => {
+    const childMap = new Map<string, any[]>()
+    objectives.forEach(obj => {
       if (obj.parentObjectiveId) {
-        if (!childrenMap.has(obj.parentObjectiveId)) {
-          childrenMap.set(obj.parentObjectiveId, [])
-        }
-        childrenMap.get(obj.parentObjectiveId)!.push(obj)
+        if (!childMap.has(obj.parentObjectiveId)) childMap.set(obj.parentObjectiveId, [])
+        childMap.get(obj.parentObjectiveId)!.push(obj)
       }
     })
 
-    // Find root objectives (Company level or objectives without parents)
-    const rootObjectives = filtered.filter(obj => 
-      obj.level === 'COMPANY' || !obj.parentObjectiveId
-    )
+    const ORDER: Record<string, number> = { COMPANY: 0, DEPARTMENT: 1, INDIVIDUAL: 2 }
+    const sortFn = (a: any, b: any) => (ORDER[a.level] ?? 3) - (ORDER[b.level] ?? 3)
 
-    // Build tree recursively
-    const buildTree = (objective: any, level: number): ObjectiveNode => {
-      const children = childrenMap.get(objective.id) || []
-      return {
-        objective,
-        level,
-        children: children
-          .sort((a, b) => {
-            // Sort by level: COMPANY first, then DEPARTMENT, then INDIVIDUAL
-            const levelOrder = { 'COMPANY': 0, 'DEPARTMENT': 1, 'INDIVIDUAL': 2 }
-            return (levelOrder[a.level as keyof typeof levelOrder] || 3) - 
-                   (levelOrder[b.level as keyof typeof levelOrder] || 3)
-          })
-          .map(child => buildTree(child, level + 1))
-      }
-    }
-
-    return rootObjectives
-      .sort((a, b) => {
-        // Sort root objectives by level
-        const levelOrder = { 'COMPANY': 0, 'DEPARTMENT': 1, 'INDIVIDUAL': 2 }
-        return (levelOrder[a.level as keyof typeof levelOrder] || 3) - 
-               (levelOrder[b.level as keyof typeof levelOrder] || 3)
-      })
-      .map(obj => buildTree(obj, 0))
-  }, [objectives, filters])
-
-  const toggleExpand = (objectiveId: string) => {
-    setExpandedObjectives(prev => {
-      const newSet = new Set(prev)
-      if (newSet.has(objectiveId)) {
-        newSet.delete(objectiveId)
-      } else {
-        newSet.add(objectiveId)
-      }
-      return newSet
+    const build = (obj: any, depth: number): ObjectiveNode => ({
+      objective: obj,
+      level: depth,
+      children: (childMap.get(obj.id) ?? []).sort(sortFn).map(c => build(c, depth + 1)),
     })
-  }
 
-  const getLevelColor = (level: string) => {
-    switch (level) {
-      case 'COMPANY':
-        return 'bg-primary-100 text-primary-800'
-      case 'DEPARTMENT':
-        return 'bg-warning-100 text-warning-800'
-      case 'INDIVIDUAL':
-        return 'bg-success-100 text-success-800'
-      default:
-        return 'bg-muted text-foreground'
-    }
-  }
+    const roots = objectives
+      .filter(o => o.level === 'COMPANY' || !o.parentObjectiveId)
+      .sort(sortFn)
 
-  const getLevelIcon = (level: string) => {
-    switch (level) {
-      case 'COMPANY':
-        return <Building2 className="h-4 w-4" />
-      case 'DEPARTMENT':
-        return <Building2 className="h-4 w-4" />
-      case 'INDIVIDUAL':
-        return <User className="h-4 w-4" />
-      default:
-        return <Target className="h-4 w-4" />
-    }
-  }
+    return roots.map(o => build(o, 0))
+  }, [objectives])
 
-  const renderObjectiveCard = (node: ObjectiveNode) => {
-    const { objective, level, children } = node
-    const isExpanded = expandedObjectives.has(objective.id)
-    const hasChildren = children.length > 0
-    const indentLevel = level * 24 // 24px per level
+  const toggle = (id: string) =>
+    setExpanded(prev => {
+      const s = new Set(prev)
+      s.has(id) ? s.delete(id) : s.add(id)
+      return s
+    })
+
+  const renderNode = (node: ObjectiveNode) => {
+    const { objective: obj, level, children } = node
+    const isOpen = expanded.has(obj.id)
+    const hasKids = children.length > 0
+    const indent = level * 20
 
     return (
-      <div key={objective.id} className="relative">
-        {/* Objective Card */}
+      <div key={obj.id}>
         <div
-          className="bg-card border border-border rounded-lg p-6 hover:shadow-md transition-shadow mb-2"
-          style={{ marginLeft: `${indentLevel}px` }}
+          className="group bg-card border border-border rounded-lg hover:border-border/80 hover:shadow-sm transition-all mb-1.5"
+          style={{ marginLeft: `${indent}px` }}
         >
-          <div className="flex items-start justify-between">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center space-x-2">
-                  {/* Expand/Collapse Button */}
-                  {hasChildren && (
-                    <button
-                      onClick={() => toggleExpand(objective.id)}
-                      className="p-1 hover:bg-muted rounded transition-colors"
-                      aria-label={isExpanded ? 'Collapse' : 'Expand'}
-                    >
-                      {isExpanded ? (
-                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                      )}
-                    </button>
-                  )}
-                  {!hasChildren && <div className="w-6" />} {/* Spacer for alignment */}
+          {/* Single compact row */}
+          <div className="flex items-center gap-2 px-3 py-2.5 min-w-0">
 
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getLevelColor(objective.level)}`}>
-                    {getLevelIcon(objective.level)}
-                    <span className="ml-1">{objective.level}</span>
-                  </span>
-                  
-                  {objective.parentObjective && (
-                    <Link
-                      href={`/dashboard/objectives/${objective.parentObjective.id}`}
-                      className="inline-flex items-center text-xs text-blue-600 hover:text-blue-800 hover:underline"
-                    >
-                      <LinkIcon className="h-3 w-3 mr-1" />
-                      Aligned to: {objective.parentObjective.title}
-                    </Link>
-                  )}
-                </div>
-                <div className="flex items-center space-x-1">
-                  {objective.status === 'ARCHIVED' ? (
-                    <>
-                      <UnarchiveObjectiveButton objective={objective} />
-                      <DeleteObjectiveButton objective={objective} />
-                    </>
-                  ) : (
-                    <>
-                      <CloneObjectiveButton objective={objective} timeframes={timeframes} />
-                      <EditObjectiveButton objective={objective} />
-                      <ArchiveObjectiveButton objective={objective} />
-                      <DeleteObjectiveButton objective={objective} />
-                    </>
-                  )}
-                </div>
-              </div>
+            {/* Expand toggle */}
+            <button
+              onClick={() => toggle(obj.id)}
+              className={`shrink-0 p-0.5 rounded hover:bg-muted transition-colors ${hasKids ? 'visible' : 'invisible'}`}
+              aria-label={isOpen ? 'Collapse' : 'Expand'}
+            >
+              {isOpen
+                ? <ChevronDown className="size-3.5 text-muted-foreground" />
+                : <ChevronRight className="size-3.5 text-muted-foreground" />}
+            </button>
 
-              <Link
-                href={`/dashboard/objectives/${objective.id}`}
-                className="text-lg font-semibold text-foreground hover:text-primary-600 block"
-              >
-                {objective.title}
-              </Link>
+            {/* Level badge */}
+            <span className={`shrink-0 inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${LEVEL_BADGE[obj.level] ?? 'bg-muted text-foreground'}`}>
+              {LEVEL_LABEL[obj.level] ?? obj.level}
+            </span>
 
-              {objective.description && (
-                <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
-                  {objective.description}
-                </p>
+            {/* Title — truncate but show on hover via title attr */}
+            <Link
+              href={`/dashboard/objectives/${obj.id}`}
+              className="flex-1 min-w-0 text-sm font-medium text-foreground hover:text-primary truncate"
+              title={obj.title}
+            >
+              {obj.title}
+            </Link>
+
+            {/* Meta pills — hidden on mobile, shown sm+ */}
+            <div className="hidden sm:flex items-center gap-3 shrink-0 text-xs text-muted-foreground">
+              {/* Owner */}
+              <span className="flex items-center gap-1 max-w-[100px]">
+                {obj.owner.avatar
+                  ? <img src={obj.owner.avatar} alt="" className="size-4 rounded-full object-cover" />
+                  : <div className="size-4 rounded-full bg-primary flex items-center justify-center text-[9px] text-primary-foreground font-bold">{(obj.owner.name ?? '?')[0]}</div>
+                }
+                <span className="truncate max-w-[72px]">{obj.owner.name}</span>
+              </span>
+
+              {/* Timeframe */}
+              <span className="flex items-center gap-1 whitespace-nowrap">
+                <Calendar className="size-3 shrink-0" />
+                {obj.timeframe?.name}
+              </span>
+
+              {/* Dept */}
+              {obj.department && (
+                <span className="flex items-center gap-1 whitespace-nowrap">
+                  <Building2 className="size-3 shrink-0" />
+                  {obj.department.name}
+                </span>
               )}
 
-              <div className="mt-3 flex items-center space-x-4 text-sm">
-                <div className="flex items-center bg-muted px-2 py-1 rounded-md border border-border">
-                  {objective.owner.avatar ? (
-                    <img 
-                      src={objective.owner.avatar} 
-                      alt={objective.owner.name}
-                      className="h-5 w-5 rounded-full mr-2"
-                    />
-                  ) : (
-                    <div className="h-5 w-5 rounded-full bg-blue-500 flex items-center justify-center mr-2">
-                      <User className="h-3 w-3 text-white" />
-                    </div>
-                  )}
-                  <span className="font-medium text-muted-foreground">{objective.owner.name}</span>
-                </div>
-                <div className="flex items-center text-muted-foreground">
-                  <Calendar className="h-4 w-4 mr-1" />
-                  <span>{objective.timeframe.name}</span>
-                </div>
-                {objective.department && (
-                  <div className="flex items-center text-muted-foreground">
-                    <Building2 className="h-4 w-4 mr-1" />
-                    {objective.department.name}
-                  </div>
-                )}
-              </div>
-
-              <div className="mt-3 flex items-center justify-between">
-                <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                  <span>{objective._count?.keyResults || 0} Key Results</span>
-                  {objective._count?.childObjectives > 0 && (
-                    <span>{objective._count.childObjectives} Child Objectives</span>
-                  )}
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  Updated {formatDate(objective.updatedAt, 'MMM dd')}
-                </div>
-              </div>
+              {/* KR count */}
+              <span className="text-[11px] tabular-nums whitespace-nowrap">
+                {obj._count?.keyResults ?? 0} KR{(obj._count?.keyResults ?? 0) !== 1 ? 's' : ''}
+              </span>
             </div>
 
-            <div className="ml-6 flex-shrink-0">
-              <div className="text-right">
-                <div className="text-lg font-semibold text-foreground">
-                  {Math.round(objective.progress)}%
-                </div>
-                <div className="w-24 bg-gray-200 rounded-full h-2 mt-1">
-                  <div
-                    className={`h-2 rounded-full transition-all duration-300 ${
-                      getProgressColor(objective.progress).split(' ')[0].replace('text-', 'bg-')
-                    }`}
-                    style={{ width: `${Math.min(objective.progress, 100)}%` }}
-                  />
-                </div>
+            {/* Progress */}
+            <div className="shrink-0 flex items-center gap-2 w-[80px]">
+              <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${progressBarColor(obj.progress)}`}
+                  style={{ width: `${Math.min(obj.progress, 100)}%` }}
+                />
               </div>
+              <span className="text-xs font-semibold tabular-nums w-[28px] text-right text-foreground">
+                {Math.round(obj.progress)}%
+              </span>
+            </div>
+
+            {/* Actions — shown on row hover */}
+            <div className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+              <ObjectiveActionsMenu objective={obj} />
             </div>
           </div>
+
+          {/* Parent link — only if aligned, shown below title row */}
+          {obj.parentObjective && (
+            <div className="px-3 pb-2 -mt-1 ml-7">
+              <Link
+                href={`/dashboard/objectives/${obj.parentObjective.id}`}
+                className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-primary truncate max-w-full"
+                title={`Aligned to: ${obj.parentObjective.title}`}
+              >
+                <span className="shrink-0">↑</span>
+                <span className="truncate">{obj.parentObjective.title}</span>
+              </Link>
+            </div>
+          )}
         </div>
 
-        {/* Render children if expanded */}
-        {hasChildren && isExpanded && (
-          <div className="mt-2">
-            {children.map(child => renderObjectiveCard(child))}
+        {/* Children */}
+        {hasKids && isOpen && (
+          <div className="mb-1.5">
+            {children.map(child => renderNode(child))}
           </div>
         )}
       </div>
     )
   }
 
-  return (
-    <div className="space-y-6">
-      {/* Filters */}
-      <div className="bg-card p-4 rounded-lg border border-border">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-muted-foreground mb-1">Search</label>
-            <input
-              type="text"
-              placeholder="Search objectives..."
-              value={filters.search}
-              onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-              className="input"
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-muted-foreground mb-1">Level</label>
-            <select
-              value={filters.level}
-              onChange={(e) => setFilters({ ...filters, level: e.target.value })}
-              className="input"
-            >
-              <option value="">All Levels</option>
-              <option value="COMPANY">Company</option>
-              <option value="DEPARTMENT">Department</option>
-              <option value="INDIVIDUAL">Individual</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-muted-foreground mb-1">Timeframe</label>
-            <select
-              value={filters.timeframe}
-              onChange={(e) => setFilters({ ...filters, timeframe: e.target.value })}
-              className="input"
-            >
-              <option value="">All Timeframes</option>
-              {timeframes.map((timeframe) => {
-                const typeLabel = timeframe.type === 'MONTHLY' ? 'Monthly' :
-                                 timeframe.type === 'QUARTERLY' ? 'Quarterly' :
-                                 timeframe.type === 'SIX_MONTH' ? '6-Month' :
-                                 timeframe.type === 'YEARLY' ? 'Yearly' : 'Quarterly'
-                return (
-                  <option key={timeframe.id} value={timeframe.id}>
-                    {timeframe.name} ({typeLabel})
-                  </option>
-                )
-              })}
-            </select>
-          </div>
-
-          {departments.length > 0 && (
-            <div>
-              <label className="block text-sm font-medium text-muted-foreground mb-1">Department</label>
-              <select
-                value={filters.department}
-                onChange={(e) => setFilters({ ...filters, department: e.target.value })}
-                className="input"
-              >
-                <option value="">All Departments</option>
-                {departments.map((department) => (
-                  <option key={department.id} value={department.id}>
-                    {department.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-        </div>
+  if (tree.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <Target className="size-10 text-muted-foreground/50 mb-3" />
+        <p className="text-sm font-medium text-foreground">No objectives found</p>
+        <p className="text-xs text-muted-foreground mt-1">
+          {objectives.length === 0
+            ? 'Create your first objective to get started.'
+            : 'Try adjusting your filters.'}
+        </p>
       </div>
+    )
+  }
 
-      {/* Nested Objectives Tree */}
-      {objectiveTree.length === 0 ? (
-        <div className="text-center py-12">
-          <Target className="mx-auto h-12 w-12 text-muted-foreground" />
-          <h3 className="mt-2 text-sm font-medium text-foreground">No objectives found</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {objectives.length === 0 
-              ? "Get started by creating your first objective."
-              : "Try adjusting your filters to see more results."
-            }
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {objectiveTree.map(node => renderObjectiveCard(node))}
-        </div>
-      )}
+  return (
+    <div>
+      {tree.map(node => renderNode(node))}
     </div>
   )
 }
-

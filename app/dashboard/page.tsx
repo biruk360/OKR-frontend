@@ -7,21 +7,22 @@ import CheckInBanner, { type CheckInBannerData } from '@/components/dashboard/Ch
 import QuickStats, { type QuickStatsData } from '@/components/dashboard/QuickStats'
 import UserOkrTree, { type OkrTreeObjective } from '@/components/dashboard/UserOkrTree'
 import NeedsAttention, { type NeedsAttentionItem } from '@/components/dashboard/NeedsAttention'
-import SprintWidget, { type SprintWidgetData } from '@/components/dashboard/SprintWidget'
-import ProgressOverview from '@/components/dashboard/ProgressOverview'
+import TeamActivityFeed, { type ActivityFeedItem } from '@/components/dashboard/TeamActivityFeed'
+import MyActivityFeed from '@/components/dashboard/MyActivityFeed'
 
 export default async function DashboardPage() {
   const session = await getServerSessionSafe()
   if (!session) redirect('/auth/signin')
 
-  const [heroData, checkInData, quickData, userOkrTree, needsAttentionItems, sprintData] =
+  const [heroData, checkInData, quickData, userOkrTree, needsAttentionItems, teamActivity, myActivity] =
     await Promise.all([
       getHeroStats(session.user.id, session.user.role),
       getCheckInBanner(session.user.id),
       getQuickStats(session.user.id, session.user.role),
       getUserOkrTree(session.user.id),
       getNeedsAttentionItems(session.user.id, session.user.role),
-      getSprintWidgetData(session.user.id),
+      getTeamActivity(),
+      getMyActivity(session.user.id),
     ])
 
   return (
@@ -34,26 +35,22 @@ export default async function DashboardPage() {
       {/* Check-in alert banner */}
       <CheckInBanner data={checkInData} />
 
-      {/* Hero: Performance + Confidence side by side */}
+      {/* Top row: Performance + Confidence + Momentum (3 equal columns) */}
       <HeroStats data={heroData} />
 
-      {/* Compact stat strip — 5 essential numbers */}
+      {/* Compact stat strip */}
       <QuickStats data={quickData} />
 
-      {/* Two-column: My Active Objectives + Needs Attention */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-        <div className="lg:col-span-3">
-          <UserOkrTree objectives={userOkrTree} />
-        </div>
-        <div className="lg:col-span-2">
-          <NeedsAttention items={needsAttentionItems} />
-        </div>
+      {/* Row 2: My Active Objectives (50%) + Needs Attention (50%) */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <UserOkrTree objectives={userOkrTree} />
+        <NeedsAttention items={needsAttentionItems} />
       </div>
 
-      {/* Bottom row: Team Activity + Momentum */}
+      {/* Row 3: Team Activity (50%) + My Activity (50%) */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <SprintWidget sprint={sprintData.sprint} recommendedActivities={sprintData.recommendations} />
-        <ProgressOverview userId={session.user.id} />
+        <TeamActivityFeed items={teamActivity} />
+        <MyActivityFeed items={myActivity} />
       </div>
     </div>
   )
@@ -90,7 +87,6 @@ async function getHeroStats(userId: string, userRole: string): Promise<HeroStats
 
   const activeObjCount = await prisma.objective.count({ where: { ownerId: userId, status: 'ACTIVE' } })
 
-  // Calculate expected progress based on current timeframe
   const now = new Date()
   const activeTimeframe = await prisma.timeframe.findFirst({
     where: { isActive: true },
@@ -108,24 +104,39 @@ async function getHeroStats(userId: string, userRole: string): Promise<HeroStats
     const duration = end - start
     expectedProgress = duration > 0 ? Math.round(Math.max(0, Math.min(100, (elapsed / duration) * 100))) : 0
     timeframeName = activeTimeframe.name
-
     const weeksElapsed = Math.max(1, Math.ceil(elapsed / (7 * 24 * 60 * 60 * 1000)))
     const totalWeeks = Math.max(1, Math.ceil(duration / (7 * 24 * 60 * 60 * 1000)))
     weekLabel = `Week ${weeksElapsed} of ${totalWeeks}`
   }
 
+  // Momentum: last 7 bi-weekly confidence snapshots for this user's objectives
+  const snapshots = await prisma.confidenceSnapshot.findMany({
+    where: { entityType: 'OBJECTIVE', entityId: { in: await prisma.objective.findMany({ where: { ownerId: userId, status: 'ACTIVE' }, select: { id: true } }).then(os => os.map(o => o.id)) } },
+    orderBy: { periodStart: 'asc' },
+    select: { periodStart: true, score: true },
+    take: 14,
+  })
+
+  // Bucket by period, average score per period → treat score as proxy for progress
+  const byPeriod = new Map<string, number[]>()
+  for (const s of snapshots) {
+    if (!byPeriod.has(s.periodStart)) byPeriod.set(s.periodStart, [])
+    byPeriod.get(s.periodStart)!.push(s.score)
+  }
+  const momentumData = Array.from(byPeriod.entries())
+    .slice(-7)
+    .map(([date, scores]) => ({ date, progress: Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) }))
+
   return {
     avgProgress, expectedProgress, activeOkrCount: activeObjCount,
     confidenceScore, onTrack, atRisk, offTrack, totalKRs: total,
     timeframeName, weekLabel,
+    momentumData: momentumData.length >= 2 ? momentumData : undefined,
   }
 }
 
 async function getCheckInBanner(userId: string): Promise<CheckInBannerData> {
   const now = new Date()
-  const weekEnd = new Date(now); weekEnd.setDate(weekEnd.getDate() + 7)
-
-  // Count KRs that haven't been updated in > 7 days (overdue check-ins)
   const overdueDate = new Date(now); overdueDate.setDate(overdueDate.getDate() - 7)
 
   const [overdueKRs, dueKRs, lastCheckIn] = await Promise.all([
@@ -195,42 +206,6 @@ async function getUserOkrTree(userId: string): Promise<OkrTreeObjective[]> {
   }))
 }
 
-async function getSprintWidgetData(userId: string): Promise<{ sprint: SprintWidgetData | null; recommendations: string[] }> {
-  const now = new Date()
-  const activeSprint = await prisma.sprint.findFirst({
-    where: {
-      status: 'ACTIVE',
-      OR: [{ ownerId: userId }, { activities: { some: { ownerId: userId } } }],
-      startDate: { lte: now }, endDate: { gte: now },
-    },
-    include: { _count: { select: { activities: true } }, activities: { select: { id: true }, where: { column: { name: 'Done' } } } },
-    orderBy: { createdAt: 'desc' },
-  })
-
-  if (activeSprint) {
-    return {
-      sprint: {
-        id: activeSprint.id, name: activeSprint.name,
-        activitiesTotal: activeSprint._count.activities, activitiesDone: activeSprint.activities.length,
-        startDate: activeSprint.startDate?.toISOString() ?? null, endDate: activeSprint.endDate?.toISOString() ?? null,
-      },
-      recommendations: [],
-    }
-  }
-
-  const [atRiskKrs, overdueTodos] = await Promise.all([
-    prisma.keyResult.findMany({ where: { ownerId: userId, status: 'ACTIVE', confidence: { in: ['AT_RISK', 'OFF_TRACK'] } }, select: { title: true, confidence: true }, take: 5 }),
-    prisma.todo.findMany({ where: { assigneeId: userId, status: { in: ['PENDING', 'IN_PROGRESS'] }, dueDate: { lt: now } }, select: { title: true }, take: 3 }),
-  ])
-
-  const recommendations: string[] = []
-  for (const kr of atRiskKrs) recommendations.push(`Check in on "${kr.title}" (${kr.confidence.replace('_', ' ').toLowerCase()})`)
-  for (const t of overdueTodos) recommendations.push(`Complete overdue: "${t.title}"`)
-  if (recommendations.length === 0) recommendations.push('All your KRs are on track — consider planning ahead for next sprint')
-
-  return { sprint: null, recommendations }
-}
-
 async function getNeedsAttentionItems(userId: string, userRole: string): Promise<NeedsAttentionItem[]> {
   const objWhere = await buildObjectiveWhere(userId, userRole)
   const now = new Date()
@@ -259,4 +234,66 @@ async function getNeedsAttentionItems(userId: string, userRole: string): Promise
   for (const t of overdueTodos) items.push({ id: t.id, title: t.title, type: 'todo', reason: 'overdue', progress: 0, href: `/dashboard/todos?open=${t.id}` })
 
   return items
+}
+
+// Build an ActivityFeedItem from an ActivityLog row + its related entity data
+function buildFeedItem(
+  log: {
+    id: string
+    action: string
+    entityType: string
+    createdAt: Date
+    actorId: string | null
+    actor: { name: string; avatar: string | null } | null
+    objective: { id: string; title: string; progress: number } | null
+    keyResult: { id: string; title: string; progress: number } | null
+  }
+): ActivityFeedItem | null {
+  const entity = log.keyResult ?? log.objective
+  if (!entity) return null
+  const entityType = log.keyResult ? 'KEY_RESULT' : 'OBJECTIVE'
+  return {
+    id: log.id,
+    actorName: log.actor?.name ?? null,
+    actorAvatar: log.actor?.avatar ?? null,
+    entityType: entityType as ActivityFeedItem['entityType'],
+    entityTitle: entity.title,
+    entityId: entity.id,
+    action: log.action,
+    progress: entity.progress,
+    createdAt: log.createdAt.toISOString(),
+  }
+}
+
+async function getTeamActivity(): Promise<ActivityFeedItem[]> {
+  const logs = await prisma.activityLog.findMany({
+    orderBy: { createdAt: 'desc' },
+    take: 40,
+    include: {
+      actor: { select: { name: true, avatar: true } },
+      objective: { select: { id: true, title: true, progress: true } },
+      keyResult: { select: { id: true, title: true, progress: true } },
+    },
+  })
+  return logs.flatMap(log => {
+    const item = buildFeedItem(log)
+    return item ? [item] : []
+  }).slice(0, 20)
+}
+
+async function getMyActivity(userId: string): Promise<ActivityFeedItem[]> {
+  const logs = await prisma.activityLog.findMany({
+    where: { actorId: userId },
+    orderBy: { createdAt: 'desc' },
+    take: 30,
+    include: {
+      actor: { select: { name: true, avatar: true } },
+      objective: { select: { id: true, title: true, progress: true } },
+      keyResult: { select: { id: true, title: true, progress: true } },
+    },
+  })
+  return logs.flatMap(log => {
+    const item = buildFeedItem(log)
+    return item ? [item] : []
+  }).slice(0, 20)
 }

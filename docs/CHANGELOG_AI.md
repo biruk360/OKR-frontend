@@ -13,6 +13,17 @@
 
 ---
 
+## 2026-04-18 — Dashboard redesign: 3-col hero, 50/50 grids, social activity feeds
+
+- **Modified** `components/dashboard/HeroStats.tsx` — expanded to 3-column layout: Your Performance · Confidence Tracker · Momentum (inline mini LineChart from ConfidenceSnapshots); removed dependency on ProgressOverview
+- **Created** `components/dashboard/TeamActivityFeed.tsx` — social media-style feed showing actor avatar/initials, entity name+link, action label, relative time, and progress % pill; pulls from ActivityLog across all users
+- **Created** `components/dashboard/MyActivityFeed.tsx` — same feed shape scoped to current user's activity
+- **Modified** `app/dashboard/page.tsx` — row 1: HeroStats (3-col); row 2: UserOkrTree (50%) + NeedsAttention (50%); row 3: TeamActivityFeed (50%) + MyActivityFeed (50%); removed SprintWidget/ProgressOverview from layout; added getTeamActivity/getMyActivity fetchers; Momentum data wired from ConfidenceSnapshot history
+- **Tests:** not run
+- **Docs updated:** CHANGELOG_AI.md, FEATURE_STATUS.md
+
+---
+
 ## 2026-04-18 — Auto-confidence on check-in + FY2026 date fix migration
 
 Confidence is now computed automatically from time-elapsed vs progress gap at check-in time instead of using the user-supplied value. Date migration script aligns all timeframes to Sep 2025 – Jul 30, 2026.

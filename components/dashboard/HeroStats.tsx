@@ -1,6 +1,7 @@
 'use client'
 
-import { CheckCircle2, AlertTriangle, TrendingDown, TrendingUp } from 'lucide-react'
+import { CheckCircle2, AlertTriangle, TrendingDown, TrendingUp, Minus } from 'lucide-react'
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 
 export interface HeroStatsData {
   avgProgress: number
@@ -13,11 +14,15 @@ export interface HeroStatsData {
   totalKRs: number
   timeframeName: string | null
   weekLabel: string | null
+  momentumData?: Array<{ date: string; progress: number }>
 }
 
 interface Props {
   data: HeroStatsData
 }
+
+const CHART_PRIMARY = '#0052cc'
+const AXIS = '#6b778c'
 
 export default function HeroStats({ data }: Props) {
   const total = data.onTrack + data.atRisk + data.offTrack
@@ -29,12 +34,21 @@ export default function HeroStats({ data }: Props) {
     data.confidenceScore >= 35 ? 'text-amber-700' :
     'text-red-700'
 
-  const progressColor =
-    aheadOfPace ? 'text-emerald-600' : 'text-red-600'
+  const progressColor = aheadOfPace ? 'text-emerald-600' : 'text-red-600'
+
+  // Momentum from real snaps or fall back to a flat line at current progress
+  const momentumData = (data.momentumData && data.momentumData.length >= 2)
+    ? data.momentumData
+    : null
+
+  const latestProgress = momentumData ? momentumData[momentumData.length - 1].progress : data.avgProgress
+  const prevProgress    = momentumData ? momentumData[momentumData.length - 2].progress : data.avgProgress
+  const momentumDelta   = latestProgress - prevProgress
+  const momentumTrend   = momentumDelta > 5 ? 'up' : momentumDelta < -5 ? 'down' : 'stable'
 
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-      {/* Performance card */}
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      {/* ── 1. Your Performance ── */}
       <div className="rounded-xl border border-border bg-card p-5">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold text-foreground">
@@ -64,15 +78,13 @@ export default function HeroStats({ data }: Props) {
           Average progress across your {data.activeOkrCount} active OKR{data.activeOkrCount !== 1 ? 's' : ''}
         </p>
 
-        {/* Progress bar with expected pace marker */}
         <div className="relative">
           <div className="h-2.5 w-full rounded-full bg-muted overflow-hidden">
             <div
-              className="h-full rounded-full bg-primary-500 transition-all"
+              className="h-full rounded-full bg-primary transition-all"
               style={{ width: `${Math.min(data.avgProgress, 100)}%` }}
             />
           </div>
-          {/* Expected pace marker */}
           <div
             className="absolute top-0 h-2.5 w-0.5 bg-foreground/60 rounded-full"
             style={{ left: `${Math.min(data.expectedProgress, 100)}%` }}
@@ -86,7 +98,7 @@ export default function HeroStats({ data }: Props) {
         </div>
       </div>
 
-      {/* Confidence tracker card */}
+      {/* ── 2. Confidence Tracker ── */}
       <div className="rounded-xl border border-border bg-card p-5">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold text-foreground">Confidence tracker</h3>
@@ -119,7 +131,6 @@ export default function HeroStats({ data }: Props) {
           </div>
         </div>
 
-        {/* Stacked bar */}
         {total > 0 && (
           <div className="flex h-3 rounded-full overflow-hidden mt-4">
             {data.onTrack > 0 && (
@@ -131,6 +142,75 @@ export default function HeroStats({ data }: Props) {
             {data.offTrack > 0 && (
               <div className="bg-red-500 transition-all" style={{ width: `${(data.offTrack / total) * 100}%` }} />
             )}
+          </div>
+        )}
+      </div>
+
+      {/* ── 3. Momentum ── */}
+      <div className="rounded-xl border border-border bg-card p-5">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-semibold text-foreground">Momentum</h3>
+          <div className="flex items-center gap-1">
+            {momentumTrend === 'up'     && <TrendingUp   className="h-3.5 w-3.5 text-emerald-600" strokeWidth={2} />}
+            {momentumTrend === 'down'   && <TrendingDown className="h-3.5 w-3.5 text-destructive"  strokeWidth={2} />}
+            {momentumTrend === 'stable' && <Minus        className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={2} />}
+            <span className={`text-xs font-medium ${
+              momentumTrend === 'up' ? 'text-emerald-600' :
+              momentumTrend === 'down' ? 'text-destructive' :
+              'text-muted-foreground'
+            }`}>
+              {momentumDelta > 0 ? '+' : ''}{momentumDelta.toFixed(1)}%
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-baseline gap-2 mb-1">
+          <span className="text-4xl font-bold tabular-nums tracking-tight">
+            {latestProgress.toFixed(1)}%
+          </span>
+        </div>
+        <p className="text-xs text-muted-foreground mb-2">Progress trend over time</p>
+
+        {momentumData ? (
+          <div className="h-[100px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={momentumData} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
+                <XAxis
+                  dataKey="date"
+                  stroke={AXIS}
+                  tickLine={false}
+                  axisLine={false}
+                  fontSize={10}
+                  tickFormatter={(v) => new Date(v).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                />
+                <YAxis
+                  stroke={AXIS}
+                  tickLine={false}
+                  axisLine={false}
+                  fontSize={10}
+                  domain={[0, 100]}
+                  tickFormatter={(v) => `${v}%`}
+                />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#fff', border: '1px solid #dfe1e6', borderRadius: 6, fontSize: 11 }}
+                  labelStyle={{ color: '#172b4d', fontWeight: 600 }}
+                  formatter={(v: number) => [`${v.toFixed(1)}%`, 'Progress']}
+                  labelFormatter={(v) => new Date(v).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="progress"
+                  stroke={CHART_PRIMARY}
+                  strokeWidth={2}
+                  dot={{ fill: CHART_PRIMARY, strokeWidth: 0, r: 2 }}
+                  activeDot={{ r: 4, stroke: CHART_PRIMARY, strokeWidth: 2, fill: '#fff' }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <div className="h-[100px] flex items-center justify-center">
+            <p className="text-xs text-muted-foreground">Not enough history yet</p>
           </div>
         )}
       </div>

@@ -37,7 +37,7 @@
 | KR Check-ins | DONE | `components/keyresults/CreateCheckInModal.tsx` | Check-in form + history | |
 | KR Archiving | DONE | `components/keyresults/ArchiveKeyResultModal.tsx` | Archive/unarchive | |
 | Progress Calculation | DONE | `lib/objectiveProgress.ts` | `recalcNodeAndAncestors()` | Supports LOOSE + STRICT_DEPENDENCY |
-| Confidence Snapshots | DONE | `lib/confidence-calc.ts` | Bi-weekly ON_TRACK/AT_RISK/OFF_TRACK | Cron at `app/api/cron/confidence-calc/` |
+| Confidence Snapshots | DONE | `lib/confidence-calc.ts` | Auto-computed on check-in + bi-weekly cron. Score = time-elapsed vs progress gap (40%) + velocity (25%) + initiative completion (15%) + staleness (20%). Objective goalStatus = worst-of children. | `app/api/cron/confidence-calc/`, `app/api/cron/auto-confidence/` |
 | Alignment Map | DONE | `app/dashboard/alignment-map/` | OKR alignment visualization | |
 
 ## Work Management

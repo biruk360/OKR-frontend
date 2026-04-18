@@ -16,6 +16,7 @@ import {
   apiNotFound,
   withAuth,
 } from '@/lib/api'
+import { computeKrConfidence } from '@/lib/confidence-calc'
 
 const CONFIDENCE = new Set(['ON_TRACK', 'AT_RISK', 'OFF_TRACK'])
 
@@ -72,7 +73,13 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
   const existingKeyResult = await prisma.keyResult.findUnique({
     where: { id },
     include: {
-      objective: { select: { id: true, ownerId: true, level: true, departmentId: true } },
+      objective: {
+        select: {
+          id: true, ownerId: true, level: true, departmentId: true,
+          startDate: true, endDate: true,
+          timeframe: { select: { startDate: true, endDate: true } },
+        },
+      },
     },
   })
 
@@ -101,13 +108,33 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
   const nextKrProgress = krProgressPercent(nextValue, existingKeyResult.targetValue)
   const analysisStr = typeof analysis === 'string' ? analysis.trim().slice(0, 20000) : ''
 
+  // Compute system confidence from time-elapsed vs progress (overrides user-supplied value).
+  // We build a minimal KrForCalc shape using data already in memory; the check-in we're
+  // about to create is included as the first entry so velocity calculations see it.
+  const krForCalc = {
+    ...existingKeyResult,
+    currentValue: nextValue,
+    progress: nextKrProgress,
+    todos: [],
+    checkIns: [{ asOfDate: parsedDate, value: nextValue }],
+    _count: { checkIns: 0, todos: 0 },
+    objective: {
+      ...existingKeyResult.objective,
+      title: '',
+      timeframe: existingKeyResult.objective.timeframe ?? { startDate: new Date(), endDate: new Date() },
+    },
+  }
+  const computed = computeKrConfidence(krForCalc as any)
+  const autoConfidence = computed.confidence
+  const periodStart = new Date().toISOString().slice(0, 10)
+
   const result = await prisma.$transaction(async (tx) => {
     const checkIn = await tx.keyResultCheckIn.create({
       data: {
         keyResultId: existingKeyResult.id,
         asOfDate: parsedDate,
         value: nextValue,
-        confidence,
+        confidence: autoConfidence,
         analysis: analysisStr || null,
         createdById: session.user.id,
       },
@@ -120,7 +147,7 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
       where: { id: existingKeyResult.id },
       data: {
         currentValue: nextValue,
-        confidence,
+        confidence: autoConfidence,
         progress: nextKrProgress,
       },
       include: {
@@ -132,6 +159,36 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
     return { checkIn, keyResult: updatedKr }
   })
 
+  // Persist confidence snapshot for timeline tracking.
+  await prisma.confidenceSnapshot.upsert({
+    where: { entityType_entityId_periodStart: { entityType: 'KEY_RESULT', entityId: existingKeyResult.id, periodStart } },
+    create: {
+      entityType: 'KEY_RESULT', entityId: existingKeyResult.id, periodStart,
+      confidence: autoConfidence, score: computed.score,
+      factors: JSON.stringify({ ...computed.factors, source: 'check-in' }),
+      previousConf: existingKeyResult.confidence,
+    },
+    update: {
+      confidence: autoConfidence, score: computed.score,
+      factors: JSON.stringify({ ...computed.factors, source: 'check-in' }),
+    },
+  })
+
+  // Roll up objective goalStatus = worst-of active KR confidences.
+  const siblingConfs = await prisma.keyResult.findMany({
+    where: { objectiveId: existingKeyResult.objectiveId, status: 'ACTIVE' },
+    select: { confidence: true },
+  })
+  const worstConf = siblingConfs.some(k => k.confidence === 'OFF_TRACK')
+    ? 'OFF_TRACK'
+    : siblingConfs.some(k => k.confidence === 'AT_RISK')
+    ? 'AT_RISK'
+    : 'ON_TRACK'
+  await prisma.objective.update({
+    where: { id: existingKeyResult.objectiveId },
+    data: { goalStatus: worstConf },
+  })
+
   await recordActivity({
     entityType: 'KEY_RESULT',
     keyResultId: existingKeyResult.id,
@@ -140,7 +197,7 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
     actorId: session.user.id,
     changes: {
       currentValue: { from: existingKeyResult.currentValue, to: nextValue },
-      confidence: { from: existingKeyResult.confidence, to: confidence },
+      confidence: { from: existingKeyResult.confidence, to: autoConfidence },
       progress: { from: existingKeyResult.progress, to: nextKrProgress },
     },
     metadata: { asOfDate: parsedDate.toISOString(), analysis: analysisStr || null },
@@ -161,7 +218,7 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
     },
   }
   await emit('KR_PROGRESS_UPDATED', emitBase)
-  if (confidence !== 'ON_TRACK' && existingKeyResult.confidence === 'ON_TRACK') {
+  if (autoConfidence !== 'ON_TRACK' && existingKeyResult.confidence === 'ON_TRACK') {
     await emit('KR_AT_RISK', emitBase)
   }
   if (nextKrProgress >= 100 && existingKeyResult.progress < 100) {

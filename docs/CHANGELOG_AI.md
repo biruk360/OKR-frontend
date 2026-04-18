@@ -13,6 +13,18 @@
 
 ---
 
+## 2026-04-18 — Auto-confidence on check-in + FY2026 date fix migration
+
+Confidence is now computed automatically from time-elapsed vs progress gap at check-in time instead of using the user-supplied value. Date migration script aligns all timeframes to Sep 2025 – Jul 30, 2026.
+
+- **Modified** `app/api/keyresults/[id]/check-ins/route.ts` — POST now calls `computeKrConfidence()` after saving the check-in; computed `autoConfidence` replaces user-supplied value for KR update, snapshot upsert, and objective rollup
+- **Modified** `app/api/keyresults/[id]/check-ins/route.ts` — expanded objective include to fetch `startDate`, `endDate`, `timeframe` (needed for confidence calc)
+- **Created** `prisma/fix-dates-fy2026.ts` — idempotent migration that sets all Timeframe start/end to FY Sep 2025 – Jul 30, 2026, corrects out-of-range Objective dates, then re-runs full confidence calculation
+- **Tests:** not run
+- **Docs updated:** CHANGELOG_AI.md, FEATURE_STATUS.md
+
+---
+
 ## 2026-04-17 — shadcn/ui pilot: settings profile page + Card/Badge/Separator/Button primitives
 
 Side-by-side shadcn pilot on the settings profile page. No existing components were modified or removed — all new primitives coexist alongside the existing Modal/StatCard/EmptyState/ConfirmDialog set.

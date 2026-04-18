@@ -19,8 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      # dummy DB url so `prisma generate` resolves — the real app uses SQLite via schema.prisma url.
-      DATABASE_URL: "file:./dev.db"
+      # dummy postgres URL — schema.prisma requires postgresql://, Prisma validates at build time
+      DATABASE_URL: "postgresql://ci:ci@localhost:5432/ci_placeholder"
       # next build needs a secret in prod-mode; any non-empty placeholder is fine for the build.
       NEXTAUTH_SECRET: "ci-placeholder-secret"
       NEXTAUTH_URL: "http://localhost:3000"

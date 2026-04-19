@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Calendar, Tag, User, Search } from 'lucide-react'
+import { Search, User, Filter, X } from 'lucide-react'
 import { useTimeframes } from '@/hooks'
+import { cn } from '@/lib/utils'
 
 interface GoalsFilterBarProps {
   filters: {
@@ -19,121 +20,153 @@ interface GoalsFilterBarProps {
 export default function GoalsFilterBar({ filters, onFilterChange }: GoalsFilterBarProps) {
   const { timeframes } = useTimeframes()
   const [labels, setLabels] = useState<any[]>([])
+  const [expanded, setExpanded] = useState(false)
 
-  // Labels aren't in the shared reference-data hook; keep inline.
   useEffect(() => {
     fetch('/api/labels')
       .then((r) => r.json())
       .catch(() => ({ success: false, data: [] }))
       .then((labelsData) => {
-        if (labelsData.success) setLabels(labelsData.data || [])
+        if (labelsData?.success) setLabels(labelsData.data || [])
       })
-      .catch((error) => {
-        console.error('Error fetching labels:', error)
-      })
+      .catch(() => {})
   }, [])
 
+  const inputBase =
+    'h-8 text-xs rounded-md border border-border bg-background px-2.5 focus:outline-none focus:ring-1 focus:ring-ring'
+
+  const activeCount =
+    (filters.startDate ? 1 : 0) +
+    (filters.endDate ? 1 : 0) +
+    (filters.owner ? 1 : 0) +
+    filters.labels.length
+
   return (
-    <div className="bg-card p-4 rounded-lg border border-border">
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        {/* Search */}
-        <div>
-          <label className="block text-sm font-medium text-muted-foreground mb-1">Search</label>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Search goals..."
-              value={filters.search}
-              onChange={(e) => onFilterChange('search', e.target.value)}
-              className="pl-10 input w-full"
-            />
-          </div>
+    <div className="bg-card px-3 py-2 rounded-md border border-border">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-[180px]">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Search goals…"
+            value={filters.search}
+            onChange={(e) => onFilterChange('search', e.target.value)}
+            className={cn(inputBase, 'pl-8 w-full')}
+          />
         </div>
 
-        {/* Timeframe */}
-        <div>
-          <label className="block text-sm font-medium text-muted-foreground mb-1">Timeframe</label>
-          <select
-            value={filters.timeframe}
-            onChange={(e) => onFilterChange('timeframe', e.target.value)}
-            className="input w-full"
+        <select
+          value={filters.timeframe}
+          onChange={(e) => onFilterChange('timeframe', e.target.value)}
+          className={cn(inputBase, 'min-w-[140px]')}
+        >
+          <option value="">All timeframes</option>
+          {timeframes.map((tf) => (
+            <option key={tf.id} value={tf.id}>
+              {tf.name}
+            </option>
+          ))}
+        </select>
+
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className={cn(
+            'h-8 inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 text-xs font-medium transition-colors',
+            expanded || activeCount > 0
+              ? 'bg-blue-50 text-blue-700 border-blue-200'
+              : 'bg-background text-muted-foreground hover:bg-muted'
+          )}
+        >
+          <Filter className="h-3.5 w-3.5" />
+          Filters
+          {activeCount > 0 && (
+            <span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-blue-600 px-1 text-[10px] font-semibold text-white">
+              {activeCount}
+            </span>
+          )}
+        </button>
+
+        {activeCount > 0 && (
+          <button
+            type="button"
+            onClick={() => {
+              onFilterChange('startDate', '')
+              onFilterChange('endDate', '')
+              onFilterChange('owner', '')
+              onFilterChange('labels', [])
+            }}
+            className="h-8 inline-flex items-center gap-1 rounded-md px-2 text-xs text-muted-foreground hover:text-foreground"
+            title="Clear filters"
           >
-            <option value="">All Timeframes</option>
-            {timeframes.map((tf) => (
-              <option key={tf.id} value={tf.id}>{tf.name}</option>
-            ))}
-          </select>
-        </div>
+            <X className="h-3.5 w-3.5" />
+            Clear
+          </button>
+        )}
+      </div>
 
-        {/* Start Date */}
-        <div>
-          <label className="block text-sm font-medium text-muted-foreground mb-1">Start Date</label>
+      {expanded && (
+        <div className="mt-2 pt-2 border-t border-border flex flex-wrap items-center gap-2">
           <input
             type="date"
             value={filters.startDate}
             onChange={(e) => onFilterChange('startDate', e.target.value)}
-            className="input w-full"
+            className={cn(inputBase, 'min-w-[140px]')}
+            aria-label="Start date"
           />
-        </div>
-
-        {/* End Date */}
-        <div>
-          <label className="block text-sm font-medium text-muted-foreground mb-1">End Date</label>
           <input
             type="date"
             value={filters.endDate}
             onChange={(e) => onFilterChange('endDate', e.target.value)}
-            className="input w-full"
+            className={cn(inputBase, 'min-w-[140px]')}
+            aria-label="End date"
           />
-        </div>
-
-        {/* Owner */}
-        <div>
-          <label className="block text-sm font-medium text-muted-foreground mb-1">Owner</label>
-          <div className="relative">
-            <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <div className="relative min-w-[180px]">
+            <User className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Search by owner..."
+              placeholder="Owner…"
               value={filters.owner}
               onChange={(e) => onFilterChange('owner', e.target.value)}
-              className="pl-10 input w-full"
+              className={cn(inputBase, 'pl-8 w-full')}
             />
           </div>
-        </div>
-      </div>
 
-      {/* Labels Filter */}
-      {labels.length > 0 && (
-        <div className="mt-4">
-          <label className="block text-sm font-medium text-muted-foreground mb-2">Labels</label>
-          <div className="flex flex-wrap gap-2">
-            {labels.map((label) => (
-              <button
-                key={label.id}
-                onClick={() => {
-                  const newLabels = filters.labels.includes(label.id)
-                    ? filters.labels.filter(l => l !== label.id)
-                    : [...filters.labels, label.id]
-                  onFilterChange('labels', newLabels)
-                }}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                  filters.labels.includes(label.id)
-                    ? 'bg-blue-100 text-blue-800 border border-blue-300'
-                    : 'bg-muted text-muted-foreground border border-border hover:bg-muted'
-                }`}
-                style={{
-                  borderColor: filters.labels.includes(label.id) ? label.color : undefined
-                }}
-              >
-                {label.name}
-              </button>
-            ))}
-          </div>
+          {labels.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1 w-full mt-1">
+              <span className="text-[11px] text-muted-foreground mr-1">Labels:</span>
+              {labels.map((label) => {
+                const active = filters.labels.includes(label.id)
+                return (
+                  <button
+                    key={label.id}
+                    type="button"
+                    onClick={() => {
+                      const next = active
+                        ? filters.labels.filter((l) => l !== label.id)
+                        : [...filters.labels, label.id]
+                      onFilterChange('labels', next)
+                    }}
+                    className={cn(
+                      'px-2 py-0.5 rounded text-[11px] font-medium transition-colors border',
+                      active
+                        ? 'text-white'
+                        : 'bg-background text-muted-foreground border-border hover:bg-muted'
+                    )}
+                    style={
+                      active
+                        ? { backgroundColor: label.color, borderColor: label.color }
+                        : undefined
+                    }
+                  >
+                    {label.name}
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>
   )
 }
-

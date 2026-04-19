@@ -2,7 +2,7 @@
 
 import { Fragment, useState } from 'react'
 import Link from 'next/link'
-import { ChevronDown, ChevronRight, User, Calendar } from 'lucide-react'
+import { ChevronDown, ChevronRight, User } from 'lucide-react'
 import { formatDate, getProgressColor } from '@/lib/utils'
 import { KeyResultsList } from '@/features/key-results'
 
@@ -12,232 +12,194 @@ interface GoalsTableProps {
   users: any[]
 }
 
+const STATUS_META: Record<string, { dot: string; label: string; tone: string }> = {
+  ON_TRACK: { dot: 'bg-green-500', label: 'On Track', tone: 'text-green-700' },
+  AT_RISK: { dot: 'bg-yellow-500', label: 'At Risk', tone: 'text-yellow-700' },
+  OFF_TRACK: { dot: 'bg-red-500', label: 'Off Track', tone: 'text-red-700' },
+  CLOSED: { dot: 'bg-gray-400', label: 'Closed', tone: 'text-muted-foreground' },
+  NO_STATUS: { dot: 'bg-gray-300', label: 'No Status', tone: 'text-muted-foreground' },
+}
+
+function getInitials(name?: string) {
+  if (!name) return '?'
+  return name
+    .split(' ')
+    .map((p) => p[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join('')
+    .toUpperCase()
+}
+
 export default function GoalsTable({ objectives, onRefresh, users }: GoalsTableProps) {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
 
   const toggleRow = (objectiveId: string) => {
-    setExpandedRows(prev => {
-      const newSet = new Set(prev)
-      if (newSet.has(objectiveId)) {
-        newSet.delete(objectiveId)
-      } else {
-        newSet.add(objectiveId)
-      }
-      return newSet
+    setExpandedRows((prev) => {
+      const next = new Set(prev)
+      if (next.has(objectiveId)) next.delete(objectiveId)
+      else next.add(objectiveId)
+      return next
     })
-  }
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'ON_TRACK':
-        return 'bg-green-100 text-green-800'
-      case 'AT_RISK':
-        return 'bg-yellow-100 text-yellow-800'
-      case 'OFF_TRACK':
-        return 'bg-red-100 text-red-800'
-      case 'CLOSED':
-        return 'bg-muted text-foreground'
-      default:
-        return 'bg-muted text-foreground'
-    }
-  }
-
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'ON_TRACK':
-        return 'On Track'
-      case 'AT_RISK':
-        return 'At Risk'
-      case 'OFF_TRACK':
-        return 'Off Track'
-      case 'CLOSED':
-        return 'Closed'
-      default:
-        return 'No Status'
-    }
   }
 
   if (objectives.length === 0) {
     return (
-      <div className="text-center py-12 bg-card rounded-lg border border-border">
-        <p className="text-muted-foreground">No goals found. Create your first goal to get started.</p>
+      <div className="text-center py-10 bg-card rounded-md border border-border">
+        <p className="text-sm text-muted-foreground">No goals found. Create your first goal to get started.</p>
       </div>
     )
   }
 
   return (
-    <div className="bg-card rounded-lg border border-border overflow-hidden">
+    <div className="bg-card rounded-md border border-border overflow-hidden">
       <div className="overflow-x-auto">
-      <table className="min-w-full divide-y divide-border">
-        <thead className="bg-muted">
-          <tr>
-            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider w-12">
-              {/* Expand/Collapse column */}
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Owner
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Goal Title
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Labels
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Progress
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Status
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              End Date
-            </th>
-          </tr>
-        </thead>
-        <tbody className="bg-card divide-y divide-border">
-          {objectives.map((objective) => {
-            const isExpanded = expandedRows.has(objective.id)
-            const keyResults = objective.keyResults ?? []
+        <table className="min-w-full">
+          <thead>
+            <tr className="border-b border-border bg-muted/40 text-[11px] uppercase tracking-wide text-muted-foreground">
+              <th className="w-8 px-2 py-2" />
+              <th className="w-8 px-1 py-2 text-left">Owner</th>
+              <th className="px-2 py-2 text-left font-medium">Goal</th>
+              <th className="px-2 py-2 text-left font-medium">Labels</th>
+              <th className="w-[220px] px-2 py-2 text-left font-medium">Progress</th>
+              <th className="w-[84px] px-2 py-2 text-right font-medium">End</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {objectives.map((objective) => {
+              const isExpanded = expandedRows.has(objective.id)
+              const keyResults = objective.keyResults ?? []
+              const rawStatus = (objective.goalStatus || objective.status || 'NO_STATUS') as string
+              const status = STATUS_META[rawStatus] ?? STATUS_META.NO_STATUS
+              const progress = Math.round(objective.progress ?? 0)
+              const progressBarColor = getProgressColor(progress)
+                .split(' ')[0]
+                .replace('text-', 'bg-')
+              const endDate = objective.endDate || objective.timeframe?.endDate
 
-            return (
-              <Fragment key={objective.id}>
-                <tr className="hover:bg-muted">
-                  {/* Expand/Collapse */}
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <button
-                      type="button"
-                      onClick={() => toggleRow(objective.id)}
-                      className="text-muted-foreground hover:text-muted-foreground"
-                      title="Key results"
-                    >
-                      {isExpanded ? (
-                        <ChevronDown className="h-5 w-5" />
-                      ) : (
-                        <ChevronRight className="h-5 w-5" />
-                      )}
-                    </button>
-                  </td>
+              return (
+                <Fragment key={objective.id}>
+                  <tr className="group hover:bg-muted/40">
+                    <td className="px-2 py-2 align-middle">
+                      <button
+                        type="button"
+                        onClick={() => toggleRow(objective.id)}
+                        className="text-muted-foreground hover:text-foreground"
+                        aria-label={isExpanded ? 'Collapse key results' : 'Expand key results'}
+                      >
+                        {isExpanded ? (
+                          <ChevronDown className="h-4 w-4" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4" />
+                        )}
+                      </button>
+                    </td>
 
-                  {/* Owner */}
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      {objective.owner.avatar ? (
+                    <td className="px-1 py-2 align-middle">
+                      {objective.owner?.avatar ? (
                         <img
                           src={objective.owner.avatar}
-                          alt={objective.owner.name}
-                          className="h-8 w-8 rounded-full"
+                          alt={objective.owner.name || 'Owner'}
+                          title={objective.owner.name || 'Owner'}
+                          className="h-6 w-6 rounded-full"
                         />
                       ) : (
-                        <div className="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center">
-                          <User className="h-4 w-4 text-white" />
+                        <div
+                          className="h-6 w-6 rounded-full bg-blue-500 flex items-center justify-center text-[10px] font-semibold text-white"
+                          title={objective.owner?.name || 'Unknown'}
+                        >
+                          {objective.owner?.name ? (
+                            getInitials(objective.owner.name)
+                          ) : (
+                            <User className="h-3 w-3" />
+                          )}
                         </div>
                       )}
-                      <span className="ml-2 text-sm text-foreground">{objective.owner.name}</span>
-                    </div>
-                  </td>
+                    </td>
 
-                  {/* Goal Title */}
-                  <td className="px-6 py-4">
-                    <Link
-                      href={`/dashboard/objectives/${objective.id}`}
-                      className="text-sm font-medium text-foreground hover:text-blue-600"
-                    >
-                      {objective.title}
-                    </Link>
-                    {objective.description && (
-                      <p className="text-sm text-muted-foreground mt-1 line-clamp-1">
-                        {objective.description}
-                      </p>
-                    )}
-                  </td>
+                    <td className="px-2 py-2 align-middle">
+                      <Link
+                        href={`/dashboard/objectives/${objective.id}`}
+                        className="text-sm font-medium text-foreground hover:text-blue-600"
+                      >
+                        {objective.title}
+                      </Link>
+                      {objective.description && (
+                        <p className="text-xs text-muted-foreground line-clamp-1">
+                          {objective.description}
+                        </p>
+                      )}
+                    </td>
 
-                  {/* Labels */}
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex flex-wrap gap-1">
-                      {objective.objectiveLabels?.map((ol: any) => (
-                        <span
-                          key={ol.labelId}
-                          className="px-2 py-1 text-xs font-medium rounded-full"
-                          style={{
-                            backgroundColor: `${ol.label.color}20`,
-                            color: ol.label.color,
-                            border: `1px solid ${ol.label.color}40`
-                          }}
-                        >
-                          {ol.label.name}
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-
-                  {/* Progress */}
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-24 bg-gray-200 rounded-full h-2">
-                        <div
-                          className={`h-2 rounded-full transition-all duration-300 ${
-                            getProgressColor(objective.progress).split(' ')[0].replace('text-', 'bg-')
-                          }`}
-                          style={{ width: `${Math.min(objective.progress, 100)}%` }}
-                        />
-                      </div>
-                      <span className="text-sm font-medium text-foreground">
-                        {Math.round(objective.progress)}%
-                      </span>
-                    </div>
-                  </td>
-
-                  {/* Status */}
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(objective.goalStatus || objective.status || 'NO_STATUS')}`}>
-                      {getStatusLabel(objective.goalStatus || objective.status || 'NO_STATUS')}
-                    </span>
-                  </td>
-
-                  {/* End Date */}
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-                    {objective.endDate ? (
-                      <div className="flex items-center">
-                        <Calendar className="h-4 w-4 mr-1" />
-                        {formatDate(objective.endDate, 'MMM dd, yyyy')}
-                      </div>
-                    ) : objective.timeframe?.endDate ? (
-                      <div className="flex items-center">
-                        <Calendar className="h-4 w-4 mr-1" />
-                        {formatDate(objective.timeframe.endDate, 'MMM dd, yyyy')}
-                      </div>
-                    ) : (
-                      '-'
-                    )}
-                  </td>
-                </tr>
-
-                {/* Expanded Key Results Row */}
-                {isExpanded && (
-                  <tr>
-                    <td colSpan={7} className="px-6 py-4 bg-muted">
-                      <div className="pl-8">
-                        <h4 className="text-sm font-medium text-muted-foreground mb-3">
-                          Key Results ({keyResults.length})
-                        </h4>
-                        <KeyResultsList
-                          keyResults={keyResults}
-                          objectiveId={objective.id}
-                          objective={objective}
-                          users={users}
-                          onKeyResultsChange={onRefresh}
-                        />
+                    <td className="px-2 py-2 align-middle">
+                      <div className="flex flex-wrap gap-1">
+                        {objective.objectiveLabels?.slice(0, 3).map((ol: any) => (
+                          <span
+                            key={ol.labelId}
+                            className="px-1.5 py-0.5 text-[10px] font-medium rounded"
+                            style={{
+                              backgroundColor: `${ol.label.color}18`,
+                              color: ol.label.color,
+                            }}
+                          >
+                            {ol.label.name}
+                          </span>
+                        ))}
+                        {objective.objectiveLabels && objective.objectiveLabels.length > 3 && (
+                          <span className="text-[10px] text-muted-foreground">
+                            +{objective.objectiveLabels.length - 3}
+                          </span>
+                        )}
                       </div>
                     </td>
+
+                    <td className="px-2 py-2 align-middle">
+                      <div
+                        className="flex items-center gap-2"
+                        title={`${status.label} · ${progress}%`}
+                      >
+                        <span className={`h-2 w-2 shrink-0 rounded-full ${status.dot}`} />
+                        <div className="relative h-1.5 w-28 overflow-hidden rounded-full bg-gray-200">
+                          <div
+                            className={`h-full rounded-full transition-all duration-300 ${progressBarColor}`}
+                            style={{ width: `${Math.min(progress, 100)}%` }}
+                          />
+                        </div>
+                        <span className="text-xs font-medium tabular-nums text-foreground w-8 text-right">
+                          {progress}%
+                        </span>
+                        <span className={`hidden lg:inline text-[11px] ${status.tone}`}>
+                          {status.label}
+                        </span>
+                      </div>
+                    </td>
+
+                    <td className="px-2 py-2 align-middle text-right text-xs text-muted-foreground tabular-nums">
+                      {endDate ? formatDate(endDate, 'MMM d') : '—'}
+                    </td>
                   </tr>
-                )}
-              </Fragment>
-            )
-          })}
-        </tbody>
-      </table>
+
+                  {isExpanded && (
+                    <tr>
+                      <td colSpan={6} className="bg-muted/30 px-3 py-3">
+                        <div className="pl-6 border-l-2 border-border">
+                          <KeyResultsList
+                            keyResults={keyResults}
+                            objectiveId={objective.id}
+                            objective={objective}
+                            users={users}
+                            onKeyResultsChange={onRefresh}
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              )
+            })}
+          </tbody>
+        </table>
       </div>
     </div>
   )
 }
-

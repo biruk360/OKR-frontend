@@ -1,7 +1,5 @@
 'use client'
 
-import { useMemo } from 'react'
-
 interface GoalsSummaryDashboardProps {
   stats: {
     total: number
@@ -14,32 +12,45 @@ interface GoalsSummaryDashboardProps {
   }
 }
 
+const CARDS: Array<{
+  key: keyof GoalsSummaryDashboardProps['stats']
+  label: string
+  dot: string
+  tone: string
+}> = [
+  { key: 'noStatus', label: 'No Status', dot: 'bg-gray-400', tone: 'text-muted-foreground' },
+  { key: 'onTrack', label: 'On Track', dot: 'bg-green-500', tone: 'text-green-700' },
+  { key: 'atRisk', label: 'At Risk', dot: 'bg-yellow-500', tone: 'text-yellow-700' },
+  { key: 'offTrack', label: 'Off Track', dot: 'bg-red-500', tone: 'text-red-700' },
+  { key: 'closed', label: 'Closed', dot: 'bg-gray-400', tone: 'text-muted-foreground' },
+]
+
 export default function GoalsSummaryDashboard({ stats }: GoalsSummaryDashboardProps) {
-  const circumference = 2 * Math.PI * 45 // radius = 45
+  const radius = 28
+  const circumference = 2 * Math.PI * radius
   const offset = circumference - (stats.avgProgress / 100) * circumference
 
   return (
-    <div className="bg-card p-6 rounded-lg border border-border">
-      <div className="grid grid-cols-1 lg:grid-cols-6 gap-6">
-        {/* Overall Progress Donut Chart */}
-        <div className="lg:col-span-2 flex flex-col items-center justify-center">
-          <div className="relative w-32 h-32">
-            <svg className="transform -rotate-90 w-32 h-32">
+    <div className="bg-card px-3 py-2.5 rounded-md border border-border">
+      <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2.5 shrink-0 pr-4 border-r border-border">
+          <div className="relative h-14 w-14">
+            <svg className="transform -rotate-90 h-14 w-14">
               <circle
-                cx="64"
-                cy="64"
-                r="45"
+                cx="28"
+                cy="28"
+                r={radius}
                 stroke="currentColor"
-                strokeWidth="8"
+                strokeWidth="5"
                 fill="transparent"
                 className="text-gray-200"
               />
               <circle
-                cx="64"
-                cy="64"
-                r="45"
+                cx="28"
+                cy="28"
+                r={radius}
                 stroke="currentColor"
-                strokeWidth="8"
+                strokeWidth="5"
                 fill="transparent"
                 strokeDasharray={circumference}
                 strokeDashoffset={offset}
@@ -47,59 +58,35 @@ export default function GoalsSummaryDashboard({ stats }: GoalsSummaryDashboardPr
                 strokeLinecap="round"
               />
             </svg>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-foreground">{stats.avgProgress}%</div>
-                <div className="text-xs text-muted-foreground">Overall Progress</div>
-              </div>
+            <div className="absolute inset-0 flex items-center justify-center text-xs font-bold text-foreground tabular-nums">
+              {stats.avgProgress}%
             </div>
+          </div>
+          <div className="flex flex-col">
+            <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Overall</span>
+            <span className="text-xs font-medium text-foreground">{stats.total} goals</span>
           </div>
         </div>
 
-        {/* Status Summary Cards */}
-        <div className="lg:col-span-4 grid grid-cols-2 md:grid-cols-5 gap-4">
-          <div className="bg-muted rounded-lg p-4 border border-border">
-            <div className="flex items-center space-x-2 mb-1">
-              <div className="w-2 h-2 rounded-full bg-gray-400"></div>
-              <span className="text-xs font-medium text-muted-foreground">No Status</span>
+        <div className="flex-1 grid grid-cols-5 gap-2">
+          {CARDS.map((card) => (
+            <div
+              key={card.key}
+              className="flex items-center gap-2 rounded-md border border-border bg-background px-2.5 py-1.5"
+            >
+              <span className={`h-2 w-2 shrink-0 rounded-full ${card.dot}`} />
+              <div className="flex flex-col leading-tight min-w-0">
+                <span className={`text-[10px] uppercase tracking-wide truncate ${card.tone}`}>
+                  {card.label}
+                </span>
+                <span className="text-base font-semibold text-foreground tabular-nums">
+                  {stats[card.key]}
+                </span>
+              </div>
             </div>
-            <div className="text-2xl font-bold text-foreground">{stats.noStatus}</div>
-          </div>
-
-          <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-            <div className="flex items-center space-x-2 mb-1">
-              <div className="w-2 h-2 rounded-full bg-green-500"></div>
-              <span className="text-xs font-medium text-green-700">On Track</span>
-            </div>
-            <div className="text-2xl font-bold text-green-900">{stats.onTrack}</div>
-          </div>
-
-          <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
-            <div className="flex items-center space-x-2 mb-1">
-              <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
-              <span className="text-xs font-medium text-yellow-700">At Risk</span>
-            </div>
-            <div className="text-2xl font-bold text-yellow-900">{stats.atRisk}</div>
-          </div>
-
-          <div className="bg-red-50 rounded-lg p-4 border border-red-200">
-            <div className="flex items-center space-x-2 mb-1">
-              <div className="w-2 h-2 rounded-full bg-red-500"></div>
-              <span className="text-xs font-medium text-red-700">Off Track</span>
-            </div>
-            <div className="text-2xl font-bold text-red-900">{stats.offTrack}</div>
-          </div>
-
-          <div className="bg-muted rounded-lg p-4 border border-border">
-            <div className="flex items-center space-x-2 mb-1">
-              <div className="w-2 h-2 rounded-full bg-muted0"></div>
-              <span className="text-xs font-medium text-muted-foreground">Closed</span>
-            </div>
-            <div className="text-2xl font-bold text-foreground">{stats.closed}</div>
-          </div>
+          ))}
         </div>
       </div>
     </div>
   )
 }
-

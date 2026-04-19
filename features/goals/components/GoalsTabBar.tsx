@@ -28,17 +28,16 @@ export default function GoalsTabBar({
 }: GoalsTabBarProps) {
   return (
     <div className="bg-card border-b border-border">
-      <div className="flex flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
-        {/* Tabs */}
-        <div className="flex flex-wrap gap-1">
+      <div className="flex flex-col gap-2 px-3 py-2 sm:px-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap gap-0.5">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
               className={cn(
-                'px-4 py-2 text-sm font-medium rounded-t-lg transition-colors',
+                'px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
                 activeTab === tab.id
-                  ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-600'
+                  ? 'bg-blue-50 text-blue-700'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted'
               )}
             >
@@ -47,45 +46,44 @@ export default function GoalsTabBar({
           ))}
         </div>
 
-        {/* View Toggles */}
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-1 shrink-0 rounded-md border border-border p-0.5 bg-background">
           {showUserView && (
             <button
               onClick={() => onViewModeChange('user')}
               className={cn(
-                'px-3 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center space-x-1',
+                'h-7 px-2 text-xs font-medium rounded transition-colors flex items-center gap-1',
                 viewMode === 'user'
                   ? 'bg-blue-600 text-white'
-                  : 'bg-muted text-muted-foreground hover:bg-muted'
+                  : 'text-muted-foreground hover:bg-muted'
               )}
             >
-              <Users className="h-4 w-4" />
-              <span>User View</span>
+              <Users className="h-3.5 w-3.5" />
+              <span>User</span>
             </button>
           )}
           <button
             onClick={() => onViewModeChange('list')}
             className={cn(
-              'px-3 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center space-x-1',
+              'h-7 px-2 text-xs font-medium rounded transition-colors flex items-center gap-1',
               viewMode === 'list'
                 ? 'bg-blue-600 text-white'
-                : 'bg-muted text-muted-foreground hover:bg-muted'
+                : 'text-muted-foreground hover:bg-muted'
             )}
           >
-            <List className="h-4 w-4" />
-            <span>List View</span>
+            <List className="h-3.5 w-3.5" />
+            <span>List</span>
           </button>
           <button
             onClick={() => onViewModeChange('feed')}
             className={cn(
-              'px-3 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center space-x-1',
+              'h-7 px-2 text-xs font-medium rounded transition-colors flex items-center gap-1',
               viewMode === 'feed'
                 ? 'bg-blue-600 text-white'
-                : 'bg-muted text-muted-foreground hover:bg-muted'
+                : 'text-muted-foreground hover:bg-muted'
             )}
           >
-            <Rss className="h-4 w-4" />
-            <span>Feed View</span>
+            <Rss className="h-3.5 w-3.5" />
+            <span>Feed</span>
           </button>
         </div>
       </div>

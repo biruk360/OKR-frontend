@@ -1,8 +1,11 @@
 'use client'
 
+import dynamic from 'next/dynamic'
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { Star, MoreHorizontal, Search } from 'lucide-react'
+import { Star, MoreHorizontal, Search, List, GanttChartSquare } from 'lucide-react'
+
+const PlansGantt = dynamic(() => import('./PlansGantt'), { ssr: false })
 
 export interface PlanRow {
   id: string
@@ -37,6 +40,7 @@ export default function PlansList({
 }) {
   const [favorites, setFavorites] = useState<Set<string>>(new Set())
   const [tab, setTab] = useState<'all' | 'watched'>('all')
+  const [view, setView] = useState<'list' | 'gantt'>('list')
   const [hideFinished, setHideFinished] = useState(false)
   const [nameFilter, setNameFilter] = useState('')
   const [teamFilter, setTeamFilter] = useState('')
@@ -111,6 +115,34 @@ export default function PlansList({
             </button>
           </div>
           <div className="flex items-center gap-2 pb-1">
+            <div className="inline-flex rounded border border-border overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setView('list')}
+                className={`inline-flex items-center gap-1 px-2 py-1 text-xs ${
+                  view === 'list'
+                    ? 'bg-primary-500 text-white'
+                    : 'bg-card text-muted-foreground hover:bg-muted'
+                }`}
+                aria-pressed={view === 'list'}
+                title="List view"
+              >
+                <List className="h-3.5 w-3.5" /> List
+              </button>
+              <button
+                type="button"
+                onClick={() => setView('gantt')}
+                className={`inline-flex items-center gap-1 px-2 py-1 text-xs ${
+                  view === 'gantt'
+                    ? 'bg-primary-500 text-white'
+                    : 'bg-card text-muted-foreground hover:bg-muted'
+                }`}
+                aria-pressed={view === 'gantt'}
+                title="Gantt view"
+              >
+                <GanttChartSquare className="h-3.5 w-3.5" /> Gantt
+              </button>
+            </div>
             <Link
               href="/dashboard/objectives?create=1"
               className="btn-outline btn-primary"
@@ -165,9 +197,13 @@ export default function PlansList({
           </label>
         </div>
 
+        {/* Gantt view */}
+        {view === 'gantt' && <PlansGantt />}
+
         {/* Table */}
+        {view === 'list' && (
         <div className="rounded-lg border border-border bg-card overflow-hidden">
-          <table className="inline-flex items-center gap-1 px-2.5 py-2 text-sm font-medium border-b-2 border-transparent cursor-pointer text-muted-foreground hover:text-foregroundle">
+          <table className="w-full text-sm">
             <thead>
               <tr>
                 <th style={{ width: '40%' }}>Plan</th>
@@ -207,6 +243,7 @@ export default function PlansList({
             </tbody>
           </table>
         </div>
+        )}
       </div>
     </div>
   )

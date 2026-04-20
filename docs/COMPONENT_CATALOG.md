@@ -327,3 +327,11 @@ export const GET = withAuth(async () => {
 | `getErrorMessage(error)` | Extract error message from unknown |
 | `hasPermission(userRole, requiredRole)` | **DEPRECATED** — use `lib/permissions.ts` instead |
 | `canEditObjective(userRole, level)` | **DEPRECATED** — use `lib/permissions.ts` instead |
+
+
+## Plans
+
+| Component | Purpose |
+|-----------|---------|
+| `components/plans/PlansList` | Tability-style list view + List/Gantt toggle. Server-rendered rows with aggregated KR/initiative/NCS metrics. |
+| `components/plans/PlansGantt` | DHTMLX-Gantt view of all accessible objectives + nested KRs. Columns: title, assignee (avatar+name), status/confidence pill, progress %. Zoom: week/month/quarter/year. Clicking a bar routes to the objective/KR detail page. Data from `GET /api/gantt`. |

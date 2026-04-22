@@ -86,7 +86,8 @@ export default function PlansGantt() {
         tree: true,
         width: 340,
         resize: true,
-        template: (task: GanttTask) => {
+        template: (raw: unknown) => {
+          const task = raw as GanttTask
           const prefix =
             task.entityType === 'keyresult'
               ? '<span style="display:inline-block;font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px;background:#dbeafe;color:#1d4ed8;margin-right:6px;vertical-align:middle;">KR</span>'
@@ -101,7 +102,8 @@ export default function PlansGantt() {
         label: 'Assignee',
         align: 'left',
         width: 140,
-        template: (task: GanttTask) => {
+        template: (raw: unknown) => {
+          const task = raw as GanttTask
           const initials = (task.owner || '—')
             .split(' ')
             .map((s) => s[0])
@@ -120,7 +122,8 @@ export default function PlansGantt() {
         label: 'Status',
         align: 'center',
         width: 90,
-        template: (task: GanttTask) => {
+        template: (raw: unknown) => {
+          const task = raw as GanttTask
           if (task.entityType === 'objective' && task.goalStatus) {
             const color = STATUS_BAR_COLOR[task.goalStatus] ?? '#94a3b8'
             return `<span style="display:inline-block;padding:2px 6px;border-radius:10px;background:${color};color:white;font-size:10px;font-weight:600;">${task.goalStatus.replace(/_/g, ' ')}</span>`
@@ -137,7 +140,8 @@ export default function PlansGantt() {
         label: 'Progress',
         align: 'center',
         width: 80,
-        template: (task: GanttTask) => {
+        template: (raw: unknown) => {
+          const task = raw as GanttTask
           const pct = Math.round((task.progress || 0) * 100)
           const extra =
             task.entityType === 'keyresult' && task.unit && task.targetValue != null

@@ -66,7 +66,7 @@ export default function PlansGantt() {
 
   useEffect(() => {
     if (!containerRef.current) return
-    const g = gantt.getGanttInstance()
+    const g = gantt
     ganttRef.current = g
 
     g.config.date_format = '%Y-%m-%d %H:%i'

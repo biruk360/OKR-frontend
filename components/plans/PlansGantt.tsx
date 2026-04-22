@@ -288,7 +288,8 @@ export default function PlansGantt() {
         ref={containerRef}
         style={{
           width: '100%',
-          height: '640px',
+          height: 'calc(100vh - 220px)',
+          minHeight: '520px',
           display: error || empty ? 'none' : 'block',
         }}
       />

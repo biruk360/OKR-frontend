@@ -91,7 +91,7 @@ export default function PlansList({
 
   return (
     <div className=" -m-3 sm:-m-6 min-h-full p-4 sm:p-6">
-      <div className="mx-auto max-w-[1280px]">
+      <div className={view === 'gantt' ? 'w-full' : 'mx-auto max-w-[1280px]'}>
         {/* Tabs + create button */}
         <div className="mb-3 flex items-center justify-between border-b border-border">
           <div className="flex items-center gap-1">

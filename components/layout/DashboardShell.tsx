@@ -27,6 +27,7 @@ export default function DashboardShell({ user, children }: DashboardShellProps) 
   const isFullWidth =
     pathname === '/dashboard/okr-hierarchy' ||
     pathname === '/dashboard/timeline' ||
+    pathname === '/dashboard/plans' ||
     pathname?.startsWith('/dashboard/okr-hierarchy/') ||
     pathname?.startsWith('/dashboard/timeline/')
   const [mobileNavOpen, setMobileNavOpen] = useState(false)

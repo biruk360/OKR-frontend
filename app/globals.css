@@ -938,3 +938,12 @@
 .progress-animate {
   animation: progress-fill 0.8s ease-out;
 }
+/* Tiptap placeholder + editor polish */
+.ProseMirror:focus { outline: none; }
+.ProseMirror p.is-editor-empty:first-child::before {
+  color: hsl(var(--muted-foreground));
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}

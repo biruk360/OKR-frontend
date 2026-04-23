@@ -1,8 +1,10 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import { formatRelativeTime } from '@/lib/utils'
+import RichTextEditor from './RichTextEditor'
+import RichTextContent from './RichTextContent'
 
 interface CommentAuthor {
   id: string
@@ -32,18 +34,15 @@ interface Props {
 }
 
 /**
- * Discussion thread with @mention autocomplete. Fetches existing comments,
- * lets the viewer post a new one, and shows a popover of matching users when
- * the caret is inside an `@…` token.
+ * Discussion thread backed by a Tiptap rich-text editor. Content is stored
+ * and transmitted as sanitized HTML; legacy plaintext comments still render
+ * via RichTextContent's plain-text fallback.
  */
-export default function OkrComments({ endpoint, entityId, users }: Props) {
+export default function OkrComments({ endpoint, entityId }: Props) {
   const [comments, setComments] = useState<CommentRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [value, setValue] = useState('')
   const [saving, setSaving] = useState(false)
-  const [mentionQuery, setMentionQuery] = useState<string | null>(null)
-  const [mentionIndex, setMentionIndex] = useState(0)
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -59,79 +58,6 @@ export default function OkrComments({ endpoint, entityId, users }: Props) {
       cancelled = true
     }
   }, [endpoint, entityId])
-
-  const matches = useMemo(() => {
-    if (mentionQuery == null) return []
-    const q = mentionQuery.toLowerCase()
-    if (!q) return users.slice(0, 6)
-    return users
-      .filter((u) => {
-        const name = (u.name ?? '').toLowerCase()
-        const email = u.email.toLowerCase()
-        return name.includes(q) || email.startsWith(q)
-      })
-      .slice(0, 6)
-  }, [mentionQuery, users])
-
-  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const v = e.target.value
-    setValue(v)
-    const caret = e.target.selectionStart
-    const upto = v.slice(0, caret)
-    const m = upto.match(/(?:^|\s)@([\w.\-]*)$/)
-    if (m) {
-      setMentionQuery(m[1] ?? '')
-      setMentionIndex(0)
-    } else {
-      setMentionQuery(null)
-    }
-  }
-
-  const insertMention = (user: UserOption) => {
-    const ta = textareaRef.current
-    if (!ta) return
-    const caret = ta.selectionStart
-    const before = value.slice(0, caret)
-    const after = value.slice(caret)
-    const replaced = before.replace(/@([\w.\-]*)$/, `@${(user.name ?? user.email.split('@')[0]).replace(/\s+/g, '-')} `)
-    const next = replaced + after
-    setValue(next)
-    setMentionQuery(null)
-    requestAnimationFrame(() => {
-      ta.focus()
-      const pos = replaced.length
-      ta.setSelectionRange(pos, pos)
-    })
-  }
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (mentionQuery != null && matches.length > 0) {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault()
-        setMentionIndex((i) => Math.min(matches.length - 1, i + 1))
-        return
-      }
-      if (e.key === 'ArrowUp') {
-        e.preventDefault()
-        setMentionIndex((i) => Math.max(0, i - 1))
-        return
-      }
-      if (e.key === 'Enter' || e.key === 'Tab') {
-        e.preventDefault()
-        insertMention(matches[mentionIndex])
-        return
-      }
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        setMentionQuery(null)
-        return
-      }
-    }
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-      e.preventDefault()
-      submit()
-    }
-  }
 
   const submit = async () => {
     const content = value.trim()
@@ -178,49 +104,20 @@ export default function OkrComments({ endpoint, entityId, users }: Props) {
                   <span className="font-medium text-sm text-foreground">{c.author.name ?? c.author.email}</span>
                   <span className="text-xs text-muted-foreground">{formatRelativeTime(new Date(c.createdAt))}</span>
                 </div>
-                <p className="text-sm text-foreground whitespace-pre-wrap break-words">
-                  {renderContentWithMentions(c.content)}
-                </p>
+                <RichTextContent html={c.content} className="text-sm text-foreground" />
               </div>
             </li>
           ))}
         </ul>
       )}
 
-      <div className="relative">
-        <textarea
-          ref={textareaRef}
+      <div>
+        <RichTextEditor
           value={value}
-          onChange={handleChange}
-          onKeyDown={handleKeyDown}
-          placeholder="Write a comment — type @ to mention someone. Cmd/Ctrl+Enter to post."
-          rows={3}
-          className="w-full border rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          onChange={setValue}
+          placeholder="Write a comment — Cmd/Ctrl+Enter to post."
+          onSubmit={submit}
         />
-        {mentionQuery != null && matches.length > 0 && (
-          <div className="absolute z-20 mt-1 w-64 bg-card border border-border rounded-md shadow-lg py-1 text-sm">
-            {matches.map((u, i) => (
-              <button
-                key={u.id}
-                type="button"
-                onMouseDown={(e) => {
-                  e.preventDefault()
-                  insertMention(u)
-                }}
-                className={
-                  'w-full text-left px-3 py-1.5 flex items-center gap-2 ' +
-                  (i === mentionIndex ? 'bg-blue-50 text-blue-700' : 'text-muted-foreground hover:bg-muted')
-                }
-              >
-                <span className="h-6 w-6 rounded-full bg-blue-500 text-white text-[10px] flex items-center justify-center">
-                  {(u.name ?? u.email).slice(0, 1).toUpperCase()}
-                </span>
-                <span className="truncate">{u.name ?? u.email}</span>
-                <span className="ml-auto text-xs text-muted-foreground truncate">{u.email}</span>
-              </button>
-            ))}
-          </div>
-        )}
         <div className="flex justify-end mt-2">
           <button
             type="button"
@@ -233,18 +130,5 @@ export default function OkrComments({ endpoint, entityId, users }: Props) {
         </div>
       </div>
     </section>
-  )
-}
-
-function renderContentWithMentions(content: string) {
-  const parts = content.split(/(@[\w.\-]+)/g)
-  return parts.map((p, i) =>
-    p.startsWith('@') ? (
-      <span key={i} className="text-blue-600 font-medium">
-        {p}
-      </span>
-    ) : (
-      <span key={i}>{p}</span>
-    ),
   )
 }

@@ -87,7 +87,9 @@ export default function NestedObjectivesList({
   const renderNode = (node: ObjectiveNode) => {
     const { objective: obj, level, children } = node
     const isOpen = expanded.has(obj.id)
-    const hasKids = children.length > 0
+    const krs: any[] = Array.isArray(obj.keyResults) ? obj.keyResults : []
+    const krCount = obj._count?.keyResults ?? krs.length
+    const hasKids = children.length > 0 || krCount > 0
     const indent = level * 20
 
     return (
@@ -189,8 +191,54 @@ export default function NestedObjectivesList({
           )}
         </div>
 
-        {/* Children */}
-        {hasKids && isOpen && (
+        {/* Key results (shown before child objectives when expanded) */}
+        {isOpen && krs.length > 0 && (
+          <div
+            className="mb-1.5 space-y-1"
+            style={{ marginLeft: `${indent + 28}px` }}
+          >
+            {krs.map((kr: any) => (
+              <Link
+                key={kr.id}
+                href={`/dashboard/key-results/${kr.id}`}
+                className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 hover:border-border/80 hover:shadow-sm transition-all"
+              >
+                <span className="shrink-0 inline-flex items-center rounded bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
+                  KR
+                </span>
+                <span className="flex-1 min-w-0 text-sm text-foreground truncate" title={kr.title}>
+                  {kr.title}
+                </span>
+                {kr.owner && (
+                  <span className="hidden sm:flex items-center gap-1 shrink-0 text-xs text-muted-foreground max-w-[100px]">
+                    {kr.owner.avatar ? (
+                      <img src={kr.owner.avatar} alt="" className="size-4 rounded-full object-cover" />
+                    ) : (
+                      <div className="size-4 rounded-full bg-primary flex items-center justify-center text-[9px] text-primary-foreground font-bold">
+                        {(kr.owner.name ?? '?')[0]}
+                      </div>
+                    )}
+                    <span className="truncate max-w-[72px]">{kr.owner.name}</span>
+                  </span>
+                )}
+                <div className="shrink-0 flex items-center gap-2 w-[80px]">
+                  <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${progressBarColor(kr.progress ?? 0)}`}
+                      style={{ width: `${Math.min(kr.progress ?? 0, 100)}%` }}
+                    />
+                  </div>
+                  <span className="text-xs font-semibold tabular-nums w-[28px] text-right text-foreground">
+                    {Math.round(kr.progress ?? 0)}%
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+
+        {/* Child objectives */}
+        {isOpen && children.length > 0 && (
           <div className="mb-1.5">
             {children.map(child => renderNode(child))}
           </div>

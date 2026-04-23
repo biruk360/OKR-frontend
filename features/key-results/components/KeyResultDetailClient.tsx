@@ -12,7 +12,7 @@
  * so the surrounding server page stays thin — same pattern as the objective page.
  */
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -34,15 +34,14 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
-import { formatRelativeTime, getProgressBarClass } from '@/lib/utils'
+import { cn, formatRelativeTime, getProgressBarClass } from '@/lib/utils'
 import { formatAxisValue } from '@/lib/keyResultChart'
 import KeyResultProgressChart from './KeyResultProgressChart'
 import CreateCheckInModal from './CreateCheckInModal'
 import { ToDoList } from '@/features/todos'
 import EditKeyResultButton from './EditKeyResultButton'
-import { useDashboardTitleContext } from '@/components/layout/DashboardTitleContext'
 import { ActivityLogPanel } from '@/components/shared/ActivityLogPanel'
-import OkrBreadcrumb, { type BreadcrumbNode } from '@/components/shared/OkrBreadcrumb'
+import { type BreadcrumbNode } from '@/components/shared/OkrBreadcrumb'
 import OkrComments from '@/components/shared/OkrComments'
 import WorkItemsKanban from '@/components/shared/WorkItemsKanban'
 
@@ -124,14 +123,8 @@ export default function KeyResultDetailClient({
   initiatives,
 }: KeyResultDetailClientProps) {
   const router = useRouter()
-  const { setOverrideTitle } = useDashboardTitleContext()
   const [checkInOpen, setCheckInOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
-
-  useEffect(() => {
-    setOverrideTitle(kr.title)
-    return () => setOverrideTitle(null)
-  }, [kr.title, setOverrideTitle])
 
   const timeframe = objective.timeframe ?? null
   const deadline = timeframe?.endDate != null ? format(new Date(timeframe.endDate), 'MMM d, yyyy') : null
@@ -141,6 +134,44 @@ export default function KeyResultDetailClient({
   const progressRounded = Math.round(pct)
   const status = confidenceLabel(kr.confidence)
   const showCheckIn = canEdit && kr.status === 'ACTIVE' && !isRedacted
+
+  // Timeframe-derived metrics for the hero row (mirrors ObjectiveHero).
+  let daysLeft = 0
+  let weekLabel: string | null = null
+  if (timeframe?.endDate) {
+    const now = new Date()
+    const end = new Date(timeframe.endDate)
+    daysLeft = Math.max(0, Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
+    if (timeframe.startDate) {
+      const start = new Date(timeframe.startDate)
+      const totalWeeks = Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 7)))
+      const weeksElapsed = Math.max(
+        0,
+        Math.min(totalWeeks, Math.round((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 7))),
+      )
+      weekLabel = `Week ${weeksElapsed} of ${totalWeeks}`
+    }
+  }
+
+  const progressBarColor =
+    kr.confidence === 'ON_TRACK' ? '#059669'
+    : kr.confidence === 'AT_RISK' ? '#d97706'
+    : kr.confidence === 'OFF_TRACK' ? '#dc2626'
+    : '#2563eb'
+
+  const ownerInitials = (kr.owner?.name || '?')
+    .split(' ')
+    .map((w: string) => w[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join('')
+    .toUpperCase()
+
+  const objectiveLevelLabel =
+    objective.level === 'COMPANY' ? 'Company'
+    : objective.level === 'DEPARTMENT' ? 'Department'
+    : objective.level === 'INDIVIDUAL' ? 'Individual'
+    : null
 
   const chartCheckIns = isRedacted
     ? []
@@ -244,8 +275,6 @@ export default function KeyResultDetailClient({
         </div>
       </div>
 
-      <OkrBreadcrumb nodes={breadcrumbNodes} />
-
       {siblingNav.total > 1 && (
         <div className="flex items-center gap-1 text-sm text-muted-foreground">
           {siblingNav.prevId ? (
@@ -285,58 +314,134 @@ export default function KeyResultDetailClient({
             </div>
           )}
 
-          {/* Header card: KR badge, title, parent objective, description, big progress */}
-          <section className="bg-card shadow rounded-lg p-6">
-            <div className="flex items-start justify-between gap-6">
-              <div className="flex-1 min-w-0">
-                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                  <Target className="h-3.5 w-3.5 mr-1" />
-                  Key Result
-                </span>
-                <h1 className="mt-3 text-2xl font-semibold text-foreground leading-tight">
-                  {kr.title}
-                </h1>
-                <div className="mt-2">
-                  <Link
-                    href={`/dashboard/objectives/${objective.id}`}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted px-2 py-1 text-xs text-muted-foreground hover:bg-muted"
-                  >
-                    <Target className="h-3 w-3 text-muted-foreground" />
-                    Supports: {objective.title}
-                    {deadline && <span className="text-muted-foreground ml-1">· Target {deadline}</span>}
-                  </Link>
-                </div>
-                {kr.description && !isRedacted && (
-                  <p className="mt-3 text-base text-muted-foreground leading-relaxed">{kr.description}</p>
-                )}
-              </div>
-
-              <div className="flex-shrink-0 text-right min-w-[180px]">
-                <div className="flex items-center justify-end gap-2 mb-1">
-                  <span className="text-3xl font-bold text-foreground">{progressRounded}%</span>
-                  {status && (
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${status.classes}`}>
-                      {status.label}
+          {/* Header card — mirrors ObjectiveHero layout: owner avatar + badges + title, then metric row */}
+          <section className="rounded-xl border border-border bg-card">
+            <div className="px-5 pt-5 pb-4">
+              <div className="flex items-start gap-4">
+                <Link href={`/dashboard/org/users/${kr.owner?.id ?? ''}`} className="block shrink-0">
+                  {kr.owner?.avatar ? (
+                    <img
+                      src={kr.owner.avatar}
+                      alt={kr.owner?.name ?? ''}
+                      className="size-10 rounded-full object-cover border-2 border-card ring-2 ring-border"
+                    />
+                  ) : (
+                    <span className="flex size-10 items-center justify-center rounded-full bg-primary-500 text-sm font-bold text-white border-2 border-card ring-2 ring-border">
+                      {ownerInitials}
                     </span>
                   )}
+                </Link>
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                    {objectiveLevelLabel && (
+                      <span className="inline-flex items-center rounded border border-border px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+                        {objectiveLevelLabel}
+                      </span>
+                    )}
+                    <span className="inline-flex items-center rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-blue-700">
+                      KR
+                    </span>
+                    {kr.isPrivate && (
+                      <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">
+                        Private
+                      </span>
+                    )}
+                    {timeframe?.name && (
+                      <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                        <Calendar className="size-2.5" />
+                        {timeframe.name}
+                      </span>
+                    )}
+                    {objective.department?.name && (
+                      <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                        <Building2 className="size-2.5" />
+                        {objective.department.name}
+                      </span>
+                    )}
+                  </div>
+
+                  <h1 className="text-lg font-semibold leading-snug text-foreground">{kr.title}</h1>
+
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Aligned to{' '}
+                    <Link
+                      href={`/dashboard/objectives/${objective.id}`}
+                      className="text-primary-500 hover:underline"
+                    >
+                      {objective.title}
+                    </Link>
+                  </p>
+
+                  {kr.description && !isRedacted && (
+                    <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{kr.description}</p>
+                  )}
                 </div>
-                <div className="text-xs text-muted-foreground">Key Result Progress</div>
-                <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 border-t border-border divide-x divide-border bg-muted/30">
+              <div className="px-4 py-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Progress</p>
+                <p className="text-2xl font-bold tabular-nums mt-0.5">{progressRounded}%</p>
+                <div className="mt-1 h-1.5 w-full rounded-full bg-muted overflow-hidden">
                   <div
-                    className={`h-2 rounded-full transition-all duration-300 ${getProgressBarClass(pct)}`}
-                    style={{ width: `${Math.min(progressRounded, 100)}%` }}
+                    className="h-full rounded-full transition-all"
+                    style={{ width: `${Math.min(progressRounded, 100)}%`, backgroundColor: progressBarColor }}
                   />
                 </div>
-                <div className="text-[11px] text-muted-foreground mt-2">
-                  Last updated {formatRelativeTime(kr.updatedAt)}
-                </div>
+              </div>
+              <div className="px-4 py-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Status</p>
+                {status ? (
+                  <span className={`inline-flex items-center mt-1 px-2 py-0.5 rounded-full text-[11px] font-semibold ${status.classes}`}>
+                    {status.label}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center mt-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-muted text-muted-foreground">
+                    NO STATUS
+                  </span>
+                )}
                 {!isRedacted && (
-                  <div className="mt-1 text-[11px] text-muted-foreground">
-                    <span className="font-semibold text-muted-foreground">{unit} {formatAxisValue(Number(kr.currentValue) || 0)}</span>
-                    {' '} / {unit} {formatAxisValue(Number(kr.targetValue) || 0)}
-                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    {unit} {formatAxisValue(Number(kr.currentValue) || 0)} / {unit} {formatAxisValue(Number(kr.targetValue) || 0)}
+                  </p>
                 )}
               </div>
+              <div className="px-4 py-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Initiatives</p>
+                <p className="text-2xl font-bold tabular-nums mt-0.5">{todoCount}</p>
+                <p className="text-[11px] text-muted-foreground">
+                  {todoCount === 0 ? 'none yet' : todoCount === 1 ? 'initiative' : 'initiatives'}
+                </p>
+              </div>
+              <div className="px-4 py-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Deadline</p>
+                <p
+                  className={cn(
+                    'text-2xl font-bold tabular-nums mt-0.5',
+                    daysLeft < 7 ? 'text-red-600' : daysLeft < 30 ? 'text-amber-600' : '',
+                  )}
+                >
+                  {deadline ? (daysLeft > 0 ? `${daysLeft}d` : 'Past due') : '—'}
+                </p>
+                {weekLabel && <p className="text-[11px] text-muted-foreground">{weekLabel}</p>}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between border-t border-border px-5 py-2.5 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="font-medium text-foreground truncate">{kr.owner?.name ?? 'Unknown'}</span>
+                {timeframe?.name && (
+                  <>
+                    <span>·</span>
+                    <span className="truncate">{timeframe.name}</span>
+                  </>
+                )}
+              </div>
+              <span className="text-[11px] text-muted-foreground shrink-0">
+                Updated {formatRelativeTime(kr.updatedAt)}
+              </span>
             </div>
           </section>
 

@@ -44,6 +44,8 @@ interface ViewEntry {
 interface Props {
   entityType: EntityType
   entityId: string
+  /** When true, skip the outer border + "Activity" title — parent tab provides them. */
+  embedded?: boolean
 }
 
 const apiBase: Record<EntityType, string> = {
@@ -67,7 +69,7 @@ const ACTION_LABEL: Record<string, string> = {
   VIEWED: 'viewed',
 }
 
-export function ActivityLogPanel({ entityType, entityId }: Props) {
+export function ActivityLogPanel({ entityType, entityId, embedded = false }: Props) {
   const [logs, setLogs] = useState<ActivityLogEntry[]>([])
   const [views, setViews] = useState<ViewEntry[]>([])
   const [loading, setLoading] = useState(true)
@@ -96,10 +98,16 @@ export function ActivityLogPanel({ entityType, entityId }: Props) {
   }, [entityType, entityId])
 
   return (
-    <section className="rounded-md border border-neutral-200 bg-card">
-      <header className="flex items-center justify-between border-b border-neutral-200 px-4 py-3">
+    <section className={embedded ? '' : 'rounded-md border border-neutral-200 bg-card'}>
+      <header
+        className={
+          embedded
+            ? 'flex items-center gap-1 pb-3'
+            : 'flex items-center justify-between border-b border-neutral-200 px-4 py-3'
+        }
+      >
         <div className="flex items-center gap-4">
-          <h3 className="text-sm font-semibold text-neutral-900">Activity</h3>
+          {!embedded && <h3 className="text-sm font-semibold text-neutral-900">Activity</h3>}
           <div className="flex gap-1 text-xs">
             <button
               onClick={() => setTab('activity')}
@@ -117,7 +125,7 @@ export function ActivityLogPanel({ entityType, entityId }: Props) {
         </div>
       </header>
 
-      <div className="px-4 py-3">
+      <div className={embedded ? '' : 'px-4 py-3'}>
         {loading ? (
           <p className="text-sm text-neutral-500">Loading…</p>
         ) : tab === 'activity' ? (

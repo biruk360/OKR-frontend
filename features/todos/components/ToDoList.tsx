@@ -371,7 +371,14 @@ export default function ToDoList({
 
         {todos.length > 0 ? (
           <ul className="">
-            {todos.map((todo) => {
+            {[...todos]
+              .sort((a, b) => {
+                const aDone = a.status === 'COMPLETED' ? 1 : 0
+                const bDone = b.status === 'COMPLETED' ? 1 : 0
+                if (aDone !== bDone) return aDone - bDone
+                return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+              })
+              .map((todo) => {
               const isDone = todo.status === 'COMPLETED'
               const dueStatus = todo.dueDate ? getDueDateStatus(todo.dueDate) : 'none'
               return (

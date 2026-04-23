@@ -30,7 +30,7 @@ export default function ActivityTabs({ objectiveId, activityElementId, users }: 
 
       <TabsContent value="activity" className="mt-0 pt-3">
         <div id={activityElementId}>
-          <ActivityLogPanel entityType="objective" entityId={objectiveId} />
+          <ActivityLogPanel entityType="objective" entityId={objectiveId} embedded />
         </div>
       </TabsContent>
 

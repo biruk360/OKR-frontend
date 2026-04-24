@@ -256,7 +256,7 @@ export function SidebarDesktopColumn({ collapsed, onToggleCollapsed, className }
   const activeCtx = getActiveNavContext(pathname)
 
   return (
-    <aside className={cn('hidden min-h-0 shrink-0 flex-col border-r border-border bg-card lg:flex', collapsed ? 'w-16' : 'w-[260px]', className)}>
+    <aside className={cn('ap-glass hidden min-h-0 shrink-0 flex-col border-r lg:flex', collapsed ? 'w-[52px]' : 'w-[220px]', className)} style={{ borderRightColor: 'var(--ap-border)' }}>
       <div className={cn('flex shrink-0 items-center gap-2 border-b border-border px-2', collapsed ? 'min-h-[3.5rem] flex-col justify-center py-2' : 'h-14 justify-between pr-2')}>
         <div className={cn('flex min-w-0 items-center', collapsed ? 'flex-col gap-1' : 'flex-1 gap-2 pl-2')}>
           <Target className={cn('shrink-0 text-primary-500', collapsed ? 'size-5' : 'size-6')} aria-hidden />

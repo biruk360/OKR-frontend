@@ -42,8 +42,8 @@ export default function Header({ user, onMobileNavOpen }: HeaderProps) {
   }
 
   return (
-    <header className="bg-transparent">
-      <div className="flex h-14 items-center gap-2 px-3 sm:px-4 lg:px-6">
+    <header className="ap-glass sticky top-0 z-20 border-b" style={{ borderBottomColor: 'var(--ap-border)' }}>
+      <div className="flex h-12 items-center gap-2 px-3 sm:px-4 lg:px-5">
         {onMobileNavOpen && (
           <Button
             variant="ghost"

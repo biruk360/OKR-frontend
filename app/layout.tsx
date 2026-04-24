@@ -33,7 +33,7 @@ export default async function RootLayout({
 
   return (
     <html lang="en" suppressHydrationWarning className={inter.variable}>
-      <body className={inter.className} suppressHydrationWarning>
+      <body className={`${inter.className} apple-pro-surface theme-apple-full`} suppressHydrationWarning>
         <Providers session={session}>
           {children}
           <Toaster

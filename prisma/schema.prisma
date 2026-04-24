@@ -55,6 +55,10 @@ model User {
   notificationPrefs   NotificationPreference[]
   watchers            Watcher[]
   favorites           Favorite[]
+  todoMembers         TodoMember[]            @relation("TodoMemberUser")
+  todoChecklistItems  TodoChecklistItem[]     @relation("TodoChecklistItemAssignee")
+  todoAttachments     TodoAttachment[]        @relation("TodoAttachmentUploader")
+  todoComments        TodoComment[]           @relation("TodoCommentAuthor")
 
   @@map("users")
 }
@@ -272,6 +276,8 @@ model Todo {
   title       String
   description String?
   status      String     @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, CANCELLED
+  priority    String     @default("MEDIUM")  // LOW, MEDIUM, HIGH, URGENT
+  coverColor  String?    // hex or named colour for the card cover strip
   dueDate     DateTime?
   completedAt DateTime?
   assigneeId  String
@@ -289,16 +295,136 @@ model Todo {
   updatedAt   DateTime   @updatedAt
 
   // Relationships
-  assignee  User       @relation("TodoAssignee", fields: [assigneeId], references: [id])
-  creator   User       @relation("TodoCreator", fields: [creatorId], references: [id])
-  keyResult KeyResult? @relation(fields: [keyResultId], references: [id], onDelete: Cascade)
-  objective Objective? @relation("TodoObjective", fields: [objectiveId], references: [id], onDelete: SetNull)
+  assignee    User        @relation("TodoAssignee", fields: [assigneeId], references: [id])
+  creator     User        @relation("TodoCreator", fields: [creatorId], references: [id])
+  keyResult   KeyResult?  @relation(fields: [keyResultId], references: [id], onDelete: Cascade)
+  objective   Objective?  @relation("TodoObjective", fields: [objectiveId], references: [id], onDelete: SetNull)
 
   initiativeUpdates InitiativeUpdate[]
+  members           TodoMember[]
+  labels            TodoLabel[]
+  checklists        TodoChecklist[]
+  attachments       TodoAttachment[]
+  todoComments      TodoComment[]
 
   @@index([assigneeId, status])
   @@index([creatorId, status])
   @@map("initiatives")
+}
+
+/// Additional members on a todo (beyond the single primary assignee).
+model TodoMember {
+  id        String   @id @default(cuid())
+  todoId    String
+  userId    String
+  addedAt   DateTime @default(now())
+
+  todo Todo @relation(fields: [todoId], references: [id], onDelete: Cascade)
+  user User @relation("TodoMemberUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([todoId, userId])
+  @@index([userId])
+  @@map("todo_members")
+}
+
+/// Coloured label attached to a todo. Label definitions live in TodoLabelDef.
+model TodoLabel {
+  id            String       @id @default(cuid())
+  todoId        String
+  labelDefId    String
+  createdAt     DateTime     @default(now())
+
+  todo     Todo         @relation(fields: [todoId], references: [id], onDelete: Cascade)
+  labelDef TodoLabelDef @relation(fields: [labelDefId], references: [id], onDelete: Cascade)
+
+  @@unique([todoId, labelDefId])
+  @@map("todo_labels")
+}
+
+/// Board-wide label palette (name + color). Shared across all todos.
+model TodoLabelDef {
+  id        String   @id @default(cuid())
+  name      String
+  color     String   @default("#6366F1") // indigo default
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  todoLabels TodoLabel[]
+
+  @@map("todo_label_defs")
+}
+
+/// A named checklist group on a todo (a card can have multiple checklists).
+model TodoChecklist {
+  id        String   @id @default(cuid())
+  todoId    String
+  title     String   @default("Checklist")
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  todo  Todo                @relation(fields: [todoId], references: [id], onDelete: Cascade)
+  items TodoChecklistItem[]
+
+  @@index([todoId, position])
+  @@map("todo_checklists")
+}
+
+/// Individual item within a checklist.
+model TodoChecklistItem {
+  id          String    @id @default(cuid())
+  checklistId String
+  title       String
+  completed   Boolean   @default(false)
+  assigneeId  String?
+  dueDate     DateTime?
+  position    Int       @default(0)
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  checklist TodoChecklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+  assignee  User?         @relation("TodoChecklistItemAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+
+  @@index([checklistId, position])
+  @@map("todo_checklist_items")
+}
+
+/// File attachment on a todo. Stores the file URL (uploaded to storage) + metadata.
+model TodoAttachment {
+  id           String   @id @default(cuid())
+  todoId       String
+  uploadedById String
+  filename     String
+  url          String   // storage URL (local path or CDN)
+  mimeType     String
+  size         Int      // bytes
+  createdAt    DateTime @default(now())
+
+  todo       Todo @relation(fields: [todoId], references: [id], onDelete: Cascade)
+  uploadedBy User @relation("TodoAttachmentUploader", fields: [uploadedById], references: [id], onDelete: Cascade)
+
+  @@index([todoId])
+  @@map("todo_attachments")
+}
+
+/// WYSIWYG comment thread on a todo. Separate from InitiativeUpdate (daily updates).
+model TodoComment {
+  id        String   @id @default(cuid())
+  todoId    String
+  authorId  String
+  content   String   // HTML from Tiptap
+  parentId  String?  // for threaded replies
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  todo    Todo         @relation(fields: [todoId], references: [id], onDelete: Cascade)
+  author  User         @relation("TodoCommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  parent  TodoComment? @relation("TodoCommentReplies", fields: [parentId], references: [id])
+  replies TodoComment[] @relation("TodoCommentReplies")
+
+  @@index([todoId, createdAt])
+  @@map("todo_comments")
 }
 
 /// Mandatory daily update on an initiative. One row per (initiative, date).

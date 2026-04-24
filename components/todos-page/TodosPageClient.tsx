@@ -17,7 +17,7 @@ import {
   PanelRight,
   Maximize2,
 } from 'lucide-react'
-import TodoDetailPanel from './TodoDetailPanel'
+import { TodoCardModal } from '@/components/todos/TodoCardModal'
 import TodoKanbanView from './TodoKanbanView'
 import TodoTreeView from './TodoTreeView'
 import { useTodoStore } from '@/lib/stores/todo-store'
@@ -82,7 +82,7 @@ export default function TodosPageClient({
   currentUserId,
 }: Props) {
   // ─── Zustand stores ───
-  const { todos: rows, setTodos, toggleComplete, changeStatus, changeAssignee, changeDueDate, deleteTodo, addTodo, updateTodo } = useTodoStore()
+  const { todos: rows, setTodos, toggleComplete, changeStatus, changeAssignee, changeDueDate, deleteTodo, addTodo, updateTodo, fetchTodos } = useTodoStore()
   const { todoViewMode: viewMode, load: loadPrefs, setTodoViewMode } = useUserPrefsStore()
 
   const [query, setQuery] = useState('')
@@ -350,29 +350,14 @@ export default function TodosPageClient({
         )}
       </div>
 
-      {openTodoId && (() => {
-        const todo = rows.find((r) => r.id === openTodoId)
-        if (!todo) return null
-        return (
-          <TodoDetailPanel
-            todo={todo}
-            mode={viewMode}
-            users={users}
-            keyResults={keyResults}
-            objectives={objectives}
-            currentUserId={currentUserId}
-            onClose={() => setOpenTodoId(null)}
-            onUpdate={(patch) => {
-              updateTodo(openTodoId, patch as any)
-            }}
-            onDelete={() => {
-              deleteTodo(openTodoId)
-              setOpenTodoId(null)
-            }}
-            onToggleMode={toggleViewMode}
-          />
-        )
-      })()}
+      {openTodoId && (
+        <TodoCardModal
+          todoId={openTodoId}
+          currentUserId={currentUserId}
+          onClose={() => setOpenTodoId(null)}
+          onUpdated={() => fetchTodos()}
+        />
+      )}
 
       {showCreate && (
         <CreateTodoModal

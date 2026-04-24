@@ -17,25 +17,35 @@ import {
  * GET /api/todos/[id] — single initiative/todo with relations matching the list endpoint shape.
  * Powers the global initiative detail modal opened from anywhere in the app.
  */
+const TODO_INCLUDE = {
+  assignee: { select: { id: true, name: true, avatar: true } },
+  creator: { select: { id: true, name: true, avatar: true } },
+  members: { include: { user: { select: { id: true, name: true, avatar: true } } } },
+  labels: { include: { labelDef: true } },
+  checklists: {
+    orderBy: { position: 'asc' as const },
+    include: {
+      items: {
+        orderBy: { position: 'asc' as const },
+        include: { assignee: { select: { id: true, name: true, avatar: true } } },
+      },
+    },
+  },
+  attachments: { include: { uploadedBy: { select: { id: true, name: true } } }, orderBy: { createdAt: 'asc' as const } },
+  keyResult: {
+    select: {
+      id: true, title: true,
+      objective: { select: { id: true, title: true, level: true, timeframe: { select: { name: true } } } },
+    },
+  },
+  objective: { select: { id: true, title: true, level: true, timeframe: { select: { name: true } } } },
+} as const
+
 export const GET = withAuth<RouteIdParams>(async (_request, { params }) => {
   const { id: todoId } = await resolveParams(params)
   if (!todoId) return apiBadRequest('Invalid todo id')
-  const todo = await prisma.todo.findUnique({
-    where: { id: todoId },
-    include: {
-      assignee: { select: { id: true, name: true, avatar: true } },
-      creator: { select: { id: true, name: true, avatar: true } },
-      keyResult: {
-        select: {
-          id: true, title: true,
-          objective: { select: { id: true, title: true, level: true, timeframe: { select: { name: true } } } },
-        },
-      },
-      objective: { select: { id: true, title: true, level: true, timeframe: { select: { name: true } } } },
-    },
-  })
+  const todo = await prisma.todo.findUnique({ where: { id: todoId }, include: TODO_INCLUDE })
   if (!todo) return apiNotFound('To-do not found')
-  // Shape into the same TodoRow envelope the list page uses (timeframeName flattened).
   const shaped = {
     ...todo,
     keyResult: todo.keyResult ? {
@@ -62,7 +72,12 @@ export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { sess
   const { id: todoId } = await resolveParams(params)
   if (!todoId) return apiBadRequest('Invalid todo id')
 
-  const { title, description, status, dueDate, completedAt, progressValue } = await request.json()
+  const {
+    title, description, status, dueDate, completedAt, progressValue,
+    assigneeId, priority, coverColor,
+    memberIds,   // string[] — full replacement of members list
+    labelIds,    // string[] (TodoLabelDef ids) — full replacement
+  } = await request.json()
 
   const existingTodo = await prisma.todo.findUnique({
     where: { id: todoId },
@@ -118,21 +133,41 @@ export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { sess
     parsedProgressValue = n
   }
 
+  // Validate new assignee if provided
+  if (assigneeId && assigneeId !== existingTodo.assigneeId) {
+    const newAssignee = await prisma.user.findUnique({ where: { id: assigneeId }, select: { id: true } })
+    if (!newAssignee) return apiBadRequest('Assignee user not found')
+  }
+
   const updatedTodo = await prisma.$transaction(async (tx) => {
     const updated = await tx.todo.update({
       where: { id: todoId },
       data: {
-        ...(title && { title }),
+        ...(title !== undefined && { title }),
         ...(description !== undefined && { description }),
-        ...(status && { status }),
-        ...(dueDate && { dueDate: new Date(dueDate) }),
+        ...(status !== undefined && { status }),
+        ...(dueDate !== undefined && { dueDate: dueDate ? new Date(dueDate) : null }),
         ...(completedAt !== undefined && { completedAt: completedAt ? new Date(completedAt) : null }),
         ...(parsedProgressValue !== undefined && { progressValue: parsedProgressValue }),
+        ...(assigneeId !== undefined && { assigneeId }),
+        ...(priority !== undefined && { priority }),
+        ...(coverColor !== undefined && { coverColor }),
+        // Replace members list atomically
+        ...(Array.isArray(memberIds) && {
+          members: {
+            deleteMany: {},
+            create: memberIds.map((uid: string) => ({ userId: uid })),
+          },
+        }),
+        // Replace labels list atomically
+        ...(Array.isArray(labelIds) && {
+          labels: {
+            deleteMany: {},
+            create: labelIds.map((lid: string) => ({ labelDefId: lid })),
+          },
+        }),
       },
-      include: {
-        assignee: { select: { id: true, name: true, avatar: true } },
-        creator: { select: { id: true, name: true, avatar: true } },
-      },
+      include: TODO_INCLUDE,
     })
 
     // If this initiative is linked to a KR and either its status or its progressValue
@@ -164,6 +199,15 @@ export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { sess
       actorId: session.user.id,
       entityType: 'TODO', entityId: todoId, entityTitle: updatedTodo.title,
       data: { actorName: session.user.name, deepLink: `/dashboard/todos` },
+    })
+  }
+
+  if (assigneeId && assigneeId !== existingTodo.assigneeId && assigneeId !== session.user.id) {
+    await emit('TODO_ASSIGNED', {
+      actorId: session.user.id,
+      entityType: 'TODO', entityId: todoId, entityTitle: updatedTodo.title,
+      explicitRecipients: [assigneeId],
+      data: { actorName: session.user.name, deepLink: `/dashboard/todos?open=${todoId}` },
     })
   }
 

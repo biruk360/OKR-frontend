@@ -17,6 +17,7 @@ import {
   Calendar,
   Key,
   Layout,
+  Kanban,
 } from 'lucide-react'
 
 export interface NavItem {
@@ -46,6 +47,7 @@ export const navigationGroups: NavGroup[] = [
       { name: 'Goals', href: '/dashboard/goals', icon: Target },
       { name: 'My OKRs', href: '/dashboard/my-okrs', icon: User },
       { name: 'To-dos', href: '/dashboard/todos', icon: CheckSquare },
+      { name: 'Work Board', href: '/dashboard/work', icon: Kanban },
       { name: 'Sprints', href: '/dashboard/sprints', icon: Layout },
     ],
     defaultOpen: true,

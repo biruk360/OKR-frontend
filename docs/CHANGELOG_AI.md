@@ -13,6 +13,47 @@
 
 ---
 
+## 2026-04-24 — Trello-style Todo/Initiative card system + Work Board
+
+### Schema (prisma/schema.prisma + prisma db push)
+- Added `priority` (LOW/MEDIUM/HIGH/URGENT) and `coverColor` fields to `Todo`
+- New models: `TodoMember` (multi-assignee), `TodoLabelDef` + `TodoLabel` (coloured labels), `TodoChecklist` + `TodoChecklistItem` (checklists with per-item assignee/due date), `TodoAttachment` (file uploads with image preview), `TodoComment` (WYSIWYG threaded comments with @mention support)
+
+### API routes
+- **Modified** `app/api/todos/[id]/route.ts` — GET now returns full card data (members, labels, checklists, attachments); PATCH accepts `assigneeId`, `priority`, `coverColor`, `memberIds`, `labelIds`; emits `TODO_ASSIGNED` notification on reassign
+- **Added** `app/api/todos/[id]/comments/route.ts` — GET/POST threaded comments; POST extracts `data-mention-id` @mentions, emits notification + sends email to each mentioned user
+- **Added** `app/api/todos/[id]/comments/[commentId]/route.ts` — PATCH/DELETE
+- **Added** `app/api/todos/[id]/checklists/route.ts` — GET/POST checklist groups
+- **Added** `app/api/todos/[id]/checklists/[checklistId]/route.ts` — PATCH/DELETE
+- **Added** `app/api/todos/[id]/checklists/[checklistId]/items/route.ts` — POST items
+- **Added** `app/api/todos/[id]/checklists/[checklistId]/items/[itemId]/route.ts` — PATCH/DELETE
+- **Added** `app/api/todos/[id]/attachments/route.ts` — POST multipart upload (20 MB limit, saved to public/uploads/todos)
+- **Added** `app/api/todos/[id]/attachments/[attachmentId]/route.ts` — DELETE
+- **Added** `app/api/todo-labels/route.ts` — GET/POST global label palette
+- **Added** `app/api/todo-labels/[id]/route.ts` — PATCH/DELETE
+
+### Components
+- **Added** `components/todos/MentionEditor.tsx` — Tiptap WYSIWYG with @mention dropdown (portal, keyboard nav), bold/italic/code/lists toolbar
+- **Added** `components/todos/TodoCardModal.tsx` — Full Trello-style card modal: cover strip, multi-member avatars, coloured labels, priority/status selectors, due date, description (WYSIWYG), checklists with per-item toggle/assignee, attachment grid with image previews, WYSIWYG comment thread with @mention, right sidebar (Members/Labels/Checklist/Due Date/Attachment/Cover/Actions)
+- **Added** `components/todos/TodoCard.tsx` — Kanban card chip: cover, label dots, title, due date badge, checklist progress, attachment count, member avatars, drag-and-drop props
+- **Modified** `components/shared/GlobalInitiativeDetail.tsx` — Replaced `TodoDetailPanel` with `TodoCardModal`; all existing `open(id)` call sites work unchanged
+- **Modified** `components/todos-page/TodosPageClient.tsx` — Replaced `TodoDetailPanel` with `TodoCardModal`; imported `fetchTodos` from store
+- **Added** `components/work/WorkBoardClient.tsx` — Global permission-filtered Kanban board (4 columns: To Do/In Progress/Done/Cancelled), drag-and-drop status change, inline card creation, search + member + label filters, opens `TodoCardModal`
+
+### Pages & Nav
+- **Added** `app/dashboard/work/page.tsx` — Server component; loads todos filtered by permission (ADMIN/EXEC see all, others see assigned/created/member), users, label defs
+- **Modified** `lib/dashboard-navigation.ts` — Added "Work Board" nav item under My Work
+- **Modified** `components/layout/DashboardShell.tsx` — `/dashboard/work` added to full-width routes
+- **Modified** `lib/stores/todo-store.ts` — `fetchTodos` destructured in `TodosPageClient`
+
+### Packages
+- `@tiptap/extension-mention` installed for @mention support
+
+- **Tests:** `npx tsc --noEmit` — clean (0 errors)
+- **Docs updated:** CHANGELOG_AI.md
+
+---
+
 ## 2026-04-24 — Apple Pro theme wired app-wide
 
 - **Modified** `app/layout.tsx` — `<body>` now carries `apple-pro-surface theme-apple-full` so Apple Pro tokens apply globally (page bg `#F2F2F7`, body type 13px / -0.01em / ss01, SF-system font stack).

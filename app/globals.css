@@ -985,6 +985,12 @@
   --ap-none-bg: rgba(142, 142, 147, 0.15);
   --ap-none-fg: #3C3C43;
 
+  /* semantic color aliases */
+  --ap-red: #FF3B30;
+  --ap-green: #34C759;
+  --ap-orange: #FF9500;
+  --ap-fg-secondary: rgba(60, 60, 67, 0.72);
+
   --ap-kr-bar-bg: rgba(60, 60, 67, 0.12);
 
   --ap-radius-sm: 10px;
@@ -1030,6 +1036,10 @@
   --ap-warn: #FF9F0A;
   --ap-danger: #FF453A;
   --ap-ahead: #BF5AF2;
+  --ap-red: #FF453A;
+  --ap-green: #30D158;
+  --ap-orange: #FF9F0A;
+  --ap-fg-secondary: rgba(235, 235, 245, 0.60);
   --ap-kr-bar-bg: rgba(255, 255, 255, 0.10);
 }
 

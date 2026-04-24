@@ -199,24 +199,25 @@ export default function TodosPageClient({
 
   // ---------- Render ----------
   return (
-    <div className=" -m-3 sm:-m-6 min-h-full p-4 sm:p-6">
+    <div className="-m-3 sm:-m-6 min-h-full p-4 sm:p-6">
       <div className="mx-auto max-w-[1200px]">
         {/* Header */}
-        <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="mb-5 flex items-start justify-between gap-3">
           <div>
-            <h1 className="text-xl font-semibold">To-dos</h1>
-            <p className="text-xs text-muted-foreground mt-1">
-              Everything on your plate — linked to OKRs or standalone. {counts.open} open
-              {counts.overdue > 0 && <span className="text-destructive"> · {counts.overdue} overdue</span>}
-              {counts.dueToday > 0 && <span className="text-amber-600"> · {counts.dueToday} due today</span>}
+            <h1 className="text-[22px] font-semibold tracking-[-0.01em] text-[var(--ap-fg)]">To-dos</h1>
+            <p className="text-[13px] text-[var(--ap-fg-muted)] mt-0.5">
+              Everything on your plate — linked to OKRs or standalone.{' '}
+              <span className="font-medium text-[var(--ap-fg-secondary)]">{counts.open} open</span>
+              {counts.overdue > 0 && <span className="text-[var(--ap-red)] font-medium"> · {counts.overdue} overdue</span>}
+              {counts.dueToday > 0 && <span className="text-[var(--ap-orange)] font-medium"> · {counts.dueToday} due today</span>}
             </p>
           </div>
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={toggleViewMode}
-              className="btn-outline btn-ghost"
               title={`View mode: ${viewMode}. Click to switch.`}
+              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-[8px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] text-[13px] font-medium text-[var(--ap-fg-secondary)] hover:bg-[var(--ap-bg-hover)] transition-colors"
             >
               {viewMode === 'modal' ? <Maximize2 className="h-3.5 w-3.5" /> : <PanelRight className="h-3.5 w-3.5" />}
               {viewMode === 'modal' ? 'Modal' : 'Sidebar'}
@@ -224,7 +225,7 @@ export default function TodosPageClient({
             <button
               type="button"
               onClick={() => setShowCreate(true)}
-              className="btn-outline btn-primary"
+              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-[8px] bg-[var(--ap-accent)] text-white text-[13px] font-medium hover:bg-[var(--ap-accent-hover)] transition-colors"
             >
               <Plus className="h-3.5 w-3.5" /> Create to-do
             </button>
@@ -232,21 +233,21 @@ export default function TodosPageClient({
         </div>
 
         {/* Filter bar */}
-        <div className="rounded-lg border border-border bg-card mb-4 p-2 flex flex-wrap items-center gap-2">
-          <div className="relative flex-1 min-w-[220px]">
-            <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+        <div className="rounded-[10px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] mb-4 px-3 py-2 flex flex-wrap items-center gap-2">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--ap-fg-muted)]" />
             <input
               type="search"
               placeholder="Filter by title, description, KR, or objective"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="input pl-7"
+              className="w-full h-8 pl-8 pr-3 rounded-[8px] border border-[var(--ap-border)] bg-[rgba(120,120,128,0.06)] text-[13px] text-[var(--ap-fg)] placeholder:text-[var(--ap-fg-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--ap-accent)] focus:ring-offset-0 focus:border-[var(--ap-accent)]"
             />
           </div>
           <select
             value={scopeFilter}
             onChange={(e) => setScopeFilter(e.target.value as ScopeFilter)}
-            className="input input w-auto"
+            className="h-8 px-2.5 rounded-[8px] border border-[var(--ap-border)] bg-[rgba(120,120,128,0.06)] text-[13px] text-[var(--ap-fg)] focus:outline-none focus:ring-2 focus:ring-[var(--ap-accent)]"
           >
             <option value="assigned">Assigned to me</option>
             <option value="created">Created by me</option>
@@ -255,7 +256,7 @@ export default function TodosPageClient({
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-            className="input input w-auto"
+            className="h-8 px-2.5 rounded-[8px] border border-[var(--ap-border)] bg-[rgba(120,120,128,0.06)] text-[13px] text-[var(--ap-fg)] focus:outline-none focus:ring-2 focus:ring-[var(--ap-accent)]"
           >
             <option value="open">Open</option>
             <option value="completed">Completed</option>
@@ -264,7 +265,7 @@ export default function TodosPageClient({
           <select
             value={linkFilter}
             onChange={(e) => setLinkFilter(e.target.value as LinkFilter)}
-            className="input input w-auto"
+            className="h-8 px-2.5 rounded-[8px] border border-[var(--ap-border)] bg-[rgba(120,120,128,0.06)] text-[13px] text-[var(--ap-fg)] focus:outline-none focus:ring-2 focus:ring-[var(--ap-accent)]"
           >
             <option value="all">Any link</option>
             <option value="linked">Linked to OKR</option>
@@ -273,15 +274,19 @@ export default function TodosPageClient({
         </div>
 
         {/* View switcher */}
-        <div className="mb-3 flex items-center gap-1 border-b border-border">
+        <div className="mb-3 flex items-center gap-0 border-b border-[var(--ap-border)]">
           {(['list', 'kanban', 'tree'] as const).map((v) => (
             <button
               key={v}
               type="button"
               role="tab"
               aria-selected={viewType === v}
-              className="inline-flex items-center gap-1 px-2.5 py-2 text-sm font-medium border-b-2 border-transparent cursor-pointer text-muted-foreground hover:text-foreground"
               onClick={() => setViewType(v)}
+              className={`px-3 py-2 text-[13px] font-medium border-b-2 transition-colors cursor-pointer ${
+                viewType === v
+                  ? 'border-[var(--ap-accent)] text-[var(--ap-accent)]'
+                  : 'border-transparent text-[var(--ap-fg-muted)] hover:text-[var(--ap-fg)]'
+              }`}
             >
               {v === 'list' ? 'List' : v === 'kanban' ? 'Board' : 'Tree'}
             </button>
@@ -290,24 +295,24 @@ export default function TodosPageClient({
 
         {/* Views */}
         {viewType === 'list' && (
-          <div className="rounded-lg border border-border bg-card overflow-hidden">
-            <table className="inline-flex items-center gap-1 px-2.5 py-2 text-sm font-medium border-b-2 border-transparent cursor-pointer text-muted-foreground hover:text-foregroundle">
+          <div className="rounded-[10px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] overflow-hidden">
+            <table className="w-full border-collapse text-[13px]">
               <thead>
-                <tr>
-                  <th style={{ width: '34px' }}></th>
-                  <th>To-do</th>
-                  <th style={{ width: '220px' }}>Linked to</th>
-                  <th style={{ width: '110px' }}>Timeframe</th>
-                  <th style={{ width: '120px' }}>Due</th>
-                  <th style={{ width: '50px' }}>Owner</th>
-                  <th style={{ width: '90px' }}>Status</th>
-                  <th style={{ width: '40px' }}></th>
+                <tr className="border-b border-[var(--ap-border)] bg-[rgba(120,120,128,0.04)]">
+                  <th className="w-9 px-3 py-2.5"></th>
+                  <th className="text-left px-3 py-2.5 font-medium text-[var(--ap-fg-muted)] text-[11px] uppercase tracking-wide">To-do</th>
+                  <th className="text-left px-3 py-2.5 font-medium text-[var(--ap-fg-muted)] text-[11px] uppercase tracking-wide w-[200px]">Linked to</th>
+                  <th className="text-left px-3 py-2.5 font-medium text-[var(--ap-fg-muted)] text-[11px] uppercase tracking-wide w-[100px]">Timeframe</th>
+                  <th className="text-left px-3 py-2.5 font-medium text-[var(--ap-fg-muted)] text-[11px] uppercase tracking-wide w-[110px]">Due</th>
+                  <th className="text-center px-3 py-2.5 font-medium text-[var(--ap-fg-muted)] text-[11px] uppercase tracking-wide w-[50px]">Owner</th>
+                  <th className="text-left px-3 py-2.5 font-medium text-[var(--ap-fg-muted)] text-[11px] uppercase tracking-wide w-[100px]">Status</th>
+                  <th className="w-10 px-2 py-2.5"></th>
                 </tr>
               </thead>
               <tbody>
                 {filteredRows.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="text-xs text-muted-foreground text-center !py-10">
+                    <td colSpan={8} className="text-[13px] text-[var(--ap-fg-muted)] text-center py-12">
                       No to-dos match your filters.
                     </td>
                   </tr>
@@ -387,107 +392,101 @@ function TodoTableRow({
   onOpen: () => void
 }) {
   const isDone = row.status === 'COMPLETED'
-  const link = row.keyResult || row.objective
   const timeframeName = row.keyResult?.objective.timeframeName ?? row.objective?.timeframeName
   const overdue = !isDone && row.dueDate && new Date(row.dueDate).getTime() < Date.now()
 
   return (
-    <tr className="group cursor-pointer" onClick={onOpen}>
-      <td onClick={(e) => e.stopPropagation()}>
-        <input
-          type="checkbox"
-          checked={isDone}
-          onChange={onToggle}
-          className="appearance-none w-3.5 h-3.5 rounded border border-border"
+    <tr
+      className="group border-b border-[var(--ap-border)] last:border-0 hover:bg-[var(--ap-bg-hover)] cursor-pointer transition-colors"
+      onClick={onOpen}
+    >
+      <td className="px-3 py-2.5 w-9" onClick={(e) => e.stopPropagation()}>
+        <button
+          type="button"
+          onClick={onToggle}
+          className={`flex items-center justify-center w-[18px] h-[18px] rounded-full border-2 transition-colors ${
+            isDone
+              ? 'bg-[var(--ap-accent)] border-[var(--ap-accent)]'
+              : 'border-[var(--ap-border-strong)] hover:border-[var(--ap-accent)]'
+          }`}
           aria-label={isDone ? 'Mark pending' : 'Mark completed'}
-        />
+        >
+          {isDone && <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />}
+        </button>
       </td>
-      <td>
+      <td className="px-3 py-2.5 min-w-0">
         <div className="min-w-0">
-          <div
-            className={`truncate text-[14px] ${
-              isDone ? 'text-muted-foreground line-through' : 'text-foreground'
-            }`}
-          >
+          <div className={`text-[13px] font-medium truncate ${isDone ? 'text-[var(--ap-fg-muted)] line-through' : 'text-[var(--ap-fg)]'}`}>
             {row.title}
           </div>
           {row.description && (
-            <div className="truncate text-[12px] text-muted-foreground">
-              {row.description}
-            </div>
+            <div className="truncate text-[12px] text-[var(--ap-fg-muted)] mt-0.5"
+              dangerouslySetInnerHTML={{ __html: row.description.replace(/<[^>]+>/g, '') }}
+            />
           )}
         </div>
       </td>
-      <td>
+      <td className="px-3 py-2.5 w-[200px]">
         {row.keyResult ? (
-          <Link
-            href={`/dashboard/key-results/${row.keyResult.id}`}
-            className="inline-flex items-center gap-1.5 inline-flex items-center h-5 px-1.5 text-xs font-medium rounded"
-            data-tone="primary"
-            title={row.keyResult.objective.title}
-          >
-            <Link2 className="h-3 w-3" />
-            <span className="max-w-[170px] truncate">{row.keyResult.title}</span>
-          </Link>
+          <div className="min-w-0">
+            <Link
+              href={`/dashboard/key-results/${row.keyResult.id}`}
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex items-center gap-1 text-[12px] text-[var(--ap-accent)] hover:underline max-w-full"
+              title={row.keyResult.objective.title}
+            >
+              <Link2 className="h-3 w-3 flex-shrink-0" />
+              <span className="truncate">{row.keyResult.title}</span>
+            </Link>
+            <div className="text-[11px] text-[var(--ap-fg-muted)] truncate mt-0.5">{row.keyResult.objective.title}</div>
+          </div>
         ) : row.objective ? (
           <Link
             href={`/dashboard/objectives/${row.objective.id}`}
-            className="inline-flex items-center gap-1.5 inline-flex items-center h-5 px-1.5 text-xs font-medium rounded"
-            data-tone="primary"
+            onClick={(e) => e.stopPropagation()}
+            className="inline-flex items-center gap-1 text-[12px] text-[var(--ap-accent)] hover:underline max-w-full"
           >
-            <Target className="h-3 w-3" />
-            <span className="max-w-[170px] truncate">{row.objective.title}</span>
+            <Target className="h-3 w-3 flex-shrink-0" />
+            <span className="truncate">{row.objective.title}</span>
           </Link>
         ) : (
-          <span className="text-xs text-muted-foreground">—</span>
-        )}
-        {link && 'objective' in (row.keyResult ?? {}) && (
-          <div className="truncate text-[11px] text-muted-foreground mt-0.5">
-            {row.keyResult?.objective.title}
-          </div>
+          <span className="text-[12px] text-[var(--ap-fg-muted)]">—</span>
         )}
       </td>
-      <td>
-        {timeframeName ? (
-          <span className="text-[12px] text-muted-foreground">{timeframeName}</span>
-        ) : (
-          <span className="text-xs text-muted-foreground">—</span>
-        )}
+      <td className="px-3 py-2.5 w-[100px]">
+        <span className="text-[12px] text-[var(--ap-fg-muted)]">{timeframeName ?? '—'}</span>
       </td>
-      <td>
+      <td className="px-3 py-2.5 w-[110px]">
         {row.dueDate ? (
-          <span
-            className={`inline-flex items-center gap-1 text-[12px] ${
-              overdue
-                ? 'text-destructive font-medium'
-                : 'text-muted-foreground'
-            }`}
-          >
+          <span className={`inline-flex items-center gap-1 text-[12px] font-medium ${overdue ? 'text-[var(--ap-red)]' : 'text-[var(--ap-fg-secondary)]'}`}>
             <Calendar className="h-3 w-3" />
             {new Date(row.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
           </span>
         ) : (
-          <span className="text-xs text-muted-foreground">—</span>
+          <span className="text-[12px] text-[var(--ap-fg-muted)]">—</span>
         )}
       </td>
-      <td>
-        <span className="inline-flex items-center justify-center size-6 rounded-full bg-muted text-xs font-semibold" title={`Assigned to ${row.assignee.name}`}>
-          {row.assignee.avatar ? (
+      <td className="px-3 py-2.5 w-[50px] text-center">
+        <span
+          className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[var(--ap-accent-soft)] text-[var(--ap-accent)] text-[11px] font-semibold"
+          title={`Assigned to ${row.assignee?.name ?? ''}`}
+        >
+          {row.assignee?.avatar ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={row.assignee.avatar} alt="" />
+            <img src={row.assignee.avatar} alt="" className="w-7 h-7 rounded-full object-cover" />
           ) : (
-            row.assignee.name.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase()
+            (row.assignee?.name ?? '?').split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase()
           )}
         </span>
       </td>
-      <td>
+      <td className="px-3 py-2.5 w-[100px]">
         <StatusLozenge status={row.status} />
       </td>
-      <td>
+      <td className="px-2 py-2.5 w-10">
         <button
           type="button"
-          onClick={onDelete}
-          className="inline-flex items-center justify-center size-6 rounded hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer opacity-0 group-hover:opacity-100"
+          onClick={(e) => { e.stopPropagation(); onDelete() }}
+          className="inline-flex items-center justify-center w-7 h-7 rounded-[6px] text-[var(--ap-fg-muted)] hover:bg-[var(--ap-bg-sunken)] hover:text-[var(--ap-red)] transition-colors opacity-0 group-hover:opacity-100"
           title="Delete"
         >
           <Trash2 className="h-3.5 w-3.5" />
@@ -498,15 +497,15 @@ function TodoTableRow({
 }
 
 function StatusLozenge({ status }: { status: string }) {
-  const map: Record<string, { label: string; tone: string }> = {
-    PENDING: { label: 'To do', tone: 'default' },
-    IN_PROGRESS: { label: 'In progress', tone: 'primary' },
-    COMPLETED: { label: 'Done', tone: 'success' },
-    CANCELLED: { label: 'Cancelled', tone: 'danger' },
+  const map: Record<string, { label: string; bg: string; text: string }> = {
+    PENDING:     { label: 'To do',      bg: 'bg-[rgba(120,120,128,0.12)]', text: 'text-[var(--ap-fg-secondary)]' },
+    IN_PROGRESS: { label: 'In progress',bg: 'bg-[rgba(0,122,255,0.12)]',   text: 'text-[var(--ap-accent)]' },
+    COMPLETED:   { label: 'Done',       bg: 'bg-[rgba(52,199,89,0.12)]',   text: 'text-[var(--ap-green)]' },
+    CANCELLED:   { label: 'Cancelled',  bg: 'bg-[rgba(255,59,48,0.12)]',   text: 'text-[var(--ap-red)]' },
   }
-  const v = map[status] ?? { label: status.toLowerCase(), tone: 'default' }
+  const v = map[status] ?? { label: status, bg: 'bg-[rgba(120,120,128,0.12)]', text: 'text-[var(--ap-fg-secondary)]' }
   return (
-    <span className="inline-flex items-center h-4 px-1 text-[11px] font-bold uppercase rounded" data-tone={v.tone === 'default' ? undefined : v.tone}>
+    <span className={`inline-flex items-center h-5 px-2 text-[11px] font-semibold rounded-full ${v.bg} ${v.text}`}>
       {v.label}
     </span>
   )
@@ -619,153 +618,112 @@ function CreateTodoModal({
     }
   }
 
+  const inputCls = "w-full h-8 px-3 rounded-[8px] border border-[var(--ap-border)] bg-[rgba(120,120,128,0.06)] text-[13px] text-[var(--ap-fg)] placeholder:text-[var(--ap-fg-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--ap-accent)] focus:border-[var(--ap-accent)]"
+  const labelCls = "block text-[11px] font-semibold uppercase tracking-wide text-[var(--ap-fg-muted)] mb-1"
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 pt-[8vh] "
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 backdrop-blur-sm p-4 pt-[8vh]"
       onClick={onClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="rounded-lg border border-border bg-card relative w-full max-w-[560px]"
-        style={{ boxShadow: '0 4px 8px -2px rgba(0,0,0,0.12), 0 0 1px rgba(0,0,0,0.08)' }}
+        className="relative w-full max-w-[560px] rounded-[14px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)]"
+        style={{ boxShadow: '0 20px 60px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.05)' }}
       >
-        <div className="flex items-center justify-between px-5 py-3 border-b border-border">
-          <h2 className="text-base font-semibold">Create to-do</h2>
-          <button onClick={onClose} className="inline-flex items-center justify-center size-6 rounded hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer" aria-label="Close">
-            <X className="h-4 w-4" />
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-[var(--ap-border)]">
+          <h2 className="text-[15px] font-semibold text-[var(--ap-fg)]">Create to-do</h2>
+          <button
+            onClick={onClose}
+            className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[rgba(120,120,128,0.12)] text-[var(--ap-fg-muted)] hover:text-[var(--ap-fg)] transition-colors cursor-pointer"
+            aria-label="Close"
+          >
+            <X className="h-3.5 w-3.5" />
           </button>
         </div>
 
-        <form onSubmit={submit} className="px-5 py-4 space-y-3">
+        <form onSubmit={submit} className="px-5 py-4 space-y-4">
           <div>
-            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground block mb-1">Title</label>
-            <input
-              autoFocus
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="What needs doing?"
-              className="input"
-              required
-            />
+            <label className={labelCls}>Title</label>
+            <input autoFocus type="text" value={title} onChange={(e) => setTitle(e.target.value)}
+              placeholder="What needs doing?" className={inputCls} required />
           </div>
 
           <div>
-            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground block mb-1">Description (optional)</label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-              placeholder="Add any context…"
-              className="input min-h-[80px] py-2"
-            />
+            <label className={labelCls}>Description (optional)</label>
+            <textarea value={description} onChange={(e) => setDescription(e.target.value)}
+              rows={3} placeholder="Add any context…"
+              className={`${inputCls} h-auto min-h-[72px] py-2 resize-none`} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground block mb-1">Assignee</label>
-              <select
-                value={assigneeId}
-                onChange={(e) => setAssigneeId(e.target.value)}
-                className="input input"
-              >
-                {users.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.name}
-                  </option>
-                ))}
+              <label className={labelCls}>Assignee</label>
+              <select value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)} className={inputCls}>
+                {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground block mb-1">Due date</label>
-              <input
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                className="input"
-              />
+              <label className={labelCls}>Due date</label>
+              <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={inputCls} />
             </div>
           </div>
 
           <div>
-            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground block mb-1">Link to Key Result (optional)</label>
-            <div className="rounded-lg border border-border bg-card p-1 max-h-[140px] overflow-auto">
-              <div className="px-2 py-1">
-                <input
-                  type="text"
-                  value={krSearch}
-                  onChange={(e) => setKrSearch(e.target.value)}
-                  placeholder="Search key results…"
-                  className="input"
-                />
+            <label className={labelCls}>Link to Key Result (optional)</label>
+            <div className="rounded-[8px] border border-[var(--ap-border)] bg-[var(--ap-bg)] overflow-hidden max-h-[160px] overflow-y-auto">
+              <div className="p-2 border-b border-[var(--ap-border)]">
+                <input type="text" value={krSearch} onChange={(e) => setKrSearch(e.target.value)}
+                  placeholder="Search key results…" className={inputCls} />
               </div>
-              <button
-                type="button"
-                onClick={() => setKeyResultId('')}
-                className={`flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded hover:bg-muted cursor-pointer ${keyResultId === '' ? 'bg-[color:#dbeafe]' : ''}`}
-              >
+              <button type="button" onClick={() => setKeyResultId('')}
+                className={`flex items-center gap-2 w-full px-3 py-2 text-[13px] transition-colors cursor-pointer ${keyResultId === '' ? 'bg-[var(--ap-accent-soft)] text-[var(--ap-accent)]' : 'text-[var(--ap-fg-muted)] hover:bg-[var(--ap-bg-hover)]'}`}>
                 <X className="h-3 w-3" /> None
               </button>
               {filteredKrs.map((kr) => (
-                <button
-                  key={kr.id}
-                  type="button"
-                  onClick={() => setKeyResultId(kr.id)}
-                  className={`flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded hover:bg-muted cursor-pointer ${keyResultId === kr.id ? 'bg-[color:#dbeafe]' : ''}`}
-                >
-                  <Link2 className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
+                <button key={kr.id} type="button" onClick={() => setKeyResultId(kr.id)}
+                  className={`flex items-center gap-2 w-full px-3 py-2 text-left text-[13px] transition-colors cursor-pointer ${keyResultId === kr.id ? 'bg-[var(--ap-accent-soft)] text-[var(--ap-accent)]' : 'text-[var(--ap-fg)] hover:bg-[var(--ap-bg-hover)]'}`}>
+                  <Link2 className="h-3 w-3 flex-shrink-0 text-[var(--ap-fg-muted)]" />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate">{kr.title}</span>
-                    <span className="block truncate text-[11px] text-muted-foreground">
-                      {kr.objective.title}
-                    </span>
+                    <span className="block truncate text-[11px] text-[var(--ap-fg-muted)]">{kr.objective.title}</span>
                   </span>
-                  {keyResultId === kr.id && <Check className="h-3 w-3 flex-shrink-0" />}
+                  {keyResultId === kr.id && <Check className="h-3 w-3 flex-shrink-0 text-[var(--ap-accent)]" />}
                 </button>
               ))}
             </div>
           </div>
 
           <div>
-            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground block mb-1">Or link to Objective (optional)</label>
-            <div className="rounded-lg border border-border bg-card p-1 max-h-[140px] overflow-auto">
-              <div className="px-2 py-1">
-                <input
-                  type="text"
-                  value={objSearch}
-                  onChange={(e) => setObjSearch(e.target.value)}
-                  placeholder="Search objectives…"
-                  className="input"
-                />
+            <label className={labelCls}>Or link to Objective (optional)</label>
+            <div className="rounded-[8px] border border-[var(--ap-border)] bg-[var(--ap-bg)] overflow-hidden max-h-[160px] overflow-y-auto">
+              <div className="p-2 border-b border-[var(--ap-border)]">
+                <input type="text" value={objSearch} onChange={(e) => setObjSearch(e.target.value)}
+                  placeholder="Search objectives…" className={inputCls} />
               </div>
-              <button
-                type="button"
-                onClick={() => setObjectiveId('')}
-                className={`flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded hover:bg-muted cursor-pointer ${objectiveId === '' ? 'bg-[color:#dbeafe]' : ''}`}
-              >
+              <button type="button" onClick={() => setObjectiveId('')}
+                className={`flex items-center gap-2 w-full px-3 py-2 text-[13px] transition-colors cursor-pointer ${objectiveId === '' ? 'bg-[var(--ap-accent-soft)] text-[var(--ap-accent)]' : 'text-[var(--ap-fg-muted)] hover:bg-[var(--ap-bg-hover)]'}`}>
                 <X className="h-3 w-3" /> None
               </button>
               {filteredObjs.map((o) => (
-                <button
-                  key={o.id}
-                  type="button"
-                  onClick={() => setObjectiveId(o.id)}
-                  className={`flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded hover:bg-muted cursor-pointer ${objectiveId === o.id ? 'bg-[color:#dbeafe]' : ''}`}
-                >
-                  <Target className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
+                <button key={o.id} type="button" onClick={() => setObjectiveId(o.id)}
+                  className={`flex items-center gap-2 w-full px-3 py-2 text-left text-[13px] transition-colors cursor-pointer ${objectiveId === o.id ? 'bg-[var(--ap-accent-soft)] text-[var(--ap-accent)]' : 'text-[var(--ap-fg)] hover:bg-[var(--ap-bg-hover)]'}`}>
+                  <Target className="h-3 w-3 flex-shrink-0 text-[var(--ap-fg-muted)]" />
                   <span className="truncate flex-1">{o.title}</span>
-                  <span className="text-xs text-muted-foreground text-[10px]">{o.level.toLowerCase()}</span>
-                  {objectiveId === o.id && <Check className="h-3 w-3 flex-shrink-0" />}
+                  <span className="text-[10px] text-[var(--ap-fg-muted)]">{o.level.toLowerCase()}</span>
+                  {objectiveId === o.id && <Check className="h-3 w-3 flex-shrink-0 text-[var(--ap-accent)]" />}
                 </button>
               ))}
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
-            <button type="button" onClick={onClose} className="btn-outline">
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--ap-border)]">
+            <button type="button" onClick={onClose}
+              className="h-8 px-4 rounded-[8px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] text-[13px] font-medium text-[var(--ap-fg-secondary)] hover:bg-[var(--ap-bg-hover)] transition-colors">
               Cancel
             </button>
-            <button type="submit" disabled={!title.trim() || submitting} className="btn-outline btn-primary">
+            <button type="submit" disabled={!title.trim() || submitting}
+              className="h-8 px-4 rounded-[8px] bg-[var(--ap-accent)] text-white text-[13px] font-medium hover:bg-[var(--ap-accent-hover)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
               {submitting ? 'Creating…' : 'Create to-do'}
             </button>
           </div>

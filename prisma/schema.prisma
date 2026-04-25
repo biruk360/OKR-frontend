@@ -158,6 +158,9 @@ model Objective {
   status      String           @default("ACTIVE") // ACTIVE, ARCHIVED, DELETED
   goalStatus  String           @default("ON_TRACK") // ON_TRACK, AT_RISK, OFF_TRACK, CLOSED
   progress    Float            @default(0) // Calculated from Key Results
+  // Owner-reported objective-level confidence (0-100). Read by Apple Pro hero/right-rail.
+  // NOTE: requires `prisma db push` on deploy — preflight.sql already runs in CI.
+  confidence  Int              @default(50)
   isPrivate   Boolean          @default(false) // Visibility: false = Public, true = Private
   startDate   DateTime?
   endDate     DateTime?

@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Separator } from '@/components/ui/separator'
+import ThemeSwitcher from '@/components/layout/ThemeSwitcher'
 
 interface HeaderProps {
   user: {
@@ -61,6 +62,7 @@ export default function Header({ user, onMobileNavOpen }: HeaderProps) {
         </div>
 
         <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+          <ThemeSwitcher />
           {/* Notifications */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

@@ -177,10 +177,10 @@ export default function WorkItemsKanban({
   }
 
   return (
-    <section className="bg-card shadow rounded-lg p-4">
+    <section className="rounded-[14px] border bg-card p-4" style={{ borderColor: 'var(--ap-border)' }}>
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">{title}</h3>
-        <span className="text-xs text-muted-foreground">Drag initiatives to change status</span>
+        <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{title}</h3>
+        <span className="text-[11px] text-muted-foreground">Drag initiatives to change status</span>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {columns.map((col) => {
@@ -192,9 +192,10 @@ export default function WorkItemsKanban({
               onDragOver={(e) => onDragOver(e, col.key)}
               onDragLeave={() => hoverColumn === col.key && setHoverColumn(null)}
               onDrop={(e) => onDrop(e, col.key)}
-              className={`rounded-md border ${col.tint} p-2 min-h-[160px] transition-shadow ${
+              className={`rounded-[14px] border ${col.tint} p-3 min-h-[160px] transition-shadow ${
                 isHover ? `ring-2 ${col.ring} ring-offset-1` : ''
               }`}
+              style={{ borderColor: 'var(--ap-border)' }}
             >
               <div className="flex items-baseline justify-between mb-2">
                 <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{col.label}</h4>
@@ -210,8 +211,12 @@ export default function WorkItemsKanban({
                     const Icon = it.kind === 'KR' ? Target : ListTodo
                     const chipColour =
                       it.kind === 'KR'
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'bg-purple-100 text-purple-700'
+                        ? 'text-[var(--ap-accent)]'
+                        : 'text-purple-700'
+                    const chipStyle: React.CSSProperties =
+                      it.kind === 'KR'
+                        ? { background: 'var(--ap-accent-soft)' }
+                        : { background: 'rgba(175,82,222,0.12)' }
                     const isSaving = savingId === it.raw
                     const isDragging = draggingId === it.id
                     return (
@@ -220,15 +225,19 @@ export default function WorkItemsKanban({
                         draggable={it.kind === 'INITIATIVE'}
                         onDragStart={(e) => onDragStart(e, it)}
                         onDragEnd={onDragEnd}
-                        className={`group rounded-md bg-card border border-border p-2 text-sm transition-all ${
-                          it.kind === 'INITIATIVE' ? 'cursor-grab active:cursor-grabbing hover:border-border hover:shadow-sm' : ''
+                        className={`group rounded-[10px] bg-card border p-2.5 text-[13px] transition-all ${
+                          it.kind === 'INITIATIVE' ? 'cursor-grab active:cursor-grabbing hover:shadow-sm' : ''
                         } ${isDragging ? 'opacity-40' : ''} ${isSaving ? 'opacity-60' : ''}`}
+                        style={{ borderColor: 'var(--ap-border)' }}
                       >
                         <div className="flex items-center gap-1.5 mb-1">
                           {it.kind === 'INITIATIVE' && (
                             <GripVertical className="h-3.5 w-3.5 text-muted-foreground group-hover:text-muted-foreground shrink-0" />
                           )}
-                          <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${chipColour}`}>
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${chipColour}`}
+                            style={chipStyle}
+                          >
                             <Icon className="h-3 w-3" />
                             {it.kind === 'KR' ? 'KR' : 'Init'}
                           </span>

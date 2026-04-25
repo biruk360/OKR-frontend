@@ -4,6 +4,7 @@ import './globals.css'
 import { Providers } from './providers'
 import { Toaster } from 'react-hot-toast'
 import { getServerSessionSafe } from '@/lib/auth'
+import ThemeBodyClass from './theme-body-class'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -35,6 +36,7 @@ export default async function RootLayout({
     <html lang="en" suppressHydrationWarning className={inter.variable}>
       <body className={`${inter.className} apple-pro-surface theme-apple-full`} suppressHydrationWarning>
         <Providers session={session}>
+          <ThemeBodyClass baseClassName={inter.className} />
           {children}
           <Toaster
             position="top-right"

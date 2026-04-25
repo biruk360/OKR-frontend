@@ -28,53 +28,25 @@ import {
   Share2,
   Sparkles,
   Target,
-  TrendingUp,
-  User,
-  X,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
-import { cn, formatRelativeTime, getProgressBarClass } from '@/lib/utils'
+import { formatRelativeTime } from '@/lib/utils'
 import { formatAxisValue } from '@/lib/keyResultChart'
-import KeyResultProgressChart from './KeyResultProgressChart'
 import CreateCheckInModal from './CreateCheckInModal'
 import { ToDoList } from '@/features/todos'
 import EditKeyResultButton from './EditKeyResultButton'
-import { ActivityLogPanel } from '@/components/shared/ActivityLogPanel'
 import { type BreadcrumbNode } from '@/components/shared/OkrBreadcrumb'
 import OkrComments from '@/components/shared/OkrComments'
 import WorkItemsKanban from '@/components/shared/WorkItemsKanban'
+import KrProgressConfidenceCard from '@/components/key-result-detail/KrProgressConfidenceCard'
+import KrInspectorTabs from '@/components/key-result-detail/KrInspectorTabs'
+import CheckInTimeline from '@/components/key-result-detail/CheckInTimeline'
 
 function safePct(p: unknown): number {
   const n = typeof p === 'number' ? p : Number(p)
   if (!Number.isFinite(n)) return 0
   return Math.min(Math.max(n, 0), 100)
-}
-
-/** Mirrors the confidence label helper on the objective page so statuses render identically. */
-function confidenceLabel(confidence: string | null | undefined): { label: string; classes: string } | null {
-  if (!confidence) return null
-  switch (confidence) {
-    case 'ON_TRACK': return { label: 'ON TRACK', classes: 'bg-green-100 text-green-800' }
-    case 'AT_RISK': return { label: 'AT RISK', classes: 'bg-yellow-100 text-yellow-800' }
-    case 'OFF_TRACK': return { label: 'OFF TRACK', classes: 'bg-red-100 text-red-800' }
-    default: return null
-  }
-}
-
-function Avatar({
-  name, avatar, size = 'sm',
-}: { name: string; avatar?: string | null; size?: 'xs' | 'sm' | 'md' }) {
-  const sizeClass = size === 'xs' ? 'h-6 w-6 text-[10px]' : size === 'md' ? 'h-10 w-10 text-sm' : 'h-8 w-8 text-xs'
-  if (avatar) {
-    return <img src={avatar} alt={name} className={`${sizeClass} rounded-full object-cover`} />
-  }
-  const initial = (name || '?').slice(0, 1).toUpperCase()
-  return (
-    <div className={`${sizeClass} rounded-full bg-blue-500 text-white flex items-center justify-center font-medium`}>
-      {initial}
-    </div>
-  )
 }
 
 type TimeframeLike = {
@@ -132,7 +104,6 @@ export default function KeyResultDetailClient({
 
   const pct = safePct(kr.targetValue > 0 ? (kr.currentValue / kr.targetValue) * 100 : kr.progress)
   const progressRounded = Math.round(pct)
-  const status = confidenceLabel(kr.confidence)
   const showCheckIn = canEdit && kr.status === 'ACTIVE' && !isRedacted
 
   // Timeframe-derived metrics for the hero row (mirrors ObjectiveHero).
@@ -153,12 +124,6 @@ export default function KeyResultDetailClient({
     }
   }
 
-  const progressBarColor =
-    kr.confidence === 'ON_TRACK' ? '#059669'
-    : kr.confidence === 'AT_RISK' ? '#d97706'
-    : kr.confidence === 'OFF_TRACK' ? '#dc2626'
-    : '#2563eb'
-
   const ownerInitials = (kr.owner?.name || '?')
     .split(' ')
     .map((w: string) => w[0])
@@ -173,9 +138,21 @@ export default function KeyResultDetailClient({
     : objective.level === 'INDIVIDUAL' ? 'Individual'
     : null
 
-  const chartCheckIns = isRedacted
-    ? []
-    : checkIns.map((c) => ({ asOfDate: c.asOfDate, value: c.value }))
+  // Numeric confidence proxy from check-in confidence enum.
+  const confEnumToNum = (c: string | null | undefined): number => {
+    if (c === 'ON_TRACK') return 85
+    if (c === 'AT_RISK') return 55
+    if (c === 'OFF_TRACK') return 25
+    return 50
+  }
+  const ordered = [...checkIns].sort(
+    (a, b) => new Date(a.asOfDate).getTime() - new Date(b.asOfDate).getTime(),
+  )
+  const latest = ordered[ordered.length - 1]
+  const prev = ordered[ordered.length - 2]
+  const currentConfidenceNum = latest ? confEnumToNum(latest.confidence) : confEnumToNum(kr.confidence)
+  const previousConfidenceNum = prev ? confEnumToNum(prev.confidence) : null
+  const confidenceTrend = ordered.slice(-4).map((c) => confEnumToNum(c.confidence))
 
   const copyShare = async () => {
     try {
@@ -189,13 +166,6 @@ export default function KeyResultDetailClient({
 
   const TIMELINE_ELEMENT_ID = `kr-timeline-${kr.id}`
   const ACTIVITY_ELEMENT_ID = `kr-activity-${kr.id}`
-
-  const timeframeTypeLabel =
-    timeframe?.type === 'MONTHLY' ? 'Monthly'
-    : timeframe?.type === 'QUARTERLY' ? 'Quarterly'
-    : timeframe?.type === 'SIX_MONTH' ? '6-Month'
-    : timeframe?.type === 'YEARLY' ? 'Yearly'
-    : ''
 
   return (
     <div className="space-y-4">
@@ -523,10 +493,10 @@ export default function KeyResultDetailClient({
           )}
 
           {/* Check-in history */}
-          <section className="bg-card shadow rounded-lg p-6">
+          <section className="rounded-[14px] border bg-card p-5" style={{ borderColor: 'var(--ap-border)' }} id={TIMELINE_ELEMENT_ID}>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">Check-in history</h2>
-              <span className="text-xs text-muted-foreground">{isRedacted ? '—' : `${checkIns.length} total`}</span>
+              <h2 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Check-in history</h2>
+              <span className="text-[11px] text-muted-foreground tabular-nums">{isRedacted ? '—' : `${checkIns.length} total`}</span>
             </div>
 
             {!isRedacted && checkIns.length === 0 ? (
@@ -559,44 +529,21 @@ export default function KeyResultDetailClient({
                 </div>
               </div>
             ) : !isRedacted ? (
-              <ul className="space-y-4">
-                {[...checkIns].reverse().map((c) => (
-                  <li key={c.id} className="border-l-2 border-blue-500 pl-4 py-1">
-                    <div className="flex flex-wrap items-baseline gap-2 text-sm">
-                      <time className="font-medium text-foreground">
-                        {format(new Date(c.asOfDate), 'PP')}
-                      </time>
-                      <span className="text-muted-foreground">{unit} {formatAxisValue(c.value)}</span>
-                      <span
-                        className={`text-xs px-2 py-0.5 rounded-full ${
-                          c.confidence === 'ON_TRACK' ? 'bg-green-100 text-green-800'
-                          : c.confidence === 'AT_RISK' ? 'bg-amber-100 text-amber-800'
-                          : 'bg-red-100 text-red-800'
-                        }`}
-                      >
-                        {String(c.confidence).replace(/_/g, ' ')}
-                      </span>
-                    </div>
-                    {c.analysis && (
-                      <p className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap">{c.analysis}</p>
-                    )}
-                    <p className="mt-1 text-xs text-muted-foreground">by {c.createdBy?.name ?? 'Unknown'}</p>
-                  </li>
-                ))}
-              </ul>
+              <CheckInTimeline checkIns={checkIns} unit={unit} />
             ) : (
               <p className="text-sm text-muted-foreground">Check-in history is hidden for this private key result.</p>
             )}
           </section>
 
           {/* Initiatives under this KR */}
-          <section className="bg-card shadow rounded-lg overflow-hidden">
-            <div className="px-6 py-4 border-b border-border flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">
-                Initiatives ({todoCount})
+          <section className="rounded-[14px] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
+            <div className="px-5 py-3 border-b flex flex-wrap items-center justify-between gap-2" style={{ borderColor: 'var(--ap-border)' }}>
+              <h2 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Initiatives <span className="ml-1 tabular-nums">({todoCount})</span>
               </h2>
               <span
-                className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-md bg-gradient-to-r from-violet-500 to-fuchsia-600 text-white opacity-60 cursor-not-allowed"
+                className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full text-white opacity-60 cursor-not-allowed"
+                style={{ background: 'linear-gradient(90deg, #af52de, #ff2d55)' }}
                 title="Coming soon"
               >
                 <Sparkles className="h-3 w-3" /> Generate via AI
@@ -631,113 +578,38 @@ export default function KeyResultDetailClient({
           )}
         </div>
 
-        {/* -------- Sidebar -------- */}
+        {/* -------- Sidebar (Apple Pro right rail) -------- */}
         <aside className="space-y-3">
-          <section className="bg-card shadow rounded-lg p-5" id={TIMELINE_ELEMENT_ID}>
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">
-                  Progress Timeline
-                </h3>
-                <p className="text-xs text-muted-foreground mt-0.5">Expected vs actual</p>
-              </div>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </div>
-            <KeyResultProgressChart
-              keyResult={kr}
-              checkIns={chartCheckIns}
-              timeframe={timeframe}
-              height={220}
-              showTodayMarker={!isRedacted}
+          {!isRedacted && timeframe?.startDate && timeframe?.endDate ? (
+            <KrProgressConfidenceCard
+              checkIns={checkIns.map((c: any) => ({ asOfDate: c.asOfDate, value: c.value, confidence: c.confidence }))}
+              startValue={Number(kr.startValue) || 0}
+              targetValue={Number(kr.targetValue) || 0}
+              currentValue={Number(kr.currentValue) || 0}
+              currentConfidence={currentConfidenceNum}
+              previousConfidence={previousConfidenceNum}
+              timeframeStart={timeframe.startDate}
+              timeframeEnd={timeframe.endDate}
             />
-          </section>
+          ) : null}
 
-          <section className="bg-card shadow rounded-lg p-5">
-            <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide mb-4">
-              Key Result Details
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <div className="flex items-center text-[11px] text-muted-foreground uppercase tracking-wide mb-1.5">
-                  <User className="h-3 w-3 mr-1" /> Owner
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Avatar name={kr.owner?.name ?? '?'} avatar={kr.owner?.avatar} size="sm" />
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium text-foreground truncate">{kr.owner?.name ?? 'Unknown'}</div>
-                    {kr.owner?.email && (
-                      <div className="text-xs text-muted-foreground truncate">{kr.owner.email}</div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <div className="flex items-center text-[11px] text-muted-foreground uppercase tracking-wide mb-1.5">
-                  <Target className="h-3 w-3 mr-1" /> Parent Objective
-                </div>
-                <Link
-                  href={`/dashboard/objectives/${objective.id}`}
-                  className="block rounded-md border border-border hover:border-border hover:bg-muted transition-colors px-3 py-2"
-                >
-                  <div className="text-sm font-medium text-foreground line-clamp-2">{objective.title}</div>
-                  {objective.level && (
-                    <div className="text-xs text-muted-foreground mt-0.5">
-                      {objective.level === 'COMPANY' ? 'Company Objective'
-                        : objective.level === 'DEPARTMENT' ? 'Department Objective'
-                        : 'Individual Objective'}
-                    </div>
-                  )}
-                </Link>
-              </div>
-
-              {timeframe && (
-                <div>
-                  <div className="flex items-center text-[11px] text-muted-foreground uppercase tracking-wide mb-1.5">
-                    <Calendar className="h-3 w-3 mr-1" /> Timeframe
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {timeframe.name && (
-                      <span className="text-sm font-medium text-foreground">{timeframe.name}</span>
-                    )}
-                    {timeframeTypeLabel && (
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-800">
-                        {timeframeTypeLabel}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {objective.department && (
-                <div>
-                  <div className="flex items-center text-[11px] text-muted-foreground uppercase tracking-wide mb-1.5">
-                    <Building2 className="h-3 w-3 mr-1" /> Department
-                  </div>
-                  <div className="text-sm font-medium text-foreground">{objective.department.name}</div>
-                </div>
-              )}
-
-              {!isRedacted && (
-                <div>
-                  <div className="flex items-center text-[11px] text-muted-foreground uppercase tracking-wide mb-1.5">
-                    <TrendingUp className="h-3 w-3 mr-1" /> Measurement
-                  </div>
-                  <div className="text-sm text-foreground">
-                    Start <span className="font-semibold">{unit} {formatAxisValue(Number(kr.startValue) || 0)}</span>
-                    {' '}→ Target <span className="font-semibold">{unit} {formatAxisValue(Number(kr.targetValue) || 0)}</span>
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-0.5">
-                    Current: {unit} {formatAxisValue(Number(kr.currentValue) || 0)}
-                  </div>
-                </div>
-              )}
-            </div>
-          </section>
-
-          <div id={ACTIVITY_ELEMENT_ID}>
-            <ActivityLogPanel entityType="key-result" entityId={kr.id} />
-          </div>
+          <KrInspectorTabs
+            keyResultId={kr.id}
+            activityElementId={ACTIVITY_ELEMENT_ID}
+            checkIns={isRedacted ? [] : checkIns}
+            details={{
+              owner: kr.owner,
+              timeframe: timeframe ?? null,
+              parentObjective: { id: objective.id, title: objective.title },
+              startValue: Number(kr.startValue) || 0,
+              targetValue: Number(kr.targetValue) || 0,
+              currentValue: Number(kr.currentValue) || 0,
+              unit,
+              updatedAt: kr.updatedAt,
+              updatedBy: checkIns[checkIns.length - 1]?.createdBy ?? kr.owner,
+              confidenceTrend,
+            }}
+          />
         </aside>
       </div>
 

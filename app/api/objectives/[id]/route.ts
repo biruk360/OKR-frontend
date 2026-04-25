@@ -129,6 +129,7 @@ export const PUT = withAuth<RouteIdParams>(async (request: NextRequest, { sessio
   const body = (await request.json()) as UpdateObjectiveForm & {
     checkInCadence?: string
     contributorIds?: string[]
+    confidence?: number
   }
   const {
     title,
@@ -139,7 +140,12 @@ export const PUT = withAuth<RouteIdParams>(async (request: NextRequest, { sessio
     alignmentType: rawAlign,
     rollupCalculation: rawRollup,
     checkInCadence: rawCadence,
+    confidence: rawConfidence,
   } = body
+  const confidencePatch =
+    typeof rawConfidence === 'number' && Number.isFinite(rawConfidence)
+      ? { confidence: Math.max(0, Math.min(100, Math.round(rawConfidence))) }
+      : null
   const cadencePatch = rawCadence !== undefined ? { checkInCadence: normalizeCadence(rawCadence) } : null
 
   // contributorIds undefined → leave existing contributors alone.
@@ -238,6 +244,7 @@ export const PUT = withAuth<RouteIdParams>(async (request: NextRequest, { sessio
           rollupCalculation: alignmentPatch.rollupCalculation,
         }),
         ...(cadencePatch && cadencePatch),
+        ...(confidencePatch && confidencePatch),
       },
       include: {
         owner: { select: { id: true, name: true, avatar: true } },

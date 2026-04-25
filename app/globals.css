@@ -993,6 +993,41 @@
 
   --ap-kr-bar-bg: rgba(60, 60, 67, 0.12);
 
+  /* ──────────────────────────────────────────────────────────────────
+     Map shadcn/Tailwind tokens → Apple Pro palette so every existing
+     component (using bg-card, text-muted-foreground, border-border,
+     bg-primary, etc.) is automatically restyled — no per-component edits.
+     HSL triplet form because Tailwind composes them as `hsl(var(--token))`.
+     ────────────────────────────────────────────────────────────────── */
+  --background: 240 24% 96%;        /* #F2F2F7 */
+  --foreground: 0 0% 0%;            /* #000000 */
+  --card: 0 0% 100%;                /* #FFFFFF */
+  --card-foreground: 0 0% 0%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 0%;
+  --primary: 211 100% 50%;          /* #007AFF */
+  --primary-foreground: 0 0% 100%;
+  --secondary: 240 9% 94%;          /* #EFEFF4 */
+  --secondary-foreground: 240 6% 24%;
+  --muted: 240 9% 94%;
+  --muted-foreground: 240 6% 38%;   /* #5F5F66 — readable secondary */
+  --accent: 240 9% 94%;
+  --accent-foreground: 0 0% 0%;
+  --destructive: 4 100% 59%;        /* #FF3B30 */
+  --destructive-foreground: 0 0% 100%;
+  --border: 240 8% 88%;             /* #DEDEE3 — solid equivalent of rgba(60,60,67,0.10) */
+  --input: 240 8% 88%;
+  --ring: 211 100% 50%;
+  --radius: 0.625rem;               /* 10px */
+  --sidebar: 0 0% 100%;
+  --sidebar-foreground: 0 0% 0%;
+  --sidebar-primary: 211 100% 50%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 240 9% 94%;
+  --sidebar-accent-foreground: 0 0% 0%;
+  --sidebar-border: 240 8% 88%;
+  --sidebar-ring: 211 100% 50%;
+
   --ap-radius-sm: 10px;
   --ap-radius-md: 14px;
   --ap-radius-card: 16px;
@@ -1041,6 +1076,35 @@
   --ap-orange: #FF9F0A;
   --ap-fg-secondary: rgba(235, 235, 245, 0.60);
   --ap-kr-bar-bg: rgba(255, 255, 255, 0.10);
+
+  /* shadcn token overrides for dark mode */
+  --background: 0 0% 0%;
+  --foreground: 0 0% 100%;
+  --card: 240 6% 11%;               /* #1C1C1E */
+  --card-foreground: 0 0% 100%;
+  --popover: 240 6% 11%;
+  --popover-foreground: 0 0% 100%;
+  --primary: 211 100% 52%;          /* #0A84FF */
+  --primary-foreground: 0 0% 100%;
+  --secondary: 240 4% 17%;          /* #2C2C2E */
+  --secondary-foreground: 0 0% 100%;
+  --muted: 240 4% 17%;
+  --muted-foreground: 240 5% 65%;
+  --accent: 240 4% 17%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 4 100% 62%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 240 4% 22%;
+  --input: 240 4% 22%;
+  --ring: 211 100% 52%;
+  --sidebar: 240 6% 11%;
+  --sidebar-foreground: 0 0% 100%;
+  --sidebar-primary: 211 100% 52%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 240 4% 17%;
+  --sidebar-accent-foreground: 0 0% 100%;
+  --sidebar-border: 240 4% 22%;
+  --sidebar-ring: 211 100% 52%;
 }
 
 /* Typography */

@@ -301,10 +301,10 @@ export default function KeyResultDetailClient({
         </div>
       )}
 
-      {/* 12-column grid identical to the objective page */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+      {/* Apple Pro 2-column grid: main + 340px rail */}
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] gap-4">
         {/* -------- Main column -------- */}
-        <div className="lg:col-span-8 space-y-4">
+        <div className="min-w-0 space-y-3">
           {kr.status === 'ARCHIVED' && (
             <div className="bg-orange-50 border border-orange-200 rounded-lg px-4 py-3 flex items-center">
               <Archive className="h-5 w-5 text-orange-600 mr-2" />
@@ -314,136 +314,213 @@ export default function KeyResultDetailClient({
             </div>
           )}
 
-          {/* Header card — mirrors ObjectiveHero layout: owner avatar + badges + title, then metric row */}
-          <section className="rounded-xl border border-border bg-card">
+          {/* Apple Pro KR Hero */}
+          <section className="rounded-[14px] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
             <div className="px-5 pt-5 pb-4">
-              <div className="flex items-start gap-4">
-                <Link href={`/dashboard/org/users/${kr.owner?.id ?? ''}`} className="block shrink-0">
-                  {kr.owner?.avatar ? (
-                    <img
-                      src={kr.owner.avatar}
-                      alt={kr.owner?.name ?? ''}
-                      className="size-10 rounded-full object-cover border-2 border-card ring-2 ring-border"
-                    />
-                  ) : (
-                    <span className="flex size-10 items-center justify-center rounded-full bg-primary-500 text-sm font-bold text-white border-2 border-card ring-2 ring-border">
-                      {ownerInitials}
+              {/* Chip row */}
+              <div className="flex flex-wrap items-center gap-1.5 mb-3 text-[11px]">
+                {objectiveLevelLabel && (
+                  <span className="inline-flex items-center rounded-full px-2 py-0.5 font-semibold"
+                    style={{ background: 'var(--ap-bg-sunken)', color: 'var(--ap-fg-muted)' }}>
+                    {objectiveLevelLabel}
+                  </span>
+                )}
+                <span className="inline-flex items-center rounded-full px-2 py-0.5 font-bold"
+                  style={{ background: 'var(--ap-accent-soft)', color: 'var(--ap-accent)' }}>
+                  KR
+                </span>
+                <span className="text-muted-foreground tabular-nums">{kr.id.slice(-6).toUpperCase()}</span>
+                {timeframe?.name && (
+                  <>
+                    <span className="text-muted-foreground">·</span>
+                    <span className="inline-flex items-center gap-1 text-muted-foreground">
+                      <Calendar className="size-3" />{timeframe.name}
                     </span>
-                  )}
+                  </>
+                )}
+                {objective.department?.name && (
+                  <>
+                    <span className="text-muted-foreground">·</span>
+                    <span className="inline-flex items-center gap-1 text-muted-foreground">
+                      <Building2 className="size-3" />{objective.department.name}
+                    </span>
+                  </>
+                )}
+                {kr.isPrivate && (
+                  <span className="inline-flex items-center rounded-full px-2 py-0.5 font-semibold"
+                    style={{ background: 'rgba(255,149,0,0.12)', color: 'var(--ap-orange)' }}>Private</span>
+                )}
+              </div>
+
+              <h1 className="text-[24px] font-semibold leading-tight"
+                style={{ letterSpacing: '-0.02em', textWrap: 'balance', maxWidth: 720 } as any}>
+                {kr.title}
+              </h1>
+
+              <p className="mt-2 text-[12px] flex items-center gap-1.5 text-muted-foreground">
+                <Target className="size-3.5" />
+                <span>Aligned to</span>
+                <Link href={`/dashboard/objectives/${objective.id}`}
+                  className="font-medium hover:underline" style={{ color: 'var(--ap-accent)' }}>
+                  {objective.title}
                 </Link>
+              </p>
 
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-1.5 mb-2">
-                    {objectiveLevelLabel && (
-                      <span className="inline-flex items-center rounded border border-border px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
-                        {objectiveLevelLabel}
-                      </span>
-                    )}
-                    <span className="inline-flex items-center rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-blue-700">
-                      KR
-                    </span>
-                    {kr.isPrivate && (
-                      <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">
-                        Private
-                      </span>
-                    )}
-                    {timeframe?.name && (
-                      <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                        <Calendar className="size-2.5" />
-                        {timeframe.name}
-                      </span>
-                    )}
-                    {objective.department?.name && (
-                      <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                        <Building2 className="size-2.5" />
-                        {objective.department.name}
-                      </span>
-                    )}
-                  </div>
+              {kr.description && !isRedacted && (
+                <p className="mt-2 text-[13px] text-muted-foreground"
+                  style={{ maxWidth: 720, textWrap: 'pretty' } as any}>
+                  {kr.description}
+                </p>
+              )}
 
-                  <h1 className="text-lg font-semibold leading-snug text-foreground">{kr.title}</h1>
-
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Aligned to{' '}
-                    <Link
-                      href={`/dashboard/objectives/${objective.id}`}
-                      className="text-primary-500 hover:underline"
-                    >
-                      {objective.title}
-                    </Link>
-                  </p>
-
-                  {kr.description && !isRedacted && (
-                    <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{kr.description}</p>
+              <div className="mt-4 flex items-center gap-2 text-[12px] text-muted-foreground">
+                <Link href={`/dashboard/org/users/${kr.owner?.id ?? ''}`} className="flex items-center gap-2">
+                  {kr.owner?.avatar ? (
+                    <img src={kr.owner.avatar} alt={kr.owner?.name ?? ''} className="size-7 rounded-full object-cover" />
+                  ) : (
+                    <span className="flex size-7 items-center justify-center rounded-full text-[11px] font-semibold text-white"
+                      style={{ background: 'var(--ap-accent)' }}>{ownerInitials}</span>
                   )}
-                </div>
+                  <span className="font-medium" style={{ color: 'var(--ap-fg)' }}>{kr.owner?.name ?? 'Unknown'}</span>
+                </Link>
+                <span className="text-[11px]">· KR Owner</span>
+                {deadline && (
+                  <>
+                    <span className="hidden sm:inline-block h-3.5 w-px" style={{ background: 'var(--ap-border)' }} />
+                    <span className="inline-flex items-center gap-1.5">
+                      <Calendar className="size-3.5" /> Due {deadline} · {daysLeft > 0 ? `${daysLeft}d left` : 'past due'}
+                    </span>
+                  </>
+                )}
+                {weekLabel && (
+                  <>
+                    <span className="hidden sm:inline-block h-3.5 w-px" style={{ background: 'var(--ap-border)' }} />
+                    <span>{weekLabel}</span>
+                  </>
+                )}
+                <span className="ml-auto text-[11px]">Updated {formatRelativeTime(kr.updatedAt)}</span>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 border-t border-border divide-x divide-border bg-muted/30">
-              <div className="px-4 py-3">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Progress</p>
-                <p className="text-2xl font-bold tabular-nums mt-0.5">{progressRounded}%</p>
-                <div className="mt-1 h-1.5 w-full rounded-full bg-muted overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all"
-                    style={{ width: `${Math.min(progressRounded, 100)}%`, backgroundColor: progressBarColor }}
-                  />
+            {/* 5-stat strip */}
+            <div className="grid grid-cols-2 sm:grid-cols-5 border-t"
+              style={{ borderColor: 'var(--ap-border)', background: 'var(--ap-bg-sunken)' }}>
+              {/* Progress with ring */}
+              <div className="flex items-center gap-3 px-4 py-4 border-r" style={{ borderColor: 'var(--ap-border)' }}>
+                {(() => {
+                  const size = 56, stroke = 6
+                  const r = (size - stroke) / 2
+                  const c = 2 * Math.PI * r
+                  const offset = c - (Math.min(progressRounded, 100) / 100) * c
+                  const ringColor = kr.confidence === 'ON_TRACK' ? 'var(--ap-green)'
+                    : kr.confidence === 'AT_RISK' ? 'var(--ap-orange)'
+                    : kr.confidence === 'OFF_TRACK' ? 'var(--ap-red)' : 'var(--ap-accent)'
+                  return (
+                    <div className="relative inline-flex" style={{ width: size, height: size }}>
+                      <svg width={size} height={size} className="-rotate-90">
+                        <circle cx={size/2} cy={size/2} r={r} stroke="var(--ap-kr-bar-bg)" strokeWidth={stroke} fill="none" />
+                        <circle cx={size/2} cy={size/2} r={r} stroke={ringColor} strokeWidth={stroke} fill="none"
+                          strokeDasharray={c} strokeDashoffset={offset} strokeLinecap="round" />
+                      </svg>
+                      <span className="absolute inset-0 flex items-center justify-center text-[13px] font-semibold tabular-nums"
+                        style={{ letterSpacing: '-0.02em' }}>{progressRounded}%</span>
+                    </div>
+                  )
+                })()}
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Progress</p>
+                  {!isRedacted && (
+                    <p className="text-[11px] text-muted-foreground tabular-nums mt-0.5">
+                      {formatAxisValue(Number(kr.currentValue) || 0)}/{formatAxisValue(Number(kr.targetValue) || 0)} {unit}
+                    </p>
+                  )}
                 </div>
               </div>
-              <div className="px-4 py-3">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Status</p>
-                {status ? (
-                  <span className={`inline-flex items-center mt-1 px-2 py-0.5 rounded-full text-[11px] font-semibold ${status.classes}`}>
-                    {status.label}
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center mt-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-muted text-muted-foreground">
-                    NO STATUS
-                  </span>
-                )}
-                {!isRedacted && (
-                  <p className="text-[11px] text-muted-foreground mt-1">
-                    {unit} {formatAxisValue(Number(kr.currentValue) || 0)} / {unit} {formatAxisValue(Number(kr.targetValue) || 0)}
-                  </p>
-                )}
+
+              {/* Status */}
+              <div className="flex flex-col justify-center gap-1.5 px-4 py-4 border-r" style={{ borderColor: 'var(--ap-border)' }}>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Status</p>
+                {(() => {
+                  const map: any = {
+                    ON_TRACK: { label: 'On track', bg: 'rgba(52,199,89,0.12)', fg: 'var(--ap-green)' },
+                    AT_RISK: { label: 'At risk', bg: 'rgba(255,149,0,0.12)', fg: 'var(--ap-orange)' },
+                    OFF_TRACK: { label: 'Off track', bg: 'rgba(255,59,48,0.12)', fg: 'var(--ap-red)' },
+                  }
+                  const s = map[kr.confidence] ?? { label: 'No status', bg: 'var(--ap-bg-sunken)', fg: 'var(--ap-fg-muted)' }
+                  return (
+                    <span className="inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
+                      style={{ background: s.bg, color: s.fg }}>
+                      <span className="size-1.5 rounded-full" style={{ background: s.fg }} />
+                      {s.label}
+                    </span>
+                  )
+                })()}
               </div>
-              <div className="px-4 py-3">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Initiatives</p>
-                <p className="text-2xl font-bold tabular-nums mt-0.5">{todoCount}</p>
+
+              {/* Confidence (use confidence string as a 0/50/100 proxy) */}
+              <div className="flex flex-col justify-center gap-1.5 px-4 py-4 border-r" style={{ borderColor: 'var(--ap-border)' }}>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Confidence</p>
+                {(() => {
+                  const c = kr.confidence === 'ON_TRACK' ? 85 : kr.confidence === 'AT_RISK' ? 55 : kr.confidence === 'OFF_TRACK' ? 25 : 50
+                  return (
+                    <>
+                      <p className="text-[18px] font-semibold tabular-nums leading-none" style={{ letterSpacing: '-0.02em' }}>
+                        {c}<span className="text-[12px] text-muted-foreground font-normal">/100</span>
+                      </p>
+                      <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ background: 'var(--ap-kr-bar-bg)' }}>
+                        <div className="h-full rounded-full"
+                          style={{ width: `${c}%`, background: c >= 70 ? 'var(--ap-green)' : c >= 40 ? 'var(--ap-orange)' : 'var(--ap-red)' }} />
+                      </div>
+                    </>
+                  )
+                })()}
+              </div>
+
+              {/* Initiatives */}
+              <div className="flex flex-col justify-center gap-1.5 px-4 py-4 border-r" style={{ borderColor: 'var(--ap-border)' }}>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Initiatives</p>
+                <p className="text-[18px] font-semibold tabular-nums leading-none">{todoCount}</p>
                 <p className="text-[11px] text-muted-foreground">
                   {todoCount === 0 ? 'none yet' : todoCount === 1 ? 'initiative' : 'initiatives'}
                 </p>
               </div>
-              <div className="px-4 py-3">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Deadline</p>
-                <p
-                  className={cn(
-                    'text-2xl font-bold tabular-nums mt-0.5',
-                    daysLeft < 7 ? 'text-red-600' : daysLeft < 30 ? 'text-amber-600' : '',
-                  )}
-                >
-                  {deadline ? (daysLeft > 0 ? `${daysLeft}d` : 'Past due') : '—'}
-                </p>
-                {weekLabel && <p className="text-[11px] text-muted-foreground">{weekLabel}</p>}
-              </div>
-            </div>
 
-            <div className="flex items-center justify-between border-t border-border px-5 py-2.5 text-sm text-muted-foreground">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="font-medium text-foreground truncate">{kr.owner?.name ?? 'Unknown'}</span>
-                {timeframe?.name && (
+              {/* Last check-in */}
+              <div className="flex flex-col justify-center gap-1.5 px-4 py-4">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Last check-in</p>
+                {checkIns.length > 0 ? (
                   <>
-                    <span>·</span>
-                    <span className="truncate">{timeframe.name}</span>
+                    <p className="text-[14px] font-semibold tabular-nums leading-none">
+                      {formatRelativeTime(checkIns[checkIns.length - 1].asOfDate)}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground truncate">
+                      by {checkIns[checkIns.length - 1].createdBy?.name ?? 'Unknown'}
+                    </p>
                   </>
+                ) : (
+                  <p className="text-[12px] text-muted-foreground">No check-ins yet</p>
                 )}
               </div>
-              <span className="text-[11px] text-muted-foreground shrink-0">
-                Updated {formatRelativeTime(kr.updatedAt)}
-              </span>
             </div>
           </section>
+
+          {/* Quick check-in bar */}
+          {showCheckIn && (
+            <div className="rounded-[14px] border bg-card flex items-center gap-3 px-4 py-2.5"
+              style={{ borderColor: 'var(--ap-border)' }}>
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Quick check-in</span>
+              <span className="text-[12px] text-muted-foreground tabular-nums">
+                Currently {unit} {formatAxisValue(Number(kr.currentValue) || 0)}
+              </span>
+              <button
+                type="button"
+                onClick={() => setCheckInOpen(true)}
+                className="ml-auto rounded-[10px] bg-[var(--ap-accent)] px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-[var(--ap-accent-hover)]"
+              >
+                Post check-in
+              </button>
+            </div>
+          )}
 
           {/* Check-in history */}
           <section className="bg-card shadow rounded-lg p-6">
@@ -555,7 +632,7 @@ export default function KeyResultDetailClient({
         </div>
 
         {/* -------- Sidebar -------- */}
-        <aside className="lg:col-span-4 space-y-4">
+        <aside className="space-y-3">
           <section className="bg-card shadow rounded-lg p-5" id={TIMELINE_ELEMENT_ID}>
             <div className="flex items-center justify-between mb-3">
               <div>

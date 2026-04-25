@@ -17,9 +17,8 @@ import { daysUntilDeadline, daysSince, weekLabel } from '@/lib/okr/dates'
 import CriticalBanner from '@/components/objective-detail/CriticalBanner'
 import ObjectiveHero from '@/components/objective-detail/ObjectiveHero'
 import KRList from '@/components/objective-detail/KRList'
-import AlignmentCard from '@/components/objective-detail/AlignmentCard'
-import ObjectiveDetailsCard from '@/components/objective-detail/ObjectiveDetailsCard'
-import ObjectiveProgressTimeline from './ObjectiveProgressTimeline'
+import ProgressConfidenceCard from '@/components/objective-detail/ProgressConfidenceCard'
+import PerKrProgressCard from '@/components/objective-detail/PerKrProgressCard'
 import ActivityTabs from '@/components/objective-detail/ActivityTabs'
 
 interface ObjectiveDetailPageProps {
@@ -162,7 +161,7 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
         </div>
 
         {/* ═══ MAIN 2-COLUMN GRID ═══ */}
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_320px]">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
 
           {/* ─── LEFT COLUMN ─── */}
           <div className="min-w-0 space-y-4">
@@ -176,7 +175,7 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
             )}
 
             <ObjectiveHero
-              objective={objective}
+              objective={objective as any}
               expectedProgress={expectedProgress}
               daysLeft={daysLeft}
               activeKrCount={activeKrs.length}
@@ -201,44 +200,38 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
           </div>
 
           {/* ─── RIGHT SIDEBAR ─── */}
-          <div className="space-y-4">
-            <section className="rounded-xl border border-border bg-card">
-              <header className="px-4 py-3 border-b border-border">
-                <h3 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Progress Timeline</h3>
-                <p className="text-[11px] text-muted-foreground">Expected vs actual</p>
-              </header>
-              <div className="p-3">
-                <ObjectiveProgressTimeline
-                  snapshots={snapshots}
-                  currentProgress={objective.progress}
-                  timeframeStart={objective.timeframe.startDate}
-                  timeframeEnd={objective.timeframe.endDate}
-                />
-              </div>
-            </section>
-
-            <ObjectiveDetailsCard
-              owner={objective.owner}
-              contributors={contributorUsers}
-              timeframe={objective.timeframe}
-              department={objective.department}
-              collaborators={collaborators}
-              unassignedKrCount={unassignedKrCount}
+          <div className="space-y-3">
+            <ProgressConfidenceCard
+              snapshots={snapshots.map(s => ({ periodStart: s.periodStart, score: s.score }))}
+              currentProgress={objective.progress}
+              expectedProgress={expectedProgress}
+              timeframeStart={objective.timeframe.startDate}
+              timeframeEnd={objective.timeframe.endDate}
             />
 
-            <AlignmentCard
-              parentObjective={objective.parentObjective}
-              childObjectives={objective.childObjectives.map(c => ({
-                id: c.id, title: c.title, level: c.level,
-                goalStatus: c.goalStatus, progress: c.progress,
+            <PerKrProgressCard
+              keyResults={objective.keyResults.map(k => ({
+                id: k.id, title: k.title, progress: k.progress,
+                confidence: k.confidence, status: k.status,
               }))}
             />
 
-            {/* Activity + Comments — in sidebar */}
             <ActivityTabs
               objectiveId={objective.id}
               activityElementId={`obj-activity-${objective.id}`}
               users={users}
+              details={{
+                owner: objective.owner,
+                timeframe: objective.timeframe,
+                department: objective.department,
+                parentObjective: objective.parentObjective ?? null,
+                childObjectives: objective.childObjectives.map(c => ({ id: c.id, title: c.title })),
+                collaborators: [
+                  { id: objective.owner.id, name: objective.owner.name, avatar: objective.owner.avatar, email: objective.owner.email },
+                  ...collaborators,
+                ],
+                measurementCount: objective.keyResults.length,
+              }}
             />
           </div>
         </div>

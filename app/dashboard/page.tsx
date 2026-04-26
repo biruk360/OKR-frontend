@@ -2,58 +2,55 @@ import { redirect } from 'next/navigation'
 import { getServerSessionSafe } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import type { Prisma } from '@prisma/client'
-import HeroStats, { type HeroStatsData } from '@/components/dashboard/HeroStats'
-import CheckInBanner, { type CheckInBannerData } from '@/components/dashboard/CheckInBanner'
-import QuickStats, { type QuickStatsData } from '@/components/dashboard/QuickStats'
-import UserOkrTree, { type OkrTreeObjective } from '@/components/dashboard/UserOkrTree'
-import NeedsAttention, { type NeedsAttentionItem } from '@/components/dashboard/NeedsAttention'
-import TeamActivityFeed, { type ActivityFeedItem } from '@/components/dashboard/TeamActivityFeed'
-import MyActivityFeed from '@/components/dashboard/MyActivityFeed'
+import AppleDashboard, {
+  type AppleDashboardProps,
+  type DashboardKpis,
+  type InitiativesInFlight,
+} from '@/components/dashboard/AppleDashboard'
+import type { HeroStatsData } from '@/components/dashboard/HeroStats'
+import type { CheckInBannerData } from '@/components/dashboard/CheckInBanner'
+import type { QuickStatsData } from '@/components/dashboard/QuickStats'
+import type { OkrTreeObjective } from '@/components/dashboard/UserOkrTree'
+import type { ActivityFeedItem } from '@/components/dashboard/TeamActivityFeed'
 
 export default async function DashboardPage() {
   const session = await getServerSessionSafe()
   if (!session) redirect('/auth/signin')
 
-  const [heroData, checkInData, quickData, userOkrTree, needsAttentionItems, teamActivity, myActivity] =
+  const [heroData, checkInData, quickData, userOkrTree, teamActivity, deadlineData, initiativesData] =
     await Promise.all([
       getHeroStats(session.user.id, session.user.role),
       getCheckInBanner(session.user.id),
       getQuickStats(session.user.id, session.user.role),
       getUserOkrTree(session.user.id),
-      getNeedsAttentionItems(session.user.id, session.user.role),
       getTeamActivity(),
-      getMyActivity(session.user.id),
+      getDeadlines(session.user.id, session.user.role),
+      getInitiativesInFlight(session.user.id),
     ])
 
-  return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-semibold">Welcome back, {session.user.name}</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">Here&apos;s what&apos;s happening with your OKRs today.</p>
-      </div>
+  const kpis: DashboardKpis = {
+    activeObjectives: quickData.activeObjectives,
+    avgProgress: heroData.avgProgress,
+    expectedProgress: heroData.expectedProgress,
+    momentumValues: heroData.momentumData?.map(d => d.progress) ?? [],
+    atRiskCount: heroData.atRisk,
+    offTrackCount: heroData.offTrack,
+    upcomingDeadlinesCount: deadlineData.upcomingCount,
+    soonestDeadlineLabel: deadlineData.soonestLabel,
+  }
 
-      {/* Check-in alert banner */}
-      <CheckInBanner data={checkInData} />
+  const props: AppleDashboardProps = {
+    userName: session.user.name ?? 'there',
+    hero: heroData,
+    banner: checkInData,
+    quick: quickData,
+    kpis,
+    myOkrs: userOkrTree,
+    activity: teamActivity,
+    initiatives: initiativesData,
+  }
 
-      {/* Top row: Performance + Confidence + Momentum (3 equal columns) */}
-      <HeroStats data={heroData} />
-
-      {/* Compact stat strip */}
-      <QuickStats data={quickData} />
-
-      {/* Row 2: My Active Objectives (50%) + Needs Attention (50%) */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <UserOkrTree objectives={userOkrTree} />
-        <NeedsAttention items={needsAttentionItems} />
-      </div>
-
-      {/* Row 3: Team Activity (50%) + My Activity (50%) */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <TeamActivityFeed items={teamActivity} />
-        <MyActivityFeed items={myActivity} />
-      </div>
-    </div>
-  )
+  return <AppleDashboard {...props} />
 }
 
 // ─── Data fetchers ───
@@ -109,15 +106,20 @@ async function getHeroStats(userId: string, userRole: string): Promise<HeroStats
     weekLabel = `Week ${weeksElapsed} of ${totalWeeks}`
   }
 
-  // Momentum: last 7 bi-weekly confidence snapshots for this user's objectives
   const snapshots = await prisma.confidenceSnapshot.findMany({
-    where: { entityType: 'OBJECTIVE', entityId: { in: await prisma.objective.findMany({ where: { ownerId: userId, status: 'ACTIVE' }, select: { id: true } }).then(os => os.map(o => o.id)) } },
+    where: {
+      entityType: 'OBJECTIVE',
+      entityId: {
+        in: await prisma.objective
+          .findMany({ where: { ownerId: userId, status: 'ACTIVE' }, select: { id: true } })
+          .then(os => os.map(o => o.id)),
+      },
+    },
     orderBy: { periodStart: 'asc' },
     select: { periodStart: true, score: true },
     take: 14,
   })
 
-  // Bucket by period, average score per period → treat score as proxy for progress
   const byPeriod = new Map<string, number[]>()
   for (const s of snapshots) {
     if (!byPeriod.has(s.periodStart)) byPeriod.set(s.periodStart, [])
@@ -206,37 +208,6 @@ async function getUserOkrTree(userId: string): Promise<OkrTreeObjective[]> {
   }))
 }
 
-async function getNeedsAttentionItems(userId: string, userRole: string): Promise<NeedsAttentionItem[]> {
-  const objWhere = await buildObjectiveWhere(userId, userRole)
-  const now = new Date()
-  const items: NeedsAttentionItem[] = []
-
-  const [offTrackKRs, atRiskKRs, overdueTodos] = await Promise.all([
-    prisma.keyResult.findMany({
-      where: { objective: objWhere, status: 'ACTIVE', confidence: 'OFF_TRACK' },
-      select: { id: true, title: true, progress: true, owner: { select: { name: true } } },
-      take: 5,
-    }),
-    prisma.keyResult.findMany({
-      where: { objective: objWhere, status: 'ACTIVE', confidence: 'AT_RISK' },
-      select: { id: true, title: true, progress: true, owner: { select: { name: true } } },
-      take: 5,
-    }),
-    prisma.todo.findMany({
-      where: { assigneeId: userId, status: { in: ['PENDING', 'IN_PROGRESS'] }, dueDate: { lt: now } },
-      select: { id: true, title: true },
-      take: 5,
-    }),
-  ])
-
-  for (const kr of offTrackKRs) items.push({ id: kr.id, title: kr.title, type: 'key_result', reason: 'off_track', progress: kr.progress, ownerName: kr.owner.name, href: `/dashboard/key-results/${kr.id}` })
-  for (const kr of atRiskKRs) items.push({ id: kr.id, title: kr.title, type: 'key_result', reason: 'at_risk', progress: kr.progress, ownerName: kr.owner.name, href: `/dashboard/key-results/${kr.id}` })
-  for (const t of overdueTodos) items.push({ id: t.id, title: t.title, type: 'todo', reason: 'overdue', progress: 0, href: `/dashboard/todos?open=${t.id}` })
-
-  return items
-}
-
-// Build an ActivityFeedItem from an ActivityLog row + its related entity data
 function buildFeedItem(
   log: {
     id: string
@@ -281,19 +252,35 @@ async function getTeamActivity(): Promise<ActivityFeedItem[]> {
   }).slice(0, 20)
 }
 
-async function getMyActivity(userId: string): Promise<ActivityFeedItem[]> {
-  const logs = await prisma.activityLog.findMany({
-    where: { actorId: userId },
-    orderBy: { createdAt: 'desc' },
-    take: 30,
-    include: {
-      actor: { select: { name: true, avatar: true } },
-      objective: { select: { id: true, title: true, progress: true } },
-      keyResult: { select: { id: true, title: true, progress: true } },
-    },
+async function getDeadlines(userId: string, userRole: string): Promise<{ upcomingCount: number; soonestLabel: string | null }> {
+  const objWhere = await buildObjectiveWhere(userId, userRole)
+  const now = new Date()
+  const horizon = new Date(now); horizon.setDate(horizon.getDate() + 30)
+
+  const objs = await prisma.objective.findMany({
+    where: { ...objWhere, timeframe: { endDate: { gte: now, lte: horizon } } },
+    select: { title: true, timeframe: { select: { endDate: true } } },
+    orderBy: { timeframe: { endDate: 'asc' } },
+    take: 20,
   })
-  return logs.flatMap(log => {
-    const item = buildFeedItem(log)
-    return item ? [item] : []
-  }).slice(0, 20)
+
+  const soonest = objs[0]
+  const soonestLabel = soonest && soonest.timeframe
+    ? `${soonest.title.length > 28 ? soonest.title.slice(0, 28) + '…' : soonest.title} · ${new Date(soonest.timeframe.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+    : null
+
+  return { upcomingCount: objs.length, soonestLabel }
+}
+
+async function getInitiativesInFlight(userId: string): Promise<InitiativesInFlight[]> {
+  const todos = await prisma.todo.findMany({
+    where: {
+      OR: [{ assigneeId: userId }, { creatorId: userId }],
+      status: { in: ['PENDING', 'IN_PROGRESS', 'COMPLETED'] },
+    },
+    orderBy: { updatedAt: 'desc' },
+    take: 18,
+    select: { id: true, title: true, status: true, keyResultId: true },
+  })
+  return todos.map(t => ({ id: t.id, title: t.title, status: t.status, keyResultId: t.keyResultId }))
 }

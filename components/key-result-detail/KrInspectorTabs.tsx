@@ -5,8 +5,11 @@ import { Calendar, Target, TrendingUp, User as UserIcon, Clock } from 'lucide-re
 import { format } from 'date-fns'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ActivityLogPanel } from '@/components/shared/ActivityLogPanel'
+import RisksPanel from '@/components/shared/RisksPanel'
 import { formatAxisValue } from '@/lib/keyResultChart'
 import CheckInTimeline from './CheckInTimeline'
+import { useState } from 'react'
+import { useSession } from 'next-auth/react'
 
 interface UserLite {
   id?: string
@@ -57,6 +60,10 @@ function timeframeTypeLabel(type?: string): string {
 }
 
 export default function KrInspectorTabs({ keyResultId, activityElementId, details, checkIns }: Props) {
+  const { data: session } = useSession()
+  const [risksCount, setRisksCount] = useState<number | null>(null)
+  const userId = session?.user?.id ?? ''
+  const userRole = (session?.user?.role as string | undefined) ?? 'EMPLOYEE'
   return (
     <section className="rounded-[14px] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
       <Tabs defaultValue="details">
@@ -70,7 +77,7 @@ export default function KrInspectorTabs({ keyResultId, activityElementId, detail
               value={v}
               className="rounded-none border-b-2 border-transparent px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground data-[state=active]:border-[var(--ap-accent)] data-[state=active]:text-[var(--ap-fg)] data-[state=active]:shadow-none data-[state=active]:bg-transparent"
             >
-              {v === 'details' ? 'Details' : v === 'checkins' ? 'Check-ins' : v === 'activity' ? 'Activity' : 'Risks'}
+              {v === 'details' ? 'Details' : v === 'checkins' ? 'Check-ins' : v === 'activity' ? 'Activity' : `Risks${risksCount !== null ? ` (${risksCount})` : ''}`}
             </TabsTrigger>
           ))}
         </TabsList>
@@ -209,7 +216,12 @@ export default function KrInspectorTabs({ keyResultId, activityElementId, detail
         </TabsContent>
 
         <TabsContent value="risks" className="m-0 p-0">
-          <div className="px-4 py-6 text-[12px] text-muted-foreground">No risks logged.</div>
+          <RisksPanel
+            parent={{ type: 'keyResult', id: keyResultId }}
+            currentUserId={userId}
+            currentUserRole={userRole}
+            onCountChange={setRisksCount}
+          />
         </TabsContent>
       </Tabs>
     </section>

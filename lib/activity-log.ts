@@ -18,6 +18,10 @@ export type ActivityAction =
   | 'INITIATIVE_UPDATED'
   | 'INITIATIVE_REMOVED'
   | 'VIEWED'
+  | 'RISK_REPORTED'
+  | 'RISK_UPDATED'
+  | 'RISK_RESOLVED'
+  | 'RISK_DELETED'
 
 export interface FieldChange {
   from: unknown

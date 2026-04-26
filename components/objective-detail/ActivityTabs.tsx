@@ -5,6 +5,9 @@ import { Calendar, User as UserIcon, Users as UsersIcon, Target, Database, Build
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ActivityLogPanel } from '@/components/shared/ActivityLogPanel'
 import OkrComments from '@/components/shared/OkrComments'
+import RisksPanel from '@/components/shared/RisksPanel'
+import { useState } from 'react'
+import { useSession } from 'next-auth/react'
 
 interface UserLite { id: string; name: string; avatar?: string | null; email?: string | null }
 
@@ -40,6 +43,10 @@ function timeframeTypeLabel(type: string): string {
 }
 
 export default function ActivityTabs({ objectiveId, activityElementId, users, details }: Props) {
+  const { data: session } = useSession()
+  const [risksCount, setRisksCount] = useState<number | null>(null)
+  const userId = session?.user?.id ?? ''
+  const userRole = (session?.user?.role as string | undefined) ?? 'EMPLOYEE'
   return (
     <section className="rounded-[14px] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
       <Tabs defaultValue="details">
@@ -53,7 +60,7 @@ export default function ActivityTabs({ objectiveId, activityElementId, users, de
               value={v}
               className="rounded-none border-b-2 border-transparent px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground data-[state=active]:border-[var(--ap-accent)] data-[state=active]:text-[var(--ap-fg)] data-[state=active]:shadow-none data-[state=active]:bg-transparent"
             >
-              {v === 'details' ? 'Details' : v === 'activity' ? 'Activity' : v === 'risks' ? 'Risks' : 'Viewers'}
+              {v === 'details' ? 'Details' : v === 'activity' ? 'Activity' : v === 'risks' ? `Risks${risksCount !== null ? ` (${risksCount})` : ''}` : 'Viewers'}
             </TabsTrigger>
           ))}
         </TabsList>
@@ -197,7 +204,12 @@ export default function ActivityTabs({ objectiveId, activityElementId, users, de
         </TabsContent>
 
         <TabsContent value="risks" className="m-0 p-0">
-          <div className="px-4 py-6 text-[12px] text-muted-foreground">No risks logged.</div>
+          <RisksPanel
+            parent={{ type: 'objective', id: objectiveId }}
+            currentUserId={userId}
+            currentUserRole={userRole}
+            onCountChange={setRisksCount}
+          />
         </TabsContent>
 
         <TabsContent value="viewers" className="m-0 p-0">

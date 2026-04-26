@@ -59,6 +59,7 @@ model User {
   todoChecklistItems  TodoChecklistItem[]     @relation("TodoChecklistItemAssignee")
   todoAttachments     TodoAttachment[]        @relation("TodoAttachmentUploader")
   todoComments        TodoComment[]           @relation("TodoCommentAuthor")
+  reportedRisks       Risk[]                  @relation("RiskReporter")
 
   @@map("users")
 }
@@ -196,6 +197,7 @@ model Objective {
   sprintActivities SprintActivity[]  @relation("SprintActivityObjective")
   todos            Todo[]            @relation("TodoObjective")
   contributors     ObjectiveContributor[]
+  risks            Risk[]
 
   @@map("objectives")
 }
@@ -248,6 +250,7 @@ model KeyResult {
   activityLogs ActivityLog[]
   views    KeyResultView[]
   sprintActivities SprintActivity[]
+  risks    Risk[]
 
   @@map("key_results")
 }
@@ -853,4 +856,33 @@ model OutboundEmail {
 
   @@index([status, createdAt])
   @@map("outbound_emails")
+}
+
+/// Risks flagged on an Objective or Key Result. Polymorphic — exactly one of
+/// objectiveId / keyResultId is set. Severity + status are stored as String
+/// to match the rest of the schema's enum-as-String convention.
+model Risk {
+  id            String     @id @default(cuid())
+  title         String
+  description   String?
+  severity      String     // LOW | MEDIUM | HIGH | CRITICAL
+  status        String     @default("OPEN") // OPEN | MITIGATING | RESOLVED | ACCEPTED
+  mitigation    String?
+
+  objectiveId   String?
+  objective     Objective? @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
+  keyResultId   String?
+  keyResult     KeyResult? @relation(fields: [keyResultId], references: [id], onDelete: Cascade)
+
+  reporterId    String
+  reporter      User       @relation("RiskReporter", fields: [reporterId], references: [id])
+
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  resolvedAt    DateTime?
+
+  @@index([objectiveId])
+  @@index([keyResultId])
+  @@index([status])
+  @@map("risks")
 }

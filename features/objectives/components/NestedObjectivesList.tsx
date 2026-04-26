@@ -2,15 +2,15 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { getProgressColor } from '@/lib/utils'
 import {
   Target,
   Calendar,
-  User,
   Building2,
   ChevronDown,
   ChevronRight,
+  Users as UsersIcon,
 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import ObjectiveActionsMenu from './ObjectiveActionsMenu'
 
 interface NestedObjectivesListProps {
@@ -29,32 +29,102 @@ interface ObjectiveNode {
   level: number
 }
 
-const LEVEL_BADGE: Record<string, string> = {
-  COMPANY:    'bg-blue-50 text-blue-700 border border-blue-200',
-  DEPARTMENT: 'bg-amber-50 text-amber-700 border border-amber-200',
-  INDIVIDUAL: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
-}
 const LEVEL_LABEL: Record<string, string> = {
-  COMPANY: 'Co', DEPARTMENT: 'Dept', INDIVIDUAL: 'Me',
+  COMPANY: 'COMPANY',
+  DEPARTMENT: 'DEPT',
+  INDIVIDUAL: 'INDIV',
 }
 
-function progressBarColor(p: number): string {
-  if (p >= 70) return 'bg-emerald-500'
-  if (p >= 35) return 'bg-amber-500'
-  return 'bg-red-500'
+function statusFromValue(progress: number, goalStatus?: string) {
+  if (goalStatus === 'COMPLETED') return 'completed'
+  if (goalStatus === 'OFF_TRACK') return 'off-track'
+  if (goalStatus === 'AT_RISK') return 'at-risk'
+  if (goalStatus === 'ON_TRACK') return 'on-track'
+  if (progress >= 70) return 'on-track'
+  if (progress >= 35) return 'at-risk'
+  return 'off-track'
+}
+
+function StatusPill({ status }: { status: string }) {
+  const map: Record<string, { label: string; bg: string; fg: string; dot: string }> = {
+    'on-track':  { label: 'On track',  bg: 'rgba(52,199,89,0.12)', fg: 'var(--ap-green)',  dot: 'var(--ap-green)' },
+    'at-risk':   { label: 'At risk',   bg: 'rgba(255,149,0,0.12)', fg: 'var(--ap-orange)', dot: 'var(--ap-orange)' },
+    'off-track': { label: 'Off track', bg: 'rgba(255,59,48,0.12)', fg: 'var(--ap-red)',    dot: 'var(--ap-red)' },
+    completed:   { label: 'Done',      bg: 'rgba(0,122,255,0.12)', fg: 'var(--ap-accent)', dot: 'var(--ap-accent)' },
+  }
+  const c = map[status] ?? map['off-track']
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+      style={{ background: c.bg, color: c.fg }}
+    >
+      <span className="size-1.5 rounded-full" style={{ background: c.dot }} />
+      {c.label}
+    </span>
+  )
+}
+
+function LevelBadge({ level }: { level: string }) {
+  return (
+    <span
+      className="inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide"
+      style={{ background: 'var(--ap-bg-sunken)', color: 'var(--ap-fg-muted)' }}
+    >
+      {LEVEL_LABEL[level] ?? level}
+    </span>
+  )
+}
+
+function ProgressBar({ value, status }: { value: number; status: string }) {
+  const color =
+    status === 'on-track' || status === 'completed' ? 'var(--ap-green)'
+    : status === 'at-risk' ? 'var(--ap-orange)'
+    : 'var(--ap-red)'
+  return (
+    <div className="flex items-center gap-2 w-[140px]">
+      <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--ap-kr-bar-bg)' }}>
+        <div
+          className="h-full rounded-full transition-all"
+          style={{ width: `${Math.min(Math.max(value, 0), 100)}%`, background: color }}
+        />
+      </div>
+      <span className="text-[12px] font-semibold tabular-nums w-[34px] text-right">
+        {Math.round(value)}%
+      </span>
+    </div>
+  )
+}
+
+function OwnerChip({ owner }: { owner: any }) {
+  const initial = (owner?.name ?? '?')[0]?.toUpperCase() ?? '?'
+  return (
+    <span className="flex items-center gap-1.5 max-w-[140px]">
+      {owner?.avatar ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={owner.avatar} alt="" className="size-5 rounded-full object-cover" />
+      ) : (
+        <span
+          className="flex size-5 items-center justify-center rounded-full text-[10px] font-bold text-white"
+          style={{ background: 'var(--ap-accent)' }}
+        >
+          {initial}
+        </span>
+      )}
+      <span className="truncate text-[12px]" style={{ color: 'var(--ap-fg-muted)' }}>
+        {owner?.name ?? 'Unassigned'}
+      </span>
+    </span>
+  )
 }
 
 export default function NestedObjectivesList({
   objectives,
-  timeframes,
-  departments,
-  userRole,
 }: NestedObjectivesListProps) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
   const tree = useMemo(() => {
     const childMap = new Map<string, any[]>()
-    objectives.forEach(obj => {
+    objectives.forEach((obj) => {
       if (obj.parentObjectiveId) {
         if (!childMap.has(obj.parentObjectiveId)) childMap.set(obj.parentObjectiveId, [])
         childMap.get(obj.parentObjectiveId)!.push(obj)
@@ -67,18 +137,18 @@ export default function NestedObjectivesList({
     const build = (obj: any, depth: number): ObjectiveNode => ({
       objective: obj,
       level: depth,
-      children: (childMap.get(obj.id) ?? []).sort(sortFn).map(c => build(c, depth + 1)),
+      children: (childMap.get(obj.id) ?? []).sort(sortFn).map((c) => build(c, depth + 1)),
     })
 
     const roots = objectives
-      .filter(o => o.level === 'COMPANY' || !o.parentObjectiveId)
+      .filter((o) => o.level === 'COMPANY' || !o.parentObjectiveId)
       .sort(sortFn)
 
-    return roots.map(o => build(o, 0))
+    return roots.map((o) => build(o, 0))
   }, [objectives])
 
   const toggle = (id: string) =>
-    setExpanded(prev => {
+    setExpanded((prev) => {
       const s = new Set(prev)
       s.has(id) ? s.delete(id) : s.add(id)
       return s
@@ -90,21 +160,27 @@ export default function NestedObjectivesList({
     const krs: any[] = Array.isArray(obj.keyResults) ? obj.keyResults : []
     const krCount = obj._count?.keyResults ?? krs.length
     const hasKids = children.length > 0 || krCount > 0
-    const indent = level * 20
+    const indent = level * 18
+    const status = statusFromValue(obj.progress ?? 0, obj.goalStatus)
+    const isArchived = obj.status === 'ARCHIVED'
 
     return (
       <div key={obj.id}>
         <div
-          className="group bg-card border border-border rounded-lg hover:border-border/80 hover:shadow-sm transition-all mb-1.5"
-          style={{ marginLeft: `${indent}px` }}
+          className={cn(
+            'group rounded-[14px] border bg-card transition-all mb-2 hover:shadow-sm',
+            isArchived && 'opacity-70 grayscale-[40%]'
+          )}
+          style={{ marginLeft: `${indent}px`, borderColor: 'var(--ap-border)' }}
         >
-          {/* Single compact row */}
-          <div className="flex items-center gap-2 px-3 py-2.5 min-w-0">
-
-            {/* Expand toggle */}
+          <div className="flex items-start gap-3 px-4 py-3">
             <button
+              type="button"
               onClick={() => toggle(obj.id)}
-              className={`shrink-0 p-0.5 rounded hover:bg-muted transition-colors ${hasKids ? 'visible' : 'invisible'}`}
+              className={cn(
+                'shrink-0 mt-0.5 inline-flex size-5 items-center justify-center rounded hover:bg-muted',
+                !hasKids && 'invisible'
+              )}
               aria-label={isOpen ? 'Collapse' : 'Expand'}
             >
               {isOpen
@@ -112,135 +188,122 @@ export default function NestedObjectivesList({
                 : <ChevronRight className="size-3.5 text-muted-foreground" />}
             </button>
 
-            {/* Level badge */}
-            <span className={`shrink-0 inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${LEVEL_BADGE[obj.level] ?? 'bg-muted text-foreground'}`}>
-              {LEVEL_LABEL[obj.level] ?? obj.level}
-            </span>
-
-            {/* Title — truncate but show on hover via title attr */}
-            <Link
-              href={`/dashboard/objectives/${obj.id}`}
-              className="flex-1 min-w-0 text-sm font-medium text-foreground hover:text-primary truncate"
-              title={obj.title}
-            >
-              {obj.title}
-            </Link>
-
-            {/* Meta pills — hidden on mobile, shown sm+ */}
-            <div className="hidden sm:flex items-center gap-3 shrink-0 text-xs text-muted-foreground">
-              {/* Owner */}
-              <span className="flex items-center gap-1 max-w-[100px]">
-                {obj.owner.avatar
-                  ? <img src={obj.owner.avatar} alt="" className="size-4 rounded-full object-cover" />
-                  : <div className="size-4 rounded-full bg-primary flex items-center justify-center text-[9px] text-primary-foreground font-bold">{(obj.owner.name ?? '?')[0]}</div>
-                }
-                <span className="truncate max-w-[72px]">{obj.owner.name}</span>
-              </span>
-
-              {/* Timeframe */}
-              <span className="flex items-center gap-1 whitespace-nowrap">
-                <Calendar className="size-3 shrink-0" />
-                {obj.timeframe?.name}
-              </span>
-
-              {/* Dept */}
-              {obj.department && (
-                <span className="flex items-center gap-1 whitespace-nowrap">
-                  <Building2 className="size-3 shrink-0" />
-                  {obj.department.name}
+            <div className="min-w-0 flex-1">
+              {/* Top chip row */}
+              <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
+                <LevelBadge level={obj.level} />
+                <span className="text-[10px] tabular-nums text-muted-foreground">
+                  {obj.id.slice(-6).toUpperCase()}
                 </span>
+                {obj.timeframe?.name && (
+                  <span
+                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px]"
+                    style={{ background: 'var(--ap-bg-sunken)', color: 'var(--ap-fg-muted)' }}
+                  >
+                    <Calendar className="size-2.5" />
+                    {obj.timeframe.name}
+                  </span>
+                )}
+                <div className="ml-auto flex items-center gap-1.5">
+                  <StatusPill status={status} />
+                </div>
+              </div>
+
+              {/* Title */}
+              <Link
+                href={`/dashboard/objectives/${obj.id}`}
+                className="block text-[15px] font-semibold leading-tight hover:underline truncate"
+                style={{ letterSpacing: '-0.01em' }}
+                title={obj.title}
+              >
+                {obj.title}
+              </Link>
+
+              {obj.description && (
+                <p className="mt-0.5 text-[12px] text-muted-foreground line-clamp-1">
+                  {obj.description}
+                </p>
               )}
 
-              {/* KR count */}
-              <span className="text-[11px] tabular-nums whitespace-nowrap">
-                {obj._count?.keyResults ?? 0} KR{(obj._count?.keyResults ?? 0) !== 1 ? 's' : ''}
-              </span>
-            </div>
-
-            {/* Progress */}
-            <div className="shrink-0 flex items-center gap-2 w-[80px]">
-              <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-all ${progressBarColor(obj.progress)}`}
-                  style={{ width: `${Math.min(obj.progress, 100)}%` }}
-                />
+              {/* Meta row */}
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                <OwnerChip owner={obj.owner} />
+                {obj.department && (
+                  <>
+                    <span className="hidden sm:inline-block h-3 w-px" style={{ background: 'var(--ap-border)' }} />
+                    <span className="inline-flex items-center gap-1 text-[12px] text-muted-foreground">
+                      <Building2 className="size-3" />
+                      <span className="truncate max-w-[120px]">{obj.department.name}</span>
+                    </span>
+                  </>
+                )}
+                <span className="hidden sm:inline-block h-3 w-px" style={{ background: 'var(--ap-border)' }} />
+                <span
+                  className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums"
+                  style={{ background: 'var(--ap-bg-sunken)', color: 'var(--ap-fg-muted)' }}
+                >
+                  <UsersIcon className="size-2.5" />
+                  {krCount} KR{krCount !== 1 ? 's' : ''}
+                </span>
+                {obj.parentObjective && (
+                  <Link
+                    href={`/dashboard/objectives/${obj.parentObjective.id}`}
+                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium truncate max-w-[200px]"
+                    style={{ background: 'var(--ap-accent-soft)', color: 'var(--ap-accent)' }}
+                    title={obj.parentObjective.title}
+                  >
+                    ↑ {obj.parentObjective.title}
+                  </Link>
+                )}
+                <div className="ml-auto">
+                  <ProgressBar value={obj.progress ?? 0} status={status} />
+                </div>
               </div>
-              <span className="text-xs font-semibold tabular-nums w-[28px] text-right text-foreground">
-                {Math.round(obj.progress)}%
-              </span>
             </div>
 
-            {/* Actions — shown on row hover */}
             <div className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
               <ObjectiveActionsMenu objective={obj} />
             </div>
           </div>
-
-          {/* Parent link — only if aligned, shown below title row */}
-          {obj.parentObjective && (
-            <div className="px-3 pb-2 -mt-1 ml-7">
-              <Link
-                href={`/dashboard/objectives/${obj.parentObjective.id}`}
-                className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-primary truncate max-w-full"
-                title={`Aligned to: ${obj.parentObjective.title}`}
-              >
-                <span className="shrink-0">↑</span>
-                <span className="truncate">{obj.parentObjective.title}</span>
-              </Link>
-            </div>
-          )}
         </div>
 
-        {/* Key results (shown before child objectives when expanded) */}
+        {/* KRs */}
         {isOpen && krs.length > 0 && (
-          <div
-            className="mb-1.5 space-y-1"
-            style={{ marginLeft: `${indent + 28}px` }}
-          >
-            {krs.map((kr: any) => (
-              <Link
-                key={kr.id}
-                href={`/dashboard/key-results/${kr.id}`}
-                className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 hover:border-border/80 hover:shadow-sm transition-all"
-              >
-                <span className="shrink-0 inline-flex items-center rounded bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
-                  KR
-                </span>
-                <span className="flex-1 min-w-0 text-sm text-foreground truncate" title={kr.title}>
-                  {kr.title}
-                </span>
-                {kr.owner && (
-                  <span className="hidden sm:flex items-center gap-1 shrink-0 text-xs text-muted-foreground max-w-[100px]">
-                    {kr.owner.avatar ? (
-                      <img src={kr.owner.avatar} alt="" className="size-4 rounded-full object-cover" />
-                    ) : (
-                      <div className="size-4 rounded-full bg-primary flex items-center justify-center text-[9px] text-primary-foreground font-bold">
-                        {(kr.owner.name ?? '?')[0]}
-                      </div>
-                    )}
-                    <span className="truncate max-w-[72px]">{kr.owner.name}</span>
+          <div className="mb-2 space-y-1.5" style={{ marginLeft: `${indent + 28}px` }}>
+            {krs.map((kr: any) => {
+              const krStatus = statusFromValue(kr.progress ?? 0, kr.goalStatus)
+              return (
+                <Link
+                  key={kr.id}
+                  href={`/dashboard/key-results/${kr.id}`}
+                  className="flex items-center gap-3 rounded-[10px] border bg-card px-3 py-2 hover:shadow-sm transition-all"
+                  style={{ borderColor: 'var(--ap-border)' }}
+                >
+                  <span
+                    className="shrink-0 inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase"
+                    style={{ background: 'var(--ap-accent-soft)', color: 'var(--ap-accent)' }}
+                  >
+                    KR
                   </span>
-                )}
-                <div className="shrink-0 flex items-center gap-2 w-[80px]">
-                  <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all ${progressBarColor(kr.progress ?? 0)}`}
-                      style={{ width: `${Math.min(kr.progress ?? 0, 100)}%` }}
-                    />
-                  </div>
-                  <span className="text-xs font-semibold tabular-nums w-[28px] text-right text-foreground">
-                    {Math.round(kr.progress ?? 0)}%
+                  <span
+                    className="flex-1 min-w-0 text-[13px] truncate"
+                    title={kr.title}
+                    style={{ color: 'var(--ap-fg)' }}
+                  >
+                    {kr.title}
                   </span>
-                </div>
-              </Link>
-            ))}
+                  {kr.owner && <OwnerChip owner={kr.owner} />}
+                  <ProgressBar value={kr.progress ?? 0} status={krStatus} />
+                </Link>
+              )
+            })}
           </div>
         )}
 
-        {/* Child objectives */}
+        {/* Children */}
         {isOpen && children.length > 0 && (
-          <div className="mb-1.5">
-            {children.map(child => renderNode(child))}
+          <div className="mb-2">
+            {children.map((child) => renderNode(child))}
           </div>
         )}
       </div>
@@ -249,10 +312,13 @@ export default function NestedObjectivesList({
 
   if (tree.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 text-center">
+      <div
+        className="flex flex-col items-center justify-center py-16 text-center rounded-[14px] border bg-card"
+        style={{ borderColor: 'var(--ap-border)' }}
+      >
         <Target className="size-10 text-muted-foreground/50 mb-3" />
-        <p className="text-sm font-medium text-foreground">No objectives found</p>
-        <p className="text-xs text-muted-foreground mt-1">
+        <p className="text-[13px] font-medium">No objectives found</p>
+        <p className="text-[12px] text-muted-foreground mt-1">
           {objectives.length === 0
             ? 'Create your first objective to get started.'
             : 'Try adjusting your filters.'}
@@ -261,9 +327,5 @@ export default function NestedObjectivesList({
     )
   }
 
-  return (
-    <div>
-      {tree.map(node => renderNode(node))}
-    </div>
-  )
+  return <div>{tree.map((node) => renderNode(node))}</div>
 }

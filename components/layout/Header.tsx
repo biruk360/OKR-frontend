@@ -2,7 +2,8 @@
 
 import { signOut } from 'next-auth/react'
 import { usePathname, useRouter } from 'next/navigation'
-import { User, LogOut, Settings, Bell, Menu } from 'lucide-react'
+import { User, LogOut, Settings, Bell, Menu, Search } from 'lucide-react'
+import { useCmdkStore } from '@/lib/stores/cmdk-store'
 import { getDashboardPageTitle } from '@/lib/dashboard-page-titles'
 import { useDashboardTitleContext } from '@/components/layout/DashboardTitleContext'
 import NavProgressCircles from '@/components/layout/NavProgressCircles'
@@ -60,6 +61,29 @@ export default function Header({ user, onMobileNavOpen }: HeaderProps) {
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-lg font-semibold">{pageTitle}</h1>
         </div>
+
+        <button
+          type="button"
+          onClick={() => useCmdkStore.getState().setOpen(true)}
+          aria-label="Open command palette"
+          className="hidden h-8 w-[280px] items-center gap-2 rounded-[10px] px-3 text-[13px] transition-colors md:flex"
+          style={{
+            background: 'rgba(120,120,128,0.10)',
+            color: 'var(--ap-fg-subtle)',
+          }}
+        >
+          <Search className="size-4 shrink-0" />
+          <span className="flex-1 text-left">Search…</span>
+          <kbd
+            className="flex h-5 items-center gap-0.5 rounded-[6px] px-1.5 font-mono text-[11px]"
+            style={{
+              background: 'rgba(120,120,128,0.16)',
+              color: 'var(--ap-fg-subtle)',
+            }}
+          >
+            ⌘K
+          </kbd>
+        </button>
 
         <div className="flex shrink-0 items-center gap-1 sm:gap-2">
           <ThemeSwitcher />

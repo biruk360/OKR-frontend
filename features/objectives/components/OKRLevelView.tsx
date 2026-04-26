@@ -1,7 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import type { Session } from 'next-auth'
 import NestedObjectivesList from './NestedObjectivesList'
-import { StatCard, StatGrid } from '@/components/ui'
 
 export type OKRLevel = 'COMPANY' | 'DEPARTMENT'
 
@@ -90,19 +89,40 @@ export default async function OKRLevelView({
       : 0
   const completed = objectives.filter((obj) => obj.progress === 100).length
 
+  const heroTitle = level === 'COMPANY' ? 'Company OKRs' : 'Department OKRs'
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">{description}</p>
-        {createButton}
+      {/* Hero */}
+      <div
+        className="rounded-[14px] border bg-card overflow-hidden"
+        style={{ borderColor: 'var(--ap-border)' }}
+      >
+        <div className="px-5 pt-5 pb-4 flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h1
+              className="text-[24px] font-semibold leading-tight"
+              style={{ letterSpacing: '-0.02em' }}
+            >
+              {heroTitle}
+            </h1>
+            <p className="mt-1 text-[13px] text-muted-foreground" style={{ maxWidth: 720 }}>
+              {description}
+            </p>
+          </div>
+          {createButton && <div className="shrink-0">{createButton}</div>}
+        </div>
+        {/* Stats strip */}
+        <div
+          className="grid grid-cols-2 sm:grid-cols-4 border-t"
+          style={{ borderColor: 'var(--ap-border)', background: 'var(--ap-bg-sunken)' }}
+        >
+          <StatCell label={objectiveLabel} value={String(objectives.length)} />
+          <StatCell label="Key Results" value={String(totalKRs)} divider />
+          <StatCell label="Avg Progress" value={`${avgProgress}%`} divider accent="blue" />
+          <StatCell label="Completed" value={String(completed)} divider accent="green" />
+        </div>
       </div>
-
-      <StatGrid columns={4}>
-        <StatCard label={objectiveLabel} value={objectives.length} iconText="O" tone="blue" />
-        <StatCard label="Key Results" value={totalKRs} iconText="KR" tone="green" />
-        <StatCard label="Avg Progress" value={`${avgProgress}%`} iconText="%" tone="yellow" />
-        <StatCard label="Completed" value={completed} iconText="✓" tone="purple" />
-      </StatGrid>
 
       <NestedObjectivesList
         objectives={objectives}
@@ -112,6 +132,39 @@ export default async function OKRLevelView({
         showCompanyOnly={level === 'COMPANY'}
         showDepartmentOnly={level === 'DEPARTMENT'}
       />
+    </div>
+  )
+}
+
+function StatCell({
+  label,
+  value,
+  divider,
+  accent,
+}: {
+  label: string
+  value: string
+  divider?: boolean
+  accent?: 'blue' | 'green'
+}) {
+  const color =
+    accent === 'blue' ? 'var(--ap-accent)' : accent === 'green' ? 'var(--ap-green)' : 'var(--ap-fg)'
+  return (
+    <div
+      className="flex flex-col justify-center gap-1 px-4 py-4"
+      style={{
+        borderLeft: divider ? '1px solid var(--ap-border)' : undefined,
+      }}
+    >
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
+      <p
+        className="text-[22px] font-semibold tabular-nums leading-none"
+        style={{ letterSpacing: '-0.02em', color }}
+      >
+        {value}
+      </p>
     </div>
   )
 }

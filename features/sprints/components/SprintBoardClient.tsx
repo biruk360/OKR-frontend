@@ -294,17 +294,77 @@ export default function SprintBoardClient({ initial, users, keyResults, objectiv
 
   // ---------- Render ----------
 
+  // Stats
+  const totalCards = board.columns.reduce((s, c) => s + c.activities.length, 0)
+  const lastCol = board.columns[board.columns.length - 1]
+  const completedCards = lastCol ? lastCol.activities.length : 0
+  const completedPct = totalCards > 0 ? Math.round((completedCards / totalCards) * 100) : 0
+  const inProgressCards =
+    board.columns.length > 2
+      ? board.columns.slice(1, -1).reduce((s, c) => s + c.activities.length, 0)
+      : 0
+  const blockedCards = board.columns
+    .filter((c) => /block|stuck/i.test(c.name))
+    .reduce((s, c) => s + c.activities.length, 0)
+
   return (
-    <div className=" min-h-screen">
-      <div className="px-6 py-4 border-b border-[color:var(--border-t border-border)]">
-        <Link href="/dashboard/sprints" className="inline-flex items-center gap-1 text-[12px] text-[color:var(--text-xs text-muted-foreground)] hover:text-[color:var(--text-sm)]">
+    <div className="min-h-screen">
+      {/* Hero */}
+      <div className="px-6 pt-4 pb-3">
+        <Link
+          href="/dashboard/sprints"
+          className="inline-flex items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground"
+        >
           <ArrowLeft className="h-3 w-3" /> All sprints
         </Link>
-        <div className="mt-2 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">{board.name}</h1>
-            {board.description && <p className="text-sm text-muted-foreground mt-1">{board.description}</p>}
-            <p className="text-xs text-muted-foreground mt-1">Owner · {board.ownerName}</p>
+        <div
+          className="mt-2 rounded-[14px] border bg-card overflow-hidden"
+          style={{ borderColor: 'var(--ap-border)' }}
+        >
+          <div className="px-5 pt-5 pb-4 flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 mb-2">
+                <span
+                  className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+                  style={{ background: 'var(--ap-accent-soft)', color: 'var(--ap-accent)' }}
+                >
+                  Sprint
+                </span>
+                <span
+                  className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                  style={{
+                    background: 'rgba(52,199,89,0.12)',
+                    color: 'var(--ap-green)',
+                  }}
+                >
+                  <span className="size-1.5 rounded-full" style={{ background: 'var(--ap-green)' }} />
+                  Active
+                </span>
+              </div>
+              <h1
+                className="text-[24px] font-semibold leading-tight"
+                style={{ letterSpacing: '-0.02em' }}
+              >
+                {board.name}
+              </h1>
+              {board.description && (
+                <p className="mt-1 text-[13px] text-muted-foreground" style={{ maxWidth: 720 }}>
+                  {board.description}
+                </p>
+              )}
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                Owner · <span style={{ color: 'var(--ap-fg-muted)' }}>{board.ownerName}</span>
+              </p>
+            </div>
+          </div>
+          <div
+            className="grid grid-cols-2 sm:grid-cols-4 border-t"
+            style={{ borderColor: 'var(--ap-border)', background: 'var(--ap-bg-sunken)' }}
+          >
+            <BoardStat label="Total cards" value={String(totalCards)} />
+            <BoardStat label="Completed" value={`${completedPct}%`} divider accent="green" />
+            <BoardStat label="In progress" value={String(inProgressCards)} divider accent="blue" />
+            <BoardStat label="Blocked" value={String(blockedCards)} divider accent={blockedCards > 0 ? 'red' : undefined} />
           </div>
         </div>
       </div>
@@ -314,12 +374,13 @@ export default function SprintBoardClient({ initial, users, keyResults, objectiv
           {board.columns.map((col) => (
             <div
               key={col.id}
-              className="w-[280px] flex-shrink-0 rounded-md bg-[color:#fafafa] border border-[color:var(--border-t border-border)]"
+              className="w-[280px] flex-shrink-0 rounded-[14px] border"
+              style={{ background: 'var(--ap-bg-sunken)', borderColor: 'var(--ap-border)' }}
               onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
               onDrop={(e) => { e.preventDefault(); onDropOnColumn(col.id) }}
             >
               {/* Column header */}
-              <div className="flex items-center gap-1.5 px-3 py-2 border-b border-[color:var(--border-t border-border)]">
+              <div className="flex items-center gap-1.5 px-3 py-2.5 border-b" style={{ borderColor: 'var(--ap-border)' }}>
                 {col.color && <span className="h-2 w-2 rounded-full" style={{ backgroundColor: col.color }} />}
                 {editingColumn === col.id ? (
                   <input
@@ -491,7 +552,8 @@ function BoardCard({
       onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', activity.id); onDragStart() }}
       onDragEnd={onDragEnd}
       onClick={onOpen}
-      className="group rounded-md border border-[color:#e5e7eb] bg-card p-2 shadow-[0_1px_0_rgba(15,15,15,0.04)] cursor-pointer hover:border-[color:#d1d5db] transition"
+      className="group rounded-[10px] border bg-card p-2.5 cursor-pointer transition hover:shadow-md"
+      style={{ borderColor: 'var(--ap-border)' }}
     >
       <div className="text-[13px] text-[color:var(--text-sm)] whitespace-pre-wrap break-words">
         {activity.title}
@@ -548,6 +610,40 @@ function BoardCard({
           )}
         </div>
       </div>
+    </div>
+  )
+}
+
+function BoardStat({
+  label,
+  value,
+  divider,
+  accent,
+}: {
+  label: string
+  value: string
+  divider?: boolean
+  accent?: 'blue' | 'green' | 'red'
+}) {
+  const color =
+    accent === 'blue' ? 'var(--ap-accent)'
+    : accent === 'green' ? 'var(--ap-green)'
+    : accent === 'red' ? 'var(--ap-red)'
+    : 'var(--ap-fg)'
+  return (
+    <div
+      className="flex flex-col justify-center gap-1 px-4 py-4"
+      style={{ borderLeft: divider ? '1px solid var(--ap-border)' : undefined }}
+    >
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
+      <p
+        className="text-[20px] font-semibold tabular-nums leading-none"
+        style={{ letterSpacing: '-0.02em', color }}
+      >
+        {value}
+      </p>
     </div>
   )
 }

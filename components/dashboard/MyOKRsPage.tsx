@@ -107,10 +107,66 @@ export default function MyOKRsPage() {
 
   const count = objectives.length
 
+  const levels = [
+    { id: 'ALL', label: 'All' },
+    { id: 'COMPANY', label: 'Company' },
+    { id: 'DEPARTMENT', label: 'Department' },
+    { id: 'INDIVIDUAL', label: 'Individual' },
+  ]
+
   return (
-    <div className="space-y-3">
-      {/* Toolbar: count + filters + create button */}
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="space-y-4">
+      {/* Hero */}
+      <div
+        className="rounded-[14px] border bg-card px-5 pt-5 pb-4 flex items-start justify-between gap-4"
+        style={{ borderColor: 'var(--ap-border)' }}
+      >
+        <div className="min-w-0">
+          <h1
+            className="text-[24px] font-semibold leading-tight"
+            style={{ letterSpacing: '-0.02em' }}
+          >
+            My OKRs
+          </h1>
+          <p className="mt-1 text-[13px] text-muted-foreground" style={{ maxWidth: 720 }}>
+            Objectives and key results owned by or aligned to you.
+          </p>
+        </div>
+        <div className="shrink-0">
+          <CreateIndividualObjectiveButton
+            onObjectiveCreated={handleObjectiveCreated}
+            userDepartments={userDepartments}
+          />
+        </div>
+      </div>
+
+      {/* Filter strip */}
+      <div
+        className="rounded-[14px] border bg-card px-3 py-2.5 flex flex-wrap items-center gap-2"
+        style={{ borderColor: 'var(--ap-border)' }}
+      >
+        {/* Level segmented */}
+        <div
+          className="inline-flex items-center rounded-[10px] p-0.5"
+          style={{ background: 'var(--ap-bg-sunken)' }}
+        >
+          {levels.map((lv) => (
+            <button
+              key={lv.id}
+              type="button"
+              onClick={() => setFilters((p) => ({ ...p, level: lv.id }))}
+              className="px-2.5 py-1 text-[12px] font-medium rounded-[8px] transition"
+              style={{
+                background: filters.level === lv.id ? 'var(--ap-bg-raised)' : 'transparent',
+                color: filters.level === lv.id ? 'var(--ap-fg)' : 'var(--ap-fg-muted)',
+                boxShadow: filters.level === lv.id ? 'var(--ap-shadow-sm)' : 'none',
+              }}
+            >
+              {lv.label}
+            </button>
+          ))}
+        </div>
+
         {/* Search */}
         <div className="relative flex-1 min-w-[160px] max-w-xs">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
@@ -118,44 +174,26 @@ export default function MyOKRsPage() {
             type="text"
             placeholder="Search…"
             value={filters.search}
-            onChange={e => setFilters(p => ({ ...p, search: e.target.value }))}
-            className="input pl-8 h-8 text-sm"
+            onChange={(e) => setFilters((p) => ({ ...p, search: e.target.value }))}
+            className="input pl-8 h-8 text-sm rounded-[10px]"
           />
         </div>
-
-        {/* Level */}
-        <select
-          value={filters.level}
-          onChange={e => setFilters(p => ({ ...p, level: e.target.value }))}
-          className="input h-8 text-sm w-auto pr-7"
-        >
-          <option value="ALL">All levels</option>
-          <option value="COMPANY">Company</option>
-          <option value="DEPARTMENT">Department</option>
-          <option value="INDIVIDUAL">Individual</option>
-        </select>
 
         {/* Timeframe */}
         <select
           value={filters.timeframe}
-          onChange={e => setFilters(p => ({ ...p, timeframe: e.target.value }))}
-          className="input h-8 text-sm w-auto pr-7"
+          onChange={(e) => setFilters((p) => ({ ...p, timeframe: e.target.value }))}
+          className="input h-8 text-sm w-auto pr-7 rounded-[10px]"
         >
           <option value="">All timeframes</option>
-          {timeframes.map(tf => (
+          {timeframes.map((tf) => (
             <option key={tf.id} value={tf.id}>{tf.name}</option>
           ))}
         </select>
 
-        {/* Spacer + count */}
-        <span className="ml-auto text-xs text-muted-foreground tabular-nums shrink-0">
+        <span className="ml-auto text-[11px] text-muted-foreground tabular-nums shrink-0">
           {isLoading ? '…' : `${count} objective${count !== 1 ? 's' : ''}`}
         </span>
-
-        <CreateIndividualObjectiveButton
-          onObjectiveCreated={handleObjectiveCreated}
-          userDepartments={userDepartments}
-        />
       </div>
 
       {/* List */}

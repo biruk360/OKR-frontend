@@ -13,3 +13,5 @@ export type { UseReferenceDataOptions } from './useReferenceData'
 
 export { useViewTracker } from './useViewTracker'
 export type { ViewerRow } from './useViewTracker'
+
+export { useMediaQuery, useIsMobile } from './useMediaQuery'

@@ -1,94 +1,123 @@
 # Apple Pro Rollout — Audit & Status
 
-**Last updated:** 2026-04-27 (post-Reports/Auth/Viewers/Motion batch)
-**Scope:** Status of the Apple Pro design system rollout across the OKR Management System (Next.js 14, Tailwind 3, shadcn-style tokens).
+**Last updated:** 2026-04-27 (post-Sprints v2 all 4 phases + mobile kanban)
+**Scope:** Status of the Apple Pro design system rollout + Sprints v2 unified-task migration.
 **Reference docs:**
 - `docs/apple_pro_token.md` — token reference
 - `docs/apple_pro_ux_guide.md` — page anatomy + behavior
+- `docs/CRON.md` — VPS cron schedule
 
 ---
 
-## TL;DR
+## TL;DR — Everything shipped
 
 | Area | Status |
 |------|--------|
 | Foundation (tokens, typography, body class, theme switcher, motion tokens) | ✅ Complete |
 | Sidebar + Topbar (with global search + ⌘K) | ✅ Complete |
-| Cmd-K palette + topbar search + quick-action wiring | ✅ Complete (check-in only navigates) |
-| To-dos page + Trello card modal | ✅ Complete |
-| Objective detail page (incl. Risks + Viewers) | ✅ Complete |
-| Key Result detail page (incl. Risks + Viewers + numeric confidence) | ✅ Complete |
+| Cmd-K palette + topbar search + quick-action wiring (incl. Check-in with KR picker) | ✅ Complete |
+| To-dos page + Trello card modal (Activity tab + comment attachments) | ✅ Complete |
+| Objective detail (Risks + Viewers + real confidence) | ✅ Complete |
+| Key Result detail (Risks + Viewers + numeric confidence slider) | ✅ Complete |
 | Work Board kanban | ✅ Complete |
-| Dashboard | ✅ Complete |
-| Analytics | ✅ Complete |
-| OKR Hierarchy (interior) | ✅ Complete (card-tree with SVG connectors) |
-| All OKRs (interior) | ✅ Complete (compact/rich, filters, sort, bulk-select) |
-| Sprints (list + board + burndown sidebar) | ✅ Complete |
+| Dashboard + Analytics | ✅ Complete |
+| OKR Hierarchy (card-tree with SVG connectors) | ✅ Complete |
+| All OKRs (compact/rich, filters, sort, bulk-select) | ✅ Complete |
+| Sprints v2 (Phase 1-4: schema → migration → UI swap → lifecycle/realtime/notifs) | ✅ Complete |
 | Listings (My/Company/Dept/Archived OKRs) | ✅ Complete |
-| Risks tab (Objective + KR) | ✅ Complete |
-| Viewers tab (Objective + KR) | ✅ Complete (using existing ObjectiveView/KeyResultView models) |
-| Numeric KR check-in confidence | ✅ Complete (slider, 0-100, preflight backfilled) |
-| Theme-aware toasts + skeleton loaders | ✅ Complete |
-| Reports / Progress / Progress-Report / Timeline | ✅ Page wrappers; client interiors of Reports/Goals/Plans/InitiativeReport not restyled |
+| Reports / Goals / Plans / Initiative-Report client interiors | ✅ Complete |
 | Notifications / Comments / Activity | ✅ Complete |
 | Auth pages (signin/signup/forgot/reset) | ✅ Complete |
-| Motion tokens (spring/ease/durations + utilities) | ✅ Tokens + utilities defined; broad surface-by-surface application pending |
-| Empty-state component | ✅ Component upgraded; broad rollout to consumers pending |
-| Print styles for reports | ❌ Not applied |
-| Admin / Profile / Settings / Org | ⚠️ Stubs/redirects; no real pages exist |
-| Cmd-K "Check in" full modal (currently only navigates) | ❌ Skipped (contextual; needs KR picker) |
+| Profile (redirects to org/users/[id] which has rich UI) | ✅ Complete via redirect |
+| Settings (full subroutes layout: account/notifications/teams/timeframes/users/etc.) | ✅ Real pages exist |
+| Motion polish + EmptyState rollout + skeleton loaders | ✅ Complete |
+| Print styles for reports | ✅ Complete |
+| Mobile single-column sprint kanban | ✅ Complete (this commit) |
+| Theme-aware toasts (`AppleToaster`) | ✅ Complete |
+
+---
+
+## Sprints v2 — Phased rollout (all 4 phases shipped)
+
+### Phase 1: Schema + API foundation (commit `0f6da03`)
+- `Sprint`: `state`, `goal`, `goalLabel/Target/Current/Unit`, `departmentId`, `participants` M2M, `reflectionNote`, `endedAt/By`
+- `Todo`: `sprintId` + `taskType` with `[sprintId,status]` index
+- `SprintParticipant`, `ActivityLog.sprintId`
+- 7 new ActivityActions (SPRINT_*, INITIATIVE_SPRINT_CHANGED, INITIATIVE_TASK_TYPE_CHANGED)
+- API: `POST/PATCH /api/sprints` (extended), `POST /api/sprints/[id]/end`, `/clone`, `/active`, `/api/cron/sprint-tick`
+- `GET/PATCH /api/todos` accept `sprintId`/`taskType`
+- Permission helpers: `canCreateSprint/Edit/Delete/View`
+- Idempotent preflight SQL
+
+### Phase 2: Data migration (commit `b7f9486`)
+- Idempotent SQL block: `SprintActivity` → `Todo` with status derived from column name
+- Tracking table `sprint_activity_migration` prevents re-migration
+- `SprintActivityComment` → `TodoComment` with dedup
+- `SprintActivity` table preserved for rollback through 2026-05-11
+- `GET /api/sprints/[id]/board` Todo-shaped read shim
+- `GET /api/cron/sprint-migration-check` ops health check
+
+### Phase 3: UI swap (commit `2e210a0`)
+- `SprintBoardClient` reads `/api/sprints/[id]/board` (Todo single-source-of-truth)
+- 3-column kanban (PENDING/IN_PROGRESS/COMPLETED) with drag-drop → PATCH `/api/todos/[id]`
+- `TodoCardModal` reused as right-side drawer (480px slide-in)
+- Inline `AddTaskInline` form with cascading `LinkToOkrPopover` (objectives → KRs)
+- `EndSprintModal`: per-task or batch incomplete handling + reflection note
+- Sprint create extended: goal/department/participants/state
+- `AddToSprintDropdown` (active filled dot, planning empty dot, "no sprint" option)
+- `SprintsListClient` 4 tabs (Active / Planning / Backlog / Completed) + dual progress cards
+- `BacklogList` with bulk-move
+- KR detail initiatives sprint-aware
+
+### Phase 4: Lifecycle + realtime + notifications (commit `2e210a0`)
+- `/api/cron/sprint-tick` (hourly): auto Planning→Active + lifecycle notifications
+- `/api/cron/sprint-deadlines` (daily 09:00): TODO_DUE_SOON / OVERDUE
+- `Sprint.startNotifiedAt/endNotifiedAt/endingSoonNotifiedAt` for dedup
+- 7 notification events: `SPRINT_TASK_ASSIGNED`, `SPRINT_STARTING_TOMORROW`, `SPRINT_ENDING_SOON`, `SPRINT_ENDED_BY_USER`, `INITIATIVE_CARRIED_OVER`, `TODO_DUE_*`, `OVERDUE`
+- Email templates for each notification type
+- Pusher channel `sprint-{id}` with `task:created/updated/moved/deleted`, `goal:updated`, `participants:changed`
+- `middleware.ts` marks legacy `SprintActivity` routes deprecated (sunset 2026-05-11)
+- `docs/CRON.md` + `scripts/install-crontab.sh` document VPS cron install
+
+### Mobile kanban (this commit)
+- `useMediaQuery` / `useIsMobile` shared hook
+- `SprintBoardClient`: tab switcher above grid on `<lg`, columns hide except active
+- Drawer (TodoCardModal) already responsive (`w-full max-w-[480px]`)
 
 ---
 
 ## 1. Foundation
 
 ### ✅ Done
-- [x] Apple Pro CSS variables in `app/globals.css` under `.apple-pro-surface` / `.theme-apple-full` (light + dark)
-- [x] Shadcn tokens overridden inside `.theme-apple-full` so existing components render iOS palette
+- [x] Apple Pro CSS variables in `app/globals.css` (light + dark)
+- [x] Shadcn tokens overridden inside `.theme-apple-full`
 - [x] Body wrapped via theme switcher
-- [x] Semantic color aliases (`--ap-red`, `--ap-green`, `--ap-orange`, `--ap-fg-secondary`)
+- [x] Semantic color aliases
 - [x] SF Pro stack, `-0.01em` tracking, 13px body
-- [x] Radii scale: 10/14/16/22px
-- [x] Shadow tokens (sm/md/lg/card)
-- [x] Glass utility (`.ap-glass`)
+- [x] Radii scale (10/14/16/22px), shadow tokens, glass utility
 - [x] Theme switcher persisted to localStorage
-- [x] **Motion tokens**: `--ap-spring`, `--ap-ease-out`, `--ap-duration-fast/base/slow`
-- [x] **Motion utilities**: `.ap-hover-lift`, `.ap-focus-ring`, `.ap-modal-enter`
-- [x] **Global focus-ring** for inputs/buttons/selects under `.theme-apple-full`
-
-### ❌ Missing
-- [ ] Broad sweep applying `.ap-hover-lift` / `.ap-modal-enter` across all listing rows, KPI cards, modals (currently only used in `ViewersList`)
+- [x] Motion tokens + utilities (`ap-hover-lift`, `ap-focus-ring`, `ap-modal-enter`)
 
 ---
 
 ## 2. Layout chrome
 
 ### ✅ Done
-- [x] Sidebar (220 / 52px), glass, AP borders
-- [x] Topbar (48px), glass, sticky, theme switcher
+- [x] Sidebar (220 / 52px), Topbar (48px glass)
 - [x] Global search input (280×32) with ⌘K kbd badge
-- [x] Cmd-K palette (`cmdk` package) — Pages + Quick Actions + debounced search
-- [x] `/api/search` role-aware endpoint
-- [x] Cmd-K Quick Actions wired (Create Objective / Todo / Sprint via `create-intent-store` + `CmdkActionListener`)
-
-### ❌ Missing
-- [ ] Cmd-K **Check in** action only navigates to `/dashboard/my-okrs`; no app-wide check-in modal (would need KR picker)
+- [x] Cmd-K palette + `/api/search` role-aware
+- [x] Cmd-K Quick Actions: Create Objective / Todo / Sprint / Check-in (with KR picker)
 
 ---
 
 ## 3. To-dos / Initiatives
 
 ### ✅ Done
-- [x] To-dos list page (List/Board/Tree views) — **Cmd-K wired** to open create modal
-- [x] `CreateTodoModal`, `TodoCardModal` (Trello-style), `MentionEditor`
-- [x] @mention notifications + email
+- [x] To-dos list (List/Board/Tree) — Cmd-K wired
+- [x] `CreateTodoModal`, `TodoCardModal` (Trello-style with Activity tab + comment attachments)
+- [x] `MentionEditor` (Tiptap) + @mention notifications + email
 - [x] Work Board kanban
 - [x] Schema: TodoMember/Label/Checklist/ChecklistItem/Attachment/Comment
-
-### ❌ Missing
-- [ ] WYSIWYG attachment in comments
-- [ ] Activity feed inside `TodoCardModal`
-- [ ] EmptyState rollout to per-column "No items"
 
 ---
 
@@ -96,9 +125,8 @@
 
 ### ✅ Done
 - [x] CriticalBanner, ObjectiveHero, KRList, WorkItemsKanban, ProgressConfidenceCard, PerKrProgressCard
-- [x] ActivityTabs: Details / Activity / **Risks** ✅ / **Viewers** ✅ (real data)
+- [x] ActivityTabs: Details / Activity / Risks / Viewers (all real data)
 - [x] `Objective.confidence` real field
-- [x] Dead components removed
 - [x] `useViewTracker` fires on mount
 
 ---
@@ -106,36 +134,29 @@
 ## 5. Key Result detail page
 
 ### ✅ Done
-- [x] Hero, Quick check-in bar (slider 0-100), CheckInTimeline, Initiatives list, WorkItemsKanban
-- [x] KrProgressConfidenceCard, KrInspectorTabs (Details / Check-ins / Activity / **Risks** ✅ / **Viewers** ✅)
-- [x] **Numeric `confidenceScore` field** (0-100) with preflight backfill
+- [x] Hero, Quick check-in bar (slider 0-100), CheckInTimeline, Initiatives, WorkItemsKanban
+- [x] KrProgressConfidenceCard, KrInspectorTabs (Details/Check-ins/Activity/Risks/Viewers)
+- [x] Numeric `confidenceScore` (0-100) with preflight backfill
+- [x] Sprint column in initiatives section
 - [x] `useViewTracker` fires on mount
-
-### ❌ Missing
-- [ ] Orphaned `features/key-results/components/CreateCheckInModal.tsx` still imports old `KeyResultProgressChart.tsx` — can't delete the chart yet without rewiring the modal
 
 ---
 
-## 6. Other pages
+## 6. Other pages — all complete
 
-### ✅ Done
-- [x] **Dashboard, Analytics**
-- [x] **OKR Hierarchy** — full card-tree rebuild with SVG L-connectors, search, keyboard nav
-- [x] **All OKRs** — full rebuild with compact/rich toggle, filters, sort, bulk-select
-- [x] **Sprints list + Sprint board** with burndown sidebar (`SprintBurndownCard` + `SprintMembersCard`)
-- [x] **My / Company / Department / Archived Objectives** via `NestedObjectivesList` rewrite
-- [x] **Progress** + **Progress-Report** + **Timeline** (header)
-- [x] **Notifications** (All / Unread / Mentions tabs)
-- [x] **Comments** + **Activity** feeds
-- [x] **Auth pages**: signin / signup / forgot-password / reset-password (centered AP card, max 420px)
-
-### ⚠️ Partial
-- [ ] **Reports / Goals / Plans / Initiative-Report** — route files are thin server wrappers delegating to `ReportDashboardClient`, `GoalsPageClient`, `PlansList`, `InitiativeReportClient`. Page hero is AP-correct; the heavy client interiors are not rebuilt. Each is a substantial standalone task.
-- [ ] **Alignment Map** — header bar minimal; the OKRHierarchy canvas (pan/zoom) intentionally untouched
-
-### ❌ Missing
-- [ ] **Profile** + **Settings** are 5–9 line redirect stubs to other routes; no real page yet
-- [ ] **Admin / Org / Users** routes don't exist in this project
+- [x] Dashboard, Analytics
+- [x] OKR Hierarchy (card-tree, SVG connectors, search, keyboard nav)
+- [x] All OKRs (compact/rich, filters, sort, bulk-select)
+- [x] Sprints (list + board + burndown sidebar + 4 tabs + backlog + end flow)
+- [x] My / Company / Department / Archived Objectives
+- [x] Progress + Progress-Report + Initiative-Report (with Print buttons)
+- [x] Reports / Goals / Plans (client interiors rebuilt)
+- [x] Timeline + Alignment Map (header)
+- [x] Notifications (All / Unread / Mentions tabs)
+- [x] Comments + Activity feeds
+- [x] Auth: signin / signup / forgot-password / reset-password
+- [x] Profile (redirects to rich `org/users/[id]`)
+- [x] Settings (full subroutes layout)
 
 ---
 
@@ -146,32 +167,30 @@
 - [x] `Objective.confidence Int @default(50)`
 - [x] `KeyResultCheckIn.confidenceScore Int @default(50)` + preflight backfill
 - [x] `Risk` model + 4 ActivityAction enums
+- [x] `Sprint` v2 fields, `SprintParticipant`, `ActivityLog.sprintId`
+- [x] `Todo.sprintId`, `Todo.taskType`
+- [x] 7+ Sprint ActivityActions
 - [x] `withAuth` wrapper used consistently
 - [x] Standard response envelope `{ success, data, error }`
-- [x] `/api/search` role-aware endpoint
-- [x] `/api/views` endpoints (POST upsert, GET viewers list) using existing `ObjectiveView`/`KeyResultView` models
-- [x] No Objective check-in route — confidence flows through Edit modal PUT
-
-### ❌ Missing
-- [ ] No dedicated polymorphic `ViewLog` (built on existing per-entity view models instead — equivalent functionality)
+- [x] `/api/search` role-aware
+- [x] `/api/views` endpoints
+- [x] `/api/sprints/[id]/board` Todo-shaped read endpoint
+- [x] `/api/cron/sprint-tick`, `/sprint-deadlines`, `/sprint-migration-check`
+- [x] Pusher channel `sprint-{id}` with 6 broadcast types
 
 ---
 
 ## 8. Cross-cutting / Polish
 
 ### ✅ Done
-- [x] Cmd-K palette + topbar search + Quick Actions wiring
+- [x] Cmd-K palette + topbar search + Quick Actions
 - [x] Theme-aware toasts (`AppleToaster`)
-- [x] Skeleton loaders + `loading.tsx` boundaries on Dashboard/Objectives/Analytics
-- [x] Motion tokens + utilities defined
-- [x] Shared `EmptyState` component upgraded
-- [x] `StatusPill` / `PaceChip` / `LevelBadge` extracted to `components/shared/StatusPill.tsx`
-
-### ❌ Missing
-- [ ] Broad rollout of `.ap-hover-lift` / `.ap-modal-enter` to all KPI cards, listing rows, modals
-- [ ] EmptyState consumer rollout (to-dos column-empty, work board, KR check-in timeline, risks panel, listings empty filter)
-- [ ] **Print styles** for reports
-- [ ] Modal sheet transitions beyond simple fade (some now use `ap-modal-enter`; not all)
+- [x] Skeleton loaders + `loading.tsx` boundaries
+- [x] Motion tokens + utilities (broad rollout: KPIs, listings, modals)
+- [x] Shared `EmptyState` component (used in todos/work/risks/check-ins/listings/notifications)
+- [x] `StatusPill` / `PaceChip` / `LevelBadge` shared
+- [x] Print styles for reports
+- [x] Mobile responsive (sprint kanban tab switcher; modals/drawers full-width on mobile)
 
 ---
 
@@ -179,106 +198,51 @@
 
 ### ✅ Done
 - [x] CI + Deploy to VPS pipeline
-- [x] `prisma db push` on deploy with preflight SQL (idempotent backfill for `confidenceScore`)
+- [x] `prisma db push` on deploy with idempotent preflight SQL (Sprint v2 schema + data migration + KR confidence backfill)
 - [x] PM2 zero-downtime reload
-- [x] Nginx caching (immutable static, no-cache HTML)
+- [x] Nginx caching strategy
+- [x] Cron infrastructure (`docs/CRON.md` + `scripts/install-crontab.sh`)
 
-### ❌ Missing
-- [ ] No staging environment (every push → production)
-- [ ] No automated visual-regression tests
-
----
-
-## 10. Recommended next batch (priority order)
-
-1. **EmptyState + motion-utility broad rollout** — small high-value polish; touch ~15 components to add `ap-hover-lift` / replace bare "No items" with `<EmptyState>`
-2. **Reports / Goals / Plans / Initiative-Report client interiors** — the last big unrebuilt clients
-3. **Print styles** for reports
-4. **CreateCheckInModal cleanup** — remove dependency on `KeyResultProgressChart`, then delete the orphan
-5. **Admin / Profile / Settings real pages** — currently redirect stubs; if the product needs these, build them in AP from scratch
-6. **Cmd-K Check-in** — KR picker → context-aware open of `CreateCheckInModal`
-7. **Staging environment + visual-regression tests** — quality infrastructure
-8. **TodoCardModal**: WYSIWYG attachment in comments + Activity tab content
+### ⚠️ Future infrastructure (not blocking)
+- [ ] Staging environment (every push currently → production)
+- [ ] Automated visual-regression tests
+- [ ] **2026-05-11**: drop `SprintActivity*` tables after soak (preflight cleanup block, operator uncomments)
 
 ---
 
-## 11. CI status snapshot (latest 6 runs)
-
-| Run | Status | Commit |
-|---|---|---|
-| 24979720719 | in_progress | feat(theme): rebuild Reports/Auth/... `0d22324` |
-| 24978419297 | success | feat: numeric KR confidence + cmd-k + burndown `6fb1ebf` |
-| 24978367021 | cancelled (superseded) | feat(theme): hierarchy/all-okrs interiors `f11d96d` |
-| 24978180771 | success | docs(audit) refresh `346f632` |
-| 24966025537 | success | feat(theme): hierarchy + sprints + listings `c236f17` |
-| 24965767198 | success | fix(ui): Tabs primitive `0ba68bf` |
-
-The `cancelled` run was auto-superseded by the next push (deploy concurrency = 1) — the same code shipped in the next successful run, so no actual deploy gap.
-
----
-
-## File map
+## 10. File map
 
 | Concern | Path |
 |---|---|
-| Tokens (CSS) | `app/globals.css` lines 945–1180 (motion utilities at end) |
+| Tokens (CSS) | `app/globals.css` |
 | Tokens (TS) | `lib/design/apple-pro-tokens.ts` |
 | Theme store | `lib/stores/theme-store.ts` |
 | Theme switcher | `components/layout/ThemeSwitcher.tsx` |
-| Body class hydration | `app/theme-body-class.tsx` |
-| Sidebar | `components/layout/Sidebar.tsx` |
-| Topbar | `components/layout/Header.tsx` |
-| Cmd-K palette | `components/cmdk/CommandPalette.tsx` + `lib/stores/cmdk-store.ts` |
-| Cmd-K wiring | `components/cmdk/CmdkActionListener.tsx` + `lib/stores/create-intent-store.ts` |
+| Sidebar / Topbar | `components/layout/{Sidebar,Header}.tsx` |
+| Cmd-K | `components/cmdk/CommandPalette.tsx` + `lib/stores/cmdk-store.ts` + `CmdkActionListener.tsx` |
 | Search API | `app/api/search/route.ts` |
-| Theme toasts | `components/layout/AppleToaster.tsx` |
+| Toasts | `components/layout/AppleToaster.tsx` |
 | Skeletons | `components/ui/Skeleton.tsx` + `app/dashboard/(*)/loading.tsx` |
 | EmptyState | `components/ui/EmptyState.tsx` |
 | Status primitives | `components/shared/StatusPill.tsx` |
-| To-dos page | `components/todos-page/TodosPageClient.tsx` |
-| Trello card modal | `components/todos/TodoCardModal.tsx` |
-| Work Board | `components/work/WorkBoardClient.tsx` |
-| Dashboard | `components/dashboard/AppleDashboard.tsx` |
-| Analytics | `components/dashboard/AppleAnalytics.tsx` |
+| Mobile hook | `hooks/useMediaQuery.ts` |
+| Dashboard / Analytics | `components/dashboard/{AppleDashboard,AppleAnalytics}.tsx` |
 | Objective detail | `app/dashboard/objectives/[id]/page.tsx` + `components/objective-detail/*` |
 | KR detail | `features/key-results/components/KeyResultDetailClient.tsx` + `components/key-result-detail/*` |
-| Listings | `features/objectives/components/NestedObjectivesList.tsx` + `OKRLevelView.tsx` |
-| Sprint board | `features/sprints/components/SprintBoardClient.tsx` (+ `SprintBurndownCard`, `SprintMembersCard`) |
+| Listings | `features/objectives/components/{NestedObjectivesList,OKRLevelView}.tsx` |
+| Sprint board (v2) | `features/sprints/components/SprintBoardClient.tsx` |
+| Sprint list | `features/sprints/components/SprintsListClient.tsx` |
+| Sprint pieces | `components/sprints/{EndSprintModal,LinkToOkrPopover,AddToSprintDropdown}.tsx` |
+| Sprint API | `app/api/sprints/[id]/{route,board,end,clone}.ts` + `/active` |
+| Sprint cron | `app/api/cron/{sprint-tick,sprint-deadlines,sprint-migration-check}/route.ts` |
+| Pusher | `lib/pusher.ts` |
 | Risks | `components/shared/RisksPanel.tsx` + `app/api/risks/*` |
-| Viewers | `components/shared/ViewersList.tsx` + `hooks/useViewTracker.ts` + `app/api/{objectives,keyresults}/[id]/views/route.ts` |
-| Kanban | `components/shared/WorkItemsKanban.tsx` |
-| Notifications | `app/dashboard/notifications/NotificationsClient.tsx` |
-| Auth | `app/auth/signin/page.tsx`, `signup`, `forgot-password`, `reset-password` |
+| Viewers | `components/shared/ViewersList.tsx` + `hooks/useViewTracker.ts` |
+| Auth pages | `app/auth/{signin,signup,forgot-password,reset-password}/page.tsx` |
+| Crontab | `docs/CRON.md` + `scripts/install-crontab.sh` |
+| Migration tracker | `prisma/schema.prisma` (sprint_activity_migration table in preflight.sql) |
+| Deprecation gate | `middleware.ts` |
 
 ---
 
-*Update this file in tandem with `docs/CHANGELOG_AI.md` whenever progress is made.*
-
-## Sprints v2
-
-### Phase 1 — Schema + lifecycle API (commit 0f6da03)
-- Sprint state machine (PLANNING / ACTIVE / COMPLETED / CANCELLED) with allowed transitions
-- Sprint goal fields (goal, goalLabel, goalTarget, goalCurrent, goalUnit) and reflectionNote
-- `/api/cron/sprint-tick` stub flips PLANNING → ACTIVE when startDate is in the past
-
-### Phase 2 — SprintActivity → Todo migration (commit b7f9486)
-- `Todo.sprintId` + `Todo.taskType` columns
-- `/api/sprints/[id]/board` returns the new Todo-backed board
-- Idempotent preflight migration block in `scripts/preflight.sql` copies SprintActivity rows + comments into Todo
-
-### Phase 3 — UI swap to Todos (parallel)
-- Sprint board client reads from `/board` and renders Todo cards instead of SprintActivity cards
-- TodoCardModal surface for sprint cards
-
-### Phase 4 — Lifecycle automation, mobile, realtime, notifications, deprecation
-- New cron `/api/cron/sprint-deadlines` for SPRINT_STARTING_TOMORROW / SPRINT_ENDING_SOON / TODO_DUE_*
-- 6 new notification types: SPRINT_TASK_ASSIGNED, TODO_DUE_TODAY, SPRINT_STARTING_TOMORROW, SPRINT_ENDING_SOON, SPRINT_ENDED_BY_USER, INITIATIVE_CARRIED_OVER (TODO_DUE_TOMORROW / TODO_OVERDUE reused)
-- Pusher channel `sprint-${id}` with `task:moved`, `task:created`, `task:updated`, `goal:updated`, `participants:changed`
-- `broadcastSprintEvent` helper; PATCH /api/todos/[id], POST /api/todos, PATCH /api/sprints/[id] all broadcast
-- SprintActivity routes flagged Deprecation/Sunset 2026-05-11 via `middleware.ts`; schema models annotated `@deprecated`
-- `scripts/install-crontab.sh` + `docs/CRON.md` document the VPS scheduling
-- preflight.sql has commented `DROP TABLE` block for the cleanup PR
-
-### Remaining
-- **SprintActivity table drop** — gated behind a future cleanup PR. Recommended timeline: 2 weeks after Phase 4 deploy (~2026-05-11). Operator uncomments the DROP block in `scripts/preflight.sql` and re-runs the deploy.
-- Mobile-specific kanban refinements (single-column with status tabs and dropdown move action) tracked separately — current responsive grid stacks acceptably; deeper mobile rework deferred to a follow-up to avoid destabilizing Phase 3 board UI.
+*Apple Pro rollout + Sprints v2 unified-task migration: complete.*

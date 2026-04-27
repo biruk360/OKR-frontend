@@ -22,6 +22,7 @@ import StatusPill from '@/components/shared/StatusPill'
 import { EmptyState } from '@/components/ui/EmptyState'
 import EndSprintModal from '@/components/sprints/EndSprintModal'
 import LinkToOkrPopover, { type OkrLinkValue } from '@/components/sprints/LinkToOkrPopover'
+import { useIsMobile } from '@/hooks'
 import { cn } from '@/lib/utils'
 
 // ─── Types matching /api/sprints/[id]/board ─────────────────────────────────
@@ -306,6 +307,8 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
   const [showEnd, setShowEnd] = useState(false)
   const [filterAssignee, setFilterAssignee] = useState<string | null>(null)
   const [filterLinked, setFilterLinked] = useState<'all' | 'linked' | 'unlinked'>('all')
+  const isMobile = useIsMobile()
+  const [mobileCol, setMobileCol] = useState<'PENDING' | 'IN_PROGRESS' | 'COMPLETED'>('PENDING')
 
   const { data, isLoading } = useQuery({
     queryKey: ['sprint-board', sprintId],
@@ -469,6 +472,29 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
         />
       ) : null}
 
+      {/* Mobile column tab switcher (hidden on lg+) */}
+      <div className="flex gap-1 rounded-[10px] border p-1 lg:hidden" style={{ borderColor: 'var(--ap-border)', background: 'var(--ap-bg-sunken)' }}>
+        {(['PENDING', 'IN_PROGRESS', 'COMPLETED'] as const).map((s) => {
+          const col = filteredColumns.find((c) => c.status === s)
+          const label = s === 'PENDING' ? 'To Do' : s === 'IN_PROGRESS' ? 'In Progress' : 'Done'
+          const count = col?.todos.length ?? 0
+          const active = mobileCol === s
+          return (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setMobileCol(s)}
+              className={cn(
+                'flex-1 rounded-[8px] px-2 py-1.5 text-[12px] font-semibold transition-colors',
+                active ? 'bg-[var(--ap-bg-raised)] text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              {label} <span className="ml-1 tabular-nums opacity-70">{count}</span>
+            </button>
+          )
+        })}
+      </div>
+
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
         {filteredColumns.map((col) => (
           <div
@@ -478,7 +504,10 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
               const todoId = e.dataTransfer.getData('todoId')
               if (todoId) moveTodo(todoId, col.status)
             }}
-            className="rounded-[14px] border p-3"
+            className={cn(
+              'rounded-[14px] border p-3',
+              isMobile && mobileCol !== col.status && 'hidden',
+            )}
             style={{ borderColor: 'var(--ap-border)', background: 'var(--ap-bg-sunken)' }}
           >
             <div className="mb-2 flex items-center justify-between">

@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { apiSuccess, apiBadRequest, apiNotFound, withAuth } from '@/lib/api'
+import { recordActivity } from '@/lib/activity-log'
 
 export const GET = withAuth<RouteIdParams>(async (_req, { params }) => {
   const { id: todoId } = await resolveParams(params)
@@ -22,7 +23,7 @@ export const GET = withAuth<RouteIdParams>(async (_req, { params }) => {
   return apiSuccess(checklists)
 })
 
-export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { params }) => {
+export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { session, params }) => {
   const { id: todoId } = await resolveParams(params)
   if (!todoId) return apiBadRequest('Invalid todo id')
   const { title } = await request.json()
@@ -31,6 +32,11 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { param
   const checklist = await prisma.todoChecklist.create({
     data: { todoId, title: title || 'Checklist', position: count },
     include: { items: true },
+  })
+  await recordActivity({
+    entityType: 'TODO', todoId, action: 'INITIATIVE_CHECKLIST_CREATED',
+    actorId: session.user.id,
+    metadata: { checklistId: checklist.id, title: checklist.title },
   })
   return apiSuccess(checklist, { status: 201 })
 })

@@ -24,70 +24,99 @@ export default function GoalsTabBar({
   onTabChange,
   viewMode,
   onViewModeChange,
-  showUserView = false
+  showUserView = false,
 }: GoalsTabBarProps) {
   return (
-    <div className="bg-card border-b border-border">
+    <div
+      className="border-b"
+      style={{
+        background: 'var(--ap-bg, #fff)',
+        borderColor: 'var(--ap-border, hsl(var(--border)))',
+      }}
+    >
       <div className="flex flex-col gap-2 px-3 py-2 sm:px-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-wrap gap-0.5">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => onTabChange(tab.id)}
-              className={cn(
-                'px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
-                activeTab === tab.id
-                  ? 'bg-blue-50 text-blue-700'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-              )}
-            >
-              {tab.label}
-            </button>
-          ))}
+        <div
+          className="inline-flex h-8 items-center gap-0.5 rounded-[10px] p-0.5"
+          style={{ background: 'rgba(120,120,128,0.08)' }}
+        >
+          {tabs.map((tab) => {
+            const active = activeTab === tab.id
+            return (
+              <button
+                key={tab.id}
+                onClick={() => onTabChange(tab.id)}
+                className={cn(
+                  'h-7 px-3 text-[12px] font-medium rounded-[8px] transition-all',
+                  active ? 'shadow-sm' : 'hover:bg-white/50'
+                )}
+                style={{
+                  background: active ? 'var(--ap-bg, #fff)' : 'transparent',
+                  color: active
+                    ? 'var(--ap-fg, hsl(var(--foreground)))'
+                    : 'var(--ap-fg-muted, hsl(var(--muted-foreground)))',
+                }}
+              >
+                {tab.label}
+              </button>
+            )
+          })}
         </div>
 
-        <div className="flex flex-wrap items-center gap-1 shrink-0 rounded-md border border-border p-0.5 bg-background">
+        <div
+          className="inline-flex h-8 items-center gap-0.5 rounded-[10px] p-0.5 shrink-0"
+          style={{ background: 'rgba(120,120,128,0.08)' }}
+        >
           {showUserView && (
-            <button
+            <ViewModeButton
+              active={viewMode === 'user'}
               onClick={() => onViewModeChange('user')}
-              className={cn(
-                'h-7 px-2 text-xs font-medium rounded transition-colors flex items-center gap-1',
-                viewMode === 'user'
-                  ? 'bg-blue-600 text-white'
-                  : 'text-muted-foreground hover:bg-muted'
-              )}
-            >
-              <Users className="h-3.5 w-3.5" />
-              <span>User</span>
-            </button>
+              icon={<Users className="h-3.5 w-3.5" />}
+              label="User"
+            />
           )}
-          <button
+          <ViewModeButton
+            active={viewMode === 'list'}
             onClick={() => onViewModeChange('list')}
-            className={cn(
-              'h-7 px-2 text-xs font-medium rounded transition-colors flex items-center gap-1',
-              viewMode === 'list'
-                ? 'bg-blue-600 text-white'
-                : 'text-muted-foreground hover:bg-muted'
-            )}
-          >
-            <List className="h-3.5 w-3.5" />
-            <span>List</span>
-          </button>
-          <button
+            icon={<List className="h-3.5 w-3.5" />}
+            label="List"
+          />
+          <ViewModeButton
+            active={viewMode === 'feed'}
             onClick={() => onViewModeChange('feed')}
-            className={cn(
-              'h-7 px-2 text-xs font-medium rounded transition-colors flex items-center gap-1',
-              viewMode === 'feed'
-                ? 'bg-blue-600 text-white'
-                : 'text-muted-foreground hover:bg-muted'
-            )}
-          >
-            <Rss className="h-3.5 w-3.5" />
-            <span>Feed</span>
-          </button>
+            icon={<Rss className="h-3.5 w-3.5" />}
+            label="Feed"
+          />
         </div>
       </div>
     </div>
   )
 }
 
+function ViewModeButton({
+  active,
+  onClick,
+  icon,
+  label,
+}: {
+  active: boolean
+  onClick: () => void
+  icon: React.ReactNode
+  label: string
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        'h-7 px-2.5 text-[12px] font-medium rounded-[8px] transition-all flex items-center gap-1.5',
+        active ? 'shadow-sm' : 'hover:bg-white/50'
+      )}
+      style={{
+        background: active ? 'var(--ap-accent, #007aff)' : 'transparent',
+        color: active ? '#fff' : 'var(--ap-fg-muted, hsl(var(--muted-foreground)))',
+      }}
+    >
+      {icon}
+      <span>{label}</span>
+    </button>
+  )
+}

@@ -5,20 +5,21 @@ import { useRouter } from 'next/navigation'
 import { gantt, type GanttStatic } from 'dhtmlx-gantt'
 import 'dhtmlx-gantt/codebase/dhtmlxgantt.css'
 import type { GanttPayload, GanttTask } from '@/app/api/gantt/route'
+import { EmptyState } from '@/components/ui/EmptyState'
 
 type ZoomLevel = 'week' | 'month' | 'quarter' | 'year'
 
 const STATUS_BAR_COLOR: Record<string, string> = {
-  ON_TRACK: '#10b981',
-  AT_RISK: '#f59e0b',
-  OFF_TRACK: '#ef4444',
-  CLOSED: '#94a3b8',
+  ON_TRACK: '#34c759',
+  AT_RISK: '#ff9500',
+  OFF_TRACK: '#ff3b30',
+  CLOSED: '#8e8e93',
 }
 
 const CONFIDENCE_BAR_COLOR: Record<string, string> = {
-  ON_TRACK: '#34d399',
-  AT_RISK: '#fbbf24',
-  OFF_TRACK: '#f87171',
+  ON_TRACK: '#34c759',
+  AT_RISK: '#ff9500',
+  OFF_TRACK: '#ff3b30',
 }
 
 function applyZoom(g: GanttStatic, level: ZoomLevel) {
@@ -76,8 +77,9 @@ export default function PlansGantt() {
     g.config.drag_resize = false
     g.config.drag_links = false
     g.config.open_tree_initially = true
-    g.config.row_height = 36
+    g.config.row_height = 38
     g.config.bar_height = 22
+    ;(g.config as unknown as { round_dnd_dates: boolean }).round_dnd_dates = false
 
     g.config.columns = [
       {
@@ -154,8 +156,14 @@ export default function PlansGantt() {
 
     g.templates.task_class = (_start: Date, _end: Date, task: unknown) => {
       const t = task as GanttTask
-      if (t.entityType === 'objective') return 'gantt-task-objective'
-      return 'gantt-task-kr'
+      const status = (t.goalStatus || t.confidence || '') as string
+      const tone =
+        status === 'ON_TRACK' ? 'ap-bar-green' :
+        status === 'AT_RISK' ? 'ap-bar-amber' :
+        status === 'OFF_TRACK' ? 'ap-bar-red' :
+        status === 'CLOSED' ? 'ap-bar-gray' : 'ap-bar-blue'
+      const kind = t.entityType === 'objective' ? 'ap-bar-objective' : 'ap-bar-kr'
+      return `ap-bar ${kind} ${tone}`
     }
 
     g.templates.task_text = (_start: Date, _end: Date, task: unknown) => {
@@ -245,43 +253,69 @@ export default function PlansGantt() {
   }, [zoom])
 
   return (
-    <div className="bg-card rounded-lg border border-border overflow-hidden">
-      <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border bg-muted">
-        <div className="flex items-center gap-3 text-xs">
-          <LegendDot color="#10b981" label="On track" />
-          <LegendDot color="#f59e0b" label="At risk" />
-          <LegendDot color="#ef4444" label="Off track" />
-          <LegendDot color="#94a3b8" label="Closed" />
+    <div
+      className="rounded-[14px] border overflow-hidden"
+      style={{
+        background: 'var(--ap-bg, #fff)',
+        borderColor: 'var(--ap-border, hsl(var(--border)))',
+      }}
+    >
+      <div
+        className="flex items-center justify-between gap-2 px-4 py-2.5 border-b"
+        style={{
+          borderColor: 'var(--ap-border, hsl(var(--border)))',
+          background: 'rgba(120,120,128,0.04)',
+        }}
+      >
+        <div className="flex items-center gap-3 text-[11px]">
+          <LegendDot color="#34c759" label="On track" />
+          <LegendDot color="#ff9500" label="At risk" />
+          <LegendDot color="#ff3b30" label="Off track" />
+          <LegendDot color="#8e8e93" label="Closed" />
         </div>
-        <div className="flex items-center gap-1">
-          <span className="text-[11px] text-muted-foreground mr-1">Zoom:</span>
-          {(['week', 'month', 'quarter', 'year'] as ZoomLevel[]).map((z) => (
-            <button
-              key={z}
-              type="button"
-              onClick={() => setZoom(z)}
-              className={`px-2 py-1 text-[11px] rounded border ${
-                zoom === z
-                  ? 'bg-primary-500 text-white border-primary-500'
-                  : 'bg-card text-muted-foreground border-border hover:bg-muted'
-              }`}
-            >
-              {z[0].toUpperCase() + z.slice(1)}
-            </button>
-          ))}
+        <div
+          className="inline-flex h-8 items-center gap-0.5 rounded-[10px] p-0.5"
+          style={{ background: 'rgba(120,120,128,0.08)' }}
+        >
+          {(['week', 'month', 'quarter', 'year'] as ZoomLevel[]).map((z) => {
+            const active = zoom === z
+            return (
+              <button
+                key={z}
+                type="button"
+                onClick={() => setZoom(z)}
+                className="h-7 px-2.5 text-[11px] font-medium rounded-[8px] transition-all"
+                style={{
+                  background: active ? 'var(--ap-accent, #007aff)' : 'transparent',
+                  color: active ? '#fff' : 'var(--ap-fg-muted, hsl(var(--muted-foreground)))',
+                  boxShadow: active ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
+                }}
+              >
+                {z[0].toUpperCase() + z.slice(1)}
+              </button>
+            )
+          })}
         </div>
       </div>
 
       {error && (
-        <div className="px-4 py-8 text-center text-sm text-red-600">Failed to load: {error}</div>
+        <div className="px-4 py-8 text-center text-sm" style={{ color: 'var(--ap-red, #ff3b30)' }}>
+          Failed to load: {error}
+        </div>
       )}
       {empty && !error && (
-        <div className="px-4 py-10 text-center text-sm text-muted-foreground">
-          No active objectives with a timeframe to display.
+        <div className="py-2">
+          <EmptyState
+            bare
+            title="No plans to show"
+            description="No active objectives with a timeframe to display."
+          />
         </div>
       )}
       {loading && !error && !empty && (
-        <div className="px-4 py-10 text-center text-sm text-muted-foreground">Loading…</div>
+        <div className="px-4 py-10 text-center text-sm" style={{ color: 'var(--ap-fg-muted, hsl(var(--muted-foreground)))' }}>
+          Loading…
+        </div>
       )}
 
       <div
@@ -295,36 +329,90 @@ export default function PlansGantt() {
       />
 
       <style jsx global>{`
-        .gantt-task-objective .gantt_task_progress {
-          background: rgba(59, 130, 246, 0.55);
+        .gantt_task_line.ap-bar {
+          border-radius: 11px !important;
+          border: none !important;
+          height: 22px !important;
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
         }
-        .gantt-task-objective .gantt_task_content {
-          color: white;
+        .gantt_task_line.ap-bar .gantt_task_progress {
+          border-radius: 11px 0 0 11px;
+          background: rgba(255, 255, 255, 0.32) !important;
+        }
+        .gantt_task_line.ap-bar .gantt_task_content {
+          color: #fff;
           font-weight: 600;
-        }
-        .gantt-task-objective {
-          background: #3b82f6 !important;
-          border-color: #2563eb !important;
-        }
-        .gantt-task-kr {
-          background: #93c5fd !important;
-          border-color: #60a5fa !important;
-        }
-        .gantt-task-kr .gantt_task_content {
-          color: #1e3a8a;
-          font-weight: 500;
           font-size: 11px;
+          line-height: 22px;
         }
+        .gantt_task_line.ap-bar-kr {
+          height: 18px !important;
+          border-radius: 9px !important;
+        }
+        .gantt_task_line.ap-bar-kr .gantt_task_progress {
+          border-radius: 9px 0 0 9px;
+        }
+        .gantt_task_line.ap-bar-kr .gantt_task_content {
+          font-size: 10px;
+          line-height: 18px;
+        }
+        .gantt_task_line.ap-bar-blue { background: #007aff !important; }
+        .gantt_task_line.ap-bar-green { background: #34c759 !important; }
+        .gantt_task_line.ap-bar-amber { background: #ff9500 !important; }
+        .gantt_task_line.ap-bar-red { background: #ff3b30 !important; }
+        .gantt_task_line.ap-bar-gray { background: #8e8e93 !important; }
+
+        .gantt_task_cell,
+        .gantt_grid_data .gantt_row,
+        .gantt_grid_scale .gantt_grid_head_cell,
+        .gantt_task_row,
+        .gantt_scale_cell,
+        .gantt_scale_line {
+          border-color: var(--ap-border, #e5e5ea) !important;
+        }
+        .gantt_task_row.odd,
+        .gantt_grid_data .gantt_row.odd {
+          background: rgba(120, 120, 128, 0.04) !important;
+        }
+        .gantt_task_row.gantt_selected,
+        .gantt_grid_data .gantt_row.gantt_selected {
+          background: rgba(0, 122, 255, 0.06) !important;
+        }
+        .gantt_grid_scale,
+        .gantt_scale_line {
+          background: rgba(120, 120, 128, 0.04) !important;
+        }
+        .gantt_grid_head_cell,
+        .gantt_scale_cell {
+          color: var(--ap-fg-muted, #6b7280) !important;
+          font-weight: 600;
+          font-size: 10px;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+        }
+
         .today-marker {
-          background: #ef4444;
+          background: var(--ap-accent, #007aff);
           width: 2px;
         }
         .today-marker .gantt_marker_content {
-          background: #ef4444;
+          background: var(--ap-accent, #007aff);
           color: white;
           font-size: 10px;
-          padding: 2px 4px;
-          border-radius: 3px;
+          font-weight: 600;
+          padding: 2px 6px;
+          border-radius: 6px;
+        }
+
+        .gantt_tooltip {
+          background: #fff !important;
+          color: var(--ap-fg, #111) !important;
+          border: 1px solid var(--ap-border, #e5e5ea) !important;
+          border-radius: 10px !important;
+          box-shadow: 0 6px 20px rgba(0, 0, 0, 0.10) !important;
+          padding: 10px 12px !important;
+          font-size: 12px !important;
+          line-height: 1.5 !important;
         }
       `}</style>
     </div>

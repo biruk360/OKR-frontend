@@ -4,6 +4,7 @@ import path from 'path'
 import { prisma } from '@/lib/prisma'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { apiSuccess, apiBadRequest, apiNotFound, withAuth } from '@/lib/api'
+import { recordActivity } from '@/lib/activity-log'
 
 const UPLOAD_DIR = path.join(process.cwd(), 'public', 'uploads', 'todos')
 const MAX_SIZE = 20 * 1024 * 1024 // 20 MB
@@ -41,5 +42,11 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
     },
     include: { uploadedBy: { select: { id: true, name: true } } },
   })
+  await recordActivity({
+    entityType: 'TODO', todoId, action: 'INITIATIVE_ATTACHMENT_ADDED',
+    actorId: session.user.id,
+    metadata: { attachmentId: attachment.id, filename: attachment.filename },
+  })
+
   return apiSuccess(attachment, { status: 201 })
 })

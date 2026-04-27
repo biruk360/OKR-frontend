@@ -317,6 +317,7 @@ model Todo {
   checklists        TodoChecklist[]
   attachments       TodoAttachment[]
   todoComments      TodoComment[]
+  activityLogs      ActivityLog[]
 
   @@index([assigneeId, status])
   @@index([creatorId, status])
@@ -426,6 +427,9 @@ model TodoComment {
   authorId  String
   content   String   // HTML from Tiptap
   parentId  String?  // for threaded replies
+  /// JSON-encoded array of TodoAttachment ids that should render inline with this comment.
+  /// Stored as a string (rather than relation) to avoid invasive M2M migration.
+  commentAttachments String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -666,9 +670,10 @@ model ObjectiveLabel {
 /// `changes` is a JSON string: `{ field: { from: any, to: any }, ... }`.
 model ActivityLog {
   id           String   @id @default(cuid())
-  entityType   String   // OBJECTIVE | KEY_RESULT
+  entityType   String   // OBJECTIVE | KEY_RESULT | TODO
   objectiveId  String?
   keyResultId  String?
+  todoId       String?
   action       String
   actorId      String?
   /// JSONB on Postgres — `{ field: { from, to } }`. Was `String` (JSON-encoded) before
@@ -681,9 +686,11 @@ model ActivityLog {
   actor     User?      @relation(fields: [actorId], references: [id], onDelete: SetNull)
   objective Objective? @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
   keyResult KeyResult? @relation(fields: [keyResultId], references: [id], onDelete: Cascade)
+  todo      Todo?      @relation(fields: [todoId], references: [id], onDelete: Cascade)
 
   @@index([objectiveId, createdAt])
   @@index([keyResultId, createdAt])
+  @@index([todoId, createdAt])
   @@index([entityType, createdAt])
   @@map("activity_logs")
 }

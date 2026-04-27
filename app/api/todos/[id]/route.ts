@@ -91,6 +91,8 @@ export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { sess
           },
         },
       },
+      members: { select: { userId: true } },
+      labels: { select: { labelDefId: true } },
     },
   })
 
@@ -221,6 +223,81 @@ export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { sess
       changes: initiativeChanges,
       metadata: { initiativeId: todoId, title: updatedTodo.title },
     })
+  }
+
+  // Per-Todo activity log entries
+  if (status !== undefined && status !== existingTodo.status) {
+    await recordActivity({
+      entityType: 'TODO', todoId, action: 'INITIATIVE_STATUS_CHANGED',
+      actorId: session.user.id,
+      changes: { status: { from: existingTodo.status, to: status } },
+    })
+  }
+  if (assigneeId !== undefined && assigneeId !== existingTodo.assigneeId) {
+    await recordActivity({
+      entityType: 'TODO', todoId, action: 'INITIATIVE_ASSIGNEE_CHANGED',
+      actorId: session.user.id,
+      changes: { assigneeId: { from: existingTodo.assigneeId, to: assigneeId } },
+    })
+  }
+  const todoLevelChanges: Record<string, { from: unknown; to: unknown }> = {}
+  if (title !== undefined && title !== existingTodo.title) todoLevelChanges.title = { from: existingTodo.title, to: title }
+  if (description !== undefined && description !== existingTodo.description) todoLevelChanges.description = { from: existingTodo.description, to: description }
+  if (priority !== undefined && priority !== existingTodo.priority) todoLevelChanges.priority = { from: existingTodo.priority, to: priority }
+  if (dueDate !== undefined) {
+    const newDate = dueDate ? new Date(dueDate).toISOString() : null
+    const oldDate = existingTodo.dueDate ? existingTodo.dueDate.toISOString() : null
+    if (newDate !== oldDate) todoLevelChanges.dueDate = { from: oldDate, to: newDate }
+  }
+  if (coverColor !== undefined && coverColor !== existingTodo.coverColor) todoLevelChanges.coverColor = { from: existingTodo.coverColor, to: coverColor }
+  if (Object.keys(todoLevelChanges).length > 0) {
+    await recordActivity({
+      entityType: 'TODO', todoId, action: 'UPDATED',
+      actorId: session.user.id,
+      changes: todoLevelChanges,
+    })
+  }
+
+  if (Array.isArray(memberIds)) {
+    const oldMemberIds = new Set((existingTodo as any).members?.map((m: { userId: string }) => m.userId) ?? [])
+    const newSet = new Set<string>(memberIds)
+    for (const uid of Array.from(newSet)) {
+      if (!oldMemberIds.has(uid)) {
+        await recordActivity({
+          entityType: 'TODO', todoId, action: 'INITIATIVE_MEMBER_ADDED',
+          actorId: session.user.id, metadata: { userId: uid },
+        })
+      }
+    }
+    for (const uid of Array.from(oldMemberIds)) {
+      if (!newSet.has(uid as string)) {
+        await recordActivity({
+          entityType: 'TODO', todoId, action: 'INITIATIVE_MEMBER_REMOVED',
+          actorId: session.user.id, metadata: { userId: uid },
+        })
+      }
+    }
+  }
+
+  if (Array.isArray(labelIds)) {
+    const oldSet = new Set((existingTodo as any).labels?.map((l: { labelDefId: string }) => l.labelDefId) ?? [])
+    const newSet = new Set<string>(labelIds)
+    for (const lid of Array.from(newSet)) {
+      if (!oldSet.has(lid)) {
+        await recordActivity({
+          entityType: 'TODO', todoId, action: 'INITIATIVE_LABEL_ADDED',
+          actorId: session.user.id, metadata: { labelDefId: lid },
+        })
+      }
+    }
+    for (const lid of Array.from(oldSet)) {
+      if (!newSet.has(lid as string)) {
+        await recordActivity({
+          entityType: 'TODO', todoId, action: 'INITIATIVE_LABEL_REMOVED',
+          actorId: session.user.id, metadata: { labelDefId: lid },
+        })
+      }
+    }
   }
 
   return apiSuccess(updatedTodo, { message: 'Initiative updated successfully' })

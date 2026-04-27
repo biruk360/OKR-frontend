@@ -193,6 +193,12 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
     })
   }
 
+  await recordActivity({
+    entityType: 'TODO', todoId: todo.id, action: 'INITIATIVE_CREATED',
+    actorId: session.user.id,
+    metadata: { title: todo.title, assigneeId: todo.assigneeId },
+  })
+
   if (todo.assigneeId !== session.user.id) {
     await emit('TODO_ASSIGNED', {
       actorId: session.user.id,

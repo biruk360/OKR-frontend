@@ -8,6 +8,7 @@ import GoalsSummaryDashboard from './GoalsSummaryDashboard'
 import GoalsTable from './GoalsTable'
 import GoalsFeedView from './GoalsFeedView'
 import CreateGoalModal from './CreateGoalModal'
+import { EmptyState } from '@/components/ui/EmptyState'
 import toast from 'react-hot-toast'
 import { useUsersForSelection } from '@/hooks'
 
@@ -114,12 +115,13 @@ export default function GoalsListView({ tab, viewMode }: GoalsListViewProps) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs text-muted-foreground truncate">
+        <p className="text-[12px] truncate" style={{ color: 'var(--ap-fg-muted, hsl(var(--muted-foreground)))' }}>
           Manage and track your organization's goals and key results.
         </p>
         <button
           onClick={() => setIsCreateModalOpen(true)}
-          className="inline-flex shrink-0 items-center justify-center h-8 px-3 text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring"
+          className="ap-btn ap-btn-primary ap-focus-ring inline-flex shrink-0 items-center justify-center h-8 px-3 text-[12px] font-semibold rounded-[10px] text-white"
+          style={{ background: 'var(--ap-accent, #007aff)' }}
         >
           <Plus className="h-3.5 w-3.5 mr-1.5" />
           New Goal
@@ -135,9 +137,15 @@ export default function GoalsListView({ tab, viewMode }: GoalsListViewProps) {
 
       {isLoading ? (
         <div className="flex items-center justify-center py-10">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-          <span className="ml-2 text-sm text-muted-foreground">Loading goals…</span>
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2" style={{ borderColor: 'var(--ap-accent, #007aff)' }}></div>
+          <span className="ml-2 text-sm" style={{ color: 'var(--ap-fg-muted, hsl(var(--muted-foreground)))' }}>Loading goals…</span>
         </div>
+      ) : objectives.length === 0 ? (
+        <EmptyState
+          title="No goals yet"
+          description="Create your first goal to start tracking progress."
+          action={{ label: 'New Goal', onClick: () => setIsCreateModalOpen(true) }}
+        />
       ) : viewMode === 'feed' ? (
         <GoalsFeedView
           objectives={objectives}

@@ -7,7 +7,7 @@ import {
   ChevronDown, AlignLeft, MessageSquare, Activity, MoreHorizontal,
   CheckSquare, Image as ImageIcon, File as FileIcon, AlertCircle,
 } from 'lucide-react'
-import { format, isPast, isToday, isTomorrow } from 'date-fns'
+import { format, isPast, isToday, isTomorrow, isYesterday, formatDistanceToNow } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { MentionEditor } from './MentionEditor'
 import { useUsersForSelection } from '@/hooks/useUsersForSelection'
@@ -62,6 +62,16 @@ interface CommentData {
   author: { id: string; name: string; avatar: string | null }
   createdAt: string
   replies: CommentData[]
+  attachments?: AttachmentData[]
+}
+
+interface ActivityLogData {
+  id: string
+  action: string
+  actor: { id: string; name: string; avatar: string | null } | null
+  changes: Record<string, { from: unknown; to: unknown }> | null
+  metadata: Record<string, unknown> | null
+  createdAt: string
 }
 interface LabelDef { id: string; name: string; color: string }
 
@@ -135,6 +145,103 @@ function ChecklistProgress({ items }: { items: ChecklistItemData[] }) {
   )
 }
 
+function formatActivity(
+  log: ActivityLogData,
+  users: { id: string; name: string | null }[],
+  labelDefs: LabelDef[],
+): string {
+  const userName = (id: unknown) => users.find((u) => u.id === id)?.name ?? 'someone'
+  const labelName = (id: unknown) => labelDefs.find((l) => l.id === id)?.name ?? 'a label'
+  const m = log.metadata ?? {}
+  const c = log.changes ?? {}
+  switch (log.action) {
+    case 'INITIATIVE_CREATED': return 'created this card'
+    case 'INITIATIVE_STATUS_CHANGED': {
+      const ch = c.status as { from?: unknown; to?: unknown } | undefined
+      return `changed status from "${String(ch?.from ?? '')}" to "${String(ch?.to ?? '')}"`
+    }
+    case 'INITIATIVE_ASSIGNEE_CHANGED': {
+      const ch = c.assigneeId as { from?: unknown; to?: unknown } | undefined
+      return `changed assignee to ${userName(ch?.to)}`
+    }
+    case 'INITIATIVE_MEMBER_ADDED': return `added ${userName((m as { userId?: unknown }).userId)} as a member`
+    case 'INITIATIVE_MEMBER_REMOVED': return `removed ${userName((m as { userId?: unknown }).userId)} as a member`
+    case 'INITIATIVE_LABEL_ADDED': return `added label "${labelName((m as { labelDefId?: unknown }).labelDefId)}"`
+    case 'INITIATIVE_LABEL_REMOVED': return `removed label "${labelName((m as { labelDefId?: unknown }).labelDefId)}"`
+    case 'INITIATIVE_CHECKLIST_CREATED': return `added checklist "${String((m as { title?: unknown }).title ?? '')}"`
+    case 'INITIATIVE_CHECKLIST_ITEM_TOGGLED': {
+      const completed = (m as { completed?: boolean }).completed
+      const title = String((m as { title?: unknown }).title ?? 'an item')
+      return `${completed ? 'completed' : 'reopened'} "${title}"`
+    }
+    case 'INITIATIVE_ATTACHMENT_ADDED': return `attached ${String((m as { filename?: unknown }).filename ?? 'a file')}`
+    case 'INITIATIVE_COMMENTED': return 'commented'
+    case 'UPDATED': {
+      const fields = Object.keys(c)
+      if (fields.length === 0) return 'updated this card'
+      return `updated ${fields.join(', ')}`
+    }
+    default: return log.action.replace(/_/g, ' ').toLowerCase()
+  }
+}
+
+function activityDateGroup(iso: string): string {
+  const d = new Date(iso)
+  if (isToday(d)) return 'Today'
+  if (isYesterday(d)) return 'Yesterday'
+  return format(d, 'MMM d')
+}
+
+function ActivityFeed({
+  logs,
+  users,
+  labelDefs,
+}: {
+  logs: ActivityLogData[]
+  users: { id: string; name: string | null }[]
+  labelDefs: LabelDef[]
+}) {
+  if (logs.length === 0) {
+    return (
+      <div className="rounded-[14px] border border-dashed border-[var(--ap-border)] bg-[var(--ap-bg-sunken)] px-4 py-8 text-center">
+        <p className="text-[13px] font-600 text-[var(--ap-fg)]">No activity yet</p>
+        <p className="mt-1 text-[12px] text-[var(--ap-fg-subtle)]">Changes to this card will appear here.</p>
+      </div>
+    )
+  }
+  // Group by date label, preserving order
+  const groups: { label: string; entries: ActivityLogData[] }[] = []
+  for (const log of logs) {
+    const label = activityDateGroup(log.createdAt)
+    const last = groups[groups.length - 1]
+    if (last && last.label === label) last.entries.push(log)
+    else groups.push({ label, entries: [log] })
+  }
+  return (
+    <div className="space-y-4">
+      {groups.map((g) => (
+        <div key={g.label}>
+          <p className="mb-2 text-[10px] font-600 uppercase tracking-[0.6px] text-[var(--ap-fg-subtle)]">{g.label}</p>
+          <ol className="space-y-2">
+            {g.entries.map((log) => (
+              <li key={log.id} className="flex items-start gap-2.5">
+                <Avatar name={log.actor?.name ?? 'System'} avatar={log.actor?.avatar} size={24} />
+                <div className="flex-1 min-w-0 text-[12px] text-[var(--ap-fg)]">
+                  <span className="font-600">{log.actor?.name ?? 'System'}</span>{' '}
+                  <span className="text-[var(--ap-fg-muted)]">{formatActivity(log, users, labelDefs)}</span>
+                </div>
+                <span className="shrink-0 text-[11px] text-[var(--ap-fg-faint)]">
+                  {formatDistanceToNow(new Date(log.createdAt), { addSuffix: true })}
+                </span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 interface Props {
@@ -148,6 +255,10 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
   const [todo, setTodo] = useState<TodoCardData | null>(null)
   const [loading, setLoading] = useState(false)
   const [comments, setComments] = useState<CommentData[]>([])
+  const [activityLogs, setActivityLogs] = useState<ActivityLogData[]>([])
+  const [activeTab, setActiveTab] = useState<'comments' | 'activity'>('comments')
+  const [pendingFiles, setPendingFiles] = useState<File[]>([])
+  const commentFileInputRef = useRef<HTMLInputElement>(null)
   const [labelDefs, setLabelDefs] = useState<LabelDef[]>([])
   const [activePanel, setActivePanel] = useState<'description' | 'checklist' | 'members' | 'labels' | 'cover' | null>(null)
   const [editingTitle, setEditingTitle] = useState(false)
@@ -166,15 +277,17 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
     if (!todoId) return
     setLoading(true)
     try {
-      const [todoRes, commentsRes, labelsRes] = await Promise.all([
+      const [todoRes, commentsRes, labelsRes, activityRes] = await Promise.all([
         fetch(`/api/todos/${todoId}`),
         fetch(`/api/todos/${todoId}/comments`),
         fetch('/api/todo-labels'),
+        fetch(`/api/todos/${todoId}/activity`),
       ])
-      const [t, c, l] = await Promise.all([todoRes.json(), commentsRes.json(), labelsRes.json()])
+      const [t, c, l, a] = await Promise.all([todoRes.json(), commentsRes.json(), labelsRes.json(), activityRes.json()])
       if (t.success) { setTodo(t.data); setTitleDraft(t.data.title); setDescDraft(t.data.description ?? '') }
       if (c.success) setComments(c.data)
       if (l.success) setLabelDefs(l.data)
+      if (a.success) setActivityLogs(a.data)
     } finally {
       setLoading(false)
     }
@@ -217,16 +330,31 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
 
   // ── Comment ──
   const postComment = async () => {
-    if (!commentDraft.replace(/<[^>]+>/g, '').trim()) return
+    const hasText = !!commentDraft.replace(/<[^>]+>/g, '').trim()
+    if (!hasText && pendingFiles.length === 0) return
     setSubmittingComment(true)
     try {
+      // Upload pending files first; collect attachment ids
+      const attachmentIds: string[] = []
+      const newAttachments: AttachmentData[] = []
+      for (const file of pendingFiles) {
+        const fd = new FormData()
+        fd.append('file', file)
+        const res = await fetch(`/api/todos/${todo!.id}/attachments`, { method: 'POST', body: fd })
+        const json = await res.json()
+        if (json.success) { attachmentIds.push(json.data.id); newAttachments.push(json.data) }
+        else toast.error(json.error ?? 'Upload failed')
+      }
+      if (newAttachments.length > 0) {
+        setTodo((t) => t ? { ...t, attachments: [...t.attachments, ...newAttachments] } : t)
+      }
       const res = await fetch(`/api/todos/${todo!.id}/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: commentDraft }),
+        body: JSON.stringify({ content: commentDraft || '<p></p>', attachmentIds }),
       })
       const json = await res.json()
-      if (json.success) { setComments((c) => [...c, json.data]); setCommentDraft('') }
+      if (json.success) { setComments((c) => [...c, json.data]); setCommentDraft(''); setPendingFiles([]) }
       else toast.error(json.error ?? 'Failed to post comment')
     } finally { setSubmittingComment(false) }
   }
@@ -536,51 +664,150 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
                 </div>
               )}
 
-              {/* ── Comments & Activity ── */}
+              {/* ── Comments / Activity tabs ── */}
               <div>
-                <div className="flex items-center gap-1.5 mb-3">
-                  <MessageSquare className="h-3.5 w-3.5 text-[var(--ap-fg-muted)]" />
-                  <span className="text-[12px] font-600 text-[var(--ap-fg-muted)]">Comments & Activity</span>
+                <div className="mb-3 flex items-center gap-4 border-b border-[var(--ap-border)]">
+                  <button
+                    onClick={() => setActiveTab('comments')}
+                    className={cn(
+                      'flex items-center gap-1.5 -mb-px border-b-2 px-1 pb-2 text-[12px] font-600 transition-colors',
+                      activeTab === 'comments'
+                        ? 'border-[var(--ap-accent)] text-[var(--ap-fg)]'
+                        : 'border-transparent text-[var(--ap-fg-muted)] hover:text-[var(--ap-fg)]',
+                    )}
+                  >
+                    <MessageSquare className="h-3.5 w-3.5" /> Comments ({comments.length})
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('activity')}
+                    className={cn(
+                      'flex items-center gap-1.5 -mb-px border-b-2 px-1 pb-2 text-[12px] font-600 transition-colors',
+                      activeTab === 'activity'
+                        ? 'border-[var(--ap-accent)] text-[var(--ap-fg)]'
+                        : 'border-transparent text-[var(--ap-fg-muted)] hover:text-[var(--ap-fg)]',
+                    )}
+                  >
+                    <Activity className="h-3.5 w-3.5" /> Activity ({activityLogs.length})
+                  </button>
                 </div>
-                {/* Comment input */}
-                <div className="space-y-2">
-                  <MentionEditor
-                    value={commentDraft}
-                    onChange={setCommentDraft}
-                    placeholder="Write a comment… (@mention to notify someone)"
-                    users={users}
-                    onSubmit={postComment}
-                    minHeight={60}
-                  />
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={postComment}
-                      disabled={submittingComment}
-                      className="ap-btn ap-btn-primary ap-btn-sm"
-                    >
-                      {submittingComment ? 'Posting…' : 'Save'}
-                    </button>
-                    <span className="text-[11px] text-[var(--ap-fg-faint)]">Ctrl+Enter</span>
-                  </div>
-                </div>
-                {/* Comment list */}
-                <div className="mt-4 space-y-4">
-                  {comments.map((c) => (
-                    <div key={c.id} className="flex gap-2.5">
-                      <Avatar name={c.author.name} avatar={c.author.avatar} size={26} />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-baseline gap-2">
-                          <span className="text-[12px] font-600 text-[var(--ap-fg)]">{c.author.name}</span>
-                          <span className="text-[11px] text-[var(--ap-fg-faint)]">{format(new Date(c.createdAt), 'MMM d, h:mm a')}</span>
-                        </div>
-                        <div
-                          className="prose prose-sm mt-1 max-w-none text-[13px] text-[var(--ap-fg)] [&_.mention]:text-[var(--ap-accent)] [&_.mention]:font-medium"
-                          dangerouslySetInnerHTML={{ __html: c.content }}
+
+                {activeTab === 'comments' ? (
+                  <>
+                    {/* Comment input */}
+                    <div className="space-y-2">
+                      <MentionEditor
+                        value={commentDraft}
+                        onChange={setCommentDraft}
+                        placeholder="Write a comment… (@mention to notify someone)"
+                        users={users}
+                        onSubmit={postComment}
+                        minHeight={60}
+                      />
+                      {/* Attach file row */}
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => commentFileInputRef.current?.click()}
+                          className="inline-flex items-center gap-1 rounded-[10px] border border-[var(--ap-border)] bg-[var(--ap-bg-sunken)] px-2 py-1 text-[11px] text-[var(--ap-fg-muted)] hover:text-[var(--ap-fg)] hover:bg-[var(--ap-bg-hover)] transition-colors"
+                        >
+                          <Paperclip className="h-3 w-3" /> Attach file
+                        </button>
+                        <input
+                          ref={commentFileInputRef}
+                          type="file"
+                          multiple
+                          className="hidden"
+                          onChange={(e) => {
+                            const files = Array.from(e.target.files ?? [])
+                            if (files.length > 0) setPendingFiles((prev) => [...prev, ...files])
+                            e.target.value = ''
+                          }}
                         />
+                        {pendingFiles.length > 0 && (
+                          <span className="text-[11px] text-[var(--ap-fg-faint)]">{pendingFiles.length} file{pendingFiles.length === 1 ? '' : 's'} pending</span>
+                        )}
+                      </div>
+                      {/* Pending file chips */}
+                      {pendingFiles.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {pendingFiles.map((f, idx) => (
+                            <span
+                              key={idx}
+                              className="inline-flex items-center gap-1 rounded-full bg-[var(--ap-bg-sunken)] px-2 py-1 text-[11px] text-[var(--ap-fg)] border border-[var(--ap-border)]"
+                            >
+                              <FileIcon className="h-3 w-3 text-[var(--ap-fg-subtle)]" />
+                              <span className="max-w-[140px] truncate">{f.name}</span>
+                              <span className="text-[var(--ap-fg-faint)]">{(f.size / 1024).toFixed(0)}KB</span>
+                              <button
+                                type="button"
+                                onClick={() => setPendingFiles((prev) => prev.filter((_, i) => i !== idx))}
+                                className="text-[var(--ap-fg-faint)] hover:text-[var(--ap-danger)]"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={postComment}
+                          disabled={submittingComment}
+                          className="ap-btn ap-btn-primary ap-btn-sm"
+                        >
+                          {submittingComment ? 'Posting…' : 'Save'}
+                        </button>
+                        <span className="text-[11px] text-[var(--ap-fg-faint)]">Ctrl+Enter</span>
                       </div>
                     </div>
-                  ))}
-                </div>
+                    {/* Comment list */}
+                    <div className="mt-4 space-y-4">
+                      {comments.length === 0 && (
+                        <p className="text-[12px] text-[var(--ap-fg-subtle)]">No comments yet.</p>
+                      )}
+                      {comments.map((c) => (
+                        <div key={c.id} className="flex gap-2.5">
+                          <Avatar name={c.author.name} avatar={c.author.avatar} size={26} />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-[12px] font-600 text-[var(--ap-fg)]">{c.author.name}</span>
+                              <span className="text-[11px] text-[var(--ap-fg-faint)]">{format(new Date(c.createdAt), 'MMM d, h:mm a')}</span>
+                            </div>
+                            <div
+                              className="prose prose-sm mt-1 max-w-none text-[13px] text-[var(--ap-fg)] [&_.mention]:text-[var(--ap-accent)] [&_.mention]:font-medium"
+                              dangerouslySetInnerHTML={{ __html: c.content }}
+                            />
+                            {c.attachments && c.attachments.length > 0 && (
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {c.attachments.map((att) => {
+                                  const isImage = att.mimeType?.startsWith('image/')
+                                  return isImage ? (
+                                    <a key={att.id} href={att.url} target="_blank" rel="noreferrer" className="block">
+                                      <img src={att.url} alt={att.filename} className="max-h-48 rounded-[10px] border border-[var(--ap-border)] object-cover" />
+                                    </a>
+                                  ) : (
+                                    <a
+                                      key={att.id}
+                                      href={att.url}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="inline-flex items-center gap-1.5 rounded-full border border-[var(--ap-border)] bg-[var(--ap-bg-sunken)] px-2.5 py-1 text-[11px] text-[var(--ap-fg)] hover:bg-[var(--ap-bg-hover)] transition-colors"
+                                    >
+                                      <FileIcon className="h-3 w-3 text-[var(--ap-fg-subtle)]" />
+                                      <span className="max-w-[160px] truncate">{att.filename}</span>
+                                    </a>
+                                  )
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <ActivityFeed logs={activityLogs} users={users} labelDefs={labelDefs} />
+                )}
               </div>
             </div>
 

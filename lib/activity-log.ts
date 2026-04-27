@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma'
 
-export type ActivityEntityType = 'OBJECTIVE' | 'KEY_RESULT'
+export type ActivityEntityType = 'OBJECTIVE' | 'KEY_RESULT' | 'TODO'
 
 export type ActivityAction =
   | 'CREATED'
@@ -17,6 +17,17 @@ export type ActivityAction =
   | 'INITIATIVE_ADDED'
   | 'INITIATIVE_UPDATED'
   | 'INITIATIVE_REMOVED'
+  | 'INITIATIVE_CREATED'
+  | 'INITIATIVE_STATUS_CHANGED'
+  | 'INITIATIVE_ASSIGNEE_CHANGED'
+  | 'INITIATIVE_MEMBER_ADDED'
+  | 'INITIATIVE_MEMBER_REMOVED'
+  | 'INITIATIVE_LABEL_ADDED'
+  | 'INITIATIVE_LABEL_REMOVED'
+  | 'INITIATIVE_CHECKLIST_CREATED'
+  | 'INITIATIVE_CHECKLIST_ITEM_TOGGLED'
+  | 'INITIATIVE_ATTACHMENT_ADDED'
+  | 'INITIATIVE_COMMENTED'
   | 'VIEWED'
   | 'RISK_REPORTED'
   | 'RISK_UPDATED'
@@ -34,6 +45,7 @@ interface RecordParams {
   entityType: ActivityEntityType
   objectiveId?: string | null
   keyResultId?: string | null
+  todoId?: string | null
   action: ActivityAction
   actorId?: string | null
   changes?: ChangeMap | null
@@ -51,6 +63,7 @@ export async function recordActivity(params: RecordParams): Promise<void> {
         entityType: params.entityType,
         objectiveId: params.objectiveId ?? null,
         keyResultId: params.keyResultId ?? null,
+        todoId: params.todoId ?? null,
         action: params.action,
         actorId: params.actorId ?? null,
         // JSONB columns — Prisma stores the object directly. No JSON.stringify.

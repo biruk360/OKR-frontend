@@ -4,6 +4,7 @@ import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { emit } from '@/lib/notifications'
 import { sendMail } from '@/lib/email'
 import { apiSuccess, apiBadRequest, apiNotFound, withAuth } from '@/lib/api'
+import { recordActivity } from '@/lib/activity-log'
 
 // Extract @mention user ids from Tiptap HTML (data-mention-id attribute)
 function extractMentions(html: string): string[] {
@@ -32,14 +33,40 @@ export const GET = withAuth<RouteIdParams>(async (_req, { params }) => {
       },
     },
   })
-  return apiSuccess(comments)
+
+  // Collect referenced attachment ids and fetch in one query
+  const allIds = new Set<string>()
+  const parseIds = (raw: string | null): string[] => {
+    if (!raw) return []
+    try { const v = JSON.parse(raw); return Array.isArray(v) ? v.filter((x) => typeof x === 'string') : [] } catch { return [] }
+  }
+  for (const c of comments) {
+    parseIds(c.commentAttachments).forEach((id) => allIds.add(id))
+    for (const r of c.replies) parseIds((r as { commentAttachments: string | null }).commentAttachments).forEach((id) => allIds.add(id))
+  }
+  const attachmentRows = allIds.size > 0
+    ? await prisma.todoAttachment.findMany({
+        where: { id: { in: Array.from(allIds) }, todoId },
+        include: { uploadedBy: { select: { id: true, name: true } } },
+      })
+    : []
+  const attMap = new Map(attachmentRows.map((a) => [a.id, a]))
+  const hydrated = comments.map((c) => ({
+    ...c,
+    attachments: parseIds(c.commentAttachments).map((id) => attMap.get(id)).filter(Boolean),
+    replies: c.replies.map((r) => ({
+      ...r,
+      attachments: parseIds((r as { commentAttachments: string | null }).commentAttachments).map((id) => attMap.get(id)).filter(Boolean),
+    })),
+  }))
+  return apiSuccess(hydrated)
 })
 
 export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { session, params }) => {
   const { id: todoId } = await resolveParams(params)
   if (!todoId) return apiBadRequest('Invalid todo id')
 
-  const { content, parentId } = await request.json()
+  const { content, parentId, attachmentIds } = await request.json()
   if (!content?.trim()) return apiBadRequest('Comment content is required')
 
   const todo = await prisma.todo.findUnique({
@@ -48,12 +75,37 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
   })
   if (!todo) return apiNotFound('To-do not found')
 
-  const comment = await prisma.todoComment.create({
-    data: { todoId, authorId: session.user.id, content, parentId: parentId ?? null },
+  const validAttachmentIds: string[] = Array.isArray(attachmentIds)
+    ? (attachmentIds as unknown[]).filter((x): x is string => typeof x === 'string')
+    : []
+
+  const created = await prisma.todoComment.create({
+    data: {
+      todoId,
+      authorId: session.user.id,
+      content,
+      parentId: parentId ?? null,
+      commentAttachments: validAttachmentIds.length > 0 ? JSON.stringify(validAttachmentIds) : null,
+    },
     include: {
       author: { select: { id: true, name: true, avatar: true } },
       replies: { include: { author: { select: { id: true, name: true, avatar: true } } } },
     },
+  })
+
+  // Hydrate attachments for response
+  const attachments = validAttachmentIds.length > 0
+    ? await prisma.todoAttachment.findMany({
+        where: { id: { in: validAttachmentIds }, todoId },
+        include: { uploadedBy: { select: { id: true, name: true } } },
+      })
+    : []
+  const comment = { ...created, attachments }
+
+  await recordActivity({
+    entityType: 'TODO', todoId, action: 'INITIATIVE_COMMENTED',
+    actorId: session.user.id,
+    metadata: { commentId: created.id, attachmentCount: attachments.length },
   })
 
   // @mention notifications + email

@@ -2,9 +2,44 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
-import { Plus, User } from 'lucide-react'
+import { Plus, User, Users } from 'lucide-react'
 import CreateGoalModal from './CreateGoalModal'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
+
+function getInitials(name?: string) {
+  if (!name) return '?'
+  return name.split(' ').map((p) => p[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()
+}
+
+function Sparkline({ values, color = 'var(--ap-accent, #007aff)' }: { values: number[]; color?: string }) {
+  const w = 80
+  const h = 24
+  if (values.length === 0) {
+    return (
+      <svg width={w} height={h} className="opacity-40">
+        <line x1={0} y1={h / 2} x2={w} y2={h / 2} stroke="var(--ap-border, #e5e5ea)" strokeWidth={1} />
+      </svg>
+    )
+  }
+  const max = Math.max(...values, 1)
+  const min = Math.min(...values, 0)
+  const range = max - min || 1
+  const step = values.length > 1 ? w / (values.length - 1) : 0
+  const points = values
+    .map((v, i) => {
+      const x = i * step
+      const y = h - ((v - min) / range) * (h - 2) - 1
+      return `${x},${y}`
+    })
+    .join(' ')
+  return (
+    <svg width={w} height={h}>
+      <polyline points={points} fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
 
 export default function MyTeamView() {
   const { data: session } = useSession()
@@ -23,14 +58,11 @@ export default function MyTeamView() {
   const fetchTeamData = async () => {
     setIsLoading(true)
     try {
-      // Fetch direct reports
       const reportsRes = await fetch(`/api/users/me/direct-reports`)
       const reportsData = await reportsRes.json()
 
       if (reportsData.success) {
         setDirectReports(reportsData.data)
-        
-        // Fetch objectives for each direct report
         const objectivesMap: Record<string, any[]> = {}
         await Promise.all(
           reportsData.data.map(async (user: any) => {
@@ -53,6 +85,14 @@ export default function MyTeamView() {
 
   const calculateUserStats = (userId: string) => {
     const objectives = teamObjectives[userId] || []
+    const krProgresses: number[] = []
+    objectives.forEach((o: any) => {
+      ;(o.keyResults || []).forEach((kr: any) => krProgresses.push(Math.round(kr.progress || 0)))
+    })
+    const krAvg =
+      krProgresses.length > 0
+        ? Math.round(krProgresses.reduce((a, b) => a + b, 0) / krProgresses.length)
+        : 0
     return {
       total: objectives.length,
       onTrack: objectives.filter((o: any) => o.goalStatus === 'ON_TRACK').length,
@@ -60,58 +100,80 @@ export default function MyTeamView() {
       offTrack: objectives.filter((o: any) => o.goalStatus === 'OFF_TRACK').length,
       avgProgress: objectives.length > 0
         ? Math.round(objectives.reduce((sum: number, o: any) => sum + (o.progress || 0), 0) / objectives.length)
-        : 0
+        : 0,
+      krAvg,
+      sparkValues: krProgresses.length ? krProgresses.slice(0, 12) : objectives.map((o: any) => Math.round(o.progress || 0)),
     }
   }
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        <span className="ml-2 text-muted-foreground">Loading team data...</span>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: 'var(--ap-accent, #007aff)' }}></div>
+        <span className="ml-2" style={{ color: 'var(--ap-fg-muted, hsl(var(--muted-foreground)))' }}>Loading team data...</span>
       </div>
     )
   }
 
   if (directReports.length === 0) {
     return (
-      <div className="text-center py-12 bg-card rounded-lg border border-border">
-        <User className="mx-auto h-12 w-12 text-muted-foreground" />
-        <h3 className="mt-2 text-sm font-medium text-foreground">No direct reports</h3>
-        <p className="mt-1 text-sm text-muted-foreground">
-          You don't have any direct reports assigned to you.
-        </p>
-      </div>
+      <EmptyState
+        icon={Users}
+        title="No direct reports"
+        description="You don't have any direct reports assigned to you."
+      />
     )
   }
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {directReports.map((user) => {
           const stats = calculateUserStats(user.id)
-          const circumference = 2 * Math.PI * 40
-          const offset = circumference - (stats.avgProgress / 100) * circumference
+          const role = user.role || 'EMPLOYEE'
+          const roleLabel =
+            role === 'ADMIN' ? 'Admin' :
+            role === 'EXECUTIVE' ? 'Executive' :
+            role === 'DEPARTMENT_LEAD' ? 'Lead' : 'Employee'
 
           return (
-            <div key={user.id} className="bg-card rounded-lg border border-border p-6">
-              {/* User Header */}
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center space-x-3">
+            <div
+              key={user.id}
+              className={cn(
+                'ap-hover-lift rounded-[14px] border p-4 transition-shadow',
+              )}
+              style={{
+                background: 'var(--ap-bg, #fff)',
+                borderColor: 'var(--ap-border, hsl(var(--border)))',
+              }}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3 min-w-0">
                   {user.avatar ? (
-                    <img
-                      src={user.avatar}
-                      alt={user.name}
-                      className="h-10 w-10 rounded-full"
-                    />
+                    <img src={user.avatar} alt={user.name} className="h-10 w-10 rounded-full" />
                   ) : (
-                    <div className="h-10 w-10 rounded-full bg-blue-500 flex items-center justify-center">
-                      <User className="h-5 w-5 text-white" />
+                    <div
+                      className="h-10 w-10 rounded-full flex items-center justify-center text-white font-semibold text-[13px]"
+                      style={{ background: 'var(--ap-accent, #007aff)' }}
+                    >
+                      {user.name ? getInitials(user.name) : <User className="h-5 w-5" />}
                     </div>
                   )}
-                  <div>
-                    <h3 className="text-sm font-medium text-foreground">{user.name}</h3>
-                    <p className="text-xs text-muted-foreground">{user.email}</p>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-[13px] font-semibold truncate" style={{ color: 'var(--ap-fg, hsl(var(--foreground)))' }}>
+                        {user.name}
+                      </h3>
+                      <span
+                        className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide"
+                        style={{ background: 'rgba(120,120,128,0.12)', color: 'var(--ap-fg-muted, #6b7280)' }}
+                      >
+                        {roleLabel}
+                      </span>
+                    </div>
+                    <p className="text-[11px] truncate" style={{ color: 'var(--ap-fg-muted, hsl(var(--muted-foreground)))' }}>
+                      {user.email}
+                    </p>
                   </div>
                 </div>
                 <button
@@ -119,88 +181,88 @@ export default function MyTeamView() {
                     setSelectedUserId(user.id)
                     setCreateModalOpen(true)
                   }}
-                  className="p-2 text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                  className="p-1.5 rounded-[8px] transition-colors"
+                  style={{ color: 'var(--ap-accent, #007aff)' }}
                   title="Create goal for this team member"
                 >
-                  <Plus className="h-5 w-5" />
+                  <Plus className="h-4 w-4" />
                 </button>
               </div>
 
-              {/* Progress Donut */}
-              <div className="flex justify-center mb-4">
-                <div className="relative w-24 h-24">
-                  <svg className="transform -rotate-90 w-24 h-24">
-                    <circle
-                      cx="48"
-                      cy="48"
-                      r="40"
-                      stroke="currentColor"
-                      strokeWidth="6"
-                      fill="transparent"
-                      className="text-gray-200"
-                    />
-                    <circle
-                      cx="48"
-                      cy="48"
-                      r="40"
-                      stroke="currentColor"
-                      strokeWidth="6"
-                      fill="transparent"
-                      strokeDasharray={circumference}
-                      strokeDashoffset={offset}
-                      className="text-blue-600 transition-all duration-500"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-center">
-                      <div className="text-lg font-bold text-foreground">{stats.avgProgress}%</div>
-                    </div>
+              <div
+                className="grid grid-cols-3 gap-2 rounded-[10px] p-2.5 mb-3"
+                style={{ background: 'rgba(120,120,128,0.04)' }}
+              >
+                <div>
+                  <div className="text-[10px] uppercase tracking-wide font-semibold" style={{ color: 'var(--ap-fg-muted, hsl(var(--muted-foreground)))' }}>
+                    Objectives
+                  </div>
+                  <div className="text-[18px] font-bold tabular-nums" style={{ color: 'var(--ap-fg, hsl(var(--foreground)))' }}>
+                    {stats.total}
                   </div>
                 </div>
-              </div>
-
-              {/* Status Summary */}
-              <div className="grid grid-cols-3 gap-2 mb-4">
-                <div className="text-center">
-                  <div className="text-lg font-bold text-green-600">{stats.onTrack}</div>
-                  <div className="text-xs text-muted-foreground">On Track</div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-wide font-semibold" style={{ color: 'var(--ap-fg-muted, hsl(var(--muted-foreground)))' }}>
+                    KR Avg
+                  </div>
+                  <div className="text-[18px] font-bold tabular-nums" style={{ color: 'var(--ap-accent, #007aff)' }}>
+                    {stats.krAvg}%
+                  </div>
                 </div>
-                <div className="text-center">
-                  <div className="text-lg font-bold text-yellow-600">{stats.atRisk}</div>
-                  <div className="text-xs text-muted-foreground">At Risk</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-lg font-bold text-red-600">{stats.offTrack}</div>
-                  <div className="text-xs text-muted-foreground">Off Track</div>
+                <div className="flex flex-col items-end justify-center">
+                  <Sparkline values={stats.sparkValues} />
                 </div>
               </div>
 
-              {/* Goals List */}
-              <div className="space-y-2 max-h-64 overflow-y-auto">
+              <div className="flex items-center gap-3 text-[11px] mb-3">
+                <span className="inline-flex items-center gap-1">
+                  <span className="size-1.5 rounded-full" style={{ background: 'var(--ap-green, #34c759)' }} />
+                  <span className="tabular-nums font-semibold">{stats.onTrack}</span>
+                  <span style={{ color: 'var(--ap-fg-muted, hsl(var(--muted-foreground)))' }}>on</span>
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="size-1.5 rounded-full" style={{ background: 'var(--ap-orange, #ff9500)' }} />
+                  <span className="tabular-nums font-semibold">{stats.atRisk}</span>
+                  <span style={{ color: 'var(--ap-fg-muted, hsl(var(--muted-foreground)))' }}>risk</span>
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="size-1.5 rounded-full" style={{ background: 'var(--ap-red, #ff3b30)' }} />
+                  <span className="tabular-nums font-semibold">{stats.offTrack}</span>
+                  <span style={{ color: 'var(--ap-fg-muted, hsl(var(--muted-foreground)))' }}>off</span>
+                </span>
+              </div>
+
+              <div className="space-y-1 max-h-56 overflow-y-auto">
                 {teamObjectives[user.id]?.length > 0 ? (
                   teamObjectives[user.id].map((objective: any) => (
                     <a
                       key={objective.id}
                       href={`/dashboard/objectives/${objective.id}`}
-                      className="block p-2 rounded-md hover:bg-muted transition-colors"
+                      className="block p-2 rounded-[8px] transition-colors hover:bg-[rgba(120,120,128,0.06)]"
                     >
-                      <div className="text-sm font-medium text-foreground line-clamp-1">
+                      <div className="text-[12px] font-medium line-clamp-1" style={{ color: 'var(--ap-fg, hsl(var(--foreground)))' }}>
                         {objective.title}
                       </div>
-                      <div className="flex items-center justify-between mt-1">
-                        <div className="w-16 bg-gray-200 rounded-full h-1.5">
+                      <div className="flex items-center justify-between mt-1 gap-2">
+                        <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ background: 'rgba(120,120,128,0.18)' }}>
                           <div
-                            className="bg-blue-600 h-1.5 rounded-full"
-                            style={{ width: `${Math.min(objective.progress, 100)}%` }}
+                            className="h-full rounded-full"
+                            style={{
+                              width: `${Math.min(objective.progress, 100)}%`,
+                              background: 'var(--ap-accent, #007aff)',
+                            }}
                           />
                         </div>
-                        <span className="text-xs text-muted-foreground">{Math.round(objective.progress)}%</span>
+                        <span className="text-[10px] tabular-nums font-semibold" style={{ color: 'var(--ap-fg-muted, hsl(var(--muted-foreground)))' }}>
+                          {Math.round(objective.progress)}%
+                        </span>
                       </div>
                     </a>
                   ))
                 ) : (
-                  <p className="text-sm text-muted-foreground text-center py-4">No goals yet</p>
+                  <p className="text-[12px] text-center py-4" style={{ color: 'var(--ap-fg-muted, hsl(var(--muted-foreground)))' }}>
+                    No goals yet
+                  </p>
                 )}
               </div>
             </div>
@@ -208,7 +270,6 @@ export default function MyTeamView() {
         })}
       </div>
 
-      {/* Create Goal Modal */}
       {createModalOpen && selectedUserId && (
         <CreateGoalModal
           isOpen={createModalOpen}
@@ -227,4 +288,3 @@ export default function MyTeamView() {
     </div>
   )
 }
-

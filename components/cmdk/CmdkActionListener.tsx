@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useCreateIntentStore } from '@/lib/stores/create-intent-store'
+import { useCheckInPickerStore } from '@/lib/stores/check-in-picker-store'
 
 /**
  * Listens for `cmdk:action` CustomEvents emitted by CommandPalette and routes
@@ -45,7 +46,7 @@ export default function CmdkActionListener() {
           return
         }
         case 'check-in': {
-          router.push('/dashboard/my-okrs')
+          useCheckInPickerStore.getState().openPicker()
           return
         }
       }

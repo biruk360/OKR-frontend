@@ -11,6 +11,8 @@ import {
 } from '@/components/layout/Sidebar'
 import Header from '@/components/layout/Header'
 import CmdkActionListener from '@/components/cmdk/CmdkActionListener'
+import CheckInPickerModal from '@/components/cmdk/CheckInPickerModal'
+import GlobalCheckInModal from '@/components/cmdk/GlobalCheckInModal'
 
 interface DashboardShellProps {
   user: {
@@ -52,6 +54,8 @@ export default function DashboardShell({ user, children }: DashboardShellProps) 
   return (
     <>
       <CmdkActionListener />
+      <CheckInPickerModal />
+      <GlobalCheckInModal />
       <SidebarMobileDrawer open={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
 
       <div

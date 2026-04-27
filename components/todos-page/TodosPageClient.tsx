@@ -94,6 +94,17 @@ export default function TodosPageClient({
   const [openTodoId, setOpenTodoId] = useState<string | null>(null)
   const [viewType, setViewType] = useState<'list' | 'kanban' | 'tree'>('list')
 
+  // Cmd-K "Create to-do" → open the create modal.
+  const createIntent = useCreateIntentStore((s) => s.intent)
+  const createNonce = useCreateIntentStore((s) => s.nonce)
+  const clearCreateIntent = useCreateIntentStore((s) => s.clear)
+  useEffect(() => {
+    if (createIntent === 'todo') {
+      setShowCreate(true)
+      clearCreateIntent()
+    }
+  }, [createIntent, createNonce, clearCreateIntent])
+
   // Hydrate stores from server-provided initial data + user prefs
   useEffect(() => {
     setTodos(initialRows as any)

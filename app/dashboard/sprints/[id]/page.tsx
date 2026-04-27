@@ -75,6 +75,9 @@ export default async function SprintBoardPage({ params }: Props) {
     name: sprint.name,
     description: sprint.description,
     ownerName: sprint.owner.name,
+    startDate: sprint.startDate ? sprint.startDate.toISOString() : null,
+    endDate: sprint.endDate ? sprint.endDate.toISOString() : null,
+    createdAt: sprint.createdAt.toISOString(),
     columns: sprint.columns.map((c) => ({
       id: c.id,
       name: c.name,

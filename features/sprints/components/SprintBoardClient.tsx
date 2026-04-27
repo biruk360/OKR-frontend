@@ -50,6 +50,9 @@ export interface SprintBoardData {
   name: string
   description: string | null
   ownerName: string
+  startDate?: string | null
+  endDate?: string | null
+  createdAt?: string
   columns: SprintBoardColumn[]
 }
 
@@ -369,7 +372,8 @@ export default function SprintBoardClient({ initial, users, keyResults, objectiv
         </div>
       </div>
 
-      <div className="px-6 py-4 overflow-x-auto">
+      <div className="px-6 py-4 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] gap-4">
+        <div className="min-w-0 overflow-x-auto">
         <div className="flex items-start gap-3 min-w-max">
           {board.columns.map((col) => (
             <div
@@ -502,6 +506,12 @@ export default function SprintBoardClient({ initial, users, keyResults, objectiv
             )}
           </div>
         </div>
+        </div>
+
+        <aside className="space-y-3 min-w-0">
+          <SprintBurndownCard board={board} />
+          <SprintMembersCard board={board} />
+        </aside>
       </div>
 
       {openCardId && (() => {
@@ -611,6 +621,148 @@ function BoardCard({
         </div>
       </div>
     </div>
+  )
+}
+
+function SprintBurndownCard({ board }: { board: SprintBoardData }) {
+  const totalCards = board.columns.reduce((s, c) => s + c.activities.length, 0)
+  const lastCol = board.columns[board.columns.length - 1]
+  const doneCount = lastCol ? lastCol.activities.length : 0
+
+  // Sprint window: prefer explicit start/end, otherwise approximate from createdAt + 14d.
+  const start = board.startDate
+    ? new Date(board.startDate)
+    : board.createdAt
+      ? new Date(board.createdAt)
+      : new Date()
+  const end = board.endDate
+    ? new Date(board.endDate)
+    : new Date(start.getTime() + 14 * 24 * 60 * 60 * 1000)
+
+  const dayMs = 24 * 60 * 60 * 1000
+  const totalDays = Math.max(1, Math.round((end.getTime() - start.getTime()) / dayMs))
+  const today = Date.now()
+  const elapsedDays = Math.max(0, Math.min(totalDays, Math.round((today - start.getTime()) / dayMs)))
+
+  // Ideal: linear from totalCards → 0 over totalDays.
+  const ideal = [
+    { x: 0, y: totalCards },
+    { x: totalDays, y: 0 },
+  ]
+  // Actual: only have today's snapshot — draw start → today's remaining.
+  const remaining = Math.max(0, totalCards - doneCount)
+  const actual = [
+    { x: 0, y: totalCards },
+    { x: elapsedDays, y: remaining },
+  ]
+
+  const W = 308, H = 140, padL = 4, padR = 4, padT = 8, padB = 18
+  const innerW = W - padL - padR
+  const innerH = H - padT - padB
+  const x = (d: number) => padL + (d / Math.max(1, totalDays)) * innerW
+  const y = (v: number) => padT + (1 - v / Math.max(1, totalCards)) * innerH
+  const path = (pts: { x: number; y: number }[]) =>
+    pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${x(p.x).toFixed(1)} ${y(p.y).toFixed(1)}`).join(' ')
+
+  return (
+    <section className="rounded-[14px] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
+      <header className="flex items-baseline justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--ap-border)' }}>
+        <h3 className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Burndown</h3>
+        <span className="text-[10px] font-mono text-muted-foreground tabular-nums">
+          D{elapsedDays}/{totalDays}
+        </span>
+      </header>
+
+      <div className="grid grid-cols-2 border-b" style={{ borderColor: 'var(--ap-border)' }}>
+        <div className="px-4 py-3 border-r" style={{ borderColor: 'var(--ap-border)' }}>
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Remaining</p>
+          <p className="mt-1 text-[22px] font-semibold tabular-nums leading-none" style={{ letterSpacing: '-0.02em', color: 'var(--ap-accent)' }}>
+            {remaining}
+          </p>
+        </div>
+        <div className="px-4 py-3">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Done</p>
+          <p className="mt-1 text-[22px] font-semibold tabular-nums leading-none" style={{ letterSpacing: '-0.02em', color: 'var(--ap-green)' }}>
+            {doneCount}<span className="text-[12px] text-muted-foreground font-normal">/{totalCards}</span>
+          </p>
+        </div>
+      </div>
+
+      <div className="px-3 pt-2">
+        <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} className="overflow-visible">
+          <line x1={padL} x2={W - padR} y1={H - padB} y2={H - padB} stroke="var(--ap-border)" strokeWidth={1} />
+          <path d={path(ideal)} fill="none" stroke="var(--ap-fg-faint)" strokeWidth={1.5} strokeDasharray="2 4" />
+          <path d={path(actual)} fill="none" stroke="var(--ap-accent)" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+          <circle
+            cx={x(elapsedDays)}
+            cy={y(remaining)}
+            r={3.5}
+            fill="var(--ap-accent)"
+            stroke="var(--ap-bg-raised)"
+            strokeWidth={2}
+          />
+        </svg>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-1.5 px-4 pb-3 pt-1">
+        <span className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: 'var(--ap-bg-sunken)', color: 'var(--ap-fg-muted)' }}>
+          <span className="inline-block w-3 h-[2px] rounded-full" style={{ background: 'var(--ap-accent)' }} />
+          Actual
+        </span>
+        <span className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: 'var(--ap-bg-sunken)', color: 'var(--ap-fg-muted)' }}>
+          <span className="inline-block w-3 h-[2px] rounded-full" style={{ borderTop: '2px dotted var(--ap-fg-faint)' }} />
+          Ideal
+        </span>
+      </div>
+    </section>
+  )
+}
+
+function SprintMembersCard({ board }: { board: SprintBoardData }) {
+  const lastColId = board.columns[board.columns.length - 1]?.id
+  const byUser = new Map<string, { owner: SprintBoardActivity['owner']; total: number; done: number }>()
+  for (const col of board.columns) {
+    for (const a of col.activities) {
+      const cur = byUser.get(a.ownerId) ?? { owner: a.owner, total: 0, done: 0 }
+      cur.total += 1
+      if (col.id === lastColId) cur.done += 1
+      byUser.set(a.ownerId, cur)
+    }
+  }
+  const members = Array.from(byUser.values()).sort((a, b) => b.total - a.total)
+
+  return (
+    <section className="rounded-[14px] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
+      <header className="flex items-baseline justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--ap-border)' }}>
+        <h3 className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Team</h3>
+        <span className="text-[10px] font-mono text-muted-foreground tabular-nums">{members.length}</span>
+      </header>
+      {members.length === 0 ? (
+        <p className="px-4 py-6 text-[12px] text-muted-foreground text-center">No assignees yet.</p>
+      ) : (
+        <ul className="divide-y" style={{ borderColor: 'var(--ap-border)' }}>
+          {members.map((m) => {
+            const initials = (m.owner.name || '?').split(' ').map((p) => p[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()
+            return (
+              <li key={m.owner.id} className="flex items-center gap-2.5 px-4 py-2.5">
+                {m.owner.avatar ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={m.owner.avatar} alt="" className="size-7 rounded-full object-cover" />
+                ) : (
+                  <span className="flex size-7 items-center justify-center rounded-full text-[11px] font-semibold text-white" style={{ background: 'var(--ap-accent)' }}>
+                    {initials}
+                  </span>
+                )}
+                <span className="flex-1 truncate text-[13px]" style={{ color: 'var(--ap-fg)' }}>{m.owner.name}</span>
+                <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold tabular-nums" style={{ background: 'var(--ap-bg-sunken)', color: 'var(--ap-fg-muted)' }}>
+                  {m.done}/{m.total}
+                </span>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </section>
   )
 }
 

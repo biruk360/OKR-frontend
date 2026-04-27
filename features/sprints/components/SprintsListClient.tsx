@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useCreateIntentStore } from '@/lib/stores/create-intent-store'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
@@ -24,6 +25,16 @@ export default function SprintsListClient({ sprints }: { sprints: SprintRow[] })
   const [name, setName] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const router = useRouter()
+
+  const createIntent = useCreateIntentStore((s) => s.intent)
+  const createNonce = useCreateIntentStore((s) => s.nonce)
+  const clearCreateIntent = useCreateIntentStore((s) => s.clear)
+  useEffect(() => {
+    if (createIntent === 'sprint') {
+      setCreating(true)
+      clearCreateIntent()
+    }
+  }, [createIntent, createNonce, clearCreateIntent])
 
   async function createSprint() {
     if (!name.trim()) return

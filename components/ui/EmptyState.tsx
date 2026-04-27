@@ -18,8 +18,13 @@ export interface EmptyStateProps {
 }
 
 function isLucideIcon(value: unknown): value is LucideIcon {
-  // LucideIcon is a forwardRef component (function); ReactNodes are typically elements/strings.
-  return typeof value === 'function'
+  // LucideIcon is a component reference, not a rendered element. In dev it's a
+  // function; production builds ship lucide as forwardRef objects ({$$typeof,
+  // render, displayName}). Both are valid component types — distinguish from
+  // ReactNodes (elements have $$typeof + type/props, not render).
+  if (typeof value === 'function') return true
+  if (typeof value === 'object' && value !== null && 'render' in value) return true
+  return false
 }
 
 function isActionDescriptor(value: unknown): value is { label: string; onClick: () => void } {

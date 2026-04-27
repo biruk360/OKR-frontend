@@ -656,6 +656,12 @@ export default function KeyResultDetailClient({
           onClose={() => setCheckInOpen(false)}
           keyResult={kr}
           objectiveTimeframe={timeframe}
+          objectiveCode={(() => {
+            const prefix = objective.level === 'COMPANY' ? 'CO' : objective.level === 'DEPARTMENT' ? 'DE' : 'IN'
+            const suffix = String((objective as any).code ?? '').padStart(2, '0') || objective.id.slice(-4).toUpperCase()
+            return `${prefix}-${suffix}`
+          })()}
+          krLabel={`KR${siblingNav.index + 1}`}
           onSuccess={() => {
             setCheckInOpen(false)
             afterMutation()

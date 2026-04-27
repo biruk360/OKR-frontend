@@ -33,6 +33,10 @@ export default function Header({ user, onMobileNavOpen }: HeaderProps) {
   const pathname = usePathname()
   const { overrideTitle } = useDashboardTitleContext()
   const pageTitle = overrideTitle ?? getDashboardPageTitle(pathname)
+  // On detail pages the entity title is already shown by the breadcrumb + hero,
+  // so the global header h1 would just repeat it (and wraps awkwardly when long).
+  const hidePageTitle =
+    /^\/dashboard\/(objectives|key-results)\/[^/]+\/?$/.test(pathname)
 
   const getInitials = (name: string) => {
     return name
@@ -59,7 +63,9 @@ export default function Header({ user, onMobileNavOpen }: HeaderProps) {
         )}
 
         <div className="min-w-0 flex-1">
-          <h1 className="truncate text-lg font-semibold">{pageTitle}</h1>
+          {!hidePageTitle && (
+            <h1 className="truncate text-lg font-semibold">{pageTitle}</h1>
+          )}
         </div>
 
         <button

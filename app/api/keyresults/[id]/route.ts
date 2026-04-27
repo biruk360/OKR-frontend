@@ -34,6 +34,7 @@ export const GET = withAuth<RouteIdParams>(async (_request, { session, params })
           ownerId: true,
           departmentId: true,
           isPrivate: true,
+          timeframe: { select: { name: true, startDate: true, endDate: true } },
         },
       },
       todos: {

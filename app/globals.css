@@ -1377,3 +1377,53 @@
   height: 0;
   pointer-events: none;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Apple Pro motion tokens + utilities — applied via .theme-apple-full scope
+   so they coexist with other themes. See globals.css for the rest of the
+   --ap-* token set.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.apple-pro-surface,
+.theme-apple-full {
+  --ap-spring: cubic-bezier(0.32, 0.72, 0, 1);    /* Apple's standard spring */
+  --ap-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ap-duration-fast: 150ms;
+  --ap-duration-base: 200ms;
+  --ap-duration-slow: 300ms;
+}
+
+.ap-hover-lift {
+  transition:
+    transform var(--ap-duration-fast, 150ms) var(--ap-spring, cubic-bezier(0.32, 0.72, 0, 1)),
+    box-shadow var(--ap-duration-fast, 150ms) var(--ap-spring, cubic-bezier(0.32, 0.72, 0, 1));
+}
+.ap-hover-lift:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--ap-shadow-md, 0 2px 8px rgba(0,0,0,0.06));
+}
+
+.ap-focus-ring:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.35);
+  transition: box-shadow var(--ap-duration-fast, 150ms) var(--ap-ease-out, cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+/* Global focus ring for inputs/buttons/selects under the Apple Pro theme. */
+.theme-apple-full input:focus-visible,
+.theme-apple-full button:focus-visible,
+.theme-apple-full select:focus-visible,
+.apple-pro-surface input:focus-visible,
+.apple-pro-surface button:focus-visible,
+.apple-pro-surface select:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.35);
+  transition: box-shadow var(--ap-duration-fast, 150ms) var(--ap-ease-out, cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+@keyframes ap-modal-in {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+.ap-modal-enter {
+  animation: ap-modal-in var(--ap-duration-base, 200ms) var(--ap-spring, cubic-bezier(0.32, 0.72, 0, 1));
+}

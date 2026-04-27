@@ -4,10 +4,11 @@ import Link from 'next/link'
 import { Calendar, User as UserIcon, Users as UsersIcon, Target, Database, Building2 } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ActivityLogPanel } from '@/components/shared/ActivityLogPanel'
-import OkrComments from '@/components/shared/OkrComments'
 import RisksPanel from '@/components/shared/RisksPanel'
+import ViewersList from '@/components/shared/ViewersList'
 import { useState } from 'react'
 import { useSession } from 'next-auth/react'
+import { useViewTracker } from '@/hooks/useViewTracker'
 
 interface UserLite { id: string; name: string; avatar?: string | null; email?: string | null }
 
@@ -45,8 +46,10 @@ function timeframeTypeLabel(type: string): string {
 export default function ActivityTabs({ objectiveId, activityElementId, users, details }: Props) {
   const { data: session } = useSession()
   const [risksCount, setRisksCount] = useState<number | null>(null)
+  const [viewersCount, setViewersCount] = useState<number | null>(null)
   const userId = session?.user?.id ?? ''
   const userRole = (session?.user?.role as string | undefined) ?? 'EMPLOYEE'
+  useViewTracker({ objectiveId })
   return (
     <section className="rounded-[14px] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
       <Tabs defaultValue="details">
@@ -60,7 +63,7 @@ export default function ActivityTabs({ objectiveId, activityElementId, users, de
               value={v}
               className="rounded-none border-b-2 border-transparent px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground data-[state=active]:border-[var(--ap-accent)] data-[state=active]:text-[var(--ap-fg)] data-[state=active]:shadow-none data-[state=active]:bg-transparent"
             >
-              {v === 'details' ? 'Details' : v === 'activity' ? 'Activity' : v === 'risks' ? `Risks${risksCount !== null ? ` (${risksCount})` : ''}` : 'Viewers'}
+              {v === 'details' ? 'Details' : v === 'activity' ? 'Activity' : v === 'risks' ? `Risks${risksCount !== null ? ` (${risksCount})` : ''}` : `Viewers${viewersCount !== null ? ` (${viewersCount})` : ''}`}
             </TabsTrigger>
           ))}
         </TabsList>
@@ -213,8 +216,8 @@ export default function ActivityTabs({ objectiveId, activityElementId, users, de
         </TabsContent>
 
         <TabsContent value="viewers" className="m-0 p-0">
-          <div className="px-4 py-3 max-h-[460px] overflow-auto">
-            <OkrComments endpoint="objectives" entityId={objectiveId} users={users} />
+          <div className="px-4 py-4 max-h-[460px] overflow-auto">
+            <ViewersList endpoint="objectives" entityId={objectiveId} onCountChange={setViewersCount} />
           </div>
         </TabsContent>
       </Tabs>

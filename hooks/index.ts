@@ -10,3 +10,6 @@ export type { DepartmentWithCounts } from './useDepartments'
 
 export { useReferenceData } from './useReferenceData'
 export type { UseReferenceDataOptions } from './useReferenceData'
+
+export { useViewTracker } from './useViewTracker'
+export type { ViewerRow } from './useViewTracker'

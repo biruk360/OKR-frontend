@@ -6,10 +6,12 @@ import { format } from 'date-fns'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ActivityLogPanel } from '@/components/shared/ActivityLogPanel'
 import RisksPanel from '@/components/shared/RisksPanel'
+import ViewersList from '@/components/shared/ViewersList'
 import { formatAxisValue } from '@/lib/keyResultChart'
 import CheckInTimeline from './CheckInTimeline'
 import { useState } from 'react'
 import { useSession } from 'next-auth/react'
+import { useViewTracker } from '@/hooks/useViewTracker'
 
 interface UserLite {
   id?: string
@@ -62,8 +64,10 @@ function timeframeTypeLabel(type?: string): string {
 export default function KrInspectorTabs({ keyResultId, activityElementId, details, checkIns }: Props) {
   const { data: session } = useSession()
   const [risksCount, setRisksCount] = useState<number | null>(null)
+  const [viewersCount, setViewersCount] = useState<number | null>(null)
   const userId = session?.user?.id ?? ''
   const userRole = (session?.user?.role as string | undefined) ?? 'EMPLOYEE'
+  useViewTracker({ keyResultId })
   return (
     <section className="rounded-[14px] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
       <Tabs defaultValue="details">
@@ -71,13 +75,13 @@ export default function KrInspectorTabs({ keyResultId, activityElementId, detail
           className="h-9 w-full justify-start gap-0 p-0 rounded-none border-b bg-transparent"
           style={{ borderColor: 'var(--ap-border)' }}
         >
-          {(['details', 'checkins', 'activity', 'risks'] as const).map((v) => (
+          {(['details', 'checkins', 'activity', 'risks', 'viewers'] as const).map((v) => (
             <TabsTrigger
               key={v}
               value={v}
               className="rounded-none border-b-2 border-transparent px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground data-[state=active]:border-[var(--ap-accent)] data-[state=active]:text-[var(--ap-fg)] data-[state=active]:shadow-none data-[state=active]:bg-transparent"
             >
-              {v === 'details' ? 'Details' : v === 'checkins' ? 'Check-ins' : v === 'activity' ? 'Activity' : `Risks${risksCount !== null ? ` (${risksCount})` : ''}`}
+              {v === 'details' ? 'Details' : v === 'checkins' ? 'Check-ins' : v === 'activity' ? 'Activity' : v === 'risks' ? `Risks${risksCount !== null ? ` (${risksCount})` : ''}` : `Viewers${viewersCount !== null ? ` (${viewersCount})` : ''}`}
             </TabsTrigger>
           ))}
         </TabsList>
@@ -222,6 +226,12 @@ export default function KrInspectorTabs({ keyResultId, activityElementId, detail
             currentUserRole={userRole}
             onCountChange={setRisksCount}
           />
+        </TabsContent>
+
+        <TabsContent value="viewers" className="m-0 p-0">
+          <div className="px-4 py-4 max-h-[460px] overflow-auto">
+            <ViewersList endpoint="keyresults" entityId={keyResultId} onCountChange={setViewersCount} />
+          </div>
         </TabsContent>
       </Tabs>
     </section>

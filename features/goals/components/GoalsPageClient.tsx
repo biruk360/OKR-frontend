@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useSession } from 'next-auth/react'
 import GoalsTabBar from './GoalsTabBar'
 import GoalsListView from './GoalsListView'
 import MyTeamView from './MyTeamView'
@@ -30,20 +29,34 @@ export default function GoalsPageClient({ user }: GoalsPageClientProps) {
   ]
 
   const availableTabs = tabs.filter(tab => tab.available)
+  const currentLabel = availableTabs.find(t => t.id === activeTab)?.label ?? 'Goals'
 
   return (
     <div className="space-y-3">
-      {/* Tab Bar */}
-      <GoalsTabBar
-        tabs={availableTabs}
-        activeTab={activeTab}
-        onTabChange={(tab) => setActiveTab(tab as GoalTab)}
-        viewMode={viewMode}
-        onViewModeChange={setViewMode}
-        showUserView={activeTab === 'my-team'}
-      />
+      {/* AP Hero */}
+      <header className="px-1">
+        <h1 className="text-[24px] font-semibold tracking-tight text-foreground">Goals</h1>
+        <p className="mt-1 text-[13px] text-muted-foreground">
+          {currentLabel} · view, filter and track your OKRs.
+        </p>
+      </header>
 
-      {/* Content based on active tab */}
+      {/* AP Tab Bar Card */}
+      <div
+        className="rounded-[14px] border bg-card overflow-hidden"
+        style={{ borderColor: 'var(--ap-border)' }}
+      >
+        <GoalsTabBar
+          tabs={availableTabs}
+          activeTab={activeTab}
+          onTabChange={(tab) => setActiveTab(tab as GoalTab)}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          showUserView={activeTab === 'my-team'}
+        />
+      </div>
+
+      {/* Content */}
       {activeTab === 'my-team' && viewMode === 'user' ? (
         <MyTeamView />
       ) : (
@@ -55,4 +68,3 @@ export default function GoalsPageClient({ user }: GoalsPageClientProps) {
     </div>
   )
 }
-

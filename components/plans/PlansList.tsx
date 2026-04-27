@@ -4,6 +4,8 @@ import dynamic from 'next/dynamic'
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Star, MoreHorizontal, Search, List, GanttChartSquare } from 'lucide-react'
+import StatusPill from '@/components/shared/StatusPill'
+import { EmptyState } from '@/components/ui/EmptyState'
 
 const PlansGantt = dynamic(() => import('./PlansGantt'), { ssr: false })
 
@@ -30,6 +32,38 @@ export interface PlanRow {
 }
 
 const FAVORITES_KEY = 'okr.plans.favorites'
+
+function APSeg<T extends string>({
+  options, value, onChange,
+}: {
+  options: { value: T; label: string; icon?: React.ReactNode }[]
+  value: T
+  onChange: (v: T) => void
+}) {
+  return (
+    <div
+      className="inline-flex items-center rounded-[10px] p-0.5 border"
+      style={{ background: 'var(--ap-bg-sunken)', borderColor: 'var(--ap-border)' }}
+    >
+      {options.map((opt) => {
+        const active = value === opt.value
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onChange(opt.value)}
+            className={`inline-flex items-center gap-1 h-6 px-2.5 rounded-[8px] text-[11px] font-medium transition ${
+              active ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {opt.icon}
+            {opt.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
 
 export default function PlansList({
   rows,
@@ -89,167 +123,198 @@ export default function PlansList({
   const favoriteRows = filteredRows.filter((r) => favorites.has(r.id))
   const otherRows = filteredRows.filter((r) => !favorites.has(r.id))
 
+  // KPIs
+  const kpis = useMemo(() => {
+    const total = rows.length
+    const onTrack = rows.filter((r) => r.ncs > 66).length
+    const atRisk = rows.filter((r) => r.ncs > 33 && r.ncs <= 66).length
+    const offTrack = rows.filter((r) => r.ncs <= 33).length
+    const avgProgress = total
+      ? Math.round(rows.reduce((s, r) => s + (r.keyResultsProgressPct || 0), 0) / total)
+      : 0
+    return { total, onTrack, atRisk, offTrack, avgProgress }
+  }, [rows])
+
   return (
-    <div className=" -m-3 sm:-m-6 min-h-full p-4 sm:p-6">
-      <div className={view === 'gantt' ? 'w-full' : 'mx-auto max-w-[1280px]'}>
-        {/* Tabs + create button */}
-        <div className="mb-3 flex items-center justify-between border-b border-border">
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === 'all'}
-              className="inline-flex items-center gap-1 px-2.5 py-2 text-sm font-medium border-b-2 border-transparent cursor-pointer text-muted-foreground hover:text-foreground"
-              onClick={() => setTab('all')}
-            >
-              All plans
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === 'watched'}
-              className="inline-flex items-center gap-1 px-2.5 py-2 text-sm font-medium border-b-2 border-transparent cursor-pointer text-muted-foreground hover:text-foreground"
-              onClick={() => setTab('watched')}
-            >
-              Watched plans
-            </button>
+    <div className="-m-3 sm:-m-6 min-h-full p-4 sm:p-6">
+      <div className={view === 'gantt' ? 'w-full space-y-4' : 'mx-auto max-w-[1280px] space-y-4'}>
+        {/* Hero */}
+        <header className="flex flex-wrap items-end justify-between gap-3 px-1">
+          <div>
+            <h1 className="text-[24px] font-semibold tracking-tight text-foreground">Plans</h1>
+            <p className="mt-1 text-[13px] text-muted-foreground">
+              {kpis.total} plan{kpis.total === 1 ? '' : 's'} across the organization · avg progress {kpis.avgProgress}%
+            </p>
           </div>
-          <div className="flex items-center gap-2 pb-1">
-            <div className="inline-flex rounded border border-border overflow-hidden">
-              <button
-                type="button"
-                onClick={() => setView('list')}
-                className={`inline-flex items-center gap-1 px-2 py-1 text-xs ${
-                  view === 'list'
-                    ? 'bg-primary-500 text-white'
-                    : 'bg-card text-muted-foreground hover:bg-muted'
-                }`}
-                aria-pressed={view === 'list'}
-                title="List view"
-              >
-                <List className="h-3.5 w-3.5" /> List
-              </button>
-              <button
-                type="button"
-                onClick={() => setView('gantt')}
-                className={`inline-flex items-center gap-1 px-2 py-1 text-xs ${
-                  view === 'gantt'
-                    ? 'bg-primary-500 text-white'
-                    : 'bg-card text-muted-foreground hover:bg-muted'
-                }`}
-                aria-pressed={view === 'gantt'}
-                title="Gantt view"
-              >
-                <GanttChartSquare className="h-3.5 w-3.5" /> Gantt
-              </button>
-            </div>
+          <div className="flex items-center gap-2">
+            <APSeg
+              value={view}
+              onChange={setView}
+              options={[
+                { value: 'list', label: 'List', icon: <List className="h-3 w-3" /> },
+                { value: 'gantt', label: 'Gantt', icon: <GanttChartSquare className="h-3 w-3" /> },
+              ]}
+            />
             <Link
               href="/dashboard/objectives?create=1"
-              className="btn-outline btn-primary"
+              className="inline-flex h-7 items-center rounded-[10px] px-3 text-[12px] font-semibold text-white"
+              style={{ background: 'var(--ap-accent)' }}
             >
               Create a plan
             </Link>
-            <button className="inline-flex items-center justify-center size-6 rounded hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer" aria-label="More">
+            <button
+              className="inline-flex items-center justify-center size-7 rounded-[10px] border text-muted-foreground hover:text-foreground"
+              style={{ borderColor: 'var(--ap-border)' }}
+              aria-label="More"
+            >
               <MoreHorizontal className="h-4 w-4" />
             </button>
           </div>
+        </header>
+
+        {/* KPI strip */}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <KpiCard label="Total" value={kpis.total} tint="var(--ap-fg-muted)" />
+          <KpiCard label="On track" value={kpis.onTrack} tint="var(--ap-green)" />
+          <KpiCard label="At risk" value={kpis.atRisk} tint="var(--ap-orange)" />
+          <KpiCard label="Off track" value={kpis.offTrack} tint="var(--ap-red)" />
         </div>
 
-        {/* Filter row */}
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <div className="relative">
-            <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <input
-              className="input pl-7 w-[220px]"
-              placeholder="Filter plans by name"
-              value={nameFilter}
-              onChange={(e) => setNameFilter(e.target.value)}
+        {/* Sub-tabs + filter strip */}
+        <div
+          className="rounded-[14px] border bg-card overflow-hidden"
+          style={{ borderColor: 'var(--ap-border)' }}
+        >
+          <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b" style={{ borderColor: 'var(--ap-border)' }}>
+            <APSeg
+              value={tab}
+              onChange={setTab}
+              options={[
+                { value: 'all', label: 'All plans' },
+                { value: 'watched', label: 'Watched' },
+              ]}
             />
-          </div>
-          <select
-            className="input input w-[180px]"
-            value={teamFilter}
-            onChange={(e) => setTeamFilter(e.target.value)}
-          >
-            <option value="">Filter plans by team</option>
-            {departments.map((d) => (
-              <option key={d} value={d}>{d}</option>
-            ))}
-          </select>
-          <select
-            className="input input w-[180px]"
-            value={insightFilter}
-            onChange={(e) => setInsightFilter(e.target.value)}
-          >
-            <option value="">Filter plans by insight</option>
-            <option value="on-track">On track (NCS &gt; 66)</option>
-            <option value="at-risk">At risk (NCS 34–66)</option>
-            <option value="off-track">Off track (NCS ≤ 33)</option>
-          </select>
-          <label className="ml-auto inline-flex items-center gap-2 text-[12px] text-muted-foreground">
-            <input
-              type="checkbox"
-              checked={hideFinished}
-              onChange={(e) => setHideFinished(e.target.checked)}
-              className="appearance-none w-3.5 h-3.5 rounded border border-border"
-            />
-            Hide finished plans
-          </label>
-        </div>
-
-        {/* Gantt view */}
-        {view === 'gantt' && <PlansGantt />}
-
-        {/* Table */}
-        {view === 'list' && (
-        <div className="rounded-lg border border-border bg-card overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr>
-                <th style={{ width: '40%' }}>Plan</th>
-                <th style={{ width: '14%' }}>Key results</th>
-                <th style={{ width: '12%' }}>Initiatives</th>
-                <th style={{ width: '14%' }}>Confidence</th>
-                <th style={{ width: '12%' }}>Timeline</th>
-                <th style={{ width: '8%' }}>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {favoriteRows.length > 0 && (
-                <>
-                  <tr>
-                    <td colSpan={6} className="!py-1.5 !pl-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground !border-b-0">Favorite plans</td>
-                  </tr>
-                  {favoriteRows.map((row) => (
-                    <PlanTableRow key={row.id} row={row} isFavorite onToggleFavorite={toggleFavorite} />
-                  ))}
-                </>
-              )}
-              {(favoriteRows.length > 0 && otherRows.length > 0) && (
-                <tr>
-                  <td colSpan={6} className="!py-1.5 !pl-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground !border-b-0">All plans</td>
-                </tr>
-              )}
-              {otherRows.map((row) => (
-                <PlanTableRow key={row.id} row={row} isFavorite={false} onToggleFavorite={toggleFavorite} />
+            <div className="relative ml-1">
+              <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <input
+                className="h-7 w-[220px] rounded-[10px] border bg-background pl-7 pr-2 text-[12px] outline-none"
+                style={{ borderColor: 'var(--ap-border)' }}
+                placeholder="Filter by name"
+                value={nameFilter}
+                onChange={(e) => setNameFilter(e.target.value)}
+              />
+            </div>
+            <select
+              className="h-7 rounded-[10px] border bg-background px-2 text-[12px] outline-none"
+              style={{ borderColor: 'var(--ap-border)' }}
+              value={teamFilter}
+              onChange={(e) => setTeamFilter(e.target.value)}
+            >
+              <option value="">All teams</option>
+              {departments.map((d) => (
+                <option key={d} value={d}>{d}</option>
               ))}
-              {filteredRows.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="text-center !py-8 text-xs text-muted-foreground">
-                    No plans match your filters.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+            </select>
+            <select
+              className="h-7 rounded-[10px] border bg-background px-2 text-[12px] outline-none"
+              style={{ borderColor: 'var(--ap-border)' }}
+              value={insightFilter}
+              onChange={(e) => setInsightFilter(e.target.value)}
+            >
+              <option value="">Any insight</option>
+              <option value="on-track">On track (NCS &gt; 66)</option>
+              <option value="at-risk">At risk (NCS 34–66)</option>
+              <option value="off-track">Off track (NCS ≤ 33)</option>
+            </select>
+            <label className="ml-auto inline-flex items-center gap-2 text-[12px] text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={hideFinished}
+                onChange={(e) => setHideFinished(e.target.checked)}
+                className="appearance-none w-3.5 h-3.5 rounded border"
+                style={{ borderColor: 'var(--ap-border)' }}
+              />
+              Hide finished
+            </label>
+          </div>
+
+          {/* Gantt */}
+          {view === 'gantt' && (
+            <div className="p-3"><PlansGantt /></div>
+          )}
+
+          {/* List */}
+          {view === 'list' && (
+            filteredRows.length === 0 ? (
+              <div className="p-2">
+                <EmptyState
+                  bare
+                  title="No plans match your filters"
+                  description="Adjust the filters above or clear them to see all plans."
+                />
+              </div>
+            ) : (
+              <div className="overflow-hidden">
+                <div
+                  className="grid items-center gap-2 px-4 py-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground border-b"
+                  style={{
+                    borderColor: 'var(--ap-border)',
+                    background: 'var(--ap-bg-sunken)',
+                    gridTemplateColumns: 'minmax(0,2.5fr) minmax(140px,1fr) minmax(120px,0.8fr) 90px minmax(120px,1fr) 110px',
+                  }}
+                >
+                  <div>Plan</div>
+                  <div>Key results</div>
+                  <div>Initiatives</div>
+                  <div>NCS</div>
+                  <div>Timeline</div>
+                  <div>Status</div>
+                </div>
+
+                {favoriteRows.length > 0 && (
+                  <>
+                    <div className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Favorites
+                    </div>
+                    {favoriteRows.map((row) => (
+                      <PlanRowItem key={row.id} row={row} isFavorite onToggleFavorite={toggleFavorite} />
+                    ))}
+                  </>
+                )}
+                {favoriteRows.length > 0 && otherRows.length > 0 && (
+                  <div className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground border-t" style={{ borderColor: 'var(--ap-border)' }}>
+                    All plans
+                  </div>
+                )}
+                {otherRows.map((row) => (
+                  <PlanRowItem key={row.id} row={row} isFavorite={false} onToggleFavorite={toggleFavorite} />
+                ))}
+              </div>
+            )
+          )}
         </div>
-        )}
       </div>
     </div>
   )
 }
 
-function PlanTableRow({
+function KpiCard({ label, value, tint }: { label: string; value: number; tint: string }) {
+  return (
+    <div
+      className="rounded-[14px] border bg-card p-4"
+      style={{ borderColor: 'var(--ap-border)' }}
+    >
+      <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="mt-1 flex items-baseline gap-2">
+        <span className="text-[28px] font-semibold tabular-nums tracking-tight" style={{ color: tint }}>
+          {value}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+function PlanRowItem({
   row,
   isFavorite,
   onToggleFavorite,
@@ -259,57 +324,69 @@ function PlanTableRow({
   onToggleFavorite: (id: string) => void
 }) {
   const planLink = `/dashboard/objectives/${row.id}`
-  const ncsTone = row.ncs <= 33 ? 'danger' : row.ncs <= 66 ? 'warning' : 'success'
-  const statusTone =
-    row.status === 'ARCHIVED' || row.goalStatus === 'CLOSED' ? undefined : 'primary'
-  const statusLabel =
-    row.status === 'ARCHIVED' ? 'Archived' : row.goalStatus === 'CLOSED' ? 'Done' : 'In progress'
+  const ncsColor =
+    row.ncs <= 33 ? 'var(--ap-red)' : row.ncs <= 66 ? 'var(--ap-orange)' : 'var(--ap-green)'
+  const status =
+    row.status === 'ARCHIVED' ? 'closed' : row.goalStatus === 'CLOSED' ? 'completed' : 'in-progress'
   const timeline = `${formatMonthYear(row.timeframeStart)} → ${formatMonthYear(row.timeframeEnd)}`
 
   return (
-    <tr>
-      <td>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => onToggleFavorite(row.id)}
-            className="inline-flex items-center justify-center size-6 rounded hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
-            aria-label={isFavorite ? 'Unfavorite' : 'Favorite'}
-            title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+    <div
+      className="grid items-center gap-2 px-4 py-2.5 border-t hover:bg-[var(--ap-bg-hover,rgba(0,0,0,0.02))] transition-colors"
+      style={{
+        borderColor: 'var(--ap-border)',
+        gridTemplateColumns: 'minmax(0,2.5fr) minmax(140px,1fr) minmax(120px,0.8fr) 90px minmax(120px,1fr) 110px',
+      }}
+    >
+      <div className="flex items-center gap-2 min-w-0">
+        <button
+          type="button"
+          onClick={() => onToggleFavorite(row.id)}
+          className="inline-flex items-center justify-center size-6 rounded-md text-muted-foreground hover:bg-muted"
+          aria-label={isFavorite ? 'Unfavorite' : 'Favorite'}
+        >
+          <Star className={`h-3.5 w-3.5 ${isFavorite ? 'fill-yellow-400 text-yellow-500' : ''}`} />
+        </button>
+        <Link href={planLink} className="text-[13px] font-medium text-foreground hover:underline truncate">
+          {row.title}
+        </Link>
+        {row.department && (
+          <span
+            className="inline-flex items-center h-5 px-1.5 text-[10px] font-medium rounded-full"
+            style={{ background: 'var(--ap-bg-sunken)', color: 'var(--ap-fg-muted)' }}
           >
-            <Star className={`h-3.5 w-3.5 ${isFavorite ? 'fill-yellow-400 text-yellow-500' : ''}`} />
-          </button>
-          <Link href={planLink} className="font-medium text-foreground hover:underline">
-            {row.title}
-          </Link>
-          {row.department && (
-            <span className="inline-flex items-center h-5 px-1.5 text-xs font-medium rounded">{row.department}</span>
-          )}
+            {row.department}
+          </span>
+        )}
+      </div>
+      <div className="flex items-center gap-2">
+        <div
+          className="h-1.5 w-16 overflow-hidden rounded-full"
+          style={{ background: 'var(--ap-bg-sunken)' }}
+        >
+          <div
+            className="h-full rounded-full"
+            style={{ width: `${row.keyResultsProgressPct}%`, background: 'var(--ap-accent)' }}
+          />
         </div>
-      </td>
-      <td>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground tabular-nums">{row.keyResultsProgressPct}%</span>
-          <div className="w-16 h-1 w-full bg-muted rounded-full overflow-hidden">
-            <div className="h-full bg-primary-500 rounded-full transition-all" style={{ width: `${row.keyResultsProgressPct}%` }} />
-          </div>
-        </div>
-      </td>
-      <td>
-        <span className="text-sm text-muted-foreground tabular-nums">
-          {row.initiativesClosed}/{row.initiativesTotal}
+        <span className="text-[12px] tabular-nums text-muted-foreground">{row.keyResultsProgressPct}%</span>
+      </div>
+      <div className="text-[12px] tabular-nums text-muted-foreground">
+        {row.initiativesClosed}/{row.initiativesTotal}
+      </div>
+      <div>
+        <span
+          className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums"
+          style={{ background: 'rgba(0,0,0,0.04)', color: ncsColor }}
+        >
+          {row.ncs}
         </span>
-      </td>
-      <td>
-        <span className="inline-flex items-center h-4 px-1 text-[11px] font-bold uppercase rounded" data-tone={ncsTone}>
-          {row.ncs} NCS
-        </span>
-      </td>
-      <td className="text-xs text-muted-foreground">{timeline}</td>
-      <td>
-        <span className="inline-flex items-center h-4 px-1 text-[11px] font-bold uppercase rounded" data-tone={statusTone}>{statusLabel}</span>
-      </td>
-    </tr>
+      </div>
+      <div className="text-[12px] text-muted-foreground tabular-nums">{timeline}</div>
+      <div>
+        <StatusPill status={status} size="xs" />
+      </div>
+    </div>
   )
 }
 

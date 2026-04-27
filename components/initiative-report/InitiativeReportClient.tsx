@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
-import { Calendar, AlertCircle, CheckCircle2, Search, ChevronDown, ChevronRight, Pencil } from 'lucide-react'
+import { CheckCircle2, Search, ChevronDown, ChevronRight, Printer } from 'lucide-react'
+import { EmptyState } from '@/components/ui/EmptyState'
 
 interface DayCell {
   date: string
@@ -104,16 +105,21 @@ export default function InitiativeReportClient() {
     return todayCell && !todayCell.hasUpdate && r.status !== 'COMPLETED'
   }).length
 
+  const onTrack = rows.filter((r) => r.compliancePct >= 80).length
+  const atRisk = rows.filter((r) => r.compliancePct >= 50 && r.compliancePct < 80).length
+  const offTrack = rows.filter((r) => r.compliancePct < 50).length
+
   return (
-    <div className=" -m-3 sm:-m-6 min-h-full p-4 sm:p-6">
-      <div className="mx-auto max-w-[1400px]">
-        <div className="mb-4 flex items-start justify-between gap-3">
+    <div className="-m-3 sm:-m-6 min-h-full p-4 sm:p-6">
+      <div className="mx-auto max-w-[1400px] space-y-4">
+        {/* Hero */}
+        <header className="flex flex-wrap items-end justify-between gap-3 px-1">
           <div>
-            <h1 className="text-xl font-semibold">Initiative Report</h1>
-            <p className="text-xs text-muted-foreground mt-1">
-              Daily mandatory updates. {overallCompliance}% compliance
+            <h1 className="text-[24px] font-semibold tracking-tight text-foreground">Initiative Report</h1>
+            <p className="mt-1 text-[13px] text-muted-foreground">
+              Daily mandatory updates · {overallCompliance}% compliance
               {missingToday > 0 && (
-                <span className="text-destructive"> · {missingToday} missing today</span>
+                <span style={{ color: 'var(--ap-red)' }}> · {missingToday} missing today</span>
               )}
             </p>
           </div>
@@ -122,56 +128,94 @@ export default function InitiativeReportClient() {
               type="date"
               value={from}
               onChange={(e) => setFrom(e.target.value)}
-              className="input w-[140px]"
+              className="h-7 rounded-[10px] border bg-background px-2 text-[12px] outline-none"
+              style={{ borderColor: 'var(--ap-border)' }}
             />
-            <span className="text-xs text-muted-foreground">to</span>
+            <span className="text-[12px] text-muted-foreground">→</span>
             <input
               type="date"
               value={to}
               onChange={(e) => setTo(e.target.value)}
-              className="input w-[140px]"
+              className="h-7 rounded-[10px] border bg-background px-2 text-[12px] outline-none"
+              style={{ borderColor: 'var(--ap-border)' }}
             />
+            <button
+              type="button"
+              onClick={() => typeof window !== 'undefined' && window.print()}
+              className="inline-flex items-center gap-1 h-7 rounded-[10px] border bg-card px-2.5 text-[12px] text-muted-foreground hover:text-foreground"
+              style={{ borderColor: 'var(--ap-border)' }}
+            >
+              <Printer className="h-3.5 w-3.5" /> Print
+            </button>
           </div>
+        </header>
+
+        {/* KPI strip */}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <KpiCard label="Compliance" value={`${overallCompliance}%`} tint="var(--ap-accent)" />
+          <KpiCard label="On track" value={onTrack} tint="var(--ap-green)" />
+          <KpiCard label="At risk" value={atRisk} tint="var(--ap-orange)" />
+          <KpiCard label="Off track" value={offTrack} tint="var(--ap-red)" />
         </div>
 
-        <div className="mb-3 flex items-center gap-2">
-          <div className="relative flex-1 max-w-[320px]">
+        {/* Filter strip */}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1 max-w-[360px]">
             <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <input
               type="search"
-              placeholder="Filter by initiative, owner, or objective"
+              placeholder="Filter by initiative, owner or objective"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="input pl-7"
+              className="h-8 w-full rounded-[10px] border bg-background pl-7 pr-2 text-[13px] outline-none"
+              style={{ borderColor: 'var(--ap-border)' }}
             />
           </div>
         </div>
 
         {loading ? (
-          <div className="rounded-lg border border-border bg-card p-8 text-center text-sm text-muted-foreground">Loading report...</div>
-        ) : filteredRows.length === 0 ? (
-          <div className="rounded-lg border border-border bg-card p-8 text-center text-xs text-muted-foreground">
-            No initiatives match your filters.
+          <div
+            className="rounded-[14px] border bg-card p-8 text-center text-[13px] text-muted-foreground"
+            style={{ borderColor: 'var(--ap-border)' }}
+          >
+            Loading report…
           </div>
+        ) : filteredRows.length === 0 ? (
+          <EmptyState
+            title="No initiatives match your filters"
+            description="Adjust the date range or search to see updates."
+          />
         ) : (
-          <div className="rounded-lg border border-border bg-card overflow-x-auto">
-            <table className="inline-flex items-center gap-1 px-2.5 py-2 text-sm font-medium border-b-2 border-transparent cursor-pointer text-muted-foreground hover:text-foregroundle min-w-max">
+          <div
+            className="rounded-[14px] border bg-card overflow-x-auto"
+            style={{ borderColor: 'var(--ap-border)' }}
+          >
+            <table className="min-w-max w-full text-[13px]">
               <thead>
-                <tr>
-                  <th style={{ width: 280, position: 'sticky', left: 0, background: '#ffffff', zIndex: 10 }}>
+                <tr style={{ background: 'var(--ap-bg-sunken)' }}>
+                  <th
+                    className="text-left text-[10px] font-semibold uppercase tracking-wide text-muted-foreground px-3 py-2"
+                    style={{ width: 280, position: 'sticky', left: 0, background: 'var(--ap-bg-sunken)', zIndex: 10 }}
+                  >
                     Initiative
                   </th>
-                  <th style={{ width: 80 }}>Compliance</th>
+                  <th
+                    className="text-left text-[10px] font-semibold uppercase tracking-wide text-muted-foreground px-2 py-2"
+                    style={{ width: 110 }}
+                  >
+                    Compliance
+                  </th>
                   {dates.map((d) => (
                     <th
                       key={d}
-                      style={{ width: 44, textAlign: 'center', padding: '4px 2px' }}
+                      className="text-center px-1 py-2"
+                      style={{ width: 44 }}
                       title={d}
                     >
-                      <div className="text-[10px]">
+                      <div className="text-[10px] font-semibold text-muted-foreground">
                         {new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'narrow' })}
                       </div>
-                      <div className="text-[10px] font-normal text-muted-foreground">
+                      <div className="text-[10px] tabular-nums text-muted-foreground">
                         {new Date(d + 'T12:00:00').getDate()}
                       </div>
                     </th>
@@ -181,45 +225,47 @@ export default function InitiativeReportClient() {
               <tbody>
                 {filteredRows.map((row) => {
                   const isExpanded = expandedRow === row.id
+                  const compTint =
+                    row.compliancePct >= 80 ? 'var(--ap-green)' :
+                    row.compliancePct >= 50 ? 'var(--ap-orange)' : 'var(--ap-red)'
                   return (
-                    <tr key={row.id} className="group">
-                      <td style={{ position: 'sticky', left: 0, background: '#ffffff', zIndex: 5 }}>
+                    <tr key={row.id} className="border-t" style={{ borderColor: 'var(--ap-border)' }}>
+                      <td
+                        className="px-3 py-2"
+                        style={{ position: 'sticky', left: 0, background: 'var(--ap-bg, #ffffff)', zIndex: 5 }}
+                      >
                         <button
                           type="button"
                           onClick={() => setExpandedRow(isExpanded ? null : row.id)}
                           className="flex items-center gap-1.5 text-left w-full"
                         >
                           {isExpanded
-                            ? <ChevronDown className="h-3 w-3 text-muted-foreground" />
-                            : <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                            ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                            : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                           }
                           <div className="min-w-0">
                             <div className="truncate text-[13px] font-medium text-foreground">
                               {row.title}
                             </div>
-                            <div className="truncate text-[11px] text-muted-foreground">
+                            <div className="truncate text-[12px] text-muted-foreground">
                               {row.assignee.name}
                               {row.objectiveTitle && <> · {row.objectiveTitle}</>}
                             </div>
                           </div>
                         </button>
                       </td>
-                      <td>
-                        <div className="flex items-center gap-1">
-                          <div className="h-1 w-full bg-muted rounded-full overflow-hidden w-12">
+                      <td className="px-2 py-2">
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="h-1.5 w-14 overflow-hidden rounded-full"
+                            style={{ background: 'var(--ap-bg-sunken)' }}
+                          >
                             <div
-                              className="h-full bg-primary-500 rounded-full transition-all"
-                              style={{
-                                width: `${row.compliancePct}%`,
-                                background: row.compliancePct >= 80
-                                  ? '#059669'
-                                  : row.compliancePct >= 50
-                                  ? '#d97706'
-                                  : '#dc2626',
-                              }}
+                              className="h-full rounded-full"
+                              style={{ width: `${row.compliancePct}%`, background: compTint }}
                             />
                           </div>
-                          <span className="text-[11px] text-muted-foreground tabular-nums">
+                          <span className="text-[11px] tabular-nums text-muted-foreground">
                             {row.compliancePct}%
                           </span>
                         </div>
@@ -229,7 +275,8 @@ export default function InitiativeReportClient() {
                         return (
                           <td
                             key={day.date}
-                            style={{ padding: '2px', textAlign: 'center', cursor: 'pointer' }}
+                            className="text-center cursor-pointer"
+                            style={{ padding: '4px 2px' }}
                             title={
                               day.hasUpdate
                                 ? `${day.authorName}: ${day.content?.slice(0, 100)}`
@@ -243,36 +290,43 @@ export default function InitiativeReportClient() {
                             }}
                           >
                             {isEditing ? (
-                              <div className="absolute z-20 mt-1 w-60 p-2 rounded-lg border border-border bg-card" style={{ boxShadow: '0 4px 8px -2px rgba(0,0,0,0.12), 0 0 1px rgba(0,0,0,0.08)' }}>
+                              <div
+                                className="absolute z-20 mt-1 w-60 p-2 rounded-[14px] border bg-card"
+                                style={{ borderColor: 'var(--ap-border)', boxShadow: '0 4px 12px rgba(0,0,0,0.12)' }}
+                              >
                                 <textarea
                                   autoFocus
                                   value={editContent}
                                   onChange={(e) => setEditContent(e.target.value)}
                                   rows={3}
-                                  className="input min-h-[60px] text-[12px]"
+                                  className="w-full min-h-[64px] rounded-[10px] border bg-background p-2 text-[12px] outline-none"
+                                  style={{ borderColor: 'var(--ap-border)' }}
                                   placeholder="What did you do today?"
                                 />
-                                <div className="mt-1 flex gap-1">
+                                <div className="mt-2 flex gap-1">
                                   <button
                                     onClick={(e) => { e.stopPropagation(); submitUpdate(row.id, day.date) }}
-                                    className="btn-outline btn-primary btn-sm"
+                                    className="inline-flex h-6 items-center rounded-[8px] px-2 text-[11px] font-semibold text-white"
+                                    style={{ background: 'var(--ap-accent)' }}
                                   >
                                     Save
                                   </button>
                                   <button
                                     onClick={(e) => { e.stopPropagation(); setEditingCell(null) }}
-                                    className="btn-outline btn-sm"
+                                    className="inline-flex h-6 items-center rounded-[8px] border px-2 text-[11px] text-muted-foreground"
+                                    style={{ borderColor: 'var(--ap-border)' }}
                                   >
                                     Cancel
                                   </button>
                                 </div>
                               </div>
                             ) : day.hasUpdate ? (
-                              <CheckCircle2
-                                className="mx-auto h-4 w-4 text-emerald-600"
-                              />
+                              <CheckCircle2 className="mx-auto h-4 w-4" style={{ color: 'var(--ap-green)' }} />
                             ) : (
-                              <div className="mx-auto h-4 w-4 rounded-sm bg-[color:#fee2e2] border border-[color:#dc2626] opacity-60" />
+                              <div
+                                className="mx-auto h-3.5 w-3.5 rounded-[4px]"
+                                style={{ background: 'rgba(255,59,48,0.15)', border: '1px solid rgba(255,59,48,0.4)' }}
+                              />
                             )}
                           </td>
                         )
@@ -284,6 +338,20 @@ export default function InitiativeReportClient() {
             </table>
           </div>
         )}
+      </div>
+    </div>
+  )
+}
+
+function KpiCard({ label, value, tint }: { label: string; value: string | number; tint: string }) {
+  return (
+    <div
+      className="rounded-[14px] border bg-card p-4"
+      style={{ borderColor: 'var(--ap-border)' }}
+    >
+      <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="mt-1 text-[28px] font-semibold tabular-nums tracking-tight" style={{ color: tint }}>
+        {value}
       </div>
     </div>
   )

@@ -198,7 +198,11 @@ export default function KeyResultDetailClient({
                 {krCode}
               </span>
               <span className="text-muted-foreground/50">/</span>
-              <span className="truncate text-[13px] font-medium text-foreground" title={kr.title}>
+              <span
+                className="truncate font-medium text-foreground"
+                style={{ fontSize: '13px', lineHeight: '1.3', letterSpacing: 'normal' }}
+                title={kr.title}
+              >
                 {kr.title}
               </span>
             </div>

@@ -8,6 +8,7 @@ interface CheckIn {
   asOfDate: string | Date
   value: number
   confidence: string | null
+  confidenceScore?: number | null
   analysis?: string | null
   createdBy?: { name?: string | null; avatar?: string | null } | null
 }
@@ -17,14 +18,15 @@ interface Props {
   unit: string
 }
 
-function confidenceNumber(c: string | null | undefined): number {
-  if (c === 'ON_TRACK') return 85
-  if (c === 'AT_RISK') return 55
-  if (c === 'OFF_TRACK') return 25
+function confidenceNumber(c: CheckIn): number {
+  if (typeof c.confidenceScore === 'number') return c.confidenceScore
+  if (c.confidence === 'ON_TRACK') return 85
+  if (c.confidence === 'AT_RISK') return 55
+  if (c.confidence === 'OFF_TRACK') return 25
   return 50
 }
 
-function dotColor(c: string | null | undefined): string {
+function dotColor(c: CheckIn): string {
   const n = confidenceNumber(c)
   if (n >= 70) return 'var(--ap-green)'
   if (n >= 40) return 'var(--ap-orange)'
@@ -56,7 +58,7 @@ export default function CheckInTimeline({ checkIns, unit }: Props) {
             <span
               className="absolute -left-[27px] top-1 inline-block size-3 rounded-full ring-4"
               style={{
-                background: dotColor(c.confidence),
+                background: dotColor(c),
                 ['--tw-ring-color' as any]: 'var(--ap-bg-raised)',
               } as any}
             />

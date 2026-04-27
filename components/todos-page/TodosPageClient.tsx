@@ -22,6 +22,7 @@ import TodoKanbanView from './TodoKanbanView'
 import TodoTreeView from './TodoTreeView'
 import { useTodoStore } from '@/lib/stores/todo-store'
 import { useUserPrefsStore } from '@/lib/stores/user-prefs-store'
+import { useCreateIntentStore } from '@/lib/stores/create-intent-store'
 
 export interface UserOption {
   id: string

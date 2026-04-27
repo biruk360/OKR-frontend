@@ -6,6 +6,7 @@ interface CheckIn {
   asOfDate: string | Date
   value: number
   confidence?: string | null
+  confidenceScore?: number | null
 }
 
 interface Props {
@@ -74,11 +75,11 @@ export default function KrProgressConfidenceCard({
 
   const confidenceSeries = useMemo(() => {
     const sorted = [...checkIns]
-      .filter((c) => c.confidence != null)
+      .filter((c) => c.confidence != null || typeof c.confidenceScore === 'number')
       .map((c) => {
         const num =
-          typeof c.confidence === 'number'
-            ? c.confidence
+          typeof c.confidenceScore === 'number'
+            ? c.confidenceScore
             : c.confidence === 'ON_TRACK'
             ? 85
             : c.confidence === 'AT_RISK'

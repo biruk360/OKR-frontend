@@ -40,6 +40,29 @@ BEGIN
   END IF;
 END $$;
 
+-- 4. Add key_result_check_ins.confidenceScore (Int, default 50) and backfill from
+--    the legacy `confidence` string. Doing this in preflight (before `prisma db push`)
+--    means existing rows get a meaningful score on the first deploy that ships this column,
+--    and `db push` then sees it already in place.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='key_result_check_ins' AND column_name='confidenceScore'
+  ) THEN
+    EXECUTE 'ALTER TABLE "public"."key_result_check_ins" ADD COLUMN "confidenceScore" INTEGER NOT NULL DEFAULT 50';
+    EXECUTE $upd$
+      UPDATE "public"."key_result_check_ins"
+      SET "confidenceScore" = CASE
+        WHEN "confidence" = 'ON_TRACK' THEN 85
+        WHEN "confidence" = 'AT_RISK' THEN 55
+        WHEN "confidence" = 'OFF_TRACK' THEN 25
+        ELSE 50
+      END
+    $upd$;
+  END IF;
+END $$;
+
 -- Note: initiative_updates, confidence_snapshots, and user_preferences tables
 -- are created automatically by `prisma db push` (new tables, no destructive changes).
 -- Only destructive pre-operations (renames, dropping NOT NULL) need explicit preflight.

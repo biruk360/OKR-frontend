@@ -10,6 +10,7 @@ import {
   writeSidebarCollapsed,
 } from '@/components/layout/Sidebar'
 import Header from '@/components/layout/Header'
+import CmdkActionListener from '@/components/cmdk/CmdkActionListener'
 
 interface DashboardShellProps {
   user: {
@@ -50,6 +51,7 @@ export default function DashboardShell({ user, children }: DashboardShellProps) 
 
   return (
     <>
+      <CmdkActionListener />
       <SidebarMobileDrawer open={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
 
       <div

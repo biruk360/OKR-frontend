@@ -138,11 +138,13 @@ export default function KeyResultDetailClient({
     : objective.level === 'INDIVIDUAL' ? 'Individual'
     : null
 
-  // Numeric confidence proxy from check-in confidence enum.
-  const confEnumToNum = (c: string | null | undefined): number => {
-    if (c === 'ON_TRACK') return 85
-    if (c === 'AT_RISK') return 55
-    if (c === 'OFF_TRACK') return 25
+  // Numeric confidence: prefer the new `confidenceScore` column; fall back to
+  // the legacy enum tier for old rows.
+  const confNum = (c: any): number => {
+    if (typeof c?.confidenceScore === 'number') return c.confidenceScore
+    if (c?.confidence === 'ON_TRACK') return 85
+    if (c?.confidence === 'AT_RISK') return 55
+    if (c?.confidence === 'OFF_TRACK') return 25
     return 50
   }
   const ordered = [...checkIns].sort(
@@ -150,9 +152,9 @@ export default function KeyResultDetailClient({
   )
   const latest = ordered[ordered.length - 1]
   const prev = ordered[ordered.length - 2]
-  const currentConfidenceNum = latest ? confEnumToNum(latest.confidence) : confEnumToNum(kr.confidence)
-  const previousConfidenceNum = prev ? confEnumToNum(prev.confidence) : null
-  const confidenceTrend = ordered.slice(-4).map((c) => confEnumToNum(c.confidence))
+  const currentConfidenceNum = latest ? confNum(latest) : confNum(kr)
+  const previousConfidenceNum = prev ? confNum(prev) : null
+  const confidenceTrend = ordered.slice(-4).map((c) => confNum(c))
 
   const copyShare = async () => {
     try {
@@ -582,7 +584,7 @@ export default function KeyResultDetailClient({
         <aside className="space-y-3">
           {!isRedacted && timeframe?.startDate && timeframe?.endDate ? (
             <KrProgressConfidenceCard
-              checkIns={checkIns.map((c: any) => ({ asOfDate: c.asOfDate, value: c.value, confidence: c.confidence }))}
+              checkIns={checkIns.map((c: any) => ({ asOfDate: c.asOfDate, value: c.value, confidence: c.confidence, confidenceScore: c.confidenceScore }))}
               startValue={Number(kr.startValue) || 0}
               targetValue={Number(kr.targetValue) || 0}
               currentValue={Number(kr.currentValue) || 0}

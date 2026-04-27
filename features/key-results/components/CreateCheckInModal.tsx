@@ -46,7 +46,7 @@ export default function CreateCheckInModal({
 }: CreateCheckInModalProps) {
   const [asOfDate, setAsOfDate] = useState('')
   const [progressInput, setProgressInput] = useState('')
-  const [confidence, setConfidence] = useState<'ON_TRACK' | 'AT_RISK' | 'OFF_TRACK'>('ON_TRACK')
+  const [confidenceScore, setConfidenceScore] = useState<number>(85)
   const [analysis, setAnalysis] = useState('')
   const [checkIns, setCheckIns] = useState<CheckInRow[]>([])
   const [todos, setTodos] = useState<TodoRow[]>([])
@@ -90,9 +90,9 @@ export default function CreateCheckInModal({
     setAsOfDate(today)
     setProgressInput(String(kr.currentValue ?? 0))
     const conf = kr.confidence
-    setConfidence(
-      conf === 'AT_RISK' || conf === 'OFF_TRACK' || conf === 'ON_TRACK' ? conf : 'ON_TRACK'
-    )
+    const fromTier =
+      conf === 'ON_TRACK' ? 85 : conf === 'AT_RISK' ? 55 : conf === 'OFF_TRACK' ? 25 : 50
+    setConfidenceScore(typeof kr.confidenceScore === 'number' ? kr.confidenceScore : fromTier)
     setAnalysis('')
     void loadData()
   }, [isOpen, kr, loadData])
@@ -116,7 +116,7 @@ export default function CreateCheckInModal({
         body: JSON.stringify({
           asOfDate: iso,
           progress: progressInput,
-          confidence,
+          confidenceScore,
           analysis,
         }),
       })
@@ -193,32 +193,7 @@ export default function CreateCheckInModal({
                   <span className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
                     Confidence
                   </span>
-                  <div className="inline-flex rounded-lg border border-border overflow-hidden shadow-sm">
-                    {(
-                      [
-                        ['ON_TRACK', 'On track'],
-                        ['AT_RISK', 'At risk'],
-                        ['OFF_TRACK', 'Off track'],
-                      ] as const
-                    ).map(([val, label]) => (
-                      <button
-                        key={val}
-                        type="button"
-                        onClick={() => setConfidence(val)}
-                        className={`px-3 py-2 text-xs sm:text-sm font-medium transition-colors ${
-                          confidence === val
-                            ? val === 'AT_RISK'
-                              ? 'bg-amber-100 text-amber-900'
-                              : val === 'OFF_TRACK'
-                                ? 'bg-red-50 text-red-800'
-                                : 'bg-card text-foreground ring-1 ring-inset ring-border'
-                            : 'bg-muted text-muted-foreground hover:bg-muted'
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
+                  <ConfidenceSlider value={confidenceScore} onChange={setConfidenceScore} />
                 </div>
 
                 <div>
@@ -341,5 +316,59 @@ export default function CreateCheckInModal({
         </div>
       </form>
     </Modal>
+  )
+}
+
+function ConfidenceSlider({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const v = Math.max(0, Math.min(100, value))
+  const fill = v >= 70 ? 'var(--ap-green)' : v >= 40 ? 'var(--ap-orange)' : 'var(--ap-red)'
+  const tier = v >= 70 ? 'On track' : v >= 40 ? 'At risk' : 'Off track'
+  return (
+    <div className="w-full max-w-md">
+      <div className="flex items-baseline justify-between mb-2">
+        <span
+          className="text-[20px] font-semibold tabular-nums leading-none"
+          style={{ letterSpacing: '-0.02em', color: fill }}
+        >
+          {v}
+          <span className="text-[12px] text-muted-foreground font-normal">/100</span>
+        </span>
+        <span
+          className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+          style={{ background: 'var(--ap-bg-sunken)', color: fill }}
+        >
+          <span className="size-1.5 rounded-full" style={{ background: fill }} />
+          {tier}
+        </span>
+      </div>
+      <div className="relative h-4 flex items-center">
+        <div
+          className="absolute left-0 right-0 h-1.5 rounded-full"
+          style={{ background: 'var(--ap-kr-bar-bg, #e5e7eb)' }}
+        />
+        <div
+          className="absolute left-0 h-1.5 rounded-full"
+          style={{ width: `${v}%`, background: fill }}
+        />
+        <input
+          type="range"
+          min={0}
+          max={100}
+          step={1}
+          value={v}
+          onChange={(e) => onChange(Number(e.target.value))}
+          className="absolute inset-0 w-full appearance-none bg-transparent cursor-pointer
+            [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4
+            [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white
+            [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-[var(--ap-border)]
+            [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full
+            [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:border [&::-moz-range-thumb]:border-[var(--ap-border)]"
+          aria-label="Confidence"
+        />
+      </div>
+      <div className="mt-1 flex justify-between text-[10px] text-muted-foreground tabular-nums">
+        <span>0</span><span>50</span><span>100</span>
+      </div>
+    </div>
   )
 }

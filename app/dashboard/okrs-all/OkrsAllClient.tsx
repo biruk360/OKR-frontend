@@ -2,39 +2,35 @@
 
 /**
  * OKR Explorer — consolidated view over Plans / Company OKRs / Department OKRs /
- * Objectives. Forked from /dashboard/okr-hierarchy with additions:
- *   • KPI cards (reactive to the filtered set)
- *   • Tabs (All / Watched [phase 2] / My OKRs / At risk)
- *   • "Hide finished" toggle
- *   • Role-aware Create menu (replaces 3 per-level create buttons)
- *   • "Initiatives" column (n closed / N total under the row)
- *
- * Everything else — per-column filter popovers, resizable columns, tree/depth
- * layout, sticky Name column, side drawer, hover preview, global initiative
- * modal wiring — is inherited unchanged.
+ * Objectives. Apple Pro list interior.
+ * Two view modes: Compact rows (default) and Rich cards.
+ * Filter strip: Timeframe + Department + Level + Status + Search.
+ * Preserves: KPI cards, tabs (All/Watched/My/At risk), hide finished,
+ * role-aware Create menu, initiatives roll-up, favorites.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   ChevronDown,
-  ChevronRight,
   Search,
-  Filter as FilterIcon,
-  Layers,
   X,
+  Plus,
+  Star,
+  Calendar,
   Building2,
   Target,
-  Key,
   CheckSquare,
-  Plus,
-  AlertTriangle,
-  Star,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react'
 import SideDrawer from '@/components/ui/SideDrawer'
 import { StatCard, StatGrid } from '@/components/ui'
+import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
+import StatusPill, { LevelBadge, normalizeStatus, PaceChip } from '@/components/shared/StatusPill'
 import { useInitiativeDetailStore } from '@/lib/stores/initiative-detail-store'
 import { useOkrFavoritesStore } from '@/lib/stores/okr-favorites-store'
 import {
@@ -43,38 +39,22 @@ import {
   CreateIndividualObjectiveButton,
 } from '@/features/objectives'
 
-/** Current user shape passed from the server page. */
 interface CurrentUser {
   id: string
   role: 'ADMIN' | 'EXECUTIVE' | 'DEPARTMENT_LEAD' | 'EMPLOYEE'
 }
 
 type Tab = 'all' | 'watched' | 'mine' | 'atRisk'
+type ViewMode = 'compact' | 'rich'
+type SortKey = 'title' | 'progress' | 'owner' | 'period' | 'status'
+type SortDir = 'asc' | 'desc'
 
 /* ----------------------------- Types --------------------------------- */
 
-interface RefUser {
-  id: string
-  name: string | null
-  email: string
-  avatar?: string | null
-}
-interface RefTeam {
-  id: string
-  name: string
-}
-interface RefLabel {
-  id: string
-  name: string
-  color: string
-}
-interface RefTimeframe {
-  id: string
-  name: string
-  startDate: string
-  endDate: string
-  type?: string | null
-}
+interface RefUser { id: string; name: string | null; email: string; avatar?: string | null }
+interface RefTeam { id: string; name: string }
+interface RefLabel { id: string; name: string; color: string }
+interface RefTimeframe { id: string; name: string; startDate: string; endDate: string; type?: string | null }
 
 interface Row {
   path: string[]
@@ -84,56 +64,19 @@ interface Row {
   data: Record<string, any>
 }
 
-interface Refs {
-  timeframes: RefTimeframe[]
-  owners: RefUser[]
-  teams: RefTeam[]
-  labels: RefLabel[]
-}
+interface Refs { timeframes: RefTimeframe[]; owners: RefUser[]; teams: RefTeam[]; labels: RefLabel[] }
 
-interface ApiResponse {
-  success: boolean
-  data: { rows: Row[]; refs: Refs }
-}
-
-/* -------------------- Filter state + URL helpers --------------------- */
+interface ApiResponse { success: boolean; data: { rows: Row[]; refs: Refs } }
 
 interface Filters {
   period: string[]
-  owner: string[]
   team: string[]
-  label: string[]
   type: string[]
   status: string[]
-  collaborator: string[]
-  progressMin: string
-  progressMax: string
   q: string
 }
 
-const EMPTY_FILTERS: Filters = {
-  period: [],
-  owner: [],
-  team: [],
-  label: [],
-  type: [],
-  status: [],
-  collaborator: [],
-  progressMin: '',
-  progressMax: '',
-  q: '',
-}
-
-function filtersToQuery(f: Filters): string {
-  const sp = new URLSearchParams()
-  for (const k of ['period', 'owner', 'team', 'label', 'type', 'status', 'collaborator'] as const) {
-    for (const v of f[k]) sp.append(k, v)
-  }
-  if (f.progressMin) sp.set('progressMin', f.progressMin)
-  if (f.progressMax) sp.set('progressMax', f.progressMax)
-  if (f.q) sp.set('q', f.q)
-  return sp.toString()
-}
+const EMPTY_FILTERS: Filters = { period: [], team: [], type: [], status: [], q: '' }
 
 const TYPE_OPTIONS = [
   { id: 'COMPANY', label: 'Company' },
@@ -147,30 +90,14 @@ const STATUS_OPTIONS = [
   { id: 'CLOSED', label: 'Closed' },
 ]
 
-/* ----------------------- Visual helpers ------------------------------ */
-
-const STATUS_PILL: Record<string, string> = {
-  ON_TRACK: 'bg-emerald-100 text-emerald-800',
-  AT_RISK: 'bg-amber-100 text-amber-800',
-  OFF_TRACK: 'bg-red-100 text-red-800',
-  CLOSED: 'bg-slate-100 text-slate-700',
-  PENDING: 'bg-slate-100 text-slate-600',
-  IN_PROGRESS: 'bg-sky-100 text-sky-800',
-  COMPLETED: 'bg-emerald-100 text-emerald-800',
-  CANCELLED: 'bg-slate-100 text-slate-400',
-}
-
-const LEVEL_BADGE: Record<string, { letter: string; bg: string; fg: string }> = {
-  COMPANY: { letter: 'C', bg: 'bg-indigo-600', fg: 'text-white' },
-  DEPARTMENT: { letter: 'D', bg: 'bg-sky-600', fg: 'text-white' },
-  INDIVIDUAL: { letter: 'I', bg: 'bg-slate-600', fg: 'text-white' },
-}
-
-function formatDate(d: string | Date | null | undefined): string {
-  if (!d) return '—'
-  const date = typeof d === 'string' ? new Date(d) : d
-  if (Number.isNaN(date.getTime())) return '—'
-  return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`
+function filtersToQuery(f: Filters): string {
+  const sp = new URLSearchParams()
+  for (const v of f.period) sp.append('period', v)
+  for (const v of f.team) sp.append('team', v)
+  for (const v of f.type) sp.append('type', v)
+  for (const v of f.status) sp.append('status', v)
+  if (f.q) sp.set('q', f.q)
+  return sp.toString()
 }
 
 function daysSince(d: string | Date | null | undefined): number | null {
@@ -180,30 +107,217 @@ function daysSince(d: string | Date | null | undefined): number | null {
   return Math.floor((Date.now() - date.getTime()) / (24 * 3600 * 1000))
 }
 
-function computeGrade(progress: number | null | undefined): string {
-  if (typeof progress !== 'number') return '—'
-  const g = Math.max(0, Math.min(1, progress / 100))
-  return g.toFixed(1)
+function formatDate(d: string | Date | null | undefined): string {
+  if (!d) return '—'
+  const date = typeof d === 'string' ? new Date(d) : d
+  if (Number.isNaN(date.getTime())) return '—'
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-/** Tab preset filters applied client-side on top of the toolbar filters. */
+function initialsOf(name: string | null | undefined): string {
+  if (!name) return '?'
+  return name.split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()
+}
+
+function statusOf(row: Row): string {
+  return normalizeStatus(row.data.goalStatus ?? row.data.confidence ?? row.data.status)
+}
+
+function progressColor(status: string): string {
+  if (status === 'on-track' || status === 'completed' || status === 'in-progress') return 'var(--ap-green)'
+  if (status === 'at-risk') return 'var(--ap-orange)'
+  if (status === 'off-track') return 'var(--ap-red)'
+  return 'var(--ap-fg-muted)'
+}
+
+function ProgressBar({ value, status, width = 120 }: { value: number; status: string; width?: number }) {
+  const pct = Math.max(0, Math.min(100, value))
+  return (
+    <div className="flex items-center gap-2" style={{ width }}>
+      <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--ap-kr-bar-bg)' }}>
+        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: progressColor(status) }} />
+      </div>
+      <span className="text-[12px] font-semibold tabular-nums w-9 text-right">{Math.round(pct)}%</span>
+    </div>
+  )
+}
+
+function Avatar({ user, size = 22 }: { user: RefUser | null | undefined; size?: number }) {
+  if (!user) {
+    return (
+      <span className="inline-flex items-center justify-center rounded-full text-[10px] font-semibold"
+        style={{ width: size, height: size, background: 'var(--ap-bg-sunken)', color: 'var(--ap-fg-muted)' }}>?</span>
+    )
+  }
+  const initial = initialsOf(user.name ?? user.email)
+  if (user.avatar) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={user.avatar} alt={user.name ?? ''} title={user.name ?? user.email}
+      className="rounded-full object-cover" style={{ width: size, height: size }} />
+  }
+  return (
+    <span title={user.name ?? user.email}
+      className="inline-flex items-center justify-center rounded-full text-white font-semibold"
+      style={{ width: size, height: size, fontSize: Math.max(9, Math.round(size * 0.42)), background: 'var(--ap-accent)' }}>
+      {initial}
+    </span>
+  )
+}
+
+function KindIcon({ row }: { row: Row }) {
+  if (row.kind === 'OBJ') {
+    return (
+      <span className="inline-flex items-center justify-center rounded-[6px]"
+        style={{ width: 22, height: 22, background: 'var(--ap-accent-soft)', color: 'var(--ap-accent)' }}>
+        <Target className="size-3" />
+      </span>
+    )
+  }
+  if (row.kind === 'KR') {
+    return (
+      <span className="inline-flex items-center justify-center rounded-[6px] text-[9px] font-bold"
+        style={{ width: 22, height: 22, background: 'rgba(255,149,0,0.14)', color: 'var(--ap-orange)' }}>
+        KR
+      </span>
+    )
+  }
+  return (
+    <span className="inline-flex items-center justify-center rounded-[6px]"
+      style={{ width: 22, height: 22, background: 'rgba(52,199,89,0.14)', color: 'var(--ap-green)' }}>
+      <CheckSquare className="size-3" />
+    </span>
+  )
+}
+
+/* --------------------------- Filter widgets --------------------------- */
+
+function MultiPill<T extends { id: string; label?: string; name?: string }>({
+  label, options, selected, onChange,
+}: {
+  label: string
+  options: T[]
+  selected: string[]
+  onChange: (next: string[]) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    function onDoc(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [])
+  const active = selected.length > 0
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className={cn(
+          'inline-flex items-center gap-1.5 rounded-[10px] px-2.5 h-8 text-[12px] font-medium border transition-colors',
+          active ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
+        )}
+        style={{
+          borderColor: active ? 'var(--ap-accent)' : 'var(--ap-border)',
+          background: active ? 'var(--ap-accent-soft)' : 'var(--ap-bg)',
+        }}
+      >
+        {label}
+        {active && (
+          <span className="inline-flex items-center justify-center rounded-full px-1.5 text-[10px] font-bold tabular-nums"
+            style={{ background: 'var(--ap-accent)', color: 'white', minWidth: 16 }}>
+            {selected.length}
+          </span>
+        )}
+        <ChevronDown className="size-3" />
+      </button>
+      {open && (
+        <div
+          className="absolute z-30 top-full left-0 mt-1 w-64 rounded-[14px] border bg-card shadow-lg overflow-hidden"
+          style={{ borderColor: 'var(--ap-border)' }}
+        >
+          <div className="px-3 py-2 border-b text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
+            style={{ borderColor: 'var(--ap-border)' }}>
+            {label}
+          </div>
+          <ul className="max-h-72 overflow-y-auto py-1">
+            {options.length === 0 && <li className="px-3 py-2 text-[12px] text-muted-foreground">No options</li>}
+            {options.map(o => {
+              const checked = selected.includes(o.id)
+              return (
+                <li key={o.id}>
+                  <label className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-[var(--ap-bg-sunken)]">
+                    <input type="checkbox" checked={checked}
+                      onChange={() => onChange(checked ? selected.filter(x => x !== o.id) : [...selected, o.id])}
+                      className="h-3.5 w-3.5" />
+                    <span className="text-[13px] truncate">{o.label ?? o.name}</span>
+                  </label>
+                </li>
+              )
+            })}
+          </ul>
+          {selected.length > 0 && (
+            <div className="border-t px-3 py-2 text-right" style={{ borderColor: 'var(--ap-border)' }}>
+              <button type="button" className="text-[11px] text-[var(--ap-accent)] hover:underline" onClick={() => onChange([])}>
+                Clear
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* --------------------------- Tab/Tab visuals --------------------------- */
+
+function TabButton({
+  label, active, count, onClick,
+}: { label: string; active: boolean; count?: number | null; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-selected={active}
+      className={cn(
+        'inline-flex items-center gap-1.5 px-3 h-9 rounded-[10px] text-[13px] font-medium transition-colors',
+        active ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
+      )}
+      style={{ background: active ? 'var(--ap-bg-sunken)' : 'transparent' }}
+    >
+      {label}
+      {count != null && count > 0 && (
+        <span
+          className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums"
+          style={{
+            background: active ? 'var(--ap-accent-soft)' : 'var(--ap-bg-sunken)',
+            color: active ? 'var(--ap-accent)' : 'var(--ap-fg-muted)',
+          }}
+        >
+          {count}
+        </span>
+      )}
+    </button>
+  )
+}
+
+/* --------------------------- Tab + filter helpers --------------------------- */
+
 function matchesTab(row: Row, tab: Tab, currentUser: CurrentUser): boolean {
   if (tab === 'all') return true
-  // `watched` is handled in the `filteredRows` memo where we have access to the
-  // favorites set — return true here as a pass-through and let the caller prune.
   if (tab === 'watched') return true
   if (tab === 'mine') {
     const ownerId = row.data.owner?.id
     const collaborators: Array<{ id: string }> = row.data.collaborators ?? []
     if (ownerId === currentUser.id) return true
-    if (collaborators.some((c) => c.id === currentUser.id)) return true
+    if (collaborators.some(c => c.id === currentUser.id)) return true
     if (row.kind === 'INIT' && row.data.assigneeId === currentUser.id) return true
     return false
   }
   if (tab === 'atRisk') {
     const s = row.data.goalStatus ?? row.data.confidence
     if (s === 'AT_RISK' || s === 'OFF_TRACK') return true
-    // Also include rows with missed check-ins (>14 days) at OBJ/KR level.
     if (row.kind !== 'INIT' && row.data.lastUpdate) {
       const days = daysSince(row.data.lastUpdate)
       if (days !== null && days > 14) return true
@@ -221,618 +335,269 @@ function matchesHideFinished(row: Row, hideFinished: boolean): boolean {
   return true
 }
 
-/* ------------------- Generic multi-select popover -------------------- */
-
-function useClickAway(onAway: () => void) {
-  const ref = useRef<HTMLDivElement | null>(null)
-  useEffect(() => {
-    function onDoc(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) onAway()
-    }
-    document.addEventListener('mousedown', onDoc)
-    return () => document.removeEventListener('mousedown', onDoc)
-  }, [onAway])
-  return ref
+function matchesStatus(row: Row, statusFilter: string[]): boolean {
+  if (statusFilter.length === 0) return true
+  const v = row.data.goalStatus ?? row.data.confidence ?? row.data.status
+  return v ? statusFilter.includes(v) : false
 }
 
-function FilterTrigger({
-  label,
-  active,
-  onClick,
+/* ------------------------------- Rows ------------------------------- */
+
+function CompactRow({
+  row, idx, density, onOpen, currentUser, favoriteIds, toggleFavorite,
+  selected, onToggleSelect,
+}: {
+  row: Row
+  idx: number
+  density: 'compact' | 'rich'
+  onOpen: () => void
+  currentUser: CurrentUser
+  favoriteIds: Set<string>
+  toggleFavorite: (id: string) => void
+  selected: boolean
+  onToggleSelect: () => void
+}) {
+  const status = statusOf(row)
+  const progress = typeof row.data.progress === 'number' ? row.data.progress : 0
+  const owner: RefUser | null = row.data.owner ?? null
+  const idCode = String(row.data.id ?? row.rowId).slice(-6).toUpperCase()
+  const title: string = row.data.title ?? ''
+  const period = row.data.period?.name
+  const initTotal = (row.data.__initTotal ?? 0) as number
+  const initClosed = (row.data.__initClosed ?? 0) as number
+
+  return (
+    <div
+      onClick={onOpen}
+      className={cn(
+        'group flex items-center gap-3 px-3 py-2.5 border-b transition-colors cursor-pointer hover:bg-[var(--ap-bg-hover,var(--ap-bg-sunken))]',
+        selected && 'bg-[var(--ap-accent-soft)]',
+      )}
+      style={{ borderColor: 'var(--ap-border-soft, var(--ap-border))' }}
+    >
+      <input
+        type="checkbox"
+        checked={selected}
+        onChange={onToggleSelect}
+        onClick={(e) => e.stopPropagation()}
+        className="h-3.5 w-3.5 shrink-0"
+      />
+      <span className="text-[10px] tabular-nums text-muted-foreground w-7 text-right">{String(idx + 1).padStart(2, '0')}</span>
+      <KindIcon row={row} />
+      {row.kind === 'OBJ' && <LevelBadge level={row.data.level} />}
+      <span className="text-[10px] tabular-nums text-muted-foreground shrink-0">{idCode}</span>
+      <div className="min-w-0 flex-1">
+        <p className="text-[13px] font-medium truncate" title={title}>{title}</p>
+        {period && (
+          <p className="text-[11px] text-muted-foreground truncate">{period}</p>
+        )}
+      </div>
+      <div className="hidden md:block shrink-0">
+        <StatusPill status={status} size="xs" />
+      </div>
+      <div className="hidden lg:block shrink-0">
+        {initTotal > 0 && (
+          <span
+            className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums"
+            style={{
+              background: initTotal === initClosed ? 'rgba(52,199,89,0.12)' : 'var(--ap-bg-sunken)',
+              color: initTotal === initClosed ? 'var(--ap-green)' : 'var(--ap-fg-muted)',
+            }}
+          >
+            {initClosed}/{initTotal}
+          </span>
+        )}
+      </div>
+      <div className="shrink-0">
+        <ProgressBar value={progress} status={status} width={140} />
+      </div>
+      <div className="shrink-0">
+        <Avatar user={owner} size={22} />
+      </div>
+      {row.kind === 'OBJ' && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); toggleFavorite(row.data.id) }}
+          className="shrink-0 text-muted-foreground hover:text-yellow-500"
+          aria-label={favoriteIds.has(row.data.id) ? 'Unfavorite' : 'Favorite'}
+        >
+          <Star className={cn('h-3.5 w-3.5', favoriteIds.has(row.data.id) && 'fill-yellow-400 text-yellow-500')} />
+        </button>
+      )}
+    </div>
+  )
+}
+
+function RichCard({
+  row, onOpen, favoriteIds, toggleFavorite, selected, onToggleSelect,
+}: {
+  row: Row
+  onOpen: () => void
+  favoriteIds: Set<string>
+  toggleFavorite: (id: string) => void
+  selected: boolean
+  onToggleSelect: () => void
+}) {
+  const status = statusOf(row)
+  const progress = typeof row.data.progress === 'number' ? row.data.progress : 0
+  const owner: RefUser | null = row.data.owner ?? null
+  const collaborators: RefUser[] = row.data.collaborators ?? []
+  const idCode = String(row.data.id ?? row.rowId).slice(-6).toUpperCase()
+  const title: string = row.data.title ?? ''
+  const description: string | undefined = row.data.description
+  const period = row.data.period?.name
+  const krCount = row.data.keyResultCount ?? row.data.krCount ?? 0
+  const due = row.data.endDate ?? row.data.dueDate
+
+  return (
+    <div
+      onClick={onOpen}
+      className={cn(
+        'group rounded-[14px] border bg-card px-4 py-3 cursor-pointer transition-all hover:shadow-md hover:-translate-y-px',
+        selected && 'ring-2',
+      )}
+      style={{
+        borderColor: selected ? 'var(--ap-accent)' : 'var(--ap-border)',
+      }}
+    >
+      <div className="flex items-center gap-2 mb-1.5">
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={onToggleSelect}
+          onClick={(e) => e.stopPropagation()}
+          className="h-3.5 w-3.5"
+        />
+        <KindIcon row={row} />
+        {row.kind === 'OBJ' && <LevelBadge level={row.data.level} />}
+        {row.kind === 'KR' && (
+          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+            style={{ background: 'rgba(255,149,0,0.14)', color: 'var(--ap-orange)' }}>
+            Key Result
+          </span>
+        )}
+        {row.kind === 'INIT' && (
+          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+            style={{ background: 'rgba(52,199,89,0.14)', color: 'var(--ap-green)' }}>
+            Initiative
+          </span>
+        )}
+        <span className="text-[10px] tabular-nums text-muted-foreground">{idCode}</span>
+        {period && (
+          <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px]"
+            style={{ background: 'var(--ap-bg-sunken)', color: 'var(--ap-fg-muted)' }}>
+            <Calendar className="size-2.5" />{period}
+          </span>
+        )}
+        <div className="ml-auto flex items-center gap-1.5">
+          <StatusPill status={status} size="xs" />
+          {row.kind === 'OBJ' && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); toggleFavorite(row.data.id) }}
+              className="text-muted-foreground hover:text-yellow-500"
+              aria-label={favoriteIds.has(row.data.id) ? 'Unfavorite' : 'Favorite'}
+            >
+              <Star className={cn('h-3.5 w-3.5', favoriteIds.has(row.data.id) && 'fill-yellow-400 text-yellow-500')} />
+            </button>
+          )}
+        </div>
+      </div>
+
+      <p className="text-[15px] font-semibold leading-tight" style={{ letterSpacing: '-0.01em' }}>
+        {title}
+      </p>
+      {description && (
+        <p className="mt-1 text-[12px] text-muted-foreground line-clamp-2" style={{ textWrap: 'pretty' } as any}>
+          {description}
+        </p>
+      )}
+
+      <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+        <div className="flex items-center gap-1.5 max-w-[180px]">
+          <Avatar user={owner} size={20} />
+          <span className="truncate text-[12px]" style={{ color: 'var(--ap-fg-muted)' }}>
+            {owner?.name ?? owner?.email ?? 'Unassigned'}
+          </span>
+        </div>
+        {collaborators.length > 0 && (
+          <>
+            <span className="hidden sm:inline-block h-3 w-px" style={{ background: 'var(--ap-border)' }} />
+            <div className="flex items-center -space-x-1.5">
+              {collaborators.slice(0, 4).map(u => (
+                <span key={u.id} className="ring-2 ring-card rounded-full">
+                  <Avatar user={u} size={18} />
+                </span>
+              ))}
+              {collaborators.length > 4 && (
+                <span className="ring-2 ring-card inline-flex items-center justify-center rounded-full text-[9px] font-semibold"
+                  style={{ width: 18, height: 18, background: 'var(--ap-bg-sunken)', color: 'var(--ap-fg-muted)' }}>
+                  +{collaborators.length - 4}
+                </span>
+              )}
+            </div>
+          </>
+        )}
+        {row.data.team && (
+          <>
+            <span className="hidden sm:inline-block h-3 w-px" style={{ background: 'var(--ap-border)' }} />
+            <span className="inline-flex items-center gap-1 text-[12px] text-muted-foreground">
+              <Building2 className="size-3" />
+              <span className="truncate max-w-[120px]">{row.data.team.name}</span>
+            </span>
+          </>
+        )}
+        {row.kind === 'OBJ' && krCount > 0 && (
+          <>
+            <span className="hidden sm:inline-block h-3 w-px" style={{ background: 'var(--ap-border)' }} />
+            <span className="text-[11px] tabular-nums text-muted-foreground">{krCount} KR{krCount !== 1 ? 's' : ''}</span>
+          </>
+        )}
+        {due && (
+          <>
+            <span className="hidden sm:inline-block h-3 w-px" style={{ background: 'var(--ap-border)' }} />
+            <span className="text-[11px] text-muted-foreground tabular-nums">Due {formatDate(due)}</span>
+          </>
+        )}
+        <div className="ml-auto">
+          <ProgressBar value={progress} status={status} width={160} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* --------------------------- Sortable header --------------------------- */
+
+function SortHeader({
+  label, sortKey, sort, onSort, className,
 }: {
   label: string
-  active: boolean
-  onClick: () => void
+  sortKey: SortKey
+  sort: { key: SortKey; dir: SortDir } | null
+  onSort: (key: SortKey) => void
+  className?: string
 }) {
+  const active = sort?.key === sortKey
   return (
     <button
       type="button"
-      onClick={onClick}
-      className={
-        'inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground ' +
-        (active ? 'text-blue-600' : '')
-      }
+      onClick={() => onSort(sortKey)}
+      className={cn(
+        'inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide hover:text-foreground',
+        active ? 'text-foreground' : 'text-muted-foreground',
+        className,
+      )}
     >
-      <FilterIcon className={'h-3 w-3 ' + (active ? 'text-blue-600' : '')} />
       {label}
+      {active
+        ? (sort?.dir === 'asc' ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />)
+        : <ArrowUpDown className="size-3 opacity-50" />}
     </button>
   )
 }
 
-interface MultiSelectProps<T extends { id: string }> {
-  title: string
-  options: T[]
-  selected: string[]
-  onChange: (next: string[]) => void
-  render: (o: T) => React.ReactNode
-  searchable?: boolean
-  onClose: () => void
-}
-
-function MultiSelectPopover<T extends { id: string }>({
-  title,
-  options,
-  selected,
-  onChange,
-  render,
-  searchable,
-  onClose,
-}: MultiSelectProps<T>) {
-  const [q, setQ] = useState('')
-  const ref = useClickAway(onClose)
-  const filtered = searchable && q
-    ? options.filter((o: any) => (o.name ?? '').toLowerCase().includes(q.toLowerCase()))
-    : options
-  const toggle = (id: string) => {
-    if (selected.includes(id)) onChange(selected.filter((x) => x !== id))
-    else onChange([...selected, id])
-  }
-  return (
-    <div
-      ref={ref}
-      className="absolute z-30 top-full left-0 mt-1 w-72 rounded-md border border-border bg-card shadow-lg"
-    >
-      <div className="px-3 py-2 border-b border-border flex items-center justify-between">
-        <span className="text-xs font-semibold text-muted-foreground">{title}</span>
-        <button type="button" className="text-muted-foreground hover:text-muted-foreground" onClick={onClose}>
-          <X className="h-4 w-4" />
-        </button>
-      </div>
-      {searchable && (
-        <div className="px-3 pt-2">
-          <div className="flex items-center gap-1 rounded border border-border px-2">
-            <Search className="h-3.5 w-3.5 text-muted-foreground" />
-            <input
-              autoFocus
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search…"
-              className="w-full py-1 text-sm focus:outline-none"
-            />
-          </div>
-        </div>
-      )}
-      <ul className="max-h-72 overflow-y-auto py-1">
-        {filtered.length === 0 && <li className="px-3 py-2 text-xs text-muted-foreground">No matches</li>}
-        {filtered.map((o) => (
-          <li key={o.id}>
-            <label className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-muted">
-              <input
-                type="checkbox"
-                checked={selected.includes(o.id)}
-                onChange={() => toggle(o.id)}
-                className="h-3.5 w-3.5"
-              />
-              <span className="text-sm text-foreground truncate">{render(o)}</span>
-            </label>
-          </li>
-        ))}
-      </ul>
-      {selected.length > 0 && (
-        <div className="border-t border-border px-3 py-2 text-right">
-          <button
-            type="button"
-            className="text-xs text-blue-600 hover:text-blue-800"
-            onClick={() => onChange([])}
-          >
-            Clear
-          </button>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function RangePopover({
-  min,
-  max,
-  onChange,
-  onClose,
-}: {
-  min: string
-  max: string
-  onChange: (next: { min: string; max: string }) => void
-  onClose: () => void
-}) {
-  const ref = useClickAway(onClose)
-  const [local, setLocal] = useState({ min, max })
-  return (
-    <div
-      ref={ref}
-      className="absolute z-30 top-full left-0 mt-1 w-60 rounded-md border border-border bg-card shadow-lg p-3"
-    >
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-semibold text-muted-foreground">Progress %</span>
-        <button type="button" className="text-muted-foreground hover:text-muted-foreground" onClick={onClose}>
-          <X className="h-4 w-4" />
-        </button>
-      </div>
-      <div className="flex items-center gap-2">
-        <input
-          type="number"
-          min={0}
-          max={100}
-          placeholder="Min"
-          value={local.min}
-          onChange={(e) => setLocal((p) => ({ ...p, min: e.target.value }))}
-          className="w-20 border rounded px-2 py-1 text-sm"
-        />
-        <span className="text-muted-foreground">–</span>
-        <input
-          type="number"
-          min={0}
-          max={100}
-          placeholder="Max"
-          value={local.max}
-          onChange={(e) => setLocal((p) => ({ ...p, max: e.target.value }))}
-          className="w-20 border rounded px-2 py-1 text-sm"
-        />
-        <span className="text-xs text-muted-foreground">%</span>
-      </div>
-      <div className="flex justify-between mt-3">
-        <button
-          type="button"
-          onClick={() => {
-            onChange({ min: '', max: '' })
-            onClose()
-          }}
-          className="text-xs text-muted-foreground hover:text-foreground"
-        >
-          Clear
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            onChange(local)
-            onClose()
-          }}
-          className="px-3 py-1 rounded bg-blue-600 text-white text-xs hover:bg-blue-700"
-        >
-          Apply
-        </button>
-      </div>
-    </div>
-  )
-}
-
-/* ------------------------- Column definitions ------------------------ */
-
-interface Column {
-  key: string
-  label: string
-  width: number
-  filterable?: boolean
-  render: (row: Row, refs: Refs) => React.ReactNode
-  filterMenu?: (args: { refs: Refs; filters: Filters; setFilters: (f: Filters) => void; close: () => void }) => React.ReactNode
-  isActive?: (filters: Filters) => boolean
-}
-
-const COLUMNS: Column[] = [
-  {
-    key: 'period',
-    label: 'Period',
-    width: 160,
-    filterable: true,
-    render: (row) => <span className="text-sm text-muted-foreground">{row.data.period?.name ?? '—'}</span>,
-    filterMenu: ({ refs, filters, setFilters, close }) => (
-      <MultiSelectPopover
-        title="Period"
-        searchable
-        options={refs.timeframes}
-        selected={filters.period}
-        onChange={(next) => setFilters({ ...filters, period: next })}
-        render={(t: any) => t.name}
-        onClose={close}
-      />
-    ),
-    isActive: (f) => f.period.length > 0,
-  },
-  {
-    key: 'owner',
-    label: 'Owner',
-    width: 170,
-    filterable: true,
-    render: (row) =>
-      row.data.owner ? (
-        <div className="flex items-center gap-1.5">
-          <UserAvatar user={row.data.owner} />
-          <span className="text-sm text-foreground truncate">{row.data.owner.name ?? '—'}</span>
-        </div>
-      ) : (
-        <span className="text-muted-foreground">—</span>
-      ),
-    filterMenu: ({ refs, filters, setFilters, close }) => (
-      <MultiSelectPopover
-        title="Owner"
-        searchable
-        options={refs.owners}
-        selected={filters.owner}
-        onChange={(next) => setFilters({ ...filters, owner: next })}
-        render={(u: any) => u.name ?? u.email}
-        onClose={close}
-      />
-    ),
-    isActive: (f) => f.owner.length > 0,
-  },
-  {
-    key: 'teams',
-    label: 'Teams',
-    width: 140,
-    filterable: true,
-    render: (row) =>
-      row.data.team ? (
-        <span className="inline-flex items-center gap-1 rounded bg-indigo-50 text-indigo-700 text-[11px] font-medium px-1.5 py-0.5">
-          <span className="h-3 w-3 rounded-full bg-indigo-500 text-white text-[9px] flex items-center justify-center">
-            {(row.data.team.name ?? '?').slice(0, 1)}
-          </span>
-          {row.data.team.name}
-        </span>
-      ) : (
-        <span className="text-muted-foreground">—</span>
-      ),
-    filterMenu: ({ refs, filters, setFilters, close }) => (
-      <MultiSelectPopover
-        title="Teams"
-        searchable
-        options={refs.teams}
-        selected={filters.team}
-        onChange={(next) => setFilters({ ...filters, team: next })}
-        render={(t: any) => t.name}
-        onClose={close}
-      />
-    ),
-    isActive: (f) => f.team.length > 0,
-  },
-  {
-    key: 'labels',
-    label: 'Labels',
-    width: 140,
-    filterable: true,
-    render: (row) =>
-      row.data.labels && row.data.labels.length > 0 ? (
-        <div className="flex flex-wrap gap-1">
-          {row.data.labels.slice(0, 3).map((l: RefLabel) => (
-            <span
-              key={l.id}
-              className="inline-flex items-center rounded-full text-[10px] font-medium px-1.5 py-0.5"
-              style={{ backgroundColor: l.color + '22', color: l.color }}
-            >
-              {l.name}
-            </span>
-          ))}
-          {row.data.labels.length > 3 && (
-            <span className="text-[10px] text-muted-foreground">+{row.data.labels.length - 3}</span>
-          )}
-        </div>
-      ) : (
-        <span className="text-muted-foreground">—</span>
-      ),
-    filterMenu: ({ refs, filters, setFilters, close }) => (
-      <MultiSelectPopover
-        title="Labels"
-        searchable
-        options={refs.labels}
-        selected={filters.label}
-        onChange={(next) => setFilters({ ...filters, label: next })}
-        render={(l: any) => l.name}
-        onClose={close}
-      />
-    ),
-    isActive: (f) => f.label.length > 0,
-  },
-  {
-    key: 'okrType',
-    label: 'OKR Type',
-    width: 120,
-    filterable: true,
-    render: (row) => {
-      if (row.kind === 'OBJ') {
-        const b = LEVEL_BADGE[row.data.level] ?? LEVEL_BADGE.INDIVIDUAL
-        return (
-          <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
-            <span className={`h-4 w-4 rounded-sm text-[10px] font-bold flex items-center justify-center ${b.bg} ${b.fg}`}>
-              {b.letter}
-            </span>
-            {row.data.level?.charAt(0) + row.data.level?.slice(1).toLowerCase()}
-          </span>
-        )
-      }
-      if (row.kind === 'KR') return <span className="text-xs text-muted-foreground">Key Result</span>
-      return <span className="text-xs text-muted-foreground">Initiative</span>
-    },
-    filterMenu: ({ filters, setFilters, close }) => (
-      <MultiSelectPopover
-        title="OKR Type"
-        options={TYPE_OPTIONS}
-        selected={filters.type}
-        onChange={(next) => setFilters({ ...filters, type: next })}
-        render={(o: any) => o.label}
-        onClose={close}
-      />
-    ),
-    isActive: (f) => f.type.length > 0,
-  },
-  {
-    key: 'progress',
-    label: 'Progress',
-    width: 140,
-    filterable: true,
-    render: (row) => {
-      const p = row.data.progress
-      if (typeof p !== 'number') return <span className="text-muted-foreground">—</span>
-      return (
-        <div className="flex items-center gap-2">
-          <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden min-w-[50px]">
-            <div
-              className={
-                'h-full rounded-full ' +
-                (p >= 70 ? 'bg-emerald-500' : p >= 30 ? 'bg-amber-500' : 'bg-red-500')
-              }
-              style={{ width: `${Math.min(100, p)}%` }}
-            />
-          </div>
-          <span className="tabular-nums text-xs text-muted-foreground w-10 text-right">{Math.round(p)}%</span>
-        </div>
-      )
-    },
-    filterMenu: ({ filters, setFilters, close }) => (
-      <RangePopover
-        min={filters.progressMin}
-        max={filters.progressMax}
-        onChange={({ min, max }) => setFilters({ ...filters, progressMin: min, progressMax: max })}
-        onClose={close}
-      />
-    ),
-    isActive: (f) => Boolean(f.progressMin) || Boolean(f.progressMax),
-  },
-  {
-    key: 'collaborators',
-    label: 'Collaborators',
-    width: 140,
-    filterable: true,
-    render: (row) => {
-      const list: RefUser[] = row.data.collaborators ?? []
-      if (list.length === 0) return <span className="text-muted-foreground">—</span>
-      return (
-        <div className="flex items-center -space-x-1">
-          {list.slice(0, 4).map((u) => (
-            <UserAvatar key={u.id} user={u} ring />
-          ))}
-          {list.length > 4 && (
-            <span className="relative h-5 w-5 rounded-full bg-gray-200 text-[9px] font-semibold flex items-center justify-center ring-2 ring-white">
-              +{list.length - 4}
-            </span>
-          )}
-        </div>
-      )
-    },
-    filterMenu: ({ refs, filters, setFilters, close }) => (
-      <MultiSelectPopover
-        title="Collaborators"
-        searchable
-        options={refs.owners}
-        selected={filters.collaborator}
-        onChange={(next) => setFilters({ ...filters, collaborator: next })}
-        render={(u: any) => u.name ?? u.email}
-        onClose={close}
-      />
-    ),
-    isActive: (f) => f.collaborator.length > 0,
-  },
-  {
-    key: 'status',
-    label: 'Status',
-    width: 120,
-    filterable: true,
-    render: (row) => {
-      const v = row.data.goalStatus ?? row.data.confidence ?? row.data.status
-      if (!v) return <span className="text-muted-foreground">—</span>
-      return (
-        <span className={`text-[10px] font-semibold uppercase tracking-wide rounded px-1.5 py-0.5 ${STATUS_PILL[v] ?? 'bg-slate-100 text-slate-700'}`}>
-          {String(v).replace(/_/g, ' ')}
-        </span>
-      )
-    },
-    filterMenu: ({ filters, setFilters, close }) => (
-      <MultiSelectPopover
-        title="Status"
-        options={STATUS_OPTIONS}
-        selected={filters.status}
-        onChange={(next) => setFilters({ ...filters, status: next })}
-        render={(o: any) => o.label}
-        onClose={close}
-      />
-    ),
-    isActive: (f) => f.status.length > 0,
-  },
-  {
-    key: 'weight',
-    label: 'Weight',
-    width: 80,
-    render: (row) =>
-      typeof row.data.weight === 'number' ? (
-        <span className="tabular-nums text-sm text-muted-foreground">{row.data.weight}</span>
-      ) : (
-        <span className="text-muted-foreground">—</span>
-      ),
-  },
-  {
-    key: 'latestUpdate',
-    label: 'Latest Update',
-    width: 240,
-    render: (row) => (
-      <span className="text-xs text-muted-foreground line-clamp-1" title={row.data.latestUpdateText ?? ''}>
-        {row.data.latestUpdateText ?? row.kind === 'INIT' ? '—' : 'Key result created.'}
-      </span>
-    ),
-  },
-  {
-    key: 'daysSince',
-    label: 'Days since last update',
-    width: 130,
-    render: (row) => {
-      const n = daysSince(row.data.lastUpdate)
-      return n == null ? <span className="text-muted-foreground">—</span> : <span className="tabular-nums text-sm text-muted-foreground">{n}</span>
-    },
-  },
-  {
-    key: 'dateOfLastUpdate',
-    label: 'Date of last update',
-    width: 130,
-    render: (row) => <span className="text-sm text-muted-foreground">{formatDate(row.data.lastUpdate)}</span>,
-  },
-  {
-    key: 'expectedStart',
-    label: 'Expected start date',
-    width: 130,
-    render: (row) => <span className="text-sm text-muted-foreground">{formatDate(row.data.startDate)}</span>,
-  },
-  {
-    key: 'expectedEnd',
-    label: 'Expected end date',
-    width: 130,
-    render: (row) => <span className="text-sm text-muted-foreground">{formatDate(row.data.endDate ?? row.data.dueDate)}</span>,
-  },
-  {
-    key: 'grade',
-    label: 'Grade',
-    width: 80,
-    render: (row) => <span className="tabular-nums text-sm text-muted-foreground">{computeGrade(row.data.progress)}</span>,
-  },
-  {
-    key: 'startValue',
-    label: 'Start Value',
-    width: 100,
-    render: (row) =>
-      row.kind === 'KR' ? (
-        <span className="tabular-nums text-sm text-muted-foreground">
-          {row.data.startValue} {row.data.unit}
-        </span>
-      ) : (
-        <span className="text-muted-foreground">—</span>
-      ),
-  },
-  {
-    key: 'currentValue',
-    label: 'Current Value',
-    width: 100,
-    render: (row) =>
-      row.kind === 'KR' ? (
-        <span className="tabular-nums text-sm text-muted-foreground">
-          {row.data.currentValue} {row.data.unit}
-        </span>
-      ) : (
-        <span className="text-muted-foreground">—</span>
-      ),
-  },
-  {
-    key: 'targetValue',
-    label: 'Target Value',
-    width: 100,
-    render: (row) =>
-      row.kind === 'KR' ? (
-        <span className="tabular-nums text-sm text-muted-foreground">
-          {row.data.targetValue} {row.data.unit}
-        </span>
-      ) : (
-        <span className="text-muted-foreground">—</span>
-      ),
-  },
-  {
-    // New column — initiatives (todos) rolled up per row.
-    // For OBJ: count all INIT descendants. For KR: count INITs directly under it.
-    // For INIT: show its own completion state as `1/1` or `0/1`.
-    key: 'initiatives',
-    label: 'Initiatives',
-    width: 110,
-    render: (row) => {
-      const total = (row.data.__initTotal ?? 0) as number
-      const closed = (row.data.__initClosed ?? 0) as number
-      if (total === 0) return <span className="text-muted-foreground">—</span>
-      const tone = total === closed ? 'text-emerald-700 bg-emerald-50' : closed > 0 ? 'text-amber-700 bg-amber-50' : 'text-slate-700 bg-slate-50'
-      return (
-        <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium tabular-nums ${tone}`}>
-          {closed}/{total}
-        </span>
-      )
-    },
-  },
-]
-
-function UserAvatar({ user, ring }: { user: RefUser | null | undefined; ring?: boolean }) {
-  if (!user) return null
-  const initial = (user.name ?? user.email ?? '?').slice(0, 1).toUpperCase()
-  return user.avatar ? (
-    <img
-      src={user.avatar}
-      alt={user.name ?? ''}
-      className={'h-5 w-5 rounded-full object-cover ' + (ring ? 'ring-2 ring-white' : '')}
-    />
-  ) : (
-    <span
-      className={
-        'h-5 w-5 rounded-full bg-blue-500 text-white text-[10px] font-semibold flex items-center justify-center ' +
-        (ring ? 'ring-2 ring-white' : '')
-      }
-    >
-      {initial}
-    </span>
-  )
-}
-
-/* ----------------------------- Tree model ---------------------------- */
-
-interface TreeNode extends Row {
-  children: TreeNode[]
-}
-
-function buildTree(rows: Row[]): TreeNode[] {
-  const map = new Map<string, TreeNode>()
-  rows.forEach((r) => map.set(r.rowId, { ...r, children: [] }))
-  const roots: TreeNode[] = []
-  map.forEach((node) => {
-    if (node.parentRowId && map.has(node.parentRowId)) {
-      map.get(node.parentRowId)!.children.push(node)
-    } else {
-      roots.push(node)
-    }
-  })
-  return roots
-}
-
-function flatten(nodes: TreeNode[], expanded: Set<string>, depth = 0, out: Array<TreeNode & { depth: number }> = []) {
-  for (const n of nodes) {
-    out.push(Object.assign({}, n, { depth }))
-    if (expanded.has(n.rowId) && n.children.length > 0) flatten(n.children, expanded, depth + 1, out)
-  }
-  return out
-}
-
-/* --------------------------- Main component -------------------------- */
-
-const NAME_COL_DEFAULT = 420
-const NAME_COL_MIN = 260
-const COL_MIN = 72
+/* --------------------------- Main component --------------------------- */
 
 export default function OkrsAllClient({ currentUser }: { currentUser: CurrentUser }) {
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS)
@@ -840,79 +605,19 @@ export default function OkrsAllClient({ currentUser }: { currentUser: CurrentUse
   const [refs, setRefs] = useState<Refs>({ timeframes: [], owners: [], teams: [], labels: [] })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [expanded, setExpanded] = useState<Set<string>>(new Set())
-  const [openMenu, setOpenMenu] = useState<string | null>(null)
   const [selected, setSelected] = useState<Row | null>(null)
   const [tab, setTab] = useState<Tab>('all')
   const [hideFinished, setHideFinished] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
+  const [view, setView] = useState<ViewMode>('compact')
+  const [sort, setSort] = useState<{ key: SortKey; dir: SortDir } | null>(null)
+  const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set())
+  const [page, setPage] = useState(1)
+  const PAGE_SIZE = 50
   const router = useRouter()
-  const { ids: favoriteIds, loaded: favLoaded, load: loadFavorites, toggle: toggleFavorite } =
-    useOkrFavoritesStore()
+
+  const { ids: favoriteIds, load: loadFavorites, toggle: toggleFavorite } = useOkrFavoritesStore()
   useEffect(() => { loadFavorites() }, [loadFavorites])
-
-  // Per-column widths (resizable). Seeded from defaults; persisted to
-  // localStorage so widths survive refreshes.
-  const [widths, setWidths] = useState<Record<string, number>>(() => {
-    const init: Record<string, number> = { __name: NAME_COL_DEFAULT }
-    for (const c of COLUMNS) init[c.key] = c.width
-    return init
-  })
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem('okrs-all-widths')
-      if (raw) {
-        const parsed = JSON.parse(raw) as Record<string, number>
-        setWidths((prev) => ({ ...prev, ...parsed }))
-      }
-    } catch {}
-  }, [])
-  useEffect(() => {
-    try {
-      localStorage.setItem('okrs-all-widths', JSON.stringify(widths))
-    } catch {}
-  }, [widths])
-  // Hover preview state (for the row title tooltip card).
-  const [hoverRow, setHoverRow] = useState<{ row: Row; x: number; y: number } | null>(null)
-  const hoverTimer = useRef<number | null>(null)
-  const [portalMounted, setPortalMounted] = useState(false)
-  useEffect(() => {
-    setPortalMounted(true)
-  }, [])
-
-  const scheduleHoverPreview = (row: Row, e: React.MouseEvent<HTMLElement>) => {
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-    const x = rect.right + 12
-    const y = rect.top
-    if (hoverTimer.current) window.clearTimeout(hoverTimer.current)
-    hoverTimer.current = window.setTimeout(() => setHoverRow({ row, x, y }), 350)
-  }
-  const cancelHoverPreview = () => {
-    if (hoverTimer.current) {
-      window.clearTimeout(hoverTimer.current)
-      hoverTimer.current = null
-    }
-    setHoverRow(null)
-  }
-
-  const startResize = useCallback((key: string, startX: number) => {
-    const startWidth = widths[key]
-    const min = key === '__name' ? NAME_COL_MIN : COL_MIN
-    const onMove = (e: MouseEvent) => {
-      const next = Math.max(min, Math.round(startWidth + (e.clientX - startX)))
-      setWidths((prev) => ({ ...prev, [key]: next }))
-    }
-    const onUp = () => {
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
-      document.body.style.cursor = ''
-      document.body.style.userSelect = ''
-    }
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
-    document.body.style.cursor = 'col-resize'
-    document.body.style.userSelect = 'none'
-  }, [widths])
 
   const fetchData = useCallback(async (f: Filters) => {
     setLoading(true)
@@ -924,15 +629,6 @@ export default function OkrsAllClient({ currentUser }: { currentUser: CurrentUse
       if (!body.success) throw new Error('Failed to load OKR hierarchy')
       setRows(body.data.rows)
       setRefs(body.data.refs)
-      // Auto-expand root level so the tree isn't empty on first paint.
-      setExpanded((prev) => {
-        if (prev.size > 0) return prev
-        const next = new Set<string>()
-        for (const r of body.data.rows) {
-          if (r.kind === 'OBJ' && !r.parentRowId) next.add(r.rowId)
-        }
-        return next
-      })
     } catch (err: any) {
       setError(err.message ?? 'Failed to load')
     } finally {
@@ -940,19 +636,12 @@ export default function OkrsAllClient({ currentUser }: { currentUser: CurrentUse
     }
   }, [])
 
-  useEffect(() => {
-    fetchData(filters)
-  }, [fetchData, filters])
+  useEffect(() => { fetchData(filters) }, [fetchData, filters])
+  useEffect(() => { setPage(1) }, [filters, tab, hideFinished, view])
 
-  /**
-   * Enrich every OBJ row with an initiative rollup count (`__initTotal` /
-   * `__initClosed`) so the new column can render n/N without a second fetch.
-   * Walks the flat rows once; for each OBJ, sums counts from all INIT
-   * descendants (children of children), traversing via parentRowId.
-   */
+  // Initiative roll-up enrichment (preserved from original).
   const enrichedRows = useMemo<Row[]>(() => {
     if (rows.length === 0) return rows
-    // parentRowId → list of child rowIds
     const childIds = new Map<string, string[]>()
     const byId = new Map<string, Row>()
     for (const r of rows) {
@@ -964,8 +653,7 @@ export default function OkrsAllClient({ currentUser }: { currentUser: CurrentUse
     }
     function countInits(rowId: string): { total: number; closed: number } {
       const out = { total: 0, closed: 0 }
-      const children = childIds.get(rowId) ?? []
-      for (const cid of children) {
+      for (const cid of childIds.get(rowId) ?? []) {
         const c = byId.get(cid)
         if (!c) continue
         if (c.kind === 'INIT') {
@@ -979,78 +667,84 @@ export default function OkrsAllClient({ currentUser }: { currentUser: CurrentUse
       }
       return out
     }
-    return rows.map((r) => {
+    return rows.map(r => {
       if (r.kind === 'OBJ' || r.kind === 'KR') {
         const { total, closed } = countInits(r.rowId)
         return { ...r, data: { ...r.data, __initTotal: total, __initClosed: closed } }
       }
       if (r.kind === 'INIT') {
-        const isDone = r.data.status === 'COMPLETED' ? 1 : 0
-        return { ...r, data: { ...r.data, __initTotal: 1, __initClosed: isDone } }
+        return { ...r, data: { ...r.data, __initTotal: 1, __initClosed: r.data.status === 'COMPLETED' ? 1 : 0 } }
       }
       return r
     })
   }, [rows])
 
-  /**
-   * Apply client-side tab + hideFinished filters on top of the
-   * server-filtered rows. We keep ancestors of any matching row so
-   * the tree doesn't look orphaned after pruning.
-   */
-  const filteredRows = useMemo<Row[]>(() => {
-    if (enrichedRows.length === 0) return enrichedRows
-    const keep = new Set<string>()
-    // When on the Watched tab, "match" means the row itself is a favorited
-    // objective OR a descendant of one. Precompute the descendant set so the
-    // tree displays favorited OBJ plus their children (KRs + INITs) too.
-    const watchedDescendantOf = new Set<string>()
-    if (tab === 'watched') {
-      const childIds = new Map<string, string[]>()
-      for (const r of enrichedRows) {
-        if (r.parentRowId) {
-          if (!childIds.has(r.parentRowId)) childIds.set(r.parentRowId, [])
-          childIds.get(r.parentRowId)!.push(r.rowId)
-        }
+  const watchedDescendantOf = useMemo(() => {
+    const set = new Set<string>()
+    if (tab !== 'watched') return set
+    const childIds = new Map<string, string[]>()
+    for (const r of enrichedRows) {
+      if (r.parentRowId) {
+        if (!childIds.has(r.parentRowId)) childIds.set(r.parentRowId, [])
+        childIds.get(r.parentRowId)!.push(r.rowId)
       }
-      const markDesc = (rowId: string): void => {
-        for (const cid of childIds.get(rowId) ?? []) {
-          watchedDescendantOf.add(cid)
-          markDesc(cid)
-        }
-      }
-      for (const r of enrichedRows) {
-        if (r.kind === 'OBJ' && favoriteIds.has(r.data.id)) markDesc(r.rowId)
+    }
+    const markDesc = (rowId: string): void => {
+      for (const cid of childIds.get(rowId) ?? []) {
+        set.add(cid)
+        markDesc(cid)
       }
     }
     for (const r of enrichedRows) {
+      if (r.kind === 'OBJ' && favoriteIds.has(r.data.id)) markDesc(r.rowId)
+    }
+    return set
+  }, [enrichedRows, tab, favoriteIds])
+
+  const filteredRows = useMemo<Row[]>(() => {
+    return enrichedRows.filter(r => {
       let tabOk = matchesTab(r, tab, currentUser)
       if (tab === 'watched') {
         const isOwnFav = r.kind === 'OBJ' && favoriteIds.has(r.data.id)
         tabOk = isOwnFav || watchedDescendantOf.has(r.rowId)
       }
-      if (tabOk && matchesHideFinished(r, hideFinished)) {
-        let cursor: string | null | undefined = r.rowId
-        while (cursor) {
-          if (keep.has(cursor)) break
-          keep.add(cursor)
-          const parent = enrichedRows.find((x) => x.rowId === cursor)?.parentRowId
-          cursor = parent ?? null
-        }
+      return tabOk && matchesHideFinished(r, hideFinished) && matchesStatus(r, filters.status)
+    })
+  }, [enrichedRows, tab, hideFinished, currentUser, favoriteIds, watchedDescendantOf, filters.status])
+
+  // Show only OBJ + KR rows in the list view (initiatives appear via roll-up
+  // chip and the global initiative drawer).
+  const listRows = useMemo<Row[]>(() => {
+    return filteredRows.filter(r => r.kind === 'OBJ' || r.kind === 'KR')
+  }, [filteredRows])
+
+  const sortedRows = useMemo<Row[]>(() => {
+    if (!sort) return listRows
+    const arr = [...listRows]
+    const dir = sort.dir === 'asc' ? 1 : -1
+    arr.sort((a, b) => {
+      let av: any, bv: any
+      switch (sort.key) {
+        case 'title': av = a.data.title ?? ''; bv = b.data.title ?? ''; break
+        case 'progress': av = a.data.progress ?? 0; bv = b.data.progress ?? 0; break
+        case 'owner': av = a.data.owner?.name ?? ''; bv = b.data.owner?.name ?? ''; break
+        case 'period': av = a.data.period?.name ?? ''; bv = b.data.period?.name ?? ''; break
+        case 'status': av = statusOf(a); bv = statusOf(b); break
       }
-    }
-    return enrichedRows.filter((r) => keep.has(r.rowId))
-  }, [enrichedRows, tab, hideFinished, currentUser, favoriteIds])
+      if (av < bv) return -1 * dir
+      if (av > bv) return 1 * dir
+      return 0
+    })
+    return arr
+  }, [listRows, sort])
 
-  const tree = useMemo(() => buildTree(filteredRows), [filteredRows])
-  const flat = useMemo(() => flatten(tree, expanded), [tree, expanded])
+  const pagedRows = useMemo(() => sortedRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [sortedRows, page])
+  const pageCount = Math.max(1, Math.ceil(sortedRows.length / PAGE_SIZE))
 
-  /** KPI counts recomputed whenever the filtered set changes. */
   const kpis = useMemo(() => {
     let objs = 0, krs = 0, inits = 0, initsClosed = 0
     let progSum = 0, progCount = 0
     let atRisk = 0
-    const now = Date.now()
-    let overdue = 0
     for (const r of filteredRows) {
       if (r.kind === 'OBJ') {
         objs++
@@ -1066,90 +760,88 @@ export default function OkrsAllClient({ currentUser }: { currentUser: CurrentUse
         inits++
         if (r.data.status === 'COMPLETED') initsClosed++
       }
-      const last = r.data.lastUpdate ? new Date(r.data.lastUpdate).getTime() : null
-      if (last && now - last > 14 * 86400_000 && (r.kind === 'OBJ' || r.kind === 'KR')) overdue++
     }
     const avgProgress = progCount > 0 ? Math.round(progSum / progCount) : 0
-    return { objs, krs, inits, initsClosed, avgProgress, atRisk, overdue }
+    return { objs, krs, inits, initsClosed, avgProgress, atRisk }
   }, [filteredRows])
 
-  const toggle = (rowId: string) =>
-    setExpanded((prev) => {
-      const next = new Set(prev)
-      if (next.has(rowId)) next.delete(rowId)
-      else next.add(rowId)
-      return next
-    })
-  const expandAll = () => setExpanded(new Set(rows.map((r) => r.rowId)))
-  const collapseAll = () => setExpanded(new Set())
-
   const clearFilters = () => setFilters(EMPTY_FILTERS)
-  const activeFilterCount =
-    filters.period.length +
-    filters.owner.length +
-    filters.team.length +
-    filters.label.length +
-    filters.type.length +
-    filters.status.length +
-    filters.collaborator.length +
-    (filters.progressMin ? 1 : 0) +
-    (filters.progressMax ? 1 : 0) +
-    (filters.q ? 1 : 0)
-
-  const totalWidth = widths.__name + COLUMNS.reduce((s, c) => s + (widths[c.key] ?? c.width), 0)
+  const activeFilterCount = filters.period.length + filters.team.length + filters.type.length + filters.status.length + (filters.q ? 1 : 0)
 
   const role = currentUser.role
   const canCreateCompany = role === 'ADMIN' || role === 'EXECUTIVE'
   const canCreateDepartment = canCreateCompany || role === 'DEPARTMENT_LEAD'
 
+  const onSort = (key: SortKey) => {
+    setSort(cur => {
+      if (cur?.key === key) return { key, dir: cur.dir === 'asc' ? 'desc' : 'asc' }
+      return { key, dir: 'asc' }
+    })
+  }
+
+  const openRow = useCallback((row: Row) => {
+    if (row.kind === 'INIT') { useInitiativeDetailStore.getState().open(row.data.id); return }
+    if (row.data.href) { router.push(row.data.href); return }
+    setSelected(row)
+  }, [router])
+
+  const toggleBulk = (rowId: string) => {
+    setBulkSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(rowId)) next.delete(rowId); else next.add(rowId)
+      return next
+    })
+  }
+  const allOnPageSelected = pagedRows.length > 0 && pagedRows.every(r => bulkSelected.has(r.rowId))
+  const toggleAllOnPage = () => {
+    setBulkSelected(prev => {
+      const next = new Set(prev)
+      if (allOnPageSelected) {
+        for (const r of pagedRows) next.delete(r.rowId)
+      } else {
+        for (const r of pagedRows) next.add(r.rowId)
+      }
+      return next
+    })
+  }
+
   return (
     <div className="space-y-4">
-      {/* KPI cards — reactive to current filters + tab */}
+      {/* KPI cards */}
       <StatGrid columns={5}>
         <StatCard label="Objectives" value={kpis.objs} iconText="O" tone="blue" />
         <StatCard label="Key Results" value={kpis.krs} iconText="KR" tone="green" />
         <StatCard label="Initiatives" value={`${kpis.initsClosed}/${kpis.inits}`} iconText="✓" tone="purple" />
         <StatCard label="Avg Progress" value={`${kpis.avgProgress}%`} iconText="%" tone="yellow" />
-        <StatCard
-          label="At Risk"
-          value={kpis.atRisk}
-          iconText="!"
-          tone={kpis.atRisk > 0 ? 'red' : 'blue'}
-        />
+        <StatCard label="At Risk" value={kpis.atRisk} iconText="!" tone={kpis.atRisk > 0 ? 'red' : 'blue'} />
       </StatGrid>
 
-      {/* Tabs + Create menu */}
+      {/* Tabs + Create */}
       <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-1 border-b border-border">
-          <TabButton active={tab === 'all'} onClick={() => setTab('all')} count={null} label="All" />
-          <TabButton
-            active={tab === 'watched'}
-            onClick={() => setTab('watched')}
-            count={favoriteIds.size || null}
-            label="Watched ⭐"
-          />
-          <TabButton active={tab === 'mine'} onClick={() => setTab('mine')} count={null} label="My OKRs" />
-          <TabButton
-            active={tab === 'atRisk'}
-            onClick={() => setTab('atRisk')}
-            count={kpis.atRisk || null}
-            label="At risk"
-          />
+        <div className="flex items-center gap-1">
+          <TabButton label="All" active={tab === 'all'} onClick={() => setTab('all')} />
+          <TabButton label="Watched" active={tab === 'watched'} onClick={() => setTab('watched')} count={favoriteIds.size || null} />
+          <TabButton label="My OKRs" active={tab === 'mine'} onClick={() => setTab('mine')} />
+          <TabButton label="At risk" active={tab === 'atRisk'} onClick={() => setTab('atRisk')} count={kpis.atRisk || null} />
         </div>
 
         <div className="relative">
-          <button
+          <Button
             type="button"
-            onClick={() => setCreateOpen((o) => !o)}
-            className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            onClick={() => setCreateOpen(o => !o)}
+            size="sm"
+            className="h-9 rounded-[10px] text-[13px] gap-1"
           >
             <Plus className="h-4 w-4" /> Create
             <ChevronDown className="h-3.5 w-3.5" />
-          </button>
+          </Button>
           {createOpen && (
             <>
               <button type="button" className="fixed inset-0 z-40 cursor-default" aria-label="Close menu" onClick={() => setCreateOpen(false)} />
-              <div className="absolute right-0 top-full z-50 mt-1 w-56 rounded-md border border-border bg-card p-1 shadow-lg">
+              <div
+                className="absolute right-0 top-full z-50 mt-1 w-56 rounded-[14px] border bg-card p-1 shadow-lg"
+                style={{ borderColor: 'var(--ap-border)' }}
+              >
                 {canCreateCompany && (
                   <div onClick={() => setCreateOpen(false)} className="px-1 py-0.5">
                     <CreateCompanyObjectiveButton />
@@ -1169,288 +861,234 @@ export default function OkrsAllClient({ currentUser }: { currentUser: CurrentUse
         </div>
       </div>
 
-      <div className="bg-card rounded-lg shadow">
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2">
-        <div className="flex items-center gap-1 rounded border border-border px-2 py-1 w-64">
-          <Search className="h-4 w-4 text-muted-foreground" />
-          <input
-            value={filters.q}
-            onChange={(e) => setFilters({ ...filters, q: e.target.value })}
-            placeholder="Search OKR name or key…"
-            className="w-full text-sm focus:outline-none"
-          />
-        </div>
-        <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-          <input
-            type="checkbox"
-            checked={hideFinished}
-            onChange={(e) => setHideFinished(e.target.checked)}
-            className="h-3.5 w-3.5"
-          />
-          Hide finished
-        </label>
-        <button
-          type="button"
-          onClick={expandAll}
-          className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+      <div className="rounded-[14px] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
+        {/* Filter strip */}
+        <div
+          className="flex flex-wrap items-center gap-2 border-b px-3 py-2.5"
+          style={{ borderColor: 'var(--ap-border)', background: 'var(--ap-bg-sunken)' }}
         >
-          <Layers className="h-3.5 w-3.5" /> Expand all
-        </button>
-        <button
-          type="button"
-          onClick={collapseAll}
-          className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
-        >
-          <Layers className="h-3.5 w-3.5 rotate-180" /> Collapse all
-        </button>
-        {activeFilterCount > 0 && (
-          <button
-            type="button"
-            onClick={clearFilters}
-            className="text-xs text-blue-600 hover:text-blue-800 ml-auto"
+          <div
+            className="flex items-center gap-1.5 rounded-[10px] border px-2 h-8 w-72 bg-card"
+            style={{ borderColor: 'var(--ap-border)' }}
           >
-            Clear {activeFilterCount} filter{activeFilterCount === 1 ? '' : 's'}
-          </button>
-        )}
-      </div>
-
-      {/* Table */}
-      <div className="overflow-x-auto">
-        <div style={{ minWidth: totalWidth }}>
-          {/* Header row */}
-          <div className="flex items-center sticky top-0 z-20 bg-muted border-b border-border">
-            <div
-              style={{ width: widths.__name }}
-              className="relative sticky left-0 z-20 bg-muted px-3 py-2 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground border-r border-border"
-            >
-              OKR Name
-              <ResizeHandle onStart={(x) => startResize('__name', x)} />
-            </div>
-            {COLUMNS.map((c) => (
-              <div
-                key={c.key}
-                style={{ width: widths[c.key] ?? c.width }}
-                className="relative px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground border-r border-border shrink-0"
-              >
-                {c.filterable ? (
-                  <FilterTrigger
-                    label={c.label}
-                    active={c.isActive?.(filters) ?? false}
-                    onClick={() => setOpenMenu(openMenu === c.key ? null : c.key)}
-                  />
-                ) : (
-                  <span>{c.label}</span>
-                )}
-                {openMenu === c.key && c.filterMenu?.({ refs, filters, setFilters, close: () => setOpenMenu(null) })}
-                <ResizeHandle onStart={(x) => startResize(c.key, x)} />
-              </div>
-            ))}
+            <Search className="h-3.5 w-3.5 text-muted-foreground" />
+            <input
+              value={filters.q}
+              onChange={(e) => setFilters({ ...filters, q: e.target.value })}
+              placeholder="Search OKR title…"
+              className="w-full text-[13px] focus:outline-none bg-transparent"
+            />
+            {filters.q && (
+              <button type="button" onClick={() => setFilters({ ...filters, q: '' })} className="text-muted-foreground hover:text-foreground">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
 
-          {/* Body */}
-          {loading ? (
-            <div className="p-8 text-sm text-muted-foreground text-center">Loading…</div>
-          ) : error ? (
-            <div className="p-8 text-sm text-red-600 text-center">{error}</div>
-          ) : flat.length === 0 ? (
-            <div className="p-8 text-sm text-muted-foreground text-center">No OKRs match these filters.</div>
-          ) : (
-            <div>
-              {flat.map((row, idx) => {
-                const isExpandable = row.children.length > 0
-                const isExpanded = expanded.has(row.rowId)
-                // Alternate row bg is solid so the sticky left-column stays opaque
-                // on hover (prevents the text-overlap bug).
-                const rowBase = idx % 2 === 0 ? 'bg-card' : 'bg-muted'
-                const rowHover = 'hover:bg-blue-50'
-                return (
-                  <div
-                    key={row.rowId}
-                    className={`group flex items-stretch border-b border-border ${rowBase} ${rowHover}`}
-                    onClick={() => {
-                      if (row.kind === 'INIT') {
-                        useInitiativeDetailStore.getState().open(row.data.id)
-                      } else {
-                        setSelected(row)
-                      }
-                    }}
-                  >
-                    <div
-                      style={{ width: widths.__name, paddingLeft: 12 + row.depth * 16 }}
-                      className={`sticky left-0 z-10 pr-3 py-2 shrink-0 flex items-center gap-1 border-r border-border ${rowBase} group-hover:bg-blue-50`}
-                      onMouseEnter={(e) => scheduleHoverPreview(row, e)}
-                      onMouseLeave={cancelHoverPreview}
-                    >
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          if (isExpandable) toggle(row.rowId)
-                        }}
-                        className={isExpandable ? 'text-muted-foreground hover:text-foreground' : 'text-transparent'}
-                        aria-label={isExpanded ? 'Collapse' : 'Expand'}
-                      >
-                        {isExpandable ? (
-                          isExpanded ? (
-                            <ChevronDown className="h-4 w-4" />
-                          ) : (
-                            <ChevronRight className="h-4 w-4" />
-                          )
-                        ) : (
-                          <ChevronRight className="h-4 w-4 opacity-0" />
-                        )}
-                      </button>
-                      {row.kind === 'OBJ' && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            toggleFavorite(row.data.id)
-                          }}
-                          className="shrink-0 text-muted-foreground hover:text-yellow-500"
-                          aria-label={favoriteIds.has(row.data.id) ? 'Unfavorite' : 'Favorite'}
-                          title={favoriteIds.has(row.data.id) ? 'Remove from Watched' : 'Add to Watched'}
-                        >
-                          <Star
-                            className={`h-3.5 w-3.5 ${favoriteIds.has(row.data.id) ? 'fill-yellow-400 text-yellow-500' : ''}`}
-                          />
-                        </button>
-                      )}
-                      <KindBadge row={row} />
-                      {row.data.href ? (
-                        <Link
-                          href={row.data.href}
-                          className="text-sm text-foreground hover:text-blue-600 truncate"
-                          title={row.data.title}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {row.data.title}
-                        </Link>
-                      ) : (
-                        <span className="text-sm text-foreground truncate">{row.data.title}</span>
-                      )}
-                    </div>
-                    {COLUMNS.map((c) => (
-                      <div
-                        key={c.key}
-                        style={{ width: widths[c.key] ?? c.width }}
-                        className="px-3 py-2 shrink-0 border-r border-border overflow-hidden"
-                      >
-                        {c.render(row, refs)}
-                      </div>
-                    ))}
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      </div>
+          <MultiPill
+            label="Timeframe"
+            options={refs.timeframes.map(t => ({ id: t.id, label: t.name }))}
+            selected={filters.period}
+            onChange={(next) => setFilters({ ...filters, period: next })}
+          />
+          <MultiPill
+            label="Department"
+            options={refs.teams.map(t => ({ id: t.id, label: t.name }))}
+            selected={filters.team}
+            onChange={(next) => setFilters({ ...filters, team: next })}
+          />
+          <MultiPill label="Level" options={TYPE_OPTIONS} selected={filters.type}
+            onChange={(next) => setFilters({ ...filters, type: next })} />
+          <MultiPill label="Status" options={STATUS_OPTIONS} selected={filters.status}
+            onChange={(next) => setFilters({ ...filters, status: next })} />
 
-      {/* Hover preview card (portaled so it escapes the sticky header's
-          stacking context and isn't clipped by the overflow container). */}
-      {portalMounted &&
-        hoverRow &&
-        createPortal(
+          <label className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground ml-1">
+            <input
+              type="checkbox"
+              checked={hideFinished}
+              onChange={(e) => setHideFinished(e.target.checked)}
+              className="h-3.5 w-3.5"
+            />
+            Hide finished
+          </label>
+
+          <div className="ml-auto flex items-center gap-2">
+            {/* View toggle */}
+            <div
+              className="inline-flex items-center rounded-[10px] p-0.5 text-[11px] font-medium"
+              style={{ background: 'var(--ap-bg)' }}
+            >
+              <button
+                type="button"
+                onClick={() => setView('compact')}
+                className={cn(
+                  'px-2.5 py-1 rounded-[8px] transition-colors',
+                  view === 'compact' ? 'bg-card shadow-sm' : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                Compact rows
+              </button>
+              <button
+                type="button"
+                onClick={() => setView('rich')}
+                className={cn(
+                  'px-2.5 py-1 rounded-[8px] transition-colors',
+                  view === 'rich' ? 'bg-card shadow-sm' : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                Rich cards
+              </button>
+            </div>
+            {activeFilterCount > 0 && (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="text-[12px] text-[var(--ap-accent)] hover:underline"
+              >
+                Clear {activeFilterCount}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Bulk action bar */}
+        {bulkSelected.size > 0 && (
           <div
-            style={{
-              position: 'fixed',
-              top: Math.min(hoverRow.y, window.innerHeight - 220),
-              left: Math.min(hoverRow.x, window.innerWidth - 360),
-              zIndex: 9999,
-            }}
-            className="w-80 rounded-lg border border-border bg-card shadow-xl p-3 pointer-events-none"
+            className="flex items-center gap-3 px-3 py-2 border-b text-[12px]"
+            style={{ borderColor: 'var(--ap-border)', background: 'var(--ap-accent-soft)', color: 'var(--ap-accent)' }}
           >
-            <div className="flex items-start justify-between gap-2 mb-1">
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-foreground leading-snug">{hoverRow.row.data.title}</p>
-              </div>
-              {typeof hoverRow.row.data.progress === 'number' && (
-                <span className="text-xs font-medium text-muted-foreground tabular-nums shrink-0">
-                  {Math.round(hoverRow.row.data.progress)}%
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-2 mb-2 text-[11px] uppercase tracking-wide text-muted-foreground">
-              {(() => {
-                const v =
-                  hoverRow.row.data.goalStatus ??
-                  hoverRow.row.data.confidence ??
-                  hoverRow.row.data.status
-                if (!v) return <span>—</span>
-                return (
-                  <span
-                    className={`text-[10px] font-semibold uppercase tracking-wide rounded px-1.5 py-0.5 ${STATUS_PILL[v] ?? 'bg-slate-100 text-slate-700'}`}
-                  >
-                    {String(v).replace(/_/g, ' ')}
-                  </span>
-                )
-              })()}
-              <span className="ml-auto text-[11px] text-muted-foreground">
-                {hoverRow.row.kind === 'OBJ'
-                  ? hoverRow.row.data.level
-                  : hoverRow.row.kind === 'KR'
-                    ? 'Key result'
-                    : 'Initiative'}
-              </span>
-            </div>
-            {typeof hoverRow.row.data.progress === 'number' && (
-              <div className="h-1.5 rounded-full bg-muted overflow-hidden mb-2">
-                <div
-                  className={
-                    'h-full rounded-full ' +
-                    (hoverRow.row.data.progress >= 70
-                      ? 'bg-emerald-500'
-                      : hoverRow.row.data.progress >= 30
-                        ? 'bg-amber-500'
-                        : 'bg-red-500')
-                  }
-                  style={{ width: `${Math.min(100, hoverRow.row.data.progress)}%` }}
-                />
-              </div>
-            )}
-            {hoverRow.row.data.owner && (
-              <p className="text-xs text-muted-foreground">
-                Owner: <span className="text-foreground">{hoverRow.row.data.owner.name ?? '—'}</span>
-              </p>
-            )}
-            {hoverRow.row.data.period && (
-              <p className="text-xs text-muted-foreground">Period: {hoverRow.row.data.period.name}</p>
-            )}
-            {hoverRow.row.kind === 'KR' && (
-              <p className="text-xs text-muted-foreground mt-1">
-                {hoverRow.row.data.currentValue} / {hoverRow.row.data.targetValue} {hoverRow.row.data.unit}
-              </p>
-            )}
-          </div>,
-          document.body,
+            <span className="font-semibold tabular-nums">{bulkSelected.size} selected</span>
+            <button type="button" onClick={() => setBulkSelected(new Set())} className="hover:underline">Clear</button>
+            <span className="ml-auto text-muted-foreground">Bulk actions are coming soon.</span>
+          </div>
         )}
 
+        {/* Sort header (compact only) */}
+        {view === 'compact' && pagedRows.length > 0 && (
+          <div
+            className="grid items-center gap-3 px-3 py-2 border-b"
+            style={{
+              borderColor: 'var(--ap-border)',
+              background: 'var(--ap-bg-sunken)',
+              gridTemplateColumns: 'auto 28px 22px auto auto minmax(0,1fr) auto auto auto auto auto',
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={allOnPageSelected}
+              onChange={toggleAllOnPage}
+              className="h-3.5 w-3.5"
+              aria-label="Select all"
+            />
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+            <SortHeader label="Title" sortKey="title" sort={sort} onSort={onSort} />
+            <SortHeader label="Status" sortKey="status" sort={sort} onSort={onSort} className="hidden md:inline-flex" />
+            <span className="hidden lg:block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Init</span>
+            <SortHeader label="Progress" sortKey="progress" sort={sort} onSort={onSort} />
+            <SortHeader label="Owner" sortKey="owner" sort={sort} onSort={onSort} />
+            <span></span>
+          </div>
+        )}
+
+        {/* Body */}
+        {loading ? (
+          <div className="p-10 text-[13px] text-muted-foreground text-center">Loading…</div>
+        ) : error ? (
+          <div className="p-10 text-[13px] text-[var(--ap-red)] text-center">{error}</div>
+        ) : pagedRows.length === 0 ? (
+          <div className="p-10 text-center">
+            <Target className="mx-auto size-8 mb-2 text-muted-foreground/60" />
+            <p className="text-[13px] font-medium">No OKRs match these filters</p>
+            <p className="text-[12px] text-muted-foreground mt-1">Try adjusting your filters.</p>
+          </div>
+        ) : view === 'compact' ? (
+          <div>
+            {pagedRows.map((row, idx) => (
+              <CompactRow
+                key={row.rowId}
+                row={row}
+                idx={(page - 1) * PAGE_SIZE + idx}
+                density="compact"
+                onOpen={() => openRow(row)}
+                currentUser={currentUser}
+                favoriteIds={favoriteIds}
+                toggleFavorite={toggleFavorite}
+                selected={bulkSelected.has(row.rowId)}
+                onToggleSelect={() => toggleBulk(row.rowId)}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="p-3 space-y-2">
+            {pagedRows.map((row) => (
+              <RichCard
+                key={row.rowId}
+                row={row}
+                onOpen={() => openRow(row)}
+                favoriteIds={favoriteIds}
+                toggleFavorite={toggleFavorite}
+                selected={bulkSelected.has(row.rowId)}
+                onToggleSelect={() => toggleBulk(row.rowId)}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Pagination */}
+        {sortedRows.length > PAGE_SIZE && (
+          <div
+            className="flex items-center justify-between px-3 py-2.5 border-t text-[12px]"
+            style={{ borderColor: 'var(--ap-border)', background: 'var(--ap-bg-sunken)' }}
+          >
+            <span className="text-muted-foreground tabular-nums">
+              {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, sortedRows.length)} of {sortedRows.length}
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="px-2 h-7 rounded-[8px] border disabled:opacity-40 hover:bg-card"
+                style={{ borderColor: 'var(--ap-border)' }}
+              >
+                Prev
+              </button>
+              <span className="tabular-nums text-muted-foreground">{page} / {pageCount}</span>
+              <button
+                type="button"
+                onClick={() => setPage(p => Math.min(pageCount, p + 1))}
+                disabled={page === pageCount}
+                className="px-2 h-7 rounded-[8px] border disabled:opacity-40 hover:bg-card"
+                style={{ borderColor: 'var(--ap-border)' }}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
+
       {/* Detail drawer */}
-      <SideDrawer
-        open={!!selected}
-        onClose={() => setSelected(null)}
-        title={selected?.data.title ?? ''}
-        width="lg"
-      >
+      <SideDrawer open={!!selected} onClose={() => setSelected(null)} title={selected?.data.title ?? ''} width="lg">
         {selected && (
-          <div className="space-y-4 text-sm">
-            <KindBadgeLarge row={selected} />
+          <div className="space-y-4 text-[13px]">
+            <div className="flex items-center gap-2">
+              <KindIcon row={selected} />
+              <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                {selected.kind === 'OBJ' ? `${selected.data.level?.toLowerCase()} objective`
+                  : selected.kind === 'KR' ? 'Key result' : 'Initiative'}
+              </span>
+              <div className="ml-auto"><StatusPill status={statusOf(selected)} /></div>
+            </div>
             <Field label="Path">{selected.path.join(' › ')}</Field>
             {typeof selected.data.progress === 'number' && (
               <Field label="Progress">
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
-                    <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min(100, selected.data.progress)}%` }} />
-                  </div>
-                  <span className="tabular-nums text-muted-foreground">{Math.round(selected.data.progress)}%</span>
-                </div>
+                <ProgressBar value={selected.data.progress} status={statusOf(selected)} width={240} />
               </Field>
             )}
-            {selected.data.goalStatus && <Field label="Status">{String(selected.data.goalStatus).replace(/_/g, ' ')}</Field>}
-            {selected.data.confidence && <Field label="Confidence">{String(selected.data.confidence).replace(/_/g, ' ')}</Field>}
             {selected.data.owner && <Field label="Owner">{selected.data.owner.name ?? selected.data.owner.email}</Field>}
             {selected.data.team && <Field label="Team">{selected.data.team.name}</Field>}
             {selected.data.period && <Field label="Period">{selected.data.period.name}</Field>}
@@ -1463,13 +1101,9 @@ export default function OkrsAllClient({ currentUser }: { currentUser: CurrentUse
             )}
             <Field label="Expected start">{formatDate(selected.data.startDate)}</Field>
             <Field label="Expected end">{formatDate(selected.data.endDate ?? selected.data.dueDate)}</Field>
-            <Field label="Grade">{computeGrade(selected.data.progress)}</Field>
             {selected.data.href && (
-              <Link
-                href={selected.data.href}
-                className="inline-block mt-2 px-3 py-1.5 rounded-md bg-blue-600 text-white text-xs font-medium hover:bg-blue-700"
-              >
-                Open full page
+              <Link href={selected.data.href} className="inline-block">
+                <Button size="sm" className="h-8 rounded-[10px] text-[12px]">Open full page</Button>
               </Link>
             )}
           </div>
@@ -1482,90 +1116,8 @@ export default function OkrsAllClient({ currentUser }: { currentUser: CurrentUse
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
-      <div className="font-medium text-foreground mt-0.5">{children}</div>
-    </div>
-  )
-}
-
-function KindBadge({ row }: { row: Row }) {
-  if (row.kind === 'OBJ') {
-    const b = LEVEL_BADGE[row.data.level] ?? LEVEL_BADGE.INDIVIDUAL
-    return (
-      <span className={`h-5 w-5 rounded-sm text-[10px] font-bold flex items-center justify-center shrink-0 ${b.bg} ${b.fg}`}>
-        {b.letter}
-      </span>
-    )
-  }
-  if (row.kind === 'KR') {
-    return (
-      <span className="h-5 px-1.5 rounded bg-orange-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
-        KR
-      </span>
-    )
-  }
-  return (
-    <span className="h-5 w-5 rounded bg-emerald-500 text-white flex items-center justify-center shrink-0">
-      <CheckSquare className="h-3 w-3" />
-    </span>
-  )
-}
-
-function ResizeHandle({ onStart }: { onStart: (x: number) => void }) {
-  return (
-    <div
-      onMouseDown={(e) => {
-        e.preventDefault()
-        e.stopPropagation()
-        onStart(e.clientX)
-      }}
-      onClick={(e) => e.stopPropagation()}
-      className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize select-none group-hover:bg-blue-200/60 hover:bg-blue-400/80 transition-colors"
-      title="Drag to resize"
-    />
-  )
-}
-
-function TabButton({
-  label, active, count, disabled, title, onClick,
-}: {
-  label: string
-  active: boolean
-  count?: number | null
-  disabled?: boolean
-  title?: string
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      title={title}
-      aria-selected={active}
-      className={`inline-flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
-        active
-          ? 'border-blue-600 text-blue-700'
-          : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
-      } ${disabled ? 'opacity-40 cursor-not-allowed hover:text-muted-foreground hover:border-transparent' : ''}`}
-    >
-      {label}
-      {count != null && count > 0 && (
-        <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${active ? 'bg-blue-100 text-blue-800' : 'bg-muted text-muted-foreground'}`}>
-          {count}
-        </span>
-      )}
-    </button>
-  )
-}
-
-function KindBadgeLarge({ row }: { row: Row }) {
-  return (
-    <div className="inline-flex items-center gap-2">
-      <KindBadge row={row} />
-      <span className="text-xs uppercase tracking-wide text-muted-foreground">
-        {row.kind === 'OBJ' ? `${row.data.level?.toLowerCase()} objective` : row.kind === 'KR' ? 'Key result' : 'Initiative'}
-      </span>
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+      <div className="mt-0.5 text-[13px]">{children}</div>
     </div>
   )
 }

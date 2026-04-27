@@ -260,7 +260,12 @@ model KeyResultCheckIn {
   keyResultId String
   asOfDate    DateTime
   value       Float
+  /// Legacy enum-style tier kept for backward compatibility (ON_TRACK | AT_RISK | OFF_TRACK).
+  /// New writes should also set `confidenceScore`; reads should prefer it.
   confidence  String
+  /// Numeric 0-100 confidence captured from the Apple-style slider.
+  /// Default 50 keeps existing rows valid until backfilled (see scripts/preflight.sql).
+  confidenceScore Int @default(50)
   analysis    String?
   createdById String
   createdAt   DateTime @default(now())

@@ -20,6 +20,18 @@ import { computeKrConfidence } from '@/lib/confidence-calc'
 
 const CONFIDENCE = new Set(['ON_TRACK', 'AT_RISK', 'OFF_TRACK'])
 
+function tierToScore(t: string): number {
+  if (t === 'ON_TRACK') return 85
+  if (t === 'AT_RISK') return 55
+  if (t === 'OFF_TRACK') return 25
+  return 50
+}
+function scoreToTier(n: number): 'ON_TRACK' | 'AT_RISK' | 'OFF_TRACK' {
+  if (n >= 70) return 'ON_TRACK'
+  if (n >= 40) return 'AT_RISK'
+  return 'OFF_TRACK'
+}
+
 function krProgressPercent(currentValue: number, targetValue: number): number {
   if (targetValue <= 0) return 0
   return Math.min(Math.max((currentValue / targetValue) * 100, 0), 100)
@@ -58,7 +70,7 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
   if (!id) return apiBadRequest('Invalid key result id')
 
   const body = await request.json()
-  const { asOfDate, progress, confidence, analysis } = body
+  const { asOfDate, progress, confidence, confidenceScore, analysis } = body
 
   if (!asOfDate || typeof asOfDate !== 'string') {
     return apiBadRequest('Check-in date is required')
@@ -66,9 +78,20 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
   const parsedDate = new Date(asOfDate)
   if (Number.isNaN(parsedDate.getTime())) return apiBadRequest('Invalid check-in date')
 
-  if (!confidence || typeof confidence !== 'string' || !CONFIDENCE.has(confidence)) {
-    return apiBadRequest('Confidence must be ON_TRACK, AT_RISK, or OFF_TRACK')
+  // Resolve user-supplied confidence to both numeric (confidenceScore) and enum tier.
+  // Prefer explicit confidenceScore when both are provided.
+  let userScore: number
+  if (typeof confidenceScore === 'number') {
+    if (!Number.isFinite(confidenceScore) || confidenceScore < 0 || confidenceScore > 100) {
+      return apiBadRequest('confidenceScore must be between 0 and 100')
+    }
+    userScore = Math.round(confidenceScore)
+  } else if (typeof confidence === 'string' && CONFIDENCE.has(confidence)) {
+    userScore = tierToScore(confidence)
+  } else {
+    return apiBadRequest('Provide confidenceScore (0-100) or confidence (ON_TRACK | AT_RISK | OFF_TRACK)')
   }
+  void scoreToTier // re-exported pattern; tier mapping kept here for callers/tests
 
   const existingKeyResult = await prisma.keyResult.findUnique({
     where: { id },
@@ -135,6 +158,7 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
         asOfDate: parsedDate,
         value: nextValue,
         confidence: autoConfidence,
+        confidenceScore: userScore,
         analysis: analysisStr || null,
         createdById: session.user.id,
       },

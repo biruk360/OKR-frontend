@@ -459,8 +459,8 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
     >
       <div
         className={isDrawer
-          ? 'ap-modal-enter pointer-events-auto relative h-full w-full max-w-[480px] overflow-y-auto bg-[var(--ap-bg-raised)] shadow-[var(--ap-shadow-lg)] sm:rounded-l-[20px] md:max-w-[480px]'
-          : 'ap-modal-enter relative my-4 w-full max-w-2xl rounded-[20px] bg-[var(--ap-bg-raised)] shadow-[var(--ap-shadow-lg)] overflow-hidden'}
+          ? 'ap-modal-enter pointer-events-auto relative h-full w-full overflow-y-auto bg-[var(--ap-bg-raised)] shadow-[var(--ap-shadow-lg)] sm:rounded-l-[20px] sm:max-w-[720px]'
+          : 'ap-modal-enter relative my-4 w-full max-w-3xl rounded-[20px] bg-[var(--ap-bg-raised)] shadow-[var(--ap-shadow-lg)] overflow-hidden'}
         onClick={(e) => e.stopPropagation()}
       >
         {/* ── Cover strip ── */}

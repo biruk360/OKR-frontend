@@ -198,9 +198,9 @@ export default function KeyResultDetailClient({
                 {krCode}
               </span>
               <span className="text-muted-foreground/50">/</span>
-              <h1 className="truncate text-[14px] font-semibold tracking-[-0.005em] text-foreground" title={kr.title}>
+              <span className="truncate text-[13px] font-medium text-foreground" title={kr.title}>
                 {kr.title}
-              </h1>
+              </span>
             </div>
             <div className="flex shrink-0 items-center gap-2">
               {siblingNav.total > 1 && (

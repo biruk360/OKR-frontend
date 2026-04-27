@@ -204,3 +204,192 @@ BEGIN
     EXECUTE 'CREATE INDEX "sprint_participants_userId_idx" ON "public"."sprint_participants"("userId")';
   END IF;
 END $$;
+
+-- ---------------------------------------------------------------------------
+-- Sprint v2 data migration (Phase 2, 2026-04)
+-- Migrates rows from `sprint_activities` into `initiatives` (Todo) so the
+-- unified Sprint+Todo board (Phase 3) has a single source of truth.
+--
+-- Key properties:
+--   * Idempotent — a tracking table `sprint_activity_migration` records every
+--     activity that has been migrated. Re-running this block migrates only
+--     activities not yet in the tracking table. Safe to run on every deploy.
+--   * Non-destructive — `sprint_activities` rows are NOT deleted or modified.
+--     Phase 4 will drop the legacy table after a 2-week soak window.
+--   * Activities with a non-null `convertedInitiativeId` link to the existing
+--     todo (no duplicate insert) — that initiative just gets `sprintId` set.
+--   * Status is derived from the originating SprintColumn name.
+--   * Comments are migrated in a second pass after the tracking table is
+--     populated, with content+author+createdAt dedup to handle edge cases.
+-- ---------------------------------------------------------------------------
+
+-- 11. Ensure pgcrypto is available for gen_random_uuid() used to mint todo ids.
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- 11. Migration tracking table (source of truth for "already migrated").
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.tables
+                 WHERE table_schema='public' AND table_name='sprint_activity_migration') THEN
+    EXECUTE '
+      CREATE TABLE "public"."sprint_activity_migration" (
+        "activity_id" TEXT PRIMARY KEY,
+        "todo_id"     TEXT NOT NULL,
+        "migrated_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )';
+    EXECUTE 'CREATE INDEX "sprint_activity_migration_todo_id_idx" ON "public"."sprint_activity_migration"("todo_id")';
+  END IF;
+END $$;
+
+-- 12. Run the migration in a single transactional block. Any insert failure
+--     rolls back the entire batch — operators get a clean retry.
+DO $$
+DECLARE
+  linked_count   INTEGER := 0;
+  inserted_count INTEGER := 0;
+  comment_count  INTEGER := 0;
+  total_pending  INTEGER := 0;
+BEGIN
+  -- Bail out early if the legacy table does not exist (fresh env, nothing to do).
+  IF NOT EXISTS (SELECT 1 FROM information_schema.tables
+                 WHERE table_schema='public' AND table_name='sprint_activities') THEN
+    RAISE NOTICE 'sprint_activity_migration: sprint_activities table not present, skipping';
+    RETURN;
+  END IF;
+
+  SELECT COUNT(*) INTO total_pending
+    FROM "public"."sprint_activities" sa
+    LEFT JOIN "public"."sprint_activity_migration" m ON m.activity_id = sa.id
+   WHERE m.activity_id IS NULL;
+
+  -- 12a. Activities already converted into an initiative — link the existing todo
+  --      to the sprint (if not already) and record in tracking table.
+  WITH already_converted AS (
+    SELECT sa.id              AS activity_id,
+           sa."convertedInitiativeId" AS todo_id,
+           sa."sprintId"       AS sprint_id
+      FROM "public"."sprint_activities" sa
+      LEFT JOIN "public"."sprint_activity_migration" m ON m.activity_id = sa.id
+     WHERE m.activity_id IS NULL
+       AND sa."convertedInitiativeId" IS NOT NULL
+       AND EXISTS (SELECT 1 FROM "public"."initiatives" i WHERE i.id = sa."convertedInitiativeId")
+  ),
+  link_sprint AS (
+    UPDATE "public"."initiatives" i
+       SET "sprintId" = ac.sprint_id
+      FROM already_converted ac
+     WHERE i.id = ac.todo_id
+       AND i."sprintId" IS NULL
+    RETURNING i.id
+  ),
+  track_linked AS (
+    INSERT INTO "public"."sprint_activity_migration" (activity_id, todo_id, migrated_at)
+    SELECT ac.activity_id, ac.todo_id, NOW() FROM already_converted ac
+    ON CONFLICT (activity_id) DO NOTHING
+    RETURNING activity_id
+  )
+  SELECT COUNT(*) INTO linked_count FROM track_linked;
+
+  -- 12b. Activities with no existing initiative — create new Todo rows.
+  --      Status is derived from the SprintColumn name. completedAt set when COMPLETED.
+  --      Generated id has a 'mig_' prefix so migrated rows are distinguishable from
+  --      cuid()-generated ids in case forensic queries are needed later.
+  WITH to_create AS (
+    SELECT sa.id              AS activity_id,
+           sa.title,
+           sa.description,
+           sa."ownerId",
+           sa."sprintId",
+           sa."keyResultId",
+           sa."objectiveId",
+           sa."dueDate",
+           sa."createdAt",
+           sa."updatedAt",
+           CASE
+             WHEN lower(sc.name) IN ('done', 'completed', 'finished', 'closed') THEN 'COMPLETED'
+             WHEN lower(sc.name) IN ('in progress', 'doing', 'active', 'wip')   THEN 'IN_PROGRESS'
+             WHEN lower(sc.name) IN ('cancelled', 'canceled', 'dropped')        THEN 'CANCELLED'
+             ELSE 'PENDING'
+           END AS derived_status,
+           sc.name AS column_name
+      FROM "public"."sprint_activities" sa
+      LEFT JOIN "public"."sprint_columns" sc ON sc.id = sa."columnId"
+      LEFT JOIN "public"."sprint_activity_migration" m ON m.activity_id = sa.id
+     WHERE m.activity_id IS NULL
+       AND (sa."convertedInitiativeId" IS NULL
+            OR NOT EXISTS (SELECT 1 FROM "public"."initiatives" i WHERE i.id = sa."convertedInitiativeId"))
+  ),
+  with_id AS (
+    SELECT activity_id,
+           'mig_' || replace(gen_random_uuid()::text, '-', '') AS new_todo_id,
+           title, description, "ownerId", "sprintId", "keyResultId", "objectiveId",
+           "dueDate", "createdAt", "updatedAt", derived_status
+      FROM to_create
+  ),
+  ins AS (
+    INSERT INTO "public"."initiatives" (
+      id, title, description, status, priority,
+      "assigneeId", "creatorId",
+      "keyResultId", "objectiveId",
+      "sprintId", "taskType",
+      "dueDate", "completedAt",
+      "createdAt", "updatedAt"
+    )
+    SELECT
+      w.new_todo_id,
+      w.title,
+      w.description,
+      w.derived_status,
+      'MEDIUM',
+      w."ownerId",
+      w."ownerId",
+      w."keyResultId",
+      w."objectiveId",
+      w."sprintId",
+      'GENERAL',
+      w."dueDate",
+      CASE WHEN w.derived_status = 'COMPLETED' THEN w."updatedAt" ELSE NULL END,
+      w."createdAt",
+      w."updatedAt"
+    FROM with_id w
+    RETURNING id
+  ),
+  track_created AS (
+    INSERT INTO "public"."sprint_activity_migration" (activity_id, todo_id, migrated_at)
+    SELECT w.activity_id, w.new_todo_id, NOW() FROM with_id w
+    ON CONFLICT (activity_id) DO NOTHING
+    RETURNING activity_id
+  )
+  SELECT COUNT(*) INTO inserted_count FROM track_created;
+
+  -- 12c. Migrate sprint_activity_comments → todo_comments via tracking table.
+  --      Dedup on (todoId, authorId, content, createdAt) so re-runs don't double-insert.
+  IF EXISTS (SELECT 1 FROM information_schema.tables
+             WHERE table_schema='public' AND table_name='sprint_activity_comments') THEN
+    WITH ins_comments AS (
+      INSERT INTO "public"."todo_comments" (id, "todoId", "authorId", content, "createdAt", "updatedAt")
+      SELECT
+        'mig_' || replace(gen_random_uuid()::text, '-', ''),
+        m.todo_id,
+        sac."authorId",
+        sac.content,
+        sac."createdAt",
+        sac."updatedAt"
+      FROM "public"."sprint_activity_comments" sac
+      JOIN "public"."sprint_activity_migration" m ON m.activity_id = sac."activityId"
+      WHERE sac."authorId" IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM "public"."todo_comments" tc
+           WHERE tc."todoId"    = m.todo_id
+             AND tc."authorId"  = sac."authorId"
+             AND tc.content     = sac.content
+             AND tc."createdAt" = sac."createdAt"
+        )
+      RETURNING id
+    )
+    SELECT COUNT(*) INTO comment_count FROM ins_comments;
+  END IF;
+
+  RAISE NOTICE 'sprint_activity_migration: % pending activities processed, % new todos inserted, % linked to existing initiatives, % comments migrated',
+    total_pending, inserted_count, linked_count, comment_count;
+END $$;

@@ -171,107 +171,142 @@ export default function KeyResultDetailClient({
 
   return (
     <div className="space-y-4">
-      {/* Top action bar — mirrors the objective page */}
-      <div className="flex items-center justify-between">
-        <Link
-          href={`/dashboard/objectives/${objective.id}`}
-          className="inline-flex items-center text-sm text-muted-foreground hover:text-muted-foreground"
-        >
-          <ArrowLeft className="h-4 w-4 mr-1" />
-          Back to Objective
-        </Link>
-        <div className="flex items-center space-x-2">
-          {showCheckIn && (
-            <button
-              type="button"
-              onClick={() => setCheckInOpen(true)}
-              className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md border border-border bg-card text-foreground shadow-sm hover:bg-muted"
-            >
-              Create check-in
-            </button>
-          )}
-          {canEdit && !isRedacted && (
-            <EditKeyResultButton keyResult={kr} users={users} canEdit={canEdit} onUpdated={afterMutation} />
-          )}
-          <button
-            type="button"
-            onClick={copyShare}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700"
-          >
-            <Share2 className="h-4 w-4" />
-            Share
-          </button>
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setMenuOpen((m) => !m)}
-              className="p-2 rounded-md border border-border bg-card text-muted-foreground hover:bg-muted"
-              aria-expanded={menuOpen}
-            >
-              <MoreHorizontal className="h-5 w-5" />
-            </button>
-            {menuOpen && (
-              <>
+      {/* Apple Pro breadcrumb bar */}
+      {(() => {
+        const objCodePrefix = objective.level === 'COMPANY' ? 'CO' : objective.level === 'DEPARTMENT' ? 'DE' : 'IN'
+        const objCode = `${objCodePrefix}‑${String((objective as any).code ?? '').toString().padStart(2, '0') || objective.id.slice(-4).toUpperCase()}`
+        const krCode = `KR${siblingNav.index + 1}`
+        return (
+          <div className="flex items-center justify-between gap-3 border-b pb-3" style={{ borderColor: 'var(--ap-border)' }}>
+            <div className="flex min-w-0 items-center gap-2 text-[13px]">
+              <Link
+                href={`/dashboard/objectives/${objective.id}`}
+                className="inline-flex items-center gap-1 rounded-[8px] px-2 py-1 text-muted-foreground transition-colors hover:bg-[var(--ap-bg-hover)] hover:text-foreground"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                Objective
+              </Link>
+              <span className="text-muted-foreground/50">/</span>
+              <Link
+                href={`/dashboard/objectives/${objective.id}`}
+                className="rounded-[8px] px-2 py-1 font-mono text-[12px] text-muted-foreground transition-colors hover:bg-[var(--ap-bg-hover)] hover:text-foreground"
+              >
+                {objCode}
+              </Link>
+              <span className="text-muted-foreground/50">/</span>
+              <span className="rounded-[8px] bg-[var(--ap-accent-soft)] px-2 py-1 text-[12px] font-semibold text-[var(--ap-accent)]">
+                {krCode}
+              </span>
+              <span className="text-muted-foreground/50">/</span>
+              <h1 className="truncate text-[14px] font-semibold tracking-[-0.005em] text-foreground" title={kr.title}>
+                {kr.title}
+              </h1>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              {siblingNav.total > 1 && (
+                <div className="flex items-center gap-1">
+                  {siblingNav.prevId ? (
+                    <Link
+                      href={`/dashboard/key-results/${siblingNav.prevId}`}
+                      aria-label="Previous KR"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-[8px] border bg-card shadow-sm transition-colors hover:bg-[var(--ap-bg-hover)]"
+                      style={{ borderColor: 'var(--ap-border)' }}
+                    >
+                      <ChevronLeft className="h-4 w-4 text-muted-foreground" />
+                    </Link>
+                  ) : (
+                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-[8px] border bg-card opacity-40" style={{ borderColor: 'var(--ap-border)' }}>
+                      <ChevronLeft className="h-4 w-4 text-muted-foreground" />
+                    </span>
+                  )}
+                  <span className="rounded-[8px] border bg-card px-2.5 py-1 font-mono text-[12px] text-muted-foreground tabular-nums shadow-sm" style={{ borderColor: 'var(--ap-border)' }}>
+                    KR {siblingNav.index + 1} of {siblingNav.total}
+                  </span>
+                  {siblingNav.nextId ? (
+                    <Link
+                      href={`/dashboard/key-results/${siblingNav.nextId}`}
+                      aria-label="Next KR"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-[8px] border bg-card shadow-sm transition-colors hover:bg-[var(--ap-bg-hover)]"
+                      style={{ borderColor: 'var(--ap-border)' }}
+                    >
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    </Link>
+                  ) : (
+                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-[8px] border bg-card opacity-40" style={{ borderColor: 'var(--ap-border)' }}>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    </span>
+                  )}
+                </div>
+              )}
+              {showCheckIn && (
                 <button
                   type="button"
-                  className="fixed inset-0 z-40 cursor-default"
-                  aria-label="Close menu"
-                  onClick={() => setMenuOpen(false)}
-                />
-                <div className="absolute right-0 top-full mt-1 z-50 w-48 rounded-md border border-border bg-card shadow-lg py-1 text-sm">
-                  <Link
-                    href={`/dashboard/objectives/${objective.id}`}
-                    className="block px-3 py-2 text-muted-foreground hover:bg-muted"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    View objective
-                  </Link>
-                  <a
-                    href={`#${TIMELINE_ELEMENT_ID}`}
-                    className="block px-3 py-2 text-muted-foreground hover:bg-muted"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    Jump to Progress Timeline
-                  </a>
-                  <a
-                    href={`#${ACTIVITY_ELEMENT_ID}`}
-                    className="block px-3 py-2 text-muted-foreground hover:bg-muted"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    Jump to Activity log
-                  </a>
-                </div>
-              </>
-            )}
+                  onClick={() => setCheckInOpen(true)}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-[8px] border bg-card px-3 text-[12px] font-medium shadow-sm transition-colors hover:bg-[var(--ap-bg-hover)]"
+                  style={{ borderColor: 'var(--ap-border)' }}
+                >
+                  Check in
+                </button>
+              )}
+              {canEdit && !isRedacted && (
+                <EditKeyResultButton keyResult={kr} users={users} canEdit={canEdit} onUpdated={afterMutation} />
+              )}
+              <button
+                type="button"
+                onClick={copyShare}
+                className="inline-flex h-8 items-center gap-1.5 rounded-[8px] bg-[var(--ap-accent-soft)] px-3 text-[12px] font-semibold text-[var(--ap-accent)] transition-colors hover:bg-[var(--ap-accent)] hover:text-white"
+              >
+                <Share2 className="h-3.5 w-3.5" />
+                Share
+              </button>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setMenuOpen((m) => !m)}
+                  aria-expanded={menuOpen}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-[8px] border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-[var(--ap-bg-hover)]"
+                  style={{ borderColor: 'var(--ap-border)' }}
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </button>
+                {menuOpen && (
+                  <>
+                    <button
+                      type="button"
+                      className="fixed inset-0 z-40 cursor-default"
+                      aria-label="Close menu"
+                      onClick={() => setMenuOpen(false)}
+                    />
+                    <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-[10px] border bg-card py-1 text-[13px] shadow-[var(--ap-shadow-lg)]" style={{ borderColor: 'var(--ap-border)' }}>
+                      <Link
+                        href={`/dashboard/objectives/${objective.id}`}
+                        className="block px-3 py-1.5 text-muted-foreground hover:bg-[var(--ap-bg-hover)]"
+                        onClick={() => setMenuOpen(false)}
+                      >
+                        View objective
+                      </Link>
+                      <a
+                        href={`#${TIMELINE_ELEMENT_ID}`}
+                        className="block px-3 py-1.5 text-muted-foreground hover:bg-[var(--ap-bg-hover)]"
+                        onClick={() => setMenuOpen(false)}
+                      >
+                        Jump to Progress Timeline
+                      </a>
+                      <a
+                        href={`#${ACTIVITY_ELEMENT_ID}`}
+                        className="block px-3 py-1.5 text-muted-foreground hover:bg-[var(--ap-bg-hover)]"
+                        onClick={() => setMenuOpen(false)}
+                      >
+                        Jump to Activity log
+                      </a>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
-
-      {siblingNav.total > 1 && (
-        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-          {siblingNav.prevId ? (
-            <Link
-              href={`/dashboard/key-results/${siblingNav.prevId}`}
-              className="p-2 rounded-md border border-border bg-card hover:bg-muted text-muted-foreground"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Link>
-          ) : (
-            <span className="p-2 text-muted-foreground"><ChevronLeft className="h-4 w-4" /></span>
-          )}
-          <span className="px-2 tabular-nums">KR {siblingNav.index + 1} of {siblingNav.total} on this objective</span>
-          {siblingNav.nextId ? (
-            <Link
-              href={`/dashboard/key-results/${siblingNav.nextId}`}
-              className="p-2 rounded-md border border-border bg-card hover:bg-muted text-muted-foreground"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Link>
-          ) : (
-            <span className="p-2 text-muted-foreground"><ChevronRight className="h-4 w-4" /></span>
-          )}
-        </div>
-      )}
+        )
+      })()}
 
       {/* Apple Pro 2-column grid: main + 340px rail */}
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] gap-4">

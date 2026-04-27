@@ -60,6 +60,8 @@ model User {
   todoAttachments     TodoAttachment[]        @relation("TodoAttachmentUploader")
   todoComments        TodoComment[]           @relation("TodoCommentAuthor")
   reportedRisks       Risk[]                  @relation("RiskReporter")
+  sprintParticipations SprintParticipant[]    @relation("SprintParticipantUser")
+  sprintsEnded         Sprint[]               @relation("SprintEndedBy")
 
   @@map("users")
 }
@@ -103,6 +105,7 @@ model Department {
   // Relationships
   memberships DepartmentMembership[]
   objectives  Objective[]
+  sprints     Sprint[]
 
   @@map("departments")
 }
@@ -302,6 +305,11 @@ model Todo {
   /// When the initiative is marked COMPLETED, this value is summed into the
   /// parent KR's currentValue (see lib/objectiveProgress.ts → recalcKrFromInitiatives).
   progressValue Float?
+  /// Sprint v2 (Phase 1) — optional link to a Sprint. Allows todos to participate in
+  /// the unified Sprint+Todo board planned for Phase 3. SetNull on sprint delete.
+  sprintId    String?
+  /// Free-form task type tag (CALL, EMAIL, DEMO, MEETING, PROPOSAL, FOLLOW_UP, ADMIN, GENERAL).
+  taskType    String?
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
@@ -310,6 +318,7 @@ model Todo {
   creator     User        @relation("TodoCreator", fields: [creatorId], references: [id])
   keyResult   KeyResult?  @relation(fields: [keyResultId], references: [id], onDelete: Cascade)
   objective   Objective?  @relation("TodoObjective", fields: [objectiveId], references: [id], onDelete: SetNull)
+  sprint      Sprint?     @relation(fields: [sprintId], references: [id], onDelete: SetNull)
 
   initiativeUpdates InitiativeUpdate[]
   members           TodoMember[]
@@ -321,6 +330,9 @@ model Todo {
 
   @@index([assigneeId, status])
   @@index([creatorId, status])
+  @@index([sprintId])
+  @@index([taskType])
+  @@index([sprintId, status])
   @@map("initiatives")
 }
 
@@ -670,10 +682,12 @@ model ObjectiveLabel {
 /// `changes` is a JSON string: `{ field: { from: any, to: any }, ... }`.
 model ActivityLog {
   id           String   @id @default(cuid())
-  entityType   String   // OBJECTIVE | KEY_RESULT | TODO
+  entityType   String   // OBJECTIVE | KEY_RESULT | TODO | SPRINT
   objectiveId  String?
   keyResultId  String?
   todoId       String?
+  /// Sprint v2 (Phase 1) — optional sprint association for sprint lifecycle events.
+  sprintId     String?
   action       String
   actorId      String?
   /// JSONB on Postgres — `{ field: { from, to } }`. Was `String` (JSON-encoded) before
@@ -687,10 +701,12 @@ model ActivityLog {
   objective Objective? @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
   keyResult KeyResult? @relation(fields: [keyResultId], references: [id], onDelete: Cascade)
   todo      Todo?      @relation(fields: [todoId], references: [id], onDelete: Cascade)
+  sprint    Sprint?    @relation(fields: [sprintId], references: [id], onDelete: Cascade)
 
   @@index([objectiveId, createdAt])
   @@index([keyResultId, createdAt])
   @@index([todoId, createdAt])
+  @@index([sprintId, createdAt])
   @@index([entityType, createdAt])
   @@map("activity_logs")
 }
@@ -740,16 +756,50 @@ model Sprint {
   ownerId     String
   startDate   DateTime?
   endDate     DateTime?
-  status      String   @default("ACTIVE") // ACTIVE, ARCHIVED
+  status      String   @default("ACTIVE") // ACTIVE, ARCHIVED — legacy, kept for backward compat
+  // Sprint v2 (Phase 1) — additive lifecycle/state model.
+  state          String   @default("PLANNING") // PLANNING, ACTIVE, COMPLETED, CANCELLED
+  goal           String?
+  goalLabel      String?
+  goalTarget     Float?
+  goalCurrent    Float?   @default(0)
+  goalUnit       String?
+  departmentId   String?
+  reflectionNote String?
+  endedAt        DateTime?
+  endedById      String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   owner      User             @relation("SprintOwner", fields: [ownerId], references: [id])
   columns    SprintColumn[]
   activities SprintActivity[]
+  department    Department?         @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  endedBy       User?               @relation("SprintEndedBy", fields: [endedById], references: [id], onDelete: SetNull)
+  participants  SprintParticipant[]
+  todos         Todo[]
+  activityLogs  ActivityLog[]
 
   @@index([ownerId, status])
+  @@index([state, endDate])
+  @@index([departmentId])
   @@map("sprints")
+}
+
+/// Sprint v2 — explicit sprint membership. MEMBER for participants, OWNER mirrors creator.
+model SprintParticipant {
+  id        String   @id @default(cuid())
+  sprintId  String
+  userId    String
+  role      String   @default("MEMBER") // MEMBER, OWNER
+  joinedAt  DateTime @default(now())
+
+  sprint Sprint @relation(fields: [sprintId], references: [id], onDelete: Cascade)
+  user   User   @relation("SprintParticipantUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([sprintId, userId])
+  @@index([userId])
+  @@map("sprint_participants")
 }
 
 model SprintColumn {

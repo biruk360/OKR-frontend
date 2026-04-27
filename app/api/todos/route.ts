@@ -30,6 +30,9 @@ export const GET = withAuth(async (request: NextRequest, { session }) => {
   const status = searchParams.get('status')
   const keyResultId = searchParams.get('keyResultId')
   const objectiveId = searchParams.get('objectiveId')
+  const sprintId = searchParams.get('sprintId')
+  const noSprint = searchParams.get('noSprint')
+  const taskType = searchParams.get('taskType')
   const q = searchParams.get('q')?.trim()
 
   const where: any = {}
@@ -43,6 +46,9 @@ export const GET = withAuth(async (request: NextRequest, { session }) => {
   }
 
   if (status) where.status = status
+  if (sprintId) where.sprintId = sprintId
+  if (noSprint === '1' || noSprint === 'true') where.sprintId = null
+  if (taskType) where.taskType = taskType
   if (keyResultId) where.keyResultId = keyResultId
   if (objectiveId) {
     where.AND = [
@@ -156,6 +162,9 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
     objectiveId = obj.id
   }
 
+  const sprintId: string | null = typeof body.sprintId === 'string' ? body.sprintId : null
+  const taskType: string | null = typeof body.taskType === 'string' ? body.taskType : null
+
   const todo = await prisma.todo.create({
     data: {
       title,
@@ -167,6 +176,8 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
       keyResultId,
       objectiveId,
       progressValue,
+      sprintId,
+      taskType,
     },
     include: {
       assignee: { select: { id: true, name: true, avatar: true } },

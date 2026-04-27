@@ -75,6 +75,7 @@ export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { sess
   const {
     title, description, status, dueDate, completedAt, progressValue,
     assigneeId, priority, coverColor,
+    sprintId, taskType,
     memberIds,   // string[] — full replacement of members list
     labelIds,    // string[] (TodoLabelDef ids) — full replacement
   } = await request.json()
@@ -154,6 +155,8 @@ export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { sess
         ...(assigneeId !== undefined && { assigneeId }),
         ...(priority !== undefined && { priority }),
         ...(coverColor !== undefined && { coverColor }),
+        ...(sprintId !== undefined && { sprintId: sprintId ?? null }),
+        ...(taskType !== undefined && { taskType: taskType ?? null }),
         // Replace members list atomically
         ...(Array.isArray(memberIds) && {
           members: {
@@ -255,6 +258,22 @@ export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { sess
       entityType: 'TODO', todoId, action: 'UPDATED',
       actorId: session.user.id,
       changes: todoLevelChanges,
+    })
+  }
+
+  if (sprintId !== undefined && sprintId !== (existingTodo as any).sprintId) {
+    await recordActivity({
+      entityType: 'TODO', todoId, sprintId: sprintId ?? null,
+      action: 'INITIATIVE_SPRINT_CHANGED',
+      actorId: session.user.id,
+      changes: { sprintId: { from: (existingTodo as any).sprintId ?? null, to: sprintId ?? null } },
+    })
+  }
+  if (taskType !== undefined && taskType !== (existingTodo as any).taskType) {
+    await recordActivity({
+      entityType: 'TODO', todoId, action: 'INITIATIVE_TASK_TYPE_CHANGED',
+      actorId: session.user.id,
+      changes: { taskType: { from: (existingTodo as any).taskType ?? null, to: taskType ?? null } },
     })
   }
 

@@ -345,6 +345,89 @@ export function canManageTimeframes(userRole: UserRole): boolean {
   return userRole === 'ADMIN' || userRole === 'EXECUTIVE'
 }
 
+// ---------------------------------------------------------------------------
+// Sprint v2 (Phase 1) — sprint-scope permission helpers.
+// ---------------------------------------------------------------------------
+
+interface SprintCtx {
+  ownerId: string
+  departmentId?: string | null
+  participants?: { userId: string }[]
+}
+
+async function isInDepartment(userId: string, departmentId: string): Promise<boolean> {
+  const m = await prisma.departmentMembership.findFirst({
+    where: { userId, departmentId },
+    select: { id: true },
+  })
+  return !!m
+}
+
+/**
+ * Sprint v2: who can create a sprint in a given department scope.
+ * - ADMIN/EXECUTIVE: any department.
+ * - DEPARTMENT_LEAD/EMPLOYEE: only their own department (or no-department sprints).
+ */
+export async function canCreateSprint(
+  userRole: UserRole,
+  userId: string,
+  departmentId?: string | null,
+): Promise<boolean> {
+  if (userRole === 'ADMIN' || userRole === 'EXECUTIVE') return true
+  if (!departmentId) return true
+  return isInDepartment(userId, departmentId)
+}
+
+/**
+ * Sprint v2: edit rights on a sprint.
+ * - ADMIN/EXECUTIVE: any.
+ * - DEPARTMENT_LEAD: sprints scoped to their department, plus their own.
+ * - EMPLOYEE: only their own sprints.
+ */
+export async function canEditSprint(
+  userRole: UserRole,
+  userId: string,
+  sprint: SprintCtx,
+): Promise<boolean> {
+  if (userRole === 'ADMIN' || userRole === 'EXECUTIVE') return true
+  if (sprint.ownerId === userId) return true
+  if (userRole === 'DEPARTMENT_LEAD' && sprint.departmentId) {
+    return isInDepartment(userId, sprint.departmentId)
+  }
+  return false
+}
+
+/**
+ * Sprint v2: delete rights. Employees may never delete; leads may delete dept sprints.
+ */
+export async function canDeleteSprint(
+  userRole: UserRole,
+  userId: string,
+  sprint: SprintCtx,
+): Promise<boolean> {
+  if (userRole === 'ADMIN' || userRole === 'EXECUTIVE') return true
+  if (userRole === 'EMPLOYEE') return false
+  if (userRole === 'DEPARTMENT_LEAD' && sprint.departmentId) {
+    return isInDepartment(userId, sprint.departmentId)
+  }
+  return false
+}
+
+/**
+ * Sprint v2: visibility — participants and dept members can view.
+ */
+export async function canViewSprint(
+  userRole: UserRole,
+  userId: string,
+  sprint: SprintCtx,
+): Promise<boolean> {
+  if (userRole === 'ADMIN' || userRole === 'EXECUTIVE') return true
+  if (sprint.ownerId === userId) return true
+  if (sprint.participants?.some(p => p.userId === userId)) return true
+  if (sprint.departmentId && (await isInDepartment(userId, sprint.departmentId))) return true
+  return false
+}
+
 /**
  * Redact an objective for display (hide sensitive details)
  */

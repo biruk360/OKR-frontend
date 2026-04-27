@@ -253,3 +253,32 @@ The `cancelled` run was auto-superseded by the next push (deploy concurrency = 1
 ---
 
 *Update this file in tandem with `docs/CHANGELOG_AI.md` whenever progress is made.*
+
+## Sprints v2
+
+### Phase 1 — Schema + lifecycle API (commit 0f6da03)
+- Sprint state machine (PLANNING / ACTIVE / COMPLETED / CANCELLED) with allowed transitions
+- Sprint goal fields (goal, goalLabel, goalTarget, goalCurrent, goalUnit) and reflectionNote
+- `/api/cron/sprint-tick` stub flips PLANNING → ACTIVE when startDate is in the past
+
+### Phase 2 — SprintActivity → Todo migration (commit b7f9486)
+- `Todo.sprintId` + `Todo.taskType` columns
+- `/api/sprints/[id]/board` returns the new Todo-backed board
+- Idempotent preflight migration block in `scripts/preflight.sql` copies SprintActivity rows + comments into Todo
+
+### Phase 3 — UI swap to Todos (parallel)
+- Sprint board client reads from `/board` and renders Todo cards instead of SprintActivity cards
+- TodoCardModal surface for sprint cards
+
+### Phase 4 — Lifecycle automation, mobile, realtime, notifications, deprecation
+- New cron `/api/cron/sprint-deadlines` for SPRINT_STARTING_TOMORROW / SPRINT_ENDING_SOON / TODO_DUE_*
+- 6 new notification types: SPRINT_TASK_ASSIGNED, TODO_DUE_TODAY, SPRINT_STARTING_TOMORROW, SPRINT_ENDING_SOON, SPRINT_ENDED_BY_USER, INITIATIVE_CARRIED_OVER (TODO_DUE_TOMORROW / TODO_OVERDUE reused)
+- Pusher channel `sprint-${id}` with `task:moved`, `task:created`, `task:updated`, `goal:updated`, `participants:changed`
+- `broadcastSprintEvent` helper; PATCH /api/todos/[id], POST /api/todos, PATCH /api/sprints/[id] all broadcast
+- SprintActivity routes flagged Deprecation/Sunset 2026-05-11 via `middleware.ts`; schema models annotated `@deprecated`
+- `scripts/install-crontab.sh` + `docs/CRON.md` document the VPS scheduling
+- preflight.sql has commented `DROP TABLE` block for the cleanup PR
+
+### Remaining
+- **SprintActivity table drop** — gated behind a future cleanup PR. Recommended timeline: 2 weeks after Phase 4 deploy (~2026-05-11). Operator uncomments the DROP block in `scripts/preflight.sql` and re-runs the deploy.
+- Mobile-specific kanban refinements (single-column with status tabs and dropdown move action) tracked separately — current responsive grid stacks acceptably; deeper mobile rework deferred to a follow-up to avoid destabilizing Phase 3 board UI.

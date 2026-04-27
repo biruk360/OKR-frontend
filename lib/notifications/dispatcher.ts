@@ -178,6 +178,15 @@ async function resolveRecipients(eventKey: EventKey, p: EventPayload): Promise<M
       break
     }
 
+    case 'SPRINT_TASK_ASSIGNED':
+    case 'SPRINT_STARTING_TOMORROW':
+    case 'SPRINT_ENDING_SOON':
+    case 'SPRINT_ENDED_BY_USER':
+    case 'INITIATIVE_CARRIED_OVER':
+    case 'TODO_DUE_TODAY':
+      // Recipients passed via explicitRecipients (sprint participants / assignees).
+      break
+
     case 'TIMEFRAME_OPENED': {
       const rows = await prisma.user.findMany({ where: { isActive: true }, select: { id: true } })
       for (const u of rows) add(u.id, 'EXPLICIT')

@@ -104,6 +104,19 @@ export function renderTemplate(eventKey: EventKey, data: Data): RenderedEmail {
       return simple(`Overdue: ${entityTitle}`, `Hi ${name},\n\n"${entityTitle}" is overdue (was due ${data.dueDate ?? ''}).\nOpen: ${deepLink}`, name)
     case 'TODO_COMPLETED':
       return simple(`Completed: ${entityTitle}`, `Hi ${name},\n\n${actorName} completed "${entityTitle}".`, name)
+    case 'TODO_DUE_TODAY':
+      return simple(`Due today: ${entityTitle}`, `Hi ${name},\n\n"${entityTitle}" is due today (${data.dueDate ?? ''}).\nOpen: ${deepLink}`, name)
+
+    case 'SPRINT_TASK_ASSIGNED':
+      return simple(`You were assigned a task in ${data.sprintName ?? 'a sprint'}`, `Hi ${name},\n\n${actorName} assigned you "${entityTitle}" in sprint "${data.sprintName ?? ''}".\nOpen: ${deepLink}`, name)
+    case 'SPRINT_STARTING_TOMORROW':
+      return simple(`Sprint starts tomorrow: ${data.sprintName ?? ''}`, `Hi ${name},\n\nThe sprint "${data.sprintName ?? ''}" starts tomorrow (${data.startDate ?? ''}).\nOpen: ${deepLink}`, name)
+    case 'SPRINT_ENDING_SOON':
+      return simple(`Sprint ending soon: ${data.sprintName ?? ''}`, `Hi ${name},\n\nThe sprint "${data.sprintName ?? ''}" ends in 2 days (${data.endDate ?? ''}).\nOpen: ${deepLink}`, name)
+    case 'SPRINT_ENDED_BY_USER':
+      return simple(`Sprint ended: ${data.sprintName ?? ''}`, `Hi ${name},\n\n${actorName} ended the sprint "${data.sprintName ?? ''}".\nOpen: ${deepLink}`, name)
+    case 'INITIATIVE_CARRIED_OVER':
+      return simple(`Initiative carried over: ${entityTitle}`, `Hi ${name},\n\n"${entityTitle}" was carried over to "${data.nextSprintName ?? 'the next sprint'}" by ${actorName}.\nOpen: ${deepLink}`, name)
 
     case 'TIMEFRAME_OPENED':
       return simple(`New timeframe: ${data.timeframeName ?? ''}`, `Hi ${name},\n\nA new OKR timeframe is open: ${data.timeframeName ?? ''} (${data.startDate ?? ''} → ${data.endDate ?? ''}).\nOpen: ${appUrl('/dashboard')}`, name)

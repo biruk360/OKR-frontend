@@ -10,6 +10,7 @@ import {
 } from '@/lib/api'
 import { canEditSprint, canDeleteSprint, type UserRole } from '@/lib/permissions'
 import { recordActivity } from '@/lib/activity-log'
+import { broadcastSprintEvent } from '@/lib/pusher'
 
 /** Full sprint with columns + activities (board fetch). */
 export const GET = withAuth<RouteIdParams>(async (_request, { params }) => {
@@ -149,6 +150,19 @@ export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { sess
     await recordActivity({
       entityType: 'SPRINT', sprintId: id, action: 'SPRINT_GOAL_UPDATED',
       actorId: session.user.id, changes: goalChanges,
+    })
+    if ('goalCurrent' in goalChanges) {
+      await broadcastSprintEvent(id, 'goal:updated', {
+        goalCurrent: (sprint as any).goalCurrent ?? null,
+        actorId: session.user.id,
+      })
+    }
+  }
+
+  if (Array.isArray(body.participantIds)) {
+    await broadcastSprintEvent(id, 'participants:changed', {
+      participantIds: body.participantIds,
+      actorId: session.user.id,
     })
   }
 

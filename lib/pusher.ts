@@ -25,6 +25,24 @@ export const PUSHER_EVENTS = {
   NOTIFICATION_SENT: 'notification-sent'
 } as const
 
+/**
+ * Sprint v2 realtime — broadcast events on the per-sprint channel.
+ * Channel: `sprint-${sprintId}`. Failures are swallowed (logged) so domain
+ * actions never fail because realtime is degraded.
+ */
+export async function broadcastSprintEvent(
+  sprintId: string,
+  eventName: 'task:moved' | 'task:created' | 'task:updated' | 'goal:updated' | 'participants:changed',
+  payload: Record<string, unknown>
+): Promise<void> {
+  if (!sprintId) return
+  try {
+    await pusherServer.trigger(`sprint-${sprintId}`, eventName, payload)
+  } catch (error) {
+    console.error('[broadcastSprintEvent] failed:', error)
+  }
+}
+
 // Helper function to trigger real-time updates
 export async function triggerRealtimeUpdate(
   channel: string,

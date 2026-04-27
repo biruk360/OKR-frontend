@@ -249,9 +249,10 @@ interface Props {
   currentUserId: string
   onClose: () => void
   onUpdated?: () => void
+  mode?: 'drawer' | 'modal'
 }
 
-export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Props) {
+export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode = 'modal' }: Props) {
   const [todo, setTodo] = useState<TodoCardData | null>(null)
   const [loading, setLoading] = useState(false)
   const [comments, setComments] = useState<CommentData[]>([])
@@ -445,10 +446,21 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
 
   if (!todoId) return null
 
+  const isDrawer = mode === 'drawer'
   return createPortal(
-    <div className="fixed inset-0 z-[80] flex items-start justify-center overflow-y-auto p-4 sm:p-8" style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }}>
+    <div
+      className={isDrawer
+        ? 'fixed inset-0 z-[80] flex justify-end pointer-events-none'
+        : 'fixed inset-0 z-[80] flex items-start justify-center overflow-y-auto p-4 sm:p-8'}
+      style={isDrawer
+        ? { background: 'rgba(0,0,0,0.2)' }
+        : { background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }}
+      onClick={isDrawer ? onClose : undefined}
+    >
       <div
-        className="ap-modal-enter relative my-4 w-full max-w-2xl rounded-[20px] bg-[var(--ap-bg-raised)] shadow-[var(--ap-shadow-lg)] overflow-hidden"
+        className={isDrawer
+          ? 'ap-modal-enter pointer-events-auto relative h-full w-full max-w-[480px] overflow-y-auto bg-[var(--ap-bg-raised)] shadow-[var(--ap-shadow-lg)] sm:rounded-l-[20px] md:max-w-[480px]'
+          : 'ap-modal-enter relative my-4 w-full max-w-2xl rounded-[20px] bg-[var(--ap-bg-raised)] shadow-[var(--ap-shadow-lg)] overflow-hidden'}
         onClick={(e) => e.stopPropagation()}
       >
         {/* ── Cover strip ── */}

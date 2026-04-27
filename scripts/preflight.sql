@@ -393,3 +393,11 @@ BEGIN
   RAISE NOTICE 'sprint_activity_migration: % pending activities processed, % new todos inserted, % linked to existing initiatives, % comments migrated',
     total_pending, inserted_count, linked_count, comment_count;
 END $$;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Phase 4 cleanup notes (run after 2-week soak; uncomment to drop deprecated tables)
+-- ─────────────────────────────────────────────────────────────────────────────
+-- DROP TABLE IF EXISTS sprint_activity_comments CASCADE;
+-- DROP TABLE IF EXISTS sprint_activity_tasks CASCADE;
+-- DROP TABLE IF EXISTS sprint_activities CASCADE;
+-- DROP TABLE IF EXISTS sprint_activity_migration; -- only after confirming no rollback needed

@@ -4,6 +4,7 @@ import { canEditKeyResultWithObjectiveContext, type UserRole } from '@/lib/permi
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { recordActivity } from '@/lib/activity-log'
 import { emit } from '@/lib/notifications'
+import { broadcastSprintEvent } from '@/lib/pusher'
 import { recalcKrFromInitiatives, recalcNodeAndAncestors } from '@/lib/objectiveProgress'
 import {
   apiSuccess,
@@ -316,6 +317,47 @@ export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { sess
           actorId: session.user.id, metadata: { labelDefId: lid },
         })
       }
+    }
+  }
+
+  // Sprint v2: SPRINT_TASK_ASSIGNED on sprint reassignment
+  const finalSprintId = sprintId !== undefined ? (sprintId ?? null) : (existingTodo as any).sprintId ?? null
+  const finalAssigneeId = assigneeId ?? existingTodo.assigneeId
+  if (sprintId !== undefined && sprintId && sprintId !== (existingTodo as any).sprintId && finalAssigneeId && finalAssigneeId !== session.user.id) {
+    const sprint = await prisma.sprint.findUnique({ where: { id: sprintId }, select: { name: true } })
+    await emit('SPRINT_TASK_ASSIGNED', {
+      actorId: session.user.id,
+      entityType: 'TODO', entityId: todoId, entityTitle: updatedTodo.title,
+      explicitRecipients: [finalAssigneeId],
+      data: {
+        actorName: session.user.name,
+        sprintName: sprint?.name ?? '',
+        deepLink: `/dashboard/sprints/${sprintId}`,
+      },
+    })
+  }
+
+  // Sprint v2 realtime broadcasts
+  if (finalSprintId) {
+    if (status !== undefined && status !== existingTodo.status) {
+      await broadcastSprintEvent(finalSprintId, 'task:moved', {
+        todoId,
+        fromStatus: existingTodo.status,
+        toStatus: status,
+        actorId: session.user.id,
+      })
+    }
+    const broadcastChanges: Record<string, unknown> = {}
+    if (assigneeId !== undefined && assigneeId !== existingTodo.assigneeId) broadcastChanges.assigneeId = assigneeId
+    if (dueDate !== undefined) broadcastChanges.dueDate = dueDate ?? null
+    if (priority !== undefined && priority !== existingTodo.priority) broadcastChanges.priority = priority
+    if (title !== undefined && title !== existingTodo.title) broadcastChanges.title = title
+    if (Object.keys(broadcastChanges).length > 0) {
+      await broadcastSprintEvent(finalSprintId, 'task:updated', {
+        todoId,
+        changes: broadcastChanges,
+        actorId: session.user.id,
+      })
     }
   }
 

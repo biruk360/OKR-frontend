@@ -10,6 +10,7 @@ import {
 } from '@/lib/api'
 import { canEditSprint, type UserRole } from '@/lib/permissions'
 import { recordActivity } from '@/lib/activity-log'
+import { emit } from '@/lib/notifications'
 
 /**
  * POST /api/sprints/[id]/end — End an ACTIVE sprint, deciding what happens to incomplete todos.
@@ -66,7 +67,7 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
 
   const incompleteTodos = await prisma.todo.findMany({
     where: { sprintId: id, status: { notIn: ['COMPLETED', 'CANCELLED'] } },
-    select: { id: true, title: true, status: true },
+    select: { id: true, title: true, status: true, assigneeId: true },
   })
   const completedCount = await prisma.todo.count({
     where: { sprintId: id, status: 'COMPLETED' },
@@ -74,6 +75,7 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
 
   const perTaskMap = new Map(perTaskActions.map(a => [a.todoId, a.action]))
   let movedToNext = 0, movedToBacklog = 0, cancelled = 0
+  const carriedOver: { todoId: string; assigneeId: string | null; title: string }[] = []
 
   for (const todo of incompleteTodos) {
     const action: 'next' | 'backlog' | 'cancel' =
@@ -86,6 +88,7 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
       updateData = { sprintId: nextSprintId }
       toSprintId = nextSprintId
       movedToNext++
+      carriedOver.push({ todoId: todo.id, assigneeId: todo.assigneeId, title: todo.title })
     } else if (action === 'cancel') {
       updateData = { status: 'CANCELLED' }
       toSprintId = null
@@ -120,6 +123,38 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
     actorId: session.user.id,
     metadata: { completedCount, incompleteCount: incompleteTodos.length, movedToNext, movedToBacklog, cancelled, reflectionNote },
   })
+
+  const participantIds = (sprint.participants ?? []).map(p => p.userId)
+  const sprintRecipients = Array.from(new Set([sprint.ownerId, ...participantIds])).filter(uid => uid !== session.user.id)
+  if (sprintRecipients.length > 0) {
+    await emit('SPRINT_ENDED_BY_USER', {
+      actorId: session.user.id,
+      entityType: 'TODO', entityId: id,
+      explicitRecipients: sprintRecipients,
+      data: {
+        actorName: session.user.name,
+        sprintName: sprint.name,
+        deepLink: `/dashboard/sprints/${id}`,
+      },
+    })
+  }
+
+  if (carriedOver.length > 0 && nextSprintId) {
+    const nextSprint = await prisma.sprint.findUnique({ where: { id: nextSprintId }, select: { name: true } })
+    for (const c of carriedOver) {
+      if (!c.assigneeId || c.assigneeId === session.user.id) continue
+      await emit('INITIATIVE_CARRIED_OVER', {
+        actorId: session.user.id,
+        entityType: 'TODO', entityId: c.todoId, entityTitle: c.title,
+        explicitRecipients: [c.assigneeId],
+        data: {
+          actorName: session.user.name,
+          nextSprintName: nextSprint?.name ?? '',
+          deepLink: `/dashboard/sprints/${nextSprintId}`,
+        },
+      })
+    }
+  }
 
   return apiSuccess({
     completedCount,

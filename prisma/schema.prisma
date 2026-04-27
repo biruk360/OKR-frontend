@@ -819,6 +819,7 @@ model SprintColumn {
   @@map("sprint_columns")
 }
 
+/// @deprecated Sprints v2 unified to Todo. Tables retained for rollback. Slated for removal after 2026-05-11. Do not add new fields here.
 model SprintActivity {
   id          String   @id @default(cuid())
   sprintId    String
@@ -851,6 +852,7 @@ model SprintActivity {
   @@map("sprint_activities")
 }
 
+/// @deprecated Sprints v2 unified to Todo. Tables retained for rollback. Slated for removal after 2026-05-11. Do not add new fields here.
 /// Trello-style comment thread on a sprint activity.
 model SprintActivityComment {
   id         String   @id @default(cuid())
@@ -867,6 +869,7 @@ model SprintActivityComment {
   @@map("sprint_activity_comments")
 }
 
+/// @deprecated Sprints v2 unified to Todo. Tables retained for rollback. Slated for removal after 2026-05-11. Do not add new fields here.
 /// Sub-task / checklist item on a sprint activity. Assignable to any user.
 model SprintActivityTask {
   id          String   @id @default(cuid())

@@ -48,8 +48,15 @@ export type EventKey =
   | 'TODO_ASSIGNED'
   | 'TODO_REASSIGNED_AWAY'
   | 'TODO_DUE_TOMORROW'
+  | 'TODO_DUE_TODAY'
   | 'TODO_OVERDUE'
   | 'TODO_COMPLETED'
+  // Sprint v2
+  | 'SPRINT_TASK_ASSIGNED'
+  | 'SPRINT_STARTING_TOMORROW'
+  | 'SPRINT_ENDING_SOON'
+  | 'SPRINT_ENDED_BY_USER'
+  | 'INITIATIVE_CARRIED_OVER'
   // Timeframe
   | 'TIMEFRAME_OPENED'
   | 'TIMEFRAME_ENDING_7D'
@@ -110,8 +117,14 @@ export const EVENT_META: Record<EventKey, EventMeta> = {
   TODO_ASSIGNED: { key: 'TODO_ASSIGNED', category: 'TODO', defaultCadence: 'IMMEDIATE', redactable: false, label: 'To-do assigned to you' },
   TODO_REASSIGNED_AWAY: { key: 'TODO_REASSIGNED_AWAY', category: 'TODO', defaultCadence: 'IMMEDIATE', redactable: false, label: 'To-do reassigned away from you' },
   TODO_DUE_TOMORROW: { key: 'TODO_DUE_TOMORROW', category: 'TODO', defaultCadence: 'DAILY', redactable: false, label: 'To-do due tomorrow' },
+  TODO_DUE_TODAY: { key: 'TODO_DUE_TODAY', category: 'TODO', defaultCadence: 'DAILY', redactable: false, label: 'To-do due today' },
   TODO_OVERDUE: { key: 'TODO_OVERDUE', category: 'TODO', defaultCadence: 'DAILY', redactable: false, label: 'To-do overdue' },
   TODO_COMPLETED: { key: 'TODO_COMPLETED', category: 'TODO', defaultCadence: 'DAILY', redactable: false, label: 'To-do completed' },
+  SPRINT_TASK_ASSIGNED: { key: 'SPRINT_TASK_ASSIGNED', category: 'TODO', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Task assigned in a sprint' },
+  SPRINT_STARTING_TOMORROW: { key: 'SPRINT_STARTING_TOMORROW', category: 'TODO', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Sprint starting tomorrow' },
+  SPRINT_ENDING_SOON: { key: 'SPRINT_ENDING_SOON', category: 'TODO', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Sprint ending soon' },
+  SPRINT_ENDED_BY_USER: { key: 'SPRINT_ENDED_BY_USER', category: 'TODO', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Sprint ended' },
+  INITIATIVE_CARRIED_OVER: { key: 'INITIATIVE_CARRIED_OVER', category: 'TODO', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Initiative carried over to next sprint' },
 
   TIMEFRAME_OPENED: { key: 'TIMEFRAME_OPENED', category: 'TIMEFRAME', defaultCadence: 'IMMEDIATE', redactable: false, label: 'New timeframe opened' },
   TIMEFRAME_ENDING_7D: { key: 'TIMEFRAME_ENDING_7D', category: 'TIMEFRAME', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Timeframe ending in 7 days' },

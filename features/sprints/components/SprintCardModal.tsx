@@ -17,7 +17,27 @@ import {
   Check,
   Pencil,
 } from 'lucide-react'
-import type { SprintBoardActivity } from './SprintBoardClient'
+// Phase 3: SprintBoardClient was rewritten Todo-based. This component is the
+// legacy SprintActivity-shape modal — orphaned in Phase 3, removed in Phase 4.
+// Keep a local copy of its expected shape so it type-checks in isolation.
+interface SprintBoardActivity {
+  id: string
+  title: string
+  description: string | null
+  ownerId: string
+  owner: { id: string; name: string; avatar: string | null }
+  keyResultId: string | null
+  keyResult: { id: string; title: string; objective: { id: string; title: string } } | null
+  objectiveId: string | null
+  objective: { id: string; title: string } | null
+  convertedInitiativeId: string | null
+  dueDate: string | null
+  position: number
+  columnId: string
+  commentCount: number
+  tasksTotal: number
+  tasksCompleted: number
+}
 
 export interface Owner {
   id: string

@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { canEditKeyResultWithObjectiveContext, canViewObjective, type UserRole } from '@/lib/permissions'
 import { recordActivity } from '@/lib/activity-log'
 import { emit } from '@/lib/notifications'
+import { broadcastSprintEvent } from '@/lib/pusher'
 import {
   apiSuccess,
   apiBadRequest,
@@ -219,6 +220,26 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
         dueDate: todo.dueDate ? todo.dueDate.toISOString().slice(0, 10) : null,
         deepLink: `/dashboard/todos`,
       },
+    })
+    if (todo.sprintId) {
+      const sprint = await prisma.sprint.findUnique({ where: { id: todo.sprintId }, select: { name: true } })
+      await emit('SPRINT_TASK_ASSIGNED', {
+        actorId: session.user.id,
+        entityType: 'TODO', entityId: todo.id, entityTitle: todo.title,
+        explicitRecipients: [todo.assigneeId],
+        data: {
+          actorName: session.user.name,
+          sprintName: sprint?.name ?? '',
+          deepLink: `/dashboard/sprints/${todo.sprintId}`,
+        },
+      })
+    }
+  }
+
+  if (todo.sprintId) {
+    await broadcastSprintEvent(todo.sprintId, 'task:created', {
+      todo,
+      actorId: session.user.id,
     })
   }
 

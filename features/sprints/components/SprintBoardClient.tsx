@@ -1,31 +1,84 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+/**
+ * SprintBoardClient — Phase 3 Todo-backed sprint board (Sprints v2 §4.3).
+ *
+ * Reads /api/sprints/[id]/board (Todo single-source-of-truth) and renders three
+ * status columns (PENDING / IN_PROGRESS / COMPLETED). Drag-drop updates Todo.status
+ * via PATCH /api/todos/[id]. Click a card → opens TodoCardModal in drawer mode.
+ */
+
+import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
-import { Plus, X, MoreHorizontal, Link2, ArrowLeft, Trash2, Check, MessageSquare, CheckSquare, Target, CheckCircle2 } from 'lucide-react'
-import SprintCardModal, { type ObjectiveOption, type KrOption } from './SprintCardModal'
+import { useRouter } from 'next/navigation'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  ArrowLeft, Plus, Target, MoreHorizontal, Briefcase, Phone, Mail, Monitor,
+  Users, FileText, RefreshCw, Square, Calendar, Filter, AlertCircle,
+} from 'lucide-react'
+import { TodoCardModal } from '@/components/todos/TodoCardModal'
+import StatusPill from '@/components/shared/StatusPill'
+import { EmptyState } from '@/components/ui/EmptyState'
+import EndSprintModal from '@/components/sprints/EndSprintModal'
+import LinkToOkrPopover, { type OkrLinkValue } from '@/components/sprints/LinkToOkrPopover'
+import { cn } from '@/lib/utils'
 
-interface Owner {
-  id: string
-  name: string
-  avatar: string | null
-}
+// ─── Types matching /api/sprints/[id]/board ─────────────────────────────────
 
-interface KrLink {
+interface BoardUser { id: string; name: string; avatar: string | null }
+interface BoardTodo {
   id: string
   title: string
-  objective: { id: string; title: string }
+  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
+  priority: string
+  taskType?: string | null
+  dueDate: string | null
+  assigneeId: string
+  assignee: BoardUser
+  keyResult: { id: string; title: string; objective?: { id: string; title: string } } | null
+  objective: { id: string; title: string } | null
+}
+interface BoardColumn {
+  id: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED'
+  name: string
+  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED'
+  todos: BoardTodo[]
+}
+interface BoardSprint {
+  id: string
+  name: string
+  description: string | null
+  state: 'PLANNING' | 'ACTIVE' | 'COMPLETED'
+  status: string
+  startDate: string | null
+  endDate: string | null
+  goal: string | null
+  goalLabel: string | null
+  goalTarget: number | null
+  goalCurrent: number | null
+  goalUnit: string | null
+  owner: BoardUser
+}
+interface BoardData {
+  sprint: BoardSprint
+  columns: BoardColumn[]
+  participants: BoardUser[]
+  aggregates: { taskTotal: number; taskDone: number; taskPercent: number; goalPercent: number | null }
 }
 
+// ─── Re-export legacy SprintBoardData type for back-compat ─────────────────
+
+export type SprintBoardData = BoardData
+// Legacy shape (Phase 2/3 compat): SprintCardModal — deprecated component — references this.
 export interface SprintBoardActivity {
   id: string
   title: string
   description: string | null
   ownerId: string
-  owner: Owner
+  owner: { id: string; name: string; avatar: string | null }
   keyResultId: string | null
-  keyResult: KrLink | null
+  keyResult: { id: string; title: string; objective: { id: string; title: string } } | null
   objectiveId: string | null
   objective: { id: string; title: string } | null
   convertedInitiativeId: string | null
@@ -37,765 +90,450 @@ export interface SprintBoardActivity {
   tasksCompleted: number
 }
 
-export interface SprintBoardColumn {
-  id: string
-  name: string
-  color: string | null
-  position: number
-  activities: SprintBoardActivity[]
-}
-
-export interface SprintBoardData {
-  id: string
-  name: string
-  description: string | null
-  ownerName: string
-  startDate?: string | null
-  endDate?: string | null
-  createdAt?: string
-  columns: SprintBoardColumn[]
-}
-
 interface Props {
-  initial: SprintBoardData
-  users: Owner[]
-  keyResults: KrLink[]
-  objectives: ObjectiveOption[]
+  sprintId: string
   currentUserId: string
 }
 
-export default function SprintBoardClient({ initial, users, keyResults, objectives, currentUserId }: Props) {
-  const [board, setBoard] = useState<SprintBoardData>(initial)
-  const [addingColumn, setAddingColumn] = useState(false)
-  const [newColumnName, setNewColumnName] = useState('')
-  const [editingColumn, setEditingColumn] = useState<string | null>(null)
-  const [editingColumnName, setEditingColumnName] = useState('')
-  const [addingCardCol, setAddingCardCol] = useState<string | null>(null)
-  const [newCardTitle, setNewCardTitle] = useState('')
-  const [openCardId, setOpenCardId] = useState<string | null>(null)
-  const draggedRef = useRef<{ activityId: string; fromColumnId: string } | null>(null)
+// ─── Task type → icon map (spec §4.3) ───────────────────────────────────────
 
-  // Helper: update activity anywhere in the board
-  function patchActivity(actId: string, patch: Partial<SprintBoardActivity>) {
-    setBoard((b) => ({
-      ...b,
-      columns: b.columns.map((c) => ({
-        ...c,
-        activities: c.activities.map((a) => (a.id === actId ? { ...a, ...patch } : a)),
-      })),
-    }))
-  }
+const TYPE_ICONS: Record<string, any> = {
+  CALL: Phone, EMAIL: Mail, DEMO: Monitor, MEETING: Users,
+  PROPOSAL: FileText, FOLLOW_UP: RefreshCw, ADMIN: Briefcase, GENERAL: Square,
+}
 
-  function findActivity(actId: string): { activity: SprintBoardActivity; columnId: string } | null {
-    for (const col of board.columns) {
-      const activity = col.activities.find((a) => a.id === actId)
-      if (activity) return { activity, columnId: col.id }
-    }
-    return null
-  }
+const PRIORITY_COLORS: Record<string, string> = {
+  LOW: '#8E8E93', MEDIUM: '#FF9500', HIGH: '#FF3B30', URGENT: '#AF52DE',
+}
 
-  // ---------- Mutations (optimistic) ----------
-
-  async function addColumn() {
-    const name = newColumnName.trim()
-    if (!name) return
-    try {
-      const res = await fetch(`/api/sprints/${board.id}/columns`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
-      })
-      const data = await res.json()
-      if (!res.ok || !data.success) throw new Error(data.error || 'Failed')
-      setBoard((b) => ({ ...b, columns: [...b.columns, { ...data.data, activities: [] }] }))
-      setNewColumnName('')
-      setAddingColumn(false)
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to add column')
-    }
-  }
-
-  async function renameColumn(colId: string) {
-    const name = editingColumnName.trim()
-    if (!name) return
-    const previous = board.columns.find((c) => c.id === colId)?.name || ''
-    setBoard((b) => ({
-      ...b,
-      columns: b.columns.map((c) => (c.id === colId ? { ...c, name } : c)),
-    }))
-    setEditingColumn(null)
-    try {
-      const res = await fetch(`/api/sprints/${board.id}/columns/${colId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
-      })
-      const data = await res.json()
-      if (!res.ok || !data.success) throw new Error(data.error || 'Failed')
-    } catch (err: any) {
-      // rollback
-      setBoard((b) => ({
-        ...b,
-        columns: b.columns.map((c) => (c.id === colId ? { ...c, name: previous } : c)),
-      }))
-      toast.error(err.message || 'Failed to rename column')
-    }
-  }
-
-  async function deleteColumn(colId: string) {
-    if (!confirm('Delete this column and all its cards?')) return
-    const snapshot = board.columns
-    setBoard((b) => ({ ...b, columns: b.columns.filter((c) => c.id !== colId) }))
-    try {
-      const res = await fetch(`/api/sprints/${board.id}/columns/${colId}`, { method: 'DELETE' })
-      const data = await res.json()
-      if (!res.ok || !data.success) throw new Error(data.error || 'Failed')
-    } catch (err: any) {
-      setBoard((b) => ({ ...b, columns: snapshot }))
-      toast.error(err.message || 'Failed to delete column')
-    }
-  }
-
-  async function addCard(colId: string) {
-    const title = newCardTitle.trim()
-    if (!title) return
-    try {
-      const res = await fetch(`/api/sprints/${board.id}/activities`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, columnId: colId, ownerId: currentUserId }),
-      })
-      const data = await res.json()
-      if (!res.ok || !data.success) throw new Error(data.error || 'Failed')
-      const withDefaults: SprintBoardActivity = {
-        ...data.data,
-        columnId: colId,
-        commentCount: 0,
-        tasksTotal: 0,
-        tasksCompleted: 0,
-        convertedInitiativeId: null,
-        objectiveId: data.data.objectiveId || null,
-        objective: data.data.objective || null,
-      }
-      setBoard((b) => ({
-        ...b,
-        columns: b.columns.map((c) =>
-          c.id === colId ? { ...c, activities: [...c.activities, withDefaults] } : c
-        ),
-      }))
-      setNewCardTitle('')
-      setAddingCardCol(null)
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to add card')
-    }
-  }
-
-  async function deleteCard(colId: string, actId: string) {
-    const snapshot = board.columns
-    setBoard((b) => ({
-      ...b,
-      columns: b.columns.map((c) =>
-        c.id === colId ? { ...c, activities: c.activities.filter((a) => a.id !== actId) } : c
-      ),
-    }))
-    try {
-      const res = await fetch(`/api/sprints/${board.id}/activities/${actId}`, { method: 'DELETE' })
-      const data = await res.json()
-      if (!res.ok || !data.success) throw new Error(data.error || 'Failed')
-    } catch (err: any) {
-      setBoard((b) => ({ ...b, columns: snapshot }))
-      toast.error(err.message || 'Failed to delete')
-    }
-  }
-
-  async function updateCard(actId: string, patch: Partial<SprintBoardActivity>) {
-    const snapshot = board.columns
-    setBoard((b) => ({
-      ...b,
-      columns: b.columns.map((c) => ({
-        ...c,
-        activities: c.activities.map((a) => (a.id === actId ? { ...a, ...patch } : a)),
-      })),
-    }))
-    try {
-      const res = await fetch(`/api/sprints/${board.id}/activities/${actId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(patch),
-      })
-      const data = await res.json()
-      if (!res.ok || !data.success) throw new Error(data.error || 'Failed')
-      // Refresh card with returned (joined) shape
-      setBoard((b) => ({
-        ...b,
-        columns: b.columns.map((c) => ({
-          ...c,
-          activities: c.activities.map((a) => (a.id === actId ? { ...a, ...data.data, columnId: a.columnId } : a)),
-        })),
-      }))
-    } catch (err: any) {
-      setBoard((b) => ({ ...b, columns: snapshot }))
-      toast.error(err.message || 'Failed to update')
-    }
-  }
-
-  // ---------- Drag and drop ----------
-
-  const onDragStart = useCallback((activityId: string, fromColumnId: string) => {
-    draggedRef.current = { activityId, fromColumnId }
-  }, [])
-
-  const onDragEnd = useCallback(() => {
-    draggedRef.current = null
-  }, [])
-
-  const onDropOnColumn = useCallback(
-    async (targetColumnId: string) => {
-      const dragged = draggedRef.current
-      if (!dragged) return
-      draggedRef.current = null
-      if (dragged.fromColumnId === targetColumnId) return
-
-      const snapshot = board.columns
-      // Find the source card outside of the .map() closure so TS narrowing holds.
-      const fromCol = board.columns.find((c) => c.id === dragged.fromColumnId)
-      const movedActivity = fromCol?.activities.find((a) => a.id === dragged.activityId)
-      if (!movedActivity) return
-
-      const next = board.columns.map((c) => {
-        if (c.id === dragged.fromColumnId) {
-          return { ...c, activities: c.activities.filter((a) => a.id !== dragged.activityId) }
-        }
-        return c
-      })
-      const targetIndex = next.findIndex((c) => c.id === targetColumnId)
-      if (targetIndex === -1) return
-      const targetCol = next[targetIndex]
-      const newPosition = targetCol.activities.length
-      const updatedActivity: SprintBoardActivity = { ...movedActivity, columnId: targetColumnId, position: newPosition }
-      next[targetIndex] = {
-        ...targetCol,
-        activities: [...targetCol.activities, updatedActivity],
-      }
-      setBoard((b) => ({ ...b, columns: next }))
-
-      try {
-        const res = await fetch(`/api/sprints/${board.id}/activities/${dragged.activityId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ columnId: targetColumnId, position: newPosition }),
-        })
-        const data = await res.json()
-        if (!res.ok || !data.success) throw new Error(data.error || 'Failed')
-      } catch (err: any) {
-        setBoard((b) => ({ ...b, columns: snapshot }))
-        toast.error(err.message || 'Failed to move card')
-      }
-    },
-    [board.columns, board.id]
+function Avatar({ user, size = 22 }: { user: BoardUser; size?: number }) {
+  const initials = user.name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
+  return user.avatar ? (
+    <img src={user.avatar} alt={user.name} title={user.name} className="rounded-full object-cover"
+      style={{ width: size, height: size }} />
+  ) : (
+    <span title={user.name}
+      className="inline-flex shrink-0 items-center justify-center rounded-full font-semibold text-white"
+      style={{ width: size, height: size, fontSize: size * 0.38, background: 'var(--ap-accent)' }}>
+      {initials}
+    </span>
   )
+}
 
-  // ---------- Render ----------
+function ProgressBar({ percent, color }: { percent: number; color?: string }) {
+  return (
+    <div className="h-1.5 w-full overflow-hidden rounded-full" style={{ background: 'var(--ap-bg-sunken)' }}>
+      <div className="h-full rounded-full transition-all" style={{ width: `${percent}%`, background: color ?? 'var(--ap-accent)' }} />
+    </div>
+  )
+}
 
-  // Stats
-  const totalCards = board.columns.reduce((s, c) => s + c.activities.length, 0)
-  const lastCol = board.columns[board.columns.length - 1]
-  const completedCards = lastCol ? lastCol.activities.length : 0
-  const completedPct = totalCards > 0 ? Math.round((completedCards / totalCards) * 100) : 0
-  const inProgressCards =
-    board.columns.length > 2
-      ? board.columns.slice(1, -1).reduce((s, c) => s + c.activities.length, 0)
-      : 0
-  const blockedCards = board.columns
-    .filter((c) => /block|stuck/i.test(c.name))
-    .reduce((s, c) => s + c.activities.length, 0)
+// ─── Add Task inline form (Sprints v2 §4.3 / D) ─────────────────────────────
+
+function AddTaskInline({
+  sprintId, currentUserId, defaultDueDate, onCreated,
+}: {
+  sprintId: string
+  currentUserId: string
+  defaultDueDate: string | null
+  onCreated: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [title, setTitle] = useState('')
+  const [more, setMore] = useState(false)
+  const [priority, setPriority] = useState('MEDIUM')
+  const [dueDate, setDueDate] = useState<string>(defaultDueDate?.slice(0, 10) ?? '')
+  const [okr, setOkr] = useState<OkrLinkValue | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!title.trim()) return
+    setSubmitting(true)
+    try {
+      const res = await fetch('/api/todos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: title.trim(),
+          assigneeId: currentUserId,
+          sprintId,
+          priority,
+          dueDate: dueDate || null,
+          keyResultId: okr?.keyResultId ?? null,
+          objectiveId: okr?.objectiveId ?? null,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.success) throw new Error(data.error || 'Failed')
+      toast.success('Task added')
+      setTitle('')
+      setOkr(null)
+      setMore(false)
+      setOpen(false)
+      onCreated()
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to add task')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="flex w-full items-center gap-1.5 rounded-[10px] border-2 border-dashed px-3 py-2 text-[12px] text-muted-foreground hover:bg-muted/40"
+        style={{ borderColor: 'var(--ap-border)' }}
+      >
+        <Plus className="h-3.5 w-3.5" /> Add task
+      </button>
+    )
+  }
 
   return (
-    <div className="min-h-screen">
-      {/* Hero */}
-      <div className="px-6 pt-4 pb-3">
-        <Link
-          href="/dashboard/sprints"
-          className="inline-flex items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-3 w-3" /> All sprints
-        </Link>
-        <div
-          className="mt-2 rounded-[14px] border bg-card overflow-hidden"
-          style={{ borderColor: 'var(--ap-border)' }}
-        >
-          <div className="px-5 pt-5 pb-4 flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5 mb-2">
-                <span
-                  className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
-                  style={{ background: 'var(--ap-accent-soft)', color: 'var(--ap-accent)' }}
-                >
-                  Sprint
-                </span>
-                <span
-                  className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold"
-                  style={{
-                    background: 'rgba(52,199,89,0.12)',
-                    color: 'var(--ap-green)',
-                  }}
-                >
-                  <span className="size-1.5 rounded-full" style={{ background: 'var(--ap-green)' }} />
-                  Active
-                </span>
-              </div>
-              <h1
-                className="text-[24px] font-semibold leading-tight"
-                style={{ letterSpacing: '-0.02em' }}
-              >
-                {board.name}
-              </h1>
-              {board.description && (
-                <p className="mt-1 text-[13px] text-muted-foreground" style={{ maxWidth: 720 }}>
-                  {board.description}
-                </p>
-              )}
-              <p className="mt-2 text-[11px] text-muted-foreground">
-                Owner · <span style={{ color: 'var(--ap-fg-muted)' }}>{board.ownerName}</span>
-              </p>
-            </div>
+    <form onSubmit={submit} className="rounded-[10px] border bg-card p-2" style={{ borderColor: 'var(--ap-border)' }}>
+      <input
+        autoFocus
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        placeholder="Task title…"
+        className="w-full rounded-[8px] border-0 bg-muted/40 px-2 py-1.5 text-[12px] outline-none focus:bg-muted"
+      />
+      {more && (
+        <div className="mt-2 space-y-2">
+          <div className="flex items-center gap-2">
+            <select value={priority} onChange={(e) => setPriority(e.target.value)}
+              className="rounded-[8px] border bg-card px-2 py-1 text-[11px]"
+              style={{ borderColor: 'var(--ap-border)' }}>
+              {['LOW', 'MEDIUM', 'HIGH', 'URGENT'].map((p) => <option key={p} value={p}>{p}</option>)}
+            </select>
+            <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)}
+              className="rounded-[8px] border bg-card px-2 py-1 text-[11px]"
+              style={{ borderColor: 'var(--ap-border)' }} />
           </div>
-          <div
-            className="grid grid-cols-2 sm:grid-cols-4 border-t"
-            style={{ borderColor: 'var(--ap-border)', background: 'var(--ap-bg-sunken)' }}
-          >
-            <BoardStat label="Total cards" value={String(totalCards)} />
-            <BoardStat label="Completed" value={`${completedPct}%`} divider accent="green" />
-            <BoardStat label="In progress" value={String(inProgressCards)} divider accent="blue" />
-            <BoardStat label="Blocked" value={String(blockedCards)} divider accent={blockedCards > 0 ? 'red' : undefined} />
-          </div>
+          <LinkToOkrPopover value={okr} onChange={setOkr} />
+        </div>
+      )}
+      <div className="mt-2 flex items-center justify-between">
+        <button type="button" onClick={() => setMore((m) => !m)} className="text-[11px] text-muted-foreground hover:underline">
+          {more ? 'Less' : 'More options'}
+        </button>
+        <div className="flex items-center gap-1">
+          <button type="button" onClick={() => { setOpen(false); setTitle('') }}
+            className="rounded-[8px] px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted">
+            Cancel
+          </button>
+          <button type="submit" disabled={!title.trim() || submitting}
+            className="rounded-[8px] px-2 py-1 text-[11px] font-semibold text-white disabled:opacity-50"
+            style={{ background: 'var(--ap-accent)' }}>
+            {submitting ? 'Adding…' : 'Add'}
+          </button>
         </div>
       </div>
+    </form>
+  )
+}
 
-      <div className="px-6 py-4 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] gap-4">
-        <div className="min-w-0 overflow-x-auto">
-        <div className="flex items-start gap-3 min-w-max">
-          {board.columns.map((col) => (
-            <div
-              key={col.id}
-              className="w-[280px] flex-shrink-0 rounded-[14px] border"
-              style={{ background: 'var(--ap-bg-sunken)', borderColor: 'var(--ap-border)' }}
-              onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
-              onDrop={(e) => { e.preventDefault(); onDropOnColumn(col.id) }}
-            >
-              {/* Column header */}
-              <div className="flex items-center gap-1.5 px-3 py-2.5 border-b" style={{ borderColor: 'var(--ap-border)' }}>
-                {col.color && <span className="h-2 w-2 rounded-full" style={{ backgroundColor: col.color }} />}
-                {editingColumn === col.id ? (
-                  <input
-                    autoFocus
-                    type="text"
-                    value={editingColumnName}
-                    onChange={(e) => setEditingColumnName(e.target.value)}
-                    onBlur={() => renameColumn(col.id)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') renameColumn(col.id)
-                      if (e.key === 'Escape') setEditingColumn(null)
-                    }}
-                    className="input h-6 text-[13px] font-semibold"
-                  />
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => { setEditingColumn(col.id); setEditingColumnName(col.name) }}
-                    className="text-[13px] font-semibold text-[color:var(--text-sm)] hover:underline"
-                    title="Click to rename"
-                  >
-                    {col.name}
-                  </button>
-                )}
-                <span className="ml-1 inline-flex h-4 min-w-[18px] items-center justify-center rounded-sm bg-[color:#f9fafb] px-1 text-[10px] font-semibold text-[color:var(--text-sm text-muted-foreground)]">
-                  {col.activities.length}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => deleteColumn(col.id)}
-                  className="inline-flex items-center justify-center size-6 rounded hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer ml-auto"
-                  aria-label="Delete column"
-                >
-                  <Trash2 className="h-3 w-3" />
-                </button>
-              </div>
+// ─── Task card (spec §4.3) ─────────────────────────────────────────────────
 
-              {/* Cards */}
-              <div className="space-y-1.5 p-2 min-h-[40px]">
-                {col.activities.map((act) => (
-                  <BoardCard
-                    key={act.id}
-                    activity={act}
-                    onDragStart={() => onDragStart(act.id, col.id)}
-                    onDragEnd={onDragEnd}
-                    onOpen={() => setOpenCardId(act.id)}
-                  />
-                ))}
+function TaskCard({
+  todo, onClick, onDragStart,
+}: {
+  todo: BoardTodo
+  onClick: () => void
+  onDragStart: (e: React.DragEvent) => void
+}) {
+  const TypeIcon = TYPE_ICONS[todo.taskType ?? 'GENERAL'] ?? Square
+  const due = todo.dueDate ? new Date(todo.dueDate) : null
+  const overdue = due && due < new Date() && todo.status !== 'COMPLETED'
 
-                {/* Add card */}
-                {addingCardCol === col.id ? (
-                  <div className="rounded-md border border-[color:#e5e7eb] bg-card p-2">
-                    <textarea
-                      autoFocus
-                      value={newCardTitle}
-                      onChange={(e) => setNewCardTitle(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addCard(col.id) }
-                        if (e.key === 'Escape') { setAddingCardCol(null); setNewCardTitle('') }
-                      }}
-                      placeholder="Enter activity title…"
-                      rows={2}
-                      className="w-full resize-none bg-transparent text-[13px] text-[color:var(--text-sm)] placeholder:text-[color:var(--text-xs text-muted-foreground)] focus:outline-none"
-                    />
-                    <div className="mt-1 flex items-center gap-1">
-                      <button onClick={() => addCard(col.id)} className="btn-outline btn-primary">Add card</button>
-                      <button
-                        onClick={() => { setAddingCardCol(null); setNewCardTitle('') }}
-                        className="inline-flex items-center justify-center size-6 rounded hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setAddingCardCol(col.id)}
-                    className="flex w-full items-center gap-1 rounded-md px-2 py-1 text-[12px] text-[color:var(--text-xs text-muted-foreground)] hover:bg-[color:#f9fafb] hover:text-[color:var(--text-sm)]"
-                  >
-                    <Plus className="h-3 w-3" /> Add card
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      draggable
+      onDragStart={onDragStart}
+      onClick={onClick}
+      onKeyDown={(e) => { if (e.key === 'Enter') onClick() }}
+      className="ap-hover-lift cursor-pointer rounded-[10px] border bg-card p-3 text-left transition"
+      style={{ borderColor: 'var(--ap-border)' }}
+    >
+      <div className="flex items-start gap-2">
+        <TypeIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        <p className="flex-1 text-[12px] font-medium leading-tight">{todo.title}</p>
+      </div>
 
-          {/* Add column */}
-          <div className="w-[280px] flex-shrink-0">
-            {addingColumn ? (
-              <div className="rounded-md border border-[color:var(--border-t border-border)] bg-[color:#fafafa] p-2">
-                <input
-                  autoFocus
-                  type="text"
-                  value={newColumnName}
-                  onChange={(e) => setNewColumnName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') addColumn()
-                    if (e.key === 'Escape') { setAddingColumn(false); setNewColumnName('') }
-                  }}
-                  className="input"
-                  placeholder="Column name"
-                />
-                <div className="mt-1 flex items-center gap-1">
-                  <button onClick={addColumn} className="btn-outline btn-primary">Add column</button>
-                  <button onClick={() => { setAddingColumn(false); setNewColumnName('') }} className="inline-flex items-center justify-center size-6 rounded hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer">
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              </div>
-            ) : (
+      {todo.keyResult && (
+        <div
+          className="mt-2 inline-flex max-w-full items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium"
+          style={{ background: 'var(--ap-accent-soft)', color: 'var(--ap-accent)' }}
+        >
+          <Target className="h-3 w-3 shrink-0" />
+          <span className="truncate">{todo.keyResult.title}</span>
+        </div>
+      )}
+
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+          {due && (
+            <span className={cn('inline-flex items-center gap-0.5', overdue && 'text-[var(--ap-red)]')}>
+              {overdue && <AlertCircle className="h-3 w-3" />}
+              <Calendar className="h-3 w-3" />
+              {due.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            </span>
+          )}
+          <span
+            className="rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase"
+            style={{ background: `${PRIORITY_COLORS[todo.priority] ?? '#8E8E93'}22`, color: PRIORITY_COLORS[todo.priority] ?? '#8E8E93' }}
+          >
+            {todo.priority}
+          </span>
+        </div>
+        <Avatar user={todo.assignee} size={20} />
+      </div>
+    </div>
+  )
+}
+
+// ─── Main board ─────────────────────────────────────────────────────────────
+
+export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
+  const router = useRouter()
+  const qc = useQueryClient()
+  const [openTodoId, setOpenTodoId] = useState<string | null>(null)
+  const [showEnd, setShowEnd] = useState(false)
+  const [filterAssignee, setFilterAssignee] = useState<string | null>(null)
+  const [filterLinked, setFilterLinked] = useState<'all' | 'linked' | 'unlinked'>('all')
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['sprint-board', sprintId],
+    queryFn: async () => {
+      const res = await fetch(`/api/sprints/${sprintId}/board`)
+      const json = await res.json()
+      if (!res.ok || !json.success) throw new Error(json.error || 'Failed')
+      return json.data as BoardData
+    },
+    refetchOnWindowFocus: false,
+  })
+
+  const invalidate = () => qc.invalidateQueries({ queryKey: ['sprint-board', sprintId] })
+
+  async function moveTodo(todoId: string, newStatus: BoardColumn['status']) {
+    try {
+      const res = await fetch(`/api/todos/${todoId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      })
+      const json = await res.json()
+      if (!res.ok || !json.success) throw new Error(json.error || 'Failed')
+      invalidate()
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to move task')
+    }
+  }
+
+  const filteredColumns = useMemo(() => {
+    if (!data) return []
+    return data.columns.map((c) => ({
+      ...c,
+      todos: c.todos.filter((t) => {
+        if (filterAssignee && t.assigneeId !== filterAssignee) return false
+        if (filterLinked === 'linked' && !t.keyResult) return false
+        if (filterLinked === 'unlinked' && t.keyResult) return false
+        return true
+      }),
+    }))
+  }, [data, filterAssignee, filterLinked])
+
+  if (isLoading || !data) {
+    return <div className="p-6 text-[13px] text-muted-foreground">Loading sprint…</div>
+  }
+
+  const { sprint, aggregates, participants } = data
+  const daysLeft = sprint.endDate ? Math.max(0, Math.ceil((new Date(sprint.endDate).getTime() - Date.now()) / 86400000)) : null
+
+  const incompleteTodos = data.columns
+    .filter((c) => c.status !== 'COMPLETED')
+    .flatMap((c) => c.todos.map((t) => ({ id: t.id, title: t.title, status: t.status })))
+  const completedCount = data.columns.find((c) => c.status === 'COMPLETED')?.todos.length ?? 0
+
+  return (
+    <div className="space-y-3">
+      {/* Sticky header (spec §4.3) */}
+      <div className="sticky top-0 z-20 -mx-4 border-b bg-[var(--ap-bg)] px-4 py-3" style={{ borderColor: 'var(--ap-border)' }}>
+        <div className="flex flex-wrap items-center gap-3">
+          <Link href="/dashboard/sprints" className="inline-flex items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground">
+            <ArrowLeft className="h-3.5 w-3.5" /> Sprints
+          </Link>
+          <h1 className="text-[18px] font-semibold leading-tight" style={{ letterSpacing: '-0.01em' }}>{sprint.name}</h1>
+          <StatusPill status={sprint.state.toLowerCase().replace('_', '-')} />
+          <div className="ml-auto flex items-center gap-2">
+            {sprint.state === 'ACTIVE' && (
               <button
                 type="button"
-                onClick={() => setAddingColumn(true)}
-                className="flex w-full items-center gap-1 rounded-md border border-dashed border-[color:#e5e7eb] bg-transparent px-3 py-2 text-[13px] text-[color:var(--text-xs text-muted-foreground)] hover:bg-[color:#f9fafb] hover:text-[color:var(--text-sm)]"
+                onClick={() => setShowEnd(true)}
+                className="rounded-[10px] border px-3 py-1 text-[12px] font-semibold hover:bg-muted"
+                style={{ borderColor: 'var(--ap-border)' }}
               >
-                <Plus className="h-3.5 w-3.5" /> Add column
+                End sprint
               </button>
+            )}
+            <button type="button" className="rounded-[10px] border p-1 hover:bg-muted" style={{ borderColor: 'var(--ap-border)' }}>
+              <MoreHorizontal className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-2 flex items-center gap-3 text-[11px] text-muted-foreground">
+          {sprint.startDate && sprint.endDate && (
+            <span className="inline-flex items-center gap-1">
+              <Calendar className="h-3 w-3" />
+              {new Date(sprint.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              {' → '}
+              {new Date(sprint.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            </span>
+          )}
+          {daysLeft !== null && <span>{daysLeft} days remaining</span>}
+        </div>
+
+        {/* Dual progress bars */}
+        <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
+          <div>
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="font-semibold">Tasks</span>
+              <span className="tabular-nums text-muted-foreground">
+                {aggregates.taskDone}/{aggregates.taskTotal} done ({aggregates.taskPercent}%)
+              </span>
+            </div>
+            <div className="mt-1"><ProgressBar percent={aggregates.taskPercent} color="var(--ap-green)" /></div>
+          </div>
+          {sprint.goalTarget != null && sprint.goalTarget > 0 && (
+            <div>
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="font-semibold">{sprint.goalLabel ?? 'Goal'}</span>
+                <span className="tabular-nums text-muted-foreground">
+                  {sprint.goalUnit ? `${sprint.goalUnit} ` : ''}{(sprint.goalCurrent ?? 0).toLocaleString()} / {sprint.goalTarget.toLocaleString()} ({aggregates.goalPercent ?? 0}%)
+                </span>
+              </div>
+              <div className="mt-1"><ProgressBar percent={aggregates.goalPercent ?? 0} color="var(--ap-accent)" /></div>
+            </div>
+          )}
+        </div>
+
+        {/* Action row */}
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1 rounded-[10px] border p-0.5 text-[11px]" style={{ borderColor: 'var(--ap-border)' }}>
+            <Filter className="ml-1 h-3 w-3 text-muted-foreground" />
+            <select
+              value={filterAssignee ?? ''}
+              onChange={(e) => setFilterAssignee(e.target.value || null)}
+              className="bg-transparent px-1 py-0.5 outline-none"
+            >
+              <option value="">All assignees</option>
+              {participants.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+          <div className="flex items-center gap-1 rounded-[10px] border p-0.5 text-[11px]" style={{ borderColor: 'var(--ap-border)' }}>
+            {(['all', 'linked', 'unlinked'] as const).map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => setFilterLinked(f)}
+                className={cn('rounded px-2 py-0.5 capitalize',
+                  filterLinked === f ? 'bg-muted font-semibold' : 'text-muted-foreground hover:bg-muted/50')}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+          <div className="ml-auto flex -space-x-1">
+            {participants.slice(0, 5).map((u) => <Avatar key={u.id} user={u} size={22} />)}
+            {participants.length > 5 && (
+              <span className="inline-flex h-[22px] w-[22px] items-center justify-center rounded-full bg-muted text-[10px] font-semibold">
+                +{participants.length - 5}
+              </span>
             )}
           </div>
         </div>
-        </div>
-
-        <aside className="space-y-3 min-w-0">
-          <SprintBurndownCard board={board} />
-          <SprintMembersCard board={board} />
-        </aside>
       </div>
 
-      {openCardId && (() => {
-        const found = findActivity(openCardId)
-        if (!found) return null
-        return (
-          <SprintCardModal
-            sprintId={board.id}
-            activity={found.activity}
-            users={users}
-            keyResults={keyResults as KrOption[]}
-            objectives={objectives}
-            currentUserId={currentUserId}
-            onClose={() => setOpenCardId(null)}
-            onUpdateActivity={(patch) => updateCard(openCardId, patch)}
-            onDeleteActivity={() => deleteCard(found.columnId, openCardId)}
-            onTasksChanged={(total, completed) =>
-              patchActivity(openCardId, { tasksTotal: total, tasksCompleted: completed })
-            }
-            onCommentsChanged={(total) => patchActivity(openCardId, { commentCount: total })}
-            onConverted={(initiativeId) =>
-              patchActivity(openCardId, { convertedInitiativeId: initiativeId })
-            }
-          />
-        )
-      })()}
-    </div>
-  )
-}
+      {/* Columns */}
+      {aggregates.taskTotal === 0 ? (
+        <EmptyState
+          title="This sprint is empty"
+          description="Add tasks from the backlog or create new ones."
+          action={{ label: 'Create task', onClick: () => { /* opens via inline form below */ } }}
+        />
+      ) : null}
 
-function BoardCard({
-  activity,
-  onDragStart,
-  onDragEnd,
-  onOpen,
-}: {
-  activity: SprintBoardActivity
-  onDragStart: () => void
-  onDragEnd: () => void
-  onOpen: () => void
-}) {
-  const hasTasks = activity.tasksTotal > 0
-  const allTasksDone = hasTasks && activity.tasksCompleted === activity.tasksTotal
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+        {filteredColumns.map((col) => (
+          <div
+            key={col.id}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              const todoId = e.dataTransfer.getData('todoId')
+              if (todoId) moveTodo(todoId, col.status)
+            }}
+            className="rounded-[14px] border p-3"
+            style={{ borderColor: 'var(--ap-border)', background: 'var(--ap-bg-sunken)' }}
+          >
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {col.name} <span className="ml-1 tabular-nums">{col.todos.length}</span>
+              </p>
+            </div>
 
-  return (
-    <div
-      draggable
-      onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', activity.id); onDragStart() }}
-      onDragEnd={onDragEnd}
-      onClick={onOpen}
-      className="group rounded-[10px] border bg-card p-2.5 cursor-pointer transition hover:shadow-md"
-      style={{ borderColor: 'var(--ap-border)' }}
-    >
-      <div className="text-[13px] text-[color:var(--text-sm)] whitespace-pre-wrap break-words">
-        {activity.title}
+            {col.id === 'PENDING' && (
+              <div className="mb-2">
+                <AddTaskInline
+                  sprintId={sprintId}
+                  currentUserId={currentUserId}
+                  defaultDueDate={sprint.endDate}
+                  onCreated={invalidate}
+                />
+              </div>
+            )}
+
+            <div className="space-y-2">
+              {col.todos.map((t) => (
+                <TaskCard
+                  key={t.id}
+                  todo={t}
+                  onClick={() => setOpenTodoId(t.id)}
+                  onDragStart={(e) => e.dataTransfer.setData('todoId', t.id)}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
 
-      {(activity.keyResult || activity.objective) && (
-        <div className="mt-1.5 flex flex-wrap gap-1">
-          {activity.keyResult && (
-            <span className="inline-flex items-center h-5 px-1.5 text-xs font-medium rounded bg-muted text-muted-foreground" data-tone="blue" title={activity.keyResult.objective.title}>
-              <Link2 className="h-3 w-3" />
-              <span className="truncate max-w-[160px]">{activity.keyResult.title}</span>
-            </span>
-          )}
-          {activity.objective && !activity.keyResult && (
-            <span className="inline-flex items-center h-5 px-1.5 text-xs font-medium rounded bg-muted text-muted-foreground" data-tone="blue">
-              <Target className="h-3 w-3" />
-              <span className="truncate max-w-[160px]">{activity.objective.title}</span>
-            </span>
-          )}
-        </div>
-      )}
+      {/* Drawer-mode task detail */}
+      <TodoCardModal
+        todoId={openTodoId}
+        currentUserId={currentUserId}
+        onClose={() => setOpenTodoId(null)}
+        onUpdated={invalidate}
+        mode="drawer"
+      />
 
-      {/* Badges row */}
-      <div className="mt-2 flex items-center gap-2">
-        <span className="inline-flex items-center justify-center size-5 rounded-full bg-muted text-xs font-semibold" title={`Owner · ${activity.owner.name}`}>
-          {activity.owner.avatar ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={activity.owner.avatar} alt="" />
-          ) : (
-            activity.owner.name?.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase()
-          )}
-        </span>
-
-        <div className="ml-auto flex items-center gap-2 text-[11px] text-[color:var(--text-xs text-muted-foreground)]">
-          {activity.convertedInitiativeId && (
-            <span title="Converted to Initiative" className="text-[color:#059669]">
-              <CheckCircle2 className="h-3 w-3" />
-            </span>
-          )}
-          {activity.commentCount > 0 && (
-            <span className="inline-flex items-center gap-0.5" title={`${activity.commentCount} comment(s)`}>
-              <MessageSquare className="h-3 w-3" />
-              {activity.commentCount}
-            </span>
-          )}
-          {hasTasks && (
-            <span
-              className={`inline-flex items-center gap-0.5 ${allTasksDone ? 'text-[color:#059669]' : ''}`}
-              title={`${activity.tasksCompleted}/${activity.tasksTotal} tasks`}
-            >
-              <CheckSquare className="h-3 w-3" />
-              {activity.tasksCompleted}/{activity.tasksTotal}
-            </span>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function SprintBurndownCard({ board }: { board: SprintBoardData }) {
-  const totalCards = board.columns.reduce((s, c) => s + c.activities.length, 0)
-  const lastCol = board.columns[board.columns.length - 1]
-  const doneCount = lastCol ? lastCol.activities.length : 0
-
-  // Sprint window: prefer explicit start/end, otherwise approximate from createdAt + 14d.
-  const start = board.startDate
-    ? new Date(board.startDate)
-    : board.createdAt
-      ? new Date(board.createdAt)
-      : new Date()
-  const end = board.endDate
-    ? new Date(board.endDate)
-    : new Date(start.getTime() + 14 * 24 * 60 * 60 * 1000)
-
-  const dayMs = 24 * 60 * 60 * 1000
-  const totalDays = Math.max(1, Math.round((end.getTime() - start.getTime()) / dayMs))
-  const today = Date.now()
-  const elapsedDays = Math.max(0, Math.min(totalDays, Math.round((today - start.getTime()) / dayMs)))
-
-  // Ideal: linear from totalCards → 0 over totalDays.
-  const ideal = [
-    { x: 0, y: totalCards },
-    { x: totalDays, y: 0 },
-  ]
-  // Actual: only have today's snapshot — draw start → today's remaining.
-  const remaining = Math.max(0, totalCards - doneCount)
-  const actual = [
-    { x: 0, y: totalCards },
-    { x: elapsedDays, y: remaining },
-  ]
-
-  const W = 308, H = 140, padL = 4, padR = 4, padT = 8, padB = 18
-  const innerW = W - padL - padR
-  const innerH = H - padT - padB
-  const x = (d: number) => padL + (d / Math.max(1, totalDays)) * innerW
-  const y = (v: number) => padT + (1 - v / Math.max(1, totalCards)) * innerH
-  const path = (pts: { x: number; y: number }[]) =>
-    pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${x(p.x).toFixed(1)} ${y(p.y).toFixed(1)}`).join(' ')
-
-  return (
-    <section className="rounded-[14px] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
-      <header className="flex items-baseline justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--ap-border)' }}>
-        <h3 className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Burndown</h3>
-        <span className="text-[10px] font-mono text-muted-foreground tabular-nums">
-          D{elapsedDays}/{totalDays}
-        </span>
-      </header>
-
-      <div className="grid grid-cols-2 border-b" style={{ borderColor: 'var(--ap-border)' }}>
-        <div className="px-4 py-3 border-r" style={{ borderColor: 'var(--ap-border)' }}>
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Remaining</p>
-          <p className="mt-1 text-[22px] font-semibold tabular-nums leading-none" style={{ letterSpacing: '-0.02em', color: 'var(--ap-accent)' }}>
-            {remaining}
-          </p>
-        </div>
-        <div className="px-4 py-3">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Done</p>
-          <p className="mt-1 text-[22px] font-semibold tabular-nums leading-none" style={{ letterSpacing: '-0.02em', color: 'var(--ap-green)' }}>
-            {doneCount}<span className="text-[12px] text-muted-foreground font-normal">/{totalCards}</span>
-          </p>
-        </div>
-      </div>
-
-      <div className="px-3 pt-2">
-        <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} className="overflow-visible">
-          <line x1={padL} x2={W - padR} y1={H - padB} y2={H - padB} stroke="var(--ap-border)" strokeWidth={1} />
-          <path d={path(ideal)} fill="none" stroke="var(--ap-fg-faint)" strokeWidth={1.5} strokeDasharray="2 4" />
-          <path d={path(actual)} fill="none" stroke="var(--ap-accent)" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
-          <circle
-            cx={x(elapsedDays)}
-            cy={y(remaining)}
-            r={3.5}
-            fill="var(--ap-accent)"
-            stroke="var(--ap-bg-raised)"
-            strokeWidth={2}
-          />
-        </svg>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-1.5 px-4 pb-3 pt-1">
-        <span className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: 'var(--ap-bg-sunken)', color: 'var(--ap-fg-muted)' }}>
-          <span className="inline-block w-3 h-[2px] rounded-full" style={{ background: 'var(--ap-accent)' }} />
-          Actual
-        </span>
-        <span className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: 'var(--ap-bg-sunken)', color: 'var(--ap-fg-muted)' }}>
-          <span className="inline-block w-3 h-[2px] rounded-full" style={{ borderTop: '2px dotted var(--ap-fg-faint)' }} />
-          Ideal
-        </span>
-      </div>
-    </section>
-  )
-}
-
-function SprintMembersCard({ board }: { board: SprintBoardData }) {
-  const lastColId = board.columns[board.columns.length - 1]?.id
-  const byUser = new Map<string, { owner: SprintBoardActivity['owner']; total: number; done: number }>()
-  for (const col of board.columns) {
-    for (const a of col.activities) {
-      const cur = byUser.get(a.ownerId) ?? { owner: a.owner, total: 0, done: 0 }
-      cur.total += 1
-      if (col.id === lastColId) cur.done += 1
-      byUser.set(a.ownerId, cur)
-    }
-  }
-  const members = Array.from(byUser.values()).sort((a, b) => b.total - a.total)
-
-  return (
-    <section className="rounded-[14px] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
-      <header className="flex items-baseline justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--ap-border)' }}>
-        <h3 className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Team</h3>
-        <span className="text-[10px] font-mono text-muted-foreground tabular-nums">{members.length}</span>
-      </header>
-      {members.length === 0 ? (
-        <p className="px-4 py-6 text-[12px] text-muted-foreground text-center">No assignees yet.</p>
-      ) : (
-        <ul className="divide-y" style={{ borderColor: 'var(--ap-border)' }}>
-          {members.map((m) => {
-            const initials = (m.owner.name || '?').split(' ').map((p) => p[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()
-            return (
-              <li key={m.owner.id} className="flex items-center gap-2.5 px-4 py-2.5">
-                {m.owner.avatar ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={m.owner.avatar} alt="" className="size-7 rounded-full object-cover" />
-                ) : (
-                  <span className="flex size-7 items-center justify-center rounded-full text-[11px] font-semibold text-white" style={{ background: 'var(--ap-accent)' }}>
-                    {initials}
-                  </span>
-                )}
-                <span className="flex-1 truncate text-[13px]" style={{ color: 'var(--ap-fg)' }}>{m.owner.name}</span>
-                <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold tabular-nums" style={{ background: 'var(--ap-bg-sunken)', color: 'var(--ap-fg-muted)' }}>
-                  {m.done}/{m.total}
-                </span>
-              </li>
-            )
-          })}
-        </ul>
-      )}
-    </section>
-  )
-}
-
-function BoardStat({
-  label,
-  value,
-  divider,
-  accent,
-}: {
-  label: string
-  value: string
-  divider?: boolean
-  accent?: 'blue' | 'green' | 'red'
-}) {
-  const color =
-    accent === 'blue' ? 'var(--ap-accent)'
-    : accent === 'green' ? 'var(--ap-green)'
-    : accent === 'red' ? 'var(--ap-red)'
-    : 'var(--ap-fg)'
-  return (
-    <div
-      className="flex flex-col justify-center gap-1 px-4 py-4"
-      style={{ borderLeft: divider ? '1px solid var(--ap-border)' : undefined }}
-    >
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-        {label}
-      </p>
-      <p
-        className="text-[20px] font-semibold tabular-nums leading-none"
-        style={{ letterSpacing: '-0.02em', color }}
-      >
-        {value}
-      </p>
+      {/* End sprint modal */}
+      <EndSprintModal
+        open={showEnd}
+        onClose={() => setShowEnd(false)}
+        sprintId={sprintId}
+        sprintName={sprint.name}
+        completedCount={completedCount}
+        incompleteTodos={incompleteTodos}
+        goalLabel={sprint.goalLabel}
+        goalCurrent={sprint.goalCurrent}
+        goalTarget={sprint.goalTarget}
+        goalUnit={sprint.goalUnit}
+      />
     </div>
   )
 }

@@ -47,12 +47,19 @@ export default async function TimelinePage() {
   })
 
   return (
-    <div className="space-y-4">
-      <header>
-        <h1 className="text-2xl font-bold text-foreground">OKR Timeline</h1>
-        <p className="text-sm text-muted-foreground">Schedule of all active objectives across quarters.</p>
-      </header>
-      <TimelineBoard rows={rows} />
+    <div className="space-y-3">
+      <section className="rounded-[14px] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
+        <div className="px-5 py-5">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Schedule</p>
+          <h1 className="mt-1 text-[24px] font-semibold leading-tight" style={{ letterSpacing: '-0.02em' }}>
+            Timeline
+          </h1>
+          <p className="mt-1 text-[13px] text-muted-foreground">Schedule of all active objectives across quarters.</p>
+        </div>
+      </section>
+      <section className="rounded-[14px] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
+        <TimelineBoard rows={rows} />
+      </section>
     </div>
   )
 }

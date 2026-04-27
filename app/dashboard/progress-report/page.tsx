@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import ProgressReportWeeklyBars from './ProgressReportWeeklyBars'
+import ProgressPagePrintButton from '../progress/ProgressPagePrintButton'
 
 export const dynamic = 'force-dynamic'
 
@@ -57,26 +58,11 @@ export default async function ProgressReportPage() {
 
   const objCompletionPct = objectives.length > 0 ? (objClosed / objectives.length) * 100 : 0
 
-  const offTrackObjectives = objectives
-    .filter((o) => o.goalStatus === 'OFF_TRACK')
-    .sort((a, b) => a.progress - b.progress)
-    .slice(0, 20)
-  const atRiskObjectives = objectives
-    .filter((o) => o.goalStatus === 'AT_RISK')
-    .sort((a, b) => a.progress - b.progress)
-    .slice(0, 20)
+  const offTrackObjectives = objectives.filter((o) => o.goalStatus === 'OFF_TRACK').sort((a, b) => a.progress - b.progress).slice(0, 20)
+  const atRiskObjectives = objectives.filter((o) => o.goalStatus === 'AT_RISK').sort((a, b) => a.progress - b.progress).slice(0, 20)
+  const offTrackKrs = keyResults.filter((k) => k.confidence === 'OFF_TRACK').sort((a, b) => a.progress - b.progress).slice(0, 20)
+  const atRiskKrs = keyResults.filter((k) => k.confidence === 'AT_RISK').sort((a, b) => a.progress - b.progress).slice(0, 20)
 
-  const offTrackKrs = keyResults
-    .filter((k) => k.confidence === 'OFF_TRACK')
-    .sort((a, b) => a.progress - b.progress)
-    .slice(0, 20)
-  const atRiskKrs = keyResults
-    .filter((k) => k.confidence === 'AT_RISK')
-    .sort((a, b) => a.progress - b.progress)
-    .slice(0, 20)
-
-  // Last 10 weeks: bucket ConfidenceSnapshot (if present) or fall back to
-  // "current only" for the latest week.
   const tenWeeksAgoIso = new Date(Date.now() - 10 * WEEK_MS).toISOString().slice(0, 10)
   const snapshots = await prisma.confidenceSnapshot.findMany({
     where: { periodStart: { gte: tenWeeksAgoIso } },
@@ -107,7 +93,6 @@ export default async function ProgressReportPage() {
     else if (s.confidence === 'OFF_TRACK') bucket.off++
     bucket.total++
   }
-  // Fill the latest week with the current counts if snapshots are absent.
   const latest = weeks[weeks.length - 1]
   const latestObj = objBuckets.get(latest)!
   if (latestObj.total === 0) {
@@ -128,203 +113,130 @@ export default async function ProgressReportPage() {
   const keyResultWeekly = weeks.map((w) => ({ week: w.slice(5), ...krBuckets.get(w)! }))
 
   return (
-    <div className="space-y-6">
-      <header className="flex items-baseline justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Progress Dashboard</h1>
-          <p className="text-sm text-muted-foreground">Snapshot of where all active OKRs stand.</p>
+    <div className="space-y-3">
+      <section className="rounded-[14px] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
+        <div className="flex flex-col gap-3 px-5 py-5 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Reports</p>
+            <h1 className="mt-1 text-[24px] font-semibold leading-tight" style={{ letterSpacing: '-0.02em' }}>
+              Progress dashboard
+            </h1>
+            <p className="mt-1 text-[13px] text-muted-foreground">Snapshot of where all active OKRs stand.</p>
+          </div>
+          <ProgressPagePrintButton />
         </div>
-      </header>
+      </section>
 
-      <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <SummaryCard
-          title="Objectives"
-          total={objectives.length}
-          completed={objClosed}
-          completionPct={objCompletionPct}
-          onTrack={objOnTrack}
-          atRisk={objAtRisk}
-          offTrack={objOffTrack}
-        />
-        <SummaryCard
-          title="Key results"
-          total={keyResults.length}
+      <section className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <SummaryCard title="Objectives" total={objectives.length} completed={objClosed}
+          completionPct={objCompletionPct} onTrack={objOnTrack} atRisk={objAtRisk} offTrack={objOffTrack} />
+        <SummaryCard title="Key results" total={keyResults.length}
           completed={keyResults.filter((k) => k.progress >= 100).length}
-          completionPct={
-            keyResults.length > 0
-              ? (keyResults.filter((k) => k.progress >= 100).length / keyResults.length) * 100
-              : 0
-          }
-          onTrack={krOnTrack}
-          atRisk={krAtRisk}
-          offTrack={krOffTrack}
-        />
+          completionPct={keyResults.length > 0 ? (keyResults.filter((k) => k.progress >= 100).length / keyResults.length) * 100 : 0}
+          onTrack={krOnTrack} atRisk={krAtRisk} offTrack={krOffTrack} />
       </section>
 
-      <section className="bg-card rounded-lg shadow p-5">
-        <h2 className="text-base font-semibold text-foreground mb-4">Statuses over time</h2>
-        <ProgressReportWeeklyBars objectives={objectiveWeekly} keyResults={keyResultWeekly} />
+      <section className="rounded-[14px] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
+        <div className="flex items-center justify-between border-b px-4 py-3" style={{ borderColor: 'var(--ap-border)' }}>
+          <h2 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Statuses over time</h2>
+        </div>
+        <div className="p-4">
+          <ProgressReportWeeklyBars objectives={objectiveWeekly} keyResults={keyResultWeekly} />
+        </div>
       </section>
 
-      <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <StatusList
-          title="OKRs off track"
+      <section className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        <StatusList title="OKRs off track"
           subtitle={`${offTrackObjectives.length} objectives · ${offTrackKrs.length} key results`}
           rows={[
-            ...offTrackObjectives.map((o) => ({
-              id: o.id,
-              kind: 'OBJ' as const,
-              title: o.title,
-              owner: o.owner?.name ?? '—',
-              href: `/dashboard/objectives/${o.id}`,
-              progress: o.progress,
-              status: 'OFF TRACK',
-            })),
-            ...offTrackKrs.map((k) => ({
-              id: k.id,
-              kind: 'KR' as const,
-              title: k.title,
-              owner: k.owner?.name ?? '—',
-              href: `/dashboard/key-results/${k.id}`,
-              progress: k.progress,
-              status: 'OFF TRACK',
-            })),
-          ]}
-        />
-        <StatusList
-          title="OKRs at risk"
+            ...offTrackObjectives.map((o) => ({ id: o.id, kind: 'OBJ' as const, title: o.title, owner: o.owner?.name ?? '—', href: `/dashboard/objectives/${o.id}`, progress: o.progress, status: 'off-track' as const })),
+            ...offTrackKrs.map((k) => ({ id: k.id, kind: 'KR' as const, title: k.title, owner: k.owner?.name ?? '—', href: `/dashboard/key-results/${k.id}`, progress: k.progress, status: 'off-track' as const })),
+          ]} />
+        <StatusList title="OKRs at risk"
           subtitle={`${atRiskObjectives.length} objectives · ${atRiskKrs.length} key results`}
           rows={[
-            ...atRiskObjectives.map((o) => ({
-              id: o.id,
-              kind: 'OBJ' as const,
-              title: o.title,
-              owner: o.owner?.name ?? '—',
-              href: `/dashboard/objectives/${o.id}`,
-              progress: o.progress,
-              status: 'AT RISK',
-            })),
-            ...atRiskKrs.map((k) => ({
-              id: k.id,
-              kind: 'KR' as const,
-              title: k.title,
-              owner: k.owner?.name ?? '—',
-              href: `/dashboard/key-results/${k.id}`,
-              progress: k.progress,
-              status: 'AT RISK',
-            })),
-          ]}
-        />
+            ...atRiskObjectives.map((o) => ({ id: o.id, kind: 'OBJ' as const, title: o.title, owner: o.owner?.name ?? '—', href: `/dashboard/objectives/${o.id}`, progress: o.progress, status: 'at-risk' as const })),
+            ...atRiskKrs.map((k) => ({ id: k.id, kind: 'KR' as const, title: k.title, owner: k.owner?.name ?? '—', href: `/dashboard/key-results/${k.id}`, progress: k.progress, status: 'at-risk' as const })),
+          ]} />
       </section>
     </div>
   )
 }
 
 function SummaryCard({
-  title,
-  total,
-  completed,
-  completionPct,
-  onTrack,
-  atRisk,
-  offTrack,
-}: {
-  title: string
-  total: number
-  completed: number
-  completionPct: number
-  onTrack: number
-  atRisk: number
-  offTrack: number
-}) {
+  title, total, completed, completionPct, onTrack, atRisk, offTrack,
+}: { title: string; total: number; completed: number; completionPct: number; onTrack: number; atRisk: number; offTrack: number }) {
   return (
-    <div className="bg-card rounded-lg shadow p-5">
-      <div className="flex items-baseline justify-between mb-3">
-        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-        <span className="text-xs text-muted-foreground">{Math.round(completionPct)}% complete</span>
+    <div className="rounded-[14px] border bg-card px-5 py-5" style={{ borderColor: 'var(--ap-border)' }}>
+      <div className="flex items-baseline justify-between">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
+        <span className="text-[11px] tabular-nums text-muted-foreground">{Math.round(completionPct)}% complete</span>
       </div>
-      <div className="flex items-baseline gap-2 mb-3">
-        <span className="text-3xl font-bold tabular-nums text-foreground">{completed}</span>
-        <span className="text-sm text-muted-foreground">/ {total}</span>
+      <div className="mt-1.5 flex items-baseline gap-2">
+        <span className="text-[28px] font-semibold tabular-nums leading-none" style={{ letterSpacing: '-0.02em' }}>{completed}</span>
+        <span className="text-[13px] text-muted-foreground">/ {total}</span>
       </div>
-      <div className="h-2 rounded-full bg-muted overflow-hidden mb-4">
-        <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min(100, completionPct)}%` }} />
+      <div className="mt-3 h-1.5 w-full rounded-full overflow-hidden" style={{ background: 'var(--ap-kr-bar-bg)' }}>
+        <div className="h-full rounded-full" style={{ width: `${Math.min(100, completionPct)}%`, background: 'var(--ap-green)' }} />
       </div>
-      <dl className="grid grid-cols-3 gap-2 text-center">
-        <Chip label="On track" value={onTrack} tint="bg-emerald-100 text-emerald-800" />
-        <Chip label="At risk" value={atRisk} tint="bg-amber-100 text-amber-800" />
-        <Chip label="Off track" value={offTrack} tint="bg-red-100 text-red-800" />
+      <dl className="mt-4 grid grid-cols-3 gap-2">
+        <Chip label="On track" value={onTrack} bg="rgba(52,199,89,0.12)" fg="var(--ap-green)" />
+        <Chip label="At risk" value={atRisk} bg="rgba(255,149,0,0.12)" fg="var(--ap-orange)" />
+        <Chip label="Off track" value={offTrack} bg="rgba(255,59,48,0.12)" fg="var(--ap-red)" />
       </dl>
     </div>
   )
 }
 
-function Chip({ label, value, tint }: { label: string; value: number; tint: string }) {
+function Chip({ label, value, bg, fg }: { label: string; value: number; bg: string; fg: string }) {
   return (
-    <div className={`rounded-md px-2 py-1 text-xs font-medium ${tint}`}>
-      <div className="font-semibold tabular-nums">{value}</div>
-      <div className="text-[10px] uppercase tracking-wide opacity-80">{label}</div>
+    <div className="rounded-[10px] px-2 py-2 text-center" style={{ background: bg, color: fg }}>
+      <div className="text-[16px] font-semibold tabular-nums">{value}</div>
+      <div className="text-[10px] uppercase tracking-wide opacity-90">{label}</div>
     </div>
   )
 }
 
 function StatusList({
-  title,
-  subtitle,
-  rows,
+  title, subtitle, rows,
 }: {
-  title: string
-  subtitle: string
-  rows: Array<{
-    id: string
-    kind: 'OBJ' | 'KR'
-    title: string
-    owner: string
-    href: string
-    progress: number
-    status: string
-  }>
+  title: string; subtitle: string;
+  rows: Array<{ id: string; kind: 'OBJ' | 'KR'; title: string; owner: string; href: string; progress: number; status: 'off-track' | 'at-risk' }>
 }) {
   return (
-    <div className="bg-card rounded-lg shadow">
-      <div className="px-4 py-3 border-b border-border">
-        <h2 className="text-base font-semibold text-foreground">{title}</h2>
-        <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>
+    <div className="rounded-[14px] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
+      <div className="border-b px-4 py-3" style={{ borderColor: 'var(--ap-border)' }}>
+        <h2 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{title}</h2>
+        <p className="mt-0.5 text-[12px] text-muted-foreground">{subtitle}</p>
       </div>
       {rows.length === 0 ? (
-        <p className="p-5 text-sm text-muted-foreground">Nothing here. Good news.</p>
+        <p className="px-4 py-8 text-center text-[13px] text-muted-foreground">Nothing here. Good news.</p>
       ) : (
-        <table className="w-full text-sm">
-          <thead className="text-left text-[10px] uppercase tracking-wide text-muted-foreground">
-            <tr>
-              <th className="px-4 py-2">OKR</th>
-              <th className="px-4 py-2 w-20 text-right">Progress</th>
-              <th className="px-4 py-2 w-28">Status</th>
-              <th className="px-4 py-2 w-32">Owner</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={`${r.kind}-${r.id}`} className="border-t border-border">
-                <td className="px-4 py-2">
-                  <Link href={r.href} className="text-foreground hover:text-blue-600 line-clamp-1">
-                    <span className={`inline-block text-[10px] font-semibold mr-2 px-1.5 py-0.5 rounded ${r.kind === 'KR' ? 'bg-blue-100 text-blue-700' : 'bg-violet-100 text-violet-700'}`}>
-                      {r.kind}
-                    </span>
-                    {r.title}
-                  </Link>
-                </td>
-                <td className="px-4 py-2 text-right tabular-nums">{Math.round(r.progress)}%</td>
-                <td className="px-4 py-2">
-                  <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${r.status === 'OFF TRACK' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'}`}>
-                    {r.status}
-                  </span>
-                </td>
-                <td className="px-4 py-2 text-muted-foreground truncate">{r.owner}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <ul className="divide-y" style={{ borderColor: 'var(--ap-border)' }}>
+          {rows.map((r) => {
+            const color = r.status === 'off-track' ? 'var(--ap-red)' : 'var(--ap-orange)'
+            return (
+              <li key={`${r.kind}-${r.id}`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-[color:var(--ap-bg-hover)] transition">
+                <span
+                  className="rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+                  style={{
+                    background: r.kind === 'KR' ? 'var(--ap-accent-soft)' : 'rgba(88,86,214,0.12)',
+                    color: r.kind === 'KR' ? 'var(--ap-accent)' : 'rgb(88,86,214)',
+                  }}
+                >
+                  {r.kind}
+                </span>
+                <Link href={r.href} className="flex-1 min-w-0 text-[13px] truncate hover:underline">
+                  {r.title}
+                </Link>
+                <span className="text-[12px] font-mono tabular-nums w-10 text-right" style={{ color }}>
+                  {Math.round(r.progress)}%
+                </span>
+                <span className="hidden sm:inline text-[11px] text-muted-foreground truncate w-24 text-right">{r.owner}</span>
+              </li>
+            )
+          })}
+        </ul>
       )}
     </div>
   )

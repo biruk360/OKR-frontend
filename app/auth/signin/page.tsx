@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { signIn, getSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Eye, EyeOff, Mail, Lock } from 'lucide-react'
+import { Eye, EyeOff, Mail, Lock, Target } from 'lucide-react'
 
 export default function SignInPage() {
   const [email, setEmail] = useState('')
@@ -20,23 +20,17 @@ export default function SignInPage() {
     setError('')
 
     try {
-      const result = await signIn('credentials', {
-        email,
-        password,
-        redirect: false,
-      })
-
+      const result = await signIn('credentials', { email, password, redirect: false })
       if (result?.error) {
         setError('Invalid email or password')
       } else {
-        // Get the updated session to check user role
         const session = await getSession()
         if (session) {
           router.push('/dashboard')
           router.refresh()
         }
       }
-    } catch (error) {
+    } catch {
       setError('An error occurred. Please try again.')
     } finally {
       setIsLoading(false)
@@ -44,122 +38,117 @@ export default function SignInPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
-      <div className="w-full max-w-md space-y-8">
-        <div>
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-pill bg-primary-500/15">
-            <Lock className="h-6 w-6 text-primary-600" strokeWidth={1.75} />
+    <div
+      className="flex min-h-screen items-center justify-center px-4 py-12"
+      style={{ background: 'var(--ap-bg)' }}
+    >
+      <div
+        className="w-full max-w-[420px] rounded-[14px] border bg-card p-8 shadow-lg"
+        style={{ borderColor: 'var(--ap-border)' }}
+      >
+        <div className="flex flex-col items-center">
+          <div
+            className="flex size-11 items-center justify-center rounded-[10px]"
+            style={{ background: 'var(--ap-accent-soft)' }}
+          >
+            <Target className="size-5" style={{ color: 'var(--ap-accent)' }} strokeWidth={2} />
           </div>
-          <h2 className="mt-6 text-center text-page-title text-foreground">Sign in to your account</h2>
-          <p className="mt-2 text-center text-body-sm text-muted-foreground">
-            Or{' '}
-            <Link href="/auth/signup" className="font-medium text-primary-500 hover:text-primary-700">
-              create a new account
-            </Link>
-          </p>
+          <h1
+            className="mt-4 text-[22px] font-semibold leading-tight"
+            style={{ letterSpacing: '-0.02em' }}
+          >
+            Welcome back
+          </h1>
+          <p className="mt-1 text-[13px] text-muted-foreground">Sign in to your OKR workspace</p>
         </div>
-        
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+
+        <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
           {error && (
-            <div className="rounded-card-lg bg-danger-500/10 px-4 py-3 text-body-sm text-danger-700">
+            <div
+              className="rounded-[10px] px-3 py-2 text-[12px] font-medium"
+              style={{ background: 'var(--ap-danger-bg)', color: 'var(--ap-danger-fg)' }}
+            >
               {error}
             </div>
           )}
-          
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="email" className="label mb-1 block text-foreground">
-                Email address
-              </label>
-              <div className="relative mt-1">
-                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                  <Mail className="h-5 w-5 text-muted-foreground" strokeWidth={1.75} />
-                </div>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="input pl-10"
-                  placeholder="Enter your email"
-                />
-              </div>
-            </div>
-            
-            <div>
-              <label htmlFor="password" className="label mb-1 block text-foreground">
-                Password
-              </label>
-              <div className="relative mt-1">
-                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                  <Lock className="h-5 w-5 text-muted-foreground" strokeWidth={1.75} />
-                </div>
-                <input
-                  id="password"
-                  name="password"
-                  type={showPassword ? 'text' : 'password'}
-                  autoComplete="current-password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="input pl-10 pr-10"
-                  placeholder="Enter your password"
-                />
-                <button
-                  type="button"
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-5 w-5 text-muted-foreground" strokeWidth={1.75} />
-                  ) : (
-                    <Eye className="h-5 w-5 text-muted-foreground" strokeWidth={1.75} />
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
 
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
+          <div>
+            <label htmlFor="email" className="block text-[12px] font-medium mb-1.5">
+              Email
+            </label>
+            <div className="relative">
+              <Mail className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
               <input
-                id="remember-me"
-                name="remember-me"
-                type="checkbox"
-                className="h-4 w-4 rounded border-border text-primary-500 focus:ring-primary-500"
+                id="email"
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                className="w-full rounded-[10px] border-0 pl-9 pr-3 py-2 text-[13px] outline-none focus:ring-2 focus:ring-[color:var(--ap-accent)]"
+                style={{ background: 'rgba(120,120,128,0.06)' }}
               />
-              <label htmlFor="remember-me" className="ml-2 block text-body-sm text-foreground">
-                Remember me
-              </label>
-            </div>
-
-            <div className="text-body-sm">
-              <Link href="/auth/forgot-password" className="font-medium text-primary-500 hover:text-primary-700">
-                Forgot your password?
-              </Link>
             </div>
           </div>
 
           <div>
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="btn-primary w-full"
-            >
-              {isLoading ? (
-                <div className="flex items-center justify-center">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Signing in...
-                </div>
-              ) : (
-                'Sign in'
-              )}
-            </button>
+            <label htmlFor="password" className="block text-[12px] font-medium mb-1.5">
+              Password
+            </label>
+            <div className="relative">
+              <Lock className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+              <input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="current-password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Your password"
+                className="w-full rounded-[10px] border-0 pl-9 pr-9 py-2 text-[13px] outline-none focus:ring-2 focus:ring-[color:var(--ap-accent)]"
+                style={{ background: 'rgba(120,120,128,0.06)' }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              </button>
+            </div>
           </div>
+
+          <div className="flex items-center justify-between text-[12px]">
+            <label className="inline-flex items-center gap-1.5">
+              <input type="checkbox" className="size-3.5 rounded" />
+              <span className="text-muted-foreground">Remember me</span>
+            </label>
+            <Link
+              href="/auth/forgot-password"
+              className="font-medium hover:underline"
+              style={{ color: 'var(--ap-accent)' }}
+            >
+              Forgot password?
+            </Link>
+          </div>
+
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full rounded-[10px] py-2.5 text-[13px] font-semibold text-white transition disabled:opacity-60"
+            style={{ background: 'var(--ap-accent)' }}
+          >
+            {isLoading ? 'Signing in…' : 'Sign in'}
+          </button>
         </form>
+
+        <p className="mt-6 text-center text-[12px] text-muted-foreground">
+          Don&apos;t have an account?{' '}
+          <Link href="/auth/signup" className="font-semibold hover:underline" style={{ color: 'var(--ap-accent)' }}>
+            Create one
+          </Link>
+        </p>
       </div>
     </div>
   )

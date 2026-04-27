@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Mail, ArrowLeft } from 'lucide-react'
+import { Mail, ArrowLeft, KeyRound } from 'lucide-react'
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
@@ -34,52 +34,59 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
-      <div className="w-full max-w-md space-y-6">
-        <div>
-          <h2 className="text-center text-page-title text-foreground">Reset your password</h2>
-          <p className="mt-2 text-center text-body-sm text-muted-foreground">
-            Enter the email associated with your account and we'll send you a reset link.
+    <div className="flex min-h-screen items-center justify-center px-4 py-12" style={{ background: 'var(--ap-bg)' }}>
+      <div className="w-full max-w-[420px] rounded-[14px] border bg-card p-8 shadow-lg"
+        style={{ borderColor: 'var(--ap-border)' }}>
+        <div className="flex flex-col items-center">
+          <div className="flex size-11 items-center justify-center rounded-[10px]"
+            style={{ background: 'var(--ap-accent-soft)' }}>
+            <KeyRound className="size-5" style={{ color: 'var(--ap-accent)' }} strokeWidth={2} />
+          </div>
+          <h1 className="mt-4 text-[22px] font-semibold leading-tight" style={{ letterSpacing: '-0.02em' }}>
+            Reset your password
+          </h1>
+          <p className="mt-1 text-center text-[13px] text-muted-foreground">
+            Enter your email and we&apos;ll send a reset link.
           </p>
         </div>
 
         {done ? (
-          <div className="rounded-card-lg bg-success-500/10 px-4 py-4 text-body-sm text-success-700">
-            If an account exists for <strong>{email}</strong>, a reset link has been sent. Check your inbox (and spam). The link expires in 1 hour.
+          <div className="mt-6 rounded-[10px] px-4 py-3 text-[12px]"
+            style={{ background: 'var(--ap-ok-bg)', color: 'var(--ap-ok-fg)' }}>
+            If an account exists for <strong>{email}</strong>, a reset link has been sent. The link expires in 1 hour.
           </div>
         ) : (
-          <form className="space-y-4" onSubmit={handleSubmit}>
+          <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
             {error && (
-              <div className="rounded-card-lg bg-danger-500/10 px-4 py-3 text-body-sm text-danger-700">{error}</div>
+              <div className="rounded-[10px] px-3 py-2 text-[12px] font-medium"
+                style={{ background: 'var(--ap-danger-bg)', color: 'var(--ap-danger-fg)' }}>
+                {error}
+              </div>
             )}
             <div>
-              <label htmlFor="email" className="label mb-1 block text-foreground">Email address</label>
-              <div className="relative mt-1">
-                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                  <Mail className="h-5 w-5 text-muted-foreground" strokeWidth={1.75} />
-                </div>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  required
-                  autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="input pl-10"
+              <label htmlFor="email" className="block text-[12px] font-medium mb-1.5">Email</label>
+              <div className="relative">
+                <Mail className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                <input id="email" type="email" required autoComplete="email"
+                  value={email} onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
-                />
+                  className="w-full rounded-[10px] border-0 pl-9 pr-3 py-2 text-[13px] outline-none focus:ring-2 focus:ring-[color:var(--ap-accent)]"
+                  style={{ background: 'rgba(120,120,128,0.06)' }} />
               </div>
             </div>
-            <button type="submit" disabled={loading} className="btn-primary w-full">
+            <button type="submit" disabled={loading}
+              className="w-full rounded-[10px] py-2.5 text-[13px] font-semibold text-white transition disabled:opacity-60"
+              style={{ background: 'var(--ap-accent)' }}>
               {loading ? 'Sending…' : 'Send reset link'}
             </button>
           </form>
         )}
 
-        <div className="text-center">
-          <Link href="/auth/signin" className="inline-flex items-center text-body-sm font-medium text-primary-500 hover:text-primary-700">
-            <ArrowLeft className="mr-1 h-4 w-4" /> Back to sign in
+        <div className="mt-6 text-center">
+          <Link href="/auth/signin"
+            className="inline-flex items-center gap-1 text-[12px] font-medium hover:underline"
+            style={{ color: 'var(--ap-accent)' }}>
+            <ArrowLeft className="size-3.5" /> Back to sign in
           </Link>
         </div>
       </div>

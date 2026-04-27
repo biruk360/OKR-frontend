@@ -142,7 +142,7 @@ export function CommandPalette() {
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-[600px] max-w-[92vw] overflow-hidden rounded-[14px] bg-white"
+        className="ap-modal-enter w-[600px] max-w-[92vw] overflow-hidden rounded-[14px] bg-white"
         style={{
           background: 'var(--ap-bg-raised)',
           color: 'var(--ap-fg)',

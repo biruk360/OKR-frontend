@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useMemo, useCallback, useRef } from 'react'
-import { Plus, Search, Filter, Users, Tag, X, LayoutGrid } from 'lucide-react'
+import { Plus, Search, Filter, Users, Tag, X, LayoutGrid, Inbox } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { TodoCard } from '@/components/todos/TodoCard'
 import { TodoCardModal } from '@/components/todos/TodoCardModal'
+import { EmptyState } from '@/components/ui/EmptyState'
 import toast from 'react-hot-toast'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -196,6 +197,17 @@ export default function WorkBoardClient({ initialTodos, users, labelDefs, curren
       </div>
 
       {/* ── Board ── */}
+      {todos.length === 0 ? (
+        <div className="flex flex-1 items-center justify-center p-6">
+          <EmptyState
+            icon={LayoutGrid}
+            title="No to-dos"
+            description="Create one to get started"
+            action={{ label: 'New card', onClick: () => { setShowCreate(true); setNewColId('PENDING') } }}
+            className="w-full max-w-md"
+          />
+        </div>
+      ) : (
       <div className="flex flex-1 gap-3 overflow-x-auto p-4">
         {COLUMNS.map((col) => {
           const cards = byCol[col.id]
@@ -228,6 +240,12 @@ export default function WorkBoardClient({ initialTodos, users, labelDefs, curren
 
               {/* Cards */}
               <div className="flex-1 space-y-2 overflow-y-auto px-2 pb-2">
+                {cards.length === 0 && !(showCreate && newColId === col.id) && (
+                  <div className="flex flex-col items-center gap-1 py-6 text-[11px] text-muted-foreground">
+                    <Inbox className="size-4 opacity-60" />
+                    <span>No items</span>
+                  </div>
+                )}
                 {cards.map((t) => {
                   const checklistTotal = t.checklists.reduce((s, cl) => s + cl.items.length, 0)
                   const checklistDone = t.checklists.reduce((s, cl) => s + cl.items.filter((i) => i.completed).length, 0)
@@ -284,6 +302,7 @@ export default function WorkBoardClient({ initialTodos, users, labelDefs, curren
           )
         })}
       </div>
+      )}
 
       {/* ── Card modal ── */}
       {openTodoId && (

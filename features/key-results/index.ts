@@ -16,7 +16,6 @@ export { default as DeleteKeyResultModal } from './components/DeleteKeyResultMod
 export { default as EditKeyResultButton } from './components/EditKeyResultButton'
 export { default as EditKeyResultModal } from './components/EditKeyResultModal'
 export { default as KeyResultDetailClient } from './components/KeyResultDetailClient'
-export { default as KeyResultProgressChart } from './components/KeyResultProgressChart'
 export { default as KeyResultsList } from './components/KeyResultsList'
 export { default as UnarchiveKeyResultButton } from './components/UnarchiveKeyResultButton'
 export { default as KeyResultActionsMenu } from './components/KeyResultActionsMenu'

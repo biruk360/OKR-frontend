@@ -76,7 +76,7 @@ export function TodoCard({
       onDragEnd={onDragEnd}
       onClick={onClick}
       className={cn(
-        'ap-card cursor-pointer select-none overflow-hidden transition-shadow hover:shadow-[var(--ap-shadow-md)] active:scale-[0.98]',
+        'ap-card ap-hover-lift cursor-pointer select-none overflow-hidden transition-shadow hover:shadow-[var(--ap-shadow-md)] active:scale-[0.98]',
         className,
       )}
     >

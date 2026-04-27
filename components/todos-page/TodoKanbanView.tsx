@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useCallback } from 'react'
-import { Calendar, Link2, Target, User as UserIcon } from 'lucide-react'
+import { Calendar, Inbox, Link2, Target, User as UserIcon } from 'lucide-react'
 import type { TodoRow, UserOption } from './TodosPageClient'
 
 const COLUMNS: Array<{ key: string; label: string; color: string }> = [
@@ -56,6 +56,12 @@ export default function TodoKanbanView({ rows, users, onToggle, onStatusChange, 
               <span className="ml-auto text-[11px] text-muted-foreground">{colRows.length}</span>
             </div>
             <div className="p-1.5 space-y-1.5 min-h-[60px]">
+              {colRows.length === 0 && (
+                <div className="flex flex-col items-center gap-1 py-6 text-[11px] text-muted-foreground">
+                  <Inbox className="size-4 opacity-60" />
+                  <span>No items</span>
+                </div>
+              )}
               {colRows.map((row) => (
                 <KanbanCard
                   key={row.id}

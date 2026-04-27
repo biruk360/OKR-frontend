@@ -5,7 +5,6 @@ import { ChevronDown, ChevronUp, Sparkles } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
 import { formatAxisValue } from '@/lib/keyResultChart'
-import KeyResultProgressChart from './KeyResultProgressChart'
 import { Modal } from '@/components/ui'
 
 type TimeframeLike = {
@@ -147,6 +146,7 @@ export default function CreateCheckInModal({
       size="2xl"
       scrollBehavior="internal"
       stickyHeader
+      className="ap-modal-enter"
     >
       <form onSubmit={handleSubmit}>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -223,22 +223,7 @@ export default function CreateCheckInModal({
 
               <div className="space-y-4">
                 <div className="rounded-lg border border-border bg-muted/80 p-4">
-                  <div className="h-[240px] w-full" aria-busy={loading}>
-                    {loading ? (
-                      <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
-                        Loading chart…
-                      </div>
-                    ) : (
-                      <KeyResultProgressChart
-                        keyResult={kr}
-                        checkIns={checkIns}
-                        timeframe={objectiveTimeframe}
-                        height={240}
-                        showTodayMarker
-                      />
-                    )}
-                  </div>
-                  <div className="mt-3 flex items-start justify-between gap-2">
+                  <div className="flex items-start justify-between gap-2">
                     <p className="text-sm text-foreground">
                       <span className="font-medium">
                         {unit} {formatAxisValue(Number(kr.currentValue) || 0)}

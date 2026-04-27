@@ -1427,3 +1427,41 @@
 .ap-modal-enter {
   animation: ap-modal-in var(--ap-duration-base, 200ms) var(--ap-spring, cubic-bezier(0.32, 0.72, 0, 1));
 }
+
+/* ─── Print styles for reports ──────────────────────────────────────────── */
+.print-only { display: none; }
+
+@media print {
+  @page { margin: 0.5in; }
+
+  html, body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  aside,
+  .ap-glass,
+  [data-theme-switcher],
+  [data-cmdk-input],
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only { display: block !important; }
+
+  *, *::before, *::after {
+    box-shadow: none !important;
+    transition: none !important;
+    animation: none !important;
+  }
+
+  .ap-hover-lift:hover {
+    transform: none !important;
+    box-shadow: none !important;
+  }
+
+  a { color: inherit !important; text-decoration: none !important; }
+
+  .page-break-before { page-break-before: always; break-before: page; }
+  .page-break-after  { page-break-after: always;  break-after: page; }
+}

@@ -11,6 +11,7 @@ import {
   Users as UsersIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { EmptyState } from '@/components/ui/EmptyState'
 import ObjectiveActionsMenu from './ObjectiveActionsMenu'
 
 interface NestedObjectivesListProps {
@@ -168,7 +169,7 @@ export default function NestedObjectivesList({
       <div key={obj.id}>
         <div
           className={cn(
-            'group rounded-[14px] border bg-card transition-all mb-2 hover:shadow-sm',
+            'group ap-hover-lift rounded-[14px] border bg-card transition-all mb-2 hover:shadow-sm',
             isArchived && 'opacity-70 grayscale-[40%]'
           )}
           style={{ marginLeft: `${indent}px`, borderColor: 'var(--ap-border)' }}
@@ -312,18 +313,15 @@ export default function NestedObjectivesList({
 
   if (tree.length === 0) {
     return (
-      <div
-        className="flex flex-col items-center justify-center py-16 text-center rounded-[14px] border bg-card"
-        style={{ borderColor: 'var(--ap-border)' }}
-      >
-        <Target className="size-10 text-muted-foreground/50 mb-3" />
-        <p className="text-[13px] font-medium">No objectives found</p>
-        <p className="text-[12px] text-muted-foreground mt-1">
-          {objectives.length === 0
+      <EmptyState
+        icon={Target}
+        title="No objectives found"
+        description={
+          objectives.length === 0
             ? 'Create your first objective to get started.'
-            : 'Try adjusting your filters.'}
-        </p>
-      </div>
+            : 'Try adjusting your filters.'
+        }
+      />
     )
   }
 

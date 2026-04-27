@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { cn } from '@/lib/utils'
 
 type Severity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
@@ -128,13 +129,12 @@ export default function RisksPanel({ parent, currentUserId, currentUserRole, onC
       {isLoading ? (
         <p className="text-[12px] text-muted-foreground italic">Loading…</p>
       ) : sorted.length === 0 ? (
-        <div className="rounded-[10px] border border-dashed py-6 px-4 text-center"
-          style={{ borderColor: 'var(--ap-border)' }}>
-          <AlertTriangle className="size-5 mx-auto text-muted-foreground mb-1.5" />
-          <p className="text-[12px] text-muted-foreground">
-            No risks logged. Click <span className="font-medium text-[var(--ap-fg)]">+ Add risk</span> to flag a blocker.
-          </p>
-        </div>
+        <EmptyState
+          bare
+          icon={AlertTriangle}
+          title="No risks logged"
+          description="Flag a blocker if you spot one"
+        />
       ) : (
         <ul className="space-y-2">
           {sorted.map((risk) => {
@@ -345,6 +345,7 @@ function RiskFormModal({
       title={mode === 'add' ? 'Add risk' : 'Edit risk'}
       icon={AlertTriangle}
       size="md"
+      className="ap-modal-enter"
       footer={
         <>
           <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>

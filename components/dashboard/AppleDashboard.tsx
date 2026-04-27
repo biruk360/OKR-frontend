@@ -202,7 +202,7 @@ function KpiStrip({ kpis }: { kpis: DashboardKpis }) {
   const atRiskStatus: StatusKey = kpis.offTrackCount > 0 ? 'off-track' : kpis.atRiskCount > 0 ? 'at-risk' : 'on-track'
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-      <APCard>
+      <APCard className="ap-hover-lift">
         <div className="px-4 py-4">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Active objectives</p>
           <div className="mt-1.5 flex items-baseline gap-2">
@@ -217,7 +217,7 @@ function KpiStrip({ kpis }: { kpis: DashboardKpis }) {
         </div>
       </APCard>
 
-      <APCard>
+      <APCard className="ap-hover-lift">
         <div className="px-4 py-4">
           <div className="flex items-center justify-between">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Average progress</p>
@@ -235,7 +235,7 @@ function KpiStrip({ kpis }: { kpis: DashboardKpis }) {
         </div>
       </APCard>
 
-      <APCard>
+      <APCard className="ap-hover-lift">
         <div className="px-4 py-4">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">At-risk items</p>
           <div className="mt-1.5 flex items-baseline gap-2">
@@ -257,7 +257,7 @@ function KpiStrip({ kpis }: { kpis: DashboardKpis }) {
         </div>
       </APCard>
 
-      <APCard>
+      <APCard className="ap-hover-lift">
         <div className="px-4 py-4">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Upcoming deadlines</p>
           <div className="mt-1.5 flex items-baseline gap-2">

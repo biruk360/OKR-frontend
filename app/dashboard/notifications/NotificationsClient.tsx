@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 import { formatDistanceToNowStrict } from 'date-fns'
 import { Bell, AtSign, CheckCircle2, AlertTriangle, MessageSquare } from 'lucide-react'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { cn } from '@/lib/utils'
 
 export interface NotificationRow {
@@ -91,19 +92,11 @@ export default function NotificationsClient({ notifications }: { notifications: 
       </section>
 
       {filtered.length === 0 ? (
-        <section
-          className="rounded-[14px] border bg-card py-16 text-center"
-          style={{ borderColor: 'var(--ap-border)' }}
-        >
-          <div
-            className="mx-auto flex size-10 items-center justify-center rounded-[10px]"
-            style={{ background: 'var(--ap-bg-sunken)' }}
-          >
-            <Bell className="size-5 text-muted-foreground" />
-          </div>
-          <p className="mt-2 text-[13px] font-medium">You&apos;re all caught up</p>
-          <p className="text-[12px] text-muted-foreground">No notifications in this view.</p>
-        </section>
+        <EmptyState
+          icon={Bell}
+          title="All caught up"
+          description="You're up to date"
+        />
       ) : (
         <ul className="space-y-2">
           {filtered.map((n) => {

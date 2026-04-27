@@ -343,7 +343,7 @@ function NodeCard({
       onClick={onOpen}
       onKeyDown={() => {}}
       className={cn(
-        'group relative flex items-start gap-2 rounded-[14px] border bg-card px-3 py-3 transition-all cursor-pointer',
+        'group ap-hover-lift relative flex items-start gap-2 rounded-[14px] border bg-card px-3 py-3 transition-all cursor-pointer',
         'hover:shadow-md hover:-translate-y-px',
         focused && 'ring-2 ring-offset-1',
       )}

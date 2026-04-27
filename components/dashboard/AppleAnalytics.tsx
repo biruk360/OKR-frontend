@@ -96,7 +96,7 @@ function KpiStrip({ kpis }: { kpis: AnalyticsKpis }) {
         { label: 'At-risk %', value: `${kpis.atRiskPct}%`, sub: 'Of active KRs', color: atRiskColor },
         { label: 'Completion rate', value: `${kpis.completionRate}%`, sub: 'Objectives ≥ 75% progress' },
       ].map((k, i) => (
-        <APCard key={i}>
+        <APCard key={i} className="ap-hover-lift">
           <div className="px-4 py-4">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{k.label}</p>
             <p

@@ -18,6 +18,8 @@ import {
   Maximize2,
 } from 'lucide-react'
 import { TodoCardModal } from '@/components/todos/TodoCardModal'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { CheckSquare } from 'lucide-react'
 import TodoKanbanView from './TodoKanbanView'
 import TodoTreeView from './TodoTreeView'
 import { useTodoStore } from '@/lib/stores/todo-store'
@@ -324,8 +326,13 @@ export default function TodosPageClient({
               <tbody>
                 {filteredRows.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="text-[13px] text-[var(--ap-fg-muted)] text-center py-12">
-                      No to-dos match your filters.
+                    <td colSpan={8} className="py-2">
+                      <EmptyState
+                        bare
+                        icon={CheckSquare}
+                        title="No to-dos"
+                        description="Create one to get started"
+                      />
                     </td>
                   </tr>
                 )}
@@ -640,7 +647,7 @@ function CreateTodoModal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-[560px] rounded-[14px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)]"
+        className="ap-modal-enter relative w-full max-w-[560px] rounded-[14px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)]"
         style={{ boxShadow: '0 20px 60px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.05)' }}
       >
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-[var(--ap-border)]">

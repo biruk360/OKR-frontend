@@ -1,6 +1,8 @@
 'use client'
 
 import { format } from 'date-fns'
+import { Activity } from 'lucide-react'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { formatAxisValue } from '@/lib/keyResultChart'
 
 interface CheckIn {
@@ -45,7 +47,16 @@ export default function CheckInTimeline({ checkIns, unit }: Props) {
     (a, b) => new Date(b.asOfDate).getTime() - new Date(a.asOfDate).getTime(),
   )
 
-  if (ordered.length === 0) return null
+  if (ordered.length === 0) {
+    return (
+      <EmptyState
+        bare
+        icon={Activity}
+        title="No check-ins yet"
+        description="Update progress to log a check-in"
+      />
+    )
+  }
 
   return (
     <ol className="relative ml-2 pl-5" style={{ borderLeft: '2px solid var(--ap-border)' }}>

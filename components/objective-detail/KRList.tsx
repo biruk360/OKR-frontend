@@ -147,7 +147,7 @@ export default function KRList({ keyResults, objectiveId }: Props) {
                 key={kr.id}
                 href={`/dashboard/key-results/${kr.id}`}
                 className={cn(
-                  'group grid items-center gap-3 border-b transition-colors hover:bg-[var(--ap-bg-hover)]',
+                  'group ap-hover-lift grid items-center gap-3 border-b transition-colors hover:bg-[var(--ap-bg-hover)]',
                   density === 'rich' ? 'px-4 py-3.5' : 'px-4 py-2.5',
                 )}
                 style={{

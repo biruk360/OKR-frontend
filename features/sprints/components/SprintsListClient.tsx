@@ -158,7 +158,7 @@ export default function SprintsListClient({ sprints }: { sprints: SprintRow[] })
             <Link
               key={s.id}
               href={`/dashboard/sprints/${s.id}`}
-              className="group block rounded-[14px] border bg-card p-4 transition-all hover:shadow-md"
+              className="group ap-hover-lift block rounded-[14px] border bg-card p-4 transition-all hover:shadow-md"
               style={{ borderColor: 'var(--ap-border)' }}
             >
               <div className="flex items-start justify-between gap-2 mb-2">

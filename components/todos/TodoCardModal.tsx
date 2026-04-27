@@ -320,7 +320,7 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
   return createPortal(
     <div className="fixed inset-0 z-[80] flex items-start justify-center overflow-y-auto p-4 sm:p-8" style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }}>
       <div
-        className="relative my-4 w-full max-w-2xl rounded-[20px] bg-[var(--ap-bg-raised)] shadow-[var(--ap-shadow-lg)] overflow-hidden"
+        className="ap-modal-enter relative my-4 w-full max-w-2xl rounded-[20px] bg-[var(--ap-bg-raised)] shadow-[var(--ap-shadow-lg)] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* ── Cover strip ── */}

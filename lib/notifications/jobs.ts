@@ -7,6 +7,7 @@ import { prisma } from '@/lib/prisma'
 import { sendMail } from '@/lib/email'
 import { emit } from './dispatcher'
 import { isCheckInOverdue, type CheckInCadence } from '@/lib/check-in-cadence'
+import { renderDigest, type DigestItem } from '@/lib/email/templates/digest'
 
 /**
  * Drain EmailDigestQueue rows for a given cadence. Groups pending rows by user
@@ -43,40 +44,21 @@ export async function runDigestDrain(cadence: 'DAILY' | 'WEEKLY' | 'MONTHLY'): P
     } catch { return null }
   }
 
-  const base = (process.env.NEXTAUTH_URL || 'http://localhost:3000').replace(/\/+$/, '')
-  const abs = (l: string) => /^https?:\/\//i.test(l) ? l : `${base}${l.startsWith('/') ? l : `/${l}`}`
-
   for (const [userId, items] of Array.from(byUser.entries())) {
     const user = userById.get(userId)
     if (!user) continue
     try {
-      const subject = `Your ${cadence.toLowerCase()} OKR digest (${items.length} update${items.length === 1 ? '' : 's'})`
-      const text = [
-        `Hi ${user.name},`,
-        '',
-        `Here is your ${cadence.toLowerCase()} digest bundling ${items.length} update(s):`,
-        '',
-        ...items.map((i: QueueRow, idx: number) => {
-          const link = linkFor(i)
-          return link
-            ? `${idx + 1}. ${i.subject}\n   Open: ${abs(link)}`
-            : `${idx + 1}. ${i.subject}`
-        }),
-        '',
-        '—\nThe OKR Management System',
-      ].join('\n')
-      const html = `<!doctype html><html><body style="font-family:-apple-system,Helvetica,Arial,sans-serif;background:#f9fafb;padding:20px;">
-        <div style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:24px;">
-          <h2>Your ${cadence.toLowerCase()} OKR digest</h2>
-          <p>Hi ${escapeHtml(user.name)}, here are ${items.length} update(s):</p>
-          <ol>${items.map((i: QueueRow) => {
-            const link = linkFor(i)
-            return link
-              ? `<li>${escapeHtml(i.subject)} — <a href="${abs(link)}" style="color:#2563eb;">Open</a></li>`
-              : `<li>${escapeHtml(i.subject)}</li>`
-          }).join('')}</ol>
-          <p style="color:#9ca3af;font-size:11px;">Change cadence in <a href="${base}/dashboard/settings/notifications">Settings</a>.</p>
-        </div></body></html>`
+      const digestItems: DigestItem[] = items.map((i: QueueRow) => ({
+        eventKey: i.eventKey,
+        category: i.category,
+        subject: i.subject,
+        deepLink: linkFor(i),
+      }))
+      const { subject, text, html } = renderDigest({
+        recipientName: user.name,
+        cadence,
+        items: digestItems,
+      })
       await sendMail({ to: user.email, toName: user.name, subject, text, html, template: `digest-${cadence.toLowerCase()}` })
       await prisma.emailDigestQueue.updateMany({
         where: { id: { in: items.map((i: QueueRow) => i.id) } },
@@ -246,6 +228,3 @@ export async function runAdminMonthlyExecSummary(): Promise<{ sent: boolean }> {
   return { sent: true }
 }
 
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string))
-}

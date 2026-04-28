@@ -25,6 +25,16 @@ import { buildDeepLink } from './deep-link'
 
 type RecipientRoleTag = 'OWNER' | 'MANAGER' | 'PARENT_OWNER' | 'ADMIN' | 'WATCHER' | 'TEAM' | 'EXPLICIT' | 'ASSIGNEE'
 
+/**
+ * Cron-fired reminders that must NEVER send IMMEDIATE email — they re-fire every
+ * cron run for the same overdue entity, so respecting an IMMEDIATE pref produces
+ * one email per day per item. These always coalesce into the user's DAILY digest.
+ */
+const FORCE_DIGEST_EVENTS: ReadonlySet<EventKey> = new Set<EventKey>([
+  'CHECKIN_MISSED_7D', 'CHECKIN_MISSED_14D', 'CHECKIN_WEEKLY_DUE',
+  'TODO_DUE_TOMORROW', 'TODO_DUE_TODAY', 'TODO_OVERDUE',
+])
+
 interface ResolvedRecipient {
   userId: string
   tags: RecipientRoleTag[]
@@ -391,7 +401,12 @@ export async function emit(eventKey: EventKey, payload: EventPayload): Promise<v
 
       // Email
       if (!pref.email) continue
-      if (pref.emailCadence === 'IMMEDIATE') {
+      // Cron-driven reminder events are forced into DAILY digest regardless of pref —
+      // see FORCE_DIGEST_EVENTS for rationale.
+      const effectiveCadence = FORCE_DIGEST_EVENTS.has(eventKey)
+        ? 'DAILY'
+        : pref.emailCadence
+      if (effectiveCadence === 'IMMEDIATE') {
         const res = await sendMail({
           to: user.email,
           toName: user.name,
@@ -408,10 +423,26 @@ export async function emit(eventKey: EventKey, payload: EventPayload): Promise<v
           })
         }
       } else {
+        // Dedupe: if a row for the same user+event+entity is already queued and
+        // unsent within the current UTC day, skip — prevents the same overdue
+        // item from accumulating one queue row per cron run.
+        const dayStart = new Date()
+        dayStart.setUTCHours(0, 0, 0, 0)
+        const existing = await prisma.emailDigestQueue.findFirst({
+          where: {
+            userId: uid,
+            eventKey,
+            sentAt: null,
+            queuedAt: { gte: dayStart },
+            metadata: payload.entityId ? { contains: `"entityId":"${payload.entityId}"` } : undefined,
+          },
+          select: { id: true },
+        })
+        if (existing) continue
         await prisma.emailDigestQueue.create({
           data: {
             userId: uid,
-            cadence: pref.emailCadence,
+            cadence: effectiveCadence,
             category: meta.category,
             eventKey,
             subject: rendered.subject,

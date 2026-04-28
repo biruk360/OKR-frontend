@@ -1,8 +1,9 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import Link from 'next/link'
 import { formatDistanceToNowStrict } from 'date-fns'
-import { Bell, AtSign, CheckCircle2, AlertTriangle, MessageSquare } from 'lucide-react'
+import { Bell, AtSign, CheckCircle2, AlertTriangle, MessageSquare, ChevronRight } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { cn } from '@/lib/utils'
 
@@ -13,6 +14,7 @@ export interface NotificationRow {
   type: string
   isRead: boolean
   createdAt: string
+  deepLink?: string | null
 }
 
 type Tab = 'all' | 'unread' | 'mentions'
@@ -101,15 +103,8 @@ export default function NotificationsClient({ notifications }: { notifications: 
         <ul className="space-y-2">
           {filtered.map((n) => {
             const { Icon, bg, fg } = iconFor(n.type)
-            return (
-              <li
-                key={n.id}
-                className={cn(
-                  'flex items-start gap-3 rounded-[14px] border bg-card px-4 py-3 transition hover:bg-[color:var(--ap-bg-hover)]',
-                  !n.isRead && 'shadow-sm'
-                )}
-                style={{ borderColor: 'var(--ap-border)' }}
-              >
+            const inner = (
+              <>
                 <div
                   className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full"
                   style={{ background: bg }}
@@ -128,9 +123,30 @@ export default function NotificationsClient({ notifications }: { notifications: 
                     {n.type.replace(/_/g, ' ').toLowerCase()}
                   </p>
                 </div>
-                <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
-                  {formatDistanceToNowStrict(new Date(n.createdAt), { addSuffix: true })}
-                </span>
+                <div className="flex shrink-0 flex-col items-end gap-1">
+                  <span className="text-[11px] tabular-nums text-muted-foreground">
+                    {formatDistanceToNowStrict(new Date(n.createdAt), { addSuffix: true })}
+                  </span>
+                  {n.deepLink && (
+                    <ChevronRight className="size-4 text-muted-foreground" />
+                  )}
+                </div>
+              </>
+            )
+            const className = cn(
+              'flex items-start gap-3 rounded-[14px] border bg-card px-4 py-3 transition hover:bg-[color:var(--ap-bg-hover)]',
+              !n.isRead && 'shadow-sm',
+              n.deepLink && 'cursor-pointer'
+            )
+            return (
+              <li key={n.id} style={{ borderColor: 'var(--ap-border)' }} className="contents">
+                {n.deepLink ? (
+                  <Link href={n.deepLink} className={className} style={{ borderColor: 'var(--ap-border)' }}>
+                    {inner}
+                  </Link>
+                ) : (
+                  <div className={className} style={{ borderColor: 'var(--ap-border)' }}>{inner}</div>
+                )}
               </li>
             )
           })}

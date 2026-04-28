@@ -26,12 +26,14 @@ export interface RenderedInvitationEmail {
   html: string
 }
 
-const PRIMARY = '#2563eb'
-const PRIMARY_DARK = '#1d4ed8'
-const INK = '#0f172a'
-const MUTED = '#64748b'
-const BORDER = '#e2e8f0'
-const SOFT_BG = '#f8fafc'
+// Design tokens — mirror tailwind.config.js so the email matches the in-app UI.
+const PRIMARY = '#007AFF'
+const PRIMARY_DARK = '#0051D5'
+const INK = '#1D1D1F'
+const MUTED = '#8E8E93'
+const BORDER = '#E5E5EA'
+const SOFT_BG = '#FAFAFC'
+const APP_BG = '#F2F2F7'
 
 function roleLabel(role: string): string {
   switch ((role || '').toUpperCase()) {
@@ -145,8 +147,8 @@ export function renderInvitationEmail(data: InvitationEmailData): RenderedInvita
   <meta name="supported-color-schemes" content="light" />
   <title>${escapeHtml(subject)}</title>
 </head>
-<body style="margin:0;padding:0;background:#eef2f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:${INK};">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#eef2f7;padding:24px 0;">
+<body style="margin:0;padding:0;background:#F2F2F7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:${INK};">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F2F2F7;padding:24px 0;">
     <tr>
       <td align="center">
         <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(15,23,42,0.06),0 8px 24px rgba(15,23,42,0.06);">

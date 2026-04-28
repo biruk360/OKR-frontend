@@ -79,6 +79,8 @@ export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { sess
     sprintId, taskType,
     memberIds,   // string[] — full replacement of members list
     labelIds,    // string[] (TodoLabelDef ids) — full replacement
+    keyResultId, // string | null — link/unlink to a Key Result. Recalculates KR currentValue on change.
+    objectiveId, // string | null — link/unlink to an Objective directly (work that spans the whole O).
   } = await request.json()
 
   const existingTodo = await prisma.todo.findUnique({
@@ -143,6 +145,26 @@ export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { sess
     if (!newAssignee) return apiBadRequest('Assignee user not found')
   }
 
+  // Validate KR link change. Setting keyResultId clears any stale objectiveId
+  // ambiguity (the KR's objective is the canonical parent in that case).
+  let nextKrObjectiveId: string | null | undefined
+  if (keyResultId !== undefined && keyResultId !== existingTodo.keyResultId) {
+    if (keyResultId === null) {
+      nextKrObjectiveId = null
+    } else {
+      const kr = await prisma.keyResult.findUnique({
+        where: { id: keyResultId },
+        select: { id: true, objectiveId: true },
+      })
+      if (!kr) return apiBadRequest('Key result not found')
+      nextKrObjectiveId = kr.objectiveId
+    }
+  }
+  if (objectiveId !== undefined && objectiveId !== null && objectiveId !== existingTodo.objectiveId) {
+    const obj = await prisma.objective.findUnique({ where: { id: objectiveId }, select: { id: true } })
+    if (!obj) return apiBadRequest('Objective not found')
+  }
+
   const updatedTodo = await prisma.$transaction(async (tx) => {
     const updated = await tx.todo.update({
       where: { id: todoId },
@@ -158,6 +180,8 @@ export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { sess
         ...(coverColor !== undefined && { coverColor }),
         ...(sprintId !== undefined && { sprintId: sprintId ?? null }),
         ...(taskType !== undefined && { taskType: taskType ?? null }),
+        ...(keyResultId !== undefined && { keyResultId: keyResultId ?? null }),
+        ...(objectiveId !== undefined && { objectiveId: objectiveId ?? null }),
         // Replace members list atomically
         ...(Array.isArray(memberIds) && {
           members: {
@@ -186,6 +210,21 @@ export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { sess
       await recalcKrFromInitiatives(tx, krId)
       if (existingTodo.keyResult?.objectiveId) {
         await recalcNodeAndAncestors(tx, existingTodo.keyResult.objectiveId)
+      }
+    }
+
+    // KR link changed — recalc both the old and new KR (and their objective trees)
+    // so completed-initiative aggregates stay accurate on both sides of the move.
+    if (keyResultId !== undefined && keyResultId !== existingTodo.keyResultId) {
+      if (existingTodo.keyResultId) {
+        await recalcKrFromInitiatives(tx, existingTodo.keyResultId)
+        if (existingTodo.keyResult?.objectiveId) {
+          await recalcNodeAndAncestors(tx, existingTodo.keyResult.objectiveId)
+        }
+      }
+      if (keyResultId) {
+        await recalcKrFromInitiatives(tx, keyResultId)
+        if (nextKrObjectiveId) await recalcNodeAndAncestors(tx, nextKrObjectiveId)
       }
     }
 
@@ -275,6 +314,21 @@ export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { sess
       entityType: 'TODO', todoId, action: 'INITIATIVE_TASK_TYPE_CHANGED',
       actorId: session.user.id,
       changes: { taskType: { from: (existingTodo as any).taskType ?? null, to: taskType ?? null } },
+    })
+  }
+
+  if (keyResultId !== undefined && keyResultId !== existingTodo.keyResultId) {
+    await recordActivity({
+      entityType: 'TODO', todoId, action: 'INITIATIVE_KR_LINK_CHANGED',
+      actorId: session.user.id,
+      changes: { keyResultId: { from: existingTodo.keyResultId ?? null, to: keyResultId ?? null } },
+    })
+  }
+  if (objectiveId !== undefined && objectiveId !== existingTodo.objectiveId) {
+    await recordActivity({
+      entityType: 'TODO', todoId, action: 'INITIATIVE_OBJECTIVE_LINK_CHANGED',
+      actorId: session.user.id,
+      changes: { objectiveId: { from: existingTodo.objectiveId ?? null, to: objectiveId ?? null } },
     })
   }
 

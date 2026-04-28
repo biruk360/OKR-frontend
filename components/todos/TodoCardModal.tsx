@@ -6,6 +6,7 @@ import {
   X, Check, Plus, Trash2, Paperclip, Tag, Users, Calendar,
   ChevronDown, AlignLeft, MessageSquare, Activity, MoreHorizontal,
   CheckSquare, Image as ImageIcon, File as FileIcon, AlertCircle,
+  Link2, Target, Search, ExternalLink,
 } from 'lucide-react'
 import { format, isPast, isToday, isTomorrow, isYesterday, formatDistanceToNow } from 'date-fns'
 import { cn } from '@/lib/utils'
@@ -115,7 +116,7 @@ function DueDateBadge({ dueDate }: { dueDate: string | null }) {
   const tomorrow = isTomorrow(d)
   return (
     <span className={cn(
-      'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-500',
+      'inline-flex items-center gap-1.5 rounded-full px-2.5 py-[3px] text-[11px] font-600',
       overdue && 'bg-[var(--ap-danger-bg)] text-[var(--ap-danger-fg)]',
       today && 'bg-[var(--ap-warn-bg)] text-[var(--ap-warn-fg)]',
       tomorrow && 'bg-[var(--ap-ok-bg)] text-[var(--ap-ok-fg)]',
@@ -125,6 +126,185 @@ function DueDateBadge({ dueDate }: { dueDate: string | null }) {
       {overdue ? 'Overdue · ' : today ? 'Today · ' : tomorrow ? 'Tomorrow · ' : ''}
       {format(d, 'MMM d')}
     </span>
+  )
+}
+
+const STATUS_TONE: Record<string, { bg: string; fg: string; label: string }> = {
+  PENDING:     { bg: 'rgba(142,142,147,0.15)', fg: '#6E6E73', label: 'Pending' },
+  IN_PROGRESS: { bg: 'rgba(0,122,255,0.14)',   fg: '#0051D5', label: 'In progress' },
+  COMPLETED:   { bg: 'rgba(52,199,89,0.18)',   fg: '#1B6B30', label: 'Completed' },
+  CANCELLED:   { bg: 'rgba(255,59,48,0.14)',   fg: '#B32A22', label: 'Cancelled' },
+}
+
+function StatusPill({ status, onChange }: { status: string; onChange: (v: string) => void }) {
+  const tone = STATUS_TONE[status] ?? STATUS_TONE.PENDING
+  return (
+    <label
+      className="relative inline-flex items-center gap-1 rounded-full px-2.5 py-[3px] text-[11px] font-600 cursor-pointer transition-shadow hover:shadow-sm"
+      style={{ background: tone.bg, color: tone.fg }}
+    >
+      <span className="size-1.5 rounded-full" style={{ background: tone.fg, opacity: 0.8 }} />
+      {tone.label}
+      <ChevronDown className="h-3 w-3 opacity-70" />
+      <select
+        value={status}
+        onChange={(e) => onChange(e.target.value)}
+        className="absolute inset-0 cursor-pointer opacity-0"
+      >
+        {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{STATUS_TONE[s].label}</option>)}
+      </select>
+    </label>
+  )
+}
+
+function PriorityPill({ priority, onChange }: { priority: string; onChange: (v: string) => void }) {
+  const fg = PRIORITY_COLORS[priority] ?? PRIORITY_COLORS.MEDIUM
+  return (
+    <label
+      className="relative inline-flex items-center gap-1 rounded-full border px-2.5 py-[3px] text-[11px] font-600 cursor-pointer transition-shadow hover:shadow-sm"
+      style={{ borderColor: fg, color: fg, background: 'transparent' }}
+    >
+      <span className="size-1.5 rounded-full" style={{ background: fg }} />
+      {priority}
+      <ChevronDown className="h-3 w-3 opacity-70" />
+      <select
+        value={priority}
+        onChange={(e) => onChange(e.target.value)}
+        className="absolute inset-0 cursor-pointer opacity-0"
+      >
+        {PRIORITY_OPTIONS.map((p) => <option key={p} value={p}>{p}</option>)}
+      </select>
+    </label>
+  )
+}
+
+interface LinkedOkrCardProps {
+  todo: TodoCardData
+  isOpen: boolean
+  onToggle: () => void
+  onUnlink: () => void
+  query: string
+  onQueryChange: (v: string) => void
+  results: {
+    objectives: { id: string; title: string; level: string; progress: number }[]
+    keyResults: { id: string; title: string; progress: number; objective: { id: string; title: string } }[]
+  }
+  loading: boolean
+  onPickKr: (id: string) => void
+  onPickObjective: (id: string) => void
+}
+
+function LinkedOkrCard(p: LinkedOkrCardProps) {
+  const linked = p.todo.keyResult || p.todo.objective
+  return (
+    <div className="rounded-[14px] border border-[var(--ap-border)] bg-[var(--ap-bg-sunken)] overflow-hidden">
+      <div className="flex items-center gap-3 px-4 py-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--ap-accent-soft)] text-[var(--ap-accent)]">
+          <Target className="h-[18px] w-[18px]" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] font-700 uppercase tracking-[0.06em] text-[var(--ap-fg-subtle)]">Linked OKR</p>
+          {linked ? (
+            <div className="mt-0.5 min-w-0">
+              <p className="truncate text-[13px] font-600 text-[var(--ap-fg)]">
+                {p.todo.keyResult?.title ?? p.todo.objective?.title}
+              </p>
+              {p.todo.keyResult && (
+                <p className="truncate text-[11px] text-[var(--ap-fg-muted)]">
+                  in {p.todo.keyResult.objective?.title}
+                </p>
+              )}
+            </div>
+          ) : (
+            <p className="mt-0.5 text-[12px] text-[var(--ap-fg-subtle)]">Not linked — pick an objective or key result so progress rolls up.</p>
+          )}
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
+          {linked && (
+            <a
+              href={p.todo.keyResult ? `/dashboard/key-results/${p.todo.keyResult.id}` : `/dashboard/objectives/${p.todo.objective?.id}`}
+              className="inline-flex h-7 items-center gap-1 rounded-full border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-2.5 text-[11px] font-600 text-[var(--ap-fg-muted)] hover:text-[var(--ap-fg)] hover:bg-[var(--ap-bg-hover)] transition-colors"
+            >
+              <ExternalLink className="h-3 w-3" /> Open
+            </a>
+          )}
+          <button
+            onClick={p.onToggle}
+            className="inline-flex h-7 items-center gap-1 rounded-full border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-2.5 text-[11px] font-600 text-[var(--ap-fg)] hover:bg-[var(--ap-bg-hover)] transition-colors"
+          >
+            <Link2 className="h-3 w-3" /> {linked ? 'Change' : 'Link'}
+          </button>
+        </div>
+      </div>
+      {p.isOpen && (
+        <div className="border-t border-[var(--ap-border)] bg-[var(--ap-bg-raised)] p-3 space-y-2">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--ap-fg-faint)]" />
+            <input
+              autoFocus
+              value={p.query}
+              onChange={(e) => p.onQueryChange(e.target.value)}
+              placeholder="Search objectives & key results…"
+              className="w-full rounded-[10px] border border-[var(--ap-border)] bg-[var(--ap-bg-sunken)] pl-9 pr-3 py-2 text-[13px] outline-none focus:ring-2 focus:ring-[var(--ap-accent)] focus:border-transparent"
+            />
+          </div>
+          {linked && (
+            <button
+              onClick={p.onUnlink}
+              className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-600 text-[var(--ap-danger)] hover:bg-[var(--ap-danger-bg)] transition-colors"
+            >
+              <X className="h-3 w-3" /> Remove current link
+            </button>
+          )}
+          <div className="max-h-[260px] overflow-y-auto space-y-3">
+            {p.loading && <p className="px-2 py-1 text-[12px] text-[var(--ap-fg-subtle)]">Searching…</p>}
+            {!p.loading && p.query.trim() && p.results.objectives.length === 0 && p.results.keyResults.length === 0 && (
+              <p className="px-2 py-2 text-[12px] text-[var(--ap-fg-subtle)]">No matches. Try a shorter keyword.</p>
+            )}
+            {p.results.keyResults.length > 0 && (
+              <div>
+                <p className="px-2 pb-1 text-[10px] font-700 uppercase tracking-[0.06em] text-[var(--ap-fg-subtle)]">Key results</p>
+                <div className="space-y-1">
+                  {p.results.keyResults.map((kr) => (
+                    <button
+                      key={kr.id}
+                      onClick={() => p.onPickKr(kr.id)}
+                      className="flex w-full items-center gap-3 rounded-[10px] px-2 py-2 text-left hover:bg-[var(--ap-bg-hover)] transition-colors"
+                    >
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[var(--ap-accent-soft)] text-[var(--ap-accent)] text-[11px] font-700">KR</div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[12px] font-600 text-[var(--ap-fg)]">{kr.title}</p>
+                        <p className="truncate text-[11px] text-[var(--ap-fg-subtle)]">{kr.objective.title} · {Math.round(kr.progress ?? 0)}%</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {p.results.objectives.length > 0 && (
+              <div>
+                <p className="px-2 pb-1 text-[10px] font-700 uppercase tracking-[0.06em] text-[var(--ap-fg-subtle)]">Objectives</p>
+                <div className="space-y-1">
+                  {p.results.objectives.map((o) => (
+                    <button
+                      key={o.id}
+                      onClick={() => p.onPickObjective(o.id)}
+                      className="flex w-full items-center gap-3 rounded-[10px] px-2 py-2 text-left hover:bg-[var(--ap-bg-hover)] transition-colors"
+                    >
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[rgba(175,82,222,0.12)] text-[#AF52DE] text-[11px] font-700">O</div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[12px] font-600 text-[var(--ap-fg)]">{o.title}</p>
+                        <p className="truncate text-[11px] text-[var(--ap-fg-subtle)]">{o.level} · {Math.round(o.progress ?? 0)}%</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -261,7 +441,13 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const commentFileInputRef = useRef<HTMLInputElement>(null)
   const [labelDefs, setLabelDefs] = useState<LabelDef[]>([])
-  const [activePanel, setActivePanel] = useState<'description' | 'checklist' | 'members' | 'labels' | 'cover' | null>(null)
+  const [activePanel, setActivePanel] = useState<'description' | 'checklist' | 'members' | 'labels' | 'cover' | 'link' | null>(null)
+  const [linkQuery, setLinkQuery] = useState('')
+  const [linkResults, setLinkResults] = useState<{
+    objectives: { id: string; title: string; level: string; progress: number }[]
+    keyResults: { id: string; title: string; progress: number; objective: { id: string; title: string } }[]
+  }>({ objectives: [], keyResults: [] })
+  const [linkLoading, setLinkLoading] = useState(false)
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleDraft, setTitleDraft] = useState('')
   const [descDraft, setDescDraft] = useState('')
@@ -444,6 +630,47 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
     setTodo((t) => t ? { ...t, attachments: t.attachments.filter((a) => a.id !== attachmentId) } : t)
   }
 
+  // ── OKR link search (debounced) ──
+  useEffect(() => {
+    if (activePanel !== 'link') return
+    const q = linkQuery.trim()
+    if (!q) {
+      setLinkResults({ objectives: [], keyResults: [] })
+      return
+    }
+    const t = setTimeout(async () => {
+      setLinkLoading(true)
+      try {
+        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`)
+        const json = await res.json()
+        if (json.success) {
+          setLinkResults({
+            objectives: json.data.objectives ?? [],
+            keyResults: json.data.keyResults ?? [],
+          })
+        }
+      } finally {
+        setLinkLoading(false)
+      }
+    }, 200)
+    return () => clearTimeout(t)
+  }, [linkQuery, activePanel])
+
+  const linkToKeyResult = async (krId: string) => {
+    await patch({ keyResultId: krId, objectiveId: null })
+    setActivePanel(null); setLinkQuery('')
+    toast.success('Linked to key result')
+  }
+  const linkToObjective = async (objId: string) => {
+    await patch({ objectiveId: objId, keyResultId: null })
+    setActivePanel(null); setLinkQuery('')
+    toast.success('Linked to objective')
+  }
+  const unlink = async () => {
+    await patch({ keyResultId: null, objectiveId: null })
+    toast.success('Unlinked')
+  }
+
   if (!todoId) return null
 
   const isDrawer = mode === 'drawer'
@@ -459,19 +686,20 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
     >
       <div
         className={isDrawer
-          ? 'ap-modal-enter pointer-events-auto relative h-full w-full overflow-y-auto bg-[var(--ap-bg-raised)] shadow-[var(--ap-shadow-lg)] sm:rounded-l-[20px] sm:max-w-[720px]'
-          : 'ap-modal-enter relative my-4 w-full max-w-3xl rounded-[20px] bg-[var(--ap-bg-raised)] shadow-[var(--ap-shadow-lg)] overflow-hidden'}
+          ? 'ap-modal-enter pointer-events-auto relative h-full w-full overflow-y-auto bg-[var(--ap-bg-raised)] shadow-[var(--ap-shadow-lg)] sm:rounded-l-[20px] sm:max-w-[760px]'
+          : 'ap-modal-enter relative my-4 w-full max-w-[860px] rounded-[20px] bg-[var(--ap-bg-raised)] shadow-[var(--ap-shadow-lg)] overflow-hidden'}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* ── Cover strip ── */}
+        {/* ── Cover strip (taller, gradient feel) ── */}
         {todo?.coverColor && (
-          <div className="h-10 w-full" style={{ background: todo.coverColor }} />
+          <div className="h-14 w-full" style={{ background: `linear-gradient(135deg, ${todo.coverColor}, ${todo.coverColor}cc)` }} />
         )}
 
         {/* ── Close ── */}
         <button
           onClick={onClose}
-          className="absolute right-3 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-[var(--ap-bg-sunken)] text-[var(--ap-fg-muted)] hover:text-[var(--ap-fg)] transition-colors"
+          aria-label="Close"
+          className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-[var(--ap-bg-raised)] shadow-sm text-[var(--ap-fg-muted)] hover:text-[var(--ap-fg)] hover:shadow transition-all"
         >
           <X className="h-4 w-4" />
         </button>
@@ -481,17 +709,33 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
         ) : todo ? (
           <div className="flex flex-col md:flex-row">
             {/* ══ LEFT column ══ */}
-            <div className="flex-1 min-w-0 p-5 space-y-5">
+            <div className="flex-1 min-w-0 p-6 space-y-6">
 
-              {/* Breadcrumb */}
+              {/* ── Breadcrumb (linked OKR) ── */}
               {(todo.keyResult || todo.objective) && (
-                <p className="text-[11px] text-[var(--ap-fg-subtle)] truncate">
-                  {todo.keyResult?.objective?.title ?? todo.objective?.title}
-                  {todo.keyResult && <> › {todo.keyResult.title}</>}
-                </p>
+                <div className="flex items-center gap-1.5 text-[12px] text-[var(--ap-fg-muted)] min-w-0">
+                  <Target className="h-3.5 w-3.5 shrink-0 text-[var(--ap-accent)]" />
+                  <a
+                    href={`/dashboard/objectives/${todo.keyResult?.objective?.id ?? todo.objective?.id}`}
+                    className="truncate hover:text-[var(--ap-accent)] transition-colors"
+                  >
+                    {todo.keyResult?.objective?.title ?? todo.objective?.title}
+                  </a>
+                  {todo.keyResult && (
+                    <>
+                      <span className="text-[var(--ap-fg-faint)]">›</span>
+                      <a
+                        href={`/dashboard/key-results/${todo.keyResult.id}`}
+                        className="truncate hover:text-[var(--ap-accent)] transition-colors"
+                      >
+                        {todo.keyResult.title}
+                      </a>
+                    </>
+                  )}
+                </div>
               )}
 
-              {/* Title */}
+              {/* ── Hero: title ── */}
               <div>
                 {editingTitle ? (
                   <textarea
@@ -501,12 +745,12 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                     onBlur={saveTitle}
                     onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveTitle() } if (e.key === 'Escape') setEditingTitle(false) }}
                     rows={2}
-                    className="w-full resize-none bg-transparent text-[22px] font-700 leading-tight text-[var(--ap-fg)] outline-none"
+                    className="w-full resize-none bg-transparent text-[26px] font-600 leading-[1.2] tracking-[-0.01em] text-[var(--ap-fg)] outline-none focus:ring-2 focus:ring-[var(--ap-accent)] focus:rounded-lg focus:px-2 focus:-mx-2 transition-all"
                     autoFocus
                   />
                 ) : (
                   <h2
-                    className="cursor-pointer text-[22px] font-700 leading-tight text-[var(--ap-fg)] hover:opacity-80 transition-opacity"
+                    className="cursor-text text-[26px] font-600 leading-[1.2] tracking-[-0.01em] text-[var(--ap-fg)] hover:bg-[var(--ap-bg-hover)] -mx-2 px-2 py-1 rounded-lg transition-colors"
                     onClick={() => setEditingTitle(true)}
                   >
                     {todo.title}
@@ -514,49 +758,53 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                 )}
               </div>
 
-              {/* Status + Priority chips */}
+              {/* ── Status / Priority / Due / Labels: pill row ── */}
               <div className="flex flex-wrap items-center gap-2">
-                <select
-                  value={todo.status}
-                  onChange={(e) => patch({ status: e.target.value })}
-                  className="ap-input h-7 w-auto py-0 text-[12px] font-500 cursor-pointer"
-                >
-                  {STATUS_OPTIONS.map((s) => <option key={s}>{s.replace('_', ' ')}</option>)}
-                </select>
-                <select
-                  value={todo.priority}
-                  onChange={(e) => patch({ priority: e.target.value })}
-                  className="ap-input h-7 w-auto py-0 text-[12px] font-500 cursor-pointer"
-                  style={{ color: PRIORITY_COLORS[todo.priority] }}
-                >
-                  {PRIORITY_OPTIONS.map((p) => <option key={p}>{p}</option>)}
-                </select>
+                <StatusPill status={todo.status} onChange={(v) => patch({ status: v })} />
+                <PriorityPill priority={todo.priority} onChange={(v) => patch({ priority: v })} />
                 <DueDateBadge dueDate={todo.dueDate} />
+                {todo.labels.map((l) => (
+                  <span
+                    key={l.labelDef.id}
+                    className="inline-flex items-center rounded-full px-2.5 py-[3px] text-[11px] font-600 text-white shadow-sm"
+                    style={{ background: l.labelDef.color }}
+                  >
+                    {l.labelDef.name}
+                  </span>
+                ))}
               </div>
 
-              {/* Labels row */}
-              {todo.labels.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  {todo.labels.map((l) => (
-                    <span
-                      key={l.labelDef.id}
-                      className="inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-600 text-white"
-                      style={{ background: l.labelDef.color }}
-                    >
-                      {l.labelDef.name}
-                    </span>
+              {/* ── Members ── */}
+              <div className="flex items-center gap-3">
+                <span className="text-[11px] font-600 uppercase tracking-[0.05em] text-[var(--ap-fg-subtle)]">Members</span>
+                <div className="flex -space-x-1.5">
+                  <Avatar name={todo.assignee.name} avatar={todo.assignee.avatar} size={26} />
+                  {todo.members.filter((m) => m.user.id !== todo.assigneeId).map((m) => (
+                    <Avatar key={m.user.id} name={m.user.name} avatar={m.user.avatar} size={26} />
                   ))}
-                </div>
-              )}
-
-              {/* Members row */}
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-[var(--ap-fg-subtle)]">Members</span>
-                <div className="flex -space-x-1">
-                  <Avatar name={todo.assignee.name} avatar={todo.assignee.avatar} size={22} />
-                  {todo.members.map((m) => <Avatar key={m.user.id} name={m.user.name} avatar={m.user.avatar} size={22} />)}
+                  <button
+                    onClick={() => setActivePanel(activePanel === 'members' ? null : 'members')}
+                    className="inline-flex h-[26px] w-[26px] items-center justify-center rounded-full border-2 border-dashed border-[var(--ap-border-strong)] text-[var(--ap-fg-muted)] hover:border-[var(--ap-accent)] hover:text-[var(--ap-accent)] transition-colors"
+                    title="Add member"
+                  >
+                    <Plus className="h-3 w-3" />
+                  </button>
                 </div>
               </div>
+
+              {/* ── Linked OKR card (always visible — surfaces the link or invites it) ── */}
+              <LinkedOkrCard
+                todo={todo}
+                isOpen={activePanel === 'link'}
+                onToggle={() => setActivePanel(activePanel === 'link' ? null : 'link')}
+                onUnlink={unlink}
+                query={linkQuery}
+                onQueryChange={setLinkQuery}
+                results={linkResults}
+                loading={linkLoading}
+                onPickKr={linkToKeyResult}
+                onPickObjective={linkToObjective}
+              />
 
               {/* ── Description ── */}
               <div>
@@ -824,13 +1072,21 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
             </div>
 
             {/* ══ RIGHT sidebar ══ */}
-            <div className="w-full md:w-44 shrink-0 border-t md:border-t-0 md:border-l border-[var(--ap-border)] p-4 space-y-1">
-              <p className="text-[10px] font-600 uppercase tracking-[0.6px] text-[var(--ap-fg-subtle)] mb-2">Add to card</p>
+            <div className="w-full md:w-[200px] shrink-0 border-t md:border-t-0 md:border-l border-[var(--ap-border)] bg-[var(--ap-bg-sunken)] p-4 space-y-3">
+              <p className="text-[10px] font-700 uppercase tracking-[0.06em] text-[var(--ap-fg-subtle)]">Add to card</p>
+
+              {/* Link OKR — surfaced at the top */}
+              <button
+                onClick={() => setActivePanel(activePanel === 'link' ? null : 'link')}
+                className="flex w-full items-center gap-2.5 rounded-[10px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-3 py-2 text-left text-[12px] font-500 text-[var(--ap-fg)] hover:border-[var(--ap-accent)] hover:text-[var(--ap-accent)] hover:shadow-sm transition-all"
+              >
+                <Target className="h-3.5 w-3.5" /> Link OKR
+              </button>
 
               {/* Members */}
               <button
                 onClick={() => setActivePanel(activePanel === 'members' ? null : 'members')}
-                className="ap-btn ap-btn-ghost ap-btn-sm w-full justify-start gap-2"
+                className="flex w-full items-center gap-2.5 rounded-[10px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-3 py-2 text-left text-[12px] font-500 text-[var(--ap-fg)] hover:border-[var(--ap-accent)] hover:shadow-sm transition-all"
               >
                 <Users className="h-3.5 w-3.5" /> Members
               </button>
@@ -868,7 +1124,7 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
               {/* Labels */}
               <button
                 onClick={() => setActivePanel(activePanel === 'labels' ? null : 'labels')}
-                className="ap-btn ap-btn-ghost ap-btn-sm w-full justify-start gap-2"
+                className="flex w-full items-center gap-2.5 rounded-[10px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-3 py-2 text-left text-[12px] font-500 text-[var(--ap-fg)] hover:border-[var(--ap-accent)] hover:shadow-sm transition-all"
               >
                 <Tag className="h-3.5 w-3.5" /> Labels
               </button>
@@ -895,7 +1151,7 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
               {/* Checklist */}
               <button
                 onClick={() => setActivePanel(activePanel === 'checklist' ? null : 'checklist')}
-                className="ap-btn ap-btn-ghost ap-btn-sm w-full justify-start gap-2"
+                className="flex w-full items-center gap-2.5 rounded-[10px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-3 py-2 text-left text-[12px] font-500 text-[var(--ap-fg)] hover:border-[var(--ap-accent)] hover:shadow-sm transition-all"
               >
                 <CheckSquare className="h-3.5 w-3.5" /> Checklist
               </button>
@@ -926,7 +1182,7 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
               {/* Attach */}
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="ap-btn ap-btn-ghost ap-btn-sm w-full justify-start gap-2"
+                className="flex w-full items-center gap-2.5 rounded-[10px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-3 py-2 text-left text-[12px] font-500 text-[var(--ap-fg)] hover:border-[var(--ap-accent)] hover:shadow-sm transition-all"
               >
                 <Paperclip className="h-3.5 w-3.5" /> Attachment
               </button>
@@ -944,7 +1200,7 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
               {/* Cover */}
               <button
                 onClick={() => setActivePanel(activePanel === 'cover' ? null : 'cover')}
-                className="ap-btn ap-btn-ghost ap-btn-sm w-full justify-start gap-2"
+                className="flex w-full items-center gap-2.5 rounded-[10px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-3 py-2 text-left text-[12px] font-500 text-[var(--ap-fg)] hover:border-[var(--ap-accent)] hover:shadow-sm transition-all"
               >
                 <ImageIcon className="h-3.5 w-3.5" /> Cover
               </button>
@@ -962,11 +1218,11 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                 </div>
               )}
 
-              <div className="!mt-4 border-t border-[var(--ap-border)] pt-3 space-y-1">
-                <p className="text-[10px] font-600 uppercase tracking-[0.6px] text-[var(--ap-fg-subtle)] mb-2">Actions</p>
+              <div className="!mt-5 border-t border-[var(--ap-border)] pt-3 space-y-2">
+                <p className="text-[10px] font-700 uppercase tracking-[0.06em] text-[var(--ap-fg-subtle)]">Actions</p>
                 <button
                   onClick={() => { patch({ status: 'COMPLETED' }) }}
-                  className="ap-btn ap-btn-ghost ap-btn-sm w-full justify-start gap-2 text-[var(--ap-ok)]"
+                  className="flex w-full items-center gap-2.5 rounded-[10px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-3 py-2 text-left text-[12px] font-600 text-[var(--ap-ok)] hover:border-[var(--ap-ok)] hover:bg-[var(--ap-ok-bg)] transition-all"
                 >
                   <Check className="h-3.5 w-3.5" /> Mark done
                 </button>
@@ -976,7 +1232,7 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                     await fetch(`/api/todos/${todo.id}`, { method: 'DELETE' })
                     onUpdated?.(); onClose()
                   }}
-                  className="ap-btn ap-btn-ghost ap-btn-sm w-full justify-start gap-2 text-[var(--ap-danger)]"
+                  className="flex w-full items-center gap-2.5 rounded-[10px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-3 py-2 text-left text-[12px] font-600 text-[var(--ap-danger)] hover:border-[var(--ap-danger)] hover:bg-[var(--ap-danger-bg)] transition-all"
                 >
                   <Trash2 className="h-3.5 w-3.5" /> Delete card
                 </button>

@@ -40,6 +40,8 @@ export type ActivityAction =
   | 'SPRINT_GOAL_UPDATED'
   | 'INITIATIVE_SPRINT_CHANGED'
   | 'INITIATIVE_TASK_TYPE_CHANGED'
+  | 'INITIATIVE_KR_LINK_CHANGED'
+  | 'INITIATIVE_OBJECTIVE_LINK_CHANGED'
 
 export interface FieldChange {
   from: unknown

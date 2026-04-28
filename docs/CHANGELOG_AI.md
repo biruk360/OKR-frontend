@@ -13,6 +13,16 @@
 
 ---
 
+## 2026-04-28 — Reports/dashboards Phase 1: shared primitives, API routes, CEO gate, sparklines
+
+- **Added** `components/ui/dashboard/` barrel — `DashboardCard`, `InsightTile`, `KpiCard`, `MiniBadge`, `Sparkline` (new). Promoted from local definitions in `ReportDashboardClient.tsx` so `/dashboard` and other surfaces can reuse the same primitives. `Sparkline` is a 28px-tall Recharts area chart with no axes.
+- **Added** `lib/dashboards/payload.ts` — single shared loader returning denormalized objectives/KRs/todos + filter dictionaries for either `'ceo'` or `'me'` scope. Used by the page (SSR) and both API routes.
+- **Added** `app/api/dashboards/ceo/route.ts` (gated to ADMIN + EXECUTIVE — returns 403 otherwise) and `app/api/dashboards/me/route.ts` (any authenticated user). Both reuse `loadDashboardPayload`.
+- **Modified** `app/dashboard/reports/page.tsx` — replaced inline Prisma query with `loadDashboardPayload`. Server renders the right scope based on session role.
+- **Modified** `components/reports/ReportDashboardClient.tsx` — hid the CEO segment for non-admin/exec users (matches the API gate). Replaced four inline UI primitives with the shared `@/components/ui/dashboard` exports. Wired sparklines into the four hero `InsightTile`s, derived from `planRows` and `departmentRows` (real shape, not synthetic).
+- **Added** `docs/REPORTS.md` — architecture reference: surfaces, data flow, permission matrix, roadmap (Phase 2 employee upgrade, Phase 3 CEO advanced widgets), where-to-look index.
+- **Tests:** `npx tsc --noEmit` passes. UI not exercised end-to-end.
+
 ## 2026-04-28 — Initiative card modal redesign + Link OKR picker
 
 - **Redesigned** `components/todos/TodoCardModal.tsx` — bigger 26px hero title with hover-affordance, pill-style status / priority controls (`StatusPill`, `PriorityPill`) using the design tokens, refreshed `DueDateBadge` (rounded-full), grouped member avatars + "+ add" affordance, taller cover gradient, refined right rail with bordered card-style action buttons, tonal Mark-done / Delete-card buttons, and modal width bumped to 860px.

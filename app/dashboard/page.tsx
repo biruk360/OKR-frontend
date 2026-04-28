@@ -192,7 +192,12 @@ async function getQuickStats(userId: string, userRole: string): Promise<QuickSta
 async function getUserOkrTree(userId: string): Promise<OkrTreeObjective[]> {
   const objectives = await prisma.objective.findMany({
     where: { ownerId: userId, status: 'ACTIVE' },
-    include: {
+    select: {
+      id: true,
+      title: true,
+      level: true,
+      progress: true,
+      goalStatus: true,
       keyResults: {
         where: { status: 'ACTIVE' },
         select: { id: true, title: true, progress: true, confidence: true, _count: { select: { todos: true } } },

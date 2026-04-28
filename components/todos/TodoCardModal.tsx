@@ -775,7 +775,7 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
               </div>
 
               {/* ── Members ── */}
-              <div className="flex items-center gap-3">
+              <div className="relative flex items-center gap-3">
                 <span className="text-[11px] font-600 uppercase tracking-[0.05em] text-[var(--ap-fg-subtle)]">Members</span>
                 <div className="flex -space-x-1.5">
                   <Avatar name={todo.assignee.name} avatar={todo.assignee.avatar} size={26} />
@@ -790,6 +790,39 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                     <Plus className="h-3 w-3" />
                   </button>
                 </div>
+                {activePanel === 'members' && (
+                  <>
+                    <div className="fixed inset-0 z-[90]" onClick={() => setActivePanel(null)} />
+                    <div className="absolute left-[78px] top-full z-[91] mt-2 w-[260px] max-h-[360px] overflow-y-auto rounded-[12px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] p-2 space-y-1 shadow-[var(--ap-shadow-lg)]">
+                      <p className="px-2 pb-1 text-[10px] font-700 uppercase tracking-[0.06em] text-[var(--ap-fg-subtle)]">Card members</p>
+                      {users.map((u) => {
+                        const isMember = u.id === todo.assigneeId || todo.members.some((m) => m.user.id === u.id)
+                        return (
+                          <button
+                            key={u.id}
+                            onClick={() => u.id !== todo.assigneeId && toggleMember(u.id)}
+                            disabled={u.id === todo.assigneeId}
+                            className={cn('flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[12px] transition-colors', isMember ? 'bg-[var(--ap-accent-soft)] text-[var(--ap-accent)]' : 'hover:bg-[var(--ap-bg-hover)] text-[var(--ap-fg)]')}
+                          >
+                            <Avatar name={u.name ?? u.email} size={18} />
+                            <span className="flex-1 truncate">{u.name ?? u.email}</span>
+                            {isMember && <Check className="h-3 w-3 shrink-0" />}
+                          </button>
+                        )
+                      })}
+                      <div className="border-t border-[var(--ap-border)] pt-1 mt-1">
+                        <p className="px-2 pb-1 text-[10px] font-700 uppercase tracking-[0.06em] text-[var(--ap-fg-subtle)]">Primary assignee</p>
+                        <select
+                          value={todo.assigneeId}
+                          onChange={(e) => patch({ assigneeId: e.target.value })}
+                          className="ap-input w-full h-7 text-[12px] py-0"
+                        >
+                          {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* ── Linked OKR card (always visible — surfaces the link or invites it) ── */}
@@ -1126,49 +1159,6 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
               >
                 <Target className="h-3.5 w-3.5" /> Link OKR
               </button>
-
-              {/* Members — popover */}
-              <div className="relative">
-                <button
-                  onClick={() => setActivePanel(activePanel === 'members' ? null : 'members')}
-                  className="flex w-full items-center gap-2.5 rounded-[10px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-3 py-2 text-left text-[12px] font-500 text-[var(--ap-fg)] hover:border-[var(--ap-accent)] hover:shadow-sm transition-all"
-                >
-                  <Users className="h-3.5 w-3.5" /> Members
-                </button>
-                {activePanel === 'members' && (
-                  <>
-                    <div className="fixed inset-0 z-[90]" onClick={() => setActivePanel(null)} />
-                    <div className="absolute right-0 top-full z-[91] mt-1.5 w-[260px] max-h-[360px] overflow-y-auto rounded-[12px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] p-2 space-y-1 shadow-[var(--ap-shadow-lg)]">
-                      <p className="px-2 pb-1 text-[10px] font-700 uppercase tracking-[0.06em] text-[var(--ap-fg-subtle)]">Card members</p>
-                      {users.map((u) => {
-                        const isMember = u.id === todo.assigneeId || todo.members.some((m) => m.user.id === u.id)
-                        return (
-                          <button
-                            key={u.id}
-                            onClick={() => u.id !== todo.assigneeId && toggleMember(u.id)}
-                            disabled={u.id === todo.assigneeId}
-                            className={cn('flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[12px] transition-colors', isMember ? 'bg-[var(--ap-accent-soft)] text-[var(--ap-accent)]' : 'hover:bg-[var(--ap-bg-hover)] text-[var(--ap-fg)]')}
-                          >
-                            <Avatar name={u.name ?? u.email} size={18} />
-                            <span className="flex-1 truncate">{u.name ?? u.email}</span>
-                            {isMember && <Check className="h-3 w-3 shrink-0" />}
-                          </button>
-                        )
-                      })}
-                      <div className="border-t border-[var(--ap-border)] pt-1 mt-1">
-                        <p className="px-2 pb-1 text-[10px] font-700 uppercase tracking-[0.06em] text-[var(--ap-fg-subtle)]">Primary assignee</p>
-                        <select
-                          value={todo.assigneeId}
-                          onChange={(e) => patch({ assigneeId: e.target.value })}
-                          className="ap-input w-full h-7 text-[12px] py-0"
-                        >
-                          {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-                        </select>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
 
               {/* Labels — popover */}
               <div className="relative">

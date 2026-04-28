@@ -96,15 +96,18 @@ The four CEO/Employee hero tiles (OKR scope · Progress · Risk rate · Initiati
 - Hide CEO segment for non-admin/exec.
 - Sparklines on the four hero KPI tiles.
 
-### Phase 2 — Employee dashboard upgrade
+### Phase 2 — Employee dashboard upgrade (✅ shipped)
 
-- Today strip (3 cards: due-today, KRs needing check-in, @mentions waiting)
-- My OKR radial gauges per owned KR
-- Personal velocity line (initiatives completed per week)
-- My alignment strip (me → my objective → parent → company)
-- Top-5 in-progress kanban preview that opens `TodoCardModal`
-- GitHub-style streak heatmap (`@uiw/react-heat-map`, ~5KB)
-- Upcoming agenda (next 14 days)
+- Today strip (3 cards: due-today, KRs needing check-in, check-in streak)
+- My OKR radial gauges per owned KR with "Log check-in" CTA
+- Personal velocity sparkline (initiatives completed / week, last 8 weeks)
+- My alignment strip (me → parent → … → root)
+- Top-5 in-progress kanban preview that opens `TodoCardModal` via `useInitiativeDetailStore`
+- 12-week streak heatmap (inline SVG-style grid, no new dep)
+- Upcoming agenda (next 14 days, grouped, clickable)
+- Recommendations carried over from Codex's recommendation engine
+
+Lives in [`features/reports/components/EmployeeSuperDashboard.tsx`](../features/reports/components/EmployeeSuperDashboard.tsx). The Reports client picks this dashboard when `mode === 'employee'`; CEO mode keeps the original `SuperDashboard`.
 
 ### Phase 3 — CEO advanced widgets
 

@@ -21,6 +21,23 @@ export interface DashboardPayload {
     departments: Array<{ id: string; name: string }>
     timeframes: Array<{ id: string; name: string }>
   }
+  /**
+   * Personal-only enrichments — populated for `scope === 'me'`. Used by the
+   * Employee super-dashboard for velocity, streaks, and the alignment strip.
+   * Empty arrays for `scope === 'ceo'` to keep the type uniform.
+   */
+  personal: {
+    /** ISO date strings (YYYY-MM-DD) when this user marked a KR-linked initiative complete. */
+    completionDates: string[]
+    /** ISO date strings (YYYY-MM-DD) when this user logged a KR check-in. */
+    checkinDates: string[]
+    /** Parent-objective chain for objectives owned by this user (for alignment strip). */
+    alignmentChains: Array<{
+      objectiveId: string
+      objectiveTitle: string
+      ancestors: Array<{ id: string; title: string; level: string }>
+    }>
+  }
   /** ISO timestamp the payload was built. Useful for the "live" badge in the UI. */
   generatedAt: string
 }
@@ -247,11 +264,113 @@ export async function loadDashboardPayload(
     }),
   ])
 
+  // ── Personal enrichment (employee scope only). For CEO scope we return empty
+  //    arrays so the Employee dashboard can still render against an admin's
+  //    payload if they switch modes.
+  let personal: DashboardPayload['personal'] = {
+    completionDates: [],
+    checkinDates: [],
+    alignmentChains: [],
+  }
+  if (scope === 'me') {
+    const since = new Date()
+    since.setUTCDate(since.getUTCDate() - 84) // ~12 weeks of history
+    const [completedTodos, checkIns, ownedObjectives] = await Promise.all([
+      prisma.todo.findMany({
+        where: {
+          assigneeId: userId,
+          status: 'COMPLETED',
+          completedAt: { gte: since },
+        },
+        select: { completedAt: true },
+      }),
+      prisma.keyResultCheckIn.findMany({
+        where: { createdById: userId, createdAt: { gte: since } },
+        select: { createdAt: true },
+      }),
+      prisma.objective.findMany({
+        where: { ownerId: userId, status: 'ACTIVE' },
+        select: { id: true, title: true, parentObjectiveId: true },
+      }),
+    ])
+
+    const toDay = (d: Date | null): string | null =>
+      d ? d.toISOString().slice(0, 10) : null
+
+    // Build a parent-id → ancestor walker to derive each owned objective's
+    // alignment chain. Cap at 5 hops to keep payload bounded; cycles are
+    // impossible by design but we still guard against them.
+    const allParentIds = ownedObjectives
+      .map((o) => o.parentObjectiveId)
+      .filter((id): id is string => Boolean(id))
+    const ancestorRows =
+      allParentIds.length === 0
+        ? []
+        : await prisma.objective.findMany({
+            where: {
+              OR: [
+                { id: { in: allParentIds } },
+                { id: { in: await collectAncestorIds(allParentIds, 5) } },
+              ],
+            },
+            select: { id: true, title: true, level: true, parentObjectiveId: true },
+          })
+    const ancestorById = new Map(ancestorRows.map((r) => [r.id, r]))
+
+    const alignmentChains: DashboardPayload['personal']['alignmentChains'] = ownedObjectives.map((o) => {
+      const ancestors: Array<{ id: string; title: string; level: string }> = []
+      const seen = new Set<string>([o.id])
+      let cursor = o.parentObjectiveId
+      let hops = 0
+      while (cursor && !seen.has(cursor) && hops < 5) {
+        const row = ancestorById.get(cursor)
+        if (!row) break
+        ancestors.push({ id: row.id, title: row.title, level: row.level })
+        seen.add(row.id)
+        cursor = row.parentObjectiveId
+        hops++
+      }
+      return { objectiveId: o.id, objectiveTitle: o.title, ancestors }
+    })
+
+    personal = {
+      completionDates: completedTodos.map((t) => toDay(t.completedAt)).filter((d): d is string => Boolean(d)),
+      checkinDates: checkIns.map((c) => toDay(c.createdAt)).filter((d): d is string => Boolean(d)),
+      alignmentChains,
+    }
+  }
+
   return {
     keyResults: krRows,
     objectives: objectiveRows,
     todos: todoRows,
     filterOptions: { users: allUsers, departments: allDepartments, timeframes: allTimeframes },
+    personal,
     generatedAt: new Date().toISOString(),
   }
+}
+
+/**
+ * Walk the parent chain a fixed number of hops, returning every ancestor id
+ * encountered. Used so the loader can fetch the entire alignment tree above
+ * the user's owned objectives in one extra query.
+ */
+async function collectAncestorIds(seedIds: string[], maxDepth: number): Promise<string[]> {
+  const collected = new Set<string>(seedIds)
+  let frontier = seedIds
+  for (let i = 0; i < maxDepth && frontier.length > 0; i++) {
+    const rows = await prisma.objective.findMany({
+      where: { id: { in: frontier } },
+      select: { parentObjectiveId: true },
+    })
+    const next: string[] = []
+    for (const r of rows) {
+      if (r.parentObjectiveId && !collected.has(r.parentObjectiveId)) {
+        collected.add(r.parentObjectiveId)
+        next.push(r.parentObjectiveId)
+      }
+    }
+    frontier = next
+  }
+  return Array.from(collected)
 }

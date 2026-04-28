@@ -23,6 +23,7 @@ export default async function ReportsPage() {
       objectives={payload.objectives}
       todos={payload.todos}
       filterOptions={payload.filterOptions}
+      personal={payload.personal}
     />
   )
 }

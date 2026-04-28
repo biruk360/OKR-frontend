@@ -13,6 +13,16 @@
 
 ---
 
+## 2026-04-28 — Reports/dashboards Phase 2: employee super-dashboard
+
+- **Added** `features/reports/components/EmployeeSuperDashboard.tsx` — purpose-built employee experience: Today strip (due today / KRs needing check-in / streak), radial gauges per owned KR with log-check-in CTA, personal velocity sparkline (8 weeks), alignment strip (me → parent → … → root), in-progress kanban preview that opens `TodoCardModal` via `useInitiativeDetailStore`, 12-week SVG streak heatmap, 14-day upcoming agenda, and recommendations.
+- **Modified** `lib/dashboards/payload.ts` — `me` scope now also returns `personal.{ completionDates, checkinDates, alignmentChains }` derived from `Todo.completedAt`, `KeyResultCheckIn.createdAt`, and a bounded parent-objective chain walker (max 5 hops). CEO scope returns empty arrays.
+- **Modified** `components/reports/ReportDashboardClient.tsx` — accepts a new `personal` prop and renders `EmployeeSuperDashboard` when `mode === 'employee'`; CEO mode unchanged.
+- **Modified** `app/dashboard/reports/page.tsx` — threads `payload.personal` to the client.
+- **Added** `features/reports/index.ts` barrel export per CLAUDE.md feature-module rule.
+- **Modified** `docs/REPORTS.md` — Phase 2 marked shipped.
+- **Tests:** `npx tsc --noEmit` passes. UI not exercised end-to-end.
+
 ## 2026-04-28 — Reports/dashboards Phase 1: shared primitives, API routes, CEO gate, sparklines
 
 - **Added** `components/ui/dashboard/` barrel — `DashboardCard`, `InsightTile`, `KpiCard`, `MiniBadge`, `Sparkline` (new). Promoted from local definitions in `ReportDashboardClient.tsx` so `/dashboard` and other surfaces can reuse the same primitives. `Sparkline` is a 28px-tall Recharts area chart with no axes.

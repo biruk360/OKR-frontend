@@ -46,6 +46,7 @@ import {
   MiniBadge,
   Sparkline,
 } from '@/components/ui/dashboard'
+import { EmployeeSuperDashboard } from '@/features/reports'
 import {
   getKrDisplayStatus,
   statusLabel,
@@ -124,6 +125,19 @@ interface Props {
   objectives: ReportObjectiveRow[]
   todos: ReportTodoRow[]
   filterOptions?: FilterOptions
+  /**
+   * Personal enrichment for the Employee super-dashboard. Empty for CEO scope.
+   * See lib/dashboards/payload.ts.
+   */
+  personal?: {
+    completionDates: string[]
+    checkinDates: string[]
+    alignmentChains: Array<{
+      objectiveId: string
+      objectiveTitle: string
+      ancestors: Array<{ id: string; title: string; level: string }>
+    }>
+  }
 }
 
 const STATUS_COLORS: Record<KrDisplayStatus, string> = {
@@ -220,6 +234,7 @@ export default function ReportDashboardClient({
   objectives: objRows,
   todos: todoRows,
   filterOptions,
+  personal,
 }: Props) {
   // CEO mode is gated to ADMIN + EXECUTIVE — matches the /api/dashboards/ceo
   // server gate. DEPARTMENT_LEADs and EMPLOYEEs default to (and are pinned to)
@@ -708,26 +723,63 @@ export default function ReportDashboardClient({
         <KpiCard label="Not measurable" value={statusCounts.not_measurable} tint="var(--ap-fg)" />
       </div>
 
-      <SuperDashboard
-        mode={dashboardMode}
-        metrics={superMetrics}
-        statusChartData={statusChartData}
-        progressBands={progressBands}
-        burnupData={burnupData}
-        departmentRows={departmentRows}
-        ownerRows={ownerRows}
-        planRows={planRows}
-        recommendations={recommendations}
-        // Sparklines are derived from current per-plan rollups — real shape,
-        // not synthetic. When historical aggregates land (Phase 3) swap these
-        // for true 8-week series from a snapshots table.
-        sparklines={{
-          progress: planRows.map((p) => p.progress),
-          risk: planRows.map((p) => p.risk),
-          krs: planRows.map((p) => p.krs),
-          initiatives: departmentRows.map((d) => d.openTodos),
-        }}
-      />
+      {dashboardMode === 'employee' ? (
+        <EmployeeSuperDashboard
+          krs={dashboardScope.krs.map((kr) => ({
+            id: kr.id,
+            title: kr.title,
+            progress: kr.progress,
+            confidence: kr.confidence,
+            objectiveId: kr.objectiveId,
+            objectiveTitle: kr.objectiveTitle,
+            ownerId: kr.ownerId,
+            checkInCount: kr.checkInCount,
+            displayStatus: kr.displayStatus,
+          }))}
+          objectives={dashboardScope.objectives.map((o) => ({
+            id: o.id,
+            title: o.title,
+            level: o.level,
+            ownerId: o.ownerId,
+          }))}
+          todos={dashboardScope.todos.map((t) => ({
+            id: t.id,
+            title: t.title,
+            status: t.status,
+            priority: t.priority,
+            keyResultId: t.keyResultId,
+            krTitle: t.krTitle,
+            objectiveTitle: t.objectiveTitle,
+            assigneeId: t.assigneeId,
+            dueDate: t.dueDate,
+          }))}
+          recommendations={recommendations}
+          personal={personal ?? { completionDates: [], checkinDates: [], alignmentChains: [] }}
+          currentUserId={currentUserId}
+          currentUserName={currentUserName}
+        />
+      ) : (
+        <SuperDashboard
+          mode={dashboardMode}
+          metrics={superMetrics}
+          statusChartData={statusChartData}
+          progressBands={progressBands}
+          burnupData={burnupData}
+          departmentRows={departmentRows}
+          ownerRows={ownerRows}
+          planRows={planRows}
+          recommendations={recommendations}
+          // Sparklines are derived from current per-plan rollups — real shape,
+          // not synthetic. When historical aggregates land (Phase 3) swap these
+          // for true 8-week series from a snapshots table.
+          sparklines={{
+            progress: planRows.map((p) => p.progress),
+            risk: planRows.map((p) => p.risk),
+            krs: planRows.map((p) => p.krs),
+            initiatives: departmentRows.map((d) => d.openTodos),
+          }}
+        />
+      )}
 
       {/* Tabs + filter strip card */}
       <div

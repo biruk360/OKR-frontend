@@ -807,19 +807,17 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
               />
 
               {/* ── Description ── */}
-              <div>
-                <button
-                  className="flex items-center gap-1.5 text-[12px] font-600 text-[var(--ap-fg-muted)] hover:text-[var(--ap-fg)] mb-2"
-                  onClick={() => setActivePanel(activePanel === 'description' ? null : 'description')}
-                >
-                  <AlignLeft className="h-3.5 w-3.5" /> Description
-                </button>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <AlignLeft className="h-4 w-4 text-[var(--ap-fg-muted)]" />
+                  <h3 className="text-[15px] font-600 text-[var(--ap-fg)]">Description</h3>
+                </div>
                 {activePanel === 'description' || todo.description ? (
                   <div>
                     <MentionEditor
                       value={descDraft}
                       onChange={setDescDraft}
-                      placeholder="Add a description…"
+                      placeholder="Add a more detailed description…"
                       users={users}
                       minHeight={80}
                     />
@@ -833,57 +831,103 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                 ) : (
                   <button
                     onClick={() => setActivePanel('description')}
-                    className="w-full rounded-[10px] bg-[var(--ap-bg-sunken)] px-3 py-2 text-left text-[13px] text-[var(--ap-fg-subtle)] hover:bg-[var(--ap-bg-hover)] transition-colors"
+                    className="w-full rounded-[10px] bg-[var(--ap-bg-sunken)] px-3 py-2.5 text-left text-[13px] text-[var(--ap-fg-subtle)] hover:bg-[var(--ap-bg-hover)] transition-colors"
                   >
-                    Add a description…
+                    Add a more detailed description…
                   </button>
                 )}
               </div>
 
               {/* ── Checklists ── */}
               {todo.checklists.map((cl) => (
-                <div key={cl.id}>
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-1.5">
-                      <CheckSquare className="h-3.5 w-3.5 text-[var(--ap-fg-muted)]" />
-                      <span className="text-[12px] font-600 text-[var(--ap-fg-muted)]">{cl.title}</span>
+                <div key={cl.id} className="space-y-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <CheckSquare className="h-4 w-4 shrink-0 text-[var(--ap-fg-muted)]" />
+                      <h3 className="truncate text-[15px] font-600 text-[var(--ap-fg)]">{cl.title}</h3>
                     </div>
-                    <button onClick={() => deleteChecklist(cl.id)} className="rounded p-1 text-[var(--ap-fg-faint)] hover:text-[var(--ap-danger)] transition-colors">
-                      <Trash2 className="h-3 w-3" />
+                    <button
+                      onClick={() => deleteChecklist(cl.id)}
+                      className="inline-flex h-7 items-center gap-1 rounded-[8px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-2.5 text-[11px] font-600 text-[var(--ap-fg-muted)] hover:border-[var(--ap-danger)] hover:bg-[var(--ap-danger-bg)] hover:text-[var(--ap-danger)] transition-all"
+                    >
+                      Delete
                     </button>
                   </div>
                   <ChecklistProgress items={cl.items} />
-                  <div className="mt-2 space-y-1.5">
+                  <div className="space-y-0.5">
                     {cl.items.map((item) => (
-                      <label key={item.id} className="flex cursor-pointer items-start gap-2.5 rounded-lg px-2 py-1.5 hover:bg-[var(--ap-bg-hover)] transition-colors group">
+                      <div
+                        key={item.id}
+                        className="group flex items-center gap-2.5 rounded-[8px] px-2 py-1.5 hover:bg-[var(--ap-bg-hover)] transition-colors"
+                      >
                         <button
                           type="button"
                           onClick={() => toggleChecklistItem(cl.id, item.id, !item.completed)}
                           className={cn(
-                            'mt-0.5 h-4 w-4 shrink-0 rounded border-2 flex items-center justify-center transition-colors',
+                            'h-[18px] w-[18px] shrink-0 rounded-[5px] border-2 flex items-center justify-center transition-colors',
                             item.completed
                               ? 'border-[var(--ap-ok)] bg-[var(--ap-ok)]'
-                              : 'border-[var(--ap-border-strong)] bg-transparent',
+                              : 'border-[var(--ap-border-strong)] bg-transparent hover:border-[var(--ap-fg-muted)]',
                           )}
                         >
-                          {item.completed && <Check className="h-2.5 w-2.5 text-white" />}
+                          {item.completed && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
                         </button>
-                        <span className={cn('flex-1 text-[13px] leading-snug', item.completed && 'line-through text-[var(--ap-fg-subtle)]')}>
+                        <span className={cn(
+                          'flex-1 text-[13px] leading-snug min-w-0',
+                          item.completed && 'line-through text-[var(--ap-fg-subtle)]',
+                        )}>
                           {item.title}
                         </span>
-                        {item.assignee && <Avatar name={item.assignee.name} avatar={item.assignee.avatar} size={16} />}
-                      </label>
+                        {item.dueDate && (
+                          <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-[var(--ap-bg-sunken)] px-2 py-[2px] text-[10px] font-600 text-[var(--ap-fg-muted)]">
+                            <Calendar className="h-2.5 w-2.5" />
+                            {format(new Date(item.dueDate), 'MMM d')}
+                          </span>
+                        )}
+                        {item.assignee && (
+                          <Avatar name={item.assignee.name} avatar={item.assignee.avatar} size={20} />
+                        )}
+                        <div className="hidden gap-0.5 group-hover:flex">
+                          <button
+                            type="button"
+                            title="Set due date"
+                            className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--ap-fg-muted)] hover:bg-[var(--ap-bg-raised)] hover:text-[var(--ap-fg)] transition-colors"
+                          >
+                            <Calendar className="h-3 w-3" />
+                          </button>
+                          <button
+                            type="button"
+                            title="Assign"
+                            className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--ap-fg-muted)] hover:bg-[var(--ap-bg-raised)] hover:text-[var(--ap-fg)] transition-colors"
+                          >
+                            <Users className="h-3 w-3" />
+                          </button>
+                          <button
+                            type="button"
+                            title="More"
+                            className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--ap-fg-muted)] hover:bg-[var(--ap-bg-raised)] hover:text-[var(--ap-fg)] transition-colors"
+                          >
+                            <MoreHorizontal className="h-3 w-3" />
+                          </button>
+                        </div>
+                      </div>
                     ))}
-                    <div className="flex gap-2 mt-1 px-2">
-                      <input
-                        value={newItemTitles[cl.id] ?? ''}
-                        onChange={(e) => setNewItemTitles((p) => ({ ...p, [cl.id]: e.target.value }))}
-                        onKeyDown={(e) => { if (e.key === 'Enter') addChecklistItem(cl.id) }}
-                        placeholder="Add an item…"
-                        className="ap-input flex-1 h-7 text-[12px] py-0"
-                      />
-                      <button onClick={() => addChecklistItem(cl.id)} className="ap-btn ap-btn-secondary ap-btn-sm">Add</button>
-                    </div>
+                  </div>
+                  <div className="flex gap-2 pl-7">
+                    <input
+                      value={newItemTitles[cl.id] ?? ''}
+                      onChange={(e) => setNewItemTitles((p) => ({ ...p, [cl.id]: e.target.value }))}
+                      onKeyDown={(e) => { if (e.key === 'Enter') addChecklistItem(cl.id) }}
+                      placeholder="Add an item"
+                      className="flex-1 rounded-[8px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-3 h-8 text-[13px] outline-none focus:ring-2 focus:ring-[var(--ap-accent)] focus:border-transparent transition-all"
+                    />
+                    <button
+                      onClick={() => addChecklistItem(cl.id)}
+                      disabled={!newItemTitles[cl.id]?.trim()}
+                      className="ap-btn ap-btn-primary ap-btn-sm disabled:opacity-50"
+                    >
+                      Add
+                    </button>
                   </div>
                 </div>
               ))}

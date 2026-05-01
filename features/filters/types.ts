@@ -76,7 +76,8 @@ export interface FilteredResult {
   status?: string
   confidence?: string
   progress?: number
-  ownerName?: string
+  ownerName?: string | null
+  ownerId?: string
   ownerAvatar?: string
   dueDate?: string
   workStatus?: string

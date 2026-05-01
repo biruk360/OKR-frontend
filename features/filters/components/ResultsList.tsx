@@ -1,9 +1,8 @@
 'use client'
 
 import { Fragment } from 'react'
-import Link from 'next/link'
-import { cn } from '@/lib/utils'
 import { ChevronRight, User } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import type { FilteredResult, FiltersTab } from '../types'
 
 interface ResultsListProps {
@@ -12,42 +11,37 @@ interface ResultsListProps {
   onReset: () => void
 }
 
-const STATUS_PILL: Record<string, string> = {
-  Done: 'bg-[#16A34A]/10 text-[#16A34A]',
-  'In Progress': 'bg-[#2F75B6]/10 text-[#2F75B6]',
-  Backlog: 'bg-muted text-muted-foreground',
-  Blocked: 'bg-[#DC2626]/10 text-[#DC2626]',
-  Ready: 'bg-[#16A34A]/10 text-[#16A34A]',
-  Planned: 'bg-muted text-muted-foreground',
-  Abandoned: 'bg-muted text-muted-foreground line-through',
+const CONFIDENCE_PILL: Record<string, string> = {
+  ON_TRACK: 'bg-[#16A34A]/10 text-[#16A34A] border border-[#16A34A]/20',
+  AT_RISK: 'bg-[#F59E0B]/10 text-[#F59E0B] border border-[#F59E0B]/20',
+  OFF_TRACK: 'bg-[#DC2626]/10 text-[#DC2626] border border-[#DC2626]/20',
+}
+const CONFIDENCE_LABEL: Record<string, string> = {
+  ON_TRACK: 'On Track',
+  AT_RISK: 'At Risk',
+  OFF_TRACK: 'Off Track',
 }
 
-function ConfidencePill({ confidence }: { confidence?: string }) {
-  if (!confidence) return null
-  const map: Record<string, { label: string; cls: string }> = {
-    ON_TRACK: { label: 'On Track', cls: 'bg-[#16A34A]/10 text-[#16A34A]' },
-    AT_RISK: { label: 'At Risk', cls: 'bg-[#F59E0B]/10 text-[#F59E0B]' },
-    OFF_TRACK: { label: 'Off Track', cls: 'bg-[#DC2626]/10 text-[#DC2626]' },
-  }
-  const entry = map[confidence]
-  if (!entry) return null
-  return (
-    <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-medium', entry.cls)}>
-      {entry.label}
-    </span>
-  )
+const WORK_STATUS_PILL: Record<string, string> = {
+  Done: 'bg-[#16A34A]/10 text-[#16A34A] border border-[#16A34A]/20',
+  'In Progress': 'bg-[#2F75B6]/10 text-[#2F75B6] border border-[#2F75B6]/20',
+  'In Review': 'bg-[#7C3AED]/10 text-[#7C3AED] border border-[#7C3AED]/20',
+  Ready: 'bg-[#16A34A]/10 text-[#16A34A] border border-[#16A34A]/20',
+  Blocked: 'bg-[#DC2626]/10 text-[#DC2626] border border-[#DC2626]/20',
+  Backlog: 'bg-muted text-muted-foreground border border-border',
+  Planned: 'bg-muted text-muted-foreground border border-border',
+  Abandoned: 'bg-muted text-muted-foreground border border-border',
 }
 
-function ProgressBar({ progress }: { progress?: number }) {
-  if (progress === undefined) return null
+function ProgressBar({ progress }: { progress: number }) {
   const pct = Math.min(Math.max(progress, 0), 100)
-  const colorClass = pct >= 70 ? 'bg-[#16A34A]' : pct >= 40 ? 'bg-[#F59E0B]' : 'bg-[#DC2626]'
+  const color = pct >= 70 ? '#16A34A' : pct >= 40 ? '#F59E0B' : '#DC2626'
   return (
     <div className="flex items-center gap-2">
-      <div className="h-1.5 w-20 overflow-hidden rounded-full bg-muted">
-        <div className={cn('h-full rounded-full transition-all', colorClass)} style={{ width: `${pct}%` }} />
+      <div className="h-1.5 w-24 overflow-hidden rounded-full bg-muted">
+        <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
       </div>
-      <span className="text-xs tabular-nums text-muted-foreground">{pct}%</span>
+      <span className="w-8 text-right text-xs tabular-nums text-muted-foreground">{pct}%</span>
     </div>
   )
 }
@@ -55,21 +49,28 @@ function ProgressBar({ progress }: { progress?: number }) {
 function groupByPlan(results: FilteredResult[]): Map<string, { planName: string; items: FilteredResult[] }> {
   const map = new Map<string, { planName: string; items: FilteredResult[] }>()
   for (const r of results) {
-    if (!map.has(r.planId)) map.set(r.planId, { planName: r.planName, items: [] })
-    map.get(r.planId)!.items.push(r)
+    const key = r.planId || 'unknown'
+    if (!map.has(key)) map.set(key, { planName: r.planName || 'No Plan', items: [] })
+    map.get(key)!.items.push(r)
   }
   return map
+}
+
+const COL_HEADERS: Record<FiltersTab, string[]> = {
+  objectives: ['Objective', 'Owner', 'Progress'],
+  'key-results': ['Key Result', 'Owner', 'Status'],
+  initiatives: ['Initiative', 'Owner', 'Status'],
 }
 
 export function ResultsList({ results, tab, onReset }: ResultsListProps) {
   if (results.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-3 py-16 text-center">
+      <div className="flex flex-col items-center gap-3 py-16">
         <p className="text-sm text-muted-foreground">No results match your filters.</p>
         <button
           type="button"
           onClick={onReset}
-          className="text-sm font-medium text-primary-600 underline-offset-2 hover:underline"
+          className="text-sm font-medium text-primary underline-offset-2 hover:underline"
         >
           Reset filters
         </button>
@@ -78,81 +79,79 @@ export function ResultsList({ results, tab, onReset }: ResultsListProps) {
   }
 
   const grouped = groupByPlan(results)
-
-  const colHeader =
-    tab === 'objectives'
-      ? ['Objective', 'Plan', 'Progress']
-      : tab === 'key-results'
-        ? ['Key Result', 'Plan', 'Status']
-        : ['Initiative', 'Plan / Key Result', 'Status']
+  const [col1, col2, col3] = COL_HEADERS[tab]
 
   return (
     <div className="flex-1 overflow-auto">
       {/* Column headers */}
-      <div className="sticky top-0 z-10 grid grid-cols-[1fr_160px_140px] gap-4 border-b border-border bg-background/95 px-4 py-2 backdrop-blur">
-        {colHeader.map((h) => (
-          <span key={h} className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            {h}
-          </span>
-        ))}
+      <div className="sticky top-0 z-10 grid grid-cols-[minmax(0,1fr)_140px_140px] border-b border-border bg-background/95 px-4 py-2 backdrop-blur">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{col1}</span>
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{col2}</span>
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{col3}</span>
       </div>
 
       {Array.from(grouped.entries()).map(([planId, { planName, items }]) => (
         <Fragment key={planId}>
           {/* Plan group header */}
-          <div className="sticky top-9 z-[5] flex items-center gap-2 border-b border-border bg-muted/60 px-4 py-1.5 backdrop-blur">
-            <ChevronRight className="size-3.5 text-muted-foreground" />
+          <div className="sticky top-9 z-[5] flex items-center gap-2 border-b border-border bg-muted/50 px-4 py-1.5">
+            <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" />
             <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
               {planName}
             </span>
-            <span className="ml-1 rounded-full bg-muted px-1.5 text-[10px] text-muted-foreground">
+            <span className="rounded-full bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground ring-1 ring-border">
               {items.length}
             </span>
           </div>
 
-          {/* Rows */}
           {items.map((item) => (
             <div
               key={item.id}
               className={cn(
-                'grid grid-cols-[1fr_160px_140px] items-center gap-4 border-b border-border px-4 py-3 transition-colors hover:bg-muted/40',
-                item.workStatus === 'Done' && 'opacity-70'
+                'grid grid-cols-[minmax(0,1fr)_140px_140px] items-center border-b border-border px-4 py-3 transition-colors hover:bg-muted/40',
+                item.workStatus === 'Done' && 'opacity-60'
               )}
             >
-              {/* Title */}
-              <div className="flex min-w-0 flex-col">
-                <span
-                  className={cn(
-                    'truncate text-sm font-medium',
-                    item.workStatus === 'Done' && 'line-through text-muted-foreground'
-                  )}
-                >
-                  {item.title}
-                </span>
-                {item.ownerName && (
-                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <User className="size-3" />
-                    {item.ownerName}
-                  </span>
+              {/* Col 1: Title */}
+              <span
+                className={cn(
+                  'truncate text-sm font-medium',
+                  item.workStatus === 'Done' && 'line-through text-muted-foreground'
+                )}
+                title={item.title}
+              >
+                {item.title}
+              </span>
+
+              {/* Col 2: Owner */}
+              <div className="flex items-center gap-1.5 overflow-hidden">
+                {item.ownerName ? (
+                  <>
+                    <div className="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary">
+                      {item.ownerName.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="truncate text-xs text-muted-foreground">{item.ownerName}</span>
+                  </>
+                ) : (
+                  <span className="text-xs text-muted-foreground/50">—</span>
                 )}
               </div>
 
-              {/* Plan */}
-              <span className="truncate text-xs text-muted-foreground">{item.planName}</span>
-
-              {/* Status / Progress */}
-              <div className="flex items-center">
+              {/* Col 3: Status / Progress */}
+              <div>
                 {tab === 'objectives' ? (
-                  <ProgressBar progress={item.progress} />
+                  <ProgressBar progress={item.progress ?? 0} />
                 ) : tab === 'key-results' ? (
-                  <ConfidencePill confidence={item.confidence} />
+                  item.confidence ? (
+                    <span className={cn('inline-flex rounded-full px-2 py-0.5 text-xs font-medium', CONFIDENCE_PILL[item.confidence] ?? 'bg-muted text-muted-foreground border border-border')}>
+                      {CONFIDENCE_LABEL[item.confidence] ?? item.confidence}
+                    </span>
+                  ) : (
+                    <span className="inline-flex rounded-full border border-border bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                      Pending
+                    </span>
+                  )
                 ) : (
-                  <span
-                    className={cn(
-                      'rounded-full px-2 py-0.5 text-[11px] font-medium',
-                      STATUS_PILL[item.workStatus ?? ''] ?? 'bg-muted text-muted-foreground'
-                    )}
-                  >
+                  <span className={cn('inline-flex rounded-full px-2 py-0.5 text-xs font-medium', WORK_STATUS_PILL[item.workStatus ?? ''] ?? 'bg-muted text-muted-foreground border border-border')}>
                     {item.workStatus ?? '—'}
                   </span>
                 )}

@@ -1,19 +1,22 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { Plus, X, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useFilterOptions } from '../hooks/useFilterOptions'
 import type { FilterState, FiltersTab } from '../types'
 
-// ─── Filter catalog ──────────────────────────────────────────────────────────
+// ─── Catalog definition ──────────────────────────────────────────────────────
 
+type OptionItem = { id: string; label: string }
 type FilterType = 'multi-select' | 'single-select' | 'number'
 
 interface FilterDef {
   id: keyof FilterState
   label: string
   type: FilterType
-  options?: string[]
+  staticOptions?: string[]    // hardcoded string options
+  dynamicKey?: keyof ReturnType<typeof useFilterOptions>  // from API
   tabs: FiltersTab[]
 }
 
@@ -22,70 +25,63 @@ const FILTER_CATALOG: FilterDef[] = [
     id: 'planStatus',
     label: 'Plan status',
     type: 'multi-select',
-    options: ['Active', 'In Progress', 'Completed', 'Draft', 'Archived'],
+    staticOptions: ['Active', 'In Progress', 'Completed', 'Draft', 'Archived'],
     tabs: ['objectives', 'key-results', 'initiatives'],
   },
   {
     id: 'plans',
     label: 'Plan(s)',
     type: 'multi-select',
-    options: [],
+    dynamicKey: 'plans',
     tabs: ['objectives', 'key-results', 'initiatives'],
   },
   {
     id: 'owners',
     label: 'Owner(s)',
     type: 'multi-select',
-    options: [],
+    dynamicKey: 'users',
     tabs: ['objectives', 'key-results', 'initiatives'],
   },
   {
     id: 'contributors',
     label: 'Contributor(s)',
     type: 'multi-select',
-    options: [],
+    dynamicKey: 'users',
     tabs: ['objectives', 'key-results', 'initiatives'],
   },
   {
     id: 'teams',
     label: 'Team(s)',
     type: 'multi-select',
-    options: [],
-    tabs: ['objectives', 'key-results', 'initiatives'],
-  },
-  {
-    id: 'path',
-    label: 'Path',
-    type: 'multi-select',
-    options: [],
+    dynamicKey: 'departments',
     tabs: ['objectives', 'key-results', 'initiatives'],
   },
   {
     id: 'tags',
     label: 'Tags',
     type: 'multi-select',
-    options: [],
+    staticOptions: [],
     tabs: ['objectives', 'key-results', 'initiatives'],
   },
   {
     id: 'timeline',
     label: 'Timeline',
     type: 'single-select',
-    options: ['This week', 'This month', 'This quarter', 'Last quarter', 'Custom…'],
+    dynamicKey: 'timeframes',
     tabs: ['objectives', 'key-results', 'initiatives'],
   },
   {
     id: 'confidence',
     label: 'Confidence',
     type: 'multi-select',
-    options: ['On Track', 'At Risk', 'Off Track'],
+    staticOptions: ['On Track', 'At Risk', 'Off Track'],
     tabs: ['objectives', 'key-results'],
   },
   {
     id: 'insights',
     label: 'Insights',
     type: 'multi-select',
-    options: [
+    staticOptions: [
       'Not measurable', 'With default targets', 'Pending check-ins',
       'Without owner', 'Not aligned', 'Reporting to you', 'Tagged as KPI',
     ],
@@ -107,70 +103,70 @@ const FILTER_CATALOG: FilterDef[] = [
     id: 'outcomeType',
     label: 'Outcome type',
     type: 'multi-select',
-    options: ['Committed', 'Aspirational'],
+    staticOptions: ['Committed', 'Aspirational'],
     tabs: ['objectives', 'key-results'],
   },
   {
     id: 'workStatus',
     label: 'Work status',
     type: 'multi-select',
-    options: ['Backlog', 'Planned', 'Spec/Design', 'In Progress', 'In Review', 'Ready', 'Blocked', 'Done', 'Abandoned'],
-    tabs: ['initiatives'],
-  },
-  {
-    id: 'label',
-    label: 'Label',
-    type: 'multi-select',
-    options: [],
+    staticOptions: ['Backlog', 'Planned', 'Spec/Design', 'In Progress', 'In Review', 'Ready', 'Blocked', 'Done', 'Abandoned'],
     tabs: ['initiatives'],
   },
   {
     id: 'closedDate',
     label: 'Closed date',
     type: 'single-select',
-    options: ['This week', 'This month', 'This quarter', 'Last quarter'],
+    staticOptions: ['This week', 'This month', 'This quarter', 'Last quarter'],
     tabs: ['initiatives'],
   },
 ]
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function getDisplayValue(def: FilterDef, filters: FilterState): string | null {
+function getDisplayValue(
+  def: FilterDef,
+  filters: FilterState,
+  options: FilterOptions
+): string | null {
   const raw = filters[def.id]
   if (raw === undefined || raw === null) return null
-  if (def.type === 'number') return raw !== undefined ? String(raw) : null
-  if (def.type === 'single-select') return (raw as string) || null
-  if (Array.isArray(raw) && raw.length > 0) {
-    return raw.length === 1 ? String(raw[0]) : `${raw.length} selected`
+
+  if (def.type === 'number') return raw !== undefined ? `${raw}%` : null
+  if (def.type === 'single-select') {
+    // for dynamic keys, resolve label from options
+    if (def.dynamicKey && typeof raw === 'string') {
+      const found = options[def.dynamicKey]?.find((o) => o.id === raw || o.label === raw)
+      return found?.label ?? String(raw)
+    }
+    return String(raw) || null
   }
-  return null
+  // multi-select
+  if (!Array.isArray(raw) || raw.length === 0) return null
+  if (raw.length === 1) {
+    if (def.dynamicKey) {
+      const found = options[def.dynamicKey]?.find((o) => o.id === raw[0] || o.label === raw[0])
+      return found?.label ?? String(raw[0])
+    }
+    return String(raw[0])
+  }
+  return `${raw.length} selected`
 }
 
-function clearFilter(id: keyof FilterState): Partial<FilterState> {
-  return { [id]: undefined }
-}
+type FilterOptions = { [K in keyof ReturnType<typeof useFilterOptions>]: OptionItem[] }
 
-// ─── Sub-components ──────────────────────────────────────────────────────────
+// ─── Add filter menu ─────────────────────────────────────────────────────────
 
-/** The "Filter +" button with a dropdown listing available filter types */
-function AddFilterMenu({
-  available,
-  onAdd,
-}: {
-  available: FilterDef[]
-  onAdd: (id: keyof FilterState) => void
-}) {
+function AddFilterMenu({ available, onAdd }: { available: FilterDef[]; onAdd: (id: keyof FilterState) => void }) {
   const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-
   return (
-    <div ref={ref} className="relative shrink-0">
+    <div className="relative shrink-0">
       <button
         type="button"
         onClick={() => setOpen((p) => !p)}
         className={cn(
-          'flex items-center gap-1.5 rounded-md border border-primary px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-primary/5',
-          open && 'bg-primary/5'
+          'flex h-9 items-center gap-1.5 rounded-md border border-border bg-background px-3 text-sm font-medium transition-colors hover:bg-muted',
+          open && 'bg-muted'
         )}
       >
         <Plus className="size-3.5" />
@@ -189,7 +185,7 @@ function AddFilterMenu({
                   key={def.id}
                   type="button"
                   onClick={() => { onAdd(def.id); setOpen(false) }}
-                  className="flex w-full items-center px-3 py-1.5 text-left text-sm transition-colors hover:bg-muted"
+                  className="flex w-full items-center px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
                 >
                   {def.label}
                 </button>
@@ -202,139 +198,185 @@ function AddFilterMenu({
   )
 }
 
-/** An individual active filter field showing label + value selector + remove */
+// ─── Single active filter field ───────────────────────────────────────────────
+
 function ActiveFilterField({
   def,
   filters,
+  options,
   onValueChange,
   onRemove,
 }: {
   def: FilterDef
   filters: FilterState
+  options: FilterOptions
   onValueChange: (id: keyof FilterState, value: any) => void
   onRemove: (id: keyof FilterState) => void
 }) {
   const [open, setOpen] = useState(false)
-  const displayValue = getDisplayValue(def, filters)
+  const [search, setSearch] = useState('')
 
+  const displayValue = getDisplayValue(def, filters, options)
   const rawValue = filters[def.id]
   const selectedArr: string[] = Array.isArray(rawValue) ? (rawValue as string[]) : []
 
-  function toggleOption(opt: string) {
+  // Build the options list for this field
+  const fieldOptions: OptionItem[] = def.dynamicKey
+    ? (options[def.dynamicKey] ?? [])
+    : (def.staticOptions ?? []).map((s) => ({ id: s, label: s }))
+
+  const filtered = search
+    ? fieldOptions.filter((o) => o.label.toLowerCase().includes(search.toLowerCase()))
+    : fieldOptions
+
+  function isSelected(opt: OptionItem): boolean {
+    if (def.type === 'single-select') return rawValue === opt.id || rawValue === opt.label
+    return selectedArr.includes(opt.id) || selectedArr.includes(opt.label)
+  }
+
+  function toggleOption(opt: OptionItem) {
     if (def.type === 'single-select') {
-      onValueChange(def.id, opt === rawValue ? undefined : opt)
+      onValueChange(def.id, isSelected(opt) ? undefined : opt.label)
       setOpen(false)
       return
     }
-    const next = selectedArr.includes(opt)
-      ? selectedArr.filter((v) => v !== opt)
-      : [...selectedArr, opt]
+    // For dynamic options use id, for static use label
+    const key = def.dynamicKey ? opt.id : opt.label
+    const currentKeys = selectedArr
+    const next = currentKeys.includes(key)
+      ? currentKeys.filter((v) => v !== key)
+      : [...currentKeys, key]
     onValueChange(def.id, next.length ? next : undefined)
   }
 
   return (
-    <div className="flex shrink-0 items-stretch rounded-md border border-border bg-background">
-      {/* Value selector button */}
-      <div className="relative">
+    <div className="relative shrink-0">
+      <div className={cn(
+        'flex h-9 items-center rounded-md border bg-background',
+        open ? 'border-primary ring-1 ring-primary/20' : 'border-border'
+      )}>
+        {/* Selector trigger */}
         <button
           type="button"
-          onClick={() => setOpen((p) => !p)}
-          className="flex h-full flex-col justify-center px-2.5 py-1 text-left"
+          onClick={() => { setOpen((p) => !p); setSearch('') }}
+          className="flex h-full items-center gap-1.5 pl-2.5 pr-1.5 text-sm"
         >
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            {def.label}
-          </span>
-          <div className="flex items-center gap-1">
-            <span className={cn('text-sm', displayValue ? 'text-foreground' : 'text-muted-foreground')}>
+          <div className="flex flex-col items-start leading-none">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              {def.label}
+            </span>
+            <span className={cn('text-sm', displayValue ? 'text-foreground font-medium' : 'text-muted-foreground')}>
               {displayValue ?? 'Select…'}
             </span>
-            {displayValue && (
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); onValueChange(def.id, undefined) }}
-                className="rounded text-muted-foreground hover:text-foreground"
-              >
-                <X className="size-3" />
-              </button>
-            )}
-            <ChevronDown className="size-3 text-muted-foreground" />
           </div>
+          {displayValue && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onValueChange(def.id, undefined) }}
+              className="rounded p-0.5 text-muted-foreground hover:text-foreground"
+            >
+              <X className="size-3" />
+            </button>
+          )}
+          <ChevronDown className={cn('size-3.5 text-muted-foreground transition-transform', open && 'rotate-180')} />
         </button>
 
-        {open && (
-          <>
-            <div className="fixed inset-0 z-20" onClick={() => setOpen(false)} />
-            <div className="absolute left-0 top-full z-30 mt-1 min-w-[180px] rounded-lg border border-border bg-popover py-1 shadow-lg">
-              {def.type === 'number' ? (
-                <div className="px-3 py-2">
-                  <input
-                    type="number"
-                    min={0}
-                    max={100}
-                    placeholder="0–100"
-                    defaultValue={rawValue as number | undefined}
-                    className="w-full rounded border border-border px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        onValueChange(def.id, Number((e.target as HTMLInputElement).value) || undefined)
-                        setOpen(false)
-                      }
-                    }}
-                    onChange={(e) => onValueChange(def.id, Number(e.target.value) || undefined)}
-                    autoFocus
-                  />
-                  <p className="mt-1 text-[10px] text-muted-foreground">Press Enter to apply</p>
-                </div>
-              ) : (def.options ?? []).length === 0 ? (
-                <p className="px-3 py-2 text-xs text-muted-foreground">No options available</p>
-              ) : (
-                (def.options ?? []).map((opt) => {
-                  const active = def.type === 'single-select'
-                    ? rawValue === opt
-                    : selectedArr.includes(opt)
-                  return (
-                    <button
-                      key={opt}
-                      type="button"
-                      onClick={() => toggleOption(opt)}
-                      className={cn(
-                        'flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-muted',
-                        active && 'text-primary-600 font-medium'
-                      )}
-                    >
-                      {def.type !== 'single-select' && (
-                        <span className={cn(
-                          'flex size-3.5 shrink-0 items-center justify-center rounded border',
-                          active ? 'border-primary bg-primary' : 'border-muted-foreground'
-                        )}>
-                          {active && (
-                            <svg viewBox="0 0 10 8" className="size-2.5">
-                              <path d="M1 4l3 3 5-6" stroke="white" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
+        {/* Divider + remove button */}
+        <div className="flex h-full items-center border-l border-border px-1.5">
+          <button
+            type="button"
+            onClick={() => onRemove(def.id)}
+            className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            aria-label={`Remove ${def.label} filter`}
+          >
+            <X className="size-3.5" />
+          </button>
+        </div>
+      </div>
+
+      {/* Dropdown panel */}
+      {open && (
+        <>
+          <div className="fixed inset-0 z-20" onClick={() => setOpen(false)} />
+          <div className="absolute left-0 top-full z-30 mt-1 w-56 rounded-lg border border-border bg-popover shadow-lg">
+            {def.type === 'number' ? (
+              <div className="px-3 py-2.5">
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  placeholder="Enter % (0–100)"
+                  defaultValue={rawValue as number | undefined}
+                  className="w-full rounded border border-border px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                  onChange={(e) => onValueChange(def.id, e.target.value ? Number(e.target.value) : undefined)}
+                  autoFocus
+                />
+              </div>
+            ) : (
+              <>
+                {fieldOptions.length > 6 && (
+                  <div className="border-b border-border px-2 py-1.5">
+                    <input
+                      type="text"
+                      placeholder="Search…"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      className="w-full rounded border border-border px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                      autoFocus
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>
+                )}
+                <div className="max-h-52 overflow-y-auto py-1">
+                  {filtered.length === 0 ? (
+                    <p className="px-3 py-2 text-xs text-muted-foreground">No options found</p>
+                  ) : (
+                    filtered.map((opt) => {
+                      const active = isSelected(opt)
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => toggleOption(opt)}
+                          className={cn(
+                            'flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-sm transition-colors hover:bg-muted',
+                            active && 'font-medium'
                           )}
-                        </span>
-                      )}
-                      {opt}
+                        >
+                          {def.type !== 'single-select' && (
+                            <span className={cn(
+                              'flex size-4 shrink-0 items-center justify-center rounded border',
+                              active ? 'border-primary bg-primary' : 'border-muted-foreground/50'
+                            )}>
+                              {active && (
+                                <svg viewBox="0 0 10 8" className="size-3">
+                                  <path d="M1 4l3 3 5-6" stroke="white" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                              )}
+                            </span>
+                          )}
+                          <span className="truncate">{opt.label}</span>
+                        </button>
+                      )
+                    })
+                  )}
+                </div>
+                {def.type !== 'single-select' && selectedArr.length > 0 && (
+                  <div className="border-t border-border px-3 py-1.5">
+                    <button
+                      type="button"
+                      onClick={() => onValueChange(def.id, undefined)}
+                      className="text-xs text-muted-foreground hover:text-destructive"
+                    >
+                      Clear all
                     </button>
-                  )
-                })
-              )}
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* Divider + remove button */}
-      <div className="flex items-center border-l border-border px-1.5">
-        <button
-          type="button"
-          onClick={() => onRemove(def.id)}
-          className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          aria-label={`Remove ${def.label} filter`}
-        >
-          <X className="size-3.5" />
-        </button>
-      </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </>
+      )}
     </div>
   )
 }
@@ -358,13 +400,16 @@ export function FilterBar({
   onFilterChange,
   onReset,
 }: FilterBarProps) {
+  const rawOptions = useFilterOptions()
+  const options: FilterOptions = rawOptions
+
   const tabCatalog = FILTER_CATALOG.filter((d) => d.tabs.includes(tab))
   const available = tabCatalog.filter((d) => !activeFilterIds.includes(d.id))
   const active = activeFilterIds
     .map((id) => tabCatalog.find((d) => d.id === id))
     .filter(Boolean) as FilterDef[]
 
-  const hasAnyValue = active.some((def) => getDisplayValue(def, filters) !== null)
+  const hasAnyValue = active.some((def) => getDisplayValue(def, filters, options) !== null)
 
   function addFilter(id: keyof FilterState) {
     onActiveFilterIdsChange([...activeFilterIds, id])
@@ -372,15 +417,7 @@ export function FilterBar({
 
   function removeFilter(id: keyof FilterState) {
     onActiveFilterIdsChange(activeFilterIds.filter((i) => i !== id))
-    onFilterChange(clearFilter(id))
-  }
-
-  function handleValueChange(id: keyof FilterState, value: any) {
-    onFilterChange({ [id]: value })
-  }
-
-  function handleReset() {
-    onReset()
+    onFilterChange({ [id]: undefined })
   }
 
   return (
@@ -392,7 +429,8 @@ export function FilterBar({
           key={def.id}
           def={def}
           filters={filters}
-          onValueChange={handleValueChange}
+          options={options}
+          onValueChange={(id, value) => onFilterChange({ [id]: value })}
           onRemove={removeFilter}
         />
       ))}
@@ -400,7 +438,7 @@ export function FilterBar({
       {hasAnyValue && (
         <button
           type="button"
-          onClick={handleReset}
+          onClick={onReset}
           className="ml-1 shrink-0 text-sm text-primary underline-offset-2 hover:underline"
         >
           Reset filters

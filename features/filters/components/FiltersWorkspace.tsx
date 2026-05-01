@@ -80,7 +80,7 @@ function useFiltersState() {
 
 export function FiltersWorkspace() {
   const { tab, setTab, activeSegment, selectSegment, filters, changeFilter, reset } = useFiltersState()
-  const { results, kpi, buckets, isLoading } = useFiltersData(tab, filters)
+  const { results, kpi, buckets, isLoading } = useFiltersData(tab, filters, activeSegment)
 
   // Lifted so tile/chart clicks can inject a filter type into the bar
   const [activeFilterIds, setActiveFilterIds] = useState<(keyof FilterState)[]>([])

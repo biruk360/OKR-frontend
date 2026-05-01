@@ -164,10 +164,8 @@ function AddFilterMenu({ available, onAdd }: { available: FilterDef[]; onAdd: (i
       <button
         type="button"
         onClick={() => setOpen((p) => !p)}
-        className={cn(
-          'flex h-9 items-center gap-1.5 rounded-md border border-border bg-background px-3 text-sm font-medium transition-colors hover:bg-muted',
-          open && 'bg-muted'
-        )}
+        className="flex h-8 items-center gap-1.5 rounded-lg border px-3 text-xs font-semibold transition-opacity hover:opacity-75"
+        style={{ borderColor: 'var(--ap-accent)', color: 'var(--ap-accent)', background: 'rgba(0,122,255,0.07)' }}
       >
         <Plus className="size-3.5" />
         Filter +
@@ -176,16 +174,20 @@ function AddFilterMenu({ available, onAdd }: { available: FilterDef[]; onAdd: (i
       {open && (
         <>
           <div className="fixed inset-0 z-20" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-full z-30 mt-1 min-w-[180px] rounded-lg border border-border bg-popover py-1 shadow-lg">
+          <div
+            className="absolute left-0 top-full z-30 mt-1 min-w-[200px] rounded-[var(--ap-radius-md)] py-1"
+            style={{ background: 'var(--ap-bg-raised)', border: '1px solid var(--ap-border)', boxShadow: 'var(--ap-shadow-lg)' }}
+          >
             {available.length === 0 ? (
-              <p className="px-3 py-2 text-xs text-muted-foreground">All filters added</p>
+              <p className="px-3 py-2 text-xs" style={{ color: 'var(--ap-fg-subtle)' }}>All filters added</p>
             ) : (
               available.map((def) => (
                 <button
                   key={def.id}
                   type="button"
                   onClick={() => { onAdd(def.id); setOpen(false) }}
-                  className="flex w-full items-center px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
+                  className="flex w-full items-center px-3 py-2 text-left text-[13px] transition-colors hover:bg-black/5"
+                  style={{ color: 'var(--ap-fg)' }}
                 >
                   {def.label}
                 </button>
@@ -251,21 +253,25 @@ function ActiveFilterField({
 
   return (
     <div className="relative shrink-0">
-      <div className={cn(
-        'flex h-9 items-center rounded-md border bg-background',
-        open ? 'border-primary ring-1 ring-primary/20' : 'border-border'
-      )}>
+      <div
+        className="flex h-9 items-center rounded-lg transition-all duration-150"
+        style={{
+          background: 'var(--ap-bg-raised)',
+          border: open ? '1.5px solid var(--ap-accent)' : '1px solid var(--ap-border-strong)',
+          boxShadow: open ? '0 0 0 3px rgba(0,122,255,0.12)' : 'var(--ap-shadow-sm)',
+        }}
+      >
         {/* Selector trigger */}
         <button
           type="button"
           onClick={() => { setOpen((p) => !p); setSearch('') }}
-          className="flex h-full items-center gap-1.5 pl-2.5 pr-1.5 text-sm"
+          className="flex h-full items-center gap-1.5 pl-2.5 pr-1"
         >
-          <div className="flex flex-col items-start leading-none">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <div className="flex flex-col items-start leading-none gap-px">
+            <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: 'var(--ap-fg-subtle)' }}>
               {def.label}
             </span>
-            <span className={cn('text-sm', displayValue ? 'text-foreground font-medium' : 'text-muted-foreground')}>
+            <span className="text-[13px] font-medium" style={{ color: displayValue ? 'var(--ap-fg)' : 'var(--ap-fg-subtle)' }}>
               {displayValue ?? 'Select…'}
             </span>
           </div>
@@ -273,20 +279,22 @@ function ActiveFilterField({
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onValueChange(def.id, undefined) }}
-              className="rounded p-0.5 text-muted-foreground hover:text-foreground"
+              className="rounded-full p-0.5 transition-colors hover:bg-black/10"
+              style={{ color: 'var(--ap-fg-subtle)' }}
             >
               <X className="size-3" />
             </button>
           )}
-          <ChevronDown className={cn('size-3.5 text-muted-foreground transition-transform', open && 'rotate-180')} />
+          <ChevronDown className={cn('size-3.5 transition-transform', open && 'rotate-180')} style={{ color: 'var(--ap-fg-subtle)' }} />
         </button>
 
-        {/* Divider + remove button */}
-        <div className="flex h-full items-center border-l border-border px-1.5">
+        {/* Divider + remove */}
+        <div className="flex h-full items-center px-1.5" style={{ borderLeft: '1px solid var(--ap-border)' }}>
           <button
             type="button"
             onClick={() => onRemove(def.id)}
-            className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="rounded p-0.5 transition-colors hover:bg-black/10"
+            style={{ color: 'var(--ap-fg-subtle)' }}
             aria-label={`Remove ${def.label} filter`}
           >
             <X className="size-3.5" />
@@ -298,7 +306,10 @@ function ActiveFilterField({
       {open && (
         <>
           <div className="fixed inset-0 z-20" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-full z-30 mt-1 w-56 rounded-lg border border-border bg-popover shadow-lg">
+          <div
+            className="absolute left-0 top-full z-30 mt-1.5 w-60 rounded-[var(--ap-radius-md)]"
+            style={{ background: 'var(--ap-bg-raised)', border: '1px solid var(--ap-border)', boxShadow: 'var(--ap-shadow-lg)' }}
+          >
             {def.type === 'number' ? (
               <div className="px-3 py-2.5">
                 <input
@@ -307,7 +318,8 @@ function ActiveFilterField({
                   max={100}
                   placeholder="Enter % (0–100)"
                   defaultValue={rawValue as number | undefined}
-                  className="w-full rounded border border-border px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full rounded-lg px-2 py-1.5 text-sm focus:outline-none"
+                  style={{ border: '1px solid var(--ap-border-strong)', color: 'var(--ap-fg)' }}
                   onChange={(e) => onValueChange(def.id, e.target.value ? Number(e.target.value) : undefined)}
                   autoFocus
                 />
@@ -315,13 +327,14 @@ function ActiveFilterField({
             ) : (
               <>
                 {fieldOptions.length > 6 && (
-                  <div className="border-b border-border px-2 py-1.5">
+                  <div className="px-2 py-2" style={{ borderBottom: '1px solid var(--ap-border)' }}>
                     <input
                       type="text"
                       placeholder="Search…"
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
-                      className="w-full rounded border border-border px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                      className="w-full rounded-lg px-2.5 py-1.5 text-xs focus:outline-none"
+                      style={{ border: '1px solid var(--ap-border-strong)', color: 'var(--ap-fg)' }}
                       autoFocus
                       onClick={(e) => e.stopPropagation()}
                     />
@@ -425,7 +438,7 @@ export function FilterBar({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2 border-b border-border bg-background px-4 py-2">
+    <div className="flex flex-wrap items-center gap-2 px-5 py-2.5">
       <AddFilterMenu available={available} onAdd={addFilter} />
 
       {active.map((def) => (

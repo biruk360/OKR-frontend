@@ -51,6 +51,9 @@ export const GET = withAuth(async (request: NextRequest, { session }) => {
           select: {
             id: true,
             title: true,
+            level: true,
+            progress: true,
+            confidence: true,
             timeframeId: true,
             timeframe: { select: { id: true, name: true } },
           },

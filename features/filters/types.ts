@@ -82,6 +82,20 @@ export interface FilteredResult {
   dueDate?: string
   workStatus?: string
   entityType: FiltersTab
+  // KR-specific
+  objectiveId?: string
+  objectiveTitle?: string
+  objectiveConfidence?: string
+  objectiveProgress?: number
+  currentValue?: number
+  targetValue?: number
+  startValue?: number
+  unit?: string | null
+  initiativeCount?: number
+  // Obj-specific
+  krCount?: number
+  level?: string
+  timeframeName?: string
 }
 
 export interface SavedSegment {

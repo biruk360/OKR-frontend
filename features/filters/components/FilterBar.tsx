@@ -339,18 +339,22 @@ function ActiveFilterField({
                           type="button"
                           onClick={() => toggleOption(opt)}
                           className={cn(
-                            'flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-sm transition-colors hover:bg-muted',
-                            active && 'font-medium'
+                            'flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors',
+                            active
+                              ? 'bg-primary/10 text-primary font-semibold hover:bg-primary/15'
+                              : 'text-foreground hover:bg-muted'
                           )}
                         >
                           {def.type !== 'single-select' && (
                             <span className={cn(
-                              'flex size-4 shrink-0 items-center justify-center rounded border',
-                              active ? 'border-primary bg-primary' : 'border-muted-foreground/50'
+                              'flex size-4 shrink-0 items-center justify-center rounded border-2',
+                              active
+                                ? 'border-primary bg-primary'
+                                : 'border-muted-foreground/40 bg-background'
                             )}>
                               {active && (
                                 <svg viewBox="0 0 10 8" className="size-3">
-                                  <path d="M1 4l3 3 5-6" stroke="white" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                                  <path d="M1 4l3 3 5-6" stroke="white" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
                                 </svg>
                               )}
                             </span>

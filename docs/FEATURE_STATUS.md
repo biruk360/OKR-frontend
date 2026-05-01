@@ -57,6 +57,7 @@
 | My OKRs | DONE | `app/dashboard/my-okrs/`, `components/dashboard/MyOKRsPage.tsx` | |
 | My Tasks | DONE | `app/dashboard/my-tasks/` | |
 | Goals View | DONE | `app/dashboard/goals/`, `components/goals/` | Table, feed, filter views |
+| Filters Workspace | DONE | `app/dashboard/filters/`, `features/filters/` | Three-tab (Objectives/KRs/Initiatives) analytical surface: segments panel, filter bar, KPI tiles, histogram chart, grouped results list. URL-synced state. GET /api/keyresults added. |
 | Company OKRs | DONE, NEEDS REFACTOR | `app/dashboard/company-okrs/page.tsx` | Near-identical to Department OKRs page |
 | Department OKRs | DONE, NEEDS REFACTOR | `app/dashboard/department-okrs/page.tsx` | Near-identical to Company OKRs page |
 | Progress Tracking | DONE | `app/dashboard/progress/` | |

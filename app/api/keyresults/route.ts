@@ -8,11 +8,61 @@ import { normalizeCadence } from '@/lib/check-in-cadence'
 import { emit } from '@/lib/notifications'
 import {
   apiSuccess,
+  apiPaginated,
   apiBadRequest,
   apiForbidden,
   apiNotFound,
   withAuth,
 } from '@/lib/api'
+
+export const GET = withAuth(async (request: NextRequest, { session }) => {
+  const { searchParams } = new URL(request.url)
+  const confidence = searchParams.get('confidence')
+  const ownerId = searchParams.get('ownerId')
+  const objectiveId = searchParams.get('objectiveId')
+  const search = searchParams.get('search')
+  const page = parseInt(searchParams.get('page') || '1')
+  const limit = parseInt(searchParams.get('limit') || '50')
+
+  const where: any = { status: 'ACTIVE' }
+
+  if (session.user.role === 'EMPLOYEE') {
+    where.OR = [{ ownerId: session.user.id }, { isPrivate: false }]
+  }
+
+  if (confidence) {
+    const confidenceValues = confidence.split(',')
+    where.confidence = { in: confidenceValues }
+  }
+  if (ownerId) where.ownerId = ownerId
+  if (objectiveId) where.objectiveId = objectiveId
+  if (search) where.title = { contains: search, mode: 'insensitive' }
+
+  const skip = (page - 1) * limit
+  const [keyResults, total] = await Promise.all([
+    prisma.keyResult.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        owner: { select: { id: true, name: true, avatar: true } },
+        objective: {
+          select: {
+            id: true,
+            title: true,
+            timeframeId: true,
+            timeframe: { select: { id: true, name: true } },
+          },
+        },
+        _count: { select: { todos: true } },
+      },
+    }),
+    prisma.keyResult.count({ where }),
+  ])
+
+  return apiPaginated(keyResults, { total, page, limit })
+})
 
 export const POST = withAuth(async (request: NextRequest, { session }) => {
   const {

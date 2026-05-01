@@ -34,6 +34,7 @@
 | `/dashboard/company-okrs` | `app/dashboard/company-okrs/page.tsx` | objectives | Company-level OKRs (DUPLICATE of department-okrs) |
 | `/dashboard/department-okrs` | `app/dashboard/department-okrs/page.tsx` | objectives | Department-level OKRs (DUPLICATE of company-okrs) |
 | `/dashboard/alignment-map` | `app/dashboard/alignment-map/page.tsx` | objectives | OKR alignment / strategy map |
+| `/dashboard/filters` | `app/dashboard/filters/page.tsx` | filters | Filters Workspace — three-tab analytical surface (Objectives / Key Results / Initiatives) with segments, filter bar, KPI tiles, histogram, grouped results |
 | `/dashboard/objectives` | `app/dashboard/objectives/page.tsx` | objectives | All objectives list |
 | `/dashboard/objectives/[id]` | `app/dashboard/objectives/[id]/page.tsx` | objectives | Objective detail view |
 | `/dashboard/objectives/cmnt25rlr000yhl7oktasxeml/design` | `app/dashboard/objectives/cmnt25rlr000yhl7oktasxeml/design/page.tsx` | objectives | Static design prototype page |

@@ -26,7 +26,8 @@ interface DashboardShellProps {
 
 export default function DashboardShell({ user, children }: DashboardShellProps) {
   const pathname = usePathname()
-  const isStrategyMap = pathname === '/dashboard/alignment-map'
+  const isStrategyMap =
+    pathname === '/dashboard/alignment-map' || pathname === '/dashboard/filters'
   const isFullWidth =
     pathname === '/dashboard/okr-hierarchy' ||
     pathname === '/dashboard/timeline' ||

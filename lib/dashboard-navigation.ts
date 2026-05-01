@@ -18,6 +18,7 @@ import {
   Key,
   Layout,
   Kanban,
+  SlidersHorizontal,
 } from 'lucide-react'
 
 export interface NavItem {
@@ -39,6 +40,12 @@ export const navigationGroups: NavGroup[] = [
     icon: LayoutDashboard,
     items: [{ name: 'Overview', href: '/dashboard', icon: LayoutDashboard }],
     defaultOpen: true,
+  },
+  {
+    name: 'Filters',
+    icon: SlidersHorizontal,
+    items: [{ name: 'Filters', href: '/dashboard/filters', icon: SlidersHorizontal }],
+    defaultOpen: false,
   },
   {
     name: 'My Work',

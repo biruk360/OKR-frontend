@@ -609,6 +609,26 @@ Migrated 13 remaining modals to use `Modal` / `ConfirmDialog` / `useReferenceDat
 - **Response:** standard API envelope with send status (`SENT` / `LOGGED_ONLY` / `FAILED`)
 - **Docs updated:** `docs/CHANGELOG_AI.md`, `docs/FEATURE_STATUS.md`, `docs/SITEMAP.md`
 
+## 2026-05-01 — Filters Workspace
+
+- **Added** `Filters` sidebar nav entry (`SlidersHorizontal` icon, `/dashboard/filters`) in `lib/dashboard-navigation.ts`
+- **Added** full Filters Workspace feature module at `features/filters/`:
+  - `types.ts` — `FiltersTab`, `SegmentId`, `FilterState`, `KpiData`, `FilteredResult`, `SavedSegment`
+  - `segments.ts` — pre-built segments catalogue for all three tabs (Objectives / Key Results / Initiatives)
+  - `components/SegmentsPanel.tsx` — left-rail segments panel with search
+  - `components/FilterBar.tsx` — collapsed chip strip + expandable filter dropdowns (multi-select)
+  - `components/KpiTiles.tsx` — per-tab KPI metric tiles with status colour tokens; tile click adds filter
+  - `components/ProgressChart.tsx` — 10-bucket progress distribution histogram; bucket click adds filter
+  - `components/ResultsList.tsx` — grouped-by-plan results list with confidence pills, progress bars, status pills
+  - `components/FiltersWorkspace.tsx` — root client component wiring tab state, URL sync, filter state
+  - `hooks/useFiltersData.ts` — TanStack Query hook that fetches objectives/KRs/todos and computes KPIs + histogram buckets
+  - `index.ts` — barrel export
+- **Added** `GET /api/keyresults` endpoint (pagination, confidence filter, owner filter, search) in `app/api/keyresults/route.ts`
+- **Added** route `app/dashboard/filters/page.tsx`
+- **Modified** `components/layout/DashboardShell.tsx` — `/dashboard/filters` gets full-height flex layout (same as alignment-map)
+- **Tests:** type-check passes (`tsc --noEmit` — zero errors)
+- **Docs updated:** `docs/CHANGELOG_AI.md`, `docs/FEATURE_STATUS.md`, `docs/SITEMAP.md`
+
 ## 2026-04-13 — Objective Design Prototype Page
 
 - **Added** static OKR design page: `/dashboard/objectives/cmnt25rlr000yhl7oktasxeml/design`

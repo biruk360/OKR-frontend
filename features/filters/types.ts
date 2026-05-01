@@ -26,12 +26,20 @@ export interface FilterState {
   owners?: string[]
   contributors?: string[]
   teams?: string[]
+  path?: string[]
   tags?: string[]
+  timeline?: string
+  insights?: string[]
   confidence?: string[]
+  weight?: string[]
+  outcomeType?: string[]
   completed?: boolean
   progressAbove?: number
   progressBelow?: number
+  label?: string[]
   workStatus?: string[]
+  completion?: string
+  closedDate?: string
 }
 
 export interface KpiData {

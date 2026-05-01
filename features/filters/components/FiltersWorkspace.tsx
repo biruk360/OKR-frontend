@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Share2, Save, ArrowUpDown, MoreHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -26,6 +26,7 @@ function useFiltersState() {
 
   const tabParam = (searchParams.get('tab') as FiltersTab) || 'key-results'
   const segmentParam = searchParams.get('segment') as SegmentId | null
+
   const [filters, setFilters] = useState<FilterState>(() => {
     const planStatus = searchParams.get('planStatus')
     const confidence = searchParams.get('confidence')
@@ -53,7 +54,6 @@ function useFiltersState() {
     setActiveSegment(seg)
     setFilters({})
     updateURL(tab, seg, {})
-    router.replace(`?tab=${tab}&segment=${seg}`, { scroll: false })
   }
 
   function selectSegment(id: SegmentId) {
@@ -75,29 +75,36 @@ function useFiltersState() {
     updateURL(tabParam, seg, {})
   }
 
-  return {
-    tab: tabParam,
-    setTab,
-    activeSegment,
-    selectSegment,
-    filters,
-    changeFilter,
-    reset,
-  }
+  return { tab: tabParam, setTab, activeSegment, selectSegment, filters, changeFilter, reset }
 }
 
 export function FiltersWorkspace() {
   const { tab, setTab, activeSegment, selectSegment, filters, changeFilter, reset } = useFiltersState()
   const { results, kpi, buckets, isLoading } = useFiltersData(tab, filters)
 
+  // Lifted so tile/chart clicks can inject a filter type into the bar
+  const [activeFilterIds, setActiveFilterIds] = useState<(keyof FilterState)[]>([])
+
   function handleTileClick(filterKey: string, value: string) {
-    changeFilter({ confidence: [value] })
+    const key = filterKey as keyof FilterState
+    if (!activeFilterIds.includes(key)) {
+      setActiveFilterIds((prev) => [...prev, key])
+    }
+    changeFilter({ [key]: [value] })
+  }
+
+  function handleBucketClick(min: number, max: number) {
+    const hasAbove = activeFilterIds.includes('progressAbove')
+    const hasBelow = activeFilterIds.includes('progressBelow')
+    const next = [...activeFilterIds]
+    if (!hasAbove) next.push('progressAbove')
+    if (!hasBelow) next.push('progressBelow')
+    setActiveFilterIds(next)
+    changeFilter({ progressAbove: min, progressBelow: max })
   }
 
   function handleShare() {
-    navigator.clipboard.writeText(window.location.href).then(() => {
-      // toast would go here
-    })
+    navigator.clipboard.writeText(window.location.href)
   }
 
   const entityLabel =
@@ -109,38 +116,39 @@ export function FiltersWorkspace() {
       <div className="flex shrink-0 items-center justify-between border-b border-border px-6 py-3">
         <div>
           <h1 className="text-lg font-semibold">Filters</h1>
-          <p className="text-xs text-muted-foreground">Slice the OKR portfolio by objectives, key results, or initiatives</p>
+          <p className="text-xs text-muted-foreground">
+            Slice the OKR portfolio by objectives, key results, or initiatives
+          </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={handleShare}>
+          <button
+            type="button"
+            onClick={handleShare}
+            className="text-sm text-muted-foreground underline-offset-2 hover:underline"
+          >
+            Save segment
+          </button>
+          <Button variant="default" size="sm" className="gap-1.5 text-xs" onClick={handleShare}>
             <Share2 className="size-3.5" />
             Share
           </Button>
-          <Button variant="outline" size="sm" className="gap-1.5 text-xs">
-            <Save className="size-3.5" />
-            Save segment
-          </Button>
-          <Button variant="outline" size="sm" className="gap-1.5 text-xs">
-            <ArrowUpDown className="size-3.5" />
-            Sort
-          </Button>
-          <Button variant="ghost" size="icon-sm">
-            <MoreHorizontal className="size-4" />
-          </Button>
+          <button type="button" className="rounded p-1 hover:bg-muted">
+            <MoreHorizontal className="size-4 text-muted-foreground" />
+          </button>
         </div>
       </div>
 
       {/* Tab bar */}
-      <div className="flex shrink-0 items-center gap-0 border-b border-border px-6">
+      <div className="flex shrink-0 items-center border-b border-border px-6">
         {TABS.map((t) => (
           <button
             key={t.id}
             type="button"
-            onClick={() => setTab(t.id)}
+            onClick={() => { setTab(t.id); setActiveFilterIds([]) }}
             className={cn(
               'relative px-4 py-2.5 text-sm font-medium transition-colors',
               tab === t.id
-                ? 'text-primary-600 after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-primary-600'
+                ? 'text-foreground after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-foreground'
                 : 'text-muted-foreground hover:text-foreground'
             )}
           >
@@ -149,25 +157,42 @@ export function FiltersWorkspace() {
         ))}
       </div>
 
-      {/* Body: segments left rail + main */}
+      {/* Body */}
       <div className="flex min-h-0 flex-1">
+        {/* Segments left rail */}
         <SegmentsPanel tab={tab} activeSegment={activeSegment} onSegmentSelect={selectSegment} />
 
         {/* Main area */}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           {/* Filter bar */}
-          <FilterBar tab={tab} filters={filters} onFilterChange={changeFilter} onReset={reset} />
+          <FilterBar
+            tab={tab}
+            filters={filters}
+            activeFilterIds={activeFilterIds}
+            onActiveFilterIdsChange={setActiveFilterIds}
+            onFilterChange={changeFilter}
+            onReset={() => { reset(); setActiveFilterIds([]) }}
+          />
 
-          {/* Match count */}
-          <div className="shrink-0 border-b border-border px-4 py-1.5">
+          {/* Match count + sort */}
+          <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-1.5">
             {isLoading ? (
-              <span className="text-xs text-muted-foreground">Loading…</span>
+              <span className="text-sm text-muted-foreground">Loading…</span>
             ) : (
-              <span className="text-xs text-muted-foreground">
-                <span className="font-semibold text-foreground">{results.length}</span>{' '}
-                {entityLabel} match your filters
+              <span className="text-sm font-semibold">
+                {results.length} {entityLabel} match your filters
               </span>
             )}
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              Sort by
+              <select className="rounded border-none bg-transparent text-sm font-medium text-foreground focus:outline-none">
+                <option>Plan</option>
+                <option>Owner</option>
+                <option>Progress</option>
+                <option>Confidence</option>
+                <option>Updated</option>
+              </select>
+            </div>
           </div>
 
           {/* KPI tiles */}
@@ -175,11 +200,14 @@ export function FiltersWorkspace() {
 
           {/* Progress chart */}
           <div className="shrink-0 px-4 pb-3">
-            <ProgressChart buckets={buckets} />
+            <ProgressChart
+              buckets={buckets}
+              onBucketClick={(b) => handleBucketClick(b.min, b.max)}
+            />
           </div>
 
           {/* Results list */}
-          <ResultsList results={results} tab={tab} onReset={reset} />
+          <ResultsList results={results} tab={tab} onReset={() => { reset(); setActiveFilterIds([]) }} />
         </div>
       </div>
     </div>

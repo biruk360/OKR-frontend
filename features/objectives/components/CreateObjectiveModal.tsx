@@ -299,16 +299,20 @@ export default function CreateObjectiveModal({
           </p>
         </div>
 
-        {selectedLevel === 'DEPARTMENT' && (
+        {(selectedLevel === 'DEPARTMENT' || selectedLevel === 'INDIVIDUAL') && (
           <div>
             <label htmlFor="departmentId" className="block text-sm font-medium text-muted-foreground mb-1">
-              Department *
+              Department {selectedLevel === 'DEPARTMENT' ? '*' : <span className="font-normal text-muted-foreground/70">(optional)</span>}
             </label>
             <select
-              {...register('departmentId', { required: 'Department is required' })}
+              {...register('departmentId', selectedLevel === 'DEPARTMENT' ? { required: 'Department is required' } : {})}
               className="input"
             >
-              <option value="">Select department</option>
+              <option value="">
+                {selectedLevel === 'DEPARTMENT'
+                  ? 'Select department'
+                  : '— Inherit from owner’s primary department —'}
+              </option>
               {departments.map((department) => (
                 <option key={department.id} value={department.id}>
                   {department.name}
@@ -317,6 +321,11 @@ export default function CreateObjectiveModal({
             </select>
             {errors.departmentId && (
               <p className="mt-1 text-sm text-danger-600">{errors.departmentId.message}</p>
+            )}
+            {selectedLevel === 'INDIVIDUAL' && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Leave blank to auto-derive from the owner&apos;s primary department, or pick one to override.
+              </p>
             )}
           </div>
         )}

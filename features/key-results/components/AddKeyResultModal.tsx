@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
-import { Target, TrendingUp } from 'lucide-react'
+import { Target, TrendingUp, Building2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { CHECK_IN_CADENCES, CHECK_IN_CADENCE_LABELS, normalizeCadence } from '@/lib/check-in-cadence'
 import { Modal } from '@/components/ui'
@@ -36,6 +36,22 @@ export default function AddKeyResultModal({
   onSuccess,
 }: AddKeyResultModalProps) {
   const [isLoading, setIsLoading] = useState(false)
+  const [inheritedDept, setInheritedDept] = useState<string | null>(null)
+
+  // Fetch parent objective's department so users can see what this KR will inherit.
+  useEffect(() => {
+    if (!isOpen || !objectiveId) { setInheritedDept(null); return }
+    let cancelled = false
+    fetch(`/api/objectives/${objectiveId}`)
+      .then((r) => r.json())
+      .then((j) => {
+        if (cancelled) return
+        const name = j?.data?.department?.name ?? null
+        setInheritedDept(name)
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [isOpen, objectiveId])
 
   const { register, handleSubmit, watch, reset, formState: { errors } } = useForm<KeyResultFormData>({
     defaultValues: {
@@ -106,6 +122,16 @@ export default function AddKeyResultModal({
   return (
     <Modal open={isOpen} onClose={onClose} title="Add Key Result" icon={Target} iconClassName="text-blue-600" size="sm">
       <form onSubmit={handleSubmit(onSubmit)}>
+        {inheritedDept && (
+          <div className="mb-4 flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800">
+            <Building2 className="h-3.5 w-3.5 shrink-0" />
+            <span>
+              <span className="font-semibold uppercase tracking-wide">Department</span>
+              <span className="mx-1.5">·</span>
+              Inherited from objective: <span className="font-semibold">{inheritedDept}</span>
+            </span>
+          </div>
+        )}
         <div className="mb-4">
           <label htmlFor="title" className="block text-sm font-medium text-muted-foreground mb-2">
             Title <span className="text-red-500">*</span>

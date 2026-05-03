@@ -135,13 +135,19 @@ export const PUT = withAuth<RouteIdParams>(async (request: NextRequest, { sessio
     title,
     description,
     ownerId,
+    departmentId: rawDepartmentId,
     parentObjectiveId,
     isPrivate,
     alignmentType: rawAlign,
     rollupCalculation: rawRollup,
     checkInCadence: rawCadence,
     confidence: rawConfidence,
-  } = body
+  } = body as UpdateObjectiveForm & {
+    checkInCadence?: string
+    contributorIds?: string[]
+    confidence?: number
+    departmentId?: string | null
+  }
   const confidencePatch =
     typeof rawConfidence === 'number' && Number.isFinite(rawConfidence)
       ? { confidence: Math.max(0, Math.min(100, Math.round(rawConfidence))) }
@@ -217,6 +223,42 @@ export const PUT = withAuth<RouteIdParams>(async (request: NextRequest, { sessio
 
   const oldParentId = existingObjective.parentObjectiveId
 
+  // Resolve departmentId patch:
+  //   - Not in body → no change
+  //   - DEPARTMENT level + null/empty → reject (department is required)
+  //   - DEPARTMENT level + value → validate dept exists
+  //   - INDIVIDUAL level + value → set explicitly
+  //   - INDIVIDUAL level + null/empty → re-derive from new (or existing) owner's primary
+  //   - COMPANY level → ignored (always null)
+  let departmentPatch: { departmentId: string | null } | null = null
+  if (rawDepartmentId !== undefined) {
+    const lvl = existingObjective.level
+    if (lvl === 'COMPANY') {
+      departmentPatch = { departmentId: null }
+    } else if (lvl === 'DEPARTMENT') {
+      const next = rawDepartmentId || null
+      if (!next) return apiBadRequest('Department is required for department-level objectives')
+      const dept = await prisma.department.findUnique({ where: { id: next }, select: { id: true } })
+      if (!dept) return apiBadRequest('Department not found')
+      departmentPatch = { departmentId: next }
+    } else {
+      // INDIVIDUAL
+      if (rawDepartmentId) {
+        const dept = await prisma.department.findUnique({ where: { id: rawDepartmentId }, select: { id: true } })
+        if (!dept) return apiBadRequest('Department not found')
+        departmentPatch = { departmentId: rawDepartmentId }
+      } else {
+        // Re-derive from the (effective) owner's primary department.
+        const effectiveOwnerId = ownerId || existingObjective.ownerId
+        const primary = await prisma.departmentMembership.findFirst({
+          where: { userId: effectiveOwnerId, isPrimary: true, endedAt: null },
+          select: { departmentId: true },
+        })
+        departmentPatch = { departmentId: primary?.departmentId ?? null }
+      }
+    }
+  }
+
   const updatedObjective = await prisma.$transaction(async (tx) => {
     // Replace contributor set if provided (exclude the owner automatically).
     if (contributorIdsProvided) {
@@ -238,6 +280,7 @@ export const PUT = withAuth<RouteIdParams>(async (request: NextRequest, { sessio
         ...(description !== undefined && { description }),
         ...(ownerId && { ownerId }),
         ...(parentObjectiveId !== undefined && { parentObjectiveId: finalParentId }),
+        ...(departmentPatch && departmentPatch),
         ...(isPrivate !== undefined && { isPrivate }),
         ...(alignmentPatch && {
           alignmentType: alignmentPatch.alignmentType,

@@ -113,7 +113,10 @@ export async function runSprintPlanPipeline(req: PipelineRequest): Promise<Pipel
         sprintEnd,
         durationDays: req.durationDays,
       },
-      { modelId, maxOutputTokens: 8000 }
+      // 32k headroom is needed because gpt-5.5 (and other reasoning models) consume
+      // thousands of "reasoning tokens" before emitting visible output. With 8k we hit
+      // the limit and the API returns empty content. See lib/ai/providers/openai.ts.
+      { modelId, maxOutputTokens: 32000 }
     )
   } catch (err) {
     const latencyMs = Date.now() - t0

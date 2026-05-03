@@ -174,7 +174,23 @@ function finalize(args: {
 }): { plan: SprintPlanToolPayload; usage: AiUsage; raw: unknown } {
   const { content, modelId, raw, usage } = args
   if (!content) {
-    throw new ProviderCallError('openai', modelId, null, 'OpenAI returned an empty response')
+    // Surface finish_reason / refusal / token usage so we can diagnose silent
+    // failures (e.g. reasoning models burning through max_completion_tokens
+    // before emitting any text).
+    const r = raw as {
+      choices?: Array<{ finish_reason?: string; message?: { refusal?: string } }>
+      status?: string
+      output?: Array<{ status?: string; content?: Array<{ refusal?: string }> }>
+    }
+    const finish =
+      r?.choices?.[0]?.finish_reason ?? r?.status ?? r?.output?.[0]?.status ?? 'unknown'
+    const refusal =
+      r?.choices?.[0]?.message?.refusal ?? r?.output?.[0]?.content?.[0]?.refusal ?? null
+    const usageStr = `tokens=${usage.inputTokens}/${usage.outputTokens}`
+    const detail = refusal
+      ? `refusal=${refusal}`
+      : `finish=${finish}; ${usageStr}; (likely max_completion_tokens consumed by reasoning — bump pipeline maxOutputTokens or use a non-reasoning model)`
+    throw new ProviderCallError('openai', modelId, null, `OpenAI returned an empty response: ${detail}`)
   }
   let parsed: unknown
   try {

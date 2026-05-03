@@ -62,6 +62,7 @@ model User {
   reportedRisks       Risk[]                  @relation("RiskReporter")
   sprintParticipations SprintParticipant[]    @relation("SprintParticipantUser")
   sprintsEnded         Sprint[]               @relation("SprintEndedBy")
+  ceoOf                OrganizationSettings?  @relation("OrgSettingsCeo")
 
   @@map("users")
 }
@@ -110,17 +111,28 @@ model Department {
   @@map("departments")
 }
 
+/// Membership of a user in a department.
+/// `role` is one of HEAD | MEMBER | SECONDARY_MEMBER (string-stored enum).
+/// `legacyRole` retains the pre-2026-05 free-text value for backfill auditing
+/// and is dropped in a follow-up migration once `role` is fully populated.
+/// `isPrimary` marks the user's primary department (exactly one active row per user).
+/// `endedAt` enables soft-removal + history; null means active membership.
 model DepartmentMembership {
   id           String     @id @default(cuid())
   userId       String
   departmentId String
-  role         String?    // e.g., "Lead", "Member"
+  role         String     @default("MEMBER") // HEAD | MEMBER | SECONDARY_MEMBER
+  legacyRole   String?    // backfill-only; dropped after data migration
+  isPrimary    Boolean    @default(true)
   joinedAt     DateTime   @default(now())
+  endedAt      DateTime?
 
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   department Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
 
   @@unique([userId, departmentId])
+  @@index([departmentId])
+  @@index([userId])
   @@map("department_memberships")
 }
 
@@ -135,7 +147,25 @@ model ManagerRelationship {
   directReport User @relation("DirectReport", fields: [directReportId], references: [id], onDelete: Cascade)
 
   @@unique([managerId, directReportId])
+  @@index([managerId])
+  @@index([directReportId])
   @@map("manager_relationships")
+}
+
+/// Singleton row (id = "singleton") holding company-wide settings:
+/// the CEO designation and feature flags for org structure.
+model OrganizationSettings {
+  id                       String   @id @default("singleton")
+  companyName              String   @default("My Company")
+  companyCeoUserId         String?  @unique
+  allowMatrixReporting     Boolean  @default(false)
+  allowMultipleDeptHeads   Boolean  @default(false)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  ceo User? @relation("OrgSettingsCeo", fields: [companyCeoUserId], references: [id], onDelete: SetNull)
+
+  @@map("organization_settings")
 }
 
 model Timeframe {
@@ -202,6 +232,8 @@ model Objective {
   contributors     ObjectiveContributor[]
   risks            Risk[]
 
+  @@index([departmentId])
+  @@index([ownerId])
   @@map("objectives")
 }
 

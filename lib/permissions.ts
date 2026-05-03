@@ -346,6 +346,34 @@ export function canManageTimeframes(userRole: UserRole): boolean {
 }
 
 // ---------------------------------------------------------------------------
+// Org-structure permissions (Phase 1, 2026-05).
+// `canManageDepartment` allows the active HEAD to maintain their own dept.
+// `canManageOrg` gates the company-wide admin/org page.
+// `canSetCeo` is intentionally narrower than canManageOrg.
+// ---------------------------------------------------------------------------
+
+export async function canManageDepartment(
+  userRole: UserRole,
+  userId: string,
+  departmentId: string,
+): Promise<boolean> {
+  if (userRole === 'ADMIN' || userRole === 'EXECUTIVE') return true
+  const head = await prisma.departmentMembership.findFirst({
+    where: { userId, departmentId, role: 'HEAD', endedAt: null },
+    select: { id: true },
+  })
+  return !!head
+}
+
+export function canManageOrg(userRole: UserRole): boolean {
+  return userRole === 'ADMIN' || userRole === 'EXECUTIVE'
+}
+
+export function canSetCeo(userRole: UserRole): boolean {
+  return userRole === 'ADMIN'
+}
+
+// ---------------------------------------------------------------------------
 // Sprint v2 (Phase 1) — sprint-scope permission helpers.
 // ---------------------------------------------------------------------------
 

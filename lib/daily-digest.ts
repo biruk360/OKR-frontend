@@ -373,22 +373,24 @@ export async function buildDailyDigest(userId: string): Promise<DailyDigestData 
 // Render — email-client safe tables + inline styles
 // ───────────────────────────────────────────────────────────
 
+// Aligned with lib/email/templates/components.ts TOKENS so the rich-card
+// queue digest and this legacy per-user digest share one visual vocabulary.
 const C = {
-  bg: '#f3f4f6',
-  card: '#ffffff',
-  border: '#e5e7eb',
-  text: '#111827',
-  textMuted: '#6b7280',
-  textSubtle: '#9ca3af',
-  primary: '#2563eb',
-  primaryBg: '#dbeafe',
-  success: '#059669',
-  successBg: '#d1fae5',
-  warning: '#d97706',
-  warningBg: '#fef3c7',
-  danger: '#dc2626',
-  dangerBg: '#fee2e2',
-  muted: '#f9fafb',
+  bg: '#F2F2F7',
+  card: '#FFFFFF',
+  border: '#E5E5EA',
+  text: '#1D1D1F',
+  textMuted: '#8E8E93',
+  textSubtle: '#D1D1D6',
+  primary: '#007AFF',
+  primaryBg: 'rgba(0,122,255,0.10)',
+  success: '#34C759',
+  successBg: 'rgba(52,199,89,0.12)',
+  warning: '#FF9500',
+  warningBg: 'rgba(255,149,0,0.14)',
+  danger: '#FF3B30',
+  dangerBg: 'rgba(255,59,48,0.12)',
+  muted: '#FAFAFC',
 }
 
 function escapeHtml(s: string): string {
@@ -554,7 +556,7 @@ function renderDailyHtml(name: string, d: DailyDigestData): string {
           </div>
 
           <div style="text-align:center;font-size:11px;color:${C.textSubtle};margin-top:16px;padding-top:16px;border-top:1px solid ${C.border};">
-            Sent by the OKR Management System &middot; Daily digest at 7am
+            Sent by the OKR Management System &middot; Daily digest at 7:00 AM EAT (GMT+3)
           </div>
         </div>
       </td></tr>

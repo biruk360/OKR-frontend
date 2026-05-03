@@ -35,26 +35,35 @@ export async function runDigestDrain(cadence: 'DAILY' | 'WEEKLY' | 'MONTHLY'): P
   const userById = new Map(users.map((u) => [u.id, u]))
 
   let sent = 0, errors = 0
-  // Helper: pull deepLink out of each row's metadata JSON.
-  const linkFor = (i: QueueRow): string | null => {
-    if (!i.metadata) return null
+  // Helper: extract { deepLink, entityType, entityId } from each row's metadata JSON.
+  const metaOf = (i: QueueRow): { deepLink: string | null; entityType: string | null; entityId: string | null } => {
+    if (!i.metadata) return { deepLink: null, entityType: null, entityId: null }
     try {
       const m = JSON.parse(i.metadata)
-      return typeof m.deepLink === 'string' ? m.deepLink : null
-    } catch { return null }
+      return {
+        deepLink: typeof m.deepLink === 'string' ? m.deepLink : null,
+        entityType: typeof m.entityType === 'string' ? m.entityType : null,
+        entityId: typeof m.entityId === 'string' ? m.entityId : null,
+      }
+    } catch { return { deepLink: null, entityType: null, entityId: null } }
   }
 
   for (const [userId, items] of Array.from(byUser.entries())) {
     const user = userById.get(userId)
     if (!user) continue
     try {
-      const digestItems: DigestItem[] = items.map((i: QueueRow) => ({
-        eventKey: i.eventKey,
-        category: i.category,
-        subject: i.subject,
-        deepLink: linkFor(i),
-      }))
-      const { subject, text, html } = renderDigest({
+      const digestItems: DigestItem[] = items.map((i: QueueRow) => {
+        const m = metaOf(i)
+        return {
+          eventKey: i.eventKey,
+          category: i.category,
+          subject: i.subject,
+          deepLink: m.deepLink,
+          entityType: m.entityType,
+          entityId: m.entityId,
+        }
+      })
+      const { subject, text, html } = await renderDigest({
         recipientName: user.name,
         cadence,
         items: digestItems,

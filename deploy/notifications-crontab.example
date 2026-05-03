@@ -5,36 +5,48 @@
 #
 # All jobs are idempotent — running them more often than scheduled is safe
 # but wasteful. The /api/cron/notifications endpoint dispatches by ?job=<name>.
+#
+# === TIMEZONE ================================================================
+# All cron times below are in UTC. Convert to your audience's local time:
+#   GMT+3 (Africa/Addis_Ababa, EAT) → subtract 3 hours from local time.
+#     07:00 EAT  ⇒  04:00 UTC
+#     08:00 EAT  ⇒  05:00 UTC
+#     09:00 EAT  ⇒  06:00 UTC
+# If the host's crond honours CRON_TZ (e.g. Vixie cron, systemd timers), you
+# can pin the timezone instead of pre-converting:
+#     CRON_TZ=Africa/Addis_Ababa
+# Then keep the local-time entries (07:00 etc.) as-is.
+# =============================================================================
 
-# Daily digest drain — 07:00 local, every day
-0 7 * * *  curl -fsS -X POST "$BASE/api/cron/notifications?job=daily&key=$CRON_SECRET" >/dev/null
+# Daily digest drain — 07:00 EAT (04:00 UTC), every day
+0 4 * * *  curl -fsS -X POST "$BASE/api/cron/notifications?job=daily&key=$CRON_SECRET" >/dev/null
 
-# Weekly digest drain — Monday 07:05
-5 7 * * 1  curl -fsS -X POST "$BASE/api/cron/notifications?job=weekly&key=$CRON_SECRET" >/dev/null
+# Weekly digest drain — Monday 07:05 EAT (04:05 UTC)
+5 4 * * 1  curl -fsS -X POST "$BASE/api/cron/notifications?job=weekly&key=$CRON_SECRET" >/dev/null
 
-# Monthly digest drain — 1st of month 07:10
-10 7 1 * * curl -fsS -X POST "$BASE/api/cron/notifications?job=monthly&key=$CRON_SECRET" >/dev/null
+# Monthly digest drain — 1st of month 07:10 EAT (04:10 UTC)
+10 4 1 * * curl -fsS -X POST "$BASE/api/cron/notifications?job=monthly&key=$CRON_SECRET" >/dev/null
 
-# Check-in missed escalation — every day at 09:00
-0 9 * * *  curl -fsS -X POST "$BASE/api/cron/notifications?job=escalation&key=$CRON_SECRET" >/dev/null
+# Check-in missed escalation — every day at 09:00 EAT (06:00 UTC)
+0 6 * * *  curl -fsS -X POST "$BASE/api/cron/notifications?job=escalation&key=$CRON_SECRET" >/dev/null
 
-# To-do reminders (due tomorrow + overdue) — every day at 08:00
-0 8 * * *  curl -fsS -X POST "$BASE/api/cron/notifications?job=todos&key=$CRON_SECRET" >/dev/null
+# To-do reminders (due tomorrow + overdue) — every day at 08:00 EAT (05:00 UTC)
+0 5 * * *  curl -fsS -X POST "$BASE/api/cron/notifications?job=todos&key=$CRON_SECRET" >/dev/null
 
-# Timeframe watcher (ending 7d / closing 1d / closed) — every day at 06:30
-30 6 * * * curl -fsS -X POST "$BASE/api/cron/notifications?job=timeframes&key=$CRON_SECRET" >/dev/null
+# Timeframe watcher (ending 7d / closing 1d / closed) — every day at 06:30 EAT (03:30 UTC)
+30 3 * * * curl -fsS -X POST "$BASE/api/cron/notifications?job=timeframes&key=$CRON_SECRET" >/dev/null
 
-# Admin weekly health digest — Monday 07:15
-15 7 * * 1 curl -fsS -X POST "$BASE/api/cron/notifications?job=admin-weekly&key=$CRON_SECRET" >/dev/null
+# Admin weekly health digest — Monday 07:15 EAT (04:15 UTC)
+15 4 * * 1 curl -fsS -X POST "$BASE/api/cron/notifications?job=admin-weekly&key=$CRON_SECRET" >/dev/null
 
-# Admin monthly exec summary — 1st of month 07:20
-20 7 1 * * curl -fsS -X POST "$BASE/api/cron/notifications?job=admin-monthly&key=$CRON_SECRET" >/dev/null
+# Admin monthly exec summary — 1st of month 07:20 EAT (04:20 UTC)
+20 4 1 * * curl -fsS -X POST "$BASE/api/cron/notifications?job=admin-monthly&key=$CRON_SECRET" >/dev/null
 
-# Weekly per-user owner digest (existing endpoint) — Monday 07:25
-25 7 * * 1 curl -fsS -X POST "$BASE/api/cron/weekly-digest?key=$CRON_SECRET" >/dev/null
+# Weekly per-user owner digest (existing endpoint) — Monday 07:25 EAT (04:25 UTC)
+25 4 * * 1 curl -fsS -X POST "$BASE/api/cron/weekly-digest?key=$CRON_SECRET" >/dev/null
 
-# Daily auto-confidence recompute for stale (>14d) OKRs — every day at 03:00
-0 3 * * *  curl -fsS -X POST "$BASE/api/cron/auto-confidence?key=$CRON_SECRET" >/dev/null
+# Daily auto-confidence recompute for stale (>14d) OKRs — every day at 03:00 EAT (00:00 UTC)
+0 0 * * *  curl -fsS -X POST "$BASE/api/cron/auto-confidence?key=$CRON_SECRET" >/dev/null
 
-# Daily activity log prune (rows older than 540 days = ~18 months) — every day at 03:30
-30 3 * * * curl -fsS -X POST "$BASE/api/cron/prune-activity?key=$CRON_SECRET" >/dev/null
+# Daily activity log prune (rows older than 540 days = ~18 months) — every day at 03:30 EAT (00:30 UTC)
+30 0 * * * curl -fsS -X POST "$BASE/api/cron/prune-activity?key=$CRON_SECRET" >/dev/null

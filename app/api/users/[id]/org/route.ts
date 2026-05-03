@@ -77,6 +77,30 @@ export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { para
   }
 
   if (primaryDepartmentId !== undefined) {
+    if (primaryDepartmentId) {
+      // Validate the department exists, then ensure the user has an active
+      // membership there (creating or reactivating one if needed) before
+      // reconciling primary status.
+      const dept = await prisma.department.findUnique({
+        where: { id: primaryDepartmentId },
+        select: { id: true },
+      })
+      if (!dept) return apiBadRequest('Department not found')
+
+      const existing = await prisma.departmentMembership.findUnique({
+        where: { userId_departmentId: { userId: id, departmentId: primaryDepartmentId } },
+      })
+      if (!existing) {
+        await prisma.departmentMembership.create({
+          data: { userId: id, departmentId: primaryDepartmentId, role: 'MEMBER', isPrimary: true },
+        })
+      } else if (existing.endedAt) {
+        await prisma.departmentMembership.update({
+          where: { id: existing.id },
+          data: { endedAt: null, isPrimary: true, joinedAt: new Date() },
+        })
+      }
+    }
     const reconcile = await reconcilePrimaryDepartment(id, primaryDepartmentId ?? undefined)
     if (!reconcile.ok) return apiBadRequest(reconcile.reason)
   }

@@ -1,4 +1,8 @@
 import type { AiProviderId } from '../config'
+import type { ContextBundle as RealContextBundle } from '../context-bundler'
+import type { AllocationRow } from '../sprint-math'
+import type { CarryoverCandidate } from '../carryover'
+import type { SprintPlan } from '../sprint-plan-schema'
 
 /**
  * Normalized usage tally returned by every provider. Each provider's SDK reports
@@ -18,19 +22,38 @@ export interface AiUsage {
   cachedTokens: number
 }
 
-/**
- * Provider-agnostic context bundle handed to generateSprintPlan. The actual
- * shape is finalized in Phase 2 (the deterministic context bundler). This stub
- * keeps the interface compilable until then.
- */
-export type ContextBundle = unknown
+/** Re-exported for convenience — provider impls import this name. */
+export type ContextBundle = RealContextBundle
 
 /**
  * Normalized sprint-plan payload returned by every provider after structured-output
- * parsing + Zod validation. Phase 3 fills in the concrete schema; for now this is
- * an opaque type so the interface compiles without coupling to the schema yet.
+ * parsing + Zod validation. Defined in lib/ai/sprint-plan-schema.ts.
  */
-export type SprintPlanToolPayload = unknown
+export type SprintPlanToolPayload = SprintPlan
+
+/** Inputs the route handler hands to the provider. The provider does not run the
+ * math or the carryover classification itself — it receives the deterministic
+ * outputs and renders them into the prompt. */
+export interface GenerateSprintPlanInput {
+  bundle: ContextBundle
+  allocations: AllocationRow[]
+  carryoverCandidates: Array<{
+    candidate: CarryoverCandidate
+    todo: {
+      id: string
+      title: string
+      description?: string | null
+      status: string
+      priority?: string
+      dueDate: Date | null
+      progressValue: number | null
+      carryoverCount: number
+    }
+  }>
+  sprintStart: Date
+  sprintEnd: Date
+  durationDays: number
+}
 
 export interface GenerateSprintPlanOptions {
   modelId: string
@@ -41,7 +64,7 @@ export interface GenerateSprintPlanOptions {
 export interface AiProvider {
   readonly id: AiProviderId
   generateSprintPlan(
-    bundle: ContextBundle,
+    input: GenerateSprintPlanInput,
     options: GenerateSprintPlanOptions
   ): Promise<{
     plan: SprintPlanToolPayload

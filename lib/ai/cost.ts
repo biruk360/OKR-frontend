@@ -17,6 +17,10 @@ const PRICING_USD_PER_MTOK: Record<string, { input: number; cachedInput: number;
   'gpt-4.1': { input: 2.5, cachedInput: 1.25, output: 10 },
   'gpt-4.1-mini': { input: 0.15, cachedInput: 0.075, output: 0.6 },
   'gpt-5': { input: 5, cachedInput: 2.5, output: 15 },
+  // gpt-5.5 / 5.5-pro pricing is provisional — refine when OpenAI publishes the
+  // public rate card; the values below approximate the 5.x family ratio.
+  'gpt-5.5': { input: 6, cachedInput: 0.75, output: 18 },
+  'gpt-5.5-pro': { input: 18, cachedInput: 2.25, output: 60 },
   // Gemini
   'gemini-2.5-pro': { input: 1.25, cachedInput: 0.31, output: 10 },
   'gemini-2.5-flash': { input: 0.075, cachedInput: 0.019, output: 0.3 },

@@ -1,25 +1,35 @@
-import { hasProviderKey, type AiProviderId } from '../config'
+import { hasProviderKey, providerKeyEnvName, type AiProviderId } from '../config'
 import { ProviderNotConfiguredError, type AiProvider } from './types'
+import { OpenAIProvider } from './openai'
 
 /**
  * Factory that resolves the concrete AiProvider implementation for a given id.
  *
- * Phase 1 stub: throws ProviderNotConfiguredError unconditionally so the build
- * compiles without the actual SDK packages installed (`@anthropic-ai/sdk`,
- * `openai`, `@google/generative-ai`). Phase 3 wires the real implementations.
- *
- * Callers should use this to surface a 503 with the provider name when a feature
- * is requested that hasn't been wired yet — preserving a clean error path that
- * the admin observability surface can audit.
+ * Throws ProviderNotConfiguredError when the API key is missing OR when the
+ * provider implementation hasn't been wired yet (Anthropic + Gemini stubs land
+ * in subsequent commits). Routes catch this and return a 503 naming the provider.
  */
 export function getProvider(id: AiProviderId): AiProvider {
   if (!hasProviderKey(id)) {
     throw new ProviderNotConfiguredError(id)
   }
-  // Phase 3: switch on `id` and return the real Anthropic / OpenAI / Gemini impl.
-  // Until then, the route returns 503 by catching ProviderNotConfiguredError above.
-  throw new ProviderNotConfiguredError(id)
+  const apiKey = process.env[providerKeyEnvName(id)]!
+  switch (id) {
+    case 'openai':
+      return new OpenAIProvider(apiKey)
+    case 'anthropic':
+    case 'gemini':
+      // Concrete impls land in a follow-up. Until then, the route returns 503.
+      throw new ProviderNotConfiguredError(id)
+  }
 }
 
 export { ProviderNotConfiguredError, ProviderCallError } from './types'
-export type { AiProvider, AiUsage, ContextBundle, GenerateSprintPlanOptions, SprintPlanToolPayload } from './types'
+export type {
+  AiProvider,
+  AiUsage,
+  ContextBundle,
+  GenerateSprintPlanInput,
+  GenerateSprintPlanOptions,
+  SprintPlanToolPayload,
+} from './types'

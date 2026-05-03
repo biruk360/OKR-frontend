@@ -16,8 +16,9 @@ export const AI_MODELS: Record<AiProviderId, { planner: string; summary: string 
     summary: process.env.AI_ANTHROPIC_SUMMARY_MODEL || 'claude-haiku-4-5-20251001',
   },
   openai: {
-    planner: process.env.AI_OPENAI_PLANNER_MODEL || 'gpt-4.1',
-    summary: process.env.AI_OPENAI_SUMMARY_MODEL || 'gpt-4.1-mini',
+    // Default to gpt-5.5 (chat). Override to gpt-5.5-pro for reasoning mode (slower, pricier).
+    planner: process.env.AI_OPENAI_PLANNER_MODEL || 'gpt-5.5',
+    summary: process.env.AI_OPENAI_SUMMARY_MODEL || 'gpt-5.5-mini',
   },
   gemini: {
     planner: process.env.AI_GEMINI_PLANNER_MODEL || 'gemini-2.5-pro',

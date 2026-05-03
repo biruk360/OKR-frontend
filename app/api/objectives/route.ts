@@ -152,8 +152,18 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
     checkInCadence: rawCadence,
   } = body as CreateObjectiveForm & { checkInCadence?: string }
   const checkInCadence = normalizeCadence(rawCadence)
-  const sanitizedDepartmentId = departmentId || null
+  let sanitizedDepartmentId = departmentId || null
   const sanitizedParentObjectiveId = parentObjectiveId || null
+
+  // Phase 3: INDIVIDUAL OKRs inherit departmentId from owner's primary department
+  // (live, per design). DEPARTMENT/COMPANY OKRs use the explicit value passed in.
+  if (level === 'INDIVIDUAL' && !sanitizedDepartmentId && ownerId) {
+    const primary = await prisma.departmentMembership.findFirst({
+      where: { userId: ownerId, isPrimary: true, endedAt: null },
+      select: { departmentId: true },
+    })
+    sanitizedDepartmentId = primary?.departmentId ?? null
+  }
   // Optional list of User ids collaborating on this objective (never includes ownerId).
   const rawContributorIds: unknown = (body as any).contributorIds
   const contributorIds: string[] = Array.isArray(rawContributorIds)

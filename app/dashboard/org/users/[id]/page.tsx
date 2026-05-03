@@ -44,6 +44,7 @@ export default async function UserProfilePage({ params }: PageProps) {
     where: { id, isActive: true },
     include: {
       departmentMemberships: {
+        where: { endedAt: null },
         include: { department: { select: { id: true, name: true } } },
       },
     },
@@ -424,6 +425,14 @@ export default async function UserProfilePage({ params }: PageProps) {
                             className="font-medium hover:text-blue-600 mr-1"
                           >
                             {m.department.name}
+                            {m.role === 'HEAD' && (
+                              <span className="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest text-amber-700">
+                                Head
+                              </span>
+                            )}
+                            {m.isPrimary && (
+                              <span className="ml-1 text-[10px] text-muted-foreground">★</span>
+                            )}
                           </Link>
                         ))}
                       </span>

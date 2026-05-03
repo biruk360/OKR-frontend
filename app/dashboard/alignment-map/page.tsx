@@ -6,6 +6,7 @@ import OKRHierarchy from '@/components/hierarchy/OKRHierarchy'
 import TimeframeDropdown from '@/components/hierarchy/TimeframeDropdown'
 import { Target, Users, TrendingUp, AlertCircle } from 'lucide-react'
 import { pickCurrentTimeframe } from '@/lib/timeframe-utils'
+import { ModeToggle, OrgStrategyMapClient, DiagnosticsTray, type MapMode } from '@/features/strategy-map'
 
 async function getObjectivesWithHierarchy(timeframeId: string) {
   const objectives = await prisma.objective.findMany({
@@ -166,7 +167,9 @@ async function getHierarchyStats(objectives: any[]) {
 }
 
 interface PageProps {
-  searchParams?: { timeframeId?: string } | Promise<{ timeframeId?: string }>
+  searchParams?:
+    | { timeframeId?: string; mode?: string }
+    | Promise<{ timeframeId?: string; mode?: string }>
 }
 
 export default async function AlignmentMapPage({ searchParams }: PageProps) {
@@ -205,6 +208,10 @@ export default async function AlignmentMapPage({ searchParams }: PageProps) {
     return null
   }
 
+  const rawMode = (resolvedSearchParams as any).mode
+  const mode: MapMode =
+    rawMode === 'org' || rawMode === 'combined' ? rawMode : 'strategy'
+
   const objectives = await getObjectivesWithHierarchy(currentTimeframe.id)
   const stats = await getHierarchyStats(objectives)
 
@@ -241,6 +248,7 @@ export default async function AlignmentMapPage({ searchParams }: PageProps) {
           }))}
           selectedId={currentTimeframe.id}
         />
+        <ModeToggle value={mode} />
         <span className="hidden sm:inline text-muted-foreground">|</span>
         <span className="inline-flex items-center gap-1">
           <Target className="h-3.5 w-3.5 text-blue-600" />
@@ -262,42 +270,57 @@ export default async function AlignmentMapPage({ searchParams }: PageProps) {
 
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="min-h-0 flex-1">
-          {objectives.length === 0 ? (
-            <div className="flex h-full min-h-[240px] items-center justify-center px-4">
-              <div className="text-center max-w-md">
-                <AlertCircle className="mx-auto h-10 w-10 text-muted-foreground" />
-                <h2 className="mt-2 text-sm font-medium text-foreground">
-                  No objectives in {currentTimeframe.name}
-                </h2>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Use the timeframe dropdown above to pick another period, or create an objective for this cycle.
-                </p>
-              </div>
-            </div>
-          ) : (
-            <Suspense
-              fallback={
-                <div className="flex h-64 items-center justify-center">
-                  <div className="h-7 w-7 animate-spin rounded-full border-2 border-border border-t-blue-600" />
+          {mode === 'strategy' ? (
+            objectives.length === 0 ? (
+              <div className="flex h-full min-h-[240px] items-center justify-center px-4">
+                <div className="text-center max-w-md">
+                  <AlertCircle className="mx-auto h-10 w-10 text-muted-foreground" />
+                  <h2 className="mt-2 text-sm font-medium text-foreground">
+                    No objectives in {currentTimeframe.name}
+                  </h2>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Use the timeframe dropdown above to pick another period, or create an objective for this cycle.
+                  </p>
                 </div>
-              }
-            >
-              <OKRHierarchy
-                objectives={objectives}
-                currentTimeframeId={currentTimeframe.id}
-                timeframeName={currentTimeframe.name}
-                workspaceName={workspaceName}
-                layout="fullscreen"
-              />
-            </Suspense>
+              </div>
+            ) : (
+              <Suspense
+                fallback={
+                  <div className="flex h-64 items-center justify-center">
+                    <div className="h-7 w-7 animate-spin rounded-full border-2 border-border border-t-blue-600" />
+                  </div>
+                }
+              >
+                <OKRHierarchy
+                  objectives={objectives}
+                  currentTimeframeId={currentTimeframe.id}
+                  timeframeName={currentTimeframe.name}
+                  workspaceName={workspaceName}
+                  layout="fullscreen"
+                />
+              </Suspense>
+            )
+          ) : (
+            <OrgStrategyMapClient mode={mode} timeframeId={currentTimeframe.id} />
           )}
         </div>
 
+        <DiagnosticsTray />
+
         <div className="shrink-0 border-t border-border bg-card px-3 py-1.5 text-[11px] leading-snug text-muted-foreground">
-          <span className="font-medium text-muted-foreground">Legend:</span> Top = company (workspace); next row =
-          company OKR plans; below = sub-OKRs aligned under each parent. Status pill = goal health (on track /
-          at risk / behind). Configure strict progress roll-up (average/sum of child %) in Edit objective.
-          Zoom/pan the canvas; use controls to fit.
+          {mode === 'strategy' ? (
+            <>
+              <span className="font-medium text-muted-foreground">Legend:</span> Strategy view —
+              objective parent/child alignment. Solid edges = formal alignment. Use the mode toggle
+              for Org or Combined views.
+            </>
+          ) : (
+            <>
+              <span className="font-medium text-muted-foreground">Legend:</span> Solid edges =
+              strategic alignment (parent → child OKR). Dashed = ownership / containment.
+              Dotted = manager / reporting. Crown = department head.
+            </>
+          )}
         </div>
       </div>
     </div>

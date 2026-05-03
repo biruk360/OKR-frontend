@@ -2,7 +2,7 @@ import { getServerSessionSafe } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Building2, HelpCircle, Users } from 'lucide-react'
+import { ArrowLeft, Building2, HelpCircle, Users, Crown } from 'lucide-react'
 import { canViewObjective, canManageUsers, type UserRole } from '@/lib/permissions'
 import { PageTitleSetter } from '@/components/layout/DashboardTitleContext'
 import ProfileOrgMinimap from '@/components/profile/ProfileOrgMinimap'
@@ -46,6 +46,7 @@ export default async function TeamProfilePage({ params }: PageProps) {
     where: { id, isActive: true },
     include: {
       memberships: {
+        where: { endedAt: null },
         include: {
           user: { select: { id: true, name: true, email: true, avatar: true, role: true } },
         },
@@ -286,7 +287,30 @@ export default async function TeamProfilePage({ params }: PageProps) {
                   </Link>
                 )}
               </div>
-              <ul className="space-y-2 text-sm text-muted-foreground">
+              <ul className="space-y-3 text-sm text-muted-foreground">
+                {(() => {
+                  const head = department.memberships.find((m) => m.role === 'HEAD')
+                  if (!head) {
+                    return (
+                      <li className="flex items-center gap-2 rounded bg-amber-50 px-2 py-1.5 text-xs font-medium text-amber-700">
+                        <Crown className="h-3.5 w-3.5 shrink-0" />
+                        No department head assigned
+                      </li>
+                    )
+                  }
+                  return (
+                    <li className="flex items-center gap-2 rounded bg-amber-50 px-2 py-1.5">
+                      <Crown className="h-4 w-4 shrink-0 text-amber-700" />
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-amber-700">Head</span>
+                      <Link
+                        href={`/dashboard/org/users/${head.user.id}`}
+                        className="font-semibold text-foreground hover:text-blue-600"
+                      >
+                        {head.user.name}
+                      </Link>
+                    </li>
+                  )
+                })()}
                 <li className="flex items-start gap-2">
                   <Users className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
                   <span>
@@ -295,15 +319,17 @@ export default async function TeamProfilePage({ params }: PageProps) {
                       <span className="text-muted-foreground">None</span>
                     ) : (
                       <span className="text-foreground">
-                        {department.memberships.map((m) => (
-                          <Link
-                            key={m.id}
-                            href={`/dashboard/org/users/${m.user.id}`}
-                            className="font-medium hover:text-blue-600 mr-1"
-                          >
-                            {m.user.name}
-                          </Link>
-                        ))}
+                        {department.memberships
+                          .filter((m) => m.role !== 'HEAD')
+                          .map((m) => (
+                            <Link
+                              key={m.id}
+                              href={`/dashboard/org/users/${m.user.id}`}
+                              className="font-medium hover:text-blue-600 mr-1"
+                            >
+                              {m.user.name}
+                            </Link>
+                          ))}
                       </span>
                     )}
                   </span>

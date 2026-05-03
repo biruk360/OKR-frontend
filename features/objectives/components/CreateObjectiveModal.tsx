@@ -69,6 +69,8 @@ export default function CreateObjectiveModal({
 
   const selectedLevel = watch('level')
   const selectedTimeframe = watch('timeframeId')
+  const selectedDepartmentId = watch('departmentId')
+  const selectedOwnerId = watch('ownerId')
 
   useEffect(() => {
     if (isOpen) {
@@ -97,6 +99,27 @@ export default function CreateObjectiveModal({
     }>(timeframes as any)
     if (current?.id) setValue('timeframeId', current.id)
   }, [isOpen, timeframes, selectedTimeframe, setValue])
+
+  // Phase 3: when level=DEPARTMENT and a department is picked, default owner
+  // to the department head (only if owner not already explicitly chosen).
+  useEffect(() => {
+    if (!isOpen) return
+    if (selectedLevel !== 'DEPARTMENT' || !selectedDepartmentId) return
+    // Don't override if a non-default owner was set or defaultOwnerId was passed.
+    if (defaultOwnerId) return
+    let cancelled = false
+    fetch(`/api/departments/${selectedDepartmentId}`)
+      .then((r) => r.json())
+      .then((j) => {
+        if (cancelled || !j?.success) return
+        const head = j.data?.memberships?.find((m: any) => m.role === 'HEAD' && !m.endedAt)
+        if (head?.user?.id && head.user.id !== selectedOwnerId) {
+          setValue('ownerId', head.user.id, { shouldDirty: false })
+        }
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [isOpen, selectedLevel, selectedDepartmentId, defaultOwnerId, selectedOwnerId, setValue])
 
   const onSubmit = async (data: FormData) => {
     setIsLoading(true)

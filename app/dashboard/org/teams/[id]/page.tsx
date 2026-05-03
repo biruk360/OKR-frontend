@@ -358,6 +358,65 @@ export default async function TeamProfilePage({ params }: PageProps) {
                 <p className="text-sm text-muted-foreground">There are no standups to display</p>
               )}
             </div>
+
+            <div className="bg-card rounded-lg border border-border shadow-sm p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-semibold text-foreground">
+                  Team members
+                  <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                    ({department.memberships.length})
+                  </span>
+                </h2>
+              </div>
+              {department.memberships.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No members assigned yet.</p>
+              ) : (
+                <ul className="space-y-1.5">
+                  {[...department.memberships]
+                    .sort((a, b) => {
+                      // HEAD first, then alphabetical by name
+                      if (a.role === 'HEAD' && b.role !== 'HEAD') return -1
+                      if (b.role === 'HEAD' && a.role !== 'HEAD') return 1
+                      return (a.user.name ?? '').localeCompare(b.user.name ?? '')
+                    })
+                    .map((m) => (
+                      <li key={m.id}>
+                        <Link
+                          href={`/dashboard/org/users/${m.user.id}`}
+                          className="flex items-center gap-2.5 rounded-md px-2 py-1.5 hover:bg-muted/60 transition-colors"
+                        >
+                          {m.user.avatar ? (
+                            <img
+                              src={m.user.avatar}
+                              alt=""
+                              className="h-7 w-7 rounded-full object-cover shrink-0"
+                            />
+                          ) : (
+                            <div className="h-7 w-7 rounded-full bg-blue-500 flex items-center justify-center text-[11px] font-semibold text-white shrink-0">
+                              {(m.user.name ?? '?').slice(0, 1).toUpperCase()}
+                            </div>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <p className="truncate text-sm font-medium text-foreground">
+                                {m.user.name}
+                              </p>
+                              {m.role === 'HEAD' && (
+                                <Crown className="h-3 w-3 shrink-0 text-amber-600" />
+                              )}
+                            </div>
+                            <p className="truncate text-[11px] text-muted-foreground">
+                              {m.user.role
+                                ? m.user.role.replace(/_/g, ' ').toLowerCase()
+                                : m.user.email}
+                            </p>
+                          </div>
+                        </Link>
+                      </li>
+                    ))}
+                </ul>
+              )}
+            </div>
           </aside>
 
           <div className="lg:col-span-8 space-y-6">

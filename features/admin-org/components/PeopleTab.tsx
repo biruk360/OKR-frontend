@@ -8,8 +8,6 @@ import { Avatar } from './shared/Avatar'
 
 interface Row extends OrgPerson {
   primaryDept?: { id: string; name: string } | null
-  managerName?: string | null
-  managerId?: string | null
 }
 
 export function PeopleTab({ tree, settings }: { tree: OrgTree; settings?: OrgSettings }) {
@@ -35,7 +33,7 @@ export function PeopleTab({ tree, settings }: { tree: OrgTree; settings?: OrgSet
     for (const u of tree.unassignedUsers) {
       if (!map.has(u.id)) map.set(u.id, { ...u, primaryDept: null })
     }
-    return Array.from(map.values())
+    return Array.from(map.values()).sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
   }, [tree])
 
   const filtered = rows.filter((r) => {
@@ -87,13 +85,14 @@ export function PeopleTab({ tree, settings }: { tree: OrgTree; settings?: OrgSet
           style={{
             background: 'var(--ap-bg-raised)',
             borderBottom: '1px solid var(--ap-border)',
-            gridTemplateColumns: 'minmax(0,2fr) minmax(0,1.4fr) minmax(0,1.4fr) 100px 70px',
+            gridTemplateColumns: 'minmax(0,2fr) minmax(0,1.3fr) minmax(0,1.1fr) minmax(0,1.3fr) 90px 70px',
             color: 'var(--ap-fg-subtle)',
           }}
         >
           <span>Person</span>
           <span>Primary Department</span>
           <span>Role</span>
+          <span>Reports to</span>
           <span>Status</span>
           <span className="text-right">Actions</span>
         </div>
@@ -103,10 +102,12 @@ export function PeopleTab({ tree, settings }: { tree: OrgTree; settings?: OrgSet
             key={r.id}
             row={r}
             departments={tree.departments}
+            allPeople={rows}
             isCeo={r.id === ceoId}
             onSetCeo={() => updateSettings.mutate({ companyCeoUserId: r.id })}
             onChangePrimaryDept={(deptId) => update.mutate({ userId: r.id, primaryDepartmentId: deptId || null })}
             onChangeRole={(role) => update.mutate({ userId: r.id, role })}
+            onChangeManager={(managerId) => update.mutate({ userId: r.id, managerId })}
           />
         ))}
 
@@ -121,15 +122,22 @@ export function PeopleTab({ tree, settings }: { tree: OrgTree; settings?: OrgSet
 }
 
 function PersonRow({
-  row, departments, isCeo, onSetCeo, onChangePrimaryDept, onChangeRole,
+  row, departments, allPeople, isCeo, onSetCeo, onChangePrimaryDept, onChangeRole, onChangeManager,
 }: {
   row: Row
   departments: OrgTree['departments']
+  allPeople: Row[]
   isCeo: boolean
   onSetCeo: () => void
   onChangePrimaryDept: (deptId: string) => void
   onChangeRole: (role: string) => void
+  onChangeManager: (managerId: string | null) => void
 }) {
+  // Manager candidates: any active person except self. CEO is filtered out as
+  // a managee server-side, but they can still BE a manager.
+  const candidates = allPeople
+    .filter((p) => p.id !== row.id)
+    .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
   return (
     <div
       className="grid items-center gap-3 px-4 py-2.5"
@@ -171,6 +179,22 @@ function PersonRow({
         <option value="EXECUTIVE">Executive</option>
         <option value="DEPARTMENT_LEAD">Department Lead</option>
         <option value="EMPLOYEE">Employee</option>
+      </select>
+
+      <select
+        value={row.manager?.id ?? ''}
+        onChange={(e) => onChangeManager(e.target.value || null)}
+        disabled={isCeo}
+        title={isCeo ? 'CEO cannot have a manager' : 'Choose this person’s direct manager'}
+        className="w-full rounded-md border bg-white px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-50"
+        style={{ borderColor: 'var(--ap-border-strong)' }}
+      >
+        <option value="">— No manager —</option>
+        {candidates.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.name ?? p.email}{p.primaryDept ? ` · ${p.primaryDept.name}` : ''}
+          </option>
+        ))}
       </select>
 
       <span className="ap-status-pill" data-tone={row.isActive === false ? 'none' : 'ontrack'}>

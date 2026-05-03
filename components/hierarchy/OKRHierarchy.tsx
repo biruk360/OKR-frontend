@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import ReactFlow, {
   Node,
   Edge,
@@ -18,6 +19,7 @@ import AddSubPlanNode from './AddSubPlanNode'
 import CompanyRootNode from './CompanyRootNode'
 import type { PlanMetrics } from './ObjectiveNode'
 import { cn } from '@/lib/utils'
+import { AddAlignedObjectiveModal } from './AddAlignedObjectiveModal'
 
 const STRATEGY_ROOT_ID = '__strategy_company_root__'
 const H_SPACING = 520
@@ -115,10 +117,18 @@ const OKRHierarchy = ({
   workspaceName = 'Company',
   layout = 'default',
 }: OKRHierarchyProps) => {
+  const router = useRouter()
   const [nodes, setNodes, onNodesChange] = useNodesState([])
   const [edges, setEdges, onEdgesChange] = useEdgesState([])
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
   const seedFingerprintRef = useRef<string | null>(null)
+  const [alignTarget, setAlignTarget] = useState<{
+    parentObjectiveId: string; parentTitle?: string; parentLevel?: string
+  } | null>(null)
+
+  const openAlignModal = useCallback((args: {
+    parentObjectiveId: string; parentTitle?: string; parentLevel?: string
+  }) => setAlignTarget(args), [])
 
   const handleToggleExpand = useCallback((nodeId: string) => {
     setExpandedNodes((prev) => {
@@ -221,7 +231,12 @@ const OKRHierarchy = ({
             id: addId,
             type: 'addSubPlanNode',
             position: { x: centerX - 100, y: childY },
-            data: { parentObjectiveId: parentId },
+            data: {
+              parentObjectiveId: parentId,
+              parentTitle: parent?.title,
+              parentLevel: parent?.level,
+              onAdd: openAlignModal,
+            },
           })
           addEdgeFromParent(addId)
           return
@@ -246,7 +261,12 @@ const OKRHierarchy = ({
           id: addId,
           type: 'addSubPlanNode',
           position: { x: addX, y: childY },
-          data: { parentObjectiveId: parentId },
+          data: {
+            parentObjectiveId: parentId,
+            parentTitle: parent?.title,
+            parentLevel: parent?.level,
+            onAdd: openAlignModal,
+          } as any,
         })
         addEdgeFromParent(addId)
       }
@@ -259,7 +279,7 @@ const OKRHierarchy = ({
       setNodes(newNodes)
       setEdges(newEdges)
     },
-    [expandedNodes, handleToggleExpand, noopToggleKr, setEdges, setNodes, timeframeName, workspaceName]
+    [expandedNodes, handleToggleExpand, noopToggleKr, setEdges, setNodes, timeframeName, workspaceName, openAlignModal]
   )
 
   const onConnect = useCallback((params: Connection) => setEdges((eds) => addEdge(params, eds)), [setEdges])
@@ -333,6 +353,24 @@ const OKRHierarchy = ({
         <Controls showInteractive={false} className="!shadow-md" />
         <Background color="#d4d4d8" gap={20} size={1} />
       </ReactFlow>
+      <AddAlignedObjectiveModal
+        open={!!alignTarget}
+        onClose={() => setAlignTarget(null)}
+        parentObjectiveId={alignTarget?.parentObjectiveId ?? ''}
+        parentTitle={alignTarget?.parentTitle}
+        parentLevel={alignTarget?.parentLevel}
+        timeframeId={currentTimeframeId}
+        onAligned={() => router.refresh()}
+        onCreateNew={() => {
+          // Hand off to the existing Objectives page with the parent pre-filled
+          // so users can use the full create form. Adopting the URL parameter
+          // pattern lets the Objectives page open its CreateObjectiveModal
+          // pre-linked to this parent.
+          if (alignTarget) {
+            router.push(`/dashboard/objectives?createUnder=${alignTarget.parentObjectiveId}`)
+          }
+        }}
+      />
     </div>
   )
 }

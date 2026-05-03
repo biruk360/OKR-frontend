@@ -17,7 +17,7 @@ export const GET = withAuth(async (request: NextRequest) => {
   const withObjectives = url.searchParams.get('withObjectives') === '1'
   const timeframeId = url.searchParams.get('timeframeId') || undefined
 
-  const [settings, departments, users, objectives] = await Promise.all([
+  const [settings, departments, users, objectives, managerRels] = await Promise.all([
     prisma.organizationSettings.findUnique({
       where: { id: 'singleton' },
       include: { ceo: { select: { id: true, name: true, email: true, avatar: true, role: true } } },
@@ -48,7 +48,19 @@ export const GET = withAuth(async (request: NextRequest) => {
           },
         })
       : Promise.resolve([] as any[]),
+    prisma.managerRelationship.findMany({
+      where: { endedAt: null },
+      select: {
+        directReportId: true,
+        manager: { select: { id: true, name: true, email: true, avatar: true } },
+      },
+    }),
   ])
+
+  const managerByUser = new Map<string, { id: string; name: string | null; email: string; avatar: string | null }>()
+  for (const r of managerRels) {
+    if (r.manager) managerByUser.set(r.directReportId, r.manager)
+  }
 
   const objByDept = new Map<string, any[]>()
   const objByOwner = new Map<string, any[]>()
@@ -81,16 +93,16 @@ export const GET = withAuth(async (request: NextRequest) => {
           membershipId: m.id,
           role: m.role,
           isPrimary: m.isPrimary,
-          user: m.user,
+          user: { ...m.user, manager: managerByUser.get(m.user.id) ?? null },
           objectives: withObjectives ? (objByOwner.get(m.user.id) ?? []) : undefined,
         })),
         objectiveCount: d._count.objectives,
         objectives: withObjectives ? (objByDept.get(d.id) ?? []) : undefined,
       }
     }),
-    unassignedUsers: users.filter(
-      (u) => !departments.some((d) => d.memberships.some((m) => m.user.id === u.id)),
-    ),
+    unassignedUsers: users
+      .filter((u) => !departments.some((d) => d.memberships.some((m) => m.user.id === u.id)))
+      .map((u) => ({ ...u, manager: managerByUser.get(u.id) ?? null })),
   }
 
   return apiSuccess(tree)

@@ -5,6 +5,12 @@ export interface OrgPerson {
   avatar?: string | null
   role: string
   isActive?: boolean
+  manager?: {
+    id: string
+    name: string | null
+    email: string
+    avatar?: string | null
+  } | null
 }
 
 export interface OrgMembership {

@@ -19,6 +19,7 @@ import { useCreateIntentStore } from '@/lib/stores/create-intent-store'
 import StatusPill from '@/components/shared/StatusPill'
 import { EmptyState } from '@/components/ui/EmptyState'
 import AddToSprintDropdown from '@/components/sprints/AddToSprintDropdown'
+import { GenerateSprintButton } from '@/features/sprints-ai'
 import { cn } from '@/lib/utils'
 
 type Tab = 'active' | 'planning' | 'backlog' | 'completed'
@@ -307,14 +308,17 @@ export default function SprintsListClient({ currentUserId }: { currentUserId: st
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-[24px] font-semibold leading-tight" style={{ letterSpacing: '-0.02em' }}>Sprints</h1>
-        <button
-          type="button"
-          onClick={() => setCreating(true)}
-          className="ml-auto inline-flex items-center gap-1.5 rounded-[10px] h-8 px-3 text-[12px] font-semibold text-white"
-          style={{ background: 'var(--ap-accent)' }}
-        >
-          <Plus className="h-3.5 w-3.5" /> New sprint
-        </button>
+        <div className="ml-auto flex items-center gap-2">
+          <GenerateSprintButton />
+          <button
+            type="button"
+            onClick={() => setCreating(true)}
+            className="inline-flex items-center gap-1.5 rounded-[10px] h-8 px-3 text-[12px] font-semibold text-white"
+            style={{ background: 'var(--ap-accent)' }}
+          >
+            <Plus className="h-3.5 w-3.5" /> New sprint
+          </button>
+        </div>
       </div>
 
       {/* Sub-tabs */}

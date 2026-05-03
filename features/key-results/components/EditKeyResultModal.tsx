@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
-import { Target, TrendingUp } from 'lucide-react'
+import { Target, TrendingUp, Building2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { Modal } from '@/components/ui'
 
@@ -32,6 +32,26 @@ export default function EditKeyResultModal({
   onSuccess,
 }: EditKeyResultModalProps) {
   const [isLoading, setIsLoading] = useState(false)
+  const [inheritedDept, setInheritedDept] = useState<string | null>(null)
+
+  // Surface the parent objective's department so editors see what this KR
+  // currently inherits — KRs have no own departmentId by design.
+  useEffect(() => {
+    if (!isOpen || !keyResult) { setInheritedDept(null); return }
+    const objId = keyResult.objectiveId ?? keyResult.objective?.id
+    const inline = keyResult.objective?.department?.name
+    if (inline) { setInheritedDept(inline); return }
+    if (!objId) return
+    let cancelled = false
+    fetch(`/api/objectives/${objId}`)
+      .then((r) => r.json())
+      .then((j) => {
+        if (cancelled) return
+        setInheritedDept(j?.data?.department?.name ?? null)
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [isOpen, keyResult])
 
   const { register, handleSubmit, watch, reset, formState: { errors } } = useForm<KeyResultFormData>({
     defaultValues: {
@@ -98,6 +118,16 @@ export default function EditKeyResultModal({
   return (
     <Modal open={isOpen} onClose={onClose} title="Edit Key Result" icon={Target} iconClassName="text-blue-600" size="sm">
       <form onSubmit={handleSubmit(onSubmit)}>
+        {inheritedDept && (
+          <div className="mb-4 flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800">
+            <Building2 className="h-3.5 w-3.5 shrink-0" />
+            <span>
+              <span className="font-semibold uppercase tracking-wide">Department</span>
+              <span className="mx-1.5">·</span>
+              Inherited from objective: <span className="font-semibold">{inheritedDept}</span>
+            </span>
+          </div>
+        )}
         <div className="mb-4">
           <label htmlFor="title" className="block text-sm font-medium text-muted-foreground mb-2">
             Title <span className="text-red-500">*</span>

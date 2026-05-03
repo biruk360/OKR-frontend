@@ -299,33 +299,44 @@ export default function CreateObjectiveModal({
           </p>
         </div>
 
-        {(selectedLevel === 'DEPARTMENT' || selectedLevel === 'INDIVIDUAL') && (
+        {selectedLevel && (
           <div>
             <label htmlFor="departmentId" className="block text-sm font-medium text-muted-foreground mb-1">
-              Department {selectedLevel === 'DEPARTMENT' ? '*' : <span className="font-normal text-muted-foreground/70">(optional)</span>}
+              Department {selectedLevel === 'DEPARTMENT' ? '*' : <span className="font-normal text-muted-foreground/70">{selectedLevel === 'COMPANY' ? '(not applicable)' : '(optional)'}</span>}
             </label>
-            <select
-              {...register('departmentId', selectedLevel === 'DEPARTMENT' ? { required: 'Department is required' } : {})}
-              className="input"
-            >
-              <option value="">
-                {selectedLevel === 'DEPARTMENT'
-                  ? 'Select department'
-                  : '— Inherit from owner’s primary department —'}
-              </option>
-              {departments.map((department) => (
-                <option key={department.id} value={department.id}>
-                  {department.name}
-                </option>
-              ))}
-            </select>
-            {errors.departmentId && (
-              <p className="mt-1 text-sm text-danger-600">{errors.departmentId.message}</p>
-            )}
-            {selectedLevel === 'INDIVIDUAL' && (
-              <p className="mt-1 text-xs text-muted-foreground">
-                Leave blank to auto-derive from the owner&apos;s primary department, or pick one to override.
-              </p>
+            {selectedLevel === 'COMPANY' ? (
+              <input
+                type="text"
+                value="— Company OKRs are not assigned to a department —"
+                disabled
+                className="input bg-muted/40 text-muted-foreground cursor-not-allowed"
+              />
+            ) : (
+              <>
+                <select
+                  {...register('departmentId', selectedLevel === 'DEPARTMENT' ? { required: 'Department is required' } : {})}
+                  className="input"
+                >
+                  <option value="">
+                    {selectedLevel === 'DEPARTMENT'
+                      ? 'Select department'
+                      : '— Inherit from owner’s primary department —'}
+                  </option>
+                  {departments.map((department) => (
+                    <option key={department.id} value={department.id}>
+                      {department.name}
+                    </option>
+                  ))}
+                </select>
+                {errors.departmentId && (
+                  <p className="mt-1 text-sm text-danger-600">{errors.departmentId.message}</p>
+                )}
+                {selectedLevel === 'INDIVIDUAL' && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Leave blank to auto-derive from the owner&apos;s primary department, or pick one to override.
+                  </p>
+                )}
+              </>
             )}
           </div>
         )}

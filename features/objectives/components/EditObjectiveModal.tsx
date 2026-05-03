@@ -197,36 +197,45 @@ export default function EditObjectiveModal({ isOpen, onClose, objective }: EditO
           </div>
         </div>
 
-        {(objective.level === 'DEPARTMENT' || objective.level === 'INDIVIDUAL') && (
-          <div>
-            <label htmlFor="departmentId" className="block text-sm font-medium text-muted-foreground mb-1">
-              Department {objective.level === 'DEPARTMENT' ? '*' : <span className="font-normal text-muted-foreground/70">(optional)</span>}
-            </label>
-            <select
-              {...register('departmentId', objective.level === 'DEPARTMENT' ? { required: 'Department is required.' } : {})}
-              className="input"
-            >
-              <option value="">
-                {objective.level === 'DEPARTMENT'
-                  ? 'Select department'
-                  : '— Inherit from owner’s primary department —'}
-              </option>
-              {departments.map((department) => (
-                <option key={department.id} value={department.id}>
-                  {department.name}
+        <div>
+          <label htmlFor="departmentId" className="block text-sm font-medium text-muted-foreground mb-1">
+            Department {objective.level === 'DEPARTMENT' ? '*' : <span className="font-normal text-muted-foreground/70">{objective.level === 'COMPANY' ? '(not applicable)' : '(optional)'}</span>}
+          </label>
+          {objective.level === 'COMPANY' ? (
+            <input
+              type="text"
+              value="— Company OKRs are not assigned to a department —"
+              disabled
+              className="input bg-muted/40 text-muted-foreground cursor-not-allowed"
+            />
+          ) : (
+            <>
+              <select
+                {...register('departmentId', objective.level === 'DEPARTMENT' ? { required: 'Department is required.' } : {})}
+                className="input"
+              >
+                <option value="">
+                  {objective.level === 'DEPARTMENT'
+                    ? 'Select department'
+                    : '— Inherit from owner’s primary department —'}
                 </option>
-              ))}
-            </select>
-            {errors.departmentId && (
-              <p className="mt-1 text-sm text-red-600">{errors.departmentId.message}</p>
-            )}
-            {objective.level === 'INDIVIDUAL' && (
-              <p className="mt-1 text-xs text-muted-foreground">
-                Clear to re-inherit from the owner&apos;s primary department.
-              </p>
-            )}
-          </div>
-        )}
+                {departments.map((department) => (
+                  <option key={department.id} value={department.id}>
+                    {department.name}
+                  </option>
+                ))}
+              </select>
+              {errors.departmentId && (
+                <p className="mt-1 text-sm text-red-600">{errors.departmentId.message}</p>
+              )}
+              {objective.level === 'INDIVIDUAL' && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Clear to re-inherit from the owner&apos;s primary department.
+                </p>
+              )}
+            </>
+          )}
+        </div>
 
         {(objective.level === 'DEPARTMENT' || objective.level === 'INDIVIDUAL') && (
           <ParentObjectiveSelector

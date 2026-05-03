@@ -13,6 +13,35 @@
 
 ---
 
+## 2026-05-03 — AI Sprint Planning: Phases 1, 1.6, 2 (schema + math layer, no AI calls yet)
+
+- **Added** `lib/ai/sprint-math.ts` — pure allocation math: `computeRemainingGap`, `computeWeeksLeft`, `computeSprintsLeft`, `computeLinearShare`, `computeVelocityFactor` (clamps [0.5, 1.5]), `computeWeightShares` (auto-equal when all weights 0), `computeTimeBudgets` (off-track +20%, on-track −10%, normalized), `computeNewTaskTarget`, `buildAllocations`, `isSprintDebt`. ES5-compatible (no for-of on Maps).
+- **Added** `lib/ai/carryover.ts` — `selectIncomplete`, `classifyCandidate` with server-forced rules (KR_INACTIVE → DESCOPE, KR_TARGET_MET → DESCOPE, ASSIGNEE_INACTIVE → ESCALATE, REPEAT_CARRYOVER ≥ 2 → no plain KEEP), `isStaleDueDate`, `carryoverDeltaByKr`, `summarize`.
+- **Added** `lib/ai/context-bundler.ts` — `buildContextBundle` supporting AUTO + MANUAL modes per spec §3.0. Privacy filter (admin/exec bypass), parents 1 hop up, prior 2 sprints, partitioned carryover candidates, MANUAL out-of-scope detection, AUTO-only cross-team off-track signal. Throws `InvalidScopeError` for permission/scope failures.
+- **Added** `lib/ai/config.ts` — multi-provider support (`anthropic` / `openai` / `gemini`), `AI_PROVIDERS`, `getAiOrgConfig()`, `hasProviderKey()`, `availableProviders()`, per-provider model defaults.
+- **Added** `lib/ai/cost.ts` — pricing tables for all three providers including cache-hit pricing, `inferProvider()` model-prefix matcher.
+- **Added** `lib/ai/generation-log.ts` — `recordGenerationLog()` with provider field, `isDailyCapReached()` cross-provider counter.
+- **Added** `lib/ai/providers/types.ts` + `lib/ai/providers/index.ts` — `AiProvider` interface, `ProviderNotConfiguredError`, `ProviderCallError`, `getProvider()` factory stub. Phase 3 will wire concrete Anthropic / OpenAI / Gemini implementations.
+- **Added** `app/api/admin/ai-logs/route.ts` — paginated list with filters (feature/status/model/user/provider/date), ADMIN+EXECUTIVE gated, joins user data, computes cache-hit % per row.
+- **Added** `app/dashboard/admin/ai-logs/page.tsx` + `features/admin-ai-logs/` — table view with 5-card aggregate strip (generations, cost, avg latency, cache hit %, error rate), provider badge column, provider/feature/status filters, pagination, empty/error states.
+- **Added** `scripts/validate-ai-math.ts` — runnable smoke test (`npx tsx`) loading real DB data and asserting 12 invariants (no NaN, velocity factor in range, weightShare sums to 1.0, server-forced rules applied, MANUAL scope match). Verified passing locally.
+- **Added** `docs/AI_SPRINT_PLANNING.md` — consolidated requirements doc with §3.0 user-driven initiation flow (Generate AI Sprint button + scope-selection modal with AUTO vs MANUAL cards), §3.0.1 OkrPicker (multi-select extension of ParentObjectiveSelector with KR-level checkboxes), §3.5 carryover triage (5 dispositions + server-forced rules), §3.6 admin observability surface, §4.1 multi-provider matrix (Anthropic / OpenAI / Gemini), §5 schema additions, §6 API surface, 49 acceptance criteria.
+- **Added** `docs/REQUIREMENTS.md` — central requirements index with status legend and authoring conventions.
+- **Modified** `prisma/schema.prisma` — `OrganizationSettings.aiSprintPlanningEnabled` (default false), `OrganizationSettings.aiPreferredProvider` (default "anthropic"), `Todo` carryover columns (`aiSuggested`, `ambitionLevel`, `originalSprintId`, `carryoverCount`, `lastCarriedAt`, `carryoverReplacedById`, `carryoverDisposition`), new `AiSprintPlan` model, new `AiGenerationLog` model with provider column. All additive / nullable / default-safe — `prisma db push` is sufficient on deploy, no preflight SQL needed.
+- **Modified** `lib/dashboard-navigation.ts` — added "AI Logs" entry under People & Organization, gated behind page-level role check (ADMIN/EXECUTIVE).
+- **Modified** `env.example` — `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, optional model overrides per provider, `AI_DAILY_GENERATION_CAP`.
+- **Modified** `docs/FEATURE_STATUS.md` — added `AI Sprint Planning` row (PLANNED) under Work Management.
+- **Tests:** `npx tsc --noEmit` passes. `npx tsx scripts/validate-ai-math.ts` passes 12/12 invariants against local DB.
+- **Docs updated:** `docs/AI_SPRINT_PLANNING.md`, `docs/REQUIREMENTS.md`, `docs/FEATURE_STATUS.md`, `docs/CHANGELOG_AI.md`.
+
+## 2026-05-03 — AI Sprint Planning: feature spec + requirements index (no code)
+
+- **Added** `docs/AI_SPRINT_PLANNING.md` — consolidated requirements for AI-generated bi-weekly sprint plans, including incomplete-todo carryover triage (KEEP / SPLIT / RESCHEDULE / DESCOPE / ESCALATE), allocation math that nets carryover against new-task targets, server-forced disposition rules (archived KR → DESCOPE, target-met KR → DESCOPE, repeat carryover ≥ 2 → no plain KEEP), schema additions (`AiSprintPlan`, `AiGenerationLog`, `Todo` carryover columns, `OrganizationSettings.aiSprintPlanningEnabled`), API surface under `app/api/sprints/ai/`, RBAC matrix, UI touchpoints, NFRs, and 28 acceptance criteria (14 core + 14 carryover).
+- **Added** `docs/REQUIREMENTS.md` — central index of all feature spec docs, with status legend (DRAFT / APPROVED / IN PROGRESS / SHIPPED / DEFERRED / REJECTED), authoring conventions for future specs, and an active-requirements table seeded with the AI Sprint Planning entry.
+- **Modified** `docs/FEATURE_STATUS.md` — added `AI Sprint Planning` row under Work Management, status `PLANNED`, pointing at the spec.
+- **Tests:** not run — spec only, no code changed.
+- **Docs updated:** `docs/AI_SPRINT_PLANNING.md` (new), `docs/REQUIREMENTS.md` (new), `docs/FEATURE_STATUS.md`.
+
 ## 2026-04-28 — Reports/dashboards Phase 2: employee super-dashboard
 
 - **Added** `features/reports/components/EmployeeSuperDashboard.tsx` — purpose-built employee experience: Today strip (due today / KRs needing check-in / streak), radial gauges per owned KR with log-check-in CTA, personal velocity sparkline (8 weeks), alignment strip (me → parent → … → root), in-progress kanban preview that opens `TodoCardModal` via `useInitiativeDetailStore`, 12-week SVG streak heatmap, 14-day upcoming agenda, and recommendations.

@@ -16,53 +16,53 @@ datasource db {
 // Enums are represented as String for portability and simpler migrations
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String
-  password  String?
-  avatar    String?
-  role      String   @default("EMPLOYEE") // ADMIN, EXECUTIVE, DEPARTMENT_LEAD, EMPLOYEE
-  isActive  Boolean  @default(true)
-  activationToken String?
+  id                     String    @id @default(cuid())
+  email                  String    @unique
+  name                   String
+  password               String?
+  avatar                 String?
+  role                   String    @default("EMPLOYEE") // ADMIN, EXECUTIVE, DEPARTMENT_LEAD, EMPLOYEE
+  isActive               Boolean   @default(true)
+  activationToken        String?
   activationTokenExpires DateTime?
-  lastLoginAt DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  lastLoginAt            DateTime?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
 
   // Relationships
-  ownedObjectives     Objective[]     @relation("ObjectiveOwner")
-  ownedKeyResults     KeyResult[]     @relation("KeyResultOwner")
-  assignedTodos       Todo[]          @relation("TodoAssignee")
-  createdTodos        Todo[]          @relation("TodoCreator")
-  keyResultCheckIns   KeyResultCheckIn[]
-  comments            Comment[]
-  notifications       Notification[]
-  departmentMemberships DepartmentMembership[]
-  managerRelationships ManagerRelationship[] @relation("Manager")
-  directReports       ManagerRelationship[] @relation("DirectReport")
-  clientErrorLogs     ClientErrorLog[]
-  activityLogs        ActivityLog[]
-  objectiveViews      ObjectiveView[]
-  keyResultViews      KeyResultView[]
-  objectiveContributions ObjectiveContributor[]
-  ownedSprints        Sprint[]        @relation("SprintOwner")
-  ownedSprintActivities SprintActivity[] @relation("SprintActivityOwner")
-  sprintActivityComments SprintActivityComment[] @relation("SprintActivityCommentAuthor")
-  assignedSprintActivityTasks SprintActivityTask[] @relation("SprintActivityTaskAssignee")
-  emailDigestSent     EmailDigestState?
-  initiativeUpdates   InitiativeUpdate[]  @relation("InitiativeUpdateAuthor")
-  userPreferences     UserPreference?
-  notificationPrefs   NotificationPreference[]
-  watchers            Watcher[]
-  favorites           Favorite[]
-  todoMembers         TodoMember[]            @relation("TodoMemberUser")
-  todoChecklistItems  TodoChecklistItem[]     @relation("TodoChecklistItemAssignee")
-  todoAttachments     TodoAttachment[]        @relation("TodoAttachmentUploader")
-  todoComments        TodoComment[]           @relation("TodoCommentAuthor")
-  reportedRisks       Risk[]                  @relation("RiskReporter")
-  sprintParticipations SprintParticipant[]    @relation("SprintParticipantUser")
-  sprintsEnded         Sprint[]               @relation("SprintEndedBy")
-  ceoOf                OrganizationSettings?  @relation("OrgSettingsCeo")
+  ownedObjectives             Objective[]              @relation("ObjectiveOwner")
+  ownedKeyResults             KeyResult[]              @relation("KeyResultOwner")
+  assignedTodos               Todo[]                   @relation("TodoAssignee")
+  createdTodos                Todo[]                   @relation("TodoCreator")
+  keyResultCheckIns           KeyResultCheckIn[]
+  comments                    Comment[]
+  notifications               Notification[]
+  departmentMemberships       DepartmentMembership[]
+  managerRelationships        ManagerRelationship[]    @relation("Manager")
+  directReports               ManagerRelationship[]    @relation("DirectReport")
+  clientErrorLogs             ClientErrorLog[]
+  activityLogs                ActivityLog[]
+  objectiveViews              ObjectiveView[]
+  keyResultViews              KeyResultView[]
+  objectiveContributions      ObjectiveContributor[]
+  ownedSprints                Sprint[]                 @relation("SprintOwner")
+  ownedSprintActivities       SprintActivity[]         @relation("SprintActivityOwner")
+  sprintActivityComments      SprintActivityComment[]  @relation("SprintActivityCommentAuthor")
+  assignedSprintActivityTasks SprintActivityTask[]     @relation("SprintActivityTaskAssignee")
+  emailDigestSent             EmailDigestState?
+  initiativeUpdates           InitiativeUpdate[]       @relation("InitiativeUpdateAuthor")
+  userPreferences             UserPreference?
+  notificationPrefs           NotificationPreference[]
+  watchers                    Watcher[]
+  favorites                   Favorite[]
+  todoMembers                 TodoMember[]             @relation("TodoMemberUser")
+  todoChecklistItems          TodoChecklistItem[]      @relation("TodoChecklistItemAssignee")
+  todoAttachments             TodoAttachment[]         @relation("TodoAttachmentUploader")
+  todoComments                TodoComment[]            @relation("TodoCommentAuthor")
+  reportedRisks               Risk[]                   @relation("RiskReporter")
+  sprintParticipations        SprintParticipant[]      @relation("SprintParticipantUser")
+  sprintsEnded                Sprint[]                 @relation("SprintEndedBy")
+  ceoOf                       OrganizationSettings?    @relation("OrgSettingsCeo")
 
   @@map("users")
 }
@@ -72,7 +72,7 @@ model User {
 model Favorite {
   id         String   @id @default(cuid())
   userId     String
-  entityType String   // "OBJECTIVE" for now
+  entityType String // "OBJECTIVE" for now
   entityId   String
   createdAt  DateTime @default(now())
 
@@ -85,10 +85,10 @@ model Favorite {
 
 /// Stores per-user UI preferences (sidebar vs modal for todo view, etc).
 model UserPreference {
-  userId           String   @id
-  todoViewMode     String   @default("modal") // "modal" | "sidebar"
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  userId       String   @id
+  todoViewMode String   @default("modal") // "modal" | "sidebar"
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -118,13 +118,13 @@ model Department {
 /// `isPrimary` marks the user's primary department (exactly one active row per user).
 /// `endedAt` enables soft-removal + history; null means active membership.
 model DepartmentMembership {
-  id           String     @id @default(cuid())
+  id           String    @id @default(cuid())
   userId       String
   departmentId String
-  role         String     @default("MEMBER") // HEAD | MEMBER | SECONDARY_MEMBER
-  legacyRole   String?    // backfill-only; dropped after data migration
-  isPrimary    Boolean    @default(true)
-  joinedAt     DateTime   @default(now())
+  role         String    @default("MEMBER") // HEAD | MEMBER | SECONDARY_MEMBER
+  legacyRole   String? // backfill-only; dropped after data migration
+  isPrimary    Boolean   @default(true)
+  joinedAt     DateTime  @default(now())
   endedAt      DateTime?
 
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -137,11 +137,11 @@ model DepartmentMembership {
 }
 
 model ManagerRelationship {
-  id            String   @id @default(cuid())
-  managerId     String
+  id             String    @id @default(cuid())
+  managerId      String
   directReportId String
-  startedAt     DateTime @default(now())
-  endedAt       DateTime?
+  startedAt      DateTime  @default(now())
+  endedAt        DateTime?
 
   manager      User @relation("Manager", fields: [managerId], references: [id], onDelete: Cascade)
   directReport User @relation("DirectReport", fields: [directReportId], references: [id], onDelete: Cascade)
@@ -155,13 +155,19 @@ model ManagerRelationship {
 /// Singleton row (id = "singleton") holding company-wide settings:
 /// the CEO designation and feature flags for org structure.
 model OrganizationSettings {
-  id                       String   @id @default("singleton")
-  companyName              String   @default("My Company")
-  companyCeoUserId         String?  @unique
-  allowMatrixReporting     Boolean  @default(false)
-  allowMultipleDeptHeads   Boolean  @default(false)
-  createdAt                DateTime @default(now())
-  updatedAt                DateTime @updatedAt
+  id                      String   @id @default("singleton")
+  companyName             String   @default("My Company")
+  companyCeoUserId        String?  @unique
+  allowMatrixReporting    Boolean  @default(false)
+  allowMultipleDeptHeads  Boolean  @default(false)
+  /// Master switch for the AI Sprint Planning feature (see docs/AI_SPRINT_PLANNING.md).
+  /// When false, /api/sprints/ai/* routes return 404 and the "AI Plan" button is hidden.
+  aiSprintPlanningEnabled Boolean  @default(false)
+  /// Default AI provider when a /generate call doesn't specify one.
+  /// One of "anthropic" | "openai" | "gemini".
+  aiPreferredProvider     String   @default("anthropic")
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
 
   ceo User? @relation("OrgSettingsCeo", fields: [companyCeoUserId], references: [id], onDelete: SetNull)
 
@@ -169,14 +175,14 @@ model OrganizationSettings {
 }
 
 model Timeframe {
-  id          String   @id @default(cuid())
-  name        String   @unique // e.g., "Q1 2025", "H2 2025", "January 2025"
-  type        String   @default("QUARTERLY") // MONTHLY, QUARTERLY, SIX_MONTH, YEARLY
-  startDate   DateTime
-  endDate     DateTime
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(cuid())
+  name      String   @unique // e.g., "Q1 2025", "H2 2025", "January 2025"
+  type      String   @default("QUARTERLY") // MONTHLY, QUARTERLY, SIX_MONTH, YEARLY
+  startDate DateTime
+  endDate   DateTime
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relationships
   objectives Objective[]
@@ -185,50 +191,50 @@ model Timeframe {
 }
 
 model Objective {
-  id          String           @id @default(cuid())
-  title       String
-  description String?
-  level       String           // COMPANY, DEPARTMENT, INDIVIDUAL
-  status      String           @default("ACTIVE") // ACTIVE, ARCHIVED, DELETED
-  goalStatus  String           @default("ON_TRACK") // ON_TRACK, AT_RISK, OFF_TRACK, CLOSED
-  progress    Float            @default(0) // Calculated from Key Results
+  id                String    @id @default(cuid())
+  title             String
+  description       String?
+  level             String // COMPANY, DEPARTMENT, INDIVIDUAL
+  status            String    @default("ACTIVE") // ACTIVE, ARCHIVED, DELETED
+  goalStatus        String    @default("ON_TRACK") // ON_TRACK, AT_RISK, OFF_TRACK, CLOSED
+  progress          Float     @default(0) // Calculated from Key Results
   // Owner-reported objective-level confidence (0-100). Read by Apple Pro hero/right-rail.
   // NOTE: requires `prisma db push` on deploy — preflight.sql already runs in CI.
-  confidence  Int              @default(50)
-  isPrivate   Boolean          @default(false) // Visibility: false = Public, true = Private
-  startDate   DateTime?
-  endDate     DateTime?
-  ownerId     String
-  timeframeId String
-  departmentId String?
+  confidence        Int       @default(50)
+  isPrivate         Boolean   @default(false) // Visibility: false = Public, true = Private
+  startDate         DateTime?
+  endDate           DateTime?
+  ownerId           String
+  timeframeId       String
+  departmentId      String?
   parentObjectiveId String?
   /// LOOSE = visual alignment only; STRICT_DEPENDENCY = progress can roll up from active child objectives
-  alignmentType     String           @default("LOOSE")
+  alignmentType     String    @default("LOOSE")
   /// NONE | AVERAGE | SUM — used only when alignmentType is STRICT_DEPENDENCY and there are active children
-  rollupCalculation String           @default("NONE")
+  rollupCalculation String    @default("NONE")
   /// Mandatory check-in cadence: WEEKLY | BIWEEKLY | MONTHLY | QUARTERLY
-  checkInCadence    String           @default("WEEKLY")
+  checkInCadence    String    @default("WEEKLY")
   /// Raw weight used when this objective contributes to a parent's progress.
   /// 0 = treated as auto (equal split with siblings whose weight is also 0).
   /// Otherwise, the relative weight among siblings determines contribution %.
-  weight            Float            @default(0)
-  archivedAt  DateTime?
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  weight            Float     @default(0)
+  archivedAt        DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   // Relationships
-  owner            User         @relation("ObjectiveOwner", fields: [ownerId], references: [id])
-  timeframe        Timeframe    @relation(fields: [timeframeId], references: [id])
-  department       Department?  @relation(fields: [departmentId], references: [id])
-  parentObjective  Objective?   @relation("ObjectiveHierarchy", fields: [parentObjectiveId], references: [id])
-  childObjectives  Objective[]  @relation("ObjectiveHierarchy")
+  owner            User                   @relation("ObjectiveOwner", fields: [ownerId], references: [id])
+  timeframe        Timeframe              @relation(fields: [timeframeId], references: [id])
+  department       Department?            @relation(fields: [departmentId], references: [id])
+  parentObjective  Objective?             @relation("ObjectiveHierarchy", fields: [parentObjectiveId], references: [id])
+  childObjectives  Objective[]            @relation("ObjectiveHierarchy")
   keyResults       KeyResult[]
   comments         Comment[]
   objectiveLabels  ObjectiveLabel[]
   activityLogs     ActivityLog[]
   views            ObjectiveView[]
-  sprintActivities SprintActivity[]  @relation("SprintActivityObjective")
-  todos            Todo[]            @relation("TodoObjective")
+  sprintActivities SprintActivity[]       @relation("SprintActivityObjective")
+  todos            Todo[]                 @relation("TodoObjective")
   contributors     ObjectiveContributor[]
   risks            Risk[]
 
@@ -240,13 +246,13 @@ model Objective {
 /// Additional people collaborating on an objective besides the sole owner.
 /// Contributors can edit KRs and check in; they do NOT inherit admin rights.
 model ObjectiveContributor {
-  id          String    @id @default(cuid())
+  id          String   @id @default(cuid())
   objectiveId String
   userId      String
-  addedAt     DateTime  @default(now())
+  addedAt     DateTime @default(now())
 
-  objective   Objective @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  objective Objective @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([objectiveId, userId])
   @@index([userId])
@@ -254,56 +260,56 @@ model ObjectiveContributor {
 }
 
 model KeyResult {
-  id            String           @id @default(cuid())
-  title         String
-  description   String?
-  startValue    Float            @default(0)
-  targetValue   Float
-  currentValue  Float            @default(0)
-  unit          String           // e.g., "%", "users", "$"
-  confidence    String           @default("ON_TRACK") // ON_TRACK, AT_RISK, OFF_TRACK
-  progress      Float            @default(0) // Calculated from currentValue/targetValue
-  status        String           @default("ACTIVE") // ACTIVE, ARCHIVED, DELETED
-  isPrivate     Boolean          @default(false) // Visibility: false = Public, true = Private
-  ownerId       String
-  objectiveId   String
+  id             String    @id @default(cuid())
+  title          String
+  description    String?
+  startValue     Float     @default(0)
+  targetValue    Float
+  currentValue   Float     @default(0)
+  unit           String // e.g., "%", "users", "$"
+  confidence     String    @default("ON_TRACK") // ON_TRACK, AT_RISK, OFF_TRACK
+  progress       Float     @default(0) // Calculated from currentValue/targetValue
+  status         String    @default("ACTIVE") // ACTIVE, ARCHIVED, DELETED
+  isPrivate      Boolean   @default(false) // Visibility: false = Public, true = Private
+  ownerId        String
+  objectiveId    String
   /// Mandatory check-in cadence: WEEKLY | BIWEEKLY | MONTHLY | QUARTERLY
-  checkInCadence String          @default("WEEKLY")
+  checkInCadence String    @default("WEEKLY")
   /// Raw weight used when this KR contributes to its parent objective's progress.
   /// 0 = treated as auto (equal split with siblings whose weight is also 0).
-  weight        Float            @default(0)
-  archivedAt    DateTime?
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
+  weight         Float     @default(0)
+  archivedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   // Relationships
-  owner   User    @relation("KeyResultOwner", fields: [ownerId], references: [id])
-  objective Objective @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
-  todos    Todo[] // Renamed conceptually to "Initiative" in the UI; table is `initiatives`
-  comments Comment[]
-  checkIns KeyResultCheckIn[]
-  activityLogs ActivityLog[]
-  views    KeyResultView[]
+  owner            User               @relation("KeyResultOwner", fields: [ownerId], references: [id])
+  objective        Objective          @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
+  todos            Todo[] // Renamed conceptually to "Initiative" in the UI; table is `initiatives`
+  comments         Comment[]
+  checkIns         KeyResultCheckIn[]
+  activityLogs     ActivityLog[]
+  views            KeyResultView[]
   sprintActivities SprintActivity[]
-  risks    Risk[]
+  risks            Risk[]
 
   @@map("key_results")
 }
 
 model KeyResultCheckIn {
-  id          String   @id @default(cuid())
-  keyResultId String
-  asOfDate    DateTime
-  value       Float
+  id              String   @id @default(cuid())
+  keyResultId     String
+  asOfDate        DateTime
+  value           Float
   /// Legacy enum-style tier kept for backward compatibility (ON_TRACK | AT_RISK | OFF_TRACK).
   /// New writes should also set `confidenceScore`; reads should prefer it.
-  confidence  String
+  confidence      String
   /// Numeric 0-100 confidence captured from the Apple-style slider.
   /// Default 50 keeps existing rows valid until backfilled (see scripts/preflight.sql).
-  confidenceScore Int @default(50)
-  analysis    String?
-  createdById String
-  createdAt   DateTime @default(now())
+  confidenceScore Int      @default(50)
+  analysis        String?
+  createdById     String
+  createdAt       DateTime @default(now())
 
   keyResult KeyResult @relation(fields: [keyResultId], references: [id], onDelete: Cascade)
   createdBy User      @relation(fields: [createdById], references: [id], onDelete: Cascade)
@@ -318,39 +324,57 @@ model KeyResultCheckIn {
 /// working; the underlying table is `initiatives` and user-facing labels say
 /// "To-do" on the dedicated page and "Initiative" when shown under a KR.
 model Todo {
-  id          String     @id @default(cuid())
-  title       String
-  description String?
-  status      String     @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, CANCELLED
-  priority    String     @default("MEDIUM")  // LOW, MEDIUM, HIGH, URGENT
-  coverColor  String?    // hex or named colour for the card cover strip
-  dueDate     DateTime?
-  completedAt DateTime?
-  assigneeId  String
-  creatorId   String
+  id                    String    @id @default(cuid())
+  title                 String
+  description           String?
+  status                String    @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, CANCELLED
+  priority              String    @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  coverColor            String? // hex or named colour for the card cover strip
+  dueDate               DateTime?
+  completedAt           DateTime?
+  assigneeId            String
+  creatorId             String
   /// Optional link to a Key Result — when set, the todo contributes toward KR work.
-  keyResultId String?
+  keyResultId           String?
   /// Optional link to an Objective — use when the work spans a whole objective
   /// rather than a single KR. Mutually informative with keyResultId; both can be set.
-  objectiveId String?
+  objectiveId           String?
   /// Numeric contribution in the parent KR's unit (ETB, pcs, qty, hours, %, …).
   /// When the initiative is marked COMPLETED, this value is summed into the
   /// parent KR's currentValue (see lib/objectiveProgress.ts → recalcKrFromInitiatives).
-  progressValue Float?
+  progressValue         Float?
   /// Sprint v2 (Phase 1) — optional link to a Sprint. Allows todos to participate in
   /// the unified Sprint+Todo board planned for Phase 3. SetNull on sprint delete.
-  sprintId    String?
+  sprintId              String?
   /// Free-form task type tag (CALL, EMAIL, DEMO, MEETING, PROPOSAL, FOLLOW_UP, ADMIN, GENERAL).
-  taskType    String?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  taskType              String?
+  /// AI Sprint Planning (see docs/AI_SPRINT_PLANNING.md) — true when the row was
+  /// generated by the AI sprint planner, false when manually created.
+  aiSuggested           Boolean   @default(false)
+  /// COMMITTED | STRETCH — set on AI-suggested rows so the user can drop stretch tasks.
+  ambitionLevel         String?
+  /// Sprint id where this todo was first created. Preserved across SPLIT carryovers
+  /// so we can trace lineage back to the original sprint.
+  originalSprintId      String?
+  /// How many prior sprints this todo has been carried into. 0 for a fresh todo.
+  /// >=2 disallows plain KEEP disposition — must be SPLIT/DESCOPE/ESCALATE.
+  carryoverCount        Int       @default(0)
+  /// When the row was last carried over to a new sprint.
+  lastCarriedAt         DateTime?
+  /// When SPLIT was applied, points at the cuid that groups the resulting child todos.
+  carryoverReplacedById String?
+  /// KEEP | SPLIT | RESCHEDULE | DESCOPE | ESCALATE — last carryover decision applied.
+  /// Null on first creation.
+  carryoverDisposition  String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
   // Relationships
-  assignee    User        @relation("TodoAssignee", fields: [assigneeId], references: [id])
-  creator     User        @relation("TodoCreator", fields: [creatorId], references: [id])
-  keyResult   KeyResult?  @relation(fields: [keyResultId], references: [id], onDelete: Cascade)
-  objective   Objective?  @relation("TodoObjective", fields: [objectiveId], references: [id], onDelete: SetNull)
-  sprint      Sprint?     @relation(fields: [sprintId], references: [id], onDelete: SetNull)
+  assignee  User       @relation("TodoAssignee", fields: [assigneeId], references: [id])
+  creator   User       @relation("TodoCreator", fields: [creatorId], references: [id])
+  keyResult KeyResult? @relation(fields: [keyResultId], references: [id], onDelete: Cascade)
+  objective Objective? @relation("TodoObjective", fields: [objectiveId], references: [id], onDelete: SetNull)
+  sprint    Sprint?    @relation(fields: [sprintId], references: [id], onDelete: SetNull)
 
   initiativeUpdates InitiativeUpdate[]
   members           TodoMember[]
@@ -365,15 +389,17 @@ model Todo {
   @@index([sprintId])
   @@index([taskType])
   @@index([sprintId, status])
+  @@index([originalSprintId])
+  @@index([carryoverCount])
   @@map("initiatives")
 }
 
 /// Additional members on a todo (beyond the single primary assignee).
 model TodoMember {
-  id        String   @id @default(cuid())
-  todoId    String
-  userId    String
-  addedAt   DateTime @default(now())
+  id      String   @id @default(cuid())
+  todoId  String
+  userId  String
+  addedAt DateTime @default(now())
 
   todo Todo @relation(fields: [todoId], references: [id], onDelete: Cascade)
   user User @relation("TodoMemberUser", fields: [userId], references: [id], onDelete: Cascade)
@@ -385,10 +411,10 @@ model TodoMember {
 
 /// Coloured label attached to a todo. Label definitions live in TodoLabelDef.
 model TodoLabel {
-  id            String       @id @default(cuid())
-  todoId        String
-  labelDefId    String
-  createdAt     DateTime     @default(now())
+  id         String   @id @default(cuid())
+  todoId     String
+  labelDefId String
+  createdAt  DateTime @default(now())
 
   todo     Todo         @relation(fields: [todoId], references: [id], onDelete: Cascade)
   labelDef TodoLabelDef @relation(fields: [labelDefId], references: [id], onDelete: Cascade)
@@ -452,9 +478,9 @@ model TodoAttachment {
   todoId       String
   uploadedById String
   filename     String
-  url          String   // storage URL (local path or CDN)
+  url          String // storage URL (local path or CDN)
   mimeType     String
-  size         Int      // bytes
+  size         Int // bytes
   createdAt    DateTime @default(now())
 
   todo       Todo @relation(fields: [todoId], references: [id], onDelete: Cascade)
@@ -466,20 +492,20 @@ model TodoAttachment {
 
 /// WYSIWYG comment thread on a todo. Separate from InitiativeUpdate (daily updates).
 model TodoComment {
-  id        String   @id @default(cuid())
-  todoId    String
-  authorId  String
-  content   String   // HTML from Tiptap
-  parentId  String?  // for threaded replies
+  id                 String   @id @default(cuid())
+  todoId             String
+  authorId           String
+  content            String // HTML from Tiptap
+  parentId           String? // for threaded replies
   /// JSON-encoded array of TodoAttachment ids that should render inline with this comment.
   /// Stored as a string (rather than relation) to avoid invasive M2M migration.
   commentAttachments String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
-  todo    Todo         @relation(fields: [todoId], references: [id], onDelete: Cascade)
-  author  User         @relation("TodoCommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
-  parent  TodoComment? @relation("TodoCommentReplies", fields: [parentId], references: [id])
+  todo    Todo          @relation(fields: [todoId], references: [id], onDelete: Cascade)
+  author  User          @relation("TodoCommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  parent  TodoComment?  @relation("TodoCommentReplies", fields: [parentId], references: [id])
   replies TodoComment[] @relation("TodoCommentReplies")
 
   @@index([todoId, createdAt])
@@ -492,9 +518,9 @@ model InitiativeUpdate {
   id           String   @id @default(cuid())
   initiativeId String
   authorId     String
-  updateDate   String   // YYYY-MM-DD bucket
+  updateDate   String // YYYY-MM-DD bucket
   content      String
-  status       String?  // optional status snapshot at time of update
+  status       String? // optional status snapshot at time of update
   blockers     String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -513,13 +539,13 @@ model InitiativeUpdate {
 /// of confidence transitions over time.
 model ConfidenceSnapshot {
   id           String   @id @default(cuid())
-  entityType   String   // OBJECTIVE | KEY_RESULT
+  entityType   String // OBJECTIVE | KEY_RESULT
   entityId     String
-  periodStart  String   // YYYY-MM-DD (the first day of the bi-weekly period)
-  confidence   String   // ON_TRACK | AT_RISK | OFF_TRACK
-  score        Float    // 0-100 computed score
-  factors      String?  // JSON: { progressPct, timeElapsedPct, velocity, ... }
-  previousConf String?  // previous confidence for delta detection
+  periodStart  String // YYYY-MM-DD (the first day of the bi-weekly period)
+  confidence   String // ON_TRACK | AT_RISK | OFF_TRACK
+  score        Float // 0-100 computed score
+  factors      String? // JSON: { progressPct, timeElapsedPct, velocity, ... }
+  previousConf String? // previous confidence for delta detection
   createdAt    DateTime @default(now())
 
   @@unique([entityType, entityId, periodStart])
@@ -533,16 +559,16 @@ model Comment {
   authorId    String
   objectiveId String?
   keyResultId String?
-  parentId    String?  // For nested comments
+  parentId    String? // For nested comments
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   // Relationships
-  author     User       @relation(fields: [authorId], references: [id])
-  objective  Objective? @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
-  keyResult  KeyResult? @relation(fields: [keyResultId], references: [id], onDelete: Cascade)
-  parent     Comment?   @relation("CommentReplies", fields: [parentId], references: [id])
-  replies    Comment[]  @relation("CommentReplies")
+  author    User       @relation(fields: [authorId], references: [id])
+  objective Objective? @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
+  keyResult KeyResult? @relation(fields: [keyResultId], references: [id], onDelete: Cascade)
+  parent    Comment?   @relation("CommentReplies", fields: [parentId], references: [id])
+  replies   Comment[]  @relation("CommentReplies")
 
   @@map("comments")
 }
@@ -552,25 +578,25 @@ model Comment {
 /// `category` buckets multiple events for preference toggling (see NotificationPreference).
 /// Email-related columns track the companion OutboundEmail send (if any).
 model Notification {
-  id         String    @id @default(cuid())
-  type       String    // legacy OBJECTIVE_CREATED etc. — kept for backwards compat
-  eventKey   String?   // canonical event code (e.g. "KR_AT_RISK")
-  category   String?   // ACCOUNT | OBJECTIVE | KEY_RESULT | CHECK_IN | TODO | TIMEFRAME | ALIGNMENT | COMMENT | ADMIN
-  title      String
-  message    String
-  isRead     Boolean   @default(false)
-  userId     String
-  metadata   String?   // JSON: { objectiveId?, keyResultId?, todoId?, actorId?, entityTitle?, redacted? }
+  id              String    @id @default(cuid())
+  type            String // legacy OBJECTIVE_CREATED etc. — kept for backwards compat
+  eventKey        String? // canonical event code (e.g. "KR_AT_RISK")
+  category        String? // ACCOUNT | OBJECTIVE | KEY_RESULT | CHECK_IN | TODO | TIMEFRAME | ALIGNMENT | COMMENT | ADMIN
+  title           String
+  message         String
+  isRead          Boolean   @default(false)
+  userId          String
+  metadata        String? // JSON: { objectiveId?, keyResultId?, todoId?, actorId?, entityTitle?, redacted? }
   /// When true, the recipient should NOT see the entity title/values — dispatcher already
   /// wrote placeholder text into `title`/`message`, but downstream deep-link rendering
   /// should continue to respect isPrivate on the linked entity.
-  redacted   Boolean   @default(false)
+  redacted        Boolean   @default(false)
   /// Companion email delivery fields (null if no email was intended for this row).
-  emailMode  String?   // IMMEDIATE | DIGEST_DAILY | DIGEST_WEEKLY | DIGEST_MONTHLY | DISABLED
-  emailSent  Boolean   @default(false)
-  emailAt    DateTime?
+  emailMode       String? // IMMEDIATE | DIGEST_DAILY | DIGEST_WEEKLY | DIGEST_MONTHLY | DISABLED
+  emailSent       Boolean   @default(false)
+  emailAt         DateTime?
   outboundEmailId String? // FK-ish pointer to OutboundEmail.id (no FK — OutboundEmail rows may be pruned)
-  createdAt  DateTime  @default(now())
+  createdAt       DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -585,7 +611,7 @@ model Notification {
 model NotificationPreference {
   id           String   @id @default(cuid())
   userId       String
-  category     String   // ACCOUNT | OBJECTIVE | KEY_RESULT | CHECK_IN | TODO | TIMEFRAME | ALIGNMENT | COMMENT | ADMIN
+  category     String // ACCOUNT | OBJECTIVE | KEY_RESULT | CHECK_IN | TODO | TIMEFRAME | ALIGNMENT | COMMENT | ADMIN
   inApp        Boolean  @default(true)
   email        Boolean  @default(true)
   emailCadence String   @default("IMMEDIATE") // IMMEDIATE | DAILY | WEEKLY | DISABLED
@@ -617,7 +643,7 @@ model OrgNotificationDefault {
 model Watcher {
   id         String   @id @default(cuid())
   userId     String
-  entityType String   // OBJECTIVE | KEY_RESULT | TODO
+  entityType String // OBJECTIVE | KEY_RESULT | TODO
   entityId   String
   createdAt  DateTime @default(now())
 
@@ -632,17 +658,17 @@ model Watcher {
 /// a category is DAILY/WEEKLY/MONTHLY instead of IMMEDIATE. The digest cron drains these
 /// rows into bundled OutboundEmail rows.
 model EmailDigestQueue {
-  id         String   @id @default(cuid())
-  userId     String
-  cadence    String   // DAILY | WEEKLY | MONTHLY
-  category   String
-  eventKey   String
-  subject    String
-  bodyText   String
-  bodyHtml   String?
-  metadata   String?  // JSON: { entityType, entityId, redacted, ... }
-  queuedAt   DateTime @default(now())
-  sentAt     DateTime?
+  id       String    @id @default(cuid())
+  userId   String
+  cadence  String // DAILY | WEEKLY | MONTHLY
+  category String
+  eventKey String
+  subject  String
+  bodyText String
+  bodyHtml String?
+  metadata String? // JSON: { entityType, entityId, redacted, ... }
+  queuedAt DateTime  @default(now())
+  sentAt   DateTime?
 
   @@index([userId, cadence, sentAt])
   @@index([sentAt])
@@ -713,21 +739,21 @@ model ObjectiveLabel {
 /// "ARCHIVED", "UNARCHIVED", "DELETED", "CHECKIN", "VIEWED", "COMMENTED", "INITIATIVE_ADDED", ...).
 /// `changes` is a JSON string: `{ field: { from: any, to: any }, ... }`.
 model ActivityLog {
-  id           String   @id @default(cuid())
-  entityType   String   // OBJECTIVE | KEY_RESULT | TODO | SPRINT
-  objectiveId  String?
-  keyResultId  String?
-  todoId       String?
+  id          String   @id @default(cuid())
+  entityType  String // OBJECTIVE | KEY_RESULT | TODO | SPRINT
+  objectiveId String?
+  keyResultId String?
+  todoId      String?
   /// Sprint v2 (Phase 1) — optional sprint association for sprint lifecycle events.
-  sprintId     String?
-  action       String
-  actorId      String?
+  sprintId    String?
+  action      String
+  actorId     String?
   /// JSONB on Postgres — `{ field: { from, to } }`. Was `String` (JSON-encoded) before
   /// the 2026-04-14 migration; existing rows were converted with `changes::jsonb`.
-  changes      Json?
+  changes     Json?
   /// JSONB on Postgres — extra context (e.g. ip, source page, snippet).
-  metadata     Json?
-  createdAt    DateTime @default(now())
+  metadata    Json?
+  createdAt   DateTime @default(now())
 
   actor     User?      @relation(fields: [actorId], references: [id], onDelete: SetNull)
   objective Objective? @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
@@ -749,7 +775,7 @@ model ObjectiveView {
   id          String   @id @default(cuid())
   objectiveId String
   userId      String
-  viewDate    String   // YYYY-MM-DD bucket — enables one-row-per-day uniqueness
+  viewDate    String // YYYY-MM-DD bucket — enables one-row-per-day uniqueness
   viewCount   Int      @default(1)
   firstViewAt DateTime @default(now())
   lastViewAt  DateTime @default(now())
@@ -782,35 +808,36 @@ model KeyResultView {
 /// Sprint planning — Trello-style board for marketing/business teams.
 /// Columns are dynamic per-sprint and become the activity status.
 model Sprint {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  ownerId     String
-  startDate   DateTime?
-  endDate     DateTime?
-  status      String   @default("ACTIVE") // ACTIVE, ARCHIVED — legacy, kept for backward compat
+  id             String    @id @default(cuid())
+  name           String
+  description    String?
+  ownerId        String
+  startDate      DateTime?
+  endDate        DateTime?
+  status         String    @default("ACTIVE") // ACTIVE, ARCHIVED — legacy, kept for backward compat
   // Sprint v2 (Phase 1) — additive lifecycle/state model.
-  state          String   @default("PLANNING") // PLANNING, ACTIVE, COMPLETED, CANCELLED
+  state          String    @default("PLANNING") // PLANNING, ACTIVE, COMPLETED, CANCELLED
   goal           String?
   goalLabel      String?
   goalTarget     Float?
-  goalCurrent    Float?   @default(0)
+  goalCurrent    Float?    @default(0)
   goalUnit       String?
   departmentId   String?
   reflectionNote String?
   endedAt        DateTime?
   endedById      String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  owner      User             @relation("SprintOwner", fields: [ownerId], references: [id])
-  columns    SprintColumn[]
-  activities SprintActivity[]
-  department    Department?         @relation(fields: [departmentId], references: [id], onDelete: SetNull)
-  endedBy       User?               @relation("SprintEndedBy", fields: [endedById], references: [id], onDelete: SetNull)
-  participants  SprintParticipant[]
-  todos         Todo[]
-  activityLogs  ActivityLog[]
+  owner        User                @relation("SprintOwner", fields: [ownerId], references: [id])
+  columns      SprintColumn[]
+  activities   SprintActivity[]
+  department   Department?         @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  endedBy      User?               @relation("SprintEndedBy", fields: [endedById], references: [id], onDelete: SetNull)
+  participants SprintParticipant[]
+  todos        Todo[]
+  activityLogs ActivityLog[]
+  aiPlan       AiSprintPlan?
 
   @@index([ownerId, status])
   @@index([state, endDate])
@@ -820,11 +847,11 @@ model Sprint {
 
 /// Sprint v2 — explicit sprint membership. MEMBER for participants, OWNER mirrors creator.
 model SprintParticipant {
-  id        String   @id @default(cuid())
-  sprintId  String
-  userId    String
-  role      String   @default("MEMBER") // MEMBER, OWNER
-  joinedAt  DateTime @default(now())
+  id       String   @id @default(cuid())
+  sprintId String
+  userId   String
+  role     String   @default("MEMBER") // MEMBER, OWNER
+  joinedAt DateTime @default(now())
 
   sprint Sprint @relation(fields: [sprintId], references: [id], onDelete: Cascade)
   user   User   @relation("SprintParticipantUser", fields: [userId], references: [id], onDelete: Cascade)
@@ -839,7 +866,7 @@ model SprintColumn {
   sprintId  String
   name      String
   position  Int      @default(0)
-  color     String?  // optional accent color for the column header
+  color     String? // optional accent color for the column header
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -853,29 +880,29 @@ model SprintColumn {
 
 /// @deprecated Sprints v2 unified to Todo. Tables retained for rollback. Slated for removal after 2026-05-11. Do not add new fields here.
 model SprintActivity {
-  id          String   @id @default(cuid())
-  sprintId    String
-  columnId    String
-  title       String
-  description String?
-  ownerId     String
+  id                    String    @id @default(cuid())
+  sprintId              String
+  columnId              String
+  title                 String
+  description           String?
+  ownerId               String
   /// Optional link to a Key Result — the activity contributes to this KR's work.
-  keyResultId String?
+  keyResultId           String?
   /// Optional link to an Objective (useful when the work spans a whole objective, not a single KR).
-  objectiveId String?
+  objectiveId           String?
   /// When set, points at the Initiative (Todo) row this activity was converted into.
   /// Lets the board show "converted" state and jump to the initiative record.
   convertedInitiativeId String?
-  position    Int      @default(0)
-  dueDate     DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  position              Int       @default(0)
+  dueDate               DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
-  sprint    Sprint        @relation(fields: [sprintId], references: [id], onDelete: Cascade)
-  column    SprintColumn  @relation(fields: [columnId], references: [id], onDelete: Cascade)
-  owner     User          @relation("SprintActivityOwner", fields: [ownerId], references: [id])
-  keyResult KeyResult?    @relation(fields: [keyResultId], references: [id], onDelete: SetNull)
-  objective Objective?    @relation("SprintActivityObjective", fields: [objectiveId], references: [id], onDelete: SetNull)
+  sprint    Sprint                  @relation(fields: [sprintId], references: [id], onDelete: Cascade)
+  column    SprintColumn            @relation(fields: [columnId], references: [id], onDelete: Cascade)
+  owner     User                    @relation("SprintActivityOwner", fields: [ownerId], references: [id])
+  keyResult KeyResult?              @relation(fields: [keyResultId], references: [id], onDelete: SetNull)
+  objective Objective?              @relation("SprintActivityObjective", fields: [objectiveId], references: [id], onDelete: SetNull)
   comments  SprintActivityComment[]
   tasks     SprintActivityTask[]
 
@@ -904,15 +931,15 @@ model SprintActivityComment {
 /// @deprecated Sprints v2 unified to Todo. Tables retained for rollback. Slated for removal after 2026-05-11. Do not add new fields here.
 /// Sub-task / checklist item on a sprint activity. Assignable to any user.
 model SprintActivityTask {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   activityId  String
   title       String
-  status      String   @default("PENDING") // PENDING | COMPLETED
+  status      String    @default("PENDING") // PENDING | COMPLETED
   assigneeId  String?
-  position    Int      @default(0)
+  position    Int       @default(0)
   completedAt DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   activity SprintActivity @relation(fields: [activityId], references: [id], onDelete: Cascade)
   assignee User?          @relation("SprintActivityTaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
@@ -923,11 +950,11 @@ model SprintActivityTask {
 
 /// Tracks last sent weekly digest per user (idempotency for the Monday job).
 model EmailDigestState {
-  userId            String   @id
+  userId            String    @id
   lastSentAt        DateTime?
-  lastDigestCadence String?  // "WEEKLY" — extensible
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  lastDigestCadence String? // "WEEKLY" — extensible
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -937,19 +964,19 @@ model EmailDigestState {
 /// Outbound email queue — when SMTP isn't wired yet, every send lands here as a row
 /// AND is mirrored to server logs. Once SMTP is configured, a worker can drain `status='PENDING'`.
 model OutboundEmail {
-  id          String   @id @default(cuid())
-  toEmail     String
-  toName      String?
-  subject     String
-  bodyText    String
-  bodyHtml    String?
-  template    String?  // identifier of the template that produced this row
-  metadata    String?  // JSON context
-  status      String   @default("PENDING") // PENDING | SENT | FAILED | LOGGED_ONLY
-  error       String?
-  attempts    Int      @default(0)
-  createdAt   DateTime @default(now())
-  sentAt      DateTime?
+  id        String    @id @default(cuid())
+  toEmail   String
+  toName    String?
+  subject   String
+  bodyText  String
+  bodyHtml  String?
+  template  String? // identifier of the template that produced this row
+  metadata  String? // JSON context
+  status    String    @default("PENDING") // PENDING | SENT | FAILED | LOGGED_ONLY
+  error     String?
+  attempts  Int       @default(0)
+  createdAt DateTime  @default(now())
+  sentAt    DateTime?
 
   @@index([status, createdAt])
   @@map("outbound_emails")
@@ -959,27 +986,95 @@ model OutboundEmail {
 /// objectiveId / keyResultId is set. Severity + status are stored as String
 /// to match the rest of the schema's enum-as-String convention.
 model Risk {
-  id            String     @id @default(cuid())
-  title         String
-  description   String?
-  severity      String     // LOW | MEDIUM | HIGH | CRITICAL
-  status        String     @default("OPEN") // OPEN | MITIGATING | RESOLVED | ACCEPTED
-  mitigation    String?
+  id          String  @id @default(cuid())
+  title       String
+  description String?
+  severity    String // LOW | MEDIUM | HIGH | CRITICAL
+  status      String  @default("OPEN") // OPEN | MITIGATING | RESOLVED | ACCEPTED
+  mitigation  String?
 
-  objectiveId   String?
-  objective     Objective? @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
-  keyResultId   String?
-  keyResult     KeyResult? @relation(fields: [keyResultId], references: [id], onDelete: Cascade)
+  objectiveId String?
+  objective   Objective? @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
+  keyResultId String?
+  keyResult   KeyResult? @relation(fields: [keyResultId], references: [id], onDelete: Cascade)
 
-  reporterId    String
-  reporter      User       @relation("RiskReporter", fields: [reporterId], references: [id])
+  reporterId String
+  reporter   User   @relation("RiskReporter", fields: [reporterId], references: [id])
 
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
-  resolvedAt    DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  resolvedAt DateTime?
 
   @@index([objectiveId])
   @@index([keyResultId])
   @@index([status])
   @@map("risks")
+}
+
+/// AI-generated draft sprint plan. One row per Sprint that was produced by the AI planner.
+/// See docs/AI_SPRINT_PLANNING.md for the full spec, allocations JSON shape, and acceptance criteria.
+model AiSprintPlan {
+  id               String    @id @default(cuid())
+  sprintId         String    @unique
+  subjectUserId    String?
+  subjectDeptId    String?
+  generatedById    String
+  /// "anthropic" | "openai" | "gemini" — which provider produced this plan.
+  provider         String    @default("anthropic")
+  modelId          String
+  promptTokens     Int       @default(0)
+  outputTokens     Int       @default(0)
+  cachedTokens     Int       @default(0)
+  rationale        String
+  /// Array<{ keyResultId, weightShare, timeBudgetPct, plannedDelta, carryoverDelta, velocityFactor, carryoverItemIds[] }>
+  allocations      Json
+  /// { completed, planned, blockers[], krDeltas[] } — null on first sprint.
+  prevSprintReview Json?
+  /// { total, kept, split, rescheduled, descoped, escalated, blockers[] }
+  carryoverSummary Json?
+  /// User instruction text supplied on regenerate. Null on initial draft.
+  feedback         String?
+  /// DRAFT | ACCEPTED | DISCARDED | SUPERSEDED
+  status           String    @default("DRAFT")
+  createdAt        DateTime  @default(now())
+  acceptedAt       DateTime?
+
+  sprint Sprint @relation(fields: [sprintId], references: [id], onDelete: Cascade)
+
+  @@index([subjectUserId, createdAt])
+  @@index([status, createdAt])
+  @@map("ai_sprint_plans")
+}
+
+/// Per-call audit row for every AI generation across the system. Used by the admin
+/// observability surface (docs/AI_SPRINT_PLANNING.md §3.6) for cost rollups, cache-hit
+/// telemetry, and error tracking.
+model AiGenerationLog {
+  id           String   @id @default(cuid())
+  userId       String
+  /// Free-form feature key — "SPRINT_PLAN" today; new AI surfaces add their own key.
+  feature      String
+  /// "anthropic" | "openai" | "gemini" — which provider was called.
+  provider     String   @default("anthropic")
+  modelId      String
+  inputTokens  Int      @default(0)
+  outputTokens Int      @default(0)
+  cachedTokens Int      @default(0)
+  /// Total estimated cost in USD for this single call.
+  costUsd      Float    @default(0)
+  /// End-to-end latency in milliseconds (request start → tool-use response parsed).
+  latencyMs    Int?
+  /// OK | ERROR
+  status       String
+  errorMessage String?
+  /// Optional foreign key to AiSprintPlan when feature == SPRINT_PLAN. Loose pointer
+  /// (no FK) so we can prune plans without losing the audit trail.
+  planId       String?
+  createdAt    DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([feature, createdAt])
+  @@index([status, createdAt])
+  @@index([provider, createdAt])
+  @@map("ai_generation_logs")
 }

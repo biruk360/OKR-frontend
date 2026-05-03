@@ -47,6 +47,7 @@
 | Todos / Initiatives | DONE, NEEDS REFACTOR | `components/todos/`, `app/api/todos/` | CRUD modals + lists | Duplicate status toggle logic in ToDoList vs MyTasksList |
 | Sprint Board | DONE | `components/sprints/`, `app/api/sprints/` | Kanban board | Trello-style with columns, cards, comments, sub-tasks |
 | Sprint-to-Initiative Convert | DONE | `app/api/sprints/[id]/activities/[actId]/convert-to-initiative/` | | |
+| AI Sprint Planning | PLANNED | `app/api/sprints/ai/`, `features/sprints/` | Spec: `docs/AI_SPRINT_PLANNING.md` | Bi-weekly draft sprints with carryover triage. Behind `OrganizationSettings.aiSprintPlanningEnabled` flag. |
 | Initiative Daily Updates | DONE | `components/initiative-report/`, `app/api/initiatives/` | Report grid | |
 
 ## Views & Analytics

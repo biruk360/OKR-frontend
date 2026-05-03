@@ -109,6 +109,7 @@ export const navigationGroups: NavGroup[] = [
     items: [
       { name: 'Teams Directory', href: '/dashboard/org/teams', icon: Building2 },
       { name: 'Users Directory', href: '/dashboard/org/users', icon: Users },
+      { name: 'Org Admin', href: '/dashboard/admin/org', icon: Network },
     ],
     defaultOpen: false,
   },

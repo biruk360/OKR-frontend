@@ -10,6 +10,7 @@
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import { Modal } from '@/components/ui/Modal'
+import { Button } from '@/components/ui/button'
 
 interface Props {
   open: boolean
@@ -47,7 +48,7 @@ export default function ScheduleSprintModal({
   }, [open, initialStart, initialEnd])
 
   const invalid = !start || !end || new Date(end) < new Date(start)
-  const title = activateOnSave ? `Start sprint — ${sprintName}` : `Schedule sprint — ${sprintName}`
+  const title = activateOnSave ? 'Start sprint' : 'Schedule sprint'
   const cta = activateOnSave ? 'Start sprint' : 'Save dates'
 
   async function submit() {
@@ -81,29 +82,20 @@ export default function ScheduleSprintModal({
       onClose={onClose}
       title={title}
       footer={
-        <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={submitting}
-            className="rounded-[10px] border px-3 py-1.5 text-[12px] font-semibold hover:bg-muted disabled:opacity-50"
-            style={{ borderColor: 'var(--ap-border)' }}
-          >
+        <>
+          <Button variant="outline" size="sm" onClick={onClose} disabled={submitting}>
             Cancel
-          </button>
-          <button
-            type="button"
-            onClick={submit}
-            disabled={submitting || invalid}
-            className="rounded-[10px] bg-primary px-3 py-1.5 text-[12px] font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
-          >
+          </Button>
+          <Button size="sm" onClick={submit} disabled={submitting || invalid}>
             {submitting ? 'Saving…' : cta}
-          </button>
-        </div>
+          </Button>
+        </>
       }
     >
       <div className="space-y-3 text-[13px]">
         <p className="text-muted-foreground">
+          <span className="font-semibold text-foreground">{sprintName}</span>
+          {' — '}
           {activateOnSave
             ? 'Set the dates for this sprint and start it. The sprint will move to Active.'
             : 'Update the start and end dates for this sprint.'}

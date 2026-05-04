@@ -8,8 +8,12 @@ type StatusKey =
   | 'closed'
   | 'pending'
   | 'in-progress'
+  | 'in-review'
+  | 'stuck'
   | 'cancelled'
   | 'no-owner'
+  | 'planning'
+  | 'active'
 
 const MAP: Record<StatusKey, { label: string; bg: string; fg: string; dot: string }> = {
   'on-track':    { label: 'On track',  bg: 'rgba(52,199,89,0.12)', fg: 'var(--ap-green)',  dot: 'var(--ap-green)' },
@@ -20,7 +24,12 @@ const MAP: Record<StatusKey, { label: string; bg: string; fg: string; dot: strin
   'closed':      { label: 'Closed',    bg: 'rgba(120,120,128,0.12)', fg: 'var(--ap-fg-muted)', dot: 'var(--ap-fg-muted)' },
   'pending':     { label: 'Pending',   bg: 'rgba(120,120,128,0.12)', fg: 'var(--ap-fg-muted)', dot: 'var(--ap-fg-muted)' },
   'in-progress': { label: 'In progress', bg: 'rgba(0,122,255,0.12)', fg: 'var(--ap-accent)', dot: 'var(--ap-accent)' },
+  'in-review':   { label: 'In review', bg: 'rgba(175,82,222,0.14)', fg: '#7A2BB8', dot: '#AF52DE' },
+  'stuck':       { label: 'Stuck',     bg: 'rgba(255,149,0,0.14)', fg: '#B86200', dot: '#FF9500' },
   'cancelled':   { label: 'Cancelled', bg: 'rgba(120,120,128,0.12)', fg: 'var(--ap-fg-muted)', dot: 'var(--ap-fg-muted)' },
+  // Sprint lifecycle states (Sprints v2)
+  'planning':    { label: 'Planning',  bg: 'rgba(120,120,128,0.14)', fg: 'var(--ap-fg-muted)', dot: 'var(--ap-fg-muted)' },
+  'active':      { label: 'Active',    bg: 'rgba(52,199,89,0.14)', fg: 'var(--ap-green)', dot: 'var(--ap-green)' },
 }
 
 export function normalizeStatus(raw: string | null | undefined): StatusKey {
@@ -34,8 +43,12 @@ export function normalizeStatus(raw: string | null | undefined): StatusKey {
     case 'CLOSED': return 'closed'
     case 'PENDING': return 'pending'
     case 'IN_PROGRESS': return 'in-progress'
+    case 'IN_REVIEW': return 'in-review'
+    case 'STUCK': return 'stuck'
     case 'CANCELLED': return 'cancelled'
     case 'NO_OWNER': return 'no-owner'
+    case 'PLANNING': return 'planning'
+    case 'ACTIVE': return 'active'
     default: return 'pending'
   }
 }

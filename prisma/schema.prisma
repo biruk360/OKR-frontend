@@ -333,7 +333,9 @@ model Todo {
   startDate             DateTime?
   dueDate               DateTime?
   completedAt           DateTime?
-  assigneeId            String
+  /// Optional primary assignee (legacy — Trello-style usage relies on TodoMember
+  /// instead). Kept nullable for filters/notifications/legacy queries.
+  assigneeId            String?
   creatorId             String
   /// Optional link to a Key Result — when set, the todo contributes toward KR work.
   keyResultId           String?
@@ -373,7 +375,7 @@ model Todo {
   updatedAt             DateTime  @updatedAt
 
   // Relationships
-  assignee  User       @relation("TodoAssignee", fields: [assigneeId], references: [id])
+  assignee  User?      @relation("TodoAssignee", fields: [assigneeId], references: [id])
   creator   User       @relation("TodoCreator", fields: [creatorId], references: [id])
   keyResult KeyResult? @relation(fields: [keyResultId], references: [id], onDelete: Cascade)
   objective Objective? @relation("TodoObjective", fields: [objectiveId], references: [id], onDelete: SetNull)

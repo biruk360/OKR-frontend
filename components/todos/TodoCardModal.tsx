@@ -25,8 +25,8 @@ export interface TodoCardData {
   priority: string
   coverColor: string | null
   dueDate: string | null
-  assigneeId: string
-  assignee: { id: string; name: string; avatar: string | null }
+  assigneeId: string | null
+  assignee: { id: string; name: string; avatar: string | null } | null
   creator: { id: string; name: string; avatar: string | null }
   members: { user: { id: string; name: string; avatar: string | null } }[]
   labels: { labelDef: { id: string; name: string; color: string } }[]
@@ -433,7 +433,6 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
   const [loading, setLoading] = useState(false)
   const [comments, setComments] = useState<CommentData[]>([])
   const [activityLogs, setActivityLogs] = useState<ActivityLogData[]>([])
-  const [activeTab, setActiveTab] = useState<'comments' | 'activity'>('comments')
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const commentFileInputRef = useRef<HTMLInputElement>(null)
   const [labelDefs, setLabelDefs] = useState<LabelDef[]>([])
@@ -770,12 +769,11 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                 ))}
               </div>
 
-              {/* ── Members ── */}
+              {/* ── Members (Trello-style — no "primary assignee", just a set) ── */}
               <div className="relative flex items-center gap-3">
                 <span className="text-[11px] font-600 uppercase tracking-[0.05em] text-[var(--ap-fg-subtle)]">Members</span>
                 <div className="flex -space-x-1.5">
-                  <Avatar name={todo.assignee.name} avatar={todo.assignee.avatar} size={26} />
-                  {todo.members.filter((m) => m.user.id !== todo.assigneeId).map((m) => (
+                  {todo.members.map((m) => (
                     <Avatar key={m.user.id} name={m.user.name} avatar={m.user.avatar} size={26} />
                   ))}
                   <button
@@ -791,7 +789,7 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                     <div className="fixed inset-0 z-[90]" onClick={() => setActivePanel(null)} />
                     <div className="absolute left-[78px] top-full z-[91] mt-2 w-[260px] max-h-[360px] overflow-y-auto rounded-[12px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] p-2 space-y-1 shadow-[var(--ap-shadow-lg)]">
                       <p className="px-2 pb-1 text-[10px] font-700 uppercase tracking-[0.06em] text-[var(--ap-fg-subtle)]">Card members</p>
-                      {users.filter((u) => u.id !== todo.assigneeId).map((u) => {
+                      {users.map((u) => {
                         const isMember = todo.members.some((m) => m.user.id === u.id)
                         return (
                           <button
@@ -805,16 +803,6 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                           </button>
                         )
                       })}
-                      <div className="border-t border-[var(--ap-border)] pt-1 mt-1">
-                        <p className="px-2 pb-1 text-[10px] font-700 uppercase tracking-[0.06em] text-[var(--ap-fg-subtle)]">Primary assignee</p>
-                        <select
-                          value={todo.assigneeId}
-                          onChange={(e) => patch({ assigneeId: e.target.value })}
-                          className="ap-input w-full h-7 text-[12px] py-0"
-                        >
-                          {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-                        </select>
-                      </div>
                     </div>
                   </>
                 )}
@@ -996,35 +984,16 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                 </div>
               )}
 
-              {/* ── Comments / Activity tabs ── */}
+              {/* ── Comments + activity (Trello-style: stacked, no tabs) ── */}
               <div>
-                <div className="mb-3 flex items-center gap-4 border-b border-[var(--ap-border)]">
-                  <button
-                    onClick={() => setActiveTab('comments')}
-                    className={cn(
-                      'flex items-center gap-1.5 -mb-px border-b-2 px-1 pb-2 text-[12px] font-600 transition-colors',
-                      activeTab === 'comments'
-                        ? 'border-[var(--ap-accent)] text-[var(--ap-fg)]'
-                        : 'border-transparent text-[var(--ap-fg-muted)] hover:text-[var(--ap-fg)]',
-                    )}
-                  >
-                    <MessageSquare className="h-3.5 w-3.5" /> Comments ({comments.length})
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('activity')}
-                    className={cn(
-                      'flex items-center gap-1.5 -mb-px border-b-2 px-1 pb-2 text-[12px] font-600 transition-colors',
-                      activeTab === 'activity'
-                        ? 'border-[var(--ap-accent)] text-[var(--ap-fg)]'
-                        : 'border-transparent text-[var(--ap-fg-muted)] hover:text-[var(--ap-fg)]',
-                    )}
-                  >
-                    <Activity className="h-3.5 w-3.5" /> Activity ({activityLogs.length})
-                  </button>
+                <div className="mb-3 flex items-center gap-1.5 text-[var(--ap-fg)]">
+                  <MessageSquare className="h-3.5 w-3.5 text-[var(--ap-fg-muted)]" />
+                  <span className="text-[12px] font-700 uppercase tracking-[0.05em] text-[var(--ap-fg-subtle)]">
+                    Comments ({comments.length})
+                  </span>
                 </div>
 
-                {activeTab === 'comments' ? (
-                  <>
+                <>
                     {/* Comment input */}
                     <div className="space-y-2">
                       <MentionEditor
@@ -1136,9 +1105,19 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                         </div>
                       ))}
                     </div>
-                  </>
-                ) : (
-                  <ActivityFeed logs={activityLogs} users={users} labelDefs={labelDefs} />
+                </>
+
+                {/* Activity log inline below comments */}
+                {activityLogs.length > 0 && (
+                  <div className="mt-6 border-t border-[var(--ap-border)] pt-4">
+                    <div className="mb-3 flex items-center gap-1.5">
+                      <Activity className="h-3.5 w-3.5 text-[var(--ap-fg-muted)]" />
+                      <span className="text-[12px] font-700 uppercase tracking-[0.05em] text-[var(--ap-fg-subtle)]">
+                        Activity ({activityLogs.length})
+                      </span>
+                    </div>
+                    <ActivityFeed logs={activityLogs} users={users} labelDefs={labelDefs} />
+                  </div>
                 )}
               </div>
             </div>

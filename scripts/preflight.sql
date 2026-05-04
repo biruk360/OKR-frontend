@@ -467,6 +467,21 @@ BEGIN
   END IF;
 END $$;
 
+-- 4b. initiatives.assigneeId — drop NOT NULL so todos can be unassigned.
+--     Trello-style: cards use TodoMember (members table) and the legacy primary
+--     assignee is optional. Idempotent: only fires when the column is currently
+--     declared NOT NULL.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='initiatives'
+      AND column_name='assigneeId' AND is_nullable='NO'
+  ) THEN
+    EXECUTE 'ALTER TABLE "public"."initiatives" ALTER COLUMN "assigneeId" DROP NOT NULL';
+  END IF;
+END $$;
+
 -- 5. Backfill 5 board lanes per sprint, idempotently. Two-step:
 --    a) First, claim any existing same-name rows by setting their statusKey
 --       (matches legacy default columns: Backlog/In progress/Review/Done).

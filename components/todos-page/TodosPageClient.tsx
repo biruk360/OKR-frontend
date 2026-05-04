@@ -51,7 +51,8 @@ export interface TodoRow {
   status: string
   dueDate: string | null
   completedAt: string | null
-  assignee: UserOption
+  /** Optional Trello-style — a card may have no primary assignee. */
+  assignee: UserOption | null
   creator: UserOption
   keyResultId: string | null
   keyResult: {
@@ -134,7 +135,7 @@ export default function TodosPageClient({
 
     // Scope
     if (scopeFilter === 'assigned') {
-      list = list.filter((t) => t.assignee.id === currentUserId)
+      list = list.filter((t) => t.assignee?.id === currentUserId)
     } else if (scopeFilter === 'created') {
       list = list.filter((t) => t.creator.id === currentUserId)
     }
@@ -549,7 +550,9 @@ function CreateTodoModal({
 }) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
-  const [assigneeId, setAssigneeId] = useState(currentUserId)
+  // Trello-style: cards start unassigned. Caller can still pick someone before
+  // submitting via the Assignee dropdown if they want.
+  const [assigneeId, setAssigneeId] = useState<string>('')
   const [dueDate, setDueDate] = useState('')
   const [keyResultId, setKeyResultId] = useState<string>('')
   const [objectiveId, setObjectiveId] = useState<string>('')
@@ -582,7 +585,7 @@ function CreateTodoModal({
         body: JSON.stringify({
           title: title.trim(),
           description: description.trim() || undefined,
-          assigneeId,
+          assigneeId: assigneeId || undefined,
           dueDate: dueDate || undefined,
           keyResultId: keyResultId || undefined,
           objectiveId: objectiveId || undefined,

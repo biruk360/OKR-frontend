@@ -121,7 +121,8 @@ export default function WorkBoardClient({ initialTodos, users, labelDefs, curren
       const res = await fetch('/api/todos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: newTitle.trim(), status: colId, assigneeId: currentUserId }),
+        // No assigneeId — Trello-style: cards start unassigned, members added later.
+        body: JSON.stringify({ title: newTitle.trim(), status: colId }),
       })
       const json = await res.json()
       if (json.success) {

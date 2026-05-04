@@ -99,9 +99,10 @@ export default function ToDoList({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          // No assigneeId — Trello-style cards start unassigned. Members
+          // can be added from the card.
           title,
-          assigneeId: session.user.id,
-          creatorId: session.user.id
+          creatorId: session.user.id,
         }),
       })
 

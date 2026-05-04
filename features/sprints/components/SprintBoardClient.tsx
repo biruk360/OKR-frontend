@@ -158,8 +158,9 @@ function AddTaskInline({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          // No assigneeId — Trello-style cards start unassigned. Members are
+          // added via the card's Members popover.
           title: title.trim(),
-          assigneeId: currentUserId,
           sprintId,
           priority,
           dueDate: dueDate || null,

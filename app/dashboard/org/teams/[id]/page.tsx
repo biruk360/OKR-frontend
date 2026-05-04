@@ -494,7 +494,7 @@ export default async function TeamProfilePage({ params }: PageProps) {
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-foreground">{t.title}</p>
                         <p className="text-xs text-muted-foreground">
-                          {t.assignee.name} · {t.keyResult?.objective.title ?? 'Personal to-do'}
+                          {t.assignee?.name ?? 'Unassigned'} · {t.keyResult?.objective.title ?? 'Personal to-do'}
                         </p>
                       </div>
                       <span className="text-xs text-muted-foreground shrink-0 capitalize">

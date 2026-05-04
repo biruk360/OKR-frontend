@@ -122,9 +122,16 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
     return apiBadRequest('Invalid dueDate')
   }
 
-  const assigneeId: string = body.assigneeId || session.user.id
-  const assignee = await prisma.user.findUnique({ where: { id: assigneeId }, select: { id: true } })
-  if (!assignee) return apiBadRequest('Invalid assignee')
+  // Trello-style: a todo can be created without a primary assignee. Members are
+  // added later via the card's Members popover. We still accept an explicit
+  // assigneeId for callers that want it (e.g. assigning to a teammate during
+  // creation), but never default it to the current user.
+  let assigneeId: string | null = null
+  if (typeof body.assigneeId === 'string' && body.assigneeId.trim()) {
+    const assignee = await prisma.user.findUnique({ where: { id: body.assigneeId }, select: { id: true } })
+    if (!assignee) return apiBadRequest('Invalid assignee')
+    assigneeId = assignee.id
+  }
 
   let keyResultId: string | null = null
   if (body.keyResultId) {
@@ -211,7 +218,7 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
     metadata: { title: todo.title, assigneeId: todo.assigneeId },
   })
 
-  if (todo.assigneeId !== session.user.id) {
+  if (todo.assigneeId && todo.assigneeId !== session.user.id) {
     await emit('TODO_ASSIGNED', {
       actorId: session.user.id,
       entityType: 'TODO', entityId: todo.id, entityTitle: todo.title,

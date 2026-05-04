@@ -91,7 +91,8 @@ export interface TodoRow {
   keyResultId: string
   krTitle: string
   objectiveTitle: string
-  assigneeId: string
+  /** Optional Trello-style — a card may have no primary assignee. */
+  assigneeId: string | null
   assigneeName: string
   dueDate: string | null
 }
@@ -242,7 +243,7 @@ export async function loadDashboardPayload(
       krTitle: t.keyResult!.title,
       objectiveTitle: t.keyResult!.objective.title,
       assigneeId: t.assigneeId,
-      assigneeName: t.assignee.name,
+      assigneeName: t.assignee?.name ?? '',
       dueDate: t.dueDate ? t.dueDate.toISOString() : null,
     }))
 

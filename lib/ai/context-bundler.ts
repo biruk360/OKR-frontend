@@ -424,7 +424,7 @@ async function partitionCarryover(params: {
       carryoverCount: t.carryoverCount,
       dueDate: t.dueDate,
       progressValue: t.progressValue,
-      assignee: { id: t.assignee.id, isActive: t.assignee.isActive },
+      assignee: t.assignee ? { id: t.assignee.id, isActive: t.assignee.isActive } : { id: '', isActive: false },
       keyResult: t.keyResult
         ? {
             id: t.keyResult.id,

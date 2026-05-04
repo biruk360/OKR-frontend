@@ -4,7 +4,7 @@ export type UserRole = 'ADMIN' | 'EXECUTIVE' | 'DEPARTMENT_LEAD' | 'EMPLOYEE'
 export type ObjectiveLevel = 'COMPANY' | 'DEPARTMENT' | 'INDIVIDUAL'
 export type ObjectiveStatus = 'ACTIVE' | 'ARCHIVED' | 'DELETED'
 export type ConfidenceLevel = 'ON_TRACK' | 'AT_RISK' | 'OFF_TRACK'
-export type TodoStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
+export type TodoStatus = 'PENDING' | 'IN_PROGRESS' | 'IN_REVIEW' | 'STUCK' | 'COMPLETED' | 'CANCELLED'
 export type NotificationType = 
   | 'OBJECTIVE_CREATED'
   | 'OBJECTIVE_UPDATED'

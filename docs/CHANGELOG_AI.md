@@ -13,6 +13,35 @@
 
 ---
 
+## 2026-05-04 — Sprint board UX fixes
+
+- **Fixed** `TodoCardModal`: backdrop click now closes the drawer (removed `pointer-events-none` from outer wrapper, applied `onClick={onClose}` for both drawer and modal modes) — `components/todos/TodoCardModal.tsx`
+- **Fixed** `TodoCardModal`: assignee is excluded from the member toggle list so they can no longer appear as an unremovable member — `components/todos/TodoCardModal.tsx`
+- **Fixed** `SprintBoardClient`: "Add task" button moved below the task list so new tasks always appear at the bottom — `features/sprints/components/SprintBoardClient.tsx`
+- **Tests:** not run
+- **Docs updated:** CHANGELOG_AI.md
+
+## 2026-05-04 — Sprint Trello UX (Stage 1: foundations)
+
+Foundation pass for the sprint board overhaul (see Codex spec consolidated with Claude phasing). Stages 2 (dnd + dynamic 5-lane board API + KPI chips) and 3 (Trello-parity labels, checklist start dates, polish) follow.
+
+- **Added** `lib/todo-status.ts` — central `TODO_STATUSES`, `BOARD_STATUSES` (5 lanes excluding `CANCELLED`), and `TODO_STATUS_META` (label/tone/dot color) so all sprint and todo surfaces render the new statuses consistently.
+- **Extended** `TodoStatus` type to include `IN_REVIEW` and `STUCK` — `types/index.ts`
+- **Schema** (Prisma): added `Todo.startDate`, `Todo.sprintPosition`, `TodoChecklistItem.startDate`, `SprintColumn.statusKey` + per-sprint unique `(sprintId, statusKey)` and `(sprintId, status, sprintPosition)` index — `prisma/schema.prisma`
+- **Preflight SQL**: idempotent ALTERs for the four new columns; two-step `SprintColumn` backfill — claims existing same-name lanes by case-insensitive match (Backlog/In progress/Review/Done → status keys), then inserts any missing lanes per sprint. Each `(sprintId, statusKey)` ends up with exactly one row — `scripts/preflight.sql`
+- **Updated** `app/api/sprints/route.ts` `DEFAULT_COLUMNS` to seed five status-bound lanes (To Do, In Progress, In Review, Stuck, Done) on new sprints.
+- **Updated** consumers to handle the new statuses: `TodoCardModal` (status pill now reads from central meta; STATUS_OPTIONS = 5 lanes + Cancelled), `lib/email/templates/cards.ts` (TODO_STATUS_LABEL/TONE include IN_REVIEW + STUCK), `features/filters/hooks/useFiltersData.ts` (mapTodoStatus / reverseMapWorkStatus include In Review and Blocked).
+- **Added** `components/sprints/ScheduleSprintModal.tsx` — sets sprint start/end dates with a single PATCH; defaults to today and +14 days; activates the sprint in the same call when invoked from "Start sprint".
+- **Added** Start sprint + Schedule/Edit dates buttons on the `SprintBoardClient` header for `PLANNING` sprints. Clicking "Start sprint" without dates opens the schedule modal in `start` mode (transitions to ACTIVE on save); with dates already set it PATCHes `state: ACTIVE` directly.
+- **Switched** `SprintBoardClient` task detail from drawer mode to centered `modal` mode — `features/sprints/components/SprintBoardClient.tsx`
+- **Widened** sprint board column types (`BoardTodo.status`, `BoardColumn.id`/`status`, `mobileCol`) to `TodoStatus` so Stage 2's dynamic-lane rewrite drops in cleanly.
+- **Tests:** `npx prisma validate` (pass), `npx tsc --noEmit` (pass), `npm run build` (pass — only pre-existing dynamic-render notices unrelated to this change).
+- **Docs updated:** CHANGELOG_AI.md
+
+
+
+---
+
 ## 2026-05-03 — AI Sprint Planning: Phases 1, 1.6, 2 (schema + math layer, no AI calls yet)
 
 - **Added** `lib/ai/sprint-math.ts` — pure allocation math: `computeRemainingGap`, `computeWeeksLeft`, `computeSprintsLeft`, `computeLinearShare`, `computeVelocityFactor` (clamps [0.5, 1.5]), `computeWeightShares` (auto-equal when all weights 0), `computeTimeBudgets` (off-track +20%, on-track −10%, normalized), `computeNewTaskTarget`, `buildAllocations`, `isSprintDebt`. ES5-compatible (no for-of on Maps).

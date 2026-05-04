@@ -40,11 +40,14 @@ export const GET = withAuth(async (request: NextRequest) => {
   return apiSuccess(sprints)
 })
 
+// Five board lanes, one per global TodoStatus. Order is the default lane order
+// shown on the sprint board; users can re-order per sprint via the columns API.
 const DEFAULT_COLUMNS = [
-  { name: 'Backlog', position: 0, color: null },
-  { name: 'In progress', position: 1, color: '#0b6e99' },
-  { name: 'Review', position: 2, color: '#cb912f' },
-  { name: 'Done', position: 3, color: '#0f7b6c' },
+  { name: 'To Do',       statusKey: 'PENDING',     position: 0, color: null },
+  { name: 'In Progress', statusKey: 'IN_PROGRESS', position: 1, color: '#0A84FF' },
+  { name: 'In Review',   statusKey: 'IN_REVIEW',   position: 2, color: '#AF52DE' },
+  { name: 'Stuck',       statusKey: 'STUCK',       position: 3, color: '#FF9500' },
+  { name: 'Done',        statusKey: 'COMPLETED',   position: 4, color: '#34C759' },
 ]
 
 const VALID_STATES = new Set(['PLANNING', 'ACTIVE', 'COMPLETED', 'CANCELLED'])

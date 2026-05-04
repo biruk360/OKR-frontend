@@ -327,9 +327,10 @@ model Todo {
   id                    String    @id @default(cuid())
   title                 String
   description           String?
-  status                String    @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, CANCELLED
+  status                String    @default("PENDING") // PENDING, IN_PROGRESS, IN_REVIEW, STUCK, COMPLETED, CANCELLED
   priority              String    @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
   coverColor            String? // hex or named colour for the card cover strip
+  startDate             DateTime?
   dueDate               DateTime?
   completedAt           DateTime?
   assigneeId            String
@@ -346,6 +347,8 @@ model Todo {
   /// Sprint v2 (Phase 1) — optional link to a Sprint. Allows todos to participate in
   /// the unified Sprint+Todo board planned for Phase 3. SetNull on sprint delete.
   sprintId              String?
+  /// Card order within the sprint board lane. Higher = lower in list. Per-lane via (sprintId, status, sprintPosition).
+  sprintPosition        Int       @default(0)
   /// Free-form task type tag (CALL, EMAIL, DEMO, MEETING, PROPOSAL, FOLLOW_UP, ADMIN, GENERAL).
   taskType              String?
   /// AI Sprint Planning (see docs/AI_SPRINT_PLANNING.md) — true when the row was
@@ -389,6 +392,7 @@ model Todo {
   @@index([sprintId])
   @@index([taskType])
   @@index([sprintId, status])
+  @@index([sprintId, status, sprintPosition])
   @@index([originalSprintId])
   @@index([carryoverCount])
   @@map("initiatives")
@@ -459,6 +463,7 @@ model TodoChecklistItem {
   title       String
   completed   Boolean   @default(false)
   assigneeId  String?
+  startDate   DateTime?
   dueDate     DateTime?
   position    Int       @default(0)
   completedAt DateTime?
@@ -865,6 +870,9 @@ model SprintColumn {
   id        String   @id @default(cuid())
   sprintId  String
   name      String
+  /// Global TodoStatus this lane represents (PENDING, IN_PROGRESS, IN_REVIEW, STUCK, COMPLETED).
+  /// Each sprint has exactly one row per board status; lane order on the board is driven by `position`.
+  statusKey String?
   position  Int      @default(0)
   color     String? // optional accent color for the column header
   createdAt DateTime @default(now())
@@ -874,6 +882,7 @@ model SprintColumn {
   activities SprintActivity[]
 
   @@unique([sprintId, name])
+  @@unique([sprintId, statusKey])
   @@index([sprintId, position])
   @@map("sprint_columns")
 }

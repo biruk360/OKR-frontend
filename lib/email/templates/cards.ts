@@ -27,14 +27,18 @@ const CONFIDENCE_TONE: Record<string, Tone> = {
 }
 
 const TODO_STATUS_LABEL: Record<string, string> = {
-  PENDING: 'Pending',
+  PENDING: 'To Do',
   IN_PROGRESS: 'In Progress',
+  IN_REVIEW: 'In Review',
+  STUCK: 'Stuck',
   COMPLETED: 'Done',
   CANCELLED: 'Cancelled',
 }
 const TODO_STATUS_TONE: Record<string, Tone> = {
   PENDING: 'neutral',
   IN_PROGRESS: 'primary',
+  IN_REVIEW: 'primary',
+  STUCK: 'warning',
   COMPLETED: 'success',
   CANCELLED: 'neutral',
 }

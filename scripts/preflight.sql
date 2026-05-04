@@ -400,4 +400,126 @@ END $$;
 -- DROP TABLE IF EXISTS sprint_activity_comments CASCADE;
 -- DROP TABLE IF EXISTS sprint_activity_tasks CASCADE;
 -- DROP TABLE IF EXISTS sprint_activities CASCADE;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Sprint Trello UX (Stage 1) — 2026-05-04
+--   * Add startDate to initiatives + checklist items (nullable, no backfill needed)
+--   * Add sprintPosition to initiatives (default 0)
+--   * Add statusKey to sprint_columns + per-sprint unique constraint
+--   * Backfill: every existing sprint gets 5 lane rows (PENDING, IN_PROGRESS,
+--     IN_REVIEW, STUCK, COMPLETED) bound by statusKey, idempotently.
+-- All blocks are idempotent.
+-- ─────────────────────────────────────────────────────────────────────────────
+
+-- 1. initiatives.startDate (nullable)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='initiatives' AND column_name='startDate'
+  ) THEN
+    EXECUTE 'ALTER TABLE "public"."initiatives" ADD COLUMN "startDate" TIMESTAMP(3)';
+  END IF;
+END $$;
+
+-- 2. initiatives.sprintPosition (Int default 0)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='initiatives' AND column_name='sprintPosition'
+  ) THEN
+    EXECUTE 'ALTER TABLE "public"."initiatives" ADD COLUMN "sprintPosition" INTEGER NOT NULL DEFAULT 0';
+  END IF;
+END $$;
+
+-- 3. todo_checklist_items.startDate (nullable)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='todo_checklist_items' AND column_name='startDate'
+  ) THEN
+    EXECUTE 'ALTER TABLE "public"."todo_checklist_items" ADD COLUMN "startDate" TIMESTAMP(3)';
+  END IF;
+END $$;
+
+-- 4. sprint_columns.statusKey (nullable, with per-sprint unique constraint)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='sprint_columns' AND column_name='statusKey'
+  ) THEN
+    EXECUTE 'ALTER TABLE "public"."sprint_columns" ADD COLUMN "statusKey" TEXT';
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'sprint_columns_sprintId_statusKey_key'
+  ) THEN
+    EXECUTE 'ALTER TABLE "public"."sprint_columns"
+             ADD CONSTRAINT "sprint_columns_sprintId_statusKey_key"
+             UNIQUE ("sprintId", "statusKey")';
+  END IF;
+END $$;
+
+-- 5. Backfill 5 board lanes per sprint, idempotently. Two-step:
+--    a) First, claim any existing same-name rows by setting their statusKey
+--       (matches legacy default columns: Backlog/In progress/Review/Done).
+--    b) Then INSERT missing lanes; ON CONFLICT DO NOTHING handles edge cases.
+--    New sprints created after this migration must also seed these rows in
+--    app code (see app/api/sprints/route.ts).
+DO $$
+BEGIN
+  -- a) Claim existing rows by case-insensitive name match. Only sets statusKey
+  --    when it's currently NULL and no other row in the same sprint already has
+  --    that statusKey.
+  WITH lane_map(match_name, status_key) AS (VALUES
+    ('to do',       'PENDING'),
+    ('backlog',     'PENDING'),
+    ('in progress', 'IN_PROGRESS'),
+    ('doing',       'IN_PROGRESS'),
+    ('in review',   'IN_REVIEW'),
+    ('review',      'IN_REVIEW'),
+    ('stuck',       'STUCK'),
+    ('blocked',     'STUCK'),
+    ('done',        'COMPLETED'),
+    ('completed',   'COMPLETED')
+  )
+  UPDATE "public"."sprint_columns" sc
+  SET "statusKey" = lm.status_key
+  FROM lane_map lm
+  WHERE sc."statusKey" IS NULL
+    AND lower(sc."name") = lm.match_name
+    AND NOT EXISTS (
+      SELECT 1 FROM "public"."sprint_columns" sc2
+      WHERE sc2."sprintId" = sc."sprintId" AND sc2."statusKey" = lm.status_key
+    );
+END $$;
+
+DO $$
+DECLARE
+  s RECORD;
+BEGIN
+  FOR s IN SELECT id FROM "public"."sprints" LOOP
+    INSERT INTO "public"."sprint_columns" ("id", "sprintId", "name", "statusKey", "position", "color", "createdAt", "updatedAt")
+    SELECT 'col_' || replace(gen_random_uuid()::text, '-', ''), s.id, lane.name, lane.status_key, lane.position, NULL, NOW(), NOW()
+    FROM (VALUES
+      ('To Do',       'PENDING',     0),
+      ('In Progress', 'IN_PROGRESS', 1),
+      ('In Review',   'IN_REVIEW',   2),
+      ('Stuck',       'STUCK',       3),
+      ('Done',        'COMPLETED',   4)
+    ) AS lane(name, status_key, position)
+    WHERE NOT EXISTS (
+      SELECT 1 FROM "public"."sprint_columns" sc
+      WHERE sc."sprintId" = s.id AND sc."statusKey" = lane.status_key
+    )
+    ON CONFLICT DO NOTHING;
+  END LOOP;
+END $$;
 -- DROP TABLE IF EXISTS sprint_activity_migration; -- only after confirming no rollback needed

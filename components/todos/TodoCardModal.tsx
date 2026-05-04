@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { format, isPast, isToday, isTomorrow, isYesterday, formatDistanceToNow } from 'date-fns'
 import { cn } from '@/lib/utils'
+import { TODO_STATUS_META, BOARD_STATUSES, todoStatusMeta } from '@/lib/todo-status'
 import { MentionEditor } from './MentionEditor'
 import { useUsersForSelection } from '@/hooks/useUsersForSelection'
 import toast from 'react-hot-toast'
@@ -78,7 +79,9 @@ interface LabelDef { id: string; name: string; color: string }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const STATUS_OPTIONS = ['PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'] as const
+// Status options shown in the card status dropdown: 5 board lanes + Cancelled
+// (kept selectable so a card can be marked off without leaving the system).
+const STATUS_OPTIONS = [...BOARD_STATUSES, 'CANCELLED'] as const
 const PRIORITY_OPTIONS = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const
 const PRIORITY_COLORS: Record<string, string> = {
   LOW: '#8E8E93', MEDIUM: '#FF9500', HIGH: '#FF3B30', URGENT: '#AF52DE',
@@ -129,29 +132,22 @@ function DueDateBadge({ dueDate }: { dueDate: string | null }) {
   )
 }
 
-const STATUS_TONE: Record<string, { bg: string; fg: string; label: string }> = {
-  PENDING:     { bg: 'rgba(142,142,147,0.15)', fg: '#6E6E73', label: 'Pending' },
-  IN_PROGRESS: { bg: 'rgba(0,122,255,0.14)',   fg: '#0051D5', label: 'In progress' },
-  COMPLETED:   { bg: 'rgba(52,199,89,0.18)',   fg: '#1B6B30', label: 'Completed' },
-  CANCELLED:   { bg: 'rgba(255,59,48,0.14)',   fg: '#B32A22', label: 'Cancelled' },
-}
-
 function StatusPill({ status, onChange }: { status: string; onChange: (v: string) => void }) {
-  const tone = STATUS_TONE[status] ?? STATUS_TONE.PENDING
+  const meta = todoStatusMeta(status)
   return (
     <label
       className="relative inline-flex items-center gap-1 rounded-full px-2.5 py-[3px] text-[11px] font-600 cursor-pointer transition-shadow hover:shadow-sm"
-      style={{ background: tone.bg, color: tone.fg }}
+      style={{ background: meta.bg, color: meta.fg }}
     >
-      <span className="size-1.5 rounded-full" style={{ background: tone.fg, opacity: 0.8 }} />
-      {tone.label}
+      <span className="size-1.5 rounded-full" style={{ background: meta.dot }} />
+      {meta.label}
       <ChevronDown className="h-3 w-3 opacity-70" />
       <select
         value={status}
         onChange={(e) => onChange(e.target.value)}
         className="absolute inset-0 cursor-pointer opacity-0"
       >
-        {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{STATUS_TONE[s].label}</option>)}
+        {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{TODO_STATUS_META[s].label}</option>)}
       </select>
     </label>
   )
@@ -677,12 +673,12 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
   return createPortal(
     <div
       className={isDrawer
-        ? 'fixed inset-0 z-[80] flex justify-end pointer-events-none'
+        ? 'fixed inset-0 z-[80] flex justify-end'
         : 'fixed inset-0 z-[80] flex items-start justify-center overflow-y-auto p-4 sm:p-8'}
       style={isDrawer
         ? { background: 'rgba(0,0,0,0.2)' }
         : { background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }}
-      onClick={isDrawer ? onClose : undefined}
+      onClick={onClose}
     >
       <div
         className={isDrawer
@@ -795,13 +791,12 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                     <div className="fixed inset-0 z-[90]" onClick={() => setActivePanel(null)} />
                     <div className="absolute left-[78px] top-full z-[91] mt-2 w-[260px] max-h-[360px] overflow-y-auto rounded-[12px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] p-2 space-y-1 shadow-[var(--ap-shadow-lg)]">
                       <p className="px-2 pb-1 text-[10px] font-700 uppercase tracking-[0.06em] text-[var(--ap-fg-subtle)]">Card members</p>
-                      {users.map((u) => {
-                        const isMember = u.id === todo.assigneeId || todo.members.some((m) => m.user.id === u.id)
+                      {users.filter((u) => u.id !== todo.assigneeId).map((u) => {
+                        const isMember = todo.members.some((m) => m.user.id === u.id)
                         return (
                           <button
                             key={u.id}
-                            onClick={() => u.id !== todo.assigneeId && toggleMember(u.id)}
-                            disabled={u.id === todo.assigneeId}
+                            onClick={() => toggleMember(u.id)}
                             className={cn('flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[12px] transition-colors', isMember ? 'bg-[var(--ap-accent-soft)] text-[var(--ap-accent)]' : 'hover:bg-[var(--ap-bg-hover)] text-[var(--ap-fg)]')}
                           >
                             <Avatar name={u.name ?? u.email} size={18} />

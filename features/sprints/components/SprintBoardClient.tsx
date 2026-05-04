@@ -21,9 +21,11 @@ import { TodoCardModal } from '@/components/todos/TodoCardModal'
 import StatusPill from '@/components/shared/StatusPill'
 import { EmptyState } from '@/components/ui/EmptyState'
 import EndSprintModal from '@/components/sprints/EndSprintModal'
+import ScheduleSprintModal from '@/components/sprints/ScheduleSprintModal'
 import LinkToOkrPopover, { type OkrLinkValue } from '@/components/sprints/LinkToOkrPopover'
 import { useIsMobile } from '@/hooks'
 import { cn } from '@/lib/utils'
+import type { TodoStatus } from '@/types'
 
 // ─── Types matching /api/sprints/[id]/board ─────────────────────────────────
 
@@ -31,7 +33,7 @@ interface BoardUser { id: string; name: string; avatar: string | null }
 interface BoardTodo {
   id: string
   title: string
-  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
+  status: TodoStatus
   priority: string
   taskType?: string | null
   dueDate: string | null
@@ -41,16 +43,16 @@ interface BoardTodo {
   objective: { id: string; title: string } | null
 }
 interface BoardColumn {
-  id: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED'
+  id: TodoStatus
   name: string
-  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED'
+  status: TodoStatus
   todos: BoardTodo[]
 }
 interface BoardSprint {
   id: string
   name: string
   description: string | null
-  state: 'PLANNING' | 'ACTIVE' | 'COMPLETED'
+  state: 'PLANNING' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED'
   status: string
   startDate: string | null
   endDate: string | null
@@ -305,10 +307,12 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
   const qc = useQueryClient()
   const [openTodoId, setOpenTodoId] = useState<string | null>(null)
   const [showEnd, setShowEnd] = useState(false)
+  const [scheduleMode, setScheduleMode] = useState<'edit' | 'start' | null>(null)
+  const [starting, setStarting] = useState(false)
   const [filterAssignee, setFilterAssignee] = useState<string | null>(null)
   const [filterLinked, setFilterLinked] = useState<'all' | 'linked' | 'unlinked'>('all')
   const isMobile = useIsMobile()
-  const [mobileCol, setMobileCol] = useState<'PENDING' | 'IN_PROGRESS' | 'COMPLETED'>('PENDING')
+  const [mobileCol, setMobileCol] = useState<TodoStatus>('PENDING')
 
   const { data, isLoading } = useQuery({
     queryKey: ['sprint-board', sprintId],
@@ -322,6 +326,34 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
   })
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ['sprint-board', sprintId] })
+
+  async function startSprintNow() {
+    setStarting(true)
+    try {
+      const res = await fetch(`/api/sprints/${sprintId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ state: 'ACTIVE' }),
+      })
+      const json = await res.json()
+      if (!res.ok || !json.success) throw new Error(json.error || 'Failed')
+      toast.success('Sprint started')
+      invalidate()
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to start sprint')
+    } finally {
+      setStarting(false)
+    }
+  }
+
+  function handleStartSprintClick() {
+    if (!data) return
+    if (!data.sprint.startDate || !data.sprint.endDate) {
+      setScheduleMode('start')
+      return
+    }
+    void startSprintNow()
+  }
 
   async function moveTodo(todoId: string, newStatus: BoardColumn['status']) {
     try {
@@ -374,6 +406,26 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
           <h1 className="text-[18px] font-semibold leading-tight" style={{ letterSpacing: '-0.01em' }}>{sprint.name}</h1>
           <StatusPill status={sprint.state.toLowerCase().replace('_', '-')} />
           <div className="ml-auto flex items-center gap-2">
+            {sprint.state === 'PLANNING' && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setScheduleMode('edit')}
+                  className="rounded-[10px] border px-3 py-1 text-[12px] font-semibold hover:bg-muted"
+                  style={{ borderColor: 'var(--ap-border)' }}
+                >
+                  {sprint.startDate && sprint.endDate ? 'Edit dates' : 'Schedule'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleStartSprintClick}
+                  disabled={starting}
+                  className="rounded-[10px] bg-primary px-3 py-1 text-[12px] font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                >
+                  {starting ? 'Starting…' : 'Start sprint'}
+                </button>
+              </>
+            )}
             {sprint.state === 'ACTIVE' && (
               <button
                 type="button"
@@ -516,17 +568,6 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
               </p>
             </div>
 
-            {col.id === 'PENDING' && (
-              <div className="mb-2">
-                <AddTaskInline
-                  sprintId={sprintId}
-                  currentUserId={currentUserId}
-                  defaultDueDate={sprint.endDate}
-                  onCreated={invalidate}
-                />
-              </div>
-            )}
-
             <div className="space-y-2">
               {col.todos.map((t) => (
                 <TaskCard
@@ -537,17 +578,40 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
                 />
               ))}
             </div>
+
+            {col.id === 'PENDING' && (
+              <div className="mt-2">
+                <AddTaskInline
+                  sprintId={sprintId}
+                  currentUserId={currentUserId}
+                  defaultDueDate={sprint.endDate}
+                  onCreated={invalidate}
+                />
+              </div>
+            )}
           </div>
         ))}
       </div>
 
-      {/* Drawer-mode task detail */}
+      {/* Centered task detail modal (Trello-style) */}
       <TodoCardModal
         todoId={openTodoId}
         currentUserId={currentUserId}
         onClose={() => setOpenTodoId(null)}
         onUpdated={invalidate}
-        mode="drawer"
+        mode="modal"
+      />
+
+      {/* Schedule / start sprint modal */}
+      <ScheduleSprintModal
+        open={scheduleMode !== null}
+        onClose={() => setScheduleMode(null)}
+        sprintId={sprintId}
+        sprintName={sprint.name}
+        initialStart={sprint.startDate}
+        initialEnd={sprint.endDate}
+        activateOnSave={scheduleMode === 'start'}
+        onSaved={invalidate}
       />
 
       {/* End sprint modal */}

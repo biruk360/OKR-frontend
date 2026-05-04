@@ -161,12 +161,26 @@ function mapPlanStatusToApi(label: string): string {
 }
 
 function mapTodoStatus(status: string): string {
-  const map: Record<string, string> = { PENDING: 'Backlog', IN_PROGRESS: 'In Progress', COMPLETED: 'Done', CANCELLED: 'Abandoned' }
+  const map: Record<string, string> = {
+    PENDING: 'Backlog',
+    IN_PROGRESS: 'In Progress',
+    IN_REVIEW: 'In Review',
+    STUCK: 'Blocked',
+    COMPLETED: 'Done',
+    CANCELLED: 'Abandoned',
+  }
   return map[status] ?? status
 }
 
 function reverseMapWorkStatus(label: string): string | undefined {
-  const map: Record<string, string> = { Backlog: 'PENDING', 'In Progress': 'IN_PROGRESS', Done: 'COMPLETED', Abandoned: 'CANCELLED' }
+  const map: Record<string, string> = {
+    Backlog: 'PENDING',
+    'In Progress': 'IN_PROGRESS',
+    'In Review': 'IN_REVIEW',
+    Blocked: 'STUCK',
+    Done: 'COMPLETED',
+    Abandoned: 'CANCELLED',
+  }
   return map[label]
 }
 

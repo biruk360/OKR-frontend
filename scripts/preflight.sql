@@ -482,6 +482,37 @@ BEGIN
   END IF;
 END $$;
 
+-- 4c. initiatives.startTime / endTime — wall-clock times for the per-sprint
+--     Planner view. Stored as text ("HH:mm") to avoid timezone confusion
+--     (paired with the existing date-only startDate/dueDate fields).
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='initiatives' AND column_name='startTime'
+  ) THEN
+    EXECUTE 'ALTER TABLE "public"."initiatives" ADD COLUMN "startTime" TEXT';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='initiatives' AND column_name='endTime'
+  ) THEN
+    EXECUTE 'ALTER TABLE "public"."initiatives" ADD COLUMN "endTime" TEXT';
+  END IF;
+END $$;
+
+-- 4d. sprints.background — Trello-style board background preset key.
+--     Default 'none' means the neutral app surface. See lib/sprint-backgrounds.ts.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='sprints' AND column_name='background'
+  ) THEN
+    EXECUTE 'ALTER TABLE "public"."sprints" ADD COLUMN "background" TEXT DEFAULT ''none''';
+  END IF;
+END $$;
+
 -- 5. Backfill 5 board lanes per sprint, idempotently. Two-step:
 --    a) First, claim any existing same-name rows by setting their statusKey
 --       (matches legacy default columns: Backlog/In progress/Review/Done).

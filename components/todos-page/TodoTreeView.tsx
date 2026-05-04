@@ -280,9 +280,9 @@ function TodoLeafRow({
           onClick={(e) => { e.stopPropagation(); setEditingAssignee(!editingAssignee) }}
           className="inline-flex items-center justify-center size-6 rounded-full bg-muted text-xs font-semibold"
           style={{ width: 20, height: 20, fontSize: 9 }}
-          title={todo.assignee.name}
+          title={todo.assignee?.name ?? 'Unassigned'}
         >
-          {todo.assignee.name.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase()}
+          {todo.assignee ? todo.assignee.name.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase() : '—'}
         </button>
         {editingAssignee && (
           <div className="absolute right-0 top-6 z-20 bg-popover border border-border rounded-lg shadow-lg p-1 min-w-[200px] max-h-[200px] overflow-auto" onClick={(e) => e.stopPropagation()}>

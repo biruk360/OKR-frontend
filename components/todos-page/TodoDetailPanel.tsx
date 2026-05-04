@@ -160,8 +160,8 @@ export default function TodoDetailPanel({
       <div className="px-4 py-4 space-y-5">
         {/* Meta chips */}
         <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center h-5 px-1.5 text-xs font-medium rounded" title={`Assigned to ${todo.assignee.name}`}>
-            <UserIcon className="h-3 w-3" /> {todo.assignee.name}
+          <span className="inline-flex items-center h-5 px-1.5 text-xs font-medium rounded" title={todo.assignee ? `Assigned to ${todo.assignee.name}` : 'Unassigned'}>
+            <UserIcon className="h-3 w-3" /> {todo.assignee?.name ?? 'Unassigned'}
           </span>
           {todo.keyResult && (
             <Link href={`/dashboard/key-results/${todo.keyResult.id}`} className="inline-flex items-center h-5 px-1.5 text-xs font-medium rounded" data-tone="primary">

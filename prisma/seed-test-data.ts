@@ -254,6 +254,7 @@ async function main() {
       const date = new Date('2026-04-01')
       date.setDate(date.getDate() + d + Math.floor(Math.random() * 10))
       const dateStr = date.toISOString().slice(0, 10)
+      if (!todo.assigneeId) continue // initiativeUpdate.authorId is required
       try {
         await prisma.initiativeUpdate.create({
           data: {

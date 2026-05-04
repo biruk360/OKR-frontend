@@ -74,7 +74,7 @@ export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { sess
   if (!todoId) return apiBadRequest('Invalid todo id')
 
   const {
-    title, description, status, dueDate, completedAt, progressValue,
+    title, description, status, startDate, dueDate, startTime, endTime, completedAt, progressValue,
     assigneeId, priority, coverColor,
     sprintId, taskType,
     memberIds,   // string[] — full replacement of members list
@@ -82,6 +82,14 @@ export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { sess
     keyResultId, // string | null — link/unlink to a Key Result. Recalculates KR currentValue on change.
     objectiveId, // string | null — link/unlink to an Objective directly (work that spans the whole O).
   } = await request.json()
+
+  const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/
+  if (startTime !== undefined && startTime !== null && !TIME_RE.test(String(startTime))) {
+    return apiBadRequest('Invalid startTime (expected HH:mm)')
+  }
+  if (endTime !== undefined && endTime !== null && !TIME_RE.test(String(endTime))) {
+    return apiBadRequest('Invalid endTime (expected HH:mm)')
+  }
 
   const existingTodo = await prisma.todo.findUnique({
     where: { id: todoId },
@@ -172,7 +180,10 @@ export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { sess
         ...(title !== undefined && { title }),
         ...(description !== undefined && { description }),
         ...(status !== undefined && { status }),
+        ...(startDate !== undefined && { startDate: startDate ? new Date(startDate) : null }),
         ...(dueDate !== undefined && { dueDate: dueDate ? new Date(dueDate) : null }),
+        ...(startTime !== undefined && { startTime: startTime ?? null }),
+        ...(endTime !== undefined && { endTime: endTime ?? null }),
         ...(completedAt !== undefined && { completedAt: completedAt ? new Date(completedAt) : null }),
         ...(parsedProgressValue !== undefined && { progressValue: parsedProgressValue }),
         ...(assigneeId !== undefined && { assigneeId }),

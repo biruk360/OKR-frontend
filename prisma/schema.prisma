@@ -332,6 +332,10 @@ model Todo {
   coverColor            String? // hex or named colour for the card cover strip
   startDate             DateTime?
   dueDate               DateTime?
+  /// Wall-clock start/end time on the planner ("HH:mm"). Optional — todos
+  /// without times render as all-day chips on the per-sprint Planner view.
+  startTime             String?
+  endTime               String?
   completedAt           DateTime?
   /// Optional primary assignee (legacy — Trello-style usage relies on TodoMember
   /// instead). Kept nullable for filters/notifications/legacy queries.
@@ -829,6 +833,9 @@ model Sprint {
   goalTarget     Float?
   goalCurrent    Float?    @default(0)
   goalUnit       String?
+  /// Trello-style board background preset key (see lib/sprint-backgrounds.ts).
+  /// "none" = neutral surface; otherwise one of the gradient preset keys.
+  background     String?   @default("none")
   departmentId   String?
   reflectionNote String?
   endedAt        DateTime?

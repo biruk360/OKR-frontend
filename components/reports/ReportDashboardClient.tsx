@@ -102,7 +102,7 @@ export interface ReportTodoRow {
   keyResultId: string
   krTitle: string
   objectiveTitle: string
-  assigneeId: string
+  assigneeId: string | null
   assigneeName: string
   dueDate: string | null
 }
@@ -504,8 +504,9 @@ export default function ReportDashboardClient({
       map.get(kr.ownerId)!.krs.push(kr)
     }
     for (const todo of dashboardScope.todos) {
-      if (!map.has(todo.assigneeId)) map.set(todo.assigneeId, { id: todo.assigneeId, name: todo.assigneeName, krs: [], todos: [] })
-      map.get(todo.assigneeId)!.todos.push(todo)
+      const aid = todo.assigneeId ?? '__unassigned__'
+      if (!map.has(aid)) map.set(aid, { id: aid, name: todo.assigneeId ? todo.assigneeName : 'Unassigned', krs: [], todos: [] })
+      map.get(aid)!.todos.push(todo)
     }
     return Array.from(map.values())
       .map((row) => {

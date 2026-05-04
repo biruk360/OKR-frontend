@@ -170,8 +170,10 @@ async function resolveRecipients(eventKey: EventKey, p: EventPayload): Promise<M
           select: { assigneeId: true, keyResult: { select: { ownerId: true } }, objective: { select: { ownerId: true } } },
         })
         if (todo) {
-          add(todo.assigneeId, 'ASSIGNEE')
-          for (const m of await resolveManagersOf(todo.assigneeId)) add(m, 'MANAGER')
+          if (todo.assigneeId) {
+            add(todo.assigneeId, 'ASSIGNEE')
+            for (const m of await resolveManagersOf(todo.assigneeId)) add(m, 'MANAGER')
+          }
         }
       }
       break
@@ -181,7 +183,9 @@ async function resolveRecipients(eventKey: EventKey, p: EventPayload): Promise<M
       if (p.entityId) {
         const todo = await prisma.todo.findUnique({ where: { id: p.entityId }, select: { assigneeId: true } })
         if (todo) {
-          for (const m of await resolveManagersOf(todo.assigneeId)) add(m, 'MANAGER')
+          if (todo.assigneeId) {
+            for (const m of await resolveManagersOf(todo.assigneeId)) add(m, 'MANAGER')
+          }
           for (const w of await resolveWatchers('TODO', p.entityId)) add(w, 'WATCHER')
         }
       }

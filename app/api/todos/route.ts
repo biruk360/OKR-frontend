@@ -109,6 +109,18 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
 
   const description = typeof body.description === 'string' ? body.description.trim() || null : null
   const dueDate = body.dueDate ? new Date(body.dueDate) : null
+  const startDate = body.startDate ? new Date(body.startDate) : null
+  const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/
+  let startTime: string | null = null
+  let endTime: string | null = null
+  if (typeof body.startTime === 'string' && body.startTime.trim()) {
+    if (!TIME_RE.test(body.startTime)) return apiBadRequest('Invalid startTime (expected HH:mm)')
+    startTime = body.startTime
+  }
+  if (typeof body.endTime === 'string' && body.endTime.trim()) {
+    if (!TIME_RE.test(body.endTime)) return apiBadRequest('Invalid endTime (expected HH:mm)')
+    endTime = body.endTime
+  }
 
   let progressValue: number | null = null
   if (body.progressValue !== undefined && body.progressValue !== null) {
@@ -177,7 +189,10 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
     data: {
       title,
       description,
+      startDate,
       dueDate,
+      startTime,
+      endTime,
       status: 'PENDING',
       assigneeId,
       creatorId: session.user.id,

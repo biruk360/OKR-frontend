@@ -24,7 +24,10 @@ export interface TodoCardData {
   status: string
   priority: string
   coverColor: string | null
+  startDate: string | null
   dueDate: string | null
+  startTime: string | null
+  endTime: string | null
   assigneeId: string | null
   assignee: { id: string; name: string; avatar: string | null } | null
   creator: { id: string; name: string; avatar: string | null }
@@ -1205,6 +1208,30 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                   onChange={(e) => patch({ dueDate: e.target.value || null })}
                 />
               </button>
+
+              {/* Start / End time — drives placement on the per-sprint Planner view. */}
+              <div className="flex items-center gap-2 rounded-[10px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-3 py-2 text-[12px]">
+                <Calendar className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                <label className="flex items-center gap-1">
+                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Start</span>
+                  <input
+                    type="time"
+                    className="bg-transparent text-[12px] outline-none"
+                    value={todo.startTime ?? ''}
+                    onChange={(e) => patch({ startTime: e.target.value || null })}
+                  />
+                </label>
+                <span className="text-muted-foreground">–</span>
+                <label className="flex items-center gap-1">
+                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground">End</span>
+                  <input
+                    type="time"
+                    className="bg-transparent text-[12px] outline-none"
+                    value={todo.endTime ?? ''}
+                    onChange={(e) => patch({ endTime: e.target.value || null })}
+                  />
+                </label>
+              </div>
 
               {/* Attach */}
               <button

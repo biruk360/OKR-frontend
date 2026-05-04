@@ -11,6 +11,7 @@ import {
 import { canEditSprint, canDeleteSprint, type UserRole } from '@/lib/permissions'
 import { recordActivity } from '@/lib/activity-log'
 import { broadcastSprintEvent } from '@/lib/pusher'
+import { isSprintBackgroundKey } from '@/lib/sprint-backgrounds'
 
 /** Full sprint with columns + activities (board fetch). */
 export const GET = withAuth<RouteIdParams>(async (_request, { params }) => {
@@ -89,6 +90,11 @@ export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { sess
   if ('goalUnit' in body) data.goalUnit = body.goalUnit ?? null
   if ('departmentId' in body) data.departmentId = body.departmentId ?? null
   if ('reflectionNote' in body) data.reflectionNote = body.reflectionNote ?? null
+  if ('background' in body) {
+    const value = body.background ?? 'none'
+    if (!isSprintBackgroundKey(value)) return apiBadRequest('Invalid background preset')
+    data.background = value
+  }
 
   let stateChanged = false
   let nextState = existing.state

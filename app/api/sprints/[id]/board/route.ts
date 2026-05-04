@@ -17,6 +17,9 @@ const TODO_INCLUDE = {
   creator:  { select: { id: true, name: true, avatar: true } },
   members:  { include: { user: { select: { id: true, name: true, avatar: true } } } },
   labels:   { include: { labelDef: true } },
+  // Checklist + comment counts power the card meta-row badges (Trello-style).
+  checklists: { include: { items: { select: { completed: true } } } },
+  todoComments: { select: { id: true } },
   keyResult: {
     select: {
       id: true,
@@ -90,6 +93,7 @@ export const GET = withAuth<RouteIdParams>(async (_request, { params }) => {
       goalUnit: sprint.goalUnit,
       reflectionNote: sprint.reflectionNote,
       endedAt: sprint.endedAt,
+      background: sprint.background ?? 'none',
       owner: sprint.owner,
       department: sprint.department,
     },

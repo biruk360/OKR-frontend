@@ -14,8 +14,7 @@ import toast from 'react-hot-toast'
 import { useRouter } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  ArrowLeft, Plus, Target, MoreHorizontal, Briefcase, Phone, Mail, Monitor,
-  Users, FileText, RefreshCw, Square, Calendar, Filter, AlertCircle,
+  ArrowLeft, Plus, MoreHorizontal, Calendar, Filter,
 } from 'lucide-react'
 import { TodoCardModal } from '@/components/todos/TodoCardModal'
 import StatusPill from '@/components/shared/StatusPill'
@@ -26,6 +25,16 @@ import LinkToOkrPopover, { type OkrLinkValue } from '@/components/sprints/LinkTo
 import { useIsMobile } from '@/hooks'
 import { cn } from '@/lib/utils'
 import type { TodoStatus } from '@/types'
+import TaskCardTrello, { type TrelloTodo } from './TaskCardTrello'
+import SprintBackgroundPicker from './SprintBackgroundPicker'
+import SprintFloatingBar, { type SprintBoardView } from './SprintFloatingBar'
+import SprintSwitcher from './SprintSwitcher'
+import SprintPlannerView from './SprintPlannerView'
+import {
+  getBackgroundStyle,
+  isDarkBackground,
+  type SprintBackgroundKey,
+} from '@/lib/sprint-backgrounds'
 
 // ─── Types matching /api/sprints/[id]/board ─────────────────────────────────
 
@@ -36,11 +45,17 @@ interface BoardTodo {
   status: TodoStatus
   priority: string
   taskType?: string | null
+  startDate: string | null
   dueDate: string | null
-  assigneeId: string
-  assignee: BoardUser
+  startTime: string | null
+  endTime: string | null
+  assigneeId: string | null
+  assignee: BoardUser | null
+  members?: { user: BoardUser }[]
   keyResult: { id: string; title: string; objective?: { id: string; title: string } } | null
   objective: { id: string; title: string } | null
+  checklists?: { items?: { done: boolean }[] }[]
+  todoComments?: { id: string }[]
 }
 interface BoardColumn {
   id: TodoStatus
@@ -61,6 +76,7 @@ interface BoardSprint {
   goalTarget: number | null
   goalCurrent: number | null
   goalUnit: string | null
+  background?: string | null
   owner: BoardUser
 }
 interface BoardData {
@@ -96,17 +112,6 @@ export interface SprintBoardActivity {
 interface Props {
   sprintId: string
   currentUserId: string
-}
-
-// ─── Task type → icon map (spec §4.3) ───────────────────────────────────────
-
-const TYPE_ICONS: Record<string, any> = {
-  CALL: Phone, EMAIL: Mail, DEMO: Monitor, MEETING: Users,
-  PROPOSAL: FileText, FOLLOW_UP: RefreshCw, ADMIN: Briefcase, GENERAL: Square,
-}
-
-const PRIORITY_COLORS: Record<string, string> = {
-  LOW: '#8E8E93', MEDIUM: '#FF9500', HIGH: '#FF3B30', URGENT: '#AF52DE',
 }
 
 function Avatar({ user, size = 22 }: { user: BoardUser; size?: number }) {
@@ -240,68 +245,8 @@ function AddTaskInline({
   )
 }
 
-// ─── Task card (spec §4.3) ─────────────────────────────────────────────────
-
-function TaskCard({
-  todo, onClick, onDragStart,
-}: {
-  todo: BoardTodo
-  onClick: () => void
-  onDragStart: (e: React.DragEvent) => void
-}) {
-  const TypeIcon = TYPE_ICONS[todo.taskType ?? 'GENERAL'] ?? Square
-  const due = todo.dueDate ? new Date(todo.dueDate) : null
-  const overdue = due && due < new Date() && todo.status !== 'COMPLETED'
-
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      draggable
-      onDragStart={onDragStart}
-      onClick={onClick}
-      onKeyDown={(e) => { if (e.key === 'Enter') onClick() }}
-      className="ap-hover-lift cursor-pointer rounded-[10px] border bg-card p-3 text-left transition"
-      style={{ borderColor: 'var(--ap-border)' }}
-    >
-      <div className="flex items-start gap-2">
-        <TypeIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-        <p className="flex-1 text-[12px] font-medium leading-tight">{todo.title}</p>
-      </div>
-
-      {todo.keyResult && (
-        <div
-          className="mt-2 inline-flex max-w-full items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium"
-          style={{ background: 'var(--ap-accent-soft)', color: 'var(--ap-accent)' }}
-        >
-          <Target className="h-3 w-3 shrink-0" />
-          <span className="truncate">{todo.keyResult.title}</span>
-        </div>
-      )}
-
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-          {due && (
-            <span className={cn('inline-flex items-center gap-0.5', overdue && 'text-[var(--ap-red)]')}>
-              {overdue && <AlertCircle className="h-3 w-3" />}
-              <Calendar className="h-3 w-3" />
-              {due.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-            </span>
-          )}
-          <span
-            className="rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase"
-            style={{ background: `${PRIORITY_COLORS[todo.priority] ?? '#8E8E93'}22`, color: PRIORITY_COLORS[todo.priority] ?? '#8E8E93' }}
-          >
-            {todo.priority}
-          </span>
-        </div>
-        <Avatar user={todo.assignee} size={20} />
-      </div>
-    </div>
-  )
-}
-
 // ─── Main board ─────────────────────────────────────────────────────────────
+// Note: the previous inline TaskCard was replaced by features/sprints/components/TaskCardTrello.
 
 export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
   const router = useRouter()
@@ -314,6 +259,8 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
   const [filterLinked, setFilterLinked] = useState<'all' | 'linked' | 'unlinked'>('all')
   const isMobile = useIsMobile()
   const [mobileCol, setMobileCol] = useState<TodoStatus>('PENDING')
+  const [view, setView] = useState<SprintBoardView>('board')
+  const [showSwitcher, setShowSwitcher] = useState(false)
 
   const { data, isLoading } = useQuery({
     queryKey: ['sprint-board', sprintId],
@@ -396,10 +343,22 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
     .flatMap((c) => c.todos.map((t) => ({ id: t.id, title: t.title, status: t.status })))
   const completedCount = data.columns.find((c) => c.status === 'COMPLETED')?.todos.length ?? 0
 
+  const bgKey = (sprint.background as SprintBackgroundKey | null) ?? 'none'
+  const dark = isDarkBackground(bgKey)
+
   return (
-    <div className="space-y-3">
+    <div
+      className={cn('-mx-4 -my-4 min-h-[calc(100vh-64px)] space-y-3 px-4 py-4 pb-24 transition-colors', dark && 'text-white')}
+      style={getBackgroundStyle(bgKey)}
+    >
       {/* Sticky header (spec §4.3) */}
-      <div className="sticky top-0 z-20 -mx-4 border-b bg-[var(--ap-bg)] px-4 py-3" style={{ borderColor: 'var(--ap-border)' }}>
+      <div
+        className={cn(
+          'sticky top-0 z-20 -mx-4 border-b px-4 py-3 backdrop-blur-md',
+          dark ? 'bg-black/30 text-white' : 'bg-white/70',
+        )}
+        style={{ borderColor: 'var(--ap-border)' }}
+      >
         <div className="flex flex-wrap items-center gap-3">
           <Link href="/dashboard/sprints" className="inline-flex items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground">
             <ArrowLeft className="h-3.5 w-3.5" /> Sprints
@@ -437,6 +396,11 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
                 End sprint
               </button>
             )}
+            <SprintBackgroundPicker
+              sprintId={sprintId}
+              current={(sprint.background as SprintBackgroundKey | null) ?? 'none'}
+              onChanged={() => invalidate()}
+            />
             <button type="button" className="rounded-[10px] border p-1 hover:bg-muted" style={{ borderColor: 'var(--ap-border)' }}>
               <MoreHorizontal className="h-4 w-4" />
             </button>
@@ -548,51 +512,77 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
         })}
       </div>
 
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
-        {filteredColumns.map((col) => (
-          <div
-            key={col.id}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => {
-              const todoId = e.dataTransfer.getData('todoId')
-              if (todoId) moveTodo(todoId, col.status)
-            }}
-            className={cn(
-              'rounded-[14px] border p-3',
-              isMobile && mobileCol !== col.status && 'hidden',
-            )}
-            style={{ borderColor: 'var(--ap-border)', background: 'var(--ap-bg-sunken)' }}
-          >
-            <div className="mb-2 flex items-center justify-between">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                {col.name} <span className="ml-1 tabular-nums">{col.todos.length}</span>
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              {col.todos.map((t) => (
-                <TaskCard
-                  key={t.id}
-                  todo={t}
-                  onClick={() => setOpenTodoId(t.id)}
-                  onDragStart={(e) => e.dataTransfer.setData('todoId', t.id)}
-                />
-              ))}
-            </div>
-
-            {col.id === 'PENDING' && (
-              <div className="mt-2">
-                <AddTaskInline
-                  sprintId={sprintId}
-                  currentUserId={currentUserId}
-                  defaultDueDate={sprint.endDate}
-                  onCreated={invalidate}
-                />
+      {view === 'board' ? (
+        <div className="flex gap-3 overflow-x-auto pb-2">
+          {filteredColumns.map((col) => (
+            <div
+              key={col.id}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                const todoId = e.dataTransfer.getData('todoId')
+                if (todoId) moveTodo(todoId, col.status)
+              }}
+              className={cn(
+                'flex w-[272px] shrink-0 flex-col rounded-[12px] border p-2 backdrop-blur-md',
+                dark ? 'bg-white/15' : 'bg-white/85',
+                isMobile && mobileCol !== col.status && 'hidden',
+              )}
+              style={{ borderColor: 'var(--ap-border)' }}
+            >
+              <div className="mb-2 flex items-center justify-between px-1">
+                <p className={cn('text-[13px] font-semibold', dark && 'text-white')}>
+                  {col.name}
+                  <span className="ml-1.5 tabular-nums opacity-60">{col.todos.length}</span>
+                </p>
+                <button type="button" className="rounded-md p-0.5 opacity-60 hover:bg-muted hover:opacity-100">
+                  <MoreHorizontal className="h-3.5 w-3.5" />
+                </button>
               </div>
-            )}
-          </div>
-        ))}
-      </div>
+
+              <div className="space-y-2">
+                {col.todos.map((t) => (
+                  <TaskCardTrello
+                    key={t.id}
+                    todo={t as unknown as TrelloTodo}
+                    onClick={() => setOpenTodoId(t.id)}
+                    onDragStart={(e) => e.dataTransfer.setData('todoId', t.id)}
+                  />
+                ))}
+              </div>
+
+              {col.id === 'PENDING' && (
+                <div className="mt-2">
+                  <AddTaskInline
+                    sprintId={sprintId}
+                    currentUserId={currentUserId}
+                    defaultDueDate={sprint.endDate}
+                    onCreated={invalidate}
+                  />
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : view === 'planner' ? (
+        <SprintPlannerView
+          columns={filteredColumns as unknown as Parameters<typeof SprintPlannerView>[0]['columns']}
+          onTodoClick={(id) => setOpenTodoId(id)}
+          onDragStartCard={(e, id) => e.dataTransfer.setData('todoId', id)}
+        />
+      ) : (
+        <div
+          className={cn(
+            'rounded-[14px] border p-8 text-center backdrop-blur-md',
+            dark ? 'bg-white/10 text-white' : 'bg-white/85',
+          )}
+          style={{ borderColor: 'var(--ap-border)' }}
+        >
+          <p className="text-[13px] font-semibold">Inbox is coming soon</p>
+          <p className="mt-1 text-[12px] text-muted-foreground">
+            Your unread mentions, reviews, and assignments will land here.
+          </p>
+        </div>
+      )}
 
       {/* Centered task detail modal (Trello-style) */}
       <TodoCardModal
@@ -627,6 +617,20 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
         goalCurrent={sprint.goalCurrent}
         goalTarget={sprint.goalTarget}
         goalUnit={sprint.goalUnit}
+      />
+
+      {/* Switch boards modal */}
+      <SprintSwitcher
+        open={showSwitcher}
+        onClose={() => setShowSwitcher(false)}
+        currentSprintId={sprintId}
+      />
+
+      {/* Floating bottom bar (board only — fixed-position pill) */}
+      <SprintFloatingBar
+        view={view}
+        onViewChange={setView}
+        onSwitchBoards={() => setShowSwitcher(true)}
       />
     </div>
   )

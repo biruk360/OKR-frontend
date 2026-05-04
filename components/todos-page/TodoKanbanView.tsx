@@ -113,13 +113,13 @@ function KanbanCard({
         </div>
       )}
       <div className="mt-2 flex items-center gap-1.5">
-        <span className="inline-flex items-center justify-center size-6 rounded-full bg-muted text-xs font-semibold" style={{ width: 20, height: 20, fontSize: 9 }} title={row.assignee.name}>
-          {row.assignee.avatar ? (
+        <span className="inline-flex items-center justify-center size-6 rounded-full bg-muted text-xs font-semibold" style={{ width: 20, height: 20, fontSize: 9 }} title={row.assignee?.name ?? 'Unassigned'}>
+          {row.assignee?.avatar ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={row.assignee.avatar} alt="" />
-          ) : (
+          ) : row.assignee ? (
             row.assignee.name.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase()
-          )}
+          ) : '—'}
         </span>
         {row.dueDate && (
           <span

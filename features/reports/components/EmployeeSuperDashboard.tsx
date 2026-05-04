@@ -44,7 +44,7 @@ export interface EmployeeSuperData {
     keyResultId: string
     krTitle: string
     objectiveTitle: string
-    assigneeId: string
+    assigneeId: string | null
     dueDate: string | null
   }>
   recommendations: Array<{ title: string; detail: string; tone: KrDisplayStatus; href?: string }>

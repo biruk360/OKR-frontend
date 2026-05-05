@@ -36,7 +36,8 @@ export default function DashboardShell({ user, children }: DashboardShellProps) 
     pathname === '/dashboard/plans' ||
     pathname === '/dashboard/work' ||
     pathname?.startsWith('/dashboard/okr-hierarchy/') ||
-    pathname?.startsWith('/dashboard/timeline/')
+    pathname?.startsWith('/dashboard/timeline/') ||
+    pathname?.startsWith('/dashboard/sprints/')
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [sidebarReady, setSidebarReady] = useState(false)

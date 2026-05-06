@@ -25,6 +25,7 @@ import LinkToOkrPopover, { type OkrLinkValue } from '@/components/sprints/LinkTo
 import { useIsMobile } from '@/hooks'
 import { cn } from '@/lib/utils'
 import type { TodoStatus } from '@/types'
+import { BOARD_STATUSES, TODO_STATUS_META } from '@/lib/todo-status'
 import TaskCardTrello, { type TrelloTodo } from './TaskCardTrello'
 import SprintBackgroundPicker from './SprintBackgroundPicker'
 import SprintFloatingBar, { type SprintBoardView } from './SprintFloatingBar'
@@ -490,10 +491,10 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
       ) : null}
 
       {/* Mobile column tab switcher (hidden on lg+) */}
-      <div className="flex gap-1 rounded-[10px] border p-1 lg:hidden" style={{ borderColor: 'var(--ap-border)', background: 'var(--ap-bg-sunken)' }}>
-        {(['PENDING', 'IN_PROGRESS', 'COMPLETED'] as const).map((s) => {
+      <div className="flex gap-1 overflow-x-auto rounded-[10px] border p-1 lg:hidden" style={{ borderColor: 'var(--ap-border)', background: 'var(--ap-bg-sunken)' }}>
+        {BOARD_STATUSES.map((s) => {
           const col = filteredColumns.find((c) => c.status === s)
-          const label = s === 'PENDING' ? 'To Do' : s === 'IN_PROGRESS' ? 'In Progress' : 'Done'
+          const meta = TODO_STATUS_META[s]
           const count = col?.todos.length ?? 0
           const active = mobileCol === s
           return (
@@ -502,11 +503,11 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
               type="button"
               onClick={() => setMobileCol(s)}
               className={cn(
-                'flex-1 rounded-[8px] px-2 py-1.5 text-[12px] font-semibold transition-colors',
+                'shrink-0 rounded-[8px] px-2 py-1.5 text-[12px] font-semibold transition-colors',
                 active ? 'bg-[var(--ap-bg-raised)] text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
               )}
             >
-              {label} <span className="ml-1 tabular-nums opacity-70">{count}</span>
+              {meta.shortLabel} <span className="ml-1 tabular-nums opacity-70">{count}</span>
             </button>
           )
         })}

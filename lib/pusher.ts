@@ -9,10 +9,21 @@ import PusherClient from 'pusher-js'
 let _server: Pusher | null = null
 let _serverLogged = false
 
+// Reject empty, "your-*" placeholders from env.example, "dev-placeholder" from
+// the bootstrap script, and "0" appId. Otherwise the SDK happily ships every
+// trigger() to api-mt1.pusher.com and waits for the 400 round-trip.
+function isUsableCred(v: string | undefined): v is string {
+  if (!v) return false
+  if (v === '0') return false
+  if (v.startsWith('your-')) return false
+  if (v.includes('dev-placeholder')) return false
+  return true
+}
+
 export function getPusherServer(): Pusher | null {
   if (_server) return _server
   const { PUSHER_APP_ID, PUSHER_KEY, PUSHER_SECRET, PUSHER_CLUSTER } = process.env
-  if (!PUSHER_APP_ID || !PUSHER_KEY || !PUSHER_SECRET || !PUSHER_CLUSTER) {
+  if (!isUsableCred(PUSHER_APP_ID) || !isUsableCred(PUSHER_KEY) || !isUsableCred(PUSHER_SECRET) || !isUsableCred(PUSHER_CLUSTER)) {
     if (!_serverLogged) {
       console.warn('[pusher] server credentials not configured; realtime disabled')
       _serverLogged = true
@@ -37,7 +48,7 @@ export function getPusherClient(): PusherClient | null {
   if (_client) return _client
   const key = process.env.NEXT_PUBLIC_PUSHER_KEY
   const cluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER
-  if (!key || !cluster) {
+  if (!isUsableCred(key) || !isUsableCred(cluster)) {
     if (!_clientLogged) {
       console.warn('[pusher] client credentials not configured; realtime disabled')
       _clientLogged = true

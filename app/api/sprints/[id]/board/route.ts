@@ -33,6 +33,8 @@ const TODO_INCLUDE = {
 const COLUMN_DEFS = [
   { id: 'PENDING',     name: 'To Do',       status: 'PENDING' as const },
   { id: 'IN_PROGRESS', name: 'In Progress', status: 'IN_PROGRESS' as const },
+  { id: 'IN_REVIEW',   name: 'In Review',   status: 'IN_REVIEW' as const },
+  { id: 'STUCK',       name: 'Stuck',       status: 'STUCK' as const },
   { id: 'COMPLETED',   name: 'Done',        status: 'COMPLETED' as const },
 ]
 
@@ -54,7 +56,11 @@ export const GET = withAuth<RouteIdParams>(async (_request, { params }) => {
 
   const todos = await prisma.todo.findMany({
     where: { sprintId: id },
-    orderBy: [{ status: 'asc' }, { dueDate: 'asc' }, { createdAt: 'asc' }],
+    // Order by createdAt asc within each column so newly created todos always
+    // append at the bottom of their lane (the user's expectation). Avoid sorting
+    // by dueDate here — null due dates can appear above existing dated tasks
+    // depending on DB null-ordering, which made fresh todos jump to the top.
+    orderBy: [{ status: 'asc' }, { createdAt: 'asc' }],
     include: TODO_INCLUDE,
   })
 

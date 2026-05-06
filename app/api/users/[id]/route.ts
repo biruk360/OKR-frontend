@@ -95,14 +95,23 @@ export const DELETE = withRole<RouteIdParams>('ADMIN', async (_request, { sessio
   const user = await prisma.user.findUnique({ where: { id: userId } })
   if (!user) return apiNotFound('User not found')
 
-  // Manual cascade — delete relations that don't have onDelete: Cascade set.
-  await prisma.comment.deleteMany({ where: { authorId: userId } })
-  await prisma.todo.deleteMany({
-    where: { OR: [{ assigneeId: userId }, { creatorId: userId }] },
-  })
-  await prisma.keyResult.deleteMany({ where: { ownerId: userId } })
-  await prisma.objective.deleteMany({ where: { ownerId: userId } })
-  await prisma.user.delete({ where: { id: userId } })
+  // Manual cascade — delete relations whose User FK defaults to RESTRICT.
+  // Wrapped in a transaction so a missed relation surfaces as one rollback
+  // instead of half-deleting the user. If a new model gets a non-cascading
+  // User FK, add it here (and watch for `Foreign key constraint violated` in
+  // the response error).
+  await prisma.$transaction([
+    prisma.comment.deleteMany({ where: { authorId: userId } }),
+    prisma.todo.deleteMany({
+      where: { OR: [{ assigneeId: userId }, { creatorId: userId }] },
+    }),
+    prisma.sprintActivity.deleteMany({ where: { ownerId: userId } }),
+    prisma.sprint.deleteMany({ where: { ownerId: userId } }),
+    prisma.risk.deleteMany({ where: { reporterId: userId } }),
+    prisma.keyResult.deleteMany({ where: { ownerId: userId } }),
+    prisma.objective.deleteMany({ where: { ownerId: userId } }),
+    prisma.user.delete({ where: { id: userId } }),
+  ])
 
   return apiSuccess(null, { message: 'User deleted successfully' })
 })

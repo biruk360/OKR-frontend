@@ -77,3 +77,29 @@ export async function resolveAllActiveUsers(): Promise<string[]> {
 export function uniqueIds(ids: Array<string | null | undefined>): string[] {
   return Array.from(new Set(ids.filter((x): x is string => !!x)))
 }
+
+/**
+ * Everyone who has interacted with a todo: current assignee, current members,
+ * creator, comment authors, and @mention targets. Used to fan out
+ * "activity on this card" notifications (date change, attachment, edit).
+ */
+export async function resolveTodoStakeholders(todoId: string): Promise<string[]> {
+  const todo = await prisma.todo.findUnique({
+    where: { id: todoId },
+    select: {
+      assigneeId: true,
+      creatorId: true,
+      members: { select: { userId: true } },
+      todoComments: { select: { authorId: true } },
+    },
+  })
+  if (!todo) return []
+  const ids: Array<string | null | undefined> = [
+    todo.assigneeId,
+    todo.creatorId,
+    ...todo.members.map((m: { userId: string }) => m.userId),
+    ...todo.todoComments.map((c: { authorId: string }) => c.authorId),
+  ]
+  for (const w of await resolveWatchers('TODO', todoId)) ids.push(w)
+  return uniqueIds(ids)
+}

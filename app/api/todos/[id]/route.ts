@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { canEditKeyResultWithObjectiveContext, type UserRole } from '@/lib/permissions'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { recordActivity } from '@/lib/activity-log'
-import { emit } from '@/lib/notifications'
+import { emit, resolveTodoStakeholders } from '@/lib/notifications'
 import { broadcastSprintEvent } from '@/lib/pusher'
 import { recalcKrFromInitiatives, recalcNodeAndAncestors } from '@/lib/objectiveProgress'
 import {
@@ -400,6 +400,42 @@ export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { sess
         deepLink: `/dashboard/sprints/${sprintId}`,
       },
     })
+  }
+
+  // Fan out a "card activity" notification to everyone who has interacted with
+  // this todo (assignee, members, creator, commenters) whenever a meaningful
+  // field changes. We piggy-back on COMMENT_ON_OWNED_ENTITY because it already
+  // has IMMEDIATE/digest cadence wired and a template registered.
+  const meaningful =
+    dueDate !== undefined ||
+    (Array.isArray(memberIds)) ||
+    (Array.isArray(labelIds)) ||
+    (title !== undefined && title !== existingTodo.title) ||
+    (description !== undefined && description !== existingTodo.description) ||
+    (priority !== undefined && priority !== existingTodo.priority) ||
+    (assigneeId !== undefined && assigneeId !== existingTodo.assigneeId)
+  if (meaningful) {
+    const stakeholders = (await resolveTodoStakeholders(todoId)).filter((id) => id !== session.user.id)
+    if (stakeholders.length > 0) {
+      const changedFields: string[] = []
+      if (dueDate !== undefined) changedFields.push('due date')
+      if (Array.isArray(memberIds)) changedFields.push('members')
+      if (Array.isArray(labelIds)) changedFields.push('labels')
+      if (title !== undefined && title !== existingTodo.title) changedFields.push('title')
+      if (description !== undefined && description !== existingTodo.description) changedFields.push('description')
+      if (priority !== undefined && priority !== existingTodo.priority) changedFields.push('priority')
+      if (assigneeId !== undefined && assigneeId !== existingTodo.assigneeId) changedFields.push('assignee')
+      await emit('COMMENT_ON_OWNED_ENTITY', {
+        actorId: session.user.id,
+        entityType: 'TODO', entityId: todoId, entityTitle: updatedTodo.title,
+        explicitRecipients: stakeholders,
+        data: {
+          actorName: session.user.name,
+          summary: `Updated ${changedFields.join(', ')}`,
+          deepLink: `/dashboard/todos?open=${todoId}`,
+        },
+      })
+    }
   }
 
   // Sprint v2 realtime broadcasts

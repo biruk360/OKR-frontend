@@ -11,6 +11,8 @@ import AssignUserButton from './AssignUserButton'
 import SetDueDateButton from './SetDueDateButton'
 import EditTodoButton from './EditTodoButton'
 import DeleteTodoButton from './DeleteTodoButton'
+import { UserAvatar } from '@/components/shared/UserAvatar'
+import { userColor } from '@/lib/user-color'
 
 interface ToDoListProps {
   keyResultId: string
@@ -440,15 +442,19 @@ export default function ToDoList({
                     </span>
                   )}
 
-                  {/* Inline metadata: assignee + due date */}
+                  {/* Inline metadata: assignee (color-coded) + due date */}
                   {todo.assignee && (
-                    <span className="inline-flex items-center justify-center size-5 rounded-full bg-muted text-xs font-semibold" title={todo.assignee.name}>
-                      {todo.assignee.avatar ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={todo.assignee.avatar} alt="" />
-                      ) : (
-                        todo.assignee.name?.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase()
-                      )}
+                    <span className="inline-flex items-center gap-1.5">
+                      <UserAvatar
+                        user={{ id: todo.assignee.id, name: todo.assignee.name, avatar: todo.assignee.avatar ?? null }}
+                        size={20}
+                      />
+                      <span
+                        className="text-xs font-600 truncate max-w-[120px]"
+                        style={{ color: userColor(todo.assignee.id, todo.assignee.name) }}
+                      >
+                        {todo.assignee.name}
+                      </span>
                     </span>
                   )}
                   {todo.dueDate && (

@@ -9,6 +9,8 @@
 
 import { Eye, Calendar, MessageSquare, CheckSquare2, Target, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { UserAvatarStack } from '@/components/shared/UserAvatar'
+import { userColor } from '@/lib/user-color'
 
 interface CardUser { id: string; name: string; avatar: string | null }
 
@@ -67,33 +69,25 @@ function pickDateChipTone(args: {
 function MemberStack({ members }: { members: CardUser[] }) {
   if (members.length === 0) return null
   return (
-    <div className="flex -space-x-1.5">
-      {members.slice(0, 3).map((m) => {
-        const initials = m.name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
-        return m.avatar ? (
-          <img
-            key={m.id}
-            src={m.avatar}
-            alt={m.name}
-            title={m.name}
-            className="h-5 w-5 rounded-full object-cover ring-2 ring-white"
-          />
-        ) : (
+    <div className="flex flex-col items-end gap-1 min-w-0">
+      <UserAvatarStack users={members} size={20} max={3} />
+      <div className="flex flex-col items-end gap-0.5 max-w-[140px]">
+        {members.slice(0, 2).map((m) => (
           <span
             key={m.id}
+            className="truncate text-[10px] font-600 leading-tight"
+            style={{ color: userColor(m.id, m.name) }}
             title={m.name}
-            className="inline-flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-semibold text-white ring-2 ring-white"
-            style={{ background: 'var(--ap-accent)' }}
           >
-            {initials}
+            {m.name}
           </span>
-        )
-      })}
-      {members.length > 3 && (
-        <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[9px] font-semibold text-foreground ring-2 ring-white">
-          +{members.length - 3}
-        </span>
-      )}
+        ))}
+        {members.length > 2 && (
+          <span className="text-[10px] text-muted-foreground" title={members.slice(2).map((m) => m.name).join(', ')}>
+            +{members.length - 2} more
+          </span>
+        )}
+      </div>
     </div>
   )
 }

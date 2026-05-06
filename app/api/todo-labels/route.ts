@@ -7,9 +7,7 @@ export const GET = withAuth(async () => {
   return apiSuccess(labels)
 })
 
-export const POST = withAuth(async (request: NextRequest, { session }) => {
-  if (session.user.role !== 'ADMIN' && session.user.role !== 'EXECUTIVE')
-    return apiBadRequest('Only admins can create labels')
+export const POST = withAuth(async (request: NextRequest) => {
   const { name, color } = await request.json()
   if (!name?.trim()) return apiBadRequest('Name required')
   const label = await prisma.todoLabelDef.create({

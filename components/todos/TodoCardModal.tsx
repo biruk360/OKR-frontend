@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { format, isPast, isToday, isTomorrow, isYesterday, formatDistanceToNow } from 'date-fns'
 import { cn } from '@/lib/utils'
+import { userColor, userInitials } from '@/lib/user-color'
 import { TODO_STATUS_META, BOARD_STATUSES, todoStatusMeta } from '@/lib/todo-status'
 import { MentionEditor } from './MentionEditor'
 import { useUsersForSelection } from '@/hooks/useUsersForSelection'
@@ -89,6 +90,11 @@ const PRIORITY_OPTIONS = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const
 const PRIORITY_COLORS: Record<string, string> = {
   LOW: '#8E8E93', MEDIUM: '#FF9500', HIGH: '#FF3B30', URGENT: '#AF52DE',
 }
+// Trello-style label palette — kept short so the popover stays scannable.
+const LABEL_COLORS = [
+  '#61BD4F', '#F2D600', '#FF9F1A', '#EB5A46', '#C377E0',
+  '#0079BF', '#00C2E0', '#51E898', '#FF78CB', '#344563',
+]
 const COVER_COLORS = [
   '#007AFF', '#34C759', '#FF9500', '#FF3B30', '#AF52DE',
   '#FF2D55', '#5AC8FA', '#4CD964', '#FFCC00', '#FF6B35',
@@ -97,10 +103,9 @@ const COVER_COLORS = [
 
 // ─── Helper components ────────────────────────────────────────────────────────
 
-function Avatar({ name, avatar, size = 22 }: { name: string; avatar?: string | null; size?: number }) {
-  const initials = name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
-  const colors = ['#007AFF', '#34C759', '#FF9500', '#FF3B30', '#AF52DE', '#FF2D55']
-  const bg = colors[name.charCodeAt(0) % colors.length]
+function Avatar({ id, name, avatar, size = 22 }: { id?: string | null; name: string; avatar?: string | null; size?: number }) {
+  const initials = userInitials(name)
+  const bg = userColor(id, name)
   return avatar ? (
     <img src={avatar} alt={name} title={name} className="rounded-full object-cover" style={{ width: size, height: size }} />
   ) : (
@@ -114,7 +119,7 @@ function Avatar({ name, avatar, size = 22 }: { name: string; avatar?: string | n
   )
 }
 
-function DueDateBadge({ dueDate }: { dueDate: string | null }) {
+function DueDateBadge({ dueDate, endTime }: { dueDate: string | null; endTime?: string | null }) {
   if (!dueDate) return null
   const d = new Date(dueDate)
   const overdue = isPast(d) && !isToday(d)
@@ -131,6 +136,7 @@ function DueDateBadge({ dueDate }: { dueDate: string | null }) {
       <Calendar className="h-3 w-3" />
       {overdue ? 'Overdue · ' : today ? 'Today · ' : tomorrow ? 'Tomorrow · ' : ''}
       {format(d, 'MMM d')}
+      {endTime ? `, ${to12h(endTime)}` : ''}
     </span>
   )
 }
@@ -404,7 +410,7 @@ function ActivityFeed({
           <ol className="space-y-2">
             {g.entries.map((log) => (
               <li key={log.id} className="flex items-start gap-2.5">
-                <Avatar name={log.actor?.name ?? 'System'} avatar={log.actor?.avatar} size={24} />
+                <Avatar id={log.actor?.id} name={log.actor?.name ?? 'System'} avatar={log.actor?.avatar} size={24} />
                 <div className="flex-1 min-w-0 text-[12px] text-[var(--ap-fg)]">
                   <span className="font-600">{log.actor?.name ?? 'System'}</span>{' '}
                   <span className="text-[var(--ap-fg-muted)]">{formatActivity(log, users, labelDefs)}</span>
@@ -423,6 +429,293 @@ function ActivityFeed({
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
+// ─── Trello-style date picker ─────────────────────────────────────────────────
+
+interface DatesPanelProps {
+  startDate: string | null
+  dueDate: string | null
+  startTime: string | null
+  endTime: string | null
+  onSave: (v: { startDate: string | null; dueDate: string | null; startTime: string | null; endTime: string | null }) => void
+  onRemove: () => void
+  onClose: () => void
+}
+
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+
+function ymd(d: Date): string {
+  const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+function parseYmd(s: string | null): Date | null {
+  if (!s) return null
+  // Accept both "YYYY-MM-DD" and full ISO datetime strings (Prisma returns the
+  // latter). Build the Date from local components so it always lands on the
+  // calendar day the user actually picked, regardless of timezone.
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s)
+  if (m) return new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10))
+  const d = new Date(s)
+  return Number.isNaN(d.getTime()) ? null : d
+}
+function sameDay(a: Date | null, b: Date | null): boolean {
+  return !!a && !!b && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
+}
+function inRange(day: Date, start: Date | null, end: Date | null): boolean {
+  if (!start || !end) return false
+  const t = day.getTime(), s = start.getTime(), e = end.getTime()
+  return t >= Math.min(s, e) && t <= Math.max(s, e)
+}
+function fmtMd(s: string | null): string {
+  const d = parseYmd(s)
+  return d ? `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}` : ''
+}
+function to12h(t: string | null): string {
+  if (!t) return ''
+  const [hh, mm] = t.split(':')
+  let h = parseInt(hh, 10)
+  const ap = h >= 12 ? 'PM' : 'AM'
+  h = h % 12 || 12
+  return `${h}:${mm} ${ap}`
+}
+
+function DatesPanel({ startDate, dueDate, startTime, endTime, onSave, onRemove, onClose }: DatesPanelProps) {
+  const today = new Date()
+  const initialFocus = parseYmd(dueDate) ?? parseYmd(startDate) ?? today
+  const [viewYear, setViewYear] = useState(initialFocus.getFullYear())
+  const [viewMonth, setViewMonth] = useState(initialFocus.getMonth())
+  const [startEnabled, setStartEnabled] = useState(!!startDate)
+  const [dueEnabled, setDueEnabled] = useState(!!dueDate)
+  // Normalize Prisma ISO datetimes ("2026-05-06T00:00:00.000Z") to local YYYY-MM-DD
+  // so the controlled inputs and calendar grid agree on which day is selected.
+  const initStartD = parseYmd(startDate)
+  const initDueD = parseYmd(dueDate)
+  const [startStr, setStartStr] = useState<string | null>(initStartD ? ymd(initStartD) : null)
+  const [dueStr, setDueStr] = useState<string | null>(initDueD ? ymd(initDueD) : null)
+  const [startTimeVal, setStartTimeVal] = useState<string>(startTime ?? '')
+  const [endTimeVal, setEndTimeVal] = useState<string>(endTime ?? '')
+  // Which date input the calendar populates on click. Defaults to "due" for
+  // typical add-a-deadline flow; user can switch by clicking the Start row.
+  const [activeTarget, setActiveTarget] = useState<'start' | 'due'>(dueDate || !startDate ? 'due' : 'start')
+
+  const startD = parseYmd(startStr)
+  const dueD = parseYmd(dueStr)
+
+  // Build grid: 6 weeks × 7 days, starting Sunday before the 1st of viewMonth.
+  const firstOfMonth = new Date(viewYear, viewMonth, 1)
+  const gridStart = new Date(firstOfMonth)
+  gridStart.setDate(1 - firstOfMonth.getDay())
+  const cells: Date[] = []
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(gridStart)
+    d.setDate(gridStart.getDate() + i)
+    cells.push(d)
+  }
+
+  const stepMonth = (delta: number) => {
+    let m = viewMonth + delta, y = viewYear
+    if (m < 0) { m = 11; y -= 1 }
+    if (m > 11) { m = 0; y += 1 }
+    setViewMonth(m); setViewYear(y)
+  }
+  const stepYear = (delta: number) => setViewYear((y) => y + delta)
+
+  const pickDay = (d: Date) => {
+    const s = ymd(d)
+    if (activeTarget === 'start') {
+      setStartEnabled(true)
+      setStartStr(s)
+      // If start is pushed past due, drag due along so the range stays valid.
+      if (dueEnabled && dueD && d.getTime() > dueD.getTime()) setDueStr(s)
+    } else {
+      setDueEnabled(true)
+      setDueStr(s)
+      // If due is pulled before start, drag start along.
+      if (startEnabled && startD && d.getTime() < startD.getTime()) setStartStr(s)
+    }
+  }
+
+  const save = () => {
+    onSave({
+      startDate: startEnabled ? startStr : null,
+      dueDate: dueEnabled ? dueStr : null,
+      startTime: startEnabled ? (startTimeVal || null) : null,
+      endTime: dueEnabled ? (endTimeVal || null) : null,
+    })
+  }
+
+  return (
+    <div className="absolute right-0 top-full z-[91] mt-1.5 w-[340px] max-w-[calc(100vw-2rem)] rounded-[12px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] p-3 shadow-[var(--ap-shadow-lg)]">
+      <div className="flex items-center justify-between mb-2">
+        <button onClick={onClose} className="size-6 inline-flex items-center justify-center rounded hover:bg-[var(--ap-bg-hover)] text-[var(--ap-fg-muted)]" aria-label="Close">
+          <X className="h-3.5 w-3.5" />
+        </button>
+        <p className="text-[12px] font-700 text-[var(--ap-fg)]">Dates</p>
+        <button onClick={onClose} className="size-6 inline-flex items-center justify-center rounded hover:bg-[var(--ap-bg-hover)] text-[var(--ap-fg-muted)]" aria-label="Close">
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      <div className="flex items-center justify-between px-1">
+        <div className="flex gap-0.5">
+          <button onClick={() => stepYear(-1)} className="size-6 inline-flex items-center justify-center rounded hover:bg-[var(--ap-bg-hover)] text-[var(--ap-fg-muted)]" aria-label="Previous year">«</button>
+          <button onClick={() => stepMonth(-1)} className="size-6 inline-flex items-center justify-center rounded hover:bg-[var(--ap-bg-hover)] text-[var(--ap-fg-muted)]" aria-label="Previous month">‹</button>
+        </div>
+        <p className="text-[13px] font-600 text-[var(--ap-fg)]">{MONTHS[viewMonth]} {viewYear}</p>
+        <div className="flex gap-0.5">
+          <button onClick={() => stepMonth(1)} className="size-6 inline-flex items-center justify-center rounded hover:bg-[var(--ap-bg-hover)] text-[var(--ap-fg-muted)]" aria-label="Next month">›</button>
+          <button onClick={() => stepYear(1)} className="size-6 inline-flex items-center justify-center rounded hover:bg-[var(--ap-bg-hover)] text-[var(--ap-fg-muted)]" aria-label="Next year">»</button>
+        </div>
+      </div>
+
+      <div className="mt-2 grid grid-cols-7 gap-0.5">
+        {WEEKDAYS.map((w) => (
+          <div key={w} className="text-center text-[10px] font-700 text-[var(--ap-fg-muted)] py-1">{w}</div>
+        ))}
+        {cells.map((d, i) => {
+          const isOther = d.getMonth() !== viewMonth
+          const isToday = sameDay(d, today)
+          const isStart = sameDay(d, startD) && startEnabled
+          const isDue = sameDay(d, dueD) && dueEnabled
+          const isBetween = startEnabled && dueEnabled && inRange(d, startD, dueD) && !isStart && !isDue
+          return (
+            <button
+              key={i}
+              onClick={() => pickDay(d)}
+              className={cn(
+                'h-8 w-full rounded-md text-[12px] font-500 transition-colors',
+                isOther ? 'text-[var(--ap-fg-subtle)]' : 'text-[var(--ap-fg)]',
+                !isStart && !isDue && !isBetween && 'hover:bg-[var(--ap-bg-hover)]',
+                isBetween && 'bg-[var(--ap-accent-soft)]',
+                (isStart || isDue) && 'bg-[var(--ap-accent)] text-white',
+                isToday && !isStart && !isDue && 'underline decoration-[var(--ap-accent)] underline-offset-2',
+              )}
+            >
+              {d.getDate()}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Start date row — click anywhere on the row to make it the active
+          target so calendar clicks fill this date. */}
+      <div
+        className={cn(
+          'mt-3 rounded-[10px] border p-2 transition-colors cursor-pointer',
+          activeTarget === 'start'
+            ? 'border-[var(--ap-accent)] bg-[var(--ap-accent-soft)]'
+            : 'border-[var(--ap-border)] hover:bg-[var(--ap-bg-hover)]',
+        )}
+        onClick={() => setActiveTarget('start')}
+      >
+        <div className="flex items-center gap-2 mb-1.5">
+          <input
+            type="checkbox"
+            checked={startEnabled}
+            onChange={(e) => setStartEnabled(e.target.checked)}
+            onClick={(e) => e.stopPropagation()}
+            className="size-4 cursor-pointer accent-[var(--ap-accent)]"
+          />
+          <p className="text-[12px] font-700 text-[var(--ap-fg)]">Start date</p>
+          {activeTarget === 'start' && (
+            <span className="ml-auto text-[10px] font-600 text-[var(--ap-accent)]">Active</span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            placeholder="M/D/YYYY"
+            value={fmtMd(startStr)}
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => {
+              const v = e.target.value.trim()
+              if (!v) { setStartStr(null); return }
+              const d = new Date(v)
+              if (!Number.isNaN(d.getTime())) setStartStr(ymd(d))
+            }}
+            disabled={!startEnabled}
+            className="ap-input h-8 flex-1 min-w-0 text-[12px] py-0 disabled:opacity-50"
+          />
+          <input
+            type="time"
+            value={startTimeVal}
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => setStartTimeVal(e.target.value)}
+            disabled={!startEnabled}
+            className="ap-input h-8 w-[110px] shrink-0 text-[12px] py-0 disabled:opacity-50"
+            aria-label="Start time"
+          />
+        </div>
+      </div>
+
+      {/* Due date row */}
+      <div
+        className={cn(
+          'mt-2 rounded-[10px] border p-2 transition-colors cursor-pointer',
+          activeTarget === 'due'
+            ? 'border-[var(--ap-accent)] bg-[var(--ap-accent-soft)]'
+            : 'border-[var(--ap-border)] hover:bg-[var(--ap-bg-hover)]',
+        )}
+        onClick={() => setActiveTarget('due')}
+      >
+        <div className="flex items-center gap-2 mb-1.5">
+          <input
+            type="checkbox"
+            checked={dueEnabled}
+            onChange={(e) => setDueEnabled(e.target.checked)}
+            onClick={(e) => e.stopPropagation()}
+            className="size-4 cursor-pointer accent-[var(--ap-accent)]"
+          />
+          <p className="text-[12px] font-700 text-[var(--ap-fg)]">Due date</p>
+          {activeTarget === 'due' && (
+            <span className="ml-auto text-[10px] font-600 text-[var(--ap-accent)]">Active</span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            placeholder="M/D/YYYY"
+            value={fmtMd(dueStr)}
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => {
+              const v = e.target.value.trim()
+              if (!v) { setDueStr(null); return }
+              const d = new Date(v)
+              if (!Number.isNaN(d.getTime())) setDueStr(ymd(d))
+            }}
+            disabled={!dueEnabled}
+            className="ap-input h-8 flex-1 min-w-0 text-[12px] py-0 disabled:opacity-50"
+          />
+          <input
+            type="time"
+            value={endTimeVal}
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => setEndTimeVal(e.target.value)}
+            disabled={!dueEnabled}
+            className="ap-input h-8 w-[110px] shrink-0 text-[12px] py-0 disabled:opacity-50"
+            aria-label="Due time"
+          />
+        </div>
+      </div>
+
+      <div className="mt-4 space-y-2">
+        <button
+          onClick={save}
+          className="w-full rounded-[8px] bg-[var(--ap-accent)] px-3 py-2 text-[13px] font-600 text-white hover:opacity-90 transition-opacity"
+        >
+          Save
+        </button>
+        <button
+          onClick={() => { onRemove(); onClose() }}
+          className="w-full rounded-[8px] border border-[var(--ap-border)] bg-transparent px-3 py-2 text-[13px] font-600 text-[var(--ap-fg)] hover:bg-[var(--ap-bg-hover)] transition-colors"
+        >
+          Remove
+        </button>
+      </div>
+    </div>
+  )
+}
+
 interface Props {
   todoId: string | null
   currentUserId: string
@@ -439,7 +732,7 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const commentFileInputRef = useRef<HTMLInputElement>(null)
   const [labelDefs, setLabelDefs] = useState<LabelDef[]>([])
-  const [activePanel, setActivePanel] = useState<'description' | 'checklist' | 'members' | 'labels' | 'cover' | 'link' | null>(null)
+  const [activePanel, setActivePanel] = useState<'description' | 'checklist' | 'members' | 'labels' | 'cover' | 'link' | 'dates' | null>(null)
   const [linkQuery, setLinkQuery] = useState('')
   const [linkResults, setLinkResults] = useState<{
     objectives: { id: string; title: string; level: string; progress: number }[]
@@ -451,6 +744,9 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
   const [descDraft, setDescDraft] = useState('')
   const [commentDraft, setCommentDraft] = useState('')
   const [newChecklistTitle, setNewChecklistTitle] = useState('')
+  const [newLabelName, setNewLabelName] = useState('')
+  const [newLabelColor, setNewLabelColor] = useState('#61BD4F')
+  const [labelSearch, setLabelSearch] = useState('')
   const [newItemTitles, setNewItemTitles] = useState<Record<string, string>>({})
   const [submittingComment, setSubmittingComment] = useState(false)
   const { users } = useUsersForSelection()
@@ -594,23 +890,87 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
   }
 
   // ── Members ──
-  const toggleMember = async (userId: string) => {
+  // Optimistic — UI updates instantly; the PATCH (and its server-side
+  // notification fan-out) runs in the background. On failure we roll back
+  // and surface a toast. Without this the popover felt sluggish because
+  // the response time included emit() writing per-recipient rows.
+  const toggleMember = (userId: string) => {
     if (!todo) return
+    const u = users.find((x: { id: string }) => x.id === userId)
     const currentIds = todo.members.map((m) => m.user.id)
-    const newIds = currentIds.includes(userId)
-      ? currentIds.filter((id) => id !== userId)
-      : [...currentIds, userId]
-    await patch({ memberIds: newIds })
+    const willAdd = !currentIds.includes(userId)
+    const newIds = willAdd ? [...currentIds, userId] : currentIds.filter((id) => id !== userId)
+    const prevMembers = todo.members
+    const optimisticMembers = willAdd && u
+      ? [...prevMembers, { user: { id: u.id, name: u.name ?? u.email ?? '', avatar: (u as { avatar?: string | null }).avatar ?? null } }]
+      : prevMembers.filter((m) => m.user.id !== userId)
+    setTodo((t) => t ? { ...t, members: optimisticMembers } : t)
+    void (async () => {
+      try {
+        const res = await fetch(`/api/todos/${todo.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ memberIds: newIds }),
+        })
+        const json = await res.json()
+        if (json.success) { setTodo(json.data); onUpdated?.() }
+        else { setTodo((t) => t ? { ...t, members: prevMembers } : t); toast.error(json.error ?? 'Update failed') }
+      } catch {
+        setTodo((t) => t ? { ...t, members: prevMembers } : t)
+        toast.error('Update failed')
+      }
+    })()
   }
 
   // ── Labels ──
-  const toggleLabel = async (labelDefId: string) => {
+  const toggleLabel = (labelDefId: string) => {
     if (!todo) return
+    const def = labelDefs.find((d) => d.id === labelDefId)
     const currentIds = todo.labels.map((l) => l.labelDef.id)
-    const newIds = currentIds.includes(labelDefId)
-      ? currentIds.filter((id) => id !== labelDefId)
-      : [...currentIds, labelDefId]
-    await patch({ labelIds: newIds })
+    const willAdd = !currentIds.includes(labelDefId)
+    const newIds = willAdd ? [...currentIds, labelDefId] : currentIds.filter((id) => id !== labelDefId)
+    const prevLabels = todo.labels
+    const optimisticLabels = willAdd && def
+      ? [...prevLabels, { labelDef: { id: def.id, name: def.name, color: def.color } }]
+      : prevLabels.filter((l) => l.labelDef.id !== labelDefId)
+    setTodo((t) => t ? { ...t, labels: optimisticLabels } : t)
+    void (async () => {
+      try {
+        const res = await fetch(`/api/todos/${todo.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ labelIds: newIds }),
+        })
+        const json = await res.json()
+        if (json.success) { setTodo(json.data); onUpdated?.() }
+        else { setTodo((t) => t ? { ...t, labels: prevLabels } : t); toast.error(json.error ?? 'Update failed') }
+      } catch {
+        setTodo((t) => t ? { ...t, labels: prevLabels } : t)
+        toast.error('Update failed')
+      }
+    })()
+  }
+  const createLabel = async () => {
+    const name = newLabelName.trim()
+    if (!name) return
+    const res = await fetch('/api/todo-labels', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name, color: newLabelColor }),
+    })
+    const json = await res.json()
+    if (!json.success) { toast.error(json.error ?? 'Failed to create label'); return }
+    setLabelDefs((d) => [...d, json.data])
+    setNewLabelName('')
+    if (todo) await toggleLabel(json.data.id)
+  }
+  const deleteLabel = async (id: string) => {
+    if (!confirm('Delete this label from the entire workspace?')) return
+    const res = await fetch(`/api/todo-labels/${id}`, { method: 'DELETE' })
+    const json = await res.json()
+    if (!json.success) { toast.error(json.error ?? 'Failed to delete label'); return }
+    setLabelDefs((d) => d.filter((l) => l.id !== id))
+    setTodo((t) => t ? { ...t, labels: t.labels.filter((l) => l.labelDef.id !== id) } : t)
   }
 
   // ── Attachment ──
@@ -760,7 +1120,7 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
               <div className="flex flex-wrap items-center gap-2">
                 <StatusPill status={todo.status} onChange={(v) => patch({ status: v })} />
                 <PriorityPill priority={todo.priority} onChange={(v) => patch({ priority: v })} />
-                <DueDateBadge dueDate={todo.dueDate} />
+                <DueDateBadge dueDate={todo.dueDate} endTime={todo.endTime} />
                 {todo.labels.map((l) => (
                   <span
                     key={l.labelDef.id}
@@ -777,7 +1137,7 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                 <span className="text-[11px] font-600 uppercase tracking-[0.05em] text-[var(--ap-fg-subtle)]">Members</span>
                 <div className="flex -space-x-1.5">
                   {todo.members.map((m) => (
-                    <Avatar key={m.user.id} name={m.user.name} avatar={m.user.avatar} size={26} />
+                    <Avatar key={m.user.id} id={m.user.id} name={m.user.name} avatar={m.user.avatar} size={26} />
                   ))}
                   <button
                     onClick={() => setActivePanel(activePanel === 'members' ? null : 'members')}
@@ -800,7 +1160,7 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                             onClick={() => toggleMember(u.id)}
                             className={cn('flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[12px] transition-colors', isMember ? 'bg-[var(--ap-accent-soft)] text-[var(--ap-accent)]' : 'hover:bg-[var(--ap-bg-hover)] text-[var(--ap-fg)]')}
                           >
-                            <Avatar name={u.name ?? u.email} size={18} />
+                            <Avatar id={u.id} name={u.name ?? u.email} size={18} />
                             <span className="flex-1 truncate">{u.name ?? u.email}</span>
                             {isMember && <Check className="h-3 w-3 shrink-0" />}
                           </button>
@@ -904,7 +1264,7 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                           </span>
                         )}
                         {item.assignee && (
-                          <Avatar name={item.assignee.name} avatar={item.assignee.avatar} size={20} />
+                          <Avatar id={item.assignee.id} name={item.assignee.name} avatar={item.assignee.avatar} size={20} />
                         )}
                         <div className="hidden gap-0.5 group-hover:flex">
                           <button
@@ -1071,7 +1431,7 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                       )}
                       {comments.map((c) => (
                         <div key={c.id} className="flex gap-2.5">
-                          <Avatar name={c.author.name} avatar={c.author.avatar} size={26} />
+                          <Avatar id={c.author.id} name={c.author.name} avatar={c.author.avatar} size={26} />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-baseline gap-2">
                               <span className="text-[12px] font-600 text-[var(--ap-fg)]">{c.author.name}</span>
@@ -1148,22 +1508,71 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                 {activePanel === 'labels' && (
                   <>
                     <div className="fixed inset-0 z-[90]" onClick={() => setActivePanel(null)} />
-                    <div className="absolute right-0 top-full z-[91] mt-1.5 w-[240px] max-h-[320px] overflow-y-auto rounded-[12px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] p-2 space-y-1 shadow-[var(--ap-shadow-lg)]">
-                      {labelDefs.length === 0 && <p className="text-[11px] text-[var(--ap-fg-subtle)] px-2 py-2">No labels yet</p>}
-                      {labelDefs.map((ld) => {
-                        const active = todo.labels.some((l) => l.labelDef.id === ld.id)
-                        return (
-                          <button
-                            key={ld.id}
-                            onClick={() => toggleLabel(ld.id)}
-                            className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-[var(--ap-bg-hover)] transition-colors"
-                          >
-                            <span className="h-5 w-10 rounded-sm" style={{ background: ld.color }} />
-                            <span className="flex-1 text-left text-[12px] text-[var(--ap-fg)]">{ld.name}</span>
-                            {active && <Check className="h-3 w-3 text-[var(--ap-accent)]" />}
-                          </button>
-                        )
-                      })}
+                    <div className="absolute right-0 top-full z-[91] mt-1.5 w-[280px] max-w-[calc(100vw-2rem)] max-h-[420px] overflow-y-auto rounded-[12px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] p-3 shadow-[var(--ap-shadow-lg)]">
+                      <p className="pb-2 text-[10px] font-700 uppercase tracking-[0.06em] text-[var(--ap-fg-subtle)]">Labels</p>
+                      <input
+                        value={labelSearch}
+                        onChange={(e) => setLabelSearch(e.target.value)}
+                        placeholder="Search labels…"
+                        className="ap-input h-7 w-full text-[12px] py-0 mb-2"
+                      />
+                      <div className="space-y-1">
+                        {labelDefs
+                          .filter((ld) => !labelSearch.trim() || ld.name.toLowerCase().includes(labelSearch.toLowerCase()))
+                          .map((ld) => {
+                            const active = todo.labels.some((l) => l.labelDef.id === ld.id)
+                            return (
+                              <div key={ld.id} className="group flex items-center gap-1.5">
+                                <button
+                                  onClick={() => toggleLabel(ld.id)}
+                                  className="flex flex-1 items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-[var(--ap-bg-hover)] transition-colors"
+                                >
+                                  <span className="h-6 flex-1 min-w-0 rounded-[4px] px-2 py-0.5 text-[11px] font-600 text-white truncate text-left" style={{ background: ld.color }}>
+                                    {ld.name}
+                                  </span>
+                                  {active && <Check className="h-3.5 w-3.5 text-[var(--ap-accent)] shrink-0" />}
+                                </button>
+                                <button
+                                  onClick={() => deleteLabel(ld.id)}
+                                  title="Delete label"
+                                  className="opacity-0 group-hover:opacity-100 transition-opacity text-[var(--ap-fg-subtle)] hover:text-[var(--ap-danger)] p-1"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </button>
+                              </div>
+                            )
+                          })}
+                        {labelDefs.length === 0 && <p className="text-[11px] text-[var(--ap-fg-subtle)] px-2 py-1">No labels yet — create one below.</p>}
+                      </div>
+
+                      <div className="mt-3 pt-3 border-t border-[var(--ap-border)]">
+                        <p className="pb-1.5 text-[10px] font-700 uppercase tracking-[0.06em] text-[var(--ap-fg-subtle)]">Create label</p>
+                        <input
+                          value={newLabelName}
+                          onChange={(e) => setNewLabelName(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') createLabel() }}
+                          placeholder="Label name…"
+                          className="ap-input h-7 w-full text-[12px] py-0"
+                        />
+                        <div className="mt-2 grid grid-cols-5 gap-1.5">
+                          {LABEL_COLORS.map((c) => (
+                            <button
+                              key={c}
+                              onClick={() => setNewLabelColor(c)}
+                              className={cn('h-6 rounded-[4px] border-2 transition-transform hover:scale-105', newLabelColor === c ? 'border-[var(--ap-fg)]' : 'border-transparent')}
+                              style={{ background: c }}
+                              title={c}
+                            />
+                          ))}
+                        </div>
+                        <button
+                          onClick={createLabel}
+                          disabled={!newLabelName.trim()}
+                          className="mt-2 w-full rounded-[8px] bg-[var(--ap-accent)] px-3 py-1.5 text-[12px] font-600 text-white disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
+                        >
+                          Create
+                        </button>
+                      </div>
                     </div>
                   </>
                 )}
@@ -1198,39 +1607,41 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                 )}
               </div>
 
-              {/* Due Date */}
-              <button className="ap-btn ap-btn-ghost ap-btn-sm w-full justify-start gap-2 relative overflow-hidden">
-                <Calendar className="h-3.5 w-3.5" /> Due Date
-                <input
-                  type="date"
-                  className="absolute inset-0 opacity-0 cursor-pointer"
-                  value={todo.dueDate ? format(new Date(todo.dueDate), 'yyyy-MM-dd') : ''}
-                  onChange={(e) => patch({ dueDate: e.target.value || null })}
-                />
-              </button>
-
-              {/* Start / End time — drives placement on the per-sprint Planner view. */}
-              <div className="flex items-center gap-2 rounded-[10px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-3 py-2 text-[12px]">
-                <Calendar className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                <label className="flex items-center gap-1">
-                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Start</span>
-                  <input
-                    type="time"
-                    className="bg-transparent text-[12px] outline-none"
-                    value={todo.startTime ?? ''}
-                    onChange={(e) => patch({ startTime: e.target.value || null })}
-                  />
-                </label>
-                <span className="text-muted-foreground">–</span>
-                <label className="flex items-center gap-1">
-                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground">End</span>
-                  <input
-                    type="time"
-                    className="bg-transparent text-[12px] outline-none"
-                    value={todo.endTime ?? ''}
-                    onChange={(e) => patch({ endTime: e.target.value || null })}
-                  />
-                </label>
+              {/* Dates — Trello-style popover with start + due date and optional times */}
+              <div className="relative">
+                <button
+                  onClick={() => setActivePanel(activePanel === 'dates' ? null : 'dates')}
+                  className="flex w-full items-center gap-2.5 rounded-[10px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-3 py-2 text-left text-[12px] font-500 text-[var(--ap-fg)] hover:border-[var(--ap-accent)] hover:shadow-sm transition-all"
+                >
+                  <Calendar className="h-3.5 w-3.5 shrink-0" />
+                  <span className="flex-1 min-w-0 truncate">
+                    {todo.dueDate || todo.startDate ? (
+                      <>
+                        {todo.startDate ? format(new Date(todo.startDate), 'MMM d') : '—'}
+                        {todo.startTime ? `, ${to12h(todo.startTime)}` : ''}
+                        <span className="text-[var(--ap-fg-subtle)]"> → </span>
+                        {todo.dueDate ? format(new Date(todo.dueDate), 'MMM d, yyyy') : '—'}
+                        {todo.endTime ? `, ${to12h(todo.endTime)}` : ''}
+                      </>
+                    ) : (
+                      'Dates'
+                    )}
+                  </span>
+                </button>
+                {activePanel === 'dates' && (
+                  <>
+                    <div className="fixed inset-0 z-[90]" onClick={() => setActivePanel(null)} />
+                    <DatesPanel
+                      startDate={todo.startDate}
+                      dueDate={todo.dueDate}
+                      startTime={todo.startTime}
+                      endTime={todo.endTime}
+                      onSave={(v) => { patch(v); setActivePanel(null) }}
+                      onRemove={() => patch({ startDate: null, dueDate: null, startTime: null, endTime: null })}
+                      onClose={() => setActivePanel(null)}
+                    />
+                  </>
+                )}
               </div>
 
               {/* Attach */}

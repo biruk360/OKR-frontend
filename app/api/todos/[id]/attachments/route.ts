@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { apiSuccess, apiBadRequest, apiNotFound, withAuth } from '@/lib/api'
 import { recordActivity } from '@/lib/activity-log'
+import { emit, resolveTodoStakeholders } from '@/lib/notifications'
 
 const UPLOAD_DIR = path.join(process.cwd(), 'public', 'uploads', 'todos')
 const MAX_SIZE = 20 * 1024 * 1024 // 20 MB
@@ -13,7 +14,7 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
   const { id: todoId } = await resolveParams(params)
   if (!todoId) return apiBadRequest('Invalid todo id')
 
-  const todo = await prisma.todo.findUnique({ where: { id: todoId }, select: { id: true } })
+  const todo = await prisma.todo.findUnique({ where: { id: todoId }, select: { id: true, title: true } })
   if (!todo) return apiNotFound('To-do not found')
 
   const formData = await request.formData()
@@ -47,6 +48,22 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
     actorId: session.user.id,
     metadata: { attachmentId: attachment.id, filename: attachment.filename },
   })
+
+  // Notify everyone who has interacted with this todo (assignee, members,
+  // commenters) that an attachment was added.
+  const stakeholders = (await resolveTodoStakeholders(todoId)).filter((id) => id !== session.user.id)
+  if (stakeholders.length > 0) {
+    await emit('COMMENT_ON_OWNED_ENTITY', {
+      actorId: session.user.id,
+      entityType: 'TODO', entityId: todoId, entityTitle: todo.title,
+      explicitRecipients: stakeholders,
+      data: {
+        actorName: session.user.name,
+        summary: `Attached "${file.name}"`,
+        deepLink: `/dashboard/todos?open=${todoId}`,
+      },
+    })
+  }
 
   return apiSuccess(attachment, { status: 201 })
 })

@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
-import { emit } from '@/lib/notifications'
+import { emit, resolveTodoStakeholders } from '@/lib/notifications'
 import { sendMail } from '@/lib/email'
 import { apiSuccess, apiBadRequest, apiNotFound, withAuth } from '@/lib/api'
 import { recordActivity } from '@/lib/activity-log'
@@ -115,7 +115,7 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
       where: { id: { in: mentionedIds }, isActive: true },
       select: { id: true, name: true, email: true },
     })
-    await emit('TODO_ASSIGNED', {  // repurpose TODO_ASSIGNED for @mention — closest event with correct recipients
+    await emit('USER_MENTIONED', {
       actorId: session.user.id,
       entityType: 'TODO',
       entityId: todoId,
@@ -139,6 +139,28 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
         text: `${session.user.name} mentioned you in "${todo.title}". Open: ${process.env.NEXTAUTH_URL}/dashboard/todos?open=${todoId}`,
       })
     }
+  }
+
+  // Fan out a generic "new comment" notification to all interactors not already
+  // covered by an @mention. COMMENT_ON_OWNED_ENTITY's default cadence is DAILY
+  // so this coalesces into the digest rather than sending one email per reply.
+  const mentionedSet = new Set(mentionedIds)
+  const stakeholders = (await resolveTodoStakeholders(todoId)).filter(
+    (id) => id !== session.user.id && !mentionedSet.has(id),
+  )
+  if (stakeholders.length > 0) {
+    await emit('COMMENT_ON_OWNED_ENTITY', {
+      actorId: session.user.id,
+      entityType: 'TODO',
+      entityId: todoId,
+      entityTitle: todo.title,
+      explicitRecipients: stakeholders,
+      data: {
+        actorName: session.user.name,
+        commentSnippet: content.replace(/<[^>]+>/g, '').slice(0, 200),
+        deepLink: `/dashboard/todos?open=${todoId}`,
+      },
+    })
   }
 
   return apiSuccess(comment, { status: 201 })

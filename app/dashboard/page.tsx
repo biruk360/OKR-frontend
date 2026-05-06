@@ -23,7 +23,7 @@ export default async function DashboardPage() {
       getCheckInBanner(session.user.id),
       getQuickStats(session.user.id, session.user.role),
       getUserOkrTree(session.user.id),
-      getTeamActivity(),
+      getTeamActivity(session.user.id),
       getDeadlines(session.user.id, session.user.role),
       getInitiativesInFlight(session.user.id),
     ])
@@ -190,27 +190,44 @@ async function getQuickStats(userId: string, userRole: string): Promise<QuickSta
 }
 
 async function getUserOkrTree(userId: string): Promise<OkrTreeObjective[]> {
-  const objectives = await prisma.objective.findMany({
+  // "My OKRs" = key results the user is directly responsible for. Filtering by
+  // Objective.ownerId pulls in every KR under each owned objective even when
+  // that KR is owned by someone else, which makes the dashboard look like a
+  // company-wide list for admins. Filter at the KR level and group by parent.
+  const krs = await prisma.keyResult.findMany({
     where: { ownerId: userId, status: 'ACTIVE' },
     select: {
-      id: true,
-      title: true,
-      level: true,
-      progress: true,
-      goalStatus: true,
-      keyResults: {
-        where: { status: 'ACTIVE' },
-        select: { id: true, title: true, progress: true, confidence: true, _count: { select: { todos: true } } },
+      id: true, title: true, progress: true, confidence: true,
+      _count: { select: { todos: true } },
+      objective: {
+        select: { id: true, title: true, level: true, progress: true, goalStatus: true },
       },
     },
-    orderBy: [{ level: 'asc' }, { title: 'asc' }],
+    orderBy: [{ objective: { level: 'asc' } }, { objective: { title: 'asc' } }, { title: 'asc' }],
   })
-  return objectives.map((o) => ({
-    id: o.id, title: o.title, level: o.level, progress: o.progress, goalStatus: o.goalStatus,
-    keyResults: o.keyResults.map((kr) => ({
-      id: kr.id, title: kr.title, progress: kr.progress, confidence: kr.confidence, initiativeCount: kr._count.todos,
-    })),
-  }))
+
+  const grouped = new Map<string, OkrTreeObjective>()
+  for (const kr of krs) {
+    if (!kr.objective) continue
+    const existing = grouped.get(kr.objective.id)
+    if (existing) {
+      existing.keyResults.push({
+        id: kr.id, title: kr.title, progress: kr.progress, confidence: kr.confidence, initiativeCount: kr._count.todos,
+      })
+    } else {
+      grouped.set(kr.objective.id, {
+        id: kr.objective.id,
+        title: kr.objective.title,
+        level: kr.objective.level,
+        progress: kr.objective.progress,
+        goalStatus: kr.objective.goalStatus,
+        keyResults: [{
+          id: kr.id, title: kr.title, progress: kr.progress, confidence: kr.confidence, initiativeCount: kr._count.todos,
+        }],
+      })
+    }
+  }
+  return Array.from(grouped.values())
 }
 
 function buildFeedItem(
@@ -223,32 +240,68 @@ function buildFeedItem(
     actor: { name: string; avatar: string | null } | null
     objective: { id: string; title: string; progress: number } | null
     keyResult: { id: string; title: string; progress: number } | null
+    todo: { id: string; title: string; status: string } | null
   }
 ): ActivityFeedItem | null {
-  const entity = log.keyResult ?? log.objective
-  if (!entity) return null
-  const entityType = log.keyResult ? 'KEY_RESULT' : 'OBJECTIVE'
-  return {
-    id: log.id,
-    actorName: log.actor?.name ?? null,
-    actorAvatar: log.actor?.avatar ?? null,
-    entityType: entityType as ActivityFeedItem['entityType'],
-    entityTitle: entity.title,
-    entityId: entity.id,
-    action: log.action,
-    progress: entity.progress,
-    createdAt: log.createdAt.toISOString(),
+  // Prefer the most specific entity. Sprint logs are rare and the feed UI
+  // doesn't render them yet, so they're filtered out by returning null here.
+  if (log.keyResult) {
+    return {
+      id: log.id,
+      actorName: log.actor?.name ?? null,
+      actorAvatar: log.actor?.avatar ?? null,
+      entityType: 'KEY_RESULT',
+      entityTitle: log.keyResult.title,
+      entityId: log.keyResult.id,
+      action: log.action,
+      progress: log.keyResult.progress,
+      createdAt: log.createdAt.toISOString(),
+    }
   }
+  if (log.objective) {
+    return {
+      id: log.id,
+      actorName: log.actor?.name ?? null,
+      actorAvatar: log.actor?.avatar ?? null,
+      entityType: 'OBJECTIVE',
+      entityTitle: log.objective.title,
+      entityId: log.objective.id,
+      action: log.action,
+      progress: log.objective.progress,
+      createdAt: log.createdAt.toISOString(),
+    }
+  }
+  if (log.todo) {
+    return {
+      id: log.id,
+      actorName: log.actor?.name ?? null,
+      actorAvatar: log.actor?.avatar ?? null,
+      entityType: 'TODO',
+      entityTitle: log.todo.title,
+      entityId: log.todo.id,
+      action: log.action,
+      progress: log.todo.status === 'COMPLETED' ? 100 : 0,
+      createdAt: log.createdAt.toISOString(),
+    }
+  }
+  return null
 }
 
-async function getTeamActivity(): Promise<ActivityFeedItem[]> {
+async function getTeamActivity(currentUserId: string): Promise<ActivityFeedItem[]> {
+  // Show what other team members are doing — exclude the current user's own
+  // actions so the feed reads as "what's happening around me" rather than
+  // "my own audit trail".
   const logs = await prisma.activityLog.findMany({
+    where: { actorId: { not: currentUserId } },
     orderBy: { createdAt: 'desc' },
-    take: 40,
+    // Pull more rows than we render: many logs (sprint events, raw audit
+    // entries) get filtered out in buildFeedItem.
+    take: 80,
     include: {
       actor: { select: { name: true, avatar: true } },
       objective: { select: { id: true, title: true, progress: true } },
       keyResult: { select: { id: true, title: true, progress: true } },
+      todo: { select: { id: true, title: true, status: true } },
     },
   })
   return logs.flatMap(log => {

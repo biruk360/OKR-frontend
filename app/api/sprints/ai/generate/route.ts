@@ -13,8 +13,8 @@ import { prisma } from '@/lib/prisma'
 
 const BodyZ = z.object({
   subjectUserId: z.string().min(1),
-  startDate: z.string(),
-  durationDays: z.number().int().min(7).max(28).default(14),
+  /** The existing team sprint to attach proposed todos to. The sprint must be in PLANNING. */
+  sprintId: z.string().min(1),
   mode: z.enum(['AUTO', 'MANUAL']).default('AUTO'),
   objectiveIds: z.array(z.string()).optional(),
   keyResultIds: z.array(z.string()).optional(),
@@ -25,14 +25,17 @@ const BodyZ = z.object({
 /**
  * POST /api/sprints/ai/generate
  *
- * Body: { subjectUserId, startDate (ISO), durationDays, mode, objectiveIds?,
- *         keyResultIds?, feedback?, provider? }
+ * Body: { subjectUserId, sprintId, mode, objectiveIds?, keyResultIds?, feedback?, provider? }
  *
- * Returns the persisted draft sprint + AiSprintPlan id, the proposed todos
- * created (so the review screen can immediately fetch them), and the carryover
- * out-of-scope warning array (MANUAL mode only).
+ * The target sprint must already exist in PLANNING state with startDate/endDate
+ * set — the AI no longer creates the sprint. Use this to fill an existing team
+ * sprint with AI-proposed todos for a specific user; one team sprint can have
+ * multiple plans (one per subjectUserId).
  *
- * Idempotency: a duplicate call with the same (subjectUserId, startDate) and an
+ * Returns the AiSprintPlan id, the proposed todos created (so the review screen
+ * can fetch them), and the carryover out-of-scope warning array (MANUAL mode).
+ *
+ * Idempotency: a duplicate call with the same (subjectUserId, sprintId) and an
  * existing DRAFT plan returns the existing plan instead of regenerating.
  */
 export const POST = withAuth(async (req: NextRequest, { session }) => {
@@ -75,16 +78,26 @@ export const POST = withAuth(async (req: NextRequest, { session }) => {
     return apiBadRequest('MANUAL mode requires non-empty keyResultIds[]')
   }
 
-  // Idempotency — same (subject, startDate) returning DRAFT plan.
-  const startDate = new Date(data.startDate)
-  if (Number.isNaN(startDate.getTime())) return apiBadRequest('startDate is not a valid ISO date')
+  // Sprint must exist and be PLANNING with dates.
+  const targetSprint = await prisma.sprint.findUnique({
+    where: { id: data.sprintId },
+    select: { id: true, state: true, startDate: true, endDate: true },
+  })
+  if (!targetSprint) return apiNotFound('Sprint not found')
+  if (targetSprint.state !== 'PLANNING') {
+    return apiBadRequest('AI generation only allowed on sprints in PLANNING state')
+  }
+  if (!targetSprint.startDate || !targetSprint.endDate) {
+    return apiBadRequest('Sprint must have start and end dates set before AI generation')
+  }
+
+  // Idempotency — same (subject, sprint) with an open DRAFT returns it.
   const existing = await prisma.aiSprintPlan.findFirst({
     where: {
+      sprintId: data.sprintId,
       subjectUserId: data.subjectUserId,
       status: 'DRAFT',
-      sprint: { startDate },
     },
-    include: { sprint: { select: { id: true } } },
   })
   if (existing) {
     return apiSuccess({ planId: existing.id, sprintId: existing.sprintId, deduped: true })
@@ -98,8 +111,7 @@ export const POST = withAuth(async (req: NextRequest, { session }) => {
       mode: data.mode,
       objectiveIds: data.objectiveIds,
       keyResultIds: data.keyResultIds,
-      startDate,
-      durationDays: data.durationDays,
+      sprintId: data.sprintId,
       feedback: data.feedback ?? null,
       provider,
     })

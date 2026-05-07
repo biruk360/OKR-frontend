@@ -1,8 +1,21 @@
 # Feature Spec — AI-Generated Bi-Weekly Sprint Plans
 
-> Status: PLANNED. Owner: TBD. Last updated: 2026-05-03.
+> Status: IN PROGRESS. Owner: TBD. Last updated: 2026-05-07.
 >
 > This document is the single source of truth for the AI Sprint Planning feature. It consolidates the feature scope, AI integration design, data model changes, API surface, and acceptance criteria — including the carryover of incomplete todos from prior sprints.
+
+---
+
+## 0. Design change — 2026-05-07
+
+The original spec assumed the AI **creates** a fresh sprint as part of generation, with one plan per sprint and a PLANNING→ACTIVE flip on accept. That model is replaced as follows; sections below that contradict this take-precedence note are superseded:
+
+- **Team sprint first.** A user creates an empty team sprint via the existing kanban flow (`/dashboard/sprints` → New sprint). The sprint must be in `PLANNING` state with `startDate`/`endDate` set before AI generation is allowed.
+- **Per-user, in-place generation.** From the sprint board header, a lead/admin triggers AI generation scoped to one team member. The pipeline appends `aiSuggested=true` todos to the existing sprint (no new Sprint row is created).
+- **Multiple plans per sprint.** `AiSprintPlan.sprintId` is no longer `@unique` — one team sprint can hold one plan per `subjectUserId`. Idempotency key for `/generate` is `(sprintId, subjectUserId, status='DRAFT')`.
+- **Per-user review.** Each generated plan goes to its own review page (`/dashboard/sprints/ai/[planId]`), which now shows the subject user, sprint window, and per-todo KR contribution with objective context.
+- **Accept does not start the sprint.** On accept, kept proposed todos lose `aiSuggested` (so they appear on the kanban as normal cards) and dropped todos are deleted. The sprint stays in `PLANNING`. The lead manually starts the sprint from the board header once all team members' plans are loaded.
+- **Board filters draft tasks.** `/api/sprints/[id]/board` excludes `aiSuggested=true` rows so draft tasks don't leak onto the kanban before approval.
 
 ---
 

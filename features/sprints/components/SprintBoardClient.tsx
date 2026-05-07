@@ -27,6 +27,7 @@ import { cn } from '@/lib/utils'
 import type { TodoStatus } from '@/types'
 import { BOARD_STATUSES, TODO_STATUS_META } from '@/lib/todo-status'
 import TaskCardTrello, { type TrelloTodo } from './TaskCardTrello'
+import { GenerateSprintButton } from '@/features/sprints-ai'
 import SprintBackgroundPicker from './SprintBackgroundPicker'
 import SprintFloatingBar, { type SprintBoardView } from './SprintFloatingBar'
 import SprintSwitcher from './SprintSwitcher'
@@ -377,6 +378,9 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
                 >
                   {sprint.startDate && sprint.endDate ? 'Edit dates' : 'Schedule'}
                 </button>
+                {sprint.startDate && sprint.endDate && (
+                  <GenerateSprintButton sprintId={sprintId} variant="subtle" />
+                )}
                 <button
                   type="button"
                   onClick={handleStartSprintClick}

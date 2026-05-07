@@ -55,7 +55,10 @@ export const GET = withAuth<RouteIdParams>(async (_request, { params }) => {
   if (!sprint) return apiNotFound('Sprint not found')
 
   const todos = await prisma.todo.findMany({
-    where: { sprintId: id },
+    // Exclude AI-draft todos (aiSuggested=true means "still in review") so they
+    // don't appear on the kanban before the user accepts them via the review page.
+    // Once accepted, /api/sprints/ai/:planId/accept flips aiSuggested=false.
+    where: { sprintId: id, aiSuggested: false },
     // Order by createdAt asc within each column so newly created todos always
     // append at the bottom of their lane (the user's expectation). Avoid sorting
     // by dueDate here — null due dates can appear above existing dated tasks

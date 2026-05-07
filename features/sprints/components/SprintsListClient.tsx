@@ -19,7 +19,6 @@ import { useCreateIntentStore } from '@/lib/stores/create-intent-store'
 import StatusPill from '@/components/shared/StatusPill'
 import { EmptyState } from '@/components/ui/EmptyState'
 import AddToSprintDropdown from '@/components/sprints/AddToSprintDropdown'
-import { GenerateSprintButton } from '@/features/sprints-ai'
 import { cn } from '@/lib/utils'
 
 type Tab = 'active' | 'planning' | 'backlog' | 'completed'
@@ -309,7 +308,6 @@ export default function SprintsListClient({ currentUserId }: { currentUserId: st
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-[24px] font-semibold leading-tight" style={{ letterSpacing: '-0.02em' }}>Sprints</h1>
         <div className="ml-auto flex items-center gap-2">
-          <GenerateSprintButton />
           <button
             type="button"
             onClick={() => setCreating(true)}

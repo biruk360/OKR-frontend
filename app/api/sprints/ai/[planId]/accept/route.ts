@@ -12,17 +12,15 @@ const BodyZ = z.object({
 /**
  * POST /api/sprints/ai/:planId/accept
  *
- * Body: { todoIds: string[] } — the AI-proposed todos the user wants to keep.
- * Any other AI-suggested todo on this sprint is deleted. Carryover dispositions
- * already stored on existing Todo rows are applied:
- *   KEEP        → todo stays on the new sprint (no-op, sprintId already set)
- *   SPLIT       → original CANCELLED, splitInto creates new todos (TODO follow-up)
- *   RESCHEDULE  → sprintId set to null
- *   DESCOPE     → status CANCELLED
- *   ESCALATE    → kept on sprint + manager notification (TODO follow-up)
+ * Body: { todoIds: string[] } — the AI-proposed todos for THIS subject the user
+ * wants to keep. Other users' plans on the same team sprint are untouched.
  *
- * On success: Sprint flips to ACTIVE, AiSprintPlan.status = ACCEPTED, ActivityLog
- * SPRINT_AI_ACCEPTED is recorded.
+ * Kept todos lose their `aiSuggested` flag so they render as normal kanban cards.
+ * Unselected proposed todos for this subject are deleted. Carryover dispositions
+ * for this subject are applied.
+ *
+ * The team sprint stays in PLANNING — the lead manually starts it from the board
+ * once all team members' plans are loaded in.
  */
 export const POST = withAuth(async (req, { session, params }) => {
   const cfg = await getAiOrgConfig()
@@ -53,14 +51,29 @@ export const POST = withAuth(async (req, { session, params }) => {
   }
 
   const keepIds = new Set(parsed.data.todoIds)
-  const proposedTodos = plan.sprint.todos.filter((t) => t.aiSuggested)
+  // Scope proposed-todo lookup to THIS subject so a sibling plan on the same
+  // team sprint isn't touched.
+  const proposedTodos = plan.sprint.todos.filter(
+    (t) => t.aiSuggested && t.assigneeId === plan.subjectUserId
+  )
   const toDelete = proposedTodos.filter((t) => !keepIds.has(t.id))
-  const carryoverTodos = plan.sprint.todos.filter((t) => !t.aiSuggested && t.carryoverDisposition)
+  const toKeep = proposedTodos.filter((t) => keepIds.has(t.id))
+  const carryoverTodos = plan.sprint.todos.filter(
+    (t) => !t.aiSuggested && t.carryoverDisposition && t.assigneeId === plan.subjectUserId
+  )
 
   await prisma.$transaction(async (tx) => {
-    // Drop unselected proposed todos.
+    // Drop unselected proposed todos for this subject.
     if (toDelete.length) {
       await tx.todo.deleteMany({ where: { id: { in: toDelete.map((t) => t.id) } } })
+    }
+
+    // Promote kept proposals out of draft so they render as normal kanban cards.
+    if (toKeep.length) {
+      await tx.todo.updateMany({
+        where: { id: { in: toKeep.map((t) => t.id) } },
+        data: { aiSuggested: false },
+      })
     }
 
     // Apply carryover dispositions on existing todos.
@@ -108,11 +121,7 @@ export const POST = withAuth(async (req, { session, params }) => {
       }
     }
 
-    // Flip sprint + plan state.
-    await tx.sprint.update({
-      where: { id: plan.sprint.id },
-      data: { state: 'ACTIVE' },
-    })
+    // Sprint stays in PLANNING — the lead starts it manually once all members' plans are loaded.
     await tx.aiSprintPlan.update({
       where: { id: plan.id },
       data: { status: 'ACCEPTED', acceptedAt: new Date() },

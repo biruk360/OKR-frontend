@@ -856,7 +856,7 @@ model Sprint {
   participants SprintParticipant[]
   todos        Todo[]
   activityLogs ActivityLog[]
-  aiPlan       AiSprintPlan?
+  aiPlans      AiSprintPlan[]
 
   @@index([ownerId, status])
   @@index([state, endDate])
@@ -1038,7 +1038,10 @@ model Risk {
 /// See docs/AI_SPRINT_PLANNING.md for the full spec, allocations JSON shape, and acceptance criteria.
 model AiSprintPlan {
   id               String    @id @default(cuid())
-  sprintId         String    @unique
+  /// One sprint may now have multiple plans — one per (subjectUserId) when a lead
+  /// runs AI generation for several team members into the same team sprint.
+  /// Uniqueness is enforced at app-level via the (sprintId, subjectUserId, status='DRAFT') idempotency check.
+  sprintId         String
   subjectUserId    String?
   subjectDeptId    String?
   generatedById    String
@@ -1064,6 +1067,7 @@ model AiSprintPlan {
 
   sprint Sprint @relation(fields: [sprintId], references: [id], onDelete: Cascade)
 
+  @@index([sprintId, status])
   @@index([subjectUserId, createdAt])
   @@index([status, createdAt])
   @@map("ai_sprint_plans")

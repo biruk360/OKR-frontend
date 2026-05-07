@@ -13,6 +13,17 @@
 
 ---
 
+## 2026-05-07 — AI Sprint Planning: per-user generation INTO an existing team sprint
+
+Restructured AI sprint planning so the AI fills tasks into a user-created team sprint rather than creating its own. Triggered from the sprint board header, scoped to one subject user at a time; multiple plans on the same sprint, each reviewed and approved independently.
+
+- **Schema** Dropped `@unique` on `AiSprintPlan.sprintId`; added `@@index([sprintId, status])`. Renamed `Sprint.aiPlan` → `Sprint.aiPlans` (1-to-many). Requires `prisma db push` on prod — `prisma/schema.prisma`
+- **Pipeline** `runSprintPlanPipeline` now takes `sprintId` instead of `startDate/durationDays`; loads sprint, validates PLANNING + dates set, no longer calls `tx.sprint.create` — `lib/ai/pipeline.ts`
+- **API** `/api/sprints/ai/generate` body changed to `{ subjectUserId, sprintId, mode, ... }`; idempotency key now `(sprintId, subjectUserId, status='DRAFT')`. `/regenerate` no longer deletes the team sprint — only this subject's draft AI todos. `/accept` keeps sprint in PLANNING; promotes kept proposals to `aiSuggested=false` so they render as normal kanban cards. `/[planId]` GET returns `subject` + KR objective context. `/board` excludes `aiSuggested=true`.
+- **UI** `GenerateSprintButton` now requires `sprintId`, lives in the sprint board header (PLANNING + dates set). `GenerateSprintModal` drops date inputs, takes `sprintId` prop. `ReviewPlanClient` shows subject user in header and per-todo "→ contributes +X to KR (Objective)" relationship block. Removed standalone button from sprints list — `features/sprints-ai/components/`, `features/sprints/components/SprintBoardClient.tsx`, `features/sprints/components/SprintsListClient.tsx`
+- **Tests:** not run (typecheck passes via `tsc --noEmit`)
+- **Docs updated:** SITEMAP, FEATURE_STATUS, AI_SPRINT_PLANNING (Section 0 supersession note)
+
 ## 2026-05-07 — Daily Trip Plan (DTP) module — Phase 1 web backbone
 
 Implemented the web slice of the Travel & Mobility module per `docs/Daily_Trip_Plan_Requirements_v1.0.md`. Schema, server logic, REST API, employee plan editor, Coordinator console, Movement / Run sheets (with print CSS), Pool Coordinator, and admin settings. Flutter mobile, Google Distance Matrix, full VRP optimizer, and server-PDF export are clearly marked TODO and stubbed.

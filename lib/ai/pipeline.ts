@@ -30,8 +30,9 @@ export interface PipelineRequest {
   mode: GenerationMode
   objectiveIds?: string[]
   keyResultIds?: string[]
-  startDate: Date
-  durationDays: number
+  /** Existing sprint to attach AI-generated todos to. AI never creates a sprint anymore — */
+  /** the team sprint must exist first (created by the user via the sprint board). */
+  sprintId: string
   feedback?: string | null
   provider: AiProviderId
   modelId?: string
@@ -50,8 +51,26 @@ export interface PipelineResult {
 }
 
 export async function runSprintPlanPipeline(req: PipelineRequest): Promise<PipelineResult> {
-  const sprintEnd = new Date(req.startDate.getTime() + req.durationDays * 86400000)
   const modelId = req.modelId ?? AI_MODELS[req.provider].planner
+
+  // 0. Load the target sprint. Dates come from the sprint, not the request — the
+  //    AI is filling tasks into an existing team sprint, not creating one.
+  const targetSprint = await prisma.sprint.findUnique({
+    where: { id: req.sprintId },
+    select: { id: true, startDate: true, endDate: true, state: true },
+  })
+  if (!targetSprint) {
+    throw new Error(`Sprint not found: ${req.sprintId}`)
+  }
+  if (targetSprint.state !== 'PLANNING') {
+    throw new Error(`Sprint is not in PLANNING state (current: ${targetSprint.state}); AI generation only allowed before the sprint starts`)
+  }
+  if (!targetSprint.startDate || !targetSprint.endDate) {
+    throw new Error('Sprint must have startDate and endDate set before AI generation')
+  }
+  const sprintStart = targetSprint.startDate
+  const sprintEnd = targetSprint.endDate
+  const durationDays = Math.max(1, Math.round((sprintEnd.getTime() - sprintStart.getTime()) / 86400000))
 
   // 1. Context.
   const bundle = await buildContextBundle({
@@ -60,14 +79,14 @@ export async function runSprintPlanPipeline(req: PipelineRequest): Promise<Pipel
     mode: req.mode,
     objectiveIds: req.objectiveIds,
     keyResultIds: req.keyResultIds,
-    sprintStart: req.startDate,
+    sprintStart,
   })
 
   // 2. Carryover triage.
   const incomplete = selectIncomplete(bundle.carryoverCandidates)
   const classified = incomplete.map((t) => ({
     todo: t,
-    candidate: classifyCandidate(t, req.startDate),
+    candidate: classifyCandidate(t, sprintStart),
   }))
 
   // 3. Allocation math.
@@ -89,12 +108,12 @@ export async function runSprintPlanPipeline(req: PipelineRequest): Promise<Pipel
   const carryoverByKr = carryoverDeltaByKr(
     classified.map((c) => ({ candidate: c.candidate, todo: c.todo }))
   )
-  const tfEnd = bundle.timeframe?.endDate ?? new Date(req.startDate.getTime() + 90 * 86400000)
+  const tfEnd = bundle.timeframe?.endDate ?? new Date(sprintStart.getTime() + 90 * 86400000)
   const allocations = buildAllocations({
     krs: krsForMath,
     timeframeEnd: tfEnd,
-    sprintStart: req.startDate,
-    sprintDurationWeeks: Math.max(1, Math.round(req.durationDays / 7)),
+    sprintStart,
+    sprintDurationWeeks: Math.max(1, Math.round(durationDays / 7)),
     carryoverByKr,
     velocityHistory,
   })
@@ -109,9 +128,9 @@ export async function runSprintPlanPipeline(req: PipelineRequest): Promise<Pipel
         bundle,
         allocations,
         carryoverCandidates: await hydrateCarryoverForProvider(classified),
-        sprintStart: req.startDate,
+        sprintStart,
         sprintEnd,
-        durationDays: req.durationDays,
+        durationDays,
       },
       // 32k headroom is needed because gpt-5.5 (and other reasoning models) consume
       // thousands of "reasoning tokens" before emitting visible output. With 8k we hit
@@ -143,20 +162,14 @@ export async function runSprintPlanPipeline(req: PipelineRequest): Promise<Pipel
   const objIdSet = new Set(bundle.objectives.map((o) => o.id))
 
   const persisted = await prisma.$transaction(async (tx) => {
-    // Sprint shell.
-    const sprint = await tx.sprint.create({
-      data: {
-        name: `AI-planned sprint (${req.startDate.toISOString().slice(0, 10)})`,
-        ownerId: req.subjectUserId,
-        startDate: req.startDate,
-        endDate: sprintEnd,
-        state: 'PLANNING',
-        status: 'ACTIVE',
-        goal: aiResult.plan.rationale.slice(0, 500),
-      },
-    })
+    // Reuse the existing team sprint — the AI never creates one.
+    const sprint = targetSprint
 
     // Persist proposed todos. Filter out any that reference KRs/objectives outside scope.
+    // Note: aiSuggested=true means "still pending review" — these only become real
+    // board cards after /accept moves them out of draft. To avoid mixing draft tasks
+    // into the kanban prematurely, we leave aiSuggested=true and rely on the board
+    // query to filter them out (or surface them with a badge).
     const todosToCreate = aiResult.plan.proposedTodos.filter(
       (t) => (t.keyResultId && krIdSet.has(t.keyResultId)) || (t.objectiveId && objIdSet.has(t.objectiveId))
     )

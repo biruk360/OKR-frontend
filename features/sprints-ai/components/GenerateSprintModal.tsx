@@ -11,6 +11,8 @@ import { useUsersForSelection } from '@/hooks/useUsersForSelection'
 interface Props {
   open: boolean
   onClose: () => void
+  /** The team sprint to attach AI-proposed todos to. Required. */
+  sprintId: string
   /** Defaults to signed-in user. Leads/admins can override via the picker. */
   subjectUserId?: string
 }
@@ -18,13 +20,15 @@ interface Props {
 type Scope = 'AUTO' | 'MANUAL'
 
 /**
- * Scope-selection modal for AI sprint generation.
+ * Modal for generating AI tasks into an existing team sprint, scoped to one
+ * subject user. Triggered from the sprint board header. The sprint must already
+ * exist in PLANNING state with start/end dates.
  *
- * Subject user picker is shown to ADMIN/EXECUTIVE/DEPARTMENT_LEAD. Employees
- * are locked to themselves (matches RBAC in /api/sprints/ai/generate).
- * MANUAL scope card is disabled until the OkrPicker refactor lands.
+ * The user picker lets ADMIN/EXECUTIVE/DEPARTMENT_LEAD generate for any team
+ * member; employees stay locked to themselves. MANUAL scope is disabled until
+ * the OkrPicker refactor lands.
  */
-export function GenerateSprintModal({ open, onClose, subjectUserId }: Props) {
+export function GenerateSprintModal({ open, onClose, sprintId, subjectUserId }: Props) {
   const router = useRouter()
   const { data: session } = useSession()
   const role = session?.user?.role
@@ -38,8 +42,6 @@ export function GenerateSprintModal({ open, onClose, subjectUserId }: Props) {
   const { users, isLoading: loadingUsers } = useUsersForSelection({ enabled: open && canPickUser })
 
   const [scope, setScope] = useState<Scope>('AUTO')
-  const [startDate, setStartDate] = useState(nextMondayIso())
-  const [durationDays, setDurationDays] = useState(14)
   const [provider, setProvider] = useState<'default' | 'openai' | 'anthropic' | 'gemini'>('default')
   const [submitting, setSubmitting] = useState(false)
 
@@ -55,8 +57,7 @@ export function GenerateSprintModal({ open, onClose, subjectUserId }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           subjectUserId: subject,
-          startDate: new Date(startDate).toISOString(),
-          durationDays,
+          sprintId,
           mode: scope,
           ...(provider !== 'default' && { provider }),
         }),
@@ -69,7 +70,7 @@ export function GenerateSprintModal({ open, onClose, subjectUserId }: Props) {
       }
       toast.success('Plan generated — review it now.')
       onClose()
-      router.push(`/dashboard/sprints/ai/${json.data.planId}`)
+      router.push(`/dashboard/sprints/ai/${json.data.planId}?returnTo=/dashboard/sprints/${sprintId}`)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Generation failed')
     } finally {
@@ -81,7 +82,7 @@ export function GenerateSprintModal({ open, onClose, subjectUserId }: Props) {
     <Modal
       open={open}
       onClose={onClose}
-      title="Generate AI Sprint"
+      title="Generate AI tasks"
       icon={Sparkles}
       iconClassName="text-purple-500"
       size="md"
@@ -103,7 +104,7 @@ export function GenerateSprintModal({ open, onClose, subjectUserId }: Props) {
             style={{ background: 'linear-gradient(135deg, #7c3aed, #2563eb)' }}
           >
             {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-            {submitting ? 'Generating…' : 'Generate Sprint'}
+            {submitting ? 'Generating…' : 'Generate'}
           </button>
         </div>
       }
@@ -136,42 +137,10 @@ export function GenerateSprintModal({ open, onClose, subjectUserId }: Props) {
                 ))}
             </select>
             <div className="mt-1 text-[11px] text-muted-foreground">
-              The plan and proposed tasks are scoped to this user's OKRs.
+              Tasks will be proposed against this user's OKRs and assigned to them on accept.
             </div>
           </section>
         )}
-
-        {/* Sprint window */}
-        <section>
-          <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-            Sprint window
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <label className="flex flex-col text-[12px]">
-              <span className="text-muted-foreground mb-1">Start date</span>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="rounded-[8px] border h-8 px-2 text-[13px]"
-                style={{ borderColor: 'var(--ap-border)' }}
-              />
-            </label>
-            <label className="flex flex-col text-[12px]">
-              <span className="text-muted-foreground mb-1">Duration</span>
-              <select
-                value={durationDays}
-                onChange={(e) => setDurationDays(Number(e.target.value))}
-                className="rounded-[8px] border h-8 px-2 text-[13px]"
-                style={{ borderColor: 'var(--ap-border)' }}
-              >
-                <option value={10}>10 days</option>
-                <option value={14}>14 days (default)</option>
-                <option value={21}>21 days</option>
-              </select>
-            </label>
-          </div>
-        </section>
 
         {/* Provider (admin only) */}
         {showProvider && (
@@ -202,14 +171,14 @@ export function GenerateSprintModal({ open, onClose, subjectUserId }: Props) {
             <ScopeCard
               icon={Sparkles}
               title="Let AI pick OKRs"
-              subtitle="Recommended. The AI reviews all your active objectives and key results and chooses what to plan around."
+              subtitle="Recommended. The AI reviews this user's active objectives and key results and chooses what to plan around."
               selected={scope === 'AUTO'}
               onClick={() => setScope('AUTO')}
             />
             <ScopeCard
               icon={Hand}
               title="I'll choose OKRs"
-              subtitle="Pick specific objectives and key results to focus on this sprint."
+              subtitle="Pick specific objectives and key results to focus on."
               selected={scope === 'MANUAL'}
               onClick={() => setScope('MANUAL')}
               disabled
@@ -269,13 +238,4 @@ function ScopeCard({
       <div className="mt-1 text-[11px] leading-snug text-muted-foreground">{subtitle}</div>
     </button>
   )
-}
-
-function nextMondayIso(): string {
-  const d = new Date()
-  d.setHours(0, 0, 0, 0)
-  const dow = d.getDay()
-  const delta = ((1 - dow + 7) % 7) || 7
-  d.setDate(d.getDate() + delta)
-  return d.toISOString().slice(0, 10)
 }

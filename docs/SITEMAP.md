@@ -37,7 +37,8 @@
 | `/dashboard/my-tasks` | `app/dashboard/my-tasks/page.tsx` | todos | User's assigned tasks |
 | `/dashboard/todos` | `app/dashboard/todos/page.tsx` | todos | All to-dos / initiatives |
 | `/dashboard/sprints` | `app/dashboard/sprints/page.tsx` | sprints | Sprint list |
-| `/dashboard/sprints/[id]` | `app/dashboard/sprints/[id]/page.tsx` | sprints | Sprint board detail (kanban) |
+| `/dashboard/sprints/[id]` | `app/dashboard/sprints/[id]/page.tsx` | sprints | Sprint board detail (kanban). Header has "Generate AI tasks" entry that opens a modal scoped to one team member; proposed todos land in the PENDING column after approval. |
+| `/dashboard/sprints/ai/[planId]` | `app/dashboard/sprints/ai/[planId]/page.tsx` | sprints-ai | AI sprint plan review + approve. Shows subject user, KR relationships per task, accept/discard/regenerate. |
 
 ### OKRs
 | Route | Page File | Feature | Description |
@@ -145,6 +146,12 @@
 | GET/POST | `/api/sprints/[id]/activities/[actId]/tasks` | Card sub-tasks |
 | PUT/DELETE | `/api/sprints/[id]/activities/[actId]/tasks/[taskId]` | Sub-task CRUD |
 | POST | `/api/sprints/[id]/activities/[actId]/convert-to-initiative` | Convert to initiative |
+| POST | `/api/sprints/ai/generate` | Generate AI tasks for a (subjectUserId, sprintId) into an existing PLANNING team sprint. Idempotent on (subjectUserId, sprintId, status='DRAFT'). |
+| GET | `/api/sprints/ai/[planId]` | Fetch a draft plan: subject, sprint window, proposed tasks (with KR + objective context), carryover dispositions. |
+| POST | `/api/sprints/ai/[planId]/accept` | Drop unselected proposed todos for the subject; promote kept ones to normal kanban cards (aiSuggested=false). Sprint stays in PLANNING. |
+| POST | `/api/sprints/ai/[planId]/discard` | Discard a draft plan and its proposed todos for this subject. |
+| POST | `/api/sprints/ai/[planId]/regenerate` | Supersede this subject's draft, drop their proposed todos, re-run pipeline against the same sprint with feedback. |
+| GET | `/api/sprints/ai/[planId]/debug` | Admin/exec diagnostic: subject KR coverage, generation logs, one-line diagnosis for empty plans. |
 
 ### Organization
 | Method | Route | Description |

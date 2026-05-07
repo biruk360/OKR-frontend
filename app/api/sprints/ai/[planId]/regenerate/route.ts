@@ -16,9 +16,10 @@ const BodyZ = z.object({
 /**
  * POST /api/sprints/ai/:planId/regenerate
  *
- * Marks the existing DRAFT plan SUPERSEDED, removes its draft sprint + AI todos,
- * and re-runs the pipeline with the user's feedback baked into the prompt.
- * Same idempotency key (subject, startDate) so a refresh-bug doesn't double-spend.
+ * Marks the existing DRAFT plan SUPERSEDED, removes only THIS subject's
+ * AI-suggested draft todos from the team sprint (other users' plans on the same
+ * sprint are untouched), and re-runs the pipeline against the same sprint with
+ * the user's feedback baked into the prompt.
  */
 export const POST = withAuth(async (req, { session, params }) => {
   const cfg = await getAiOrgConfig()
@@ -48,19 +49,18 @@ export const POST = withAuth(async (req, { session, params }) => {
     return apiForbidden('Not your plan')
   }
 
-  const startDate = plan.sprint.startDate ?? new Date()
-  const endDate = plan.sprint.endDate ?? new Date(startDate.getTime() + 14 * 86400000)
-  const durationDays = Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / 86400000))
-
-  // Mark old plan superseded, drop its draft sprint + AI todos, detach carryover.
+  // Supersede this plan and drop only this subject's AI-suggested draft todos
+  // on the same sprint. Other users' plans on the team sprint are untouched.
+  // The team sprint itself is never deleted.
   await prisma.$transaction(async (tx) => {
-    await tx.todo.updateMany({
-      where: { sprintId: plan.sprintId, aiSuggested: false },
-      data: { sprintId: null, carryoverDisposition: null },
+    await tx.todo.deleteMany({
+      where: {
+        sprintId: plan.sprintId,
+        aiSuggested: true,
+        assigneeId: plan.subjectUserId ?? undefined,
+      },
     })
-    await tx.todo.deleteMany({ where: { sprintId: plan.sprintId, aiSuggested: true } })
     await tx.aiSprintPlan.update({ where: { id: plan.id }, data: { status: 'SUPERSEDED' } })
-    await tx.sprint.delete({ where: { id: plan.sprintId } })
   })
 
   const provider: AiProviderId = parsed.data.provider ?? (plan.provider as AiProviderId)
@@ -71,8 +71,7 @@ export const POST = withAuth(async (req, { session, params }) => {
       // Regenerate always uses AUTO scope today — manual would require persisting the original
       // ids on the plan row, which we don't yet. Follow-up.
       mode: 'AUTO',
-      startDate,
-      durationDays,
+      sprintId: plan.sprintId,
       feedback: parsed.data.feedback,
       provider,
     })

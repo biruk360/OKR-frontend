@@ -22,7 +22,17 @@ export const GET = withAuth(async (_req, { session, params }) => {
         include: {
           todos: {
             include: {
-              keyResult: { select: { id: true, title: true, unit: true, targetValue: true, currentValue: true } },
+              keyResult: {
+                select: {
+                  id: true,
+                  title: true,
+                  unit: true,
+                  startValue: true,
+                  targetValue: true,
+                  currentValue: true,
+                  objective: { select: { id: true, title: true } },
+                },
+              },
             },
           },
         },
@@ -43,6 +53,13 @@ export const GET = withAuth(async (_req, { session, params }) => {
     return apiForbidden('Not your plan')
   }
 
+  const subject = plan.subjectUserId
+    ? await prisma.user.findUnique({
+        where: { id: plan.subjectUserId },
+        select: { id: true, name: true, email: true },
+      })
+    : null
+
   return apiSuccess({
     planId: plan.id,
     status: plan.status,
@@ -55,6 +72,7 @@ export const GET = withAuth(async (_req, { session, params }) => {
     feedback: plan.feedback,
     createdAt: plan.createdAt,
     acceptedAt: plan.acceptedAt,
+    subject,
     sprint: {
       id: plan.sprint.id,
       name: plan.sprint.name,
@@ -63,7 +81,7 @@ export const GET = withAuth(async (_req, { session, params }) => {
       endDate: plan.sprint.endDate,
     },
     proposedTodos: plan.sprint.todos
-      .filter((t) => t.aiSuggested)
+      .filter((t) => t.aiSuggested && t.assigneeId === plan.subjectUserId)
       .map((t) => ({
         id: t.id,
         title: t.title,
@@ -77,7 +95,7 @@ export const GET = withAuth(async (_req, { session, params }) => {
         objectiveId: t.objectiveId,
       })),
     carryover: plan.sprint.todos
-      .filter((t) => !t.aiSuggested && t.carryoverDisposition)
+      .filter((t) => !t.aiSuggested && t.carryoverDisposition && t.assigneeId === plan.subjectUserId)
       .map((t) => ({
         id: t.id,
         title: t.title,

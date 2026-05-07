@@ -5,20 +5,21 @@ import { Sparkles } from 'lucide-react'
 import { GenerateSprintModal } from './GenerateSprintModal'
 
 interface Props {
-  /** When omitted, defaults to the signed-in user (resolved client-side). */
+  /** The team sprint to attach AI-proposed todos to. Required — the trigger only */
+  /** makes sense from inside a sprint board. */
+  sprintId: string
+  /** When omitted, defaults to the signed-in user. Leads/admins can override in the modal. */
   subjectUserId?: string
   variant?: 'primary' | 'subtle'
   className?: string
 }
 
 /**
- * The single entry point for AI sprint generation. Renders a button that opens
- * GenerateSprintModal when clicked. Hides itself when the org flag is off — the
- * modal queries the flag through /api/admin/org-settings on mount, but the
- * button stays visible because gating happens at submit time (the API returns
- * 404 if the flag is off, surfacing as an error toast).
+ * Trigger for AI task generation inside an existing team sprint. Opens
+ * GenerateSprintModal scoped to one subject user; on accept, the proposed todos
+ * land in the sprint's PENDING column. Lives in the sprint board header.
  */
-export function GenerateSprintButton({ subjectUserId, variant = 'primary', className }: Props) {
+export function GenerateSprintButton({ sprintId, subjectUserId, variant = 'primary', className }: Props) {
   const [open, setOpen] = useState(false)
   return (
     <>
@@ -36,12 +37,13 @@ export function GenerateSprintButton({ subjectUserId, variant = 'primary', class
             : { borderWidth: 1, borderColor: 'var(--ap-border)' }
         }
       >
-        <Sparkles className="h-3.5 w-3.5" /> Generate AI Sprint
+        <Sparkles className="h-3.5 w-3.5" /> Generate AI tasks
       </button>
       {open && (
         <GenerateSprintModal
           open={open}
           onClose={() => setOpen(false)}
+          sprintId={sprintId}
           subjectUserId={subjectUserId}
         />
       )}

@@ -64,6 +64,7 @@ export function PlanEditor({ planId, isRequester }: Props) {
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
+            <PeopleStrip plan={plan} />
             <div className="flex flex-wrap items-center gap-3">
               <Label className="text-xs text-muted-foreground">Priority</Label>
               <SelectButtons
@@ -250,6 +251,117 @@ export function PlanEditor({ planId, isRequester }: Props) {
       )}
     </div>
   )
+}
+
+/**
+ * Compact "Requested by / Approved by" row at the top of the plan card.
+ * For RETURNED / REJECTED / CANCELLED status the same `decidedBy` user is the
+ * actor — the label switches based on status so the user always knows who
+ * acted on the plan and when.
+ */
+function PeopleStrip({ plan }: { plan: DtpPlanWithStops }) {
+  const status = plan.status
+  const decisionLabel =
+    status === 'APPROVED' || status === 'DRIVER_ASSIGNED' || status === 'IN_PROGRESS' || status === 'COMPLETED' || status === 'RECONCILED'
+      ? 'Approved by'
+      : status === 'ADJUSTED'
+        ? 'Adjusted by'
+        : status === 'RETURNED'
+          ? 'Returned by'
+          : status === 'CANCELLED'
+            ? 'Cancelled by'
+            : status === 'WITHDRAWN'
+              ? null
+              : null
+
+  return (
+    <div className="flex flex-wrap items-stretch gap-x-6 gap-y-3 rounded-md border border-border bg-muted/30 p-3">
+      <Person
+        label="Requested by"
+        name={plan.requester.name}
+        sublabel={plan.requester.email}
+        timestamp={plan.submittedAt ?? null}
+        timestampLabel="Submitted"
+      />
+      {plan.decidedBy && decisionLabel && (
+        <>
+          <div className="hidden sm:block self-stretch w-px bg-border" aria-hidden />
+          <Person
+            label={decisionLabel}
+            name={plan.decidedBy.name}
+            timestamp={plan.decisionAt ?? null}
+            note={plan.decisionNote}
+          />
+        </>
+      )}
+      {plan.acknowledgedAt && (
+        <>
+          <div className="hidden sm:block self-stretch w-px bg-border" aria-hidden />
+          <div className="flex flex-col text-xs text-muted-foreground">
+            <span className="text-overline">Acknowledged</span>
+            <span className="mt-0.5">{fmtTs(plan.acknowledgedAt)}</span>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+function Person({
+  label,
+  name,
+  sublabel,
+  timestamp,
+  timestampLabel,
+  note,
+}: {
+  label: string
+  name: string
+  sublabel?: string
+  timestamp?: string | null
+  timestampLabel?: string
+  note?: string | null
+}) {
+  return (
+    <div className="flex min-w-0 items-start gap-2.5">
+      <Avatar name={name} />
+      <div className="min-w-0">
+        <div className="text-overline text-muted-foreground">{label}</div>
+        <div className="text-sm font-medium truncate">{name}</div>
+        {sublabel && <div className="text-xs text-muted-foreground truncate">{sublabel}</div>}
+        {timestamp && (
+          <div className="text-xs text-muted-foreground mt-0.5">
+            {timestampLabel ? `${timestampLabel} ${fmtTs(timestamp)}` : fmtTs(timestamp)}
+          </div>
+        )}
+        {note && <div className="mt-1 text-xs text-foreground/80 italic">“{note}”</div>}
+      </div>
+    </div>
+  )
+}
+
+function Avatar({ name }: { name: string }) {
+  const initials = name
+    .split(/\s+/)
+    .map((p) => p[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join('')
+    .toUpperCase() || '?'
+  return (
+    <span
+      aria-hidden
+      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary-700 text-[11px] font-semibold"
+    >
+      {initials}
+    </span>
+  )
+}
+
+function fmtTs(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
 function Totals({ plan }: { plan: DtpPlanWithStops }) {

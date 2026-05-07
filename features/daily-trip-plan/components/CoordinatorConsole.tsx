@@ -40,7 +40,12 @@ export function CoordinatorConsole() {
     const rows = plans.data ?? []
     if (!search.trim()) return rows
     const q = search.toLowerCase()
-    return rows.filter((p) => p.id.toLowerCase().includes(q) || p.requesterId.toLowerCase().includes(q))
+    return rows.filter((p) =>
+      p.id.toLowerCase().includes(q) ||
+      p.requesterId.toLowerCase().includes(q) ||
+      (p.requester?.name ?? '').toLowerCase().includes(q) ||
+      (p.requester?.email ?? '').toLowerCase().includes(q),
+    )
   }, [plans.data, search])
 
   const kpis = useMemo(() => {
@@ -79,7 +84,7 @@ export function CoordinatorConsole() {
             </div>
             <div className="relative">
               <Search className="pointer-events-none absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input className="pl-8 w-56" placeholder="Search by plan id" value={search} onChange={(e) => setSearch(e.target.value)} />
+              <Input className="pl-8 w-56" placeholder="Search by name or email" value={search} onChange={(e) => setSearch(e.target.value)} />
             </div>
             <Button variant="ghost" size="sm" onClick={() => plans.refetch()}>Refresh</Button>
           </div>
@@ -111,21 +116,33 @@ function Kpi({ label, value }: { label: string; value: number }) {
 
 function PlanRow({ plan }: { plan: DtpPlanSummary }) {
   const date = new Date(plan.tripDate)
+  const requesterName = plan.requester?.name ?? '(unknown requester)'
+  const initials = requesterName
+    .split(/\s+/).map((p) => p[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || '?'
   return (
     <li className="flex items-center justify-between gap-3 py-3">
-      <div className="min-w-0">
-        <div className="flex items-center gap-2">
-          <Link href={`/dashboard/travel/plans/${plan.id}`} className="text-sm font-medium hover:underline truncate">
-            {plan.id.slice(0, 8)} · {date.toISOString().slice(0, 10)}
+      <div className="flex min-w-0 items-center gap-3">
+        <span
+          aria-hidden
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary-700 text-xs font-semibold"
+        >
+          {initials}
+        </span>
+        <div className="min-w-0">
+          <Link href={`/dashboard/travel/plans/${plan.id}`} className="text-sm font-medium hover:underline">
+            {requesterName}
           </Link>
-          <StatusBadge status={plan.status} />
-          {plan.late && <span className="rounded-pill bg-warning-50 text-warning-700 border border-warning-200 px-2 py-0.5 text-[11px] font-medium">Late</span>}
-          {plan.adjusted && <span className="rounded-pill bg-purple-100 text-purple-800 border border-purple-200 px-2 py-0.5 text-[11px] font-medium">Adjusted</span>}
-          {plan.emergency && <span className="rounded-pill bg-danger-50 text-danger-700 border border-danger-200 px-2 py-0.5 text-[11px] font-medium">Emergency</span>}
+          <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+            <span className="text-xs text-muted-foreground">{date.toISOString().slice(0, 10)} · {formatEthiopian(date)}</span>
+            <StatusBadge status={plan.status} />
+            {plan.late && <span className="rounded-pill bg-warning-50 text-warning-700 border border-warning-200 px-2 py-0.5 text-[11px] font-medium">Late</span>}
+            {plan.adjusted && <span className="rounded-pill bg-purple-100 text-purple-800 border border-purple-200 px-2 py-0.5 text-[11px] font-medium">Adjusted</span>}
+            {plan.emergency && <span className="rounded-pill bg-danger-50 text-danger-700 border border-danger-200 px-2 py-0.5 text-[11px] font-medium">Emergency</span>}
+            {plan.priority === 'URGENT' && <span className="rounded-pill bg-danger-50 text-danger-700 border border-danger-200 px-2 py-0.5 text-[11px] font-medium">Urgent</span>}
+          </div>
         </div>
-        <div className="text-xs text-muted-foreground">{formatEthiopian(date)} · priority {plan.priority}</div>
       </div>
-      <Link href={`/dashboard/travel/plans/${plan.id}`} className="text-sm text-primary hover:underline shrink-0">
+      <Link href={`/dashboard/travel/plans/${plan.id}`} className="text-sm text-primary-600 hover:underline shrink-0">
         Open →
       </Link>
     </li>

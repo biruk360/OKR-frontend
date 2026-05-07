@@ -33,10 +33,16 @@ export interface DtpPlanSummary {
   decisionAt: string | null
   decisionById: string | null
   decisionNote: string | null
+  managerEndorsedAt: string | null
+  managerEndorsedById: string | null
   acknowledgedAt: string | null
   totalEstDurationMin: number | null
   totalEstDistanceKm: number | null
   estimatedCostEtb: number | null
+  /** Populated by the list and detail endpoints (not by mutations). */
+  requester?: { id: string; name: string; email: string }
+  /** Populated by the list and detail endpoints when a decision was made. */
+  decidedBy?: { id: string; name: string } | null
 }
 
 export interface DtpStop {

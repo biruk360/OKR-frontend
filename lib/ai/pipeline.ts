@@ -265,6 +265,7 @@ export async function runSprintPlanPipeline(req: PipelineRequest): Promise<Pipel
     cachedTokens: aiResult.usage.cachedTokens,
     latencyMs,
     status: 'OK',
+    responseJson: aiResult.plan,
     planId: persisted.plan.id,
   })
 

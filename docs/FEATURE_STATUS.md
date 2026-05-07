@@ -15,6 +15,7 @@
 
 | Feature | Status | Path | Key Exports | Notes |
 |---------|--------|------|-------------|-------|
+| Daily Trip Plan (DTP) — web Phase 1 | IN PROGRESS | `features/daily-trip-plan/`, `lib/dtp/`, `app/api/dtp/`, `app/dashboard/travel/` | `PlanEditor`, `CoordinatorConsole`, `MovementSheetView`, `RunSheetView`, `PoolConsole`, `TravelSettingsForm`, `dtpApi` | Web slice of spec `docs/Daily_Trip_Plan_Requirements_v1.0.md`. Phase-2 stubs: Distance Matrix (10-min placeholder), VRP optimizer (no suggestions), Flutter mobile, SMS/Telegram, server-PDF, KR linkage UI. |
 | Authentication | DONE | `app/auth/`, `lib/auth.ts` | Sign-in, sign-up, session | NextAuth Credentials provider, JWT |
 | Permissions (RBAC) | DONE | `lib/rbac.ts` + `lib/permissions.ts` | `can(action, resource, actor)` unified API | Covers all 40 matrix actions — `lib/permissions.ts` is wrapped by `rbac.ts` |
 | Activity Logging | DONE | `lib/activity-log.ts` | `recordActivity()` | Append-only audit trail |

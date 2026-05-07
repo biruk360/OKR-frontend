@@ -2,6 +2,28 @@
 
 > **Purpose:** Inventory of all reusable components. AI and developers check this before creating anything new. Updated after every component change.
 
+## Daily Trip Plan (`features/daily-trip-plan`)
+
+> Import from the barrel: `import { PlanEditor, CoordinatorConsole, MovementSheetView, RunSheetView, PoolConsole, TravelSettingsForm, TravelHome, dtpApi } from '@/features/daily-trip-plan'`
+
+| Component | Props | Purpose |
+|-----------|-------|---------|
+| `TravelHome` | — | Employee dashboard surface — recent plans + create-or-open CTA |
+| `PlanEditor` | `planId`, `isRequester?` | Two-column plan detail: stops list + status timeline + audit log + sticky footer (submit / withdraw / clone / delete) |
+| `StopList` | `planId`, `stops`, `readOnly?`, `showDiff?` | Stop cards with edit / remove + Coordinator-adjustment diff strip |
+| `StopEditorModal` | `open`, `onClose`, `initial?`, `onSubmit`, `busy?` | Full stop form (where / when / how / what / logistics) — used for both add and edit |
+| `PlanTimeline` | `plan`, `events?` | Vertical state-machine timeline for a plan |
+| `StatusBadge` | `status`, `className?` | Pill renderer for the 14 DTP statuses |
+| `CoordinatorActions` | `plan` | Approve / Return / Reject action bar — used inside the plan-detail header |
+| `CoordinatorConsole` | — | Pending-plans list + KPI strip + filters (date / late / emergency) |
+| `MovementSheetView` | `deptId`, `date` (YYYY-MM-DD) | Office-facing Daily Movement Sheet with print CSS + signature blocks |
+| `RunSheetView` | `driverId`, `date`, `driverMode?` | Driver-facing Daily Run Sheet — leg cards + confirm-pickup/drop-off buttons |
+| `PoolConsole` | — | Pool Coordinator assignment table |
+| `TravelSettingsForm` | — | Sectioned admin settings form (SLAs, working hours, traffic, optimization, channels) |
+| `dtpApi` | — | Typed fetch client — call from server actions or other features |
+
+Hooks (TanStack Query) exported from the same barrel: `usePlans`, `usePlan`, `useTripTypes`, `useDrivers`, `useVehicles`, `useMovementSheet`, `useRunSheet`, `useDtpSettings`, `useCreateOrOpenPlan`, `useAddStop`, `useUpdateStop`, `useDeleteStop`, `usePlanTransition`, `useAssignDriver`, `useSetLegStatus`, `useUpdateSettings`, `useInvalidatePlan`.
+
 ## Shared UI Primitives (`components/ui/`)
 
 > Import from the barrel: `import { Modal, ConfirmDialog, EmptyState, StatCard, StatGrid, PageHeader } from '@/components/ui'`

@@ -63,6 +63,11 @@ model User {
   sprintParticipations        SprintParticipant[]      @relation("SprintParticipantUser")
   sprintsEnded                Sprint[]                 @relation("SprintEndedBy")
   ceoOf                       OrganizationSettings?    @relation("OrgSettingsCeo")
+  // Daily Trip Plan back-relations (see prisma/schema.prisma DTP block at the bottom).
+  dtpRequestedPlans           DailyTripPlan[]          @relation("DtpRequester")
+  dtpDecidedPlans             DailyTripPlan[]          @relation("DtpDecidedBy")
+  dtpEvents                   DtpEvent[]               @relation("DtpEventActor")
+  driverProfile               Driver?                  @relation("DriverUser")
 
   @@map("users")
 }
@@ -1095,4 +1100,353 @@ model AiGenerationLog {
   @@index([status, createdAt])
   @@index([provider, createdAt])
   @@map("ai_generation_logs")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Daily Trip Plan (DTP) — Travel & Mobility module.
+// Spec: docs/Daily_Trip_Plan_Requirements_v1.0.md
+// All status / mode / type fields are stored as String for portability — see
+// types/dtp.ts for the canonical literal unions.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Vehicle registry. Capacity is the max number of seated passengers
+/// (driver excluded). `defaultDriverId` is the driver normally paired with
+/// this vehicle — Pool Coordinator can override per day.
+model Vehicle {
+  id              String   @id @default(cuid())
+  plate           String   @unique
+  model           String?
+  capacity        Int      @default(4)
+  defaultDriverId String?
+  isActive        Boolean  @default(true)
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  defaultDriver Driver?         @relation("VehicleDefaultDriver", fields: [defaultDriverId], references: [id])
+  drivers       Driver[]        @relation("DriverDefaultVehicle")
+  runSheets     DailyRunSheet[]
+  legs          TripLeg[]
+
+  @@map("dtp_vehicles")
+}
+
+/// Driver registry. `userId` links to a `User` row when the driver also has a
+/// platform account (so they can sign in to the run-sheet view); nullable for
+/// external/contract drivers.
+model Driver {
+  id               String   @id @default(cuid())
+  userId           String?  @unique
+  fullName         String
+  phone            String?
+  license          String?
+  photoUrl         String?
+  defaultVehicleId String?
+  isActive         Boolean  @default(true)
+  workStart        String? // "08:30" (HH:MM); falls back to office working hours
+  workEnd          String? // "17:30"
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user              User?           @relation("DriverUser", fields: [userId], references: [id], onDelete: SetNull)
+  defaultVehicle    Vehicle?        @relation("DriverDefaultVehicle", fields: [defaultVehicleId], references: [id])
+  vehiclesAsDefault Vehicle[]       @relation("VehicleDefaultDriver")
+  runSheets         DailyRunSheet[]
+  legs              TripLeg[]
+
+  @@map("dtp_drivers")
+}
+
+/// Customizable trip-type (purpose) registry. Drives the icon, color, and
+/// default dwell minutes pre-filled on a stop. Seeded with the spec's defaults.
+model DtpTripType {
+  id              String   @id @default(cuid())
+  code            String   @unique // "MEETING", "BANK_VISIT", ...
+  label           String
+  icon            String? // lucide icon name
+  color           String? // hex
+  defaultDwellMin Int      @default(60)
+  isActive        Boolean  @default(true)
+  sortOrder       Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  stops TripStop[]
+
+  @@map("dtp_trip_types")
+}
+
+/// Per-department approval routing for DTP. `null` department = org-wide default.
+/// `primaryCoordinatorId` and `alternateCoordinatorId` reference users.
+model DtpDepartmentApproval {
+  id                     String   @id @default(cuid())
+  departmentId           String?  @unique // null = org default
+  primaryCoordinatorId   String?
+  alternateCoordinatorId String?
+  failoverHours          Int      @default(4)
+  managerEndorsementMode String   @default("OFF") // OFF | ADVISORY | REQUIRED
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@index([departmentId])
+  @@map("dtp_department_approvals")
+}
+
+/// Singleton-ish row keyed by id="default". Holds org-wide settings that aren't
+/// per-department. Editable from /dashboard/settings/travel.
+model DtpSettings {
+  id                                  String   @id @default("default")
+  // SLAs
+  submissionCutoff                    String   @default("17:00") // HH:MM
+  approvalSlaTime                     String   @default("08:30") // HH:MM same-day-of-trip
+  // Working hours / geofence / defaults
+  officeAnchorLat                     Float    @default(9.0192) // Addis Ababa fallback
+  officeAnchorLng                     Float    @default(38.7525)
+  officeLabel                         String   @default("Head Office")
+  workStart                           String   @default("08:30")
+  workEnd                             String   @default("17:30")
+  sameAreaRadiusM                     Int      @default(800)
+  defaultTripMode                     String   @default("ROUND_TRIP") // ROUND_TRIP | ONE_WAY
+  // Traffic
+  trafficAware                        Boolean  @default(true)
+  trafficModel                        String   @default("best_guess") // best_guess | optimistic | pessimistic
+  trafficBufferPct                    Int      @default(10)
+  // Optimization
+  optimizationEnabled                 Boolean  @default(true)
+  optimizationMaxGroupSize            Int      @default(4)
+  optimizationMaxDetourMin            Int      @default(15)
+  optimizationMaxPassengersPerVehicle Int      @default(4)
+  // Adjustment / acknowledgement
+  adjustmentRequiresAcknowledgement   Boolean  @default(true)
+  // Pool Coordinator user IDs (CSV) — comma-separated user.id list. Plain CSV
+  // keeps schema portable (no Postgres array dep) and the list is small.
+  poolCoordinatorIds                  String   @default("")
+  // Operations Manager IDs (CSV) — read-all + override authority.
+  operationsManagerIds                String   @default("")
+  // Notification channels
+  notifyEmail                         Boolean  @default(true)
+  notifyInApp                         Boolean  @default(true)
+  notifySms                           Boolean  @default(false)
+  notifyTelegram                      Boolean  @default(false)
+  createdAt                           DateTime @default(now())
+  updatedAt                           DateTime @updatedAt
+
+  @@map("dtp_settings")
+}
+
+/// One Daily Trip Plan per (requester, trip_date). Header for the day.
+/// Stops live in `TripStop`; legs (driver-level work) in `TripLeg`.
+model DailyTripPlan {
+  id                      String    @id @default(cuid())
+  requesterId             String
+  departmentId            String? // resolved at submission time from primary membership
+  tripDate                DateTime // calendar date (time component ignored)
+  status                  String    @default("DRAFT")
+  // Statuses: DRAFT | SUBMITTED | MANAGER_ENDORSED | UNDER_REVIEW | RETURNED |
+  //           ADJUSTED | APPROVED | DRIVER_ASSIGNED | IN_PROGRESS | COMPLETED |
+  //           RECONCILED | WITHDRAWN | CANCELLED | EXPIRED
+  priority                String    @default("NORMAL") // NORMAL | URGENT
+  defaultModeOfMovement   String    @default("COMPANY_VEHICLE") // WALKING|PUBLIC_TRANSPORT|COMPANY_VEHICLE|PERSONAL_VEHICLE|RIDE_HAIL|MIXED
+  late                    Boolean   @default(false)
+  emergency               Boolean   @default(false)
+  emergencyReason         String?
+  // Decision audit
+  submittedAt             DateTime?
+  decisionAt              DateTime?
+  decisionById            String?
+  decisionNote            String?
+  managerEndorsedAt       DateTime?
+  managerEndorsedById     String?
+  acknowledgedAt          DateTime?
+  // Aggregates (computed at decision; refreshed on relevant events)
+  totalEstDurationMin     Int?
+  totalEstDistanceKm      Float?
+  totalEstTrafficDelayMin Int?
+  estimatedCostEtb        Float?
+  // Adjusted flag — set when Coordinator edited any stop before approving.
+  adjusted                Boolean   @default(false)
+  // Phase-2 reserved nullable hooks (UI hidden in Phase 1).
+  linkedObjectiveId       String?
+  linkedKeyResultId       String?
+  linkedInitiativeId      String?
+  // Soft-delete
+  deletedAt               DateTime?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  requester User  @relation("DtpRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  decidedBy User? @relation("DtpDecidedBy", fields: [decisionById], references: [id], onDelete: SetNull)
+
+  stops  TripStop[]
+  legs   TripLeg[]
+  events DtpEvent[]
+
+  @@unique([requesterId, tripDate]) // one plan per employee per date
+  @@index([tripDate, status])
+  @@index([departmentId, tripDate])
+  @@index([status])
+  @@map("dtp_plans")
+}
+
+/// One stop within a plan. `seq` orders the day; `dwellMinutes` drives the
+/// dwell-aware optimizer; `tripMode` is per-stop because mixed days are common.
+model TripStop {
+  id                     String   @id @default(cuid())
+  planId                 String
+  seq                    Int
+  // Purpose
+  tripTypeId             String?
+  purposeCode            String // mirrors TripType.code at submission for stable history
+  // Destination
+  destinationName        String
+  destinationAddress     String
+  destinationLat         Float?
+  destinationLng         Float?
+  destinationPlaceId     String?
+  contactPerson          String?
+  contactPhone           String?
+  // Timing
+  plannedStart           String // HH:MM (24h, local time)
+  dwellMinutes           Int      @default(60)
+  flexibility            String   @default("FIXED") // FIXED | FLEX_30 | FLEX_2H | ANY_TIME
+  // Mode
+  tripMode               String   @default("ROUND_TRIP") // ROUND_TRIP | ONE_WAY
+  modeOfMovement         String? // overrides plan default if set
+  pickupBackTo           String? // OFFICE | NEXT_STOP | CUSTOM (only meaningful for ROUND_TRIP)
+  pickupBackAddress      String? // when pickupBackTo = CUSTOM
+  pickupBackLat          Float?
+  pickupBackLng          Float?
+  // Logistics
+  requiresVehicle        Boolean  @default(true)
+  requiresCashAdvance    Boolean  @default(false)
+  cashAdvanceAmount      Float?
+  reason                 String // free text — what the trip is for
+  expectedOutcome        String?
+  withWhom               String   @default("") // CSV of user.id joiners
+  // Traffic snapshot — JSON: { baselineMin, withTrafficMin, departureTime, model }
+  trafficEstimate        String?
+  // Coordinator adjustment diff — JSON of {field: {before, after}}
+  coordinatorAdjustments String?
+  // Original snapshot before Coordinator edits (set on first edit, cleared on requester re-edit)
+  originalSnapshot       String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  plan     DailyTripPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  tripType DtpTripType?  @relation(fields: [tripTypeId], references: [id], onDelete: SetNull)
+  legs     TripLeg[]
+
+  @@unique([planId, seq])
+  @@index([planId])
+  @@map("dtp_trip_stops")
+}
+
+/// Driver-level work unit generated from approved stops.
+/// Two leg types: DROPOFF (always for vehicle-required stops) and RETURN_PICKUP
+/// (only for ROUND_TRIP stops).
+model TripLeg {
+  id                  String    @id @default(cuid())
+  planId              String
+  tripStopId          String
+  runSheetId          String?
+  legType             String // DROPOFF | RETURN_PICKUP
+  fromLabel           String
+  fromLat             Float?
+  fromLng             Float?
+  toLabel             String
+  toLat               Float?
+  toLng               Float?
+  scheduledTime       String // HH:MM
+  estimatedTrafficMin Int?
+  passengerIds        String    @default("") // CSV of user.id passengers
+  vehicleId           String?
+  driverId            String?
+  status              String    @default("SCHEDULED") // SCHEDULED | EN_ROUTE | COMPLETED | SKIPPED
+  actualTime          DateTime?
+  actualLat           Float?
+  actualLng           Float?
+  notes               String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  plan     DailyTripPlan  @relation(fields: [planId], references: [id], onDelete: Cascade)
+  tripStop TripStop       @relation(fields: [tripStopId], references: [id], onDelete: Cascade)
+  runSheet DailyRunSheet? @relation(fields: [runSheetId], references: [id], onDelete: SetNull)
+  vehicle  Vehicle?       @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  driver   Driver?        @relation(fields: [driverId], references: [id], onDelete: SetNull)
+
+  @@index([planId])
+  @@index([runSheetId, scheduledTime])
+  @@index([driverId, scheduledTime])
+  @@index([tripStopId])
+  @@map("dtp_trip_legs")
+}
+
+/// Daily Run Sheet — driver × date container. Created on driver assignment.
+/// Legs reference this directly via runSheetId. Movement Sheets are derived
+/// directly from plans + stops (no separate model needed).
+model DailyRunSheet {
+  id        String    @id @default(cuid())
+  driverId  String
+  vehicleId String?
+  runDate   DateTime
+  status    String    @default("PLANNED") // PLANNED | ACTIVE | COMPLETED
+  startedAt DateTime?
+  endedAt   DateTime?
+  notes     String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  driver  Driver    @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  vehicle Vehicle?  @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  legs    TripLeg[]
+
+  @@unique([driverId, runDate])
+  @@index([runDate])
+  @@map("dtp_run_sheets")
+}
+
+/// Append-only audit trail for DTP. One row per state transition or material
+/// edit. `payload` is JSON capturing the before/after diff for inspection.
+model DtpEvent {
+  id         String   @id @default(cuid())
+  planId     String
+  actorId    String?
+  action     String // SUBMIT | ENDORSE | RETURN | ADJUST | APPROVE | REJECT | ACK | CANCEL | WITHDRAW | ASSIGN_DRIVER | LEG_STATUS | EDIT | CLONE
+  fromStatus String?
+  toStatus   String?
+  payload    String? // JSON
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  plan  DailyTripPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  actor User?         @relation("DtpEventActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([planId, createdAt])
+  @@index([action, createdAt])
+  @@map("dtp_events")
+}
+
+/// Carpool / co-location cluster suggestion produced by the optimizer. Phase-1
+/// optimizer is a stub — schema is here so accepted/rejected suggestions are
+/// auditable when the real optimizer ships.
+model RouteGroup {
+  id            String    @id @default(cuid())
+  runDate       DateTime
+  departmentId  String?
+  tripStopIds   String // CSV of trip_stop.id members
+  centerLat     Float?
+  centerLng     Float?
+  radiusM       Int?
+  estSavingsKm  Float?
+  estSavingsMin Int?
+  estSavingsEtb Float?
+  status        String    @default("SUGGESTED") // SUGGESTED | ACCEPTED | REJECTED
+  decidedById   String?
+  decidedAt     DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@index([runDate])
+  @@map("dtp_route_groups")
 }

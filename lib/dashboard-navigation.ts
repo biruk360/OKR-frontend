@@ -20,6 +20,9 @@ import {
   Kanban,
   SlidersHorizontal,
   Sparkles,
+  MapPin,
+  Truck,
+  ClipboardList,
 } from 'lucide-react'
 
 export interface NavItem {
@@ -84,6 +87,16 @@ export const navigationGroups: NavGroup[] = [
     defaultOpen: true,
   },
   {
+    name: 'OKR & Operations',
+    icon: MapPin,
+    items: [
+      { name: 'Daily Trip Plan', href: '/dashboard/travel', icon: MapPin },
+      { name: 'Coordinator Console', href: '/dashboard/travel/console', icon: ClipboardList },
+      { name: 'Pool Coordinator', href: '/dashboard/travel/pool', icon: Truck },
+    ],
+    defaultOpen: false,
+  },
+  {
     name: 'Tracking & Analytics',
     icon: TrendingUp,
     items: [
@@ -135,6 +148,7 @@ export const navigationGroups: NavGroup[] = [
       { name: 'Branding', href: '/dashboard/settings/branding', icon: Building2 },
       { name: 'Integrations', href: '/dashboard/settings/integrations', icon: Settings },
       { name: 'Audit Logs', href: '/dashboard/settings/audit-logs', icon: FileText },
+      { name: 'Travel & Mobility', href: '/dashboard/settings/travel', icon: MapPin },
     ],
     defaultOpen: false,
   },

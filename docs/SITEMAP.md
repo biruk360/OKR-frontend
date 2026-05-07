@@ -12,6 +12,18 @@
 
 ## Dashboard Routes (Authenticated)
 
+### Daily Trip Plan (DTP) — `features/daily-trip-plan`
+
+| Route | Page File | Description |
+|-------|-----------|-------------|
+| `/dashboard/travel` | `app/dashboard/travel/page.tsx` | Employee home — recent plans + create-or-open CTA |
+| `/dashboard/travel/plans/[id]` | `app/dashboard/travel/plans/[id]/page.tsx` | Plan detail / editor (employee + Coordinator action bar) |
+| `/dashboard/travel/console` | `app/dashboard/travel/console/page.tsx` | Travel Coordinator console — pending plans, KPIs |
+| `/dashboard/travel/sheet/[deptId]/[date]` | `app/dashboard/travel/sheet/[deptId]/[date]/page.tsx` | Daily Movement Sheet (printable). `:deptId = "all"` for org-wide |
+| `/dashboard/travel/runsheet/[driverId]/[date]` | `app/dashboard/travel/runsheet/[driverId]/[date]/page.tsx` | Daily Run Sheet — driver-mode buttons render when viewer is the assigned driver |
+| `/dashboard/travel/pool` | `app/dashboard/travel/pool/page.tsx` | Pool Coordinator — assign driver + vehicle to approved plans |
+| `/dashboard/settings/travel` | `app/dashboard/settings/travel/page.tsx` | Admin DTP settings (SLAs, traffic, optimization, channels, pool/ops user lists) |
+
 ### Dashboard Home
 | Route | Page File | Feature | Description |
 |-------|-----------|---------|-------------|

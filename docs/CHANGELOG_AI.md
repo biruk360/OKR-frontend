@@ -13,6 +13,23 @@
 
 ---
 
+## 2026-05-07 — Daily Trip Plan (DTP) module — Phase 1 web backbone
+
+Implemented the web slice of the Travel & Mobility module per `docs/Daily_Trip_Plan_Requirements_v1.0.md`. Schema, server logic, REST API, employee plan editor, Coordinator console, Movement / Run sheets (with print CSS), Pool Coordinator, and admin settings. Flutter mobile, Google Distance Matrix, full VRP optimizer, and server-PDF export are clearly marked TODO and stubbed.
+
+- **Added** Prisma models: `DailyTripPlan`, `TripStop`, `TripLeg`, `DailyRunSheet`, `DtpEvent`, `RouteGroup`, `DtpSettings`, `DtpDepartmentApproval`, `DtpTripType`, `Vehicle`, `Driver`. Reserved nullable `linkedObjectiveId / linkedKeyResultId / linkedInitiativeId` (Phase-2 KR linkage). User back-relations added — `prisma/schema.prisma`
+- **Added** `lib/dtp/` server utilities: `state-machine.ts`, `audit.ts`, `settings.ts`, `permissions.ts`, `diff.ts`, `legs.ts`, `sheets.ts`, `optimizer.ts` (stub), `notifier.ts`, `ec-calendar.ts`, `time.ts`, `api-helpers.ts`, `index.ts` barrel
+- **Added** REST endpoints under `app/api/dtp/`: list/create plans, plan CRUD, stops CRUD, transitions (submit, withdraw, endorse, approve, return, reject, acknowledge, cancel, clone), Movement Sheet, Run Sheet, driver assignment, leg-status, settings (GET/PUT), trip types CRUD, drivers/vehicles list+create
+- **Added** `features/daily-trip-plan/` module: `types.ts`, `services/api.ts`, `hooks/queries.ts` (TanStack Query), and components — `StatusBadge`, `StopEditorModal`, `StopList` (with diff strip), `PlanTimeline`, `PlanEditor`, `CoordinatorActions`, `CoordinatorConsole`, `MovementSheetView`, `RunSheetView`, `PoolConsole`, `TravelSettingsForm`, `TravelHome`. Barrel exports in `index.ts`
+- **Added** pages: `/dashboard/travel`, `/dashboard/travel/plans/[id]`, `/dashboard/travel/console`, `/dashboard/travel/sheet/[deptId]/[date]`, `/dashboard/travel/runsheet/[driverId]/[date]`, `/dashboard/travel/pool`, `/dashboard/settings/travel`
+- **Added** "OKR & Operations" sidebar group with Daily Trip Plan, Coordinator Console, Pool Coordinator entries; Travel & Mobility added under Settings — `lib/dashboard-navigation.ts`
+- **Added** seed script `prisma/seed-dtp.ts` (12 default trip types + default settings row + org-default approval routing). Wired as `npm run db:seed:dtp`
+- **Notifications:** writes `Notification` rows under `category="TRAVEL"` and dispatches IMMEDIATE emails via the existing `sendMail` helper. Recipient resolution uses `DtpDepartmentApproval` + `ManagerRelationship` + Pool Coordinator CSV. The central `lib/notifications/dispatcher.ts` is intentionally not extended — DTP routing depends on settings the central dispatcher is unaware of.
+- **Print/PDF:** Movement & Run sheets use `window.print()` against print-styled HTML. Server-rendered PDF is a TODO marker (will plug in puppeteer or @react-pdf/renderer in a follow-up).
+- **Phase-2 hooks (intentionally not implemented):** Distance Matrix calls (legs use a flat 10-min travel placeholder), VRP route optimizer (returns no suggestions), Flutter mobile surfaces, SMS / Telegram channels, offline mode, scheduled-email reports, KR linkage UI.
+- **Tests:** `npx tsc --noEmit` clean across the new module. Manual smoke (UI + API) not run; admin must run `npm run db:push && npm run db:seed:dtp` then sign in to exercise the flows.
+- **Docs updated:** CHANGELOG_AI.md, FEATURE_STATUS.md, SITEMAP.md, COMPONENT_CATALOG.md
+
 ## 2026-05-04 — Sprint board UX fixes
 
 - **Fixed** `TodoCardModal`: backdrop click now closes the drawer (removed `pointer-events-none` from outer wrapper, applied `onClick={onClose}` for both drawer and modal modes) — `components/todos/TodoCardModal.tsx`

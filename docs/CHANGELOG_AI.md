@@ -13,6 +13,14 @@
 
 ---
 
+## 2026-05-07 — Fix empty bundle when subject has no OKRs in the active timeframe
+
+`responseJson` logging from the previous commit confirmed plan `cmove2gr80002mag4rlrlzhqi` (subject: Yared Teferra) sent the AI an empty Objectives/KR section despite the user having 23 active KRs in the DB. Root cause: `loadScopeAuto` in the context-bundler scoped objectives to `WHERE timeframeId = activeTimeframe.id`, but Yared's KRs sit in other timeframes (quarterly windows, FY2024/25, etc.) — a real data-shape characteristic of this org.
+
+- **Bundler fallback** `loadScopeAuto` now retries without the timeframe filter when the timeframe-scoped query returns 0 objectives. Prevents empty plans for users whose active work-in-progress KRs aren't in the currently-active timeframe — `lib/ai/context-bundler.ts`
+- **Tests:** not run; typecheck passes
+- **Docs updated:** CHANGELOG_AI
+
 ## 2026-05-07 — Fix empty proposedTodos + log raw AI response for diagnosis
 
 Investigated plan `cmovaxr5o000gvjjr67rzzbiw` which generated only a rationale (zero new tasks) despite the subject having 44 KRs with headroom. Root cause: the AI fixated on disposing carryover (24 prior-sprint todos linked to inactive KRs got force-DESCOPED) and returned `proposedTodos: []`. The prompt allowed this because `min(0)` on the schema and "1–4 per KR" was advisory.

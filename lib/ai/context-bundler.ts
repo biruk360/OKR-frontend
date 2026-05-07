@@ -222,12 +222,23 @@ async function loadScopeAuto(params: {
   canSeePrivate: boolean
   requesterId: string
 }): Promise<{ objectives: BundleObjective[]; keyResults: BundleKeyResult[]; parentObjectives: BundleObjective[] }> {
-  // Subject's owned + contributed objectives, ACTIVE, in active timeframe (when present).
-  const objs = await prisma.objective.findMany({
+  // Subject's owned + contributed ACTIVE objectives. We first try scoped to the
+  // active timeframe; if the user has no objectives in that timeframe (a real
+  // case in this org where many KRs sit in FY2024/25 or quarterly windows that
+  // aren't currently isActive), we fall back to all-timeframes rather than
+  // returning an empty bundle and producing an empty plan.
+  const baseWhere = {
+    status: 'ACTIVE' as const,
+    OR: [
+      { ownerId: params.subjectId },
+      { contributors: { some: { userId: params.subjectId } } },
+    ],
+  }
+
+  let objs = await prisma.objective.findMany({
     where: {
-      status: 'ACTIVE',
+      ...baseWhere,
       ...(params.timeframeId && { timeframeId: params.timeframeId }),
-      OR: [{ ownerId: params.subjectId }, { contributors: { some: { userId: params.subjectId } } }],
     },
     include: {
       owner: { select: { id: true, name: true } },
@@ -237,6 +248,19 @@ async function loadScopeAuto(params: {
       },
     },
   })
+
+  if (objs.length === 0 && params.timeframeId) {
+    objs = await prisma.objective.findMany({
+      where: baseWhere,
+      include: {
+        owner: { select: { id: true, name: true } },
+        keyResults: {
+          where: { status: 'ACTIVE' },
+          include: { owner: { select: { id: true, name: true } } },
+        },
+      },
+    })
+  }
 
   const objectives = objs
     .filter((o) => filterPrivacy(o, params.canSeePrivate, params.requesterId, params.subjectId))

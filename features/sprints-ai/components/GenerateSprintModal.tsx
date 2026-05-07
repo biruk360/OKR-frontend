@@ -6,11 +6,12 @@ import { useSession } from 'next-auth/react'
 import { Sparkles, Hand, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { Modal } from '@/components/ui/Modal'
+import { useUsersForSelection } from '@/hooks/useUsersForSelection'
 
 interface Props {
   open: boolean
   onClose: () => void
-  /** Defaults to signed-in user. v1 only supports self-subjects. */
+  /** Defaults to signed-in user. Leads/admins can override via the picker. */
   subjectUserId?: string
 }
 
@@ -19,17 +20,22 @@ type Scope = 'AUTO' | 'MANUAL'
 /**
  * Scope-selection modal for AI sprint generation.
  *
- * v1 supports AUTO scope (the AI picks). MANUAL scope card is rendered
- * disabled with a "Coming soon" label until the OkrPicker refactor lands.
- * Provider selection is shown only to ADMIN/EXECUTIVE; everyone else uses
- * the org default (set via OrganizationSettings.aiPreferredProvider).
+ * Subject user picker is shown to ADMIN/EXECUTIVE/DEPARTMENT_LEAD. Employees
+ * are locked to themselves (matches RBAC in /api/sprints/ai/generate).
+ * MANUAL scope card is disabled until the OkrPicker refactor lands.
  */
 export function GenerateSprintModal({ open, onClose, subjectUserId }: Props) {
   const router = useRouter()
   const { data: session } = useSession()
   const role = session?.user?.role
   const showProvider = role === 'ADMIN' || role === 'EXECUTIVE'
-  const subject = subjectUserId ?? session?.user?.id
+  const canPickUser = role === 'ADMIN' || role === 'EXECUTIVE' || role === 'DEPARTMENT_LEAD'
+  const sessionUserId = session?.user?.id
+
+  const [selectedSubject, setSelectedSubject] = useState<string | undefined>(subjectUserId ?? sessionUserId)
+  const subject = selectedSubject ?? sessionUserId
+
+  const { users, isLoading: loadingUsers } = useUsersForSelection({ enabled: open && canPickUser })
 
   const [scope, setScope] = useState<Scope>('AUTO')
   const [startDate, setStartDate] = useState(nextMondayIso())
@@ -103,6 +109,38 @@ export function GenerateSprintModal({ open, onClose, subjectUserId }: Props) {
       }
     >
       <div className="space-y-5">
+        {/* Subject user (admin/exec/lead only) */}
+        {canPickUser && (
+          <section>
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+              Generate for
+            </div>
+            <select
+              value={selectedSubject ?? ''}
+              onChange={(e) => setSelectedSubject(e.target.value || undefined)}
+              disabled={loadingUsers}
+              className="rounded-[8px] border h-8 px-2 text-[13px] w-full max-w-sm"
+              style={{ borderColor: 'var(--ap-border)' }}
+            >
+              {sessionUserId && (
+                <option value={sessionUserId}>
+                  Myself{session?.user?.name ? ` (${session.user.name})` : ''}
+                </option>
+              )}
+              {users
+                .filter((u) => u.id !== sessionUserId)
+                .map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.name ?? u.email} — {u.role}
+                  </option>
+                ))}
+            </select>
+            <div className="mt-1 text-[11px] text-muted-foreground">
+              The plan and proposed tasks are scoped to this user's OKRs.
+            </div>
+          </section>
+        )}
+
         {/* Sprint window */}
         <section>
           <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">

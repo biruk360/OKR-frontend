@@ -1,10 +1,11 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
-import { Sparkles, CheckCircle2, X, Loader2, RefreshCw, Trash2, AlertCircle } from 'lucide-react'
+import { Sparkles, CheckCircle2, X, Loader2, RefreshCw, Trash2, AlertCircle, ArrowLeft, User } from 'lucide-react'
 import { PageHeader } from '@/components/ui/PageHeader'
 
 interface PlanResponse {
@@ -70,7 +71,9 @@ interface Props {
 
 export function ReviewPlanClient({ planId }: Props) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const qc = useQueryClient()
+  const returnTo = searchParams.get('returnTo')
 
   const { data, isLoading, isError, refetch } = useQuery<PlanResponse>({
     queryKey: ['ai-plan', planId],
@@ -168,11 +171,24 @@ export function ReviewPlanClient({ planId }: Props) {
     }
   }
 
+  const backHref = returnTo ?? `/dashboard/sprints/${plan.sprint.id}`
+  const backLabel = returnTo
+    ? `Back to ${plan.sprint.name}`
+    : 'Back to sprint board'
+
   return (
     <div className="p-6 max-w-5xl mx-auto">
+      {/* Breadcrumb */}
+      <Link
+        href={backHref}
+        className="mb-3 inline-flex items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" /> {backLabel}
+      </Link>
+
       <PageHeader
         title="Review AI Sprint Plan"
-        description={`For ${plan.subject?.name ?? plan.subject?.email ?? 'unknown'} · Sprint "${plan.sprint.name}" · ${plan.proposedTodos.length} new tasks · ${plan.carryover.length} carryovers · ${plan.provider}/${plan.modelId}`}
+        description={`${plan.proposedTodos.length} new tasks · ${plan.carryover.length} carryovers · ${plan.provider}/${plan.modelId}`}
         actions={
           <div className="flex gap-2">
             <button
@@ -195,6 +211,41 @@ export function ReviewPlanClient({ planId }: Props) {
           </div>
         }
       />
+
+      {/* Subject + sprint context */}
+      <div
+        className="mb-4 rounded-[12px] border p-4 text-[13px]"
+        style={{ borderColor: 'var(--ap-border)', background: 'rgba(124 58 237 / 0.04)' }}
+      >
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-3">
+            <div
+              className="flex h-9 w-9 items-center justify-center rounded-full"
+              style={{ background: 'rgba(124 58 237 / 0.12)' }}
+            >
+              <User className="h-4 w-4 text-purple-600" />
+            </div>
+            <div>
+              <div className="text-muted-foreground text-[11px] uppercase tracking-wide">Generated for</div>
+              <div className="font-semibold text-[14px]">
+                {plan.subject?.name ?? plan.subject?.email ?? 'Unknown user'}
+              </div>
+              {plan.subject?.email && plan.subject.name && (
+                <div className="text-[11px] text-muted-foreground">{plan.subject.email}</div>
+              )}
+            </div>
+          </div>
+          <div className="ml-auto text-right">
+            <div className="text-muted-foreground text-[11px] uppercase tracking-wide">Sprint</div>
+            <Link
+              href={`/dashboard/sprints/${plan.sprint.id}`}
+              className="font-medium hover:underline"
+            >
+              {plan.sprint.name}
+            </Link>
+          </div>
+        </div>
+      </div>
 
       {/* Sprint window */}
       <div className="mb-6 rounded-[12px] border p-4 text-[13px]" style={{ borderColor: 'var(--ap-border)' }}>

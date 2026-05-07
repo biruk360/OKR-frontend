@@ -24,7 +24,7 @@ export function MovementSheetView({ deptId, date }: Props) {
   const dateObj = new Date(`${date}T00:00:00Z`)
 
   if (q.isLoading) return <div className="p-6 text-sm text-muted-foreground">Loading…</div>
-  if (q.isError || !sheet) return <div className="p-6 text-sm text-red-700">Failed to load movement sheet.</div>
+  if (q.isError || !sheet) return <div className="p-6 text-sm text-danger-700">Failed to load movement sheet.</div>
 
   return (
     <div className="space-y-4 print:space-y-2">
@@ -71,7 +71,7 @@ export function MovementSheetView({ deptId, date }: Props) {
                 <td className="px-3 py-2">
                   <div className="font-medium flex items-center gap-1">
                     {r.destinationName}
-                    {r.trafficFlagged && <AlertTriangle className="h-3.5 w-3.5 text-amber-600" aria-label="Heavy traffic likely" />}
+                    {r.trafficFlagged && <AlertTriangle className="h-3.5 w-3.5 text-warning-600" aria-label="Heavy traffic likely" />}
                   </div>
                   <div className="text-xs text-muted-foreground">{r.destinationAddress}</div>
                 </td>

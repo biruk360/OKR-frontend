@@ -1,20 +1,26 @@
 import { cn } from '@/lib/utils'
 
+/**
+ * Apple-style status pill. Maps each DTP status to either a design-token
+ * scale (primary/success/warning/danger) or a stable Tailwind palette
+ * (purple/indigo) for the two states the spec colors that have no token
+ * equivalent (ADJUSTED · DRIVER_ASSIGNED).
+ */
 const STATUS_STYLES: Record<string, string> = {
-  DRAFT: 'bg-gray-100 text-gray-700 border-gray-300',
-  SUBMITTED: 'bg-amber-100 text-amber-800 border-amber-300',
-  MANAGER_ENDORSED: 'bg-blue-50 text-blue-800 border-blue-300',
-  UNDER_REVIEW: 'bg-blue-50 text-blue-800 border-blue-300',
-  ADJUSTED: 'bg-purple-100 text-purple-800 border-purple-300',
-  APPROVED: 'bg-teal-100 text-teal-800 border-teal-300',
-  DRIVER_ASSIGNED: 'bg-indigo-100 text-indigo-800 border-indigo-300',
-  IN_PROGRESS: 'bg-blue-100 text-blue-800 border-blue-300',
-  COMPLETED: 'bg-green-100 text-green-800 border-green-300',
-  RECONCILED: 'bg-green-100 text-green-800 border-green-300',
-  RETURNED: 'bg-orange-100 text-orange-800 border-orange-300',
-  WITHDRAWN: 'bg-gray-100 text-gray-600 border-gray-300',
-  CANCELLED: 'bg-red-100 text-red-700 border-red-300',
-  EXPIRED: 'bg-red-100 text-red-700 border-red-300',
+  DRAFT: 'bg-muted text-muted-foreground border-border',
+  SUBMITTED: 'bg-warning-50 text-warning-700 border-warning-200',
+  MANAGER_ENDORSED: 'bg-primary/10 text-primary-700 border-primary-200',
+  UNDER_REVIEW: 'bg-primary/10 text-primary-700 border-primary-200',
+  ADJUSTED: 'bg-purple-100 text-purple-800 border-purple-200',
+  APPROVED: 'bg-success-50 text-success-700 border-success-200',
+  DRIVER_ASSIGNED: 'bg-indigo-100 text-indigo-800 border-indigo-200',
+  IN_PROGRESS: 'bg-primary/10 text-primary-700 border-primary-200',
+  COMPLETED: 'bg-success-50 text-success-700 border-success-200',
+  RECONCILED: 'bg-success-100 text-success-700 border-success-200',
+  RETURNED: 'bg-warning-100 text-warning-800 border-warning-200',
+  WITHDRAWN: 'bg-muted text-muted-foreground border-border',
+  CANCELLED: 'bg-danger-50 text-danger-700 border-danger-200',
+  EXPIRED: 'bg-danger-50 text-danger-700 border-danger-200',
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -35,10 +41,10 @@ const STATUS_LABELS: Record<string, string> = {
 }
 
 export function StatusBadge({ status, className }: { status: string; className?: string }) {
-  const style = STATUS_STYLES[status] ?? 'bg-gray-100 text-gray-700 border-gray-300'
+  const style = STATUS_STYLES[status] ?? 'bg-muted text-muted-foreground border-border'
   const label = STATUS_LABELS[status] ?? status
   return (
-    <span className={cn('inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium', style, className)}>
+    <span className={cn('inline-flex items-center rounded-pill border px-2 py-0.5 text-[11px] font-medium', style, className)}>
       {label}
     </span>
   )

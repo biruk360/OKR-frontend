@@ -23,7 +23,7 @@ export function TravelSettingsForm() {
   useEffect(() => { if (data?.settings) setForm(data.settings) }, [data?.settings])
 
   if (isLoading) return <div className="p-6 text-sm text-muted-foreground">Loading…</div>
-  if (!data) return <div className="p-6 text-sm text-red-700">Failed to load.</div>
+  if (!data) return <div className="p-6 text-sm text-danger-700">Failed to load.</div>
 
   function set<K extends keyof DtpSettings>(k: K, v: DtpSettings[K]) {
     setForm((f) => ({ ...f, [k]: v }))

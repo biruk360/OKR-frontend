@@ -13,8 +13,8 @@ interface Props {
 }
 
 const LEG_TYPE_STYLES: Record<string, string> = {
-  DROPOFF: 'bg-blue-100 text-blue-800',
-  RETURN_PICKUP: 'bg-purple-100 text-purple-800',
+  DROPOFF: 'bg-primary/10 text-primary-700 border border-primary-200',
+  RETURN_PICKUP: 'bg-purple-100 text-purple-800 border border-purple-200',
 }
 
 export function RunSheetView({ driverId, date, driverMode }: Props) {
@@ -24,7 +24,7 @@ export function RunSheetView({ driverId, date, driverMode }: Props) {
   const dateObj = new Date(`${date}T00:00:00Z`)
 
   if (q.isLoading) return <div className="p-6 text-sm text-muted-foreground">Loading…</div>
-  if (q.isError) return <div className="p-6 text-sm text-red-700">Failed to load run sheet.</div>
+  if (q.isError) return <div className="p-6 text-sm text-danger-700">Failed to load run sheet.</div>
   if (!sheet) return <div className="p-6 text-sm text-muted-foreground">No run sheet found for this driver and date.</div>
 
   return (
@@ -66,7 +66,7 @@ export function RunSheetView({ driverId, date, driverMode }: Props) {
                 <td className="px-3 py-2 tabular-nums">{i + 1}</td>
                 <td className="px-3 py-2 tabular-nums whitespace-nowrap">{l.scheduledTime}</td>
                 <td className="px-3 py-2">
-                  <span className={'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ' + (LEG_TYPE_STYLES[l.legType] ?? 'bg-gray-100')}>
+                  <span className={'inline-flex items-center rounded-pill px-2 py-0.5 text-[11px] font-medium ' + (LEG_TYPE_STYLES[l.legType] ?? 'bg-muted text-muted-foreground border border-border')}>
                     {l.legType === 'DROPOFF' ? 'Drop-off' : 'Return pickup'}
                   </span>
                 </td>
@@ -77,11 +77,11 @@ export function RunSheetView({ driverId, date, driverMode }: Props) {
                 <td className="px-3 py-2 tabular-nums">{l.dwellWindowMin ? `${Math.floor(l.dwellWindowMin / 60)}h ${l.dwellWindowMin % 60}m` : '—'}</td>
                 <td className="px-3 py-2 text-xs">
                   {l.status === 'COMPLETED' ? (
-                    <span className="inline-flex items-center gap-1 text-green-700"><CheckCircle2 className="h-3.5 w-3.5" /> Done</span>
+                    <span className="inline-flex items-center gap-1 text-success-700"><CheckCircle2 className="h-3.5 w-3.5" /> Done</span>
                   ) : l.status === 'EN_ROUTE' ? (
-                    <span className="inline-flex items-center gap-1 text-blue-700"><Navigation className="h-3.5 w-3.5" /> En route</span>
+                    <span className="inline-flex items-center gap-1 text-primary-700"><Navigation className="h-3.5 w-3.5" /> En route</span>
                   ) : l.status === 'SKIPPED' ? (
-                    <span className="inline-flex items-center gap-1 text-amber-700"><AlertCircle className="h-3.5 w-3.5" /> Skipped</span>
+                    <span className="inline-flex items-center gap-1 text-warning-700"><AlertCircle className="h-3.5 w-3.5" /> Skipped</span>
                   ) : (
                     <span className="text-muted-foreground">Scheduled</span>
                   )}

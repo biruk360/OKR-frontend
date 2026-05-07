@@ -336,13 +336,13 @@ export function StopEditorModal({ open, onClose, initial, onSubmit, busy }: Prop
                   type="number"
                   min={0}
                   placeholder="Amount (ETB)"
-                  className={cn('w-36', errors.cashAdvanceAmount && 'border-red-500')}
+                  className={cn('w-36', errors.cashAdvanceAmount && 'border-danger-500')}
                   value={form.cashAdvanceAmount}
                   onChange={(e) => setField('cashAdvanceAmount', e.target.value === '' ? '' : Number(e.target.value))}
                   aria-invalid={!!errors.cashAdvanceAmount}
                 />
                 {errors.cashAdvanceAmount && (
-                  <p className="text-xs text-red-600 mt-1">{errors.cashAdvanceAmount}</p>
+                  <p className="text-xs text-danger-600 mt-1">{errors.cashAdvanceAmount}</p>
                 )}
               </div>
             )}
@@ -376,7 +376,7 @@ function CollapsibleSection({
         className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-muted/40 transition-colors"
       >
         <span>
-          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{title}</span>
+          <span className="text-overline text-muted-foreground">{title}</span>
           {subtitle && <span className="block text-xs text-muted-foreground/80 mt-0.5">{subtitle}</span>}
         </span>
         <ChevronDown
@@ -391,7 +391,7 @@ function CollapsibleSection({
 function Section({ title, children, className }: { title: string; children: React.ReactNode; className?: string }) {
   return (
     <div className={className}>
-      <h4 className="text-xs uppercase tracking-wide text-muted-foreground mb-2">{title}</h4>
+      <h4 className="text-overline text-muted-foreground mb-2">{title}</h4>
       <div className="space-y-3">{children}</div>
     </div>
   )
@@ -412,10 +412,10 @@ function Field({
     <div>
       <Label className="text-xs flex items-center gap-1">
         {label}
-        {required && <span className="text-red-600" aria-hidden>*</span>}
+        {required && <span className="text-danger-600" aria-hidden>*</span>}
       </Label>
       <div className="mt-1">{children}</div>
-      {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
+      {error && <p className="text-xs text-danger-600 mt-1">{error}</p>}
     </div>
   )
 }
@@ -449,6 +449,9 @@ function SegmentedControl({
   )
 }
 
+/** Apple-style soft selection: tinted background + iOS-blue accent text on
+ * select, neutral surface on the rest. Mirrors the sidebar's active-item
+ * pattern — `bg-primary/10 text-primary-600` from the Apple design tokens. */
 function PillButton({
   selected,
   onClick,
@@ -472,11 +475,11 @@ function PillButton({
       aria-checked={ariaChecked}
       aria-pressed={selected}
       className={cn(
-        'inline-flex items-center justify-center rounded-md border font-medium transition-colors select-none',
-        size === 'sm' ? 'px-2.5 py-1 text-xs' : 'px-3 py-1.5 text-sm',
+        'inline-flex items-center justify-center rounded-pill border font-medium transition-colors select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
+        size === 'sm' ? 'px-2.5 py-1 text-xs' : 'px-3 py-1.5 text-body-sm',
         selected
-          ? 'border-blue-600 bg-blue-600 text-white shadow-sm hover:bg-blue-700'
-          : 'border-gray-300 bg-white text-gray-900 hover:bg-gray-50',
+          ? 'border-primary-200 bg-primary/10 text-primary-700'
+          : 'border-input bg-card text-foreground hover:bg-muted',
       )}
     >
       {children}

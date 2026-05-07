@@ -43,13 +43,13 @@ export function PlanTimeline({ plan }: Props) {
         <li className="flex items-center gap-3 text-sm text-muted-foreground"><X className="h-4 w-4" /> Withdrawn</li>
       )}
       {plan.status === 'CANCELLED' && (
-        <li className="flex items-center gap-3 text-sm text-red-700"><Flag className="h-4 w-4" /> Cancelled</li>
+        <li className="flex items-center gap-3 text-sm text-danger-700"><Flag className="h-4 w-4" /> Cancelled</li>
       )}
       {plan.status === 'RETURNED' && (
-        <li className="flex items-center gap-3 text-sm text-orange-700"><ArrowDown className="h-4 w-4" /> Returned for edit</li>
+        <li className="flex items-center gap-3 text-sm text-warning-700"><ArrowDown className="h-4 w-4" /> Returned for edit</li>
       )}
       {plan.status === 'ADJUSTED' && (
-        <li className="flex items-center gap-3 text-sm text-purple-700"><Truck className="h-4 w-4" /> Coordinator adjusted — awaiting your acknowledgement</li>
+        <li className="flex items-center gap-3 text-sm text-purple-800"><Truck className="h-4 w-4" /> Coordinator adjusted — awaiting your acknowledgement</li>
       )}
     </ol>
   )

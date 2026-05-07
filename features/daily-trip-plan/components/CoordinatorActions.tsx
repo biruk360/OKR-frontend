@@ -44,7 +44,7 @@ export function CoordinatorActions({ plan }: { plan: DtpPlanWithStops }) {
       <Button
         size="sm"
         variant="ghost"
-        className="text-red-600"
+        className="text-danger-600 hover:text-danger-700"
         onClick={() => setReturnNote({ open: true, mode: 'REJECT', note: '' })}
         disabled={!canReject}
       >

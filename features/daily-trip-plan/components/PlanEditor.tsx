@@ -36,7 +36,7 @@ export function PlanEditor({ planId, isRequester }: Props) {
   const [confirmWithdraw, setConfirmWithdraw] = useState(false)
 
   if (planQ.isLoading) return <div className="p-6 text-sm text-muted-foreground">Loading…</div>
-  if (planQ.isError || !planQ.data) return <div className="p-6 text-sm text-red-700">Failed to load plan.</div>
+  if (planQ.isError || !planQ.data) return <div className="p-6 text-sm text-danger-700">Failed to load plan.</div>
 
   const plan: DtpPlanWithStops = planQ.data.plan
   const events = planQ.data.events
@@ -59,8 +59,8 @@ export function PlanEditor({ planId, isRequester }: Props) {
             </div>
             <div className="flex items-center gap-2">
               <StatusBadge status={plan.status} />
-              {plan.late && <span className="rounded-full bg-yellow-100 text-yellow-800 px-2 py-0.5 text-xs">Late</span>}
-              {plan.emergency && <span className="rounded-full bg-red-100 text-red-700 px-2 py-0.5 text-xs">Emergency</span>}
+              {plan.late && <span className="rounded-pill bg-warning-50 text-warning-700 border border-warning-200 px-2 py-0.5 text-[11px] font-medium">Late</span>}
+              {plan.emergency && <span className="rounded-pill bg-danger-50 text-danger-700 border border-danger-200 px-2 py-0.5 text-[11px] font-medium">Emergency</span>}
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -96,9 +96,9 @@ export function PlanEditor({ planId, isRequester }: Props) {
         </Card>
 
         {plan.status === 'ADJUSTED' && (
-          <div className="rounded-md border border-purple-200 bg-purple-50 p-3 text-sm">
-            <p className="font-medium text-purple-900 mb-1">Coordinator made changes to your plan.</p>
-            <p className="text-purple-900">Review the side-by-side diff on each stop card below, then acknowledge to finalize approval.</p>
+          <div className="rounded-card border border-purple-200 bg-purple-50 p-3 text-sm">
+            <p className="font-medium text-purple-800 mb-1">Coordinator made changes to your plan.</p>
+            <p className="text-purple-800/90">Review the side-by-side diff on each stop card below, then acknowledge to finalize approval.</p>
             <div className="mt-2">
               <Button
                 size="sm"
@@ -155,7 +155,7 @@ export function PlanEditor({ planId, isRequester }: Props) {
               <Copy className="mr-2 h-4 w-4" /> Clone to date
             </Button>
             {(status === 'DRAFT' || status === 'WITHDRAWN') && isRequester && (
-              <Button variant="ghost" className="text-red-600 hover:text-red-700" onClick={async () => {
+              <Button variant="ghost" className="text-danger-600 hover:text-danger-700" onClick={async () => {
                 await dtpApi.deletePlan(planId)
                 inv(planId)
                 toast.success('Plan deleted')
@@ -277,10 +277,10 @@ function SelectButtons({ value, onChange, options, disabled }: { value: string; 
             aria-checked={selected}
             aria-pressed={selected}
             className={
-              'inline-flex items-center justify-center rounded-md border px-2.5 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ' +
+              'inline-flex items-center justify-center rounded-pill border px-2.5 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 ' +
               (selected
-                ? 'border-blue-600 bg-blue-600 text-white shadow-sm hover:bg-blue-700'
-                : 'border-gray-300 bg-white text-gray-900 hover:bg-gray-50')
+                ? 'border-primary-200 bg-primary/10 text-primary-700'
+                : 'border-input bg-card text-foreground hover:bg-muted')
             }
           >
             {o.label}

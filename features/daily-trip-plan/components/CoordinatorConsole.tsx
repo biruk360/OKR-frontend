@@ -102,9 +102,9 @@ export function CoordinatorConsole() {
 
 function Kpi({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-lg border border-border bg-card p-3">
-      <div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className="mt-1 text-2xl font-semibold">{value}</div>
+    <div className="rounded-card border border-border bg-card p-4 shadow-card">
+      <div className="text-overline text-muted-foreground">{label}</div>
+      <div className="mt-1 text-2xl font-semibold tabular-nums">{value}</div>
     </div>
   )
 }
@@ -119,9 +119,9 @@ function PlanRow({ plan }: { plan: DtpPlanSummary }) {
             {plan.id.slice(0, 8)} · {date.toISOString().slice(0, 10)}
           </Link>
           <StatusBadge status={plan.status} />
-          {plan.late && <span className="rounded-full bg-yellow-100 text-yellow-800 px-2 py-0.5 text-xs">Late</span>}
-          {plan.adjusted && <span className="rounded-full bg-purple-100 text-purple-800 px-2 py-0.5 text-xs">Adjusted</span>}
-          {plan.emergency && <span className="rounded-full bg-red-100 text-red-700 px-2 py-0.5 text-xs">Emergency</span>}
+          {plan.late && <span className="rounded-pill bg-warning-50 text-warning-700 border border-warning-200 px-2 py-0.5 text-[11px] font-medium">Late</span>}
+          {plan.adjusted && <span className="rounded-pill bg-purple-100 text-purple-800 border border-purple-200 px-2 py-0.5 text-[11px] font-medium">Adjusted</span>}
+          {plan.emergency && <span className="rounded-pill bg-danger-50 text-danger-700 border border-danger-200 px-2 py-0.5 text-[11px] font-medium">Emergency</span>}
         </div>
         <div className="text-xs text-muted-foreground">{formatEthiopian(date)} · priority {plan.priority}</div>
       </div>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { ChevronDown } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/button'
@@ -179,12 +180,6 @@ export function StopEditorModal({ open, onClose, initial, onSubmit, busy }: Prop
               aria-invalid={!!errors.destinationAddress}
             />
           </Field>
-          <Field label="Contact person">
-            <Input value={form.contactPerson} onChange={(e) => setField('contactPerson', e.target.value)} />
-          </Field>
-          <Field label="Contact phone">
-            <Input value={form.contactPhone} onChange={(e) => setField('contactPhone', e.target.value)} />
-          </Field>
         </Section>
 
         <Section title="When">
@@ -287,10 +282,43 @@ export function StopEditorModal({ open, onClose, initial, onSubmit, busy }: Prop
               aria-invalid={!!errors.reason}
             />
           </Field>
-          <Field label="Expected outcome">
-            <Textarea rows={2} value={form.expectedOutcome} onChange={(e) => setField('expectedOutcome', e.target.value)} />
-          </Field>
         </Section>
+
+        <CollapsibleSection
+          title="Additional details"
+          subtitle="Contact person, phone, expected outcome"
+          className="md:col-span-2"
+          defaultOpen={
+            !!(initial?.contactPerson || initial?.contactPhone || initial?.expectedOutcome)
+          }
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <Field label="Contact person">
+              <Input
+                value={form.contactPerson}
+                onChange={(e) => setField('contactPerson', e.target.value)}
+                placeholder="Name of the person being visited"
+              />
+            </Field>
+            <Field label="Contact phone">
+              <Input
+                value={form.contactPhone}
+                onChange={(e) => setField('contactPhone', e.target.value)}
+                placeholder="+251…"
+              />
+            </Field>
+            <div className="md:col-span-2">
+              <Field label="Expected outcome">
+                <Textarea
+                  rows={2}
+                  value={form.expectedOutcome}
+                  onChange={(e) => setField('expectedOutcome', e.target.value)}
+                  placeholder="What should be achieved by the end of this stop?"
+                />
+              </Field>
+            </div>
+          </div>
+        </CollapsibleSection>
 
         <Section title="Logistics" className="md:col-span-2">
           <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
@@ -322,6 +350,41 @@ export function StopEditorModal({ open, onClose, initial, onSubmit, busy }: Prop
         </Section>
       </div>
     </Modal>
+  )
+}
+
+function CollapsibleSection({
+  title,
+  subtitle,
+  children,
+  className,
+  defaultOpen = false,
+}: {
+  title: string
+  subtitle?: string
+  children: React.ReactNode
+  className?: string
+  defaultOpen?: boolean
+}) {
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <div className={cn('rounded-md border border-border', className)}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-muted/40 transition-colors"
+      >
+        <span>
+          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{title}</span>
+          {subtitle && <span className="block text-xs text-muted-foreground/80 mt-0.5">{subtitle}</span>}
+        </span>
+        <ChevronDown
+          className={cn('h-4 w-4 text-muted-foreground transition-transform', open && 'rotate-180')}
+        />
+      </button>
+      {open && <div className="border-t border-border p-3">{children}</div>}
+    </div>
   )
 }
 

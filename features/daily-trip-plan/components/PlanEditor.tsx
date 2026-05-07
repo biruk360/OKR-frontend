@@ -264,21 +264,29 @@ function Totals({ plan }: { plan: DtpPlanWithStops }) {
 
 function SelectButtons({ value, onChange, options, disabled }: { value: string; onChange: (v: string) => void; options: { value: string; label: string }[]; disabled?: boolean }) {
   return (
-    <div className="inline-flex flex-wrap gap-1">
-      {options.map((o) => (
-        <button
-          key={o.value}
-          type="button"
-          disabled={disabled}
-          onClick={() => onChange(o.value)}
-          className={
-            'rounded-md border px-2.5 py-1 text-xs transition disabled:cursor-not-allowed disabled:opacity-60 ' +
-            (value === o.value ? 'border-primary bg-primary text-primary-foreground' : 'border-border hover:bg-muted')
-          }
-        >
-          {o.label}
-        </button>
-      ))}
+    <div className="inline-flex flex-wrap gap-1.5" role="radiogroup">
+      {options.map((o) => {
+        const selected = value === o.value
+        return (
+          <button
+            key={o.value}
+            type="button"
+            disabled={disabled}
+            onClick={() => onChange(o.value)}
+            role="radio"
+            aria-checked={selected}
+            aria-pressed={selected}
+            className={
+              'inline-flex items-center justify-center rounded-md border px-2.5 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ' +
+              (selected
+                ? 'border-blue-600 bg-blue-600 text-white shadow-sm hover:bg-blue-700'
+                : 'border-gray-300 bg-white text-gray-900 hover:bg-gray-50')
+            }
+          >
+            {o.label}
+          </button>
+        )
+      })}
     </div>
   )
 }

@@ -1,12 +1,14 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import toast from 'react-hot-toast'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
+import { cn } from '@/lib/utils'
 import { useTripTypes } from '../hooks/queries'
 import type { DtpStop } from '../types'
 
@@ -28,6 +30,8 @@ interface FormState {
   expectedOutcome: string
   tripTypeId: string
 }
+
+type Errors = Partial<Record<keyof FormState, string>>
 
 const FLEX_OPTIONS = [
   { value: 'FIXED', label: 'Fixed' },
@@ -80,29 +84,67 @@ export function StopEditorModal({ open, onClose, initial, onSubmit, busy }: Prop
   }), [initial])
 
   const [form, setForm] = useState<FormState>(initialState)
-  useEffect(() => { if (open) setForm(initialState) }, [open, initialState])
+  const [errors, setErrors] = useState<Errors>({})
+  const [submitting, setSubmitting] = useState(false)
 
-  // When the trip type changes and dwell is at the previous default, prefill
-  // from the new default (mirrors FR-01 "pre-fills from trip type default;
-  // editable").
+  useEffect(() => {
+    if (open) {
+      setForm(initialState)
+      setErrors({})
+    }
+  }, [open, initialState])
+
   function setTripType(id: string) {
     const t = tripTypes.data?.find((x) => x.id === id)
     setForm((f) => ({
       ...f,
       tripTypeId: id,
+      // Pre-fill dwell from the selected type's default (FR-01).
       dwellMinutes: t ? t.defaultDwellMin : f.dwellMinutes,
     }))
   }
 
   function setField<K extends keyof FormState>(k: K, v: FormState[K]) {
     setForm((f) => ({ ...f, [k]: v }))
+    if (errors[k]) setErrors((e) => ({ ...e, [k]: undefined }))
+  }
+
+  function validate(): Errors {
+    const errs: Errors = {}
+    if (!form.destinationName.trim()) errs.destinationName = 'Destination is required'
+    if (!form.destinationAddress.trim()) errs.destinationAddress = 'Address is required'
+    if (!form.plannedStart || !/^([01]\d|2[0-3]):[0-5]\d$/.test(form.plannedStart)) errs.plannedStart = 'Time must be HH:MM (24h)'
+    if (!Number.isFinite(form.dwellMinutes) || form.dwellMinutes < 5) errs.dwellMinutes = 'Dwell must be at least 5 minutes'
+    if (!form.reason.trim()) errs.reason = 'Reason is required'
+    if (form.tripMode === 'ROUND_TRIP' && form.pickupBackTo === 'CUSTOM' && !form.pickupBackAddress.trim()) {
+      errs.pickupBackAddress = 'Custom return address is required'
+    }
+    if (form.requiresCashAdvance && (form.cashAdvanceAmount === '' || Number(form.cashAdvanceAmount) <= 0)) {
+      errs.cashAdvanceAmount = 'Enter the cash advance amount'
+    }
+    return errs
   }
 
   async function handleSubmit() {
-    if (!form.destinationName.trim() || !form.destinationAddress.trim() || !form.reason.trim()) return
-    if (form.dwellMinutes < 5) return
-    await onSubmit(form)
+    if (submitting) return
+    const errs = validate()
+    setErrors(errs)
+    if (Object.keys(errs).length > 0) {
+      toast.error('Please fix the highlighted fields')
+      return
+    }
+    try {
+      setSubmitting(true)
+      await onSubmit(form)
+    } catch (err) {
+      // onSubmit's mutation hook already toasts on error; this is a backstop.
+      console.error('[StopEditorModal] submit failed', err)
+    } finally {
+      setSubmitting(false)
+    }
   }
+
+  const isBusy = !!busy || submitting
 
   return (
     <Modal
@@ -112,18 +154,30 @@ export function StopEditorModal({ open, onClose, initial, onSubmit, busy }: Prop
       size="xl"
       footer={
         <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={onClose} disabled={busy}>Cancel</Button>
-          <Button onClick={handleSubmit} disabled={busy}>{initial?.id ? 'Save changes' : 'Add stop'}</Button>
+          <Button variant="outline" onClick={onClose} disabled={isBusy}>Cancel</Button>
+          <Button onClick={handleSubmit} disabled={isBusy}>
+            {isBusy ? 'Saving…' : initial?.id ? 'Save changes' : 'Add stop'}
+          </Button>
         </div>
       }
     >
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Section title="Where">
-          <Field label="Destination">
-            <Input value={form.destinationName} onChange={(e) => setField('destinationName', e.target.value)} placeholder="NBE — Tax Department" />
+          <Field label="Destination" required error={errors.destinationName}>
+            <Input
+              value={form.destinationName}
+              onChange={(e) => setField('destinationName', e.target.value)}
+              placeholder="NBE — Tax Department"
+              aria-invalid={!!errors.destinationName}
+            />
           </Field>
-          <Field label="Address">
-            <Input value={form.destinationAddress} onChange={(e) => setField('destinationAddress', e.target.value)} placeholder="Mexico Square, Addis Ababa" />
+          <Field label="Address" required error={errors.destinationAddress}>
+            <Input
+              value={form.destinationAddress}
+              onChange={(e) => setField('destinationAddress', e.target.value)}
+              placeholder="Mexico Square, Addis Ababa"
+              aria-invalid={!!errors.destinationAddress}
+            />
           </Field>
           <Field label="Contact person">
             <Input value={form.contactPerson} onChange={(e) => setField('contactPerson', e.target.value)} />
@@ -134,10 +188,19 @@ export function StopEditorModal({ open, onClose, initial, onSubmit, busy }: Prop
         </Section>
 
         <Section title="When">
-          <Field label="Planned start">
-            <Input type="time" value={form.plannedStart} onChange={(e) => setField('plannedStart', e.target.value)} />
+          <Field label="Planned start" required error={errors.plannedStart}>
+            <Input
+              type="time"
+              value={form.plannedStart}
+              onChange={(e) => setField('plannedStart', e.target.value)}
+              aria-invalid={!!errors.plannedStart}
+            />
           </Field>
-          <Field label="Estimated wait time at destination (dwell)">
+          <Field
+            label="Estimated wait time at destination (dwell)"
+            required
+            error={errors.dwellMinutes}
+          >
             <div className="flex items-center gap-2">
               <Input
                 type="number"
@@ -145,40 +208,57 @@ export function StopEditorModal({ open, onClose, initial, onSubmit, busy }: Prop
                 step={15}
                 className="w-24"
                 value={form.dwellMinutes}
-                onChange={(e) => setField('dwellMinutes', Math.max(5, Number(e.target.value)))}
+                onChange={(e) => setField('dwellMinutes', Math.max(5, Number(e.target.value) || 0))}
+                aria-invalid={!!errors.dwellMinutes}
               />
               <span className="text-sm text-muted-foreground">min</span>
             </div>
-            <div className="mt-1 flex flex-wrap gap-1">
+            <div className="mt-2 flex flex-wrap gap-1.5">
               {DWELL_QUICK.map((m) => (
-                <button
+                <PillButton
                   key={m}
-                  type="button"
+                  selected={form.dwellMinutes === m}
                   onClick={() => setField('dwellMinutes', m)}
-                  className="rounded-full border border-border px-2 py-0.5 text-xs hover:bg-muted"
+                  size="sm"
                 >
                   {m < 60 ? `${m} min` : `${m / 60} h`}
-                </button>
+                </PillButton>
               ))}
             </div>
           </Field>
           <Field label="Flexibility">
-            <SelectButtons value={form.flexibility} onChange={(v) => setField('flexibility', v)} options={FLEX_OPTIONS} />
+            <SegmentedControl
+              value={form.flexibility}
+              onChange={(v) => setField('flexibility', v)}
+              options={FLEX_OPTIONS}
+            />
           </Field>
         </Section>
 
         <Section title="How">
-          <Field label="Trip mode">
-            <SelectButtons value={form.tripMode} onChange={(v) => setField('tripMode', v)} options={TRIP_MODES} />
+          <Field label="Trip mode" required>
+            <SegmentedControl
+              value={form.tripMode}
+              onChange={(v) => setField('tripMode', v)}
+              options={TRIP_MODES}
+            />
           </Field>
           {form.tripMode === 'ROUND_TRIP' && (
             <>
               <Field label="Where should the driver come back to?">
-                <SelectButtons value={form.pickupBackTo} onChange={(v) => setField('pickupBackTo', v)} options={PICKUP_BACK} />
+                <SegmentedControl
+                  value={form.pickupBackTo}
+                  onChange={(v) => setField('pickupBackTo', v)}
+                  options={PICKUP_BACK}
+                />
               </Field>
               {form.pickupBackTo === 'CUSTOM' && (
-                <Field label="Custom return address">
-                  <Input value={form.pickupBackAddress} onChange={(e) => setField('pickupBackAddress', e.target.value)} />
+                <Field label="Custom return address" required error={errors.pickupBackAddress}>
+                  <Input
+                    value={form.pickupBackAddress}
+                    onChange={(e) => setField('pickupBackAddress', e.target.value)}
+                    aria-invalid={!!errors.pickupBackAddress}
+                  />
                 </Field>
               )}
             </>
@@ -198,8 +278,14 @@ export function StopEditorModal({ open, onClose, initial, onSubmit, busy }: Prop
               ))}
             </select>
           </Field>
-          <Field label="Reason">
-            <Textarea rows={2} value={form.reason} onChange={(e) => setField('reason', e.target.value)} placeholder="What is the trip for?" />
+          <Field label="Reason" required error={errors.reason}>
+            <Textarea
+              rows={2}
+              value={form.reason}
+              onChange={(e) => setField('reason', e.target.value)}
+              placeholder="What is the trip for?"
+              aria-invalid={!!errors.reason}
+            />
           </Field>
           <Field label="Expected outcome">
             <Textarea rows={2} value={form.expectedOutcome} onChange={(e) => setField('expectedOutcome', e.target.value)} />
@@ -207,24 +293,30 @@ export function StopEditorModal({ open, onClose, initial, onSubmit, busy }: Prop
         </Section>
 
         <Section title="Logistics" className="md:col-span-2">
-          <div className="flex flex-wrap items-center gap-6">
-            <Label className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+            <Label className="flex items-center gap-2 cursor-pointer">
               <Checkbox checked={form.requiresVehicle} onCheckedChange={(v) => setField('requiresVehicle', !!v)} />
               <span>Requires company vehicle</span>
             </Label>
-            <Label className="flex items-center gap-2">
+            <Label className="flex items-center gap-2 cursor-pointer">
               <Checkbox checked={form.requiresCashAdvance} onCheckedChange={(v) => setField('requiresCashAdvance', !!v)} />
               <span>Requires cash advance</span>
             </Label>
             {form.requiresCashAdvance && (
-              <Input
-                type="number"
-                min={0}
-                placeholder="Amount (ETB)"
-                className="w-32"
-                value={form.cashAdvanceAmount}
-                onChange={(e) => setField('cashAdvanceAmount', e.target.value === '' ? '' : Number(e.target.value))}
-              />
+              <div>
+                <Input
+                  type="number"
+                  min={0}
+                  placeholder="Amount (ETB)"
+                  className={cn('w-36', errors.cashAdvanceAmount && 'border-red-500')}
+                  value={form.cashAdvanceAmount}
+                  onChange={(e) => setField('cashAdvanceAmount', e.target.value === '' ? '' : Number(e.target.value))}
+                  aria-invalid={!!errors.cashAdvanceAmount}
+                />
+                {errors.cashAdvanceAmount && (
+                  <p className="text-xs text-red-600 mt-1">{errors.cashAdvanceAmount}</p>
+                )}
+              </div>
             )}
           </div>
         </Section>
@@ -241,31 +333,90 @@ function Section({ title, children, className }: { title: string; children: Reac
     </div>
   )
 }
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+
+function Field({
+  label,
+  required,
+  error,
+  children,
+}: {
+  label: string
+  required?: boolean
+  error?: string
+  children: React.ReactNode
+}) {
   return (
     <div>
-      <Label className="text-xs">{label}</Label>
+      <Label className="text-xs flex items-center gap-1">
+        {label}
+        {required && <span className="text-red-600" aria-hidden>*</span>}
+      </Label>
       <div className="mt-1">{children}</div>
+      {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
     </div>
   )
 }
 
-function SelectButtons({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }) {
+/** Segmented button group with a clearly visible selected state.
+ * Uses explicit Tailwind colors (blue-600 / white) rather than the design
+ * tokens so the highlight is always visible regardless of theme overrides. */
+function SegmentedControl({
+  value,
+  onChange,
+  options,
+}: {
+  value: string
+  onChange: (v: string) => void
+  options: { value: string; label: string }[]
+}) {
   return (
-    <div className="inline-flex flex-wrap gap-1">
+    <div className="inline-flex flex-wrap gap-1.5" role="radiogroup">
       {options.map((o) => (
-        <button
+        <PillButton
           key={o.value}
-          type="button"
+          selected={value === o.value}
           onClick={() => onChange(o.value)}
-          className={
-            'rounded-md border px-3 py-1 text-sm transition ' +
-            (value === o.value ? 'border-primary bg-primary text-primary-foreground' : 'border-border hover:bg-muted')
-          }
+          role="radio"
+          ariaChecked={value === o.value}
         >
           {o.label}
-        </button>
+        </PillButton>
       ))}
     </div>
+  )
+}
+
+function PillButton({
+  selected,
+  onClick,
+  children,
+  size = 'md',
+  role,
+  ariaChecked,
+}: {
+  selected: boolean
+  onClick: () => void
+  children: React.ReactNode
+  size?: 'sm' | 'md'
+  role?: string
+  ariaChecked?: boolean
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      role={role}
+      aria-checked={ariaChecked}
+      aria-pressed={selected}
+      className={cn(
+        'inline-flex items-center justify-center rounded-md border font-medium transition-colors select-none',
+        size === 'sm' ? 'px-2.5 py-1 text-xs' : 'px-3 py-1.5 text-sm',
+        selected
+          ? 'border-blue-600 bg-blue-600 text-white shadow-sm hover:bg-blue-700'
+          : 'border-gray-300 bg-white text-gray-900 hover:bg-gray-50',
+      )}
+    >
+      {children}
+    </button>
   )
 }

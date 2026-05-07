@@ -51,6 +51,7 @@ export const GET = withAuth(async (_req, { session, params }) => {
       outputTokens: true,
       latencyMs: true,
       modelId: true,
+      responseJson: true,
     },
   })
 
@@ -109,7 +110,12 @@ function diagnose(input: {
   activeKrs: number
   krsWithRoom: number
   aiTodos: number
-  logs: Array<{ status: string; errorMessage: string | null; outputTokens: number }>
+  logs: Array<{
+    status: string
+    errorMessage: string | null
+    outputTokens: number
+    responseJson: unknown
+  }>
 }): string {
   const lastLog = input.logs[0]
   if (input.aiTodos > 0) return 'OK — proposed tasks exist on this plan.'
@@ -125,5 +131,15 @@ function diagnose(input: {
   if (lastLog && lastLog.outputTokens === 0) {
     return 'PROVIDER_EMPTY_OUTPUT — AI returned 0 output tokens (likely hit max-tokens before emitting visible content).'
   }
-  return 'AI_RETURNED_EMPTY_OR_FILTERED — provider call succeeded but no todos persisted. Either the AI returned an empty proposedTodos array, or every proposed todo referenced a keyResultId/objectiveId outside the bundle scope and was filtered out at pipeline.ts:160.'
+  // Response body distinguishes "AI returned empty array" from "AI returned tasks
+  // that got filtered out by the in-scope guard". Available for new generations
+  // since responseJson logging landed.
+  const body = lastLog?.responseJson as { proposedTodos?: unknown[] } | null | undefined
+  if (body && Array.isArray(body.proposedTodos)) {
+    if (body.proposedTodos.length === 0) {
+      return 'AI_RETURNED_EMPTY_ARRAY — provider succeeded but chose to return zero proposedTodos. Inspect responseJson on the latest log row; usually a prompt issue.'
+    }
+    return `AI_RETURNED_${body.proposedTodos.length}_TODOS_ALL_FILTERED — provider returned ${body.proposedTodos.length} todos but every one referenced a keyResultId/objectiveId outside the bundle scope and was dropped at pipeline.ts:160. Inspect responseJson to see the offending ids.`
+  }
+  return 'AI_RETURNED_EMPTY_OR_FILTERED — no responseJson recorded for this older plan; cannot distinguish empty-array vs filter drop. Re-generate to get a logged response body.'
 }

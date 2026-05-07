@@ -138,8 +138,10 @@ ${carryoverBlock}
 - Produce a sprint_plan JSON with proposedTodos, carryoverDispositions, prevSprintReview (or null), rationale (markdown), and sprintDebt boolean.
 - For every carryover candidate listed above, include exactly one entry in carryoverDispositions whose todoId matches.
 - Honor every FORCED= disposition exactly. Never use a DISALLOWED= disposition.
-- For each KR with plannedDelta>0, generate 1–4 proposedTodos whose progressValue sums to between 0.5x and 1.5x plannedDelta.
+- For EACH KR listed in "Allocations" with plannedDelta>0 and saturated=false, you MUST generate 1–4 proposedTodos for that KR. Each todo's keyResultId field must reference one of the KR ids listed in this prompt — never invent ids. Sum of progressValue across the KR's tasks must be between 0.5x and 1.5x plannedDelta.
 - For each KR with saturated=true, generate ZERO new proposedTodos for that KR.
+- proposedTodos may NOT be an empty array unless every single KR in Allocations has saturated=true. If you find yourself about to return an empty proposedTodos array while any KR has plannedDelta>0 and saturated=false, you have made a mistake — go back and generate tasks for those KRs. Carryover dispositions alone are not a valid sprint plan; the user is paying for forward-looking work.
+- The fact that prior-sprint todos were force-DESCOPED (because they were linked to inactive KRs) is irrelevant to the new tasks you must generate. New tasks attach to the ACTIVE KRs in this prompt's Allocations section.
 - Set sprintDebt=true when carryover effort consumes the bulk of the sprint capacity.`
 
   return { system: SYSTEM_PROMPT, user }

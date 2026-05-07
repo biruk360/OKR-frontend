@@ -13,6 +13,17 @@
 
 ---
 
+## 2026-05-07 — Fix empty proposedTodos + log raw AI response for diagnosis
+
+Investigated plan `cmovaxr5o000gvjjr67rzzbiw` which generated only a rationale (zero new tasks) despite the subject having 44 KRs with headroom. Root cause: the AI fixated on disposing carryover (24 prior-sprint todos linked to inactive KRs got force-DESCOPED) and returned `proposedTodos: []`. The prompt allowed this because `min(0)` on the schema and "1–4 per KR" was advisory.
+
+- **Schema** Added `AiGenerationLog.responseJson Json?` so the raw provider response body is persisted alongside token counts. Future empty-task incidents are diagnosable in seconds. Requires `prisma db push` (auto-runs on deploy) — `prisma/schema.prisma`
+- **Pipeline + log writer** `recordGenerationLog` accepts `responseJson`; pipeline passes `aiResult.plan` on the OK path — `lib/ai/generation-log.ts`, `lib/ai/pipeline.ts`
+- **Prompt** Replaced advisory "generate 1–4 todos" with imperative "you MUST generate 1–4 todos for EACH non-saturated KR with plannedDelta>0", plus an explicit anti-pattern: empty proposedTodos array is invalid unless every KR is saturated. Added a clarifier so the model doesn't conflate force-DESCOPED carryover (about prior-sprint todos on inactive KRs) with new-task generation (about active KRs in Allocations) — `lib/ai/prompt.ts`
+- **Debug endpoint** Now distinguishes `AI_RETURNED_EMPTY_ARRAY` from `AI_RETURNED_N_TODOS_ALL_FILTERED` by inspecting `responseJson.proposedTodos.length`. Older plans without a recorded body fall back to the original ambiguous diagnosis — `app/api/sprints/ai/[planId]/debug/route.ts`
+- **Tests:** not run; typecheck passes
+- **Docs updated:** CHANGELOG_AI
+
 ## 2026-05-07 — AI Sprint Planning: per-user generation INTO an existing team sprint
 
 Restructured AI sprint planning so the AI fills tasks into a user-created team sprint rather than creating its own. Triggered from the sprint board header, scoped to one subject user at a time; multiple plans on the same sprint, each reviewed and approved independently.

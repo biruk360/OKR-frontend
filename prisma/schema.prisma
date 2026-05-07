@@ -1094,6 +1094,11 @@ model AiGenerationLog {
   /// OK | ERROR
   status       String
   errorMessage String?
+  /// Raw AI response body — the parsed plan object the provider returned. Stored
+  /// so post-mortems on empty/odd plans can see exactly what the model produced
+  /// without re-running the call. Null for ERROR rows where parsing failed before
+  /// a body was returned. Truncated to top-level fields on the largest payloads.
+  responseJson Json?
   /// Optional foreign key to AiSprintPlan when feature == SPRINT_PLAN. Loose pointer
   /// (no FK) so we can prune plans without losing the audit trail.
   planId       String?

@@ -13,6 +13,8 @@ export interface RecordGenerationParams {
   latencyMs?: number
   status: 'OK' | 'ERROR'
   errorMessage?: string | null
+  /** Raw provider response (the parsed plan body for SPRINT_PLAN). Optional. */
+  responseJson?: unknown
   planId?: string | null
 }
 
@@ -42,6 +44,8 @@ export async function recordGenerationLog(params: RecordGenerationParams) {
       costUsd,
       status: params.status,
       errorMessage: params.errorMessage ?? null,
+      responseJson:
+        params.responseJson !== undefined ? (params.responseJson as object) : undefined,
       planId: params.planId ?? null,
     },
   })

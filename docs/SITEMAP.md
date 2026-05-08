@@ -186,6 +186,14 @@
 | GET | `/api/health` | Health check |
 | POST | `/api/client-errors` | Client error logging |
 
+### Telegram Bot
+| Method | Route | Description |
+|--------|-------|-------------|
+| POST | `/api/telegram/webhook` | Public webhook called by Telegram. Auth via `X-Telegram-Bot-Api-Secret-Token` header (not NextAuth). |
+| GET | `/api/telegram/admin/setup` | Admin: inspect bot identity + current webhook info. |
+| POST | `/api/telegram/admin/setup` | Admin: register webhook with Telegram, save config. |
+| DELETE | `/api/telegram/admin/setup` | Admin: clear webhook. |
+
 ## Layouts
 
 | Layout File | Scope |

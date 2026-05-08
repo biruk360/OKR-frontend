@@ -13,6 +13,23 @@
 
 ---
 
+## 2026-05-08 — Telegram bot integration (Stage 1: foundation)
+
+Stage 1 of a multi-stage Telegram + Odoo + Claude integration. Adds a Telegram bot hosted in this Next.js app that logs every message in chats it has been added to and answers `/ask` queries via Claude Sonnet 4.6. Stages 2 (Odoo + scheduled digests) and 3 (tool use + admin UI) are deferred. See `docs/TELEGRAM_BOT.md`.
+
+- **Add** Prisma models `TelegramChat`, `TelegramMessage`, `TelegramBotConfig` — `prisma/schema.prisma`
+- **Add** Telegram Bot API client (sendMessage, setWebhook, getMe, parseCommand) — `lib/telegram/client.ts`
+- **Add** Claude `/ask` answerer with prompt-cached system prompt — `lib/ai/telegram-chat.ts`
+- **Add** Public webhook endpoint, secret-token auth (not NextAuth) — `app/api/telegram/webhook/route.ts`
+- **Add** Admin webhook setup endpoint (GET/POST/DELETE), `withRole(['ADMIN','EXECUTIVE'])` — `app/api/telegram/admin/setup/route.ts`
+- **Add** env vars `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `TELEGRAM_PUBLIC_URL` — `env.example`
+- **Add** Dependency: `@anthropic-ai/sdk`
+- **Add** Stage docs and BotFather setup checklist — `docs/TELEGRAM_BOT.md`
+- **Tests:** not run (no test suite in repo for API routes). Type-check via `tsc --noEmit` passes for new files. Prisma schema validated via `prisma format` + `prisma generate`.
+- **Docs updated:** `docs/CHANGELOG_AI.md`, `docs/FEATURE_STATUS.md`, `docs/SITEMAP.md`, new `docs/TELEGRAM_BOT.md`
+
+---
+
 ## 2026-05-08 — Filters page: split Progress Distribution into 3 insight cards
 
 Replaced the single, often-empty Progress Distribution panel on `/dashboard/filters` with a 3-card row: progress histogram, confidence breakdown, and progress over time (12-week sparkline from check-in history). Confidence segments are click-to-filter. Also fixed the underlying data bug: `/api/keyresults` was not returning `progress`, `currentValue`, `targetValue`, `startValue`, or `unit`, so the existing chart's bars rendered as 2px stubs even with real data.

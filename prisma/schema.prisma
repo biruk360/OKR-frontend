@@ -1459,3 +1459,61 @@ model RouteGroup {
   @@index([runDate])
   @@map("dtp_route_groups")
 }
+
+// ──────────────────────────────────────────────────────────────────────────
+// Telegram bot integration (Stage 1: /ask Q&A + passive scraping)
+// See docs/TELEGRAM_BOT.md
+// ──────────────────────────────────────────────────────────────────────────
+
+model TelegramChat {
+  id            String   @id @default(cuid())
+  chatId        BigInt   @unique
+  type          String // private | group | supergroup | channel
+  title         String?
+  username      String?
+  isActive      Boolean  @default(true)
+  scrapeMode    String   @default("ALL") // ALL | MENTIONS_ONLY | OFF
+  askEnabled    Boolean  @default(true)
+  digestEnabled Boolean  @default(false)
+  addedAt       DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  messages TelegramMessage[]
+
+  @@index([isActive])
+  @@map("telegram_chats")
+}
+
+model TelegramMessage {
+  id           String   @id @default(cuid())
+  chatId       BigInt
+  messageId    BigInt
+  fromUserId   BigInt?
+  fromUsername String?
+  fromName     String?
+  text         String?
+  replyToId    BigInt?
+  isCommand    Boolean  @default(false)
+  command      String?
+  rawJson      String
+  sentAt       DateTime
+  createdAt    DateTime @default(now())
+
+  chat TelegramChat @relation(fields: [chatId], references: [chatId], onDelete: Cascade)
+
+  @@unique([chatId, messageId])
+  @@index([chatId, sentAt])
+  @@index([command])
+  @@map("telegram_messages")
+}
+
+model TelegramBotConfig {
+  id           String    @id @default("default")
+  botUsername  String?
+  webhookUrl   String?
+  webhookSetAt DateTime?
+  systemPrompt String?
+  updatedAt    DateTime  @updatedAt
+
+  @@map("telegram_bot_config")
+}

@@ -52,11 +52,14 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
   const { id: keyResultId } = await resolveParams(params)
   if (!keyResultId) return apiBadRequest('Invalid key result id')
 
-  const { title, description, assigneeId, creatorId, progressValue } = await request.json()
+  const { title, description, assigneeId, progressValue } = await request.json()
 
-  if (!title || !assigneeId || !creatorId) {
-    return apiBadRequest('Title, assignee, and creator are required')
+  if (!title) {
+    return apiBadRequest('Title is required')
   }
+
+  // creatorId always comes from the session — never trusted from the client.
+  const creatorId = session.user.id
 
   let parsedProgressValue: number | null = null
   if (progressValue !== undefined && progressValue !== null) {
@@ -87,14 +90,16 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
 
   if (!canAdd) return apiForbidden('Insufficient permissions to add todos to this key result')
 
-  const assignee = await prisma.user.findUnique({ where: { id: assigneeId } })
-  if (!assignee) return apiBadRequest('Invalid assignee')
+  if (assigneeId) {
+    const assignee = await prisma.user.findUnique({ where: { id: assigneeId } })
+    if (!assignee) return apiBadRequest('Invalid assignee')
+  }
 
   const todo = await prisma.todo.create({
     data: {
       title,
       description: description || '',
-      assigneeId,
+      assigneeId: assigneeId || null,
       creatorId,
       keyResultId,
       status: 'PENDING',

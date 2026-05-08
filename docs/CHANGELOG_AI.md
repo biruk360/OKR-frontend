@@ -13,6 +13,16 @@
 
 ---
 
+## 2026-05-08 — Fix: cannot create initiative under a key result (assignee no longer required)
+
+`POST /api/keyresults/[id]/todos` rejected requests without `assigneeId` and `creatorId` ("Title, assignee, and creator are required"), but the frontend in `features/todos/components/ToDoList.tsx` intentionally creates Trello-style unassigned cards (members are added later). The Prisma `Todo.assigneeId` is already nullable. Aligned the API: only `title` is required, `creatorId` is taken from the session (no longer trusted from the client), `assigneeId` is optional and validated only when provided.
+
+- **Fix** `app/api/keyresults/[id]/todos/route.ts` — drop required check on assigneeId/creatorId, source creatorId from session, conditional assignee validation.
+- **Tests:** not run (no API test suite). Type-check via `tsc --noEmit` passes.
+- **Docs updated:** `docs/CHANGELOG_AI.md`
+
+---
+
 ## 2026-05-08 — Telegram bot integration (Stage 1: foundation)
 
 Stage 1 of a multi-stage Telegram + Odoo + Claude integration. Adds a Telegram bot hosted in this Next.js app that logs every message in chats it has been added to and answers `/ask` queries via Claude Sonnet 4.6. Stages 2 (Odoo + scheduled digests) and 3 (tool use + admin UI) are deferred. See `docs/TELEGRAM_BOT.md`.

@@ -13,6 +13,18 @@
 
 ---
 
+## 2026-05-08 — Telegram bot: switchable OpenAI / Anthropic provider for /ask
+
+The Telegram `/ask` command now supports both OpenAI and Anthropic. Provider is selected by `TELEGRAM_AI_PROVIDER` env var (`openai` default, `anthropic` alt). Default OpenAI model is `gpt-5.5`; default Anthropic model is `claude-sonnet-4-6`. Both override-able via `AI_OPENAI_TELEGRAM_MODEL` / `AI_ANTHROPIC_TELEGRAM_MODEL`. Lazy clients — neither SDK is instantiated until first /ask hits its branch, so a missing key for the unused provider doesn't crash startup.
+
+- **Refactor** `lib/ai/telegram-chat.ts` — single `answerAskCommand` that dispatches to `runOpenAI` / `runAnthropic`. Returns `{provider, model, usage}` so we can log which path served each reply later.
+- **Update** `env.example` — document `TELEGRAM_AI_PROVIDER`, `AI_OPENAI_TELEGRAM_MODEL`, `AI_ANTHROPIC_TELEGRAM_MODEL`.
+- **Update** `docs/TELEGRAM_BOT.md` — provider-selection note.
+- **Tests:** not run. `tsc --noEmit` passes.
+- **Docs updated:** `docs/CHANGELOG_AI.md`, `docs/TELEGRAM_BOT.md`
+
+---
+
 ## 2026-05-08 — Fix: cannot create initiative under a key result (assignee no longer required)
 
 `POST /api/keyresults/[id]/todos` rejected requests without `assigneeId` and `creatorId` ("Title, assignee, and creator are required"), but the frontend in `features/todos/components/ToDoList.tsx` intentionally creates Trello-style unassigned cards (members are added later). The Prisma `Todo.assigneeId` is already nullable. Aligned the API: only `title` is required, `creatorId` is taken from the session (no longer trusted from the client), `assigneeId` is optional and validated only when provided.

@@ -84,7 +84,7 @@ To check status: `GET /api/telegram/admin/setup`. To clear: `DELETE`.
 - **Webhook auth** is *not* `withAuth` — Telegram has no NextAuth session. We verify the secret-token header instead. The route always returns 200 to prevent Telegram from retrying on our errors; failures are logged server-side.
 - **BigInt chat/message IDs.** Telegram IDs exceed JS `Number.MAX_SAFE_INTEGER` for some channels. Stored as Prisma `BigInt`, converted to `Number` only when calling the Telegram API (which accepts JSON ints).
 - **Idempotency.** `(chatId, messageId)` is a unique index — Telegram retries don't duplicate rows; we swallow `P2002`.
-- **Model choice.** Sonnet 4.6 default, overridable via `AI_ANTHROPIC_TELEGRAM_MODEL`. System prompt has `cache_control: ephemeral` so repeat calls hit the cache.
+- **Model choice.** `TELEGRAM_AI_PROVIDER` env var picks `openai` (default, gpt-5.5) or `anthropic` (Sonnet 4.6). Override the model with `AI_OPENAI_TELEGRAM_MODEL` or `AI_ANTHROPIC_TELEGRAM_MODEL`. The Anthropic path uses prompt caching on the system prompt.
 
 ## What Stage 2 and Stage 3 will add
 

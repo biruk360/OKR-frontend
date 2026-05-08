@@ -1,7 +1,16 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import type { FiltersTab, FilterState, FilteredResult, KpiData, ProgressBucket, SegmentId } from '../types'
+import type {
+  FiltersTab,
+  FilterState,
+  FilteredResult,
+  KpiData,
+  ProgressBucket,
+  SegmentId,
+  ConfidenceBreakdown,
+  ProgressTimeseriesPoint,
+} from '../types'
 import { buildProgressBuckets } from '../components/ProgressChart'
 
 // ─── Segment → API params translation ────────────────────────────────────────
@@ -220,11 +229,44 @@ function computeKpi(results: FilteredResult[], tab: FiltersTab): KpiData {
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
+function computeConfidenceBreakdown(results: FilteredResult[]): ConfidenceBreakdown {
+  return {
+    onTrack:  results.filter((r) => r.confidence === 'ON_TRACK').length,
+    atRisk:   results.filter((r) => r.confidence === 'AT_RISK').length,
+    offTrack: results.filter((r) => r.confidence === 'OFF_TRACK').length,
+    pending:  results.filter((r) => !r.confidence).length,
+  }
+}
+
+async function fetchProgressTimeseries(
+  tab: FiltersTab,
+  filters: FilterState,
+  segmentParams: Record<string, string>,
+): Promise<ProgressTimeseriesPoint[]> {
+  if (tab === 'initiatives') return []
+  const params = new URLSearchParams()
+  params.set('tab', tab)
+  Object.entries(segmentParams).forEach(([k, v]) => params.set(k, v))
+  if (filters.confidence?.length) params.set('confidence', filters.confidence.join(','))
+  if (filters.owners?.length)     params.set('ownerId', filters.owners[0])
+  if (filters.plans?.length)      params.set('timeframeId', filters.plans[0])
+  if (tab === 'objectives' && filters.planStatus?.length) {
+    params.set('status', mapPlanStatusToApi(filters.planStatus[0]))
+  }
+  const res = await fetch(`/api/filters/progress-timeseries?${params}`)
+  if (!res.ok) return []
+  const json = await res.json()
+  return (json.data ?? []) as ProgressTimeseriesPoint[]
+}
+
 export interface FiltersDataResult {
   results: FilteredResult[]
   kpi: KpiData
   buckets: ProgressBucket[]
+  confidence: ConfidenceBreakdown
+  timeseries: ProgressTimeseriesPoint[]
   isLoading: boolean
+  isTimeseriesLoading: boolean
   error: Error | null
 }
 
@@ -246,9 +288,26 @@ export function useFiltersData(
     staleTime: 30_000,
   })
 
+  const { data: timeseriesData, isLoading: isTimeseriesLoading } = useQuery({
+    queryKey: ['filters-timeseries', tab, filters, segmentId],
+    queryFn: () => fetchProgressTimeseries(tab, filters, segmentParams),
+    enabled: tab !== 'initiatives',
+    staleTime: 60_000,
+  })
+
   const results = data ?? []
   const kpi = computeKpi(results, tab)
   const buckets = buildProgressBuckets(results.map((r) => r.progress ?? 0))
+  const confidence = computeConfidenceBreakdown(results)
 
-  return { results, kpi, buckets, isLoading, error: error as Error | null }
+  return {
+    results,
+    kpi,
+    buckets,
+    confidence,
+    timeseries: timeseriesData ?? [],
+    isLoading,
+    isTimeseriesLoading,
+    error: error as Error | null,
+  }
 }

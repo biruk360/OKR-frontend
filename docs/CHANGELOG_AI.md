@@ -13,6 +13,21 @@
 
 ---
 
+## 2026-05-08 — Filters page: split Progress Distribution into 3 insight cards
+
+Replaced the single, often-empty Progress Distribution panel on `/dashboard/filters` with a 3-card row: progress histogram, confidence breakdown, and progress over time (12-week sparkline from check-in history). Confidence segments are click-to-filter. Also fixed the underlying data bug: `/api/keyresults` was not returning `progress`, `currentValue`, `targetValue`, `startValue`, or `unit`, so the existing chart's bars rendered as 2px stubs even with real data.
+
+- **Add** `ConfidenceChart` and `ProgressTimeseriesChart` components — `features/filters/components/ProgressChart.tsx`
+- **Add** time-series API that averages KR progress per week from `KeyResultCheckIn` history — `app/api/filters/progress-timeseries/route.ts`
+- **Add** `confidence` + `timeseries` to `useFiltersData`, plus a second TanStack query for the time-series — `features/filters/hooks/useFiltersData.ts`
+- **Update** layout: 1 card → 3-card grid; confidence segments wire into the existing `confidence` filter — `features/filters/components/FiltersWorkspace.tsx`
+- **Fix** `/api/keyresults` to select KR-level fields (`progress`, `currentValue`, `targetValue`, `startValue`, `unit`, etc.) so the histogram has real values — `app/api/keyresults/route.ts`
+- **Types** `ConfidenceBreakdown`, `ProgressTimeseriesPoint` — `features/filters/types.ts`
+- **Tests:** not run (UI + API change; no automated coverage exists for this surface)
+- **Docs updated:** CHANGELOG_AI.md (this entry)
+
+---
+
 ## 2026-05-07 — Fix empty bundle when subject has no OKRs in the active timeframe
  
 `responseJson` logging from the previous commit confirmed plan `cmove2gr80002mag4rlrlzhqi` (subject: Yared Teferra) sent the AI an empty Objectives/KR section despite the user having 23 active KRs in the DB. Root cause: `loadScopeAuto` in the context-bundler scoped objectives to `WHERE timeframeId = activeTimeframe.id`, but Yared's KRs sit in other timeframes (quarterly windows, FY2024/25, etc.) — a real data-shape characteristic of this org.

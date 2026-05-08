@@ -45,7 +45,24 @@ export const GET = withAuth(async (request: NextRequest, { session }) => {
       skip,
       take: limit,
       orderBy: { createdAt: 'desc' },
-      include: {
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        startValue: true,
+        targetValue: true,
+        currentValue: true,
+        unit: true,
+        confidence: true,
+        progress: true,
+        status: true,
+        isPrivate: true,
+        ownerId: true,
+        objectiveId: true,
+        checkInCadence: true,
+        weight: true,
+        createdAt: true,
+        updatedAt: true,
         owner: { select: { id: true, name: true, avatar: true } },
         objective: {
           select: {

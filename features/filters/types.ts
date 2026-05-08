@@ -68,6 +68,20 @@ export interface ProgressBucket {
   count: number
 }
 
+export interface ConfidenceBreakdown {
+  onTrack: number
+  atRisk: number
+  offTrack: number
+  pending: number
+}
+
+export interface ProgressTimeseriesPoint {
+  label: string
+  date: string
+  avgProgress: number
+  krCount: number
+}
+
 export interface FilteredResult {
   id: string
   title: string

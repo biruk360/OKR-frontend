@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 import { SegmentsPanel } from './SegmentsPanel'
 import { FilterBar } from './FilterBar'
 import { KpiTiles } from './KpiTiles'
-import { ProgressChart } from './ProgressChart'
+import { ProgressChart, ConfidenceChart, ProgressTimeseriesChart } from './ProgressChart'
 import { ResultsList } from './ResultsList'
 import { useFiltersData } from '../hooks/useFiltersData'
 import { DEFAULT_SEGMENT_BY_TAB } from '../segments'
@@ -76,7 +76,8 @@ function useFiltersState() {
 
 export function FiltersWorkspace() {
   const { tab, setTab, activeSegment, selectSegment, filters, changeFilter, reset } = useFiltersState()
-  const { results, kpi, buckets, isLoading } = useFiltersData(tab, filters, activeSegment)
+  const { results, kpi, buckets, confidence, timeseries, isLoading, isTimeseriesLoading } =
+    useFiltersData(tab, filters, activeSegment)
 
   const [activeFilterIds, setActiveFilterIds] = useState<(keyof FilterState)[]>([])
 
@@ -235,9 +236,21 @@ export function FiltersWorkspace() {
           {/* KPI tiles */}
           <KpiTiles tab={tab} data={kpi} onTileClick={handleTileClick} />
 
-          {/* Progress chart */}
-          <div className="shrink-0 px-5 pb-4">
+          {/* Insight cards */}
+          <div className="grid shrink-0 grid-cols-1 gap-3 px-5 pb-4 lg:grid-cols-3">
             <ProgressChart buckets={buckets} onBucketClick={(b) => handleBucketClick(b.min, b.max)} />
+            <ConfidenceChart
+              data={confidence}
+              tab={tab}
+              onSegmentClick={(key) => {
+                if (key === 'PENDING') return
+                if (!activeFilterIds.includes('confidence')) {
+                  setActiveFilterIds((p) => [...p, 'confidence'])
+                }
+                changeFilter({ confidence: [key] })
+              }}
+            />
+            <ProgressTimeseriesChart data={timeseries} isLoading={isTimeseriesLoading} />
           </div>
 
           {/* Results */}

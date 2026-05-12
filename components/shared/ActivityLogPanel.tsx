@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 
-type EntityType = 'objective' | 'key-result'
+type EntityType = 'objective' | 'key-result' | 'letter'
 
 interface Actor {
   id: string
@@ -51,6 +51,7 @@ interface Props {
 const apiBase: Record<EntityType, string> = {
   objective: '/api/objectives',
   'key-result': '/api/keyresults',
+  letter: '/api/letters',
 }
 
 const ACTION_LABEL: Record<string, string> = {
@@ -67,6 +68,15 @@ const ACTION_LABEL: Record<string, string> = {
   INITIATIVE_UPDATED: 'updated an initiative',
   INITIATIVE_REMOVED: 'removed an initiative',
   VIEWED: 'viewed',
+  LETTER_SUBMITTED: 'submitted for approval',
+  LETTER_APPROVED: 'approved the letter',
+  LETTER_REJECTED: 'returned the letter to draft',
+  LETTER_SENT: 'marked the letter as sent',
+  LETTER_PRINTED: 'printed the letter',
+  LETTER_PDF_GENERATED: 'generated a PDF preview',
+  LETTER_PDF_FAILED: 'PDF generation failed',
+  LETTER_ENCLOSURE_ADDED: 'added an enclosure',
+  LETTER_ENCLOSURE_REMOVED: 'removed an enclosure',
 }
 
 export function ActivityLogPanel({ entityType, entityId, embedded = false }: Props) {

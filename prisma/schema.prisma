@@ -68,6 +68,10 @@ model User {
   dtpDecidedPlans             DailyTripPlan[]          @relation("DtpDecidedBy")
   dtpEvents                   DtpEvent[]               @relation("DtpEventActor")
   driverProfile               Driver?                  @relation("DriverUser")
+  // Letter Management back-relations.
+  preparedLetters             Letter[]                 @relation("LetterPreparedBy")
+  signatoryLetters            Letter[]                 @relation("LetterSignatory")
+  uploadedEnclosures          LetterEnclosure[]        @relation("LetterEnclosureUploader")
 
   @@map("users")
 }
@@ -756,12 +760,14 @@ model ObjectiveLabel {
 /// `changes` is a JSON string: `{ field: { from: any, to: any }, ... }`.
 model ActivityLog {
   id          String   @id @default(cuid())
-  entityType  String // OBJECTIVE | KEY_RESULT | TODO | SPRINT
+  entityType  String // OBJECTIVE | KEY_RESULT | TODO | SPRINT | LETTER
   objectiveId String?
   keyResultId String?
   todoId      String?
   /// Sprint v2 (Phase 1) — optional sprint association for sprint lifecycle events.
   sprintId    String?
+  /// Letter Management — optional letter association for letter lifecycle events.
+  letterId    String?
   action      String
   actorId     String?
   /// JSONB on Postgres — `{ field: { from, to } }`. Was `String` (JSON-encoded) before
@@ -776,11 +782,13 @@ model ActivityLog {
   keyResult KeyResult? @relation(fields: [keyResultId], references: [id], onDelete: Cascade)
   todo      Todo?      @relation(fields: [todoId], references: [id], onDelete: Cascade)
   sprint    Sprint?    @relation(fields: [sprintId], references: [id], onDelete: Cascade)
+  letter    Letter?    @relation(fields: [letterId], references: [id], onDelete: Cascade)
 
   @@index([objectiveId, createdAt])
   @@index([keyResultId, createdAt])
   @@index([todoId, createdAt])
   @@index([sprintId, createdAt])
+  @@index([letterId, createdAt])
   @@index([entityType, createdAt])
   @@map("activity_logs")
 }
@@ -1516,4 +1524,75 @@ model TelegramBotConfig {
   updatedAt    DateTime  @updatedAt
 
   @@map("telegram_bot_config")
+}
+
+/// Letter Management — formal business correspondence (Cover, Offer, Guarantee letters).
+/// See docs/letter_management_requirements.md.
+model Letter {
+  id                String    @id @default(cuid())
+  referenceNumber   String?   @unique // 360G/LT/{CL|OF|GR}/{SEQ}/{YEAR} — null while DRAFT pre-save
+  subject           String
+  letterType        String // COVER | OFFER | GUARANTEE
+  status            String    @default("DRAFT") // DRAFT | SUBMITTED | APPROVED | SENT | ARCHIVED
+  date              DateTime  @default(now())
+  // Customer — Odoo lookup or free-text fallback.
+  odooPartnerId     String?
+  customerName      String
+  recipientAddress  String?
+  salutation        String?
+  closing           String?
+  senderDepartment  String?
+  bodyContent       String?   @db.Text
+  // Authors / signatory.
+  preparedById      String
+  signatoryId       String?
+  // Dispatch (filled at Mark as Sent).
+  dispatchMethod    String? // EMAIL | PRINTED | COURIER
+  dispatchDate      DateTime?
+  trackingReference String?
+  // Soft state.
+  archivedAt        DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  preparedBy  User              @relation("LetterPreparedBy", fields: [preparedById], references: [id])
+  signatory   User?             @relation("LetterSignatory", fields: [signatoryId], references: [id], onDelete: SetNull)
+  enclosures  LetterEnclosure[]
+  activityLog ActivityLog[]
+
+  @@index([status, date])
+  @@index([letterType, date])
+  @@index([preparedById])
+  @@index([signatoryId])
+  @@map("letters")
+}
+
+model LetterEnclosure {
+  id           String   @id @default(cuid())
+  letterId     String
+  fileName     String
+  fileSize     Int
+  mimeType     String
+  storagePath  String // mocked path; real impl would upload to object storage
+  uploadedById String
+  createdAt    DateTime @default(now())
+
+  letter     Letter @relation(fields: [letterId], references: [id], onDelete: Cascade)
+  uploadedBy User   @relation("LetterEnclosureUploader", fields: [uploadedById], references: [id])
+
+  @@index([letterId])
+  @@map("letter_enclosures")
+}
+
+/// Per-(type, year) monotonic sequence for letter reference numbers.
+/// Concurrent-safe: rely on the unique constraint + interactive transaction increment.
+model LetterSequence {
+  id        String   @id @default(cuid())
+  typeCode  String // CL | OF | GR
+  year      Int
+  lastSeq   Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@unique([typeCode, year])
+  @@map("letter_sequences")
 }

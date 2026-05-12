@@ -68,6 +68,12 @@
 | `/dashboard/comments` | `app/dashboard/comments/page.tsx` | comments | Comment threads |
 | `/dashboard/notifications` | `app/dashboard/notifications/page.tsx` | notifications | Notifications |
 
+### Letters
+| Route | Page File | Feature | Description |
+|-------|-----------|---------|-------------|
+| `/dashboard/letters` | `app/dashboard/letters/page.tsx` | letters | Letters list (filters, search, status tabs) |
+| `/dashboard/letters/[id]` | `app/dashboard/letters/[id]/page.tsx` | letters | Letter form: details, body, enclosures, PDF preview, activity log + workflow transitions |
+
 ### People & Organization
 | Route | Page File | Feature | Description |
 |-------|-----------|---------|-------------|
@@ -185,6 +191,27 @@
 | POST | `/api/cron/weekly-digest` | Weekly email digest |
 | GET | `/api/health` | Health check |
 | POST | `/api/client-errors` | Client error logging |
+
+### Letters
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | `/api/letters` | List letters; supports `status`, `letterType`, `search`, `mine`, `includeArchived`, `page`, `limit`. |
+| POST | `/api/letters` | Create a draft letter and allocate its `360G/LT/{CL\|OF\|GR}/{SEQ}/{YEAR}` reference. |
+| GET | `/api/letters/[id]` | Letter detail incl. preparedBy, signatory, enclosures. |
+| PATCH | `/api/letters/[id]` | Update editable fields (locked after submission for non-admins). |
+| DELETE | `/api/letters/[id]` | Delete a DRAFT letter (admin can delete any). |
+| POST | `/api/letters/[id]/submit` | DRAFT → SUBMITTED. |
+| POST | `/api/letters/[id]/approve` | SUBMITTED → APPROVED (requires `letter:approve`). |
+| POST | `/api/letters/[id]/reject` | SUBMITTED → DRAFT with reason (requires `letter:approve`). |
+| POST | `/api/letters/[id]/send` | APPROVED → SENT, captures dispatch method/date/tracking. |
+| POST | `/api/letters/[id]/archive` | SENT → ARCHIVED (admin can force from any state). |
+| DELETE | `/api/letters/[id]/archive` | Admin-only unarchive. |
+| GET | `/api/letters/[id]/activity` | Activity log entries for the shared `ActivityLogPanel`. |
+| POST | `/api/letters/[id]/views` | No-op view beacon (panel compatibility). |
+| POST | `/api/letters/[id]/pdf` | Render letter with resolved placeholders; returns HTML + missing-placeholder list. |
+| POST | `/api/letters/[id]/enclosures` | Register an enclosure (PDF/DOCX/XLSX/PNG/JPG, ≤25 MB). |
+| DELETE | `/api/letters/[id]/enclosures/[enclosureId]` | Remove an enclosure (uploader or admin, DRAFT only). |
+| GET | `/api/letters/odoo/contacts?q=…` | Mocked Odoo contact typeahead (≥2 chars). |
 
 ### Telegram Bot
 | Method | Route | Description |

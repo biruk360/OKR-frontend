@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma'
 
-export type ActivityEntityType = 'OBJECTIVE' | 'KEY_RESULT' | 'TODO' | 'SPRINT'
+export type ActivityEntityType = 'OBJECTIVE' | 'KEY_RESULT' | 'TODO' | 'SPRINT' | 'LETTER'
 
 export type ActivityAction =
   | 'CREATED'
@@ -42,6 +42,16 @@ export type ActivityAction =
   | 'INITIATIVE_TASK_TYPE_CHANGED'
   | 'INITIATIVE_KR_LINK_CHANGED'
   | 'INITIATIVE_OBJECTIVE_LINK_CHANGED'
+  // Letter Management lifecycle actions.
+  | 'LETTER_SUBMITTED'
+  | 'LETTER_APPROVED'
+  | 'LETTER_REJECTED'
+  | 'LETTER_SENT'
+  | 'LETTER_PRINTED'
+  | 'LETTER_PDF_GENERATED'
+  | 'LETTER_PDF_FAILED'
+  | 'LETTER_ENCLOSURE_ADDED'
+  | 'LETTER_ENCLOSURE_REMOVED'
 
 export interface FieldChange {
   from: unknown
@@ -56,6 +66,7 @@ interface RecordParams {
   keyResultId?: string | null
   todoId?: string | null
   sprintId?: string | null
+  letterId?: string | null
   action: ActivityAction
   actorId?: string | null
   changes?: ChangeMap | null
@@ -75,6 +86,7 @@ export async function recordActivity(params: RecordParams): Promise<void> {
         keyResultId: params.keyResultId ?? null,
         todoId: params.todoId ?? null,
         sprintId: params.sprintId ?? null,
+        letterId: params.letterId ?? null,
         action: params.action,
         actorId: params.actorId ?? null,
         // JSONB columns — Prisma stores the object directly. No JSON.stringify.

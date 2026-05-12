@@ -13,6 +13,25 @@
 
 ---
 
+## 2026-05-12 — Letter Management: vertical slice (mocked Odoo + PDF)
+
+New standalone module per `docs/letter_management_requirements.md` v2.0 — Cover, Offer, and Guarantee letters with the full Draft → Submitted → Approved → Sent → Archived workflow. Odoo contact lookup and PDF rendering are mocked (typeahead returns a stub roster; the PDF endpoint returns server-rendered HTML for inline preview + print). Sequence allocation, permissions, activity log, and enclosures are real.
+
+- **Add** Prisma models — `Letter`, `LetterEnclosure`, `LetterSequence`; extend `ActivityLog` with `letterId` + `LETTER` entityType — `prisma/schema.prisma` (run `prisma db push` against staging/prod before shipping).
+- **Add** types — `LetterType`, `LetterStatus`, `LetterDispatchMethod`, `CreateLetterForm`, `UpdateLetterForm`, `LetterFilters`, labels & code maps — `types/index.ts`.
+- **Add** server helpers — `allocateLetterReference` (transactional sequence per type+year), `LETTER_TEMPLATES`, `resolvePlaceholders` — `lib/letters.ts`.
+- **Add** permissions — `canCreateLetter`, `canApproveLetter`, `canDispatchLetter`, `canAdminLetter`, `canEditLetter` — `lib/permissions.ts`.
+- **Add** activity-log actions — `LETTER_SUBMITTED/APPROVED/REJECTED/SENT/PRINTED/PDF_GENERATED/PDF_FAILED/ENCLOSURE_ADDED/REMOVED` and `letterId` plumbing — `lib/activity-log.ts`.
+- **Add** API routes under `app/api/letters/` — `route.ts` (list+create), `[id]/route.ts` (read/update/delete), `[id]/{submit,approve,reject,send,archive,activity,views,pdf}/route.ts`, `[id]/enclosures/{route,[enclosureId]/route}.ts`, `odoo/contacts/route.ts` (mocked typeahead).
+- **Add** feature module — `features/letters/` with `LettersPageClient`, `LetterFormClient`, `LettersTable`, `CreateLetterModal`, `LetterStatusBar`, `LetterStatusBadge`, `CustomerLookup`, `EnclosuresPanel`, `PdfPreviewPanel`, `MarkAsSentModal`, `RejectLetterModal`, plus `services/lettersApi.ts` client + `types.ts` + `index.ts` barrel.
+- **Add** pages — `app/dashboard/letters/page.tsx` (list) and `app/dashboard/letters/[id]/page.tsx` (form).
+- **Update** shared `ActivityLogPanel` — add `'letter'` entityType + API base + lifecycle action labels — `components/shared/ActivityLogPanel.tsx`.
+- **Update** sidebar navigation — new "Letters" group — `lib/dashboard-navigation.ts`.
+- **Tests:** not run. `tsc --noEmit` passes for the whole repo. Real Odoo integration and real PDF generation are deliberately mocked — see the comments at the top of `app/api/letters/odoo/contacts/route.ts` and `app/api/letters/[id]/pdf/route.ts`.
+- **Docs updated:** `docs/CHANGELOG_AI.md`, `docs/SITEMAP.md`, `docs/FEATURE_STATUS.md`.
+
+---
+
 ## 2026-05-08 — Telegram bot: switchable OpenAI / Anthropic provider for /ask
 
 The Telegram `/ask` command now supports both OpenAI and Anthropic. Provider is selected by `TELEGRAM_AI_PROVIDER` env var (`openai` default, `anthropic` alt). Default OpenAI model is `gpt-5.5`; default Anthropic model is `claude-sonnet-4-6`. Both override-able via `AI_OPENAI_TELEGRAM_MODEL` / `AI_ANTHROPIC_TELEGRAM_MODEL`. Lazy clients — neither SDK is instantiated until first /ask hits its branch, so a missing key for the unused provider doesn't crash startup.

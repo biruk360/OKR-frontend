@@ -118,6 +118,14 @@ export const navigationGroups: NavGroup[] = [
     defaultOpen: false,
   },
   {
+    name: 'Letters',
+    icon: FileText,
+    items: [
+      { name: 'Letters', href: '/dashboard/letters', icon: FileText },
+    ],
+    defaultOpen: false,
+  },
+  {
     name: 'People & Organization',
     icon: Users,
     items: [

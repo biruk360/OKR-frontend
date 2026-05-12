@@ -201,9 +201,60 @@ export interface KeyResultFilters {
   search?: string
 }
 
+// Letter Management — see docs/letter_management_requirements.md
+export type LetterType = 'COVER' | 'OFFER' | 'GUARANTEE'
+export type LetterStatus = 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'SENT' | 'ARCHIVED'
+export type LetterDispatchMethod = 'EMAIL' | 'PRINTED' | 'COURIER'
+
+export const LETTER_TYPE_CODE: Record<LetterType, 'CL' | 'OF' | 'GR'> = {
+  COVER: 'CL',
+  OFFER: 'OF',
+  GUARANTEE: 'GR',
+}
+
+export const LETTER_TYPE_LABEL: Record<LetterType, string> = {
+  COVER: 'Cover Letter',
+  OFFER: 'Offer Letter',
+  GUARANTEE: 'Guarantee Letter',
+}
+
+export const LETTER_STATUS_LABEL: Record<LetterStatus, string> = {
+  DRAFT: 'Draft',
+  SUBMITTED: 'Submitted',
+  APPROVED: 'Approved',
+  SENT: 'Sent',
+  ARCHIVED: 'Archived',
+}
+
+export interface CreateLetterForm {
+  subject: string
+  letterType: LetterType
+  date?: string
+  customerName: string
+  odooPartnerId?: string | null
+  recipientAddress?: string
+  salutation?: string
+  closing?: string
+  senderDepartment?: string
+  signatoryId?: string | null
+  bodyContent?: string
+}
+
+export type UpdateLetterForm = Partial<CreateLetterForm>
+
+export interface LetterFilters {
+  status?: LetterStatus[]
+  letterType?: LetterType[]
+  preparedById?: string
+  signatoryId?: string
+  search?: string
+  mine?: boolean
+  includeArchived?: boolean
+}
+
 // Real-time event types
 export interface RealtimeEvent {
-  type: 'objective_updated' | 'keyresult_updated' | 'todo_updated' | 'comment_added'
+  type: 'objective_updated' | 'keyresult_updated' | 'todo_updated' | 'comment_added' | 'letter_updated'
   data: any
   timestamp: Date
 }

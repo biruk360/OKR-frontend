@@ -95,6 +95,25 @@
 | Integrations Config | DONE | `components/settings/IntegrationsManagement.tsx` | react-hook-form |
 | Audit Logs | DONE | `components/settings/AuditLogsView.tsx` | |
 
+## Letter Management
+
+Spec: `docs/letter_management_requirements.md` (v2.0). Implemented as a vertical slice — UI, API, workflow, sequence, activity log, and enclosures are real; Odoo contact lookup and PDF generation are deliberately mocked (see route comments).
+
+| Feature | Status | Path | Notes |
+|---------|--------|------|-------|
+| List view + filters + search | DONE | `features/letters/components/LettersPageClient.tsx`, `LettersTable.tsx` | Status tabs (My Letters, Draft, Submitted, Approved, Sent, Archived) + type filters |
+| Create letter (draft) | DONE | `features/letters/components/CreateLetterModal.tsx`, `app/api/letters/route.ts` | Allocates `360G/LT/{CL\|OF\|GR}/{SEQ}/{YEAR}` via `lib/letters.ts` |
+| Letter form (edit, body, recipient/sender, signatory) | DONE | `features/letters/components/LetterFormClient.tsx`, `app/dashboard/letters/[id]/page.tsx` | Auto-save body after 30s of inactivity |
+| Workflow transitions (submit/approve/reject/send/archive/unarchive) | DONE | `app/api/letters/[id]/{submit,approve,reject,send,archive}/route.ts` | Pre-conditions enforced; activity log entries written |
+| Enclosures | DONE (metadata only) | `features/letters/components/EnclosuresPanel.tsx`, `app/api/letters/[id]/enclosures/` | Real binary upload deferred to object-storage milestone |
+| PDF preview & print | MOCKED | `features/letters/components/PdfPreviewPanel.tsx`, `app/api/letters/[id]/pdf/route.ts` | Returns server-rendered HTML; swap for `@react-pdf/renderer` or Puppeteer worker |
+| Odoo customer typeahead | MOCKED | `features/letters/components/CustomerLookup.tsx`, `app/api/letters/odoo/contacts/route.ts` | Returns a small stub roster; replace with real Odoo `res.partner` integration |
+| Activity log integration | DONE | `components/shared/ActivityLogPanel.tsx` (extended), `lib/activity-log.ts` (LETTER entityType + 9 actions) | Reuses shared panel |
+| Permissions | DONE | `lib/permissions.ts` (`canCreateLetter`, `canApproveLetter`, `canDispatchLetter`, `canAdminLetter`, `canEditLetter`) | Derived from existing `UserRole`; dedicated `letter:*` roles deferred |
+| Reporting view | PLANNED | — | FR-16 — not yet built |
+| Notifications on transitions | PLANNED | — | Hook into `lib/notifications.ts` once the letter UI stabilises |
+| Template management screen | PLANNED | — | Currently constants in `lib/letters.ts` |
+
 ## Infrastructure
 
 | Feature | Status | Path | Notes |

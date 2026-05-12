@@ -497,3 +497,43 @@ export function redactKeyResult(keyResult: any) {
   }
 }
 
+// =====================================================================
+// Letter Management permissions
+//
+// Mapping from spec → role matrix (see docs/letter_management_requirements.md §FR-15):
+//   letter:create   → ADMIN, EXECUTIVE, DEPARTMENT_LEAD, EMPLOYEE
+//   letter:approve  → ADMIN, EXECUTIVE
+//   letter:dispatch → ADMIN, EXECUTIVE, DEPARTMENT_LEAD
+//   letter:admin    → ADMIN
+//
+// Until a dedicated role/permission management UI is wired in, these helpers
+// derive permission from the platform's existing UserRole enum.
+// =====================================================================
+
+export function canCreateLetter(role: UserRole): boolean {
+  return role === 'ADMIN' || role === 'EXECUTIVE' || role === 'DEPARTMENT_LEAD' || role === 'EMPLOYEE'
+}
+
+export function canApproveLetter(role: UserRole): boolean {
+  return role === 'ADMIN' || role === 'EXECUTIVE'
+}
+
+export function canDispatchLetter(role: UserRole): boolean {
+  return role === 'ADMIN' || role === 'EXECUTIVE' || role === 'DEPARTMENT_LEAD'
+}
+
+export function canAdminLetter(role: UserRole): boolean {
+  return role === 'ADMIN'
+}
+
+/** Record-level edit gate — admins everywhere, otherwise only the preparer in DRAFT. */
+export function canEditLetter(
+  role: UserRole,
+  userId: string,
+  letter: { preparedById: string; status: string }
+): boolean {
+  if (canAdminLetter(role)) return true
+  if (letter.preparedById !== userId) return false
+  return letter.status === 'DRAFT'
+}
+

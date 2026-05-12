@@ -1,70 +1,81 @@
 /**
  * Letterhead constants for Eldix IT Technology PLC.
  *
- * These render at the top of every Letter PDF (FR-7 / FR-8). Update this file
- * when contact info changes — there's no admin UI for letterhead settings yet
- * (deferred to a Letter Settings page in a future pass).
+ * Implements the Eldix Letterhead spec — see `docs/letterhead-spec.md` (or
+ * the design package handoff bundle if archived elsewhere). The PDF renderer
+ * (`lib/letter-pdf.tsx`) consumes this to compose the right-rail contact
+ * block, the city stamp, and the brand block at the bottom of the rail.
  *
- * Logo: drop a square PNG or JPG at `public/branding/letterhead-logo.png`.
- * The PDF renderer detects the file at process start; if it's missing, the
- * letterhead degrades to text-only without crashing.
+ * Logo files (drop replacements at the same paths to update):
+ *   - public/branding/eldix-primary.png   — Eldix wordmark, 2052×620 transparent PNG
+ *   - public/branding/360ground.png       — 360Ground square mark, 1000×1000 transparent PNG
+ *
+ * Both are detected lazily; if either is missing, the corresponding slot in
+ * the PDF renders empty rather than crashing.
  */
 
 import path from 'path'
 import fs from 'fs'
 
 export interface LetterheadInfo {
-  companyName: string
-  companyNameAmharic?: string
-  tagline?: string
-  /** Each address line shown stacked under the company name. */
+  legal: string
+  legalAmharic?: string
+  brand: string // "360Ground™"
+  pobox: string
+  city: string
   addressLines: string[]
-  phone?: string
-  email?: string
-  website?: string
-  /** Absolute file path to the logo if it exists, otherwise null. */
-  logoPath: string | null
+  phones: string[]
+  email: string
+  web: string
+  /** Absolute paths to logo files (or null if not yet uploaded). */
+  eldixLogoPath: string | null
+  groundLogoPath: string | null
 }
 
-const LOGO_CANDIDATES = [
-  'public/branding/letterhead-logo.png',
-  'public/branding/letterhead-logo.jpg',
-  'public/branding/letterhead-logo.jpeg',
-]
-
-function detectLogo(): string | null {
-  for (const rel of LOGO_CANDIDATES) {
+function detectLogo(...rels: string[]): string | null {
+  for (const rel of rels) {
     const abs = path.join(process.cwd(), rel)
     try {
       if (fs.statSync(abs).isFile()) return abs
     } catch {
-      // ENOENT — try the next candidate
+      // try next candidate
     }
   }
   return null
 }
 
-// Cached at module load — the logo file changes only at deploy time.
 let cached: LetterheadInfo | null = null
 
 export function getLetterhead(): LetterheadInfo {
   if (cached) return cached
   cached = {
-    companyName: 'Eldix IT Technology PLC',
-    companyNameAmharic: 'ኤልዲክስ አይቲ ቴክኖሎጂ ኃ.የተ.የግ.ማ.',
-    tagline: '360Ground™ — Internal Platform',
+    legal: 'Eldix IT Technology PLC',
+    legalAmharic: 'ኤልዲክስ አይቲ ቴክኖሎጂ ኃ.የተ.የግ.ማ.',
+    brand: '360Ground™',
+    pobox: 'P.O. Box 14417',
+    city: 'Addis Ababa, Ethiopia',
     addressLines: [
+      '7th Floor, REWINA Building',
+      'Equatorial Guinea St.',
+      '22 Bole Sub-City',
       'Addis Ababa, Ethiopia',
     ],
-    phone: '+251 11 000 0000',
+    phones: ['+251 940 794 444', '+251 911 343 797', '+251 911 257 276'],
     email: 'info@360ground.com',
-    website: 'https://360ground.com',
-    logoPath: detectLogo(),
+    web: 'www.360ground.com',
+    eldixLogoPath: detectLogo(
+      'public/branding/eldix-primary.png',
+      'public/branding/eldix-primary.jpg',
+      'public/branding/letterhead-logo.png',
+    ),
+    groundLogoPath: detectLogo(
+      'public/branding/360ground.png',
+      'public/branding/360ground.jpg',
+    ),
   }
   return cached
 }
 
-/** Test-only — let unit tests / probe scripts reset the cache. */
 export function _clearLetterheadCache(): void {
   cached = null
 }

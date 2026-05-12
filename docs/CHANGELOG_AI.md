@@ -13,6 +13,23 @@
 
 ---
 
+## 2026-05-12 — Letters: implement Eldix Letterhead Spec (A4 + right rail + monochrome)
+
+Per the design handoff bundle `eldix-branding-letter-head/project/Letterhead Spec.md`:
+
+- **lib/letter-pdf.tsx rewrite** — matches the spec exactly: A4 page, inset 12/10/14/14 mm, full-width header band (Eldix wordmark left, REFERENCE/DATE mono labels right), two-column body grid (1fr main + 42mm right rail with hairline left border), four rail sections (Address, Telephone, Email·Web, Mailing) followed by a brand block at the bottom (Eldix mark 9mm + 360Ground mark 13mm + "Addis Ababa · Ethiopia" city stamp + Ethiopian flag SVG). Monochrome — ink #0e0e0e, ink-soft #2a2a2a, muted #8a8a86, rule #c4c4be. Mono font for ref/date/labels, Ethiopic for ለ/ጉዳዩ labels and the subject heading (with 1px underline + 3px offset). Page number rendered as "PAGE 01 / 02" in mono at the bottom-right of the main column, fixed across pages.
+- **lib/letterhead.ts** — updated with the full company info from the spec: legal name (English + Amharic), P.O. Box 14417, the four-line address (7th Floor, REWINA Building, Equatorial Guinea St., 22 Bole Sub-City, Addis Ababa, Ethiopia), three phone numbers, email info@360ground.com, web www.360ground.com.
+- **Assets** — committed the high-res logos from the handoff bundle: `public/branding/eldix-primary.png` (2052×620, transparent) and `public/branding/360ground.png` (1000×1000, transparent).
+- **Fonts** — added JetBrains Mono Regular + Medium TTFs to `public/fonts/` for the mono ref/date/labels. Total bundled font weight is now ~3.8 MB (NotoSans + Ethiopic + Mono).
+- **Body parser kept** — the existing Tiptap → block tree → react-pdf primitives pipeline is unchanged; only the page chrome (header, rail, signature) is redesigned.
+
+Files: `lib/letter-pdf.tsx`, `lib/letterhead.ts`, `public/branding/{eldix-primary,360ground}.png`, `public/fonts/JetBrainsMono-{Regular,Medium}.ttf`.
+
+**Tests:** `tsc --noEmit` clean, `npm run build` clean, renderer probed locally — 117 KB PDF rendered with logos + Amharic mixed body + Ethiopian flag SVG (no warnings).
+**Docs updated:** `docs/CHANGELOG_AI.md`.
+
+---
+
 ## 2026-05-12 — Letters: letterhead, print + print-preview, page numbers
 
 Per spec FR-8 and user request:

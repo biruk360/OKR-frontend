@@ -142,24 +142,19 @@ function styles(base: string): string {
       print-color-adjust: exact;
     }
 
-    /* === Page shell — strictly A4, overflow hidden === */
+    /* === Page shell — flows naturally for multi-page content === */
     .lh {
-      width: 210mm; height: 297mm;
+      width: 210mm; min-height: 297mm;
       background: var(--paper); color: var(--ink);
-      position: relative; overflow: hidden;
       font-size: 10pt; line-height: 1.5;
       margin: 20px auto;
       box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 12px 40px rgba(0,0,0,.10);
     }
-    /* Stack multiple pages with a gutter between them */
-    .page-stack {
-      display: flex; flex-direction: column;
-      align-items: center; gap: 28px;
-    }
 
-    /* === Padding container fills the A4 inset === */
+    /* === Padding container — normal flow, min-height fills A4 === */
     .lh .pad {
-      position: absolute; inset: 12mm 10mm 14mm 14mm;
+      padding: 12mm 10mm 14mm 14mm;
+      min-height: calc(297mm - 26mm);
       display: flex; flex-direction: column;
     }
 
@@ -183,22 +178,23 @@ function styles(base: string): string {
     /* === Body grid: main column + right rail === */
     .body-grid {
       flex: 1; display: grid; grid-template-columns: 1fr 42mm;
-      gap: 6mm; min-height: 0;
+      gap: 6mm; align-items: start;
     }
     .main { display: flex; flex-direction: column; padding-right: 2mm; min-width: 0; }
     .body-wrap { flex: 1; }
 
-    /* === Page number === */
+    /* === Page number — sits naturally after body content === */
     .page-num {
-      margin-top: auto; padding-top: 6mm; text-align: right;
+      padding-top: 6mm; text-align: right;
       font-family: 'JetBrains Mono', monospace; font-size: 6pt;
       letter-spacing: .18em; text-transform: uppercase; color: var(--muted);
     }
 
-    /* === Right rail === */
+    /* === Right rail — align-self:start so it doesn't stretch with body === */
     .rail {
       border-left: 1px solid var(--rule); padding-left: 5mm;
       display: flex; flex-direction: column; gap: 5mm;
+      align-self: start;
     }
     .rail .info .label {
       font-family: 'JetBrains Mono', monospace; font-size: 5.5pt;
@@ -207,7 +203,7 @@ function styles(base: string): string {
     }
     .rail .info .val { font-size: 7pt; line-height: 1.55; color: var(--ink-soft); }
     .rail .info .val > div { white-space: nowrap; }
-    .rail .spacer { flex: 1; }
+    .rail .spacer { display: none; }
     .rail .brand-block {
       padding-top: 8mm; display: flex; flex-direction: column;
       gap: 3mm; align-items: flex-start;
@@ -291,11 +287,22 @@ function styles(base: string): string {
     .enclosures li { margin-bottom: 0.5mm; }
 
     /* === Print === */
-    @page { size: A4; margin: 0; }
+    @page { size: A4; margin: 12mm 10mm 14mm 14mm; }
     @media print {
       html, body { background: #fff; }
-      .page-stack { gap: 0; }
-      .lh { box-shadow: none; margin: 0; page-break-after: always; }
+      .lh {
+        box-shadow: none; margin: 0; width: 100%; min-height: 0;
+      }
+      .lh .pad {
+        padding: 0; min-height: 0;
+      }
+      /* Keep header on every printed page via running elements isn't supported;
+         instead allow natural page flow — browser handles pagination. */
+      .main-hdr { page-break-inside: avoid; }
+      .sig { page-break-inside: avoid; }
+      .enclosures { page-break-inside: avoid; }
+      .lh-body table { page-break-inside: auto; }
+      .lh-body tr { page-break-inside: avoid; }
     }
   `
 }

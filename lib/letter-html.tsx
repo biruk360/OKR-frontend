@@ -16,9 +16,29 @@
  * tests can render against an arbitrary base URL.
  */
 
+import fs from 'fs'
+import path from 'path'
 import type { Letter, LetterEnclosure, LetterTypeDef } from '@prisma/client'
 import { getLetterhead, type LetterheadInfo } from './letterhead'
 import { resolvePlaceholders } from './letters'
+
+// Cache base64-encoded fonts in memory — they're read once per process.
+const fontB64Cache: Record<string, string> = {}
+function readFontB64(filename: string): string {
+  if (fontB64Cache[filename]) return fontB64Cache[filename]
+  try {
+    const p = path.join(process.cwd(), 'public', 'fonts', filename)
+    const b64 = fs.readFileSync(p).toString('base64')
+    fontB64Cache[filename] = b64
+    return b64
+  } catch {
+    return ''
+  }
+}
+function fontDataUri(filename: string): string {
+  const b64 = readFontB64(filename)
+  return b64 ? `data:font/truetype;base64,${b64}` : ''
+}
 
 export interface RenderHtmlArgs {
   letter: Letter & {
@@ -68,6 +88,13 @@ function formatDate(d: Date): string {
 // (similar metrics, already bundled) to avoid shipping yet another family.
 
 function fontFaces(base: string): string {
+  // Ethiopic fonts are embedded as base64 data URIs so Chrome's print renderer
+  // never needs a network fetch — URL-based @font-face declarations are skipped
+  // during print/PDF generation, causing Amharic glyphs to render as boxes.
+  const ethRegUri = fontDataUri('NotoSansEthiopic-Regular.ttf') || `${base}/fonts/NotoSansEthiopic-Regular.ttf`
+  const ethBoldUri = fontDataUri('NotoSansEthiopic-Bold.ttf') || `${base}/fonts/NotoSansEthiopic-Bold.ttf`
+  const ethRegSrc = ethRegUri.startsWith('data:') ? `url('${ethRegUri}') format('truetype')` : `url('${ethRegUri}') format('truetype')`
+  const ethBoldSrc = ethBoldUri.startsWith('data:') ? `url('${ethBoldUri}') format('truetype')` : `url('${ethBoldUri}') format('truetype')`
   return `
     @font-face { font-family:'Inter'; font-weight:400; font-style:normal;
                  src: url('${base}/fonts/NotoSans-Regular.ttf') format('truetype'); }
@@ -84,13 +111,13 @@ function fontFaces(base: string): string {
     @font-face { font-family:'JetBrains Mono'; font-weight:500; font-style:normal;
                  src: url('${base}/fonts/JetBrainsMono-Medium.ttf') format('truetype'); }
     @font-face { font-family:'Noto Sans Ethiopic'; font-weight:400; font-style:normal;
-                 src: url('${base}/fonts/NotoSansEthiopic-Regular.ttf') format('truetype'); }
+                 src: ${ethRegSrc}; }
     @font-face { font-family:'Noto Sans Ethiopic'; font-weight:500; font-style:normal;
-                 src: url('${base}/fonts/NotoSansEthiopic-Regular.ttf') format('truetype'); }
+                 src: ${ethRegSrc}; }
     @font-face { font-family:'Noto Sans Ethiopic'; font-weight:600; font-style:normal;
-                 src: url('${base}/fonts/NotoSansEthiopic-Bold.ttf') format('truetype'); }
+                 src: ${ethBoldSrc}; }
     @font-face { font-family:'Noto Sans Ethiopic'; font-weight:700; font-style:normal;
-                 src: url('${base}/fonts/NotoSansEthiopic-Bold.ttf') format('truetype'); }
+                 src: ${ethBoldSrc}; }
   `
 }
 

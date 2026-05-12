@@ -38,10 +38,11 @@ export const GET = withAuth<RouteIdParams>(async (_req, { params }) => {
     buffer = Buffer.from(letter.bodyDocx)
   } else if (letter.bodyContent && letter.bodyContent.trim()) {
     try {
-      const { asBlob } = await import('html-docx-js-typescript')
-      const out = await asBlob(letter.bodyContent)
-      const raw = out instanceof Blob ? await out.arrayBuffer() : out
-      buffer = Buffer.from(new Uint8Array(raw as ArrayBuffer))
+      // Use the `docx` lib (real OOXML) rather than html-docx-js-typescript
+      // (which produces altChunk-wrapped MHTML that mammoth + SuperDoc can't
+      // round-trip correctly — symptom: blank body after first save).
+      const { htmlToDocxBuffer } = await import('@/lib/html-to-docx')
+      buffer = await htmlToDocxBuffer(letter.bodyContent)
     } catch (err) {
       console.warn('[docx-get] html→docx conversion failed, returning empty', err)
       buffer = await (await import('@/lib/empty-docx')).emptyDocxBuffer()
@@ -91,11 +92,26 @@ export const PUT = withAuth<RouteIdParams>(async (req, { session, params }) => {
   // Derive the HTML mirror. Failures here should not block the save — they
   // just mean the placeholder/PDF pipeline will fall back to whatever HTML
   // was previously stored.
+  //
+  // Mammoth returns an empty string when it can't read a docx (e.g. an
+  // altChunk-wrapped doc). We MUST NOT overwrite the previous bodyContent
+  // in that case, or the user's already-rendered content disappears from
+  // the PDF preview. This bug shipped once; the guard below prevents it
+  // from happening again.
   let bodyContent: string | undefined
+  let mammothWarnings: unknown = null
   try {
     const mammoth = await import('mammoth')
-    const { value } = await mammoth.convertToHtml({ buffer: buf })
-    bodyContent = value
+    const result = await mammoth.convertToHtml({ buffer: buf })
+    mammothWarnings = result.messages
+    if (result.value && result.value.trim().length > 0) {
+      bodyContent = result.value
+    } else {
+      console.warn('[docx-save] mammoth returned empty HTML; keeping previous bodyContent', {
+        letterId: id,
+        messages: result.messages,
+      })
+    }
   } catch (err) {
     console.warn('[docx-save] mammoth conversion failed', err)
   }
@@ -113,7 +129,11 @@ export const PUT = withAuth<RouteIdParams>(async (req, { session, params }) => {
     letterId: id,
     action: 'UPDATED',
     actorId: session.user.id,
-    metadata: { fields: ['bodyDocx', 'bodyContent'], size: buf.length },
+    metadata: {
+      fields: bodyContent !== undefined ? ['bodyDocx', 'bodyContent'] : ['bodyDocx'],
+      size: buf.length,
+      mammothWarnings: mammothWarnings ?? undefined,
+    },
   })
 
   return apiSuccess({ id: updated.id, updatedAt: updated.updatedAt, htmlMirrored: bodyContent !== undefined })

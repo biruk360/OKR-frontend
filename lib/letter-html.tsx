@@ -176,25 +176,37 @@ function styles(base: string): string {
     }
 
     /* === Body grid: main column + right rail === */
+    /* The rail column separator is drawn as a background gradient on the grid
+       so it spans the full content height regardless of column length. */
     .body-grid {
-      flex: 1; display: grid; grid-template-columns: 1fr 42mm;
-      gap: 6mm; align-items: start;
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 42mm;
+      gap: 0;
+      background-image: linear-gradient(var(--rule), var(--rule));
+      background-size: 1px 100%;
+      background-position: calc(100% - 42mm) 0;
+      background-repeat: no-repeat;
     }
-    .main { display: flex; flex-direction: column; padding-right: 2mm; min-width: 0; }
+    .main { display: flex; flex-direction: column; padding-right: 8mm; min-width: 0; }
     .body-wrap { flex: 1; }
 
-    /* === Page number — sits naturally after body content === */
+    /* === Page number ===
+       Screen: shown at bottom of content column.
+       Print/PDF: hidden (browser @page counter handles it via @bottom-right). */
     .page-num {
       padding-top: 6mm; text-align: right;
       font-family: 'JetBrains Mono', monospace; font-size: 6pt;
       letter-spacing: .18em; text-transform: uppercase; color: var(--muted);
     }
+    @media print {
+      .page-num { display: none; }
+    }
 
-    /* === Right rail — align-self:start so it doesn't stretch with body === */
+    /* === Right rail — no border-left (gradient handles it) === */
     .rail {
-      border-left: 1px solid var(--rule); padding-left: 5mm;
+      padding-left: 5mm;
       display: flex; flex-direction: column; gap: 5mm;
-      align-self: start;
     }
     .rail .info .label {
       font-family: 'JetBrains Mono', monospace; font-size: 5.5pt;
@@ -203,20 +215,12 @@ function styles(base: string): string {
     }
     .rail .info .val { font-size: 7pt; line-height: 1.55; color: var(--ink-soft); }
     .rail .info .val > div { white-space: nowrap; }
-    .rail .spacer { display: none; }
     .rail .brand-block {
       padding-top: 8mm; display: flex; flex-direction: column;
       gap: 3mm; align-items: flex-start;
     }
     .rail .brand-block .eldix-mark  { height: 9mm; width: auto; }
     .rail .brand-block .ground-mark { height: 13mm; width: auto; opacity: .92; }
-    .rail .brand-block .city-stamp {
-      display: inline-flex; align-items: center; gap: 2mm;
-      font-family: 'JetBrains Mono', monospace; font-size: 5.5pt;
-      letter-spacing: .28em; text-transform: uppercase;
-      color: var(--muted); font-weight: 500; margin-top: 3mm;
-    }
-    .rail .brand-block .city-stamp .flag { width: 5mm; height: 2.5mm; flex-shrink: 0; display: block; }
 
     /* === Body content === */
     .lh-body {
@@ -287,17 +291,20 @@ function styles(base: string): string {
     .enclosures li { margin-bottom: 0.5mm; }
 
     /* === Print === */
-    @page { size: A4; margin: 12mm 10mm 14mm 14mm; }
+    @page {
+      size: A4;
+      margin: 12mm 10mm 18mm 14mm;
+      @bottom-right {
+        content: "Page " counter(page) " / " counter(pages);
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 6pt; letter-spacing: .18em;
+        text-transform: uppercase; color: #8a8a86;
+      }
+    }
     @media print {
       html, body { background: #fff; }
-      .lh {
-        box-shadow: none; margin: 0; width: 100%; min-height: 0;
-      }
-      .lh .pad {
-        padding: 0; min-height: 0;
-      }
-      /* Keep header on every printed page via running elements isn't supported;
-         instead allow natural page flow — browser handles pagination. */
+      .lh { box-shadow: none; margin: 0; width: 100%; min-height: 0; }
+      .lh .pad { padding: 0; min-height: 0; }
       .main-hdr { page-break-inside: avoid; }
       .sig { page-break-inside: avoid; }
       .enclosures { page-break-inside: avoid; }
@@ -364,20 +371,9 @@ export function renderLetterHtml({ letter, origin = '', lang = 'en' }: RenderHtm
       <div class="label">Mailing</div>
       <div class="val"><div>${esc(head.pobox)}</div><div>${esc(head.city)}</div></div>
     </div>
-    <div class="spacer"></div>
     <div class="brand-block">
       ${head.eldixLogoPath ? `<img class="eldix-mark" src="${eldixLogoUrl}" alt="Eldix" />` : ''}
       ${head.groundLogoPath ? `<img class="ground-mark" src="${groundLogoUrl}" alt="360Ground" />` : ''}
-      <div class="city-stamp">
-        <span>Addis Ababa · Ethiopia</span>
-        <svg class="flag" viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg" aria-label="Ethiopian flag">
-          <rect width="60" height="10" fill="#078930" />
-          <rect y="10" width="60" height="10" fill="#FCDD09" />
-          <rect y="20" width="60" height="10" fill="#DA121A" />
-          <circle cx="30" cy="15" r="5.5" fill="#0F47AF" />
-          <polygon points="30,11 30.94,13.71 33.80,13.76 31.52,15.49 32.35,18.24 30,16.6 27.65,18.24 28.48,15.49 26.20,13.76 29.06,13.71" fill="#FCDD09" />
-        </svg>
-      </div>
     </div>
   `
 

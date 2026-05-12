@@ -16,11 +16,13 @@ module.exports = {
       // route (the worker dies, nginx upstream is unreachable).
       max_memory_restart: '3072M',
       // Give v8 explicit headroom under the pm2 cap; without this Node
-      // hard-OOMs at ~2G even when pm2 would allow more.
-      node_args: '--max-old-space-size=2560',
+      // hard-OOMs at ~2G even when pm2 would allow more. `node_args`
+      // doesn't propagate when `interpreter: 'none'` (pm2 launches npm,
+      // which spawns its own Node) — use NODE_OPTIONS env instead.
       env: {
         NODE_ENV: 'production',
         PORT: process.env.PORT || '3000',
+        NODE_OPTIONS: '--max-old-space-size=2560',
       },
     },
   ],

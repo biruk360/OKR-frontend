@@ -13,6 +13,24 @@
 
 ---
 
+## 2026-05-12 — Letters: letterhead, print + print-preview, page numbers
+
+Per spec FR-8 and user request:
+
+- **Letterhead** — new `lib/letterhead.ts` defines the Eldix IT Technology PLC contact block (English + Amharic company name, tagline, address, phone, email, website). The PDF renderer now starts every page with a letterhead band: logo (top-left), company name + contact lines (centre), reference number + date (right), and a bottom border. Renders bilingually — when the user is in Amharic mode the company name switches to ኤልዲክስ አይቲ ቴክኖሎጂ ኃ.የተ.የግ.ማ. (Ethiopic glyphs use the bundled Noto Sans Ethiopic font).
+- **Logo** — drop a PNG/JPG into `public/branding/letterhead-logo.png` (or .jpg/.jpeg). The renderer detects it at process start; missing file → text-only letterhead, no crash. README in `public/branding/` documents the size/format expectations.
+- **Print button** — added to two places: the PageHeader actions on the letter form (visible from any tab), and the PDF Preview tab. Opens the PDF in a new tab via `GET /api/letters/[id]/pdf` and triggers `window.print()` once the embedded viewer fires `load`. Works for all statuses including DRAFT (previously gated to APPROVED+).
+- **Print-preview UX** — the PDF Preview tab now auto-fetches the PDF on first open, so users see exactly what will print without clicking Generate first. Print + Download buttons promoted to primary; Regenerate kept as ghost.
+- **PDF route** — added `GET` method alongside the existing `POST` so the Print flow can navigate directly to the PDF URL (browsers only do GET for top-level navigation). New `?lang=en|am` and `?download=1` query params. GET does not record an activity log entry (POST still does, so the existing Generate-button flow remains tracked).
+- **Page numbers** — every page now shows "N / Total" in a small footer, fixed-positioned so it survives multi-page letters.
+
+Files: `lib/letterhead.ts`, `lib/letter-pdf.tsx`, `app/api/letters/[id]/pdf/route.ts`, `features/letters/components/{PdfPreviewPanel,LetterFormClient}.tsx`, `features/letters/services/lettersApi.ts`, `public/branding/README.md`.
+
+**Tests:** `tsc --noEmit` clean, `npm run build` clean, renderer probed locally (18.9 KB PDF without logo, no crashes).
+**Docs updated:** `docs/CHANGELOG_AI.md`.
+
+---
+
 ## 2026-05-12 — Letters: dynamic letter types, slimmer form, Apple-style redesign, altChunk fix
 
 Three things in one pass:

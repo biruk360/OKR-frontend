@@ -10,6 +10,7 @@ import {
   PackageCheck,
   Archive,
   Save,
+  Printer,
 } from 'lucide-react'
 import { Button, Input, Label, PageHeader, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui'
 import { ActivityLogPanel } from '@/components/shared/ActivityLogPanel'
@@ -196,6 +197,19 @@ function LetterFormInner({ initial, viewer }: Props) {
                 <Save className="mr-1.5 size-3.5" /> {saving ? t('form.saving') : t('form.save')}
               </Button>
             )}
+            <Button
+              variant="outline"
+              className="h-10"
+              onClick={() => {
+                const url = `/api/letters/${letter.id}/pdf?lang=${lang}`
+                const win = window.open(url, '_blank')
+                if (win) win.addEventListener('load', () => { try { win.print() } catch {} })
+                else window.location.href = url
+              }}
+              title={t('pdf.print')}
+            >
+              <Printer className="mr-1.5 size-3.5" /> {t('pdf.print')}
+            </Button>
             {transitionButtons}
           </div>
         }
@@ -319,7 +333,7 @@ function LetterFormInner({ initial, viewer }: Props) {
 
         <TabsContent value="preview" className="mt-3">
           <ApCard padding="lg">
-            <PdfPreviewPanel letterId={letter.id} canPrint={status !== 'DRAFT'} />
+            <PdfPreviewPanel letterId={letter.id} />
           </ApCard>
         </TabsContent>
       </Tabs>

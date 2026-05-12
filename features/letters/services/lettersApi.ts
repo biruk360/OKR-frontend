@@ -106,8 +106,11 @@ export const archiveLetter = (id: string, force = false) =>
 export const unarchiveLetter = (id: string) =>
   fetch(`/api/letters/${id}/archive`, { method: 'DELETE' }).then(parse<LetterDetail>)
 
-export async function generateLetterPdf(id: string): Promise<{ blobUrl: string; missing: string[] }> {
-  const res = await fetch(`/api/letters/${id}/pdf`, { method: 'POST' })
+export async function generateLetterPdf(
+  id: string,
+  lang: 'en' | 'am' = 'en'
+): Promise<{ blobUrl: string; missing: string[] }> {
+  const res = await fetch(`/api/letters/${id}/pdf?lang=${lang}`, { method: 'POST' })
   if (!res.ok) {
     const j = await res.json().catch(() => ({}))
     throw new Error(j?.error || `PDF generation failed (${res.status})`)

@@ -18,10 +18,11 @@
 
 import * as React from 'react'
 import path from 'path'
-import { renderToBuffer, Document, Page, Text, View, StyleSheet, Font } from '@react-pdf/renderer'
+import { renderToBuffer, Document, Page, Text, View, Image, StyleSheet, Font } from '@react-pdf/renderer'
 import type { Letter, LetterEnclosure } from '@prisma/client'
 import { LETTER_TYPE_LABEL, type LetterType } from '@/types'
 import { resolvePlaceholders } from './letters'
+import { getLetterhead } from './letterhead'
 
 // --- Font registration (run once per process) ---
 // We ship Noto Sans + Noto Sans Ethiopic TTFs in /public/fonts so the renderer
@@ -59,19 +60,29 @@ interface RenderArgs {
     signatory: { name: string | null } | null
     enclosures: Pick<LetterEnclosure, 'fileName' | 'fileSize'>[]
   }
+  /** Render the letterhead's company name in Amharic when 'am'. Defaults to 'en'. */
+  lang?: 'en' | 'am'
 }
 
 const styles = StyleSheet.create({
-  page: { padding: 56, fontFamily: 'NotoSans', fontSize: 11, color: '#111', lineHeight: 1.55 },
-  header: {
+  // Smaller side padding so the letterhead band can run nearly full-width
+  // while keeping the body comfortable.
+  page: { paddingTop: 36, paddingHorizontal: 48, paddingBottom: 56, fontFamily: 'NotoSans', fontSize: 11, color: '#111', lineHeight: 1.55 },
+  letterheadBand: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#dddddd',
-    marginBottom: 18,
+    alignItems: 'flex-start',
+    gap: 14,
+    paddingBottom: 12,
+    borderBottomWidth: 2,
+    borderBottomColor: '#0f172a',
+    marginBottom: 16,
   },
-  company: { fontSize: 12, fontWeight: 700 },
+  letterheadLogo: { width: 64, height: 64, objectFit: 'contain' },
+  letterheadCompany: { fontSize: 14, fontWeight: 700, color: '#0f172a' },
+  letterheadTagline: { fontSize: 9, color: '#475569', marginTop: 1 },
+  letterheadMeta: { fontSize: 9, color: '#475569', marginTop: 3 },
+  letterheadRight: { textAlign: 'right', fontSize: 9, color: '#475569' },
+  letterheadRightStrong: { textAlign: 'right', fontSize: 10, color: '#0f172a', fontWeight: 700 },
   ref: { fontSize: 9, color: '#555' },
   subject: { fontSize: 14, fontWeight: 700, marginBottom: 14 },
   paragraph: { marginBottom: 8 },
@@ -334,7 +345,7 @@ function BlockNode({ block }: { block: Block }) {
   }
 }
 
-export async function renderLetterPdf({ letter }: RenderArgs): Promise<{
+export async function renderLetterPdf({ letter, lang = 'en' }: RenderArgs): Promise<{
   buffer: Buffer
   missing: string[]
 }> {
@@ -357,16 +368,41 @@ export async function renderLetterPdf({ letter }: RenderArgs): Promise<{
   const hasEthiopic = /[ሀ-፿]/.test(html) || /[ሀ-፿]/.test(letter.subject)
   const bodyFamily = hasEthiopic ? 'NotoSansEthiopic' : 'NotoSans'
 
+  const head = getLetterhead()
+  const companyName = lang === 'am' && head.companyNameAmharic ? head.companyNameAmharic : head.companyName
+  // When the company name is rendered in Amharic glyphs we need the Ethiopic
+  // family on the header text run specifically.
+  const headerCompanyFamily =
+    /[ሀ-፿]/.test(companyName) ? 'NotoSansEthiopic' : bodyFamily
+
   const doc = (
     <Document title={letter.referenceNumber || letter.subject}>
       <Page size="A4" style={[styles.page, { fontFamily: bodyFamily }]}>
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.company}>360Ground / Eldix IT Technology PLC</Text>
-            <Text style={styles.ref}>{letter.referenceNumber ?? 'DRAFT'}</Text>
+        {/* Letterhead band — logo (if uploaded) + company info on the left,
+            reference number + date on the right. */}
+        <View style={styles.letterheadBand} fixed>
+          {head.logoPath && (
+            <Image src={head.logoPath} style={styles.letterheadLogo} />
+          )}
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.letterheadCompany, { fontFamily: headerCompanyFamily }]}>
+              {companyName}
+            </Text>
+            {head.tagline && <Text style={styles.letterheadTagline}>{head.tagline}</Text>}
+            {head.addressLines.length > 0 && (
+              <Text style={styles.letterheadMeta}>
+                {head.addressLines.join(' · ')}
+              </Text>
+            )}
+            {(head.phone || head.email || head.website) && (
+              <Text style={styles.letterheadMeta}>
+                {[head.phone, head.email, head.website].filter(Boolean).join(' · ')}
+              </Text>
+            )}
           </View>
           <View>
-            <Text style={styles.ref}>{letter.date.toISOString().slice(0, 10)}</Text>
+            <Text style={styles.letterheadRightStrong}>{letter.referenceNumber ?? 'DRAFT'}</Text>
+            <Text style={styles.letterheadRight}>{letter.date.toISOString().slice(0, 10)}</Text>
           </View>
         </View>
 
@@ -393,6 +429,13 @@ export async function renderLetterPdf({ letter }: RenderArgs): Promise<{
             ))}
           </View>
         )}
+
+        {/* Footer with page numbers — visible on every page via `fixed`. */}
+        <Text
+          style={{ position: 'absolute', bottom: 24, left: 0, right: 0, textAlign: 'center', fontSize: 8, color: '#94a3b8' }}
+          render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`}
+          fixed
+        />
       </Page>
     </Document>
   )

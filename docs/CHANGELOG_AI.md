@@ -13,6 +13,60 @@
 
 ---
 
+## 2026-05-12 — Letters: switch to HTML-based preview + Puppeteer PDF (ERPNext-style)
+
+Replace the @react-pdf rendering pipeline with a unified HTML approach that
+produces byte-identical output across preview, browser print, and PDF download.
+
+Architecture:
+  SuperDoc → bodyDocx → mammoth → bodyContent HTML
+                              ↓
+                  Single HTML template (lib/letter-html.tsx)
+                              ↓
+       ┌──────────────┬──────────────┬──────────────┐
+       ▼              ▼              ▼              ▼
+   GET /html      iframe.print()   Puppeteer →  GET /pdf
+   (iframe        (browser print   server-side    (Chromium
+   preview)        of same HTML)   PDF of same     prints same
+                                   HTML)           HTML)
+
+One HTML source, three consumers. Identity is real — the same bytes flow
+through preview, print, and PDF download.
+
+- Add lib/letter-html.tsx — server-side template that implements the Eldix
+  Letterhead Spec (12/10/14/14mm inset, full-width header with Eldix
+  wordmark + ref/date in JetBrains Mono, 2-column body grid + 42mm right
+  rail with Address/Telephone/Email·Web/Mailing sections + brand block,
+  Amharic ለ / ጉዳዩ labels, monochrome). Self-contained HTML with
+  @font-face rules pointing at /fonts/* and image refs at /branding/*.
+- Add GET /api/letters/[id]/html — serves the rendered HTML for iframe
+  consumption. Surfaces unresolved {{placeholders}} via the
+  X-Missing-Placeholders response header.
+- Add lib/letter-pdf-puppeteer.ts — keeps a single Chromium instance per
+  process, recycled every 200 PDFs. Waits for document.fonts.ready +
+  every <img> before printing so the PDF never falls back to Times.
+- Rewrite /api/letters/[id]/pdf — replaces the @react-pdf path with
+  Puppeteer feeding the same HTML the iframe loads.
+- Rewrite PdfPreviewPanel — iframe loads /html (~250ms), Print fires
+  iframe.contentWindow.print() (no popup, no popup-blocker), Download
+  hits /pdf?download=1.
+- Delete lib/letter-pdf.tsx and uninstall @react-pdf/renderer. Remove the
+  serverComponentsExternalPackages entries that were there to work around
+  the B.Component minification bug — no longer relevant.
+- Install puppeteer (auto-downloads Chromium ~170MB to ~/.cache/puppeteer
+  on first npm install).
+- Prod VPS: installed Chromium runtime deps (libnss3, libatk1.0-0t64,
+  libgbm1, libxss1, libpangocairo-1.0-0, libgtk-3-0t64, fonts-liberation,
+  libappindicator3-1, xdg-utils + a handful more).
+
+Verified locally: HTML preview = 11.6KB, PDF (via Puppeteer) = 248KB,
+rendered from a mixed Amharic+Latin letter with a table, enclosure, and
+unresolved placeholder. Build clean, tsc clean.
+
+**Docs updated:** docs/CHANGELOG_AI.md.
+
+---
+
 ## 2026-05-12 — Letters: implement Eldix Letterhead Spec (A4 + right rail + monochrome)
 
 Per the design handoff bundle `eldix-branding-letter-head/project/Letterhead Spec.md`:

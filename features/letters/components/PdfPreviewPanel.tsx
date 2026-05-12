@@ -3,100 +3,88 @@
 import { useContext, useEffect, useRef, useState } from 'react'
 import { AlertTriangle, Download, Loader2, Printer, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui'
-import { generateLetterPdf } from '../services/lettersApi'
 import { LetterLangContext, useT } from '../i18n'
 
 interface Props {
   letterId: string
-  /**
-   * Whether the page-header level Print restriction applies. We keep the prop
-   * for API stability but no longer block printing of DRAFT letters — being
-   * able to print a draft for review is a normal workflow ask.
-   */
+  /** Retained for prop stability — no longer used. */
   canPrint?: boolean
 }
 
 /**
- * Inline PDF preview pane. Mounts when the user opens the "PDF Preview" tab
- * (Radix Tabs unmounts inactive content), auto-fetches the PDF, and exposes
- * Print + Download + Regenerate actions.
+ * Inline letterhead preview, ERPNext-style.
  *
- * The PDF includes the company letterhead (logo + address band) and a
- * footer with page numbers — see `lib/letter-pdf.tsx` and `lib/letterhead.ts`.
+ * The same HTML that the server renders here is what Puppeteer prints to PDF
+ * on /pdf — so the preview, the browser print dialog, and the downloaded PDF
+ * are byte-identical in layout. No two render engines, no drift.
+ *
+ * Print → iframe.contentWindow.print() (no popups, no popup-blocker)
+ * Download PDF → /api/letters/[id]/pdf?download=1 (Puppeteer renders the same HTML)
  */
 export default function PdfPreviewPanel({ letterId }: Props) {
   const t = useT()
   const { lang } = useContext(LetterLangContext)
-  const [blobUrl, setBlobUrl] = useState<string | null>(null)
+  const iframeRef = useRef<HTMLIFrameElement>(null)
+  // bust=force a refresh of the iframe src after a regenerate. Bumping the
+  // query param is the cheapest way to invalidate the same-document load.
+  const [bust, setBust] = useState(0)
   const [missing, setMissing] = useState<string[]>([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  // Suppress re-fetching when the user toggles the language while the panel
-  // is open — single mount = single auto-fetch; the user clicks Regenerate
-  // if they want the letterhead to update.
-  const autoLoadedRef = useRef(false)
 
-  // Free the blob URL when it's replaced or the component unmounts. Without
-  // this each "Regenerate" leaks a few hundred KB to the JS heap.
+  const htmlUrl = `/api/letters/${letterId}/html?lang=${lang}&_=${bust}`
+  const printUrl = `/api/letters/${letterId}/pdf?lang=${lang}`
+  const downloadUrl = `/api/letters/${letterId}/pdf?lang=${lang}&download=1`
+
+  // When the iframe finishes loading, peek at the `x-missing-placeholders`
+  // header via a separate HEAD-ish fetch so we can surface the warning band
+  // without parsing the HTML.
   useEffect(() => {
-    return () => { if (blobUrl) URL.revokeObjectURL(blobUrl) }
-  }, [blobUrl])
-
-  // Auto-fetch on first mount.
-  useEffect(() => {
-    if (autoLoadedRef.current) return
-    autoLoadedRef.current = true
-    void generate()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  async function generate(): Promise<string | null> {
+    let cancelled = false
     setLoading(true)
     setError(null)
-    try {
-      const data = await generateLetterPdf(letterId, lang)
-      if (blobUrl) URL.revokeObjectURL(blobUrl)
-      setBlobUrl(data.blobUrl)
-      setMissing(data.missing)
-      return data.blobUrl
-    } catch (e: any) {
-      setError(e?.message || 'Could not generate preview')
-      return null
-    } finally {
-      setLoading(false)
-    }
+    fetch(htmlUrl, { method: 'GET' })
+      .then((r) => {
+        if (!r.ok) throw new Error(`Preview failed (${r.status})`)
+        const header = r.headers.get('x-missing-placeholders') || ''
+        if (!cancelled) setMissing(header ? header.split(',').filter(Boolean) : [])
+      })
+      .catch((e) => { if (!cancelled) setError(e.message || 'Preview failed') })
+    return () => { cancelled = true }
+  }, [htmlUrl])
+
+  function onIframeLoad() {
+    setLoading(false)
+  }
+
+  function regenerate() {
+    setBust((b) => b + 1)
   }
 
   /**
-   * Open the PDF in a new tab and trigger the browser's print dialog. Goes
-   * through the GET endpoint (no activity log noise, just a navigation) so
-   * we keep the activity feed clean.
+   * Print the iframe's document. iframe.contentWindow.print() opens the
+   * browser's native print dialog with the exact content the user is
+   * looking at — no new tab, no popup blocker, no `window.open` round-trip.
    */
   function print() {
-    const printUrl = `/api/letters/${letterId}/pdf?lang=${lang}`
-    const win = window.open(printUrl, '_blank')
-    if (!win) {
-      // Popup blocked — fall back to a direct location change which the
-      // browser cannot block.
-      window.location.href = printUrl
-      return
+    const win = iframeRef.current?.contentWindow
+    if (!win) return
+    try {
+      win.focus()
+      win.print()
+    } catch (e) {
+      // Some browsers block cross-origin print() — fall back to the
+      // /pdf route which always opens in a new tab.
+      console.warn('[print] iframe.print() failed, falling back', e)
+      window.open(printUrl, '_blank')
     }
-    // Wait for the embedded PDF viewer to load, then open the system print
-    // dialog. Window.print() works in modern Chrome/Edge/Safari/Firefox once
-    // the PDF viewer's document fires `load`.
-    win.addEventListener('load', () => {
-      try { win.print() } catch { /* viewer may have its own UI */ }
-    })
   }
 
   function download() {
-    const url = `/api/letters/${letterId}/pdf?lang=${lang}&download=1`
-    // <a download> would only work for same-origin direct links — using
-    // location.assign keeps the existing tab and triggers the download.
     const a = document.createElement('a')
-    a.href = url
-    a.download = ''
+    a.href = downloadUrl
     a.rel = 'noopener'
+    a.download = ''
     document.body.appendChild(a)
     a.click()
     a.remove()
@@ -112,46 +100,46 @@ export default function PdfPreviewPanel({ letterId }: Props) {
           <Button onClick={download} variant="outline" className="h-9">
             <Download className="mr-1.5 size-3.5" /> Download PDF
           </Button>
-          <Button onClick={generate} disabled={loading} variant="ghost" className="h-9">
+          <Button onClick={regenerate} disabled={loading} variant="ghost" className="h-9">
             <RefreshCw className={`mr-1.5 size-3.5 ${loading ? 'animate-spin' : ''}`} />
             {t('pdf.regenerate')}
           </Button>
         </div>
-        {missing.length > 0 && (
+        {missing.length > 0 ? (
           <span className="inline-flex items-center gap-1 text-[12px] text-amber-700">
             <AlertTriangle className="size-3.5" /> {t('pdf.missing')} <strong>{missing.join(', ')}</strong>
           </span>
-        )}
+        ) : null}
       </div>
 
-      {error && (
+      {error ? (
         <div className="flex items-start gap-2 rounded-[12px] border border-red-200 bg-red-50 p-3 text-[13px] text-red-700 dark:border-red-900/30 dark:bg-red-900/15 dark:text-red-300">
           <AlertTriangle className="mt-0.5 size-4" />
           <div>
             <div className="font-medium">{t('pdf.failed')}</div>
             <div className="mt-0.5 text-[12px] opacity-80">{error}</div>
-            <Button onClick={generate} variant="link" size="sm" className="px-0">{t('pdf.retry')}</Button>
+            <Button onClick={regenerate} variant="link" size="sm" className="px-0">{t('pdf.retry')}</Button>
           </div>
         </div>
-      )}
+      ) : null}
 
       <div
         className="relative overflow-hidden rounded-[14px] border bg-[color:var(--ap-bg-sunken)]"
         style={{ borderColor: 'var(--ap-border)' }}
       >
-        {loading && !blobUrl && (
-          <div className="flex h-[640px] flex-col items-center justify-center gap-2 text-[13px] text-muted-foreground">
+        {loading ? (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center gap-2 text-[13px] text-muted-foreground">
             <Loader2 className="size-5 animate-spin" />
-            Rendering preview…
+            Loading preview…
           </div>
-        )}
-        {blobUrl && (
-          <iframe
-            title="Letter PDF preview"
-            src={blobUrl}
-            className="h-[720px] w-full bg-white"
-          />
-        )}
+        ) : null}
+        <iframe
+          ref={iframeRef}
+          title="Letter preview"
+          src={htmlUrl}
+          onLoad={onIframeLoad}
+          className="h-[720px] w-full bg-[color:var(--ap-bg-sunken)]"
+        />
       </div>
     </div>
   )

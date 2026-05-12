@@ -19,24 +19,10 @@ const nextConfig = {
     ],
   },
   experimental: {
-    // @react-pdf/renderer uses class components and prototype chains that
-    // webpack minification mangles in production builds — symptom: PDF
-    // generation throws "B.Component is not a constructor" at runtime.
-    // Marking the package (and its react-pdf internals) as a server-external
-    // dependency makes Next leave it as a require() at runtime instead of
-    // bundling it.
-    serverComponentsExternalPackages: [
-      '@react-pdf/renderer',
-      'react-pdf',
-      '@react-pdf/font',
-      '@react-pdf/image',
-      '@react-pdf/layout',
-      '@react-pdf/pdfkit',
-      '@react-pdf/primitives',
-      '@react-pdf/render',
-      '@react-pdf/textkit',
-      '@react-pdf/types',
-    ],
+    // Puppeteer bundles its own Chromium binary and walks node_modules at
+    // runtime (chrome-headless-shell etc). Webpack would try to inline it,
+    // which fails. Keep it external so Next leaves the require() alone.
+    serverComponentsExternalPackages: ['puppeteer', 'puppeteer-core', '@puppeteer/browsers'],
   },
   /**
    * Dev (`npm run dev:webpack`): in-memory webpack cache avoids corrupted pack restores that

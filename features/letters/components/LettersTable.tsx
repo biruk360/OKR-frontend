@@ -37,6 +37,8 @@ export default function LettersTable({ items, loading }: { items: LetterListItem
             <Th>{t('list.col.reference')}</Th>
             <Th>{t('list.col.subject')}</Th>
             <Th>{t('list.col.customer')}</Th>
+            <Th>{t('list.col.preparedBy')}</Th>
+            <Th>{t('list.col.signatory')}</Th>
             <Th>{t('list.col.type')}</Th>
             <Th>{t('list.col.date')}</Th>
             <Th>{t('list.col.status')}</Th>
@@ -50,6 +52,8 @@ export default function LettersTable({ items, loading }: { items: LetterListItem
                   <Td><div className="h-3 w-32 rounded bg-[color:var(--ap-bg-sunken)]" /></Td>
                   <Td><div className="h-3 w-48 rounded bg-[color:var(--ap-bg-sunken)]" /></Td>
                   <Td><div className="h-3 w-32 rounded bg-[color:var(--ap-bg-sunken)]" /></Td>
+                  <Td><div className="h-3 w-24 rounded bg-[color:var(--ap-bg-sunken)]" /></Td>
+                  <Td><div className="h-3 w-24 rounded bg-[color:var(--ap-bg-sunken)]" /></Td>
                   <Td><div className="h-3 w-20 rounded bg-[color:var(--ap-bg-sunken)]" /></Td>
                   <Td><div className="h-3 w-24 rounded bg-[color:var(--ap-bg-sunken)]" /></Td>
                   <Td><div className="h-3 w-16 rounded bg-[color:var(--ap-bg-sunken)]" /></Td>
@@ -78,6 +82,8 @@ export default function LettersTable({ items, loading }: { items: LetterListItem
                       </Link>
                     </Td>
                     <Td className="text-muted-foreground">{l.customerName || '—'}</Td>
+                    <Td className="text-muted-foreground">{l.preparedBy?.name || '—'}</Td>
+                    <Td className="text-muted-foreground">{l.signatory?.name || '—'}</Td>
                     <Td className="text-muted-foreground">{typeName}</Td>
                     <Td className="text-muted-foreground">{format(new Date(l.date), 'd MMM yyyy')}</Td>
                     <Td><LetterStatusBadge status={l.status as LetterStatus} /></Td>

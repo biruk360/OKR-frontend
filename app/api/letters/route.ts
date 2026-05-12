@@ -75,9 +75,9 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
   if (!body.letterType || !LETTER_TYPES.includes(body.letterType)) {
     return apiBadRequest('Invalid letterType')
   }
-  if (!body.customerName || !body.customerName.trim()) {
-    return apiBadRequest('Customer is required')
-  }
+  // Customer is optional — letters can be drafted with no customer pinned yet
+  // (e.g. an internal cover letter or a draft awaiting recipient details).
+  const customerName = (body.customerName || '').trim()
 
   const date = body.date ? new Date(body.date) : new Date()
   if (Number.isNaN(date.getTime())) return apiBadRequest('Invalid date')
@@ -91,7 +91,7 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
       letterType: body.letterType,
       status: 'DRAFT',
       date,
-      customerName: body.customerName.trim(),
+      customerName,
       odooPartnerId: body.odooPartnerId ?? null,
       recipientAddress: body.recipientAddress ?? null,
       salutation: body.salutation ?? null,

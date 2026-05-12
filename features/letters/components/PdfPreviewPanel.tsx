@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { AlertTriangle, FileDown, Printer, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui'
 import { generateLetterPdf } from '../services/lettersApi'
+import { useT } from '../i18n'
 
 interface Props {
   letterId: string
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export default function PdfPreviewPanel({ letterId, canPrint }: Props) {
+  const t = useT()
   const [blobUrl, setBlobUrl] = useState<string | null>(null)
   const [missing, setMissing] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
@@ -53,11 +55,11 @@ export default function PdfPreviewPanel({ letterId, canPrint }: Props) {
       <div className="flex flex-wrap items-center gap-2">
         <Button onClick={generate} disabled={loading} variant="outline" size="sm">
           <RefreshCw className={`mr-1.5 size-3.5 ${loading ? 'animate-spin' : ''}`} />
-          {blobUrl ? 'Regenerate Preview' : 'Generate PDF Preview'}
+          {blobUrl ? t('pdf.regenerate') : t('pdf.generate')}
         </Button>
         {canPrint && (
           <Button onClick={print} variant="outline" size="sm" disabled={loading}>
-            <Printer className="mr-1.5 size-3.5" /> Print
+            <Printer className="mr-1.5 size-3.5" /> {t('pdf.print')}
           </Button>
         )}
       </div>
@@ -65,9 +67,10 @@ export default function PdfPreviewPanel({ letterId, canPrint }: Props) {
         <div className="flex items-start gap-2 rounded-md bg-red-50 p-3 text-sm text-red-700">
           <AlertTriangle className="mt-0.5 size-4" />
           <div>
-            <div className="font-medium">{error}</div>
+            <div className="font-medium">{t('pdf.failed')}</div>
+            <div className="mt-0.5 text-xs opacity-80">{error}</div>
             <Button onClick={generate} variant="link" size="sm" className="px-0">
-              Retry
+              {t('pdf.retry')}
             </Button>
           </div>
         </div>
@@ -76,8 +79,7 @@ export default function PdfPreviewPanel({ letterId, canPrint }: Props) {
         <div className="flex items-start gap-2 rounded-md bg-amber-50 p-3 text-sm text-amber-800">
           <AlertTriangle className="mt-0.5 size-4" />
           <span>
-            Unresolved placeholders: <strong>{missing.join(', ')}</strong>. They appear in the preview as
-            <code className="mx-1 rounded bg-amber-100 px-1">[MISSING]</code> markers.
+            {t('pdf.missing')} <strong>{missing.join(', ')}</strong>
           </span>
         </div>
       )}
@@ -90,7 +92,7 @@ export default function PdfPreviewPanel({ letterId, canPrint }: Props) {
       ) : (
         <div className="flex flex-col items-center gap-2 rounded-md border border-dashed border-gray-200 p-10 text-center text-sm text-gray-500">
           <FileDown className="size-6 text-gray-400" />
-          <span>Click <strong>Generate PDF Preview</strong> to render the letter.</span>
+          <span>{t('pdf.empty')}</span>
         </div>
       )}
     </div>

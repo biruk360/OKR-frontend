@@ -17,16 +17,19 @@ Architecture: 4-layer modular system. Dependencies flow one direction only (down
 
 ## BEFORE WRITING ANY CODE
 
-1. Read `COMPONENTS.md` (root) — if a matching component exists, REUSE IT. Never duplicate.
-2. Read `CONTEXT.md` inside the relevant `features/[module]/` folder.
-3. If creating a screen, check `SITEMAP.md` for existing routes first.
-4. If logic belongs to 2+ features → it goes in `shared/`, not inside any feature.
+1. Run a reuse audit first — check existing packages/libraries, `COMPONENTS.md`, feature modules, routes, shared UI, services, utilities, hooks, stores/providers, tokens, and established UI patterns.
+2. Read `COMPONENTS.md` (root) — if a matching component exists, REUSE IT. Never duplicate.
+3. Read `CONTEXT.md` inside the relevant `features/[module]/` folder.
+4. If creating a screen, check `SITEMAP.md` for existing routes first.
+5. If logic belongs to 2+ features → it goes in `shared/`, not inside any feature.
+6. Only create something new when existing packages, libraries, components, features, UI, or tokens do not fulfill the need. Prefer extending the closest existing abstraction and document the gap the new code fills.
 
 ---
 
 ## BUILD RULES
 
 - Reuse before build — COMPONENTS.md is the source of truth for what exists.
+- Do not add a new dependency, component, token, UI pattern, feature module, service, utility, hook, store, or provider until the reuse audit proves the existing system cannot satisfy the requirement.
 - No hardcoded values — use `foundation/tokens/` for all colors, spacing, typography.
 - Business logic lives in services, never in components or screens.
 - State via Zustand stores (web) or Riverpod providers (mobile) only. No useState for shared state.

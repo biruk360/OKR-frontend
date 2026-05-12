@@ -25,16 +25,19 @@ Architecture: 4-layer modular system.
 
 ## BEFORE YOU WRITE ANY CODE — mandatory pre-read
 
-1. Read `COMPONENTS.md` — check if a component matching your need already exists. If yes, reuse it. Do not duplicate.
-2. Read the `CONTEXT.md` inside the relevant feature module folder.
-3. If creating a new screen, check `SITEMAP.md` for existing routes.
-4. If unsure whether something belongs in `shared/` or `features/`, ask. Default: if two or more features would use it → `shared/`.
+1. Run a reuse audit first — check existing packages/libraries, `COMPONENTS.md`, feature modules, routes, shared UI, services, utilities, hooks, stores/providers, tokens, and established UI patterns.
+2. Read `COMPONENTS.md` — check if a component matching your need already exists. If yes, reuse it. Do not duplicate.
+3. Read the `CONTEXT.md` inside the relevant feature module folder.
+4. If creating a new screen, check `SITEMAP.md` for existing routes.
+5. If unsure whether something belongs in `shared/` or `features/`, ask. Default: if two or more features would use it → `shared/`.
+6. Only create something new when existing packages, libraries, components, features, UI, or tokens do not fulfill the need. Prefer extending the closest existing abstraction and document the gap the new code fills.
 
 ---
 
 ## BUILD RULES — follow these exactly
 
 - **Reuse before build.** If COMPONENTS.md lists it, use it. Only build new if nothing matches.
+- **No new thing before the reuse audit passes.** Do not add a dependency, component, token, UI pattern, feature module, service, utility, hook, store, or provider until the existing system is confirmed insufficient.
 - **No hardcoded values.** Colors → `foundation/tokens/colors`. Spacing → `foundation/tokens/spacing`. Text → `foundation/tokens/typography`. Never inline hex codes, px values, or font sizes.
 - **Business logic in services, not components.** Components call services. Services contain logic.
 - **State via stores only.** Web: Zustand stores in `shared/stores/` or `features/[module]/stores/`. Mobile: Riverpod providers in `shared/providers/` or `features/[module]/providers/`. No `useState` for shared state.

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Modal, Button, Textarea, Label } from '@/components/ui'
+import { useT } from '../i18n'
 
 interface Props {
   open: boolean
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export default function RejectLetterModal({ open, onClose, onSubmit }: Props) {
+  const t = useT()
   const [reason, setReason] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -17,7 +19,7 @@ export default function RejectLetterModal({ open, onClose, onSubmit }: Props) {
   async function handle() {
     setError(null)
     if (!reason.trim()) {
-      setError('Please provide a reason.')
+      setError(t('reject.reason') + '?')
       return
     }
     setSubmitting(true)
@@ -33,21 +35,21 @@ export default function RejectLetterModal({ open, onClose, onSubmit }: Props) {
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Return to Draft" size="sm">
+    <Modal open={open} onClose={onClose} title={t('reject.title')} size="sm">
       <div className="space-y-3 p-4">
-        <Label htmlFor="reject-reason">Reason</Label>
+        <Label htmlFor="reject-reason">{t('reject.reason')}</Label>
         <Textarea
           id="reject-reason"
           rows={4}
           value={reason}
           onChange={(e) => setReason(e.target.value)}
-          placeholder="Explain what needs to change before this letter can be approved…"
+          placeholder={t('reject.reason.placeholder')}
         />
         {error && <p className="text-xs text-red-600">{error}</p>}
         <div className="flex justify-end gap-2 pt-2">
-          <Button variant="outline" onClick={onClose} disabled={submitting}>Cancel</Button>
+          <Button variant="outline" onClick={onClose} disabled={submitting}>{t('reject.cancel')}</Button>
           <Button onClick={handle} disabled={submitting || !reason.trim()}>
-            {submitting ? 'Returning…' : 'Return to Draft'}
+            {submitting ? t('reject.confirming') : t('reject.confirm')}
           </Button>
         </div>
       </div>

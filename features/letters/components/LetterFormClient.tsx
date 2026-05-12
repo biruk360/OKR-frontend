@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -39,6 +39,9 @@ import EnclosuresPanel from './EnclosuresPanel'
 import PdfPreviewPanel from './PdfPreviewPanel'
 import MarkAsSentModal from './MarkAsSentModal'
 import RejectLetterModal from './RejectLetterModal'
+import LetterBodyEditor from './LetterBodyEditor'
+import LetterDatePicker, { type CalendarMode } from './LetterDatePicker'
+import { LetterLangContext, useT, type LetterLang } from '../i18n'
 import type { LetterDetail, LetterEnclosureWithUploader } from '../types'
 import {
   approveLetter,
@@ -64,9 +67,21 @@ function canApprove(role: string) {
   return role === 'ADMIN' || role === 'EXECUTIVE'
 }
 
-export default function LetterFormClient({ initial, viewer }: Props) {
+export default function LetterFormClient(props: Props) {
+  const [lang, setLang] = useState<LetterLang>('en')
+  return (
+    <LetterLangContext.Provider value={{ lang, setLang }}>
+      <LetterFormInner {...props} />
+    </LetterLangContext.Provider>
+  )
+}
+
+function LetterFormInner({ initial, viewer }: Props) {
+  const t = useT()
+  const { lang, setLang } = useContext(LetterLangContext)
   const router = useRouter()
   const [letter, setLetter] = useState<LetterDetail>(initial)
+  const [calendarMode, setCalendarMode] = useState<CalendarMode>('GC')
   const [subject, setSubject] = useState(letter.subject)
   const [salutation, setSalutation] = useState(letter.salutation || '')
   const [closing, setClosing] = useState(letter.closing || '')
@@ -165,62 +180,74 @@ export default function LetterFormClient({ initial, viewer }: Props) {
     if (status === 'DRAFT' && editable) {
       buttons.push(
         <Button key="submit" onClick={handleSubmit} size="sm">
-          <Send className="mr-1.5 size-3.5" /> Submit for Approval
+          <Send className="mr-1.5 size-3.5" /> {t('action.submitForApproval')}
         </Button>
       )
     }
     if (status === 'SUBMITTED' && canApprove(viewer.role)) {
       buttons.push(
         <Button key="approve" onClick={handleApprove} size="sm">
-          <CheckCircle2 className="mr-1.5 size-3.5" /> Approve
+          <CheckCircle2 className="mr-1.5 size-3.5" /> {t('action.approve')}
         </Button>
       )
       buttons.push(
         <Button key="reject" variant="outline" size="sm" onClick={() => setShowRejectModal(true)}>
-          <XCircle className="mr-1.5 size-3.5" /> Return to Draft
+          <XCircle className="mr-1.5 size-3.5" /> {t('action.returnToDraft')}
         </Button>
       )
     }
     if (status === 'APPROVED') {
       buttons.push(
         <Button key="send" onClick={() => setShowSendModal(true)} size="sm">
-          <PackageCheck className="mr-1.5 size-3.5" /> Mark as Sent
+          <PackageCheck className="mr-1.5 size-3.5" /> {t('action.markAsSent')}
         </Button>
       )
     }
     if (status === 'SENT') {
       buttons.push(
         <Button key="archive" variant="outline" size="sm" onClick={handleArchive}>
-          <Archive className="mr-1.5 size-3.5" /> Archive
+          <Archive className="mr-1.5 size-3.5" /> {t('action.archive')}
         </Button>
       )
     }
     if (status === 'ARCHIVED' && viewer.role === 'ADMIN') {
       buttons.push(
         <Button key="unarchive" variant="outline" size="sm" onClick={handleUnarchive}>
-          Unarchive
+          {t('action.unarchive')}
         </Button>
       )
     }
     return buttons
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, editable, viewer.role])
+  }, [status, editable, viewer.role, lang])
 
   return (
-    <div className="space-y-4 p-6">
+    <div className={`space-y-4 p-6 ${lang === 'am' ? 'font-amharic' : ''}`}>
       <PageHeader
         title={letter.referenceNumber || 'Draft Letter'}
-        description={`${LETTER_TYPE_LABEL[letter.letterType as LetterType]} · prepared by ${letter.preparedBy.name}`}
+        description={`${LETTER_TYPE_LABEL[letter.letterType as LetterType]} · ${t('form.preparedBy')} ${letter.preparedBy.name}`}
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            <div className="inline-flex overflow-hidden rounded-md border border-gray-200 bg-white text-xs" title={t('form.lang.label')}>
+              <button
+                type="button"
+                onClick={() => setLang('en')}
+                className={`px-2.5 py-1 ${lang === 'en' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
+              >EN</button>
+              <button
+                type="button"
+                onClick={() => setLang('am')}
+                className={`px-2.5 py-1 ${lang === 'am' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
+              >አማ</button>
+            </div>
             <Link href="/dashboard/letters">
               <Button variant="outline" size="sm">
-                <ArrowLeft className="mr-1.5 size-3.5" /> Back
+                <ArrowLeft className="mr-1.5 size-3.5" /> {t('form.back')}
               </Button>
             </Link>
             {editable && (
               <Button variant="outline" size="sm" onClick={() => save()} disabled={saving}>
-                <Save className="mr-1.5 size-3.5" /> {saving ? 'Saving…' : 'Save'}
+                <Save className="mr-1.5 size-3.5" /> {saving ? t('form.saving') : t('form.save')}
               </Button>
             )}
             {transitionButtons}
@@ -241,7 +268,7 @@ export default function LetterFormClient({ initial, viewer }: Props) {
 
       <Card className="space-y-4 p-4">
         <div>
-          <Label htmlFor="lf-subject">Subject</Label>
+          <Label htmlFor="lf-subject">{t('create.subject')}</Label>
           <Input
             id="lf-subject"
             value={subject}
@@ -253,9 +280,9 @@ export default function LetterFormClient({ initial, viewer }: Props) {
 
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Recipient Details</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">{t('form.recipientDetails')}</h3>
             <div>
-              <Label>Customer</Label>
+              <Label>{t('create.customer')} <span className="text-xs font-normal text-gray-400">{t('create.customer.optional')}</span></Label>
               <CustomerLookup
                 value={{ odooPartnerId, customerName }}
                 onChange={(v) => {
@@ -267,39 +294,52 @@ export default function LetterFormClient({ initial, viewer }: Props) {
               />
             </div>
             <div>
-              <Label htmlFor="lf-address">Recipient Address</Label>
+              <Label htmlFor="lf-address">{t('form.recipientAddress')}</Label>
               <Textarea
                 id="lf-address"
                 rows={3}
                 value={recipientAddress}
                 disabled={!editable}
                 onChange={(e) => setRecipientAddress(e.target.value)}
+                className={lang === 'am' ? 'font-amharic' : ''}
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label htmlFor="lf-salutation">Salutation</Label>
-                <Input id="lf-salutation" value={salutation} disabled={!editable} onChange={(e) => setSalutation(e.target.value)} />
+                <Label htmlFor="lf-salutation">{t('form.salutation')}</Label>
+                <Input id="lf-salutation" value={salutation} disabled={!editable}
+                  onChange={(e) => setSalutation(e.target.value)}
+                  className={lang === 'am' ? 'font-amharic' : ''} />
               </div>
               <div>
-                <Label htmlFor="lf-closing">Closing</Label>
-                <Input id="lf-closing" value={closing} disabled={!editable} onChange={(e) => setClosing(e.target.value)} />
+                <Label htmlFor="lf-closing">{t('form.closing')}</Label>
+                <Input id="lf-closing" value={closing} disabled={!editable}
+                  onChange={(e) => setClosing(e.target.value)}
+                  className={lang === 'am' ? 'font-amharic' : ''} />
               </div>
             </div>
           </div>
 
           <div className="space-y-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Sender Info</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">{t('form.senderInfo')}</h3>
             <div>
-              <Label htmlFor="lf-date">Date</Label>
-              <Input id="lf-date" type="date" value={date} disabled={!editable} onChange={(e) => setDate(e.target.value)} />
+              <LetterDatePicker
+                value={date}
+                onChange={setDate}
+                mode={calendarMode}
+                onModeChange={setCalendarMode}
+                disabled={!editable}
+                lang={lang}
+                label={t('form.date')}
+                modeLabel={{ gc: t('form.calendar.gc'), ec: t('form.calendar.ec'), toggle: t('form.calendar.label') }}
+              />
             </div>
             <div>
-              <Label>Letter Type</Label>
+              <Label>{t('form.letterType')}</Label>
               <Input value={LETTER_TYPE_LABEL[letter.letterType as LetterType]} disabled />
             </div>
             <div>
-              <Label htmlFor="lf-signatory">Signatory</Label>
+              <Label htmlFor="lf-signatory">{t('form.signatory')}</Label>
               <select
                 id="lf-signatory"
                 value={signatoryId || ''}
@@ -307,15 +347,17 @@ export default function LetterFormClient({ initial, viewer }: Props) {
                 onChange={(e) => setSignatoryId(e.target.value || null)}
                 className="flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
               >
-                <option value="">— Select signatory —</option>
+                <option value="">{t('form.signatory.empty')}</option>
                 {(users || []).map((u) => (
                   <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
                 ))}
               </select>
             </div>
             <div>
-              <Label htmlFor="lf-dept">Sender Department</Label>
-              <Input id="lf-dept" value={senderDepartment} disabled={!editable} onChange={(e) => setSenderDepartment(e.target.value)} />
+              <Label htmlFor="lf-dept">{t('form.senderDepartment')}</Label>
+              <Input id="lf-dept" value={senderDepartment} disabled={!editable}
+                onChange={(e) => setSenderDepartment(e.target.value)}
+                className={lang === 'am' ? 'font-amharic' : ''} />
             </div>
           </div>
         </div>
@@ -323,22 +365,18 @@ export default function LetterFormClient({ initial, viewer }: Props) {
 
       <Tabs defaultValue="body" className="w-full">
         <TabsList>
-          <TabsTrigger value="body">Body Content</TabsTrigger>
-          <TabsTrigger value="enclosures">Enclosures ({enclosures.length})</TabsTrigger>
-          <TabsTrigger value="preview">PDF Preview</TabsTrigger>
+          <TabsTrigger value="body">{t('form.tabs.body')}</TabsTrigger>
+          <TabsTrigger value="enclosures">{t('form.tabs.enclosures')} ({enclosures.length})</TabsTrigger>
+          <TabsTrigger value="preview">{t('form.tabs.preview')}</TabsTrigger>
         </TabsList>
         <TabsContent value="body">
           <Card className="p-4">
-            <Label className="mb-1 block text-xs text-gray-500">
-              HTML supported. Placeholders like <code>{'{{customer_name}}'}</code>, <code>{'{{date}}'}</code>,
-              <code>{'{{reference_number}}'}</code> are resolved at PDF generation.
-            </Label>
-            <Textarea
-              rows={18}
+            <p className="mb-2 text-xs text-gray-500">{t('form.body.help')}</p>
+            <LetterBodyEditor
               value={bodyContent}
+              onChange={setBodyContent}
               disabled={!editable}
-              onChange={(e) => setBodyContent(e.target.value)}
-              className="font-mono text-sm"
+              lang={lang}
             />
           </Card>
         </TabsContent>
@@ -360,7 +398,7 @@ export default function LetterFormClient({ initial, viewer }: Props) {
       </Tabs>
 
       <Card className="p-4">
-        <h3 className="mb-2 text-sm font-semibold text-gray-700">Activity Log</h3>
+        <h3 className="mb-2 text-sm font-semibold text-gray-700">{t('form.activityLog')}</h3>
         <ActivityLogPanel entityType="letter" entityId={letter.id} embedded />
       </Card>
 

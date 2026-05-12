@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Modal, Button, Input, Label } from '@/components/ui'
 import type { LetterDispatchMethod } from '@/types'
+import { useT } from '../i18n'
 
 interface Props {
   open: boolean
@@ -14,13 +15,10 @@ interface Props {
   }) => Promise<void>
 }
 
-const METHODS: { value: LetterDispatchMethod; label: string }[] = [
-  { value: 'EMAIL', label: 'Email' },
-  { value: 'PRINTED', label: 'Printed' },
-  { value: 'COURIER', label: 'Courier' },
-]
+const METHODS: LetterDispatchMethod[] = ['EMAIL', 'PRINTED', 'COURIER']
 
 export default function MarkAsSentModal({ open, onClose, onSubmit }: Props) {
+  const t = useT()
   const [method, setMethod] = useState<LetterDispatchMethod>('EMAIL')
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [tracking, setTracking] = useState('')
@@ -45,29 +43,29 @@ export default function MarkAsSentModal({ open, onClose, onSubmit }: Props) {
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Mark as Sent" size="sm">
+    <Modal open={open} onClose={onClose} title={t('send.title')} size="sm">
       <div className="space-y-3 p-4">
         <div>
-          <Label>Dispatch Method</Label>
+          <Label>{t('send.method')}</Label>
           <div className="mt-1 flex gap-2">
             {METHODS.map((m) => (
               <button
-                key={m.value}
+                key={m}
                 type="button"
-                onClick={() => setMethod(m.value)}
+                onClick={() => setMethod(m)}
                 className={`flex-1 rounded-md border px-3 py-2 text-sm ${
-                  method === m.value
+                  method === m
                     ? 'border-blue-500 bg-blue-50 text-blue-700'
                     : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
                 }`}
               >
-                {m.label}
+                {t(`send.method.${m}` as any)}
               </button>
             ))}
           </div>
         </div>
         <div>
-          <Label htmlFor="dispatch-date">Dispatch Date</Label>
+          <Label htmlFor="dispatch-date">{t('send.date')}</Label>
           <Input
             id="dispatch-date"
             type="date"
@@ -76,19 +74,19 @@ export default function MarkAsSentModal({ open, onClose, onSubmit }: Props) {
           />
         </div>
         <div>
-          <Label htmlFor="tracking-ref">Tracking Reference (optional)</Label>
+          <Label htmlFor="tracking-ref">{t('send.tracking')}</Label>
           <Input
             id="tracking-ref"
             value={tracking}
             onChange={(e) => setTracking(e.target.value)}
-            placeholder="e.g. DHL-AWB 8421 0091"
+            placeholder={t('send.tracking.placeholder')}
           />
         </div>
         {error && <p className="text-xs text-red-600">{error}</p>}
         <div className="flex justify-end gap-2 pt-2">
-          <Button variant="outline" onClick={onClose} disabled={submitting}>Cancel</Button>
+          <Button variant="outline" onClick={onClose} disabled={submitting}>{t('send.cancel')}</Button>
           <Button onClick={handle} disabled={submitting}>
-            {submitting ? 'Marking…' : 'Mark as Sent'}
+            {submitting ? t('send.confirming') : t('send.confirm')}
           </Button>
         </div>
       </div>

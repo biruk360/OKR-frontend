@@ -34,12 +34,14 @@ This is a **Next.js 14 OKR Management System** — TypeScript, Tailwind CSS, Pri
 
 ## Before Writing Code
 
-1. **Read `docs/COMPONENT_CATALOG.md`** — Check if a reusable component already exists.
-2. **Read `docs/FEATURE_STATUS.md`** — Check if the feature or module already exists.
-3. **Read `types/index.ts`** — Check if the type is already defined.
-4. **Read `hooks/`** — Check if a shared hook exists for what you need.
-5. **REUSE existing code.** Do NOT create a new component, hook, type, or utility if one already exists.
-6. **Check barrel exports** — Read `features/[name]/index.ts` before creating anything new in a feature.
+1. **Run a reuse audit before implementation.** Check existing packages/libraries (`package.json`), features/modules, routes, UI primitives, shared components, hooks, services/utilities, types, design tokens, and established UI patterns.
+2. **Read `docs/COMPONENT_CATALOG.md`** — Check if a reusable component already exists.
+3. **Read `docs/FEATURE_STATUS.md`** — Check if the feature or module already exists.
+4. **Read `types/index.ts`** — Check if the type is already defined.
+5. **Read `hooks/` and `lib/`** — Check if a shared hook, service, utility, or API helper exists for what you need.
+6. **REUSE existing code.** Do NOT create a new package dependency, component, hook, type, utility, design token, UI pattern, or feature module if an existing one satisfies the need.
+7. **Only build new when there is a real gap.** If existing packages, libraries, components, features, UI, or tokens do not fulfill the requirement, prefer extending the closest existing abstraction and document the gap the new code fills.
+8. **Check barrel exports** — Read `features/[name]/index.ts` before creating anything new in a feature.
 
 ## After Completing Work
 

@@ -13,6 +13,26 @@
 
 ---
 
+## 2026-05-12 — Letter Management: WYSIWYG editor, Ethiopian calendar, bilingual UI, real PDF
+
+Round 2 of Letter Management. Adds true rich-text editing, dual-calendar date entry, full Amharic/English UI switching for the Letters module, and a robust server-side PDF pipeline. Fixes the "PDF generation failed" error from the first round (cause: default Helvetica/Times in @react-pdf had no glyph for ™ and other Unicode chars, which crashed the renderer on common letter content).
+
+- **Add** Tiptap-based WYSIWYG editor — `features/letters/components/LetterBodyEditor.tsx`. Supports bold/italic/underline/strikethrough, H2/H3, bulleted & numbered lists, blockquote, hyperlinks, and **tables** (insert/add-row/delete). Page-like writing surface for visual feedback; real pagination is in the PDF.
+- **Add** Tiptap extensions — `@tiptap/extension-table`, `-table-row`, `-table-cell`, `-table-header`, `-underline` (all pinned 3.22.4 to match existing `@tiptap/starter-kit`).
+- **Add** Ethiopian calendar date picker — `features/letters/components/LetterDatePicker.tsx`. Uses `kenat@3.2.0`. Stores canonical GC ISO under the hood; lets users pick EC or GC and shows the other calendar inline for confirmation.
+- **Add** i18n dictionary + context — `features/letters/i18n.ts`. Letters-module-only bilingual support (Amharic / English) per scoped requirements. Form, list, create modal, dispatch modal, reject modal, PDF panel, table all translated.
+- **Add** Amharic font class — `font-amharic` in `app/globals.css` falls back to Noto Sans Ethiopic / Abyssinica SIL / Nyala / Ethiopia Jiret.
+- **Rewrite** PDF renderer — `lib/letter-pdf.tsx` now parses Tiptap HTML (paragraphs, headings, lists, tables, inline bold/italic, links, blockquote) into a structured tree and maps each block to @react-pdf primitives. Registers `NotoSans` (Latin) and `NotoSansEthiopic` (Ge'ez) TTFs from `/public/fonts/` so Unicode chars and Amharic glyphs render correctly. Pages auto-switch to the Ethiopic family when Ge'ez codepoints are detected in the body.
+- **Add** bundled fonts — `public/fonts/NotoSans-{Regular,Bold,Italic}.ttf` and `public/fonts/NotoSansEthiopic-{Regular,Bold}.ttf` (~3.3 MB total).
+- **Update** `app/api/letters/route.ts` and `app/api/letters/[id]/submit/route.ts` — customer is now optional at create time; submission requires only subject + body (not customer).
+- **Update** `CreateLetterModal` — customer field labelled "(optional)" and validation removed.
+- **Update** form header — added EN / አማ language toggle pill; status bar + transition buttons localize on toggle.
+- **Verified** locally: full-letter PDF probe with tables + Amharic text + em-dash + ™ produces a valid 21 KB PDF (was failing before).
+- **Tests:** not run. `tsc --noEmit` clean across the repo. PDF renderer probed directly via `scripts/pdf-full-probe.ts` (cleaned up after).
+- **Docs updated:** `docs/CHANGELOG_AI.md`.
+
+---
+
 ## 2026-05-12 — Letter Management: vertical slice (mocked Odoo + PDF)
 
 New standalone module per `docs/letter_management_requirements.md` v2.0 — Cover, Offer, and Guarantee letters with the full Draft → Submitted → Approved → Sent → Archived workflow. Odoo contact lookup and PDF rendering are mocked (typeahead returns a stub roster; the PDF endpoint returns server-rendered HTML for inline preview + print). Sequence allocation, permissions, activity log, and enclosures are real.

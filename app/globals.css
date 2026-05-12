@@ -1465,3 +1465,60 @@
   .page-break-before { page-break-before: always; break-before: page; }
   .page-break-after  { page-break-after: always;  break-after: page; }
 }
+
+/* === Letter Management — editor & PDF preview surface === */
+.letter-editor-surface { color: #111; line-height: 1.7; }
+.letter-editor-surface p { margin: 0 0 0.85em; }
+.letter-editor-surface h2 { font-size: 1.25rem; font-weight: 700; margin: 1.25em 0 0.5em; }
+.letter-editor-surface h3 { font-size: 1.05rem; font-weight: 600; margin: 1em 0 0.4em; }
+.letter-editor-surface ul { list-style: disc; padding-left: 1.6em; margin: 0.5em 0 0.85em; }
+.letter-editor-surface ol { list-style: decimal; padding-left: 1.6em; margin: 0.5em 0 0.85em; }
+.letter-editor-surface li { margin: 0.2em 0; }
+.letter-editor-surface blockquote {
+  border-left: 3px solid #cbd5e1;
+  padding-left: 0.9em;
+  color: #475569;
+  margin: 0.6em 0;
+}
+.letter-editor-surface a { color: #2563eb; text-decoration: underline; text-underline-offset: 2px; }
+.letter-editor-surface table.letter-table,
+.letter-editor-surface table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.9em 0;
+  table-layout: fixed;
+  font-size: 0.95em;
+}
+.letter-editor-surface table td,
+.letter-editor-surface table th {
+  border: 1px solid #d1d5db;
+  padding: 0.45rem 0.6rem;
+  vertical-align: top;
+  position: relative;
+}
+.letter-editor-surface table th {
+  background: #f8fafc;
+  font-weight: 600;
+  text-align: left;
+}
+.letter-editor-surface table .selectedCell {
+  background: rgba(37, 99, 235, 0.08);
+}
+.letter-editor-surface .tableWrapper { overflow-x: auto; }
+.letter-editor-surface p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: #94a3b8;
+  float: left;
+  pointer-events: none;
+  height: 0;
+}
+
+/* Amharic text — relies on a Noto Sans Ethiopic webfont if available;
+   falls back gracefully to system Ethiopic fonts so the editor stays
+   readable even on machines without the webfont installed. */
+.font-amharic,
+.letter-editor-surface[dir="ltr"][lang="am"],
+.letter-amharic {
+  font-family: 'Noto Sans Ethiopic', 'Noto Serif Ethiopic', 'Abyssinica SIL',
+    'Nyala', 'Ethiopia Jiret', system-ui, sans-serif;
+}

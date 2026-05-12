@@ -5,6 +5,7 @@ import { Modal, Button, Input, Label } from '@/components/ui'
 import { LETTER_TYPE_LABEL, type LetterType } from '@/types'
 import CustomerLookup from './CustomerLookup'
 import { createLetter } from '../services/lettersApi'
+import { useT } from '../i18n'
 import type { LetterListItem } from '../types'
 
 interface Props {
@@ -16,6 +17,7 @@ interface Props {
 const LETTER_TYPES: LetterType[] = ['COVER', 'OFFER', 'GUARANTEE']
 
 export default function CreateLetterModal({ open, onClose, onCreated }: Props) {
+  const t = useT()
   const [subject, setSubject] = useState('')
   const [letterType, setLetterType] = useState<LetterType>('COVER')
   const [customerName, setCustomerName] = useState('')
@@ -39,10 +41,6 @@ export default function CreateLetterModal({ open, onClose, onCreated }: Props) {
       setError('Subject must be at least 3 characters')
       return
     }
-    if (!customerName.trim()) {
-      setError('Customer is required')
-      return
-    }
     setSubmitting(true)
     try {
       const letter = await createLetter({
@@ -62,39 +60,39 @@ export default function CreateLetterModal({ open, onClose, onCreated }: Props) {
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="New Letter" size="md">
+    <Modal open={open} onClose={onClose} title={t('create.title')} size="md">
       <div className="space-y-3 p-4">
         <div>
-          <Label htmlFor="subject">Subject</Label>
+          <Label htmlFor="subject">{t('create.subject')}</Label>
           <Input
             id="subject"
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
-            placeholder="e.g. Offer for 2026 Cloud Hosting"
+            placeholder={t('create.subject.placeholder')}
             maxLength={255}
           />
         </div>
         <div>
-          <Label>Letter Type</Label>
+          <Label>{t('create.type')}</Label>
           <div className="mt-1 flex gap-2">
-            {LETTER_TYPES.map((t) => (
+            {LETTER_TYPES.map((lt) => (
               <button
-                key={t}
+                key={lt}
                 type="button"
-                onClick={() => setLetterType(t)}
+                onClick={() => setLetterType(lt)}
                 className={`flex-1 rounded-md border px-3 py-2 text-sm ${
-                  letterType === t
+                  letterType === lt
                     ? 'border-blue-500 bg-blue-50 text-blue-700'
                     : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
                 }`}
               >
-                {LETTER_TYPE_LABEL[t]}
+                {LETTER_TYPE_LABEL[lt]}
               </button>
             ))}
           </div>
         </div>
         <div>
-          <Label>Customer</Label>
+          <Label>{t('create.customer')} <span className="text-xs font-normal text-gray-400">{t('create.customer.optional')}</span></Label>
           <CustomerLookup
             value={{ odooPartnerId, customerName }}
             onChange={(v) => {
@@ -106,9 +104,9 @@ export default function CreateLetterModal({ open, onClose, onCreated }: Props) {
         </div>
         {error && <p className="text-xs text-red-600">{error}</p>}
         <div className="flex justify-end gap-2 pt-2">
-          <Button variant="outline" onClick={onClose} disabled={submitting}>Cancel</Button>
+          <Button variant="outline" onClick={onClose} disabled={submitting}>{t('create.cancel')}</Button>
           <Button onClick={handle} disabled={submitting}>
-            {submitting ? 'Creating…' : 'Create Draft'}
+            {submitting ? t('create.submitting') : t('create.submit')}
           </Button>
         </div>
       </div>

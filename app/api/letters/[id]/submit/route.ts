@@ -24,8 +24,8 @@ export const POST = withAuth<RouteIdParams>(async (_req, { session, params }) =>
   if (letter.preparedById !== session.user.id && session.user.role !== 'ADMIN') {
     return apiForbidden('Only the preparer can submit this letter')
   }
-  if (!letter.subject || !letter.customerName || !letter.bodyContent) {
-    return apiBadRequest('Subject, customer, and body content are required before submission')
+  if (!letter.subject || !letter.bodyContent) {
+    return apiBadRequest('Subject and body content are required before submission')
   }
 
   const updated = await prisma.letter.update({

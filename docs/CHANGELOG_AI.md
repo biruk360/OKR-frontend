@@ -13,6 +13,30 @@
 
 ---
 
+## 2026-05-12 — Letter Management: swap Tiptap for SuperDoc (Word-class .docx editor)
+
+Replace the Tiptap-based `LetterBodyEditor` with SuperDoc (Harbour Enterprises, AGPLv3) for true Word-class editing — native .docx storage, tables with cell ops, headers/footers, comments, track changes, pagination. Keeps the existing PDF pipeline (mammoth converts the saved .docx back to HTML, which feeds the existing @react-pdf parser).
+
+- **Add** dependencies — `superdoc` 1.32, `@superdoc-dev/react` 1.3, `mammoth` 1.12, `docx` 9.6, `html-docx-js-typescript` 0.1.5, plus SuperDoc peer deps (`yjs`, `y-prosemirror`, `prosemirror-*`, `pdfjs-dist`, `@hocuspocus/provider`).
+- **Add** Prisma column `Letter.bodyDocx Bytes?` — stores the authoritative .docx blob from SuperDoc. `bodyContent` is retained as an HTML mirror that the PUT route regenerates server-side via mammoth on every save.
+- **Add** `GET/PUT /api/letters/[id]/docx` — GET streams the .docx (or converts the existing HTML template to .docx on first open); PUT receives the .docx blob from the client after edits and rewrites both `bodyDocx` and the HTML mirror.
+- **Add** `lib/empty-docx.ts` — cached single-paragraph .docx for letters with no body yet.
+- **Add** `features/letters/components/SuperDocEditorClient.tsx` — SSR-safe wrapper that dynamic-imports SuperDoc only on mount (Vue/Pinia/Konva internals would crash an SSR pass otherwise). Debounced 2s autosave with optimistic save indicator + retry on failure.
+- **Update** `LetterFormClient` — body tab now renders `SuperDocEditorClient` instead of the Tiptap `LetterBodyEditor`; the form's own save flow no longer handles bodyContent (SuperDoc owns it end-to-end via the docx PUT route).
+- **Bundle** — `/dashboard/letters/[id]` static portion is 176 KB First Load JS; SuperDoc itself is split into two lazy chunks (~1.5 + 2.3 MB unminified) that only download when the body tab is first rendered. No SSR penalty.
+- **Server load** — zero new processes. The editor runs entirely in the browser (per SuperDoc docs). mammoth runs server-side on each save (~500ms typical) inside the existing Next.js process.
+
+**Honest gaps** (verified against the audit):
+- **No drag-handle ruler / column-width handles** in the AGPL build — table cell operations (add/del row/col, merge/split) are toolbar-driven only. This is a SuperDoc limit, not a config knob.
+- **PDF export** stays on `@react-pdf/renderer` via the HTML mirror. SuperDoc has no built-in PDF.
+- **Amharic + tables fidelity** verified via build + Unicode font registration; live UX needs the smoke test you're about to run.
+- AGPLv3 obligation: we're consuming unmodified upstream, internal-only — minimum-obligation path. Patching SuperDoc would require offering modified source to all users of the deployed app.
+
+**Tests:** `tsc --noEmit` clean, `npm run build` clean, letters page bundle 176 KB static + lazy SuperDoc chunks. Live smoke test next.
+**Docs updated:** `docs/CHANGELOG_AI.md`. The earlier "WYSIWYG editor, Ethiopian calendar, bilingual UI, real PDF" entry (just below) still applies — calendar + bilingual UI carried over unchanged.
+
+---
+
 ## 2026-05-12 — Letter Management: WYSIWYG editor, Ethiopian calendar, bilingual UI, real PDF
 
 Round 2 of Letter Management. Adds true rich-text editing, dual-calendar date entry, full Amharic/English UI switching for the Letters module, and a robust server-side PDF pipeline. Fixes the "PDF generation failed" error from the first round (cause: default Helvetica/Times in @react-pdf had no glyph for ™ and other Unicode chars, which crashed the renderer on common letter content).

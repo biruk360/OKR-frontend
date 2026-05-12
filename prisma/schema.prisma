@@ -1543,6 +1543,11 @@ model Letter {
   closing           String?
   senderDepartment  String?
   bodyContent       String?   @db.Text
+  // The authoritative letter body as a .docx (OOXML) blob produced by SuperDoc.
+  // `bodyContent` is kept as an HTML mirror (regenerated server-side via
+  // mammoth.js) for placeholder resolution + PDF rendering, but once a letter
+  // has been edited in SuperDoc the source of truth is `bodyDocx`.
+  bodyDocx          Bytes?
   // Authors / signatory.
   preparedById      String
   signatoryId       String?

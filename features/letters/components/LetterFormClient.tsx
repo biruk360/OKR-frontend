@@ -39,7 +39,7 @@ import EnclosuresPanel from './EnclosuresPanel'
 import PdfPreviewPanel from './PdfPreviewPanel'
 import MarkAsSentModal from './MarkAsSentModal'
 import RejectLetterModal from './RejectLetterModal'
-import LetterBodyEditor from './LetterBodyEditor'
+import SuperDocEditorClient from './SuperDocEditorClient'
 import LetterDatePicker, { type CalendarMode } from './LetterDatePicker'
 import { LetterLangContext, useT, type LetterLang } from '../i18n'
 import type { LetterDetail, LetterEnclosureWithUploader } from '../types'
@@ -90,7 +90,9 @@ function LetterFormInner({ initial, viewer }: Props) {
   const [signatoryId, setSignatoryId] = useState<string | null>(letter.signatoryId)
   const [customerName, setCustomerName] = useState(letter.customerName)
   const [odooPartnerId, setOdooPartnerId] = useState<string | null>(letter.odooPartnerId)
-  const [bodyContent, setBodyContent] = useState(letter.bodyContent || '')
+  // Body content is now owned by SuperDocEditorClient — it saves the .docx
+  // binary (and HTML mirror) directly via PUT /api/letters/[id]/docx. The
+  // form only manages the structured fields (subject, customer, dates, etc.).
   const [date, setDate] = useState(() => new Date(letter.date).toISOString().slice(0, 10))
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -101,16 +103,6 @@ function LetterFormInner({ initial, viewer }: Props) {
   const editable = canEditDraft(viewer, letter)
   const status = letter.status as LetterStatus
   const { users } = useUsersForSelection()
-
-  // FR-5: auto-save body content after 30s of inactivity (DRAFT only).
-  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  useEffect(() => {
-    if (!editable) return
-    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
-    autoSaveTimer.current = setTimeout(() => { void save({ silent: true }) }, 30_000)
-    return () => { if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current) }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bodyContent])
 
   async function save(opts?: { silent?: boolean }): Promise<void> {
     if (!editable) return
@@ -127,7 +119,6 @@ function LetterFormInner({ initial, viewer }: Props) {
         closing,
         senderDepartment,
         signatoryId,
-        bodyContent,
       }
       const updated = await updateLetter(letter.id, payload)
       setLetter((prev) => ({ ...prev, ...updated, enclosures: prev.enclosures }))
@@ -370,13 +361,17 @@ function LetterFormInner({ initial, viewer }: Props) {
           <TabsTrigger value="preview">{t('form.tabs.preview')}</TabsTrigger>
         </TabsList>
         <TabsContent value="body">
-          <Card className="p-4">
-            <p className="mb-2 text-xs text-gray-500">{t('form.body.help')}</p>
-            <LetterBodyEditor
-              value={bodyContent}
-              onChange={setBodyContent}
-              disabled={!editable}
-              lang={lang}
+          <Card className="p-2">
+            <p className="px-2 pb-2 pt-1 text-xs text-gray-500">{t('form.body.help')}</p>
+            <SuperDocEditorClient
+              letterId={letter.id}
+              docxUrl={`/api/letters/${letter.id}/docx`}
+              editable={editable}
+              user={{
+                id: viewer.id,
+                name: letter.preparedBy.name,
+                email: letter.preparedBy.email,
+              }}
             />
           </Card>
         </TabsContent>

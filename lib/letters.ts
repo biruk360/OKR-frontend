@@ -12,12 +12,19 @@ const REF_PATTERN = (typeCode: string, seq: number, year: number) =>
  * Allocate the next reference number for a given letter type+year, atomically.
  *
  * Why: spec FR-2 requires monotonic, no-duplicate sequence per (type, year).
- * How: interactive transaction with serializable isolation — the
- * `LetterSequence` row is the lock target; concurrent allocators serialize
- * through the unique `(typeCode, year)` constraint.
+ * How: interactive transaction — the `LetterSequence` row is the lock target;
+ * concurrent allocators serialize through the unique `(typeCode, year)`
+ * constraint.
+ *
+ * The first argument was historically a `LetterType` literal (one of three
+ * built-ins). It now accepts any 2–4 char code so user-defined letter types
+ * (LetterTypeDef.code) work the same way.
  */
-export async function allocateLetterReference(letterType: LetterType, date: Date): Promise<string> {
-  const typeCode = LETTER_TYPE_CODE[letterType]
+export async function allocateLetterReference(typeOrCode: LetterType | string, date: Date): Promise<string> {
+  const typeCode =
+    typeOrCode in LETTER_TYPE_CODE
+      ? LETTER_TYPE_CODE[typeOrCode as LetterType]
+      : String(typeOrCode).toUpperCase()
   const year = date.getUTCFullYear()
 
   const seq = await prisma.$transaction(async (tx) => {

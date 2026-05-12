@@ -72,6 +72,7 @@ model User {
   preparedLetters             Letter[]                 @relation("LetterPreparedBy")
   signatoryLetters            Letter[]                 @relation("LetterSignatory")
   uploadedEnclosures          LetterEnclosure[]        @relation("LetterEnclosureUploader")
+  createdLetterTypes          LetterTypeDef[]          @relation("LetterTypeCreator")
 
   @@map("users")
 }
@@ -1532,7 +1533,10 @@ model Letter {
   id                String    @id @default(cuid())
   referenceNumber   String?   @unique // 360G/LT/{CL|OF|GR}/{SEQ}/{YEAR} — null while DRAFT pre-save
   subject           String
-  letterType        String // COVER | OFFER | GUARANTEE
+  // Legacy single-string letter type (COVER/OFFER/GUARANTEE). Kept for
+  // back-compat; the authoritative type for new letters is `letterTypeId`.
+  letterType        String
+  letterTypeId      String?
   status            String    @default("DRAFT") // DRAFT | SUBMITTED | APPROVED | SENT | ARCHIVED
   date              DateTime  @default(now())
   // Customer — Odoo lookup or free-text fallback.
@@ -1560,13 +1564,15 @@ model Letter {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  preparedBy  User              @relation("LetterPreparedBy", fields: [preparedById], references: [id])
-  signatory   User?             @relation("LetterSignatory", fields: [signatoryId], references: [id], onDelete: SetNull)
-  enclosures  LetterEnclosure[]
-  activityLog ActivityLog[]
+  preparedBy    User              @relation("LetterPreparedBy", fields: [preparedById], references: [id])
+  signatory     User?             @relation("LetterSignatory", fields: [signatoryId], references: [id], onDelete: SetNull)
+  letterTypeDef LetterTypeDef?    @relation(fields: [letterTypeId], references: [id], onDelete: SetNull)
+  enclosures    LetterEnclosure[]
+  activityLog   ActivityLog[]
 
   @@index([status, date])
   @@index([letterType, date])
+  @@index([letterTypeId])
   @@index([preparedById])
   @@index([signatoryId])
   @@map("letters")
@@ -1593,11 +1599,31 @@ model LetterEnclosure {
 /// Concurrent-safe: rely on the unique constraint + interactive transaction increment.
 model LetterSequence {
   id        String   @id @default(cuid())
-  typeCode  String // CL | OF | GR
+  typeCode  String // CL | OF | GR | custom user-defined codes
   year      Int
   lastSeq   Int      @default(0)
   updatedAt DateTime @updatedAt
 
   @@unique([typeCode, year])
   @@map("letter_sequences")
+}
+
+/// User-defined letter types. Seeded with three built-ins (COVER, OFFER,
+/// GUARANTEE) marked `isBuiltIn: true` — those cannot be deleted but custom
+/// types created by users can. The `code` field is the 2-letter ref-number
+/// prefix (e.g. "CL", "OF", "GR", "NC" for a custom "Notice" type).
+model LetterTypeDef {
+  id          String   @id @default(cuid())
+  code        String   @unique // e.g. "CL", "OF", "GR", "NC"
+  name        String   @unique // e.g. "Cover Letter"
+  description String?
+  isBuiltIn   Boolean  @default(false)
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  createdBy User?    @relation("LetterTypeCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  letters   Letter[]
+
+  @@map("letter_types")
 }

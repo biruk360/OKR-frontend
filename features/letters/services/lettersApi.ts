@@ -4,6 +4,7 @@ import type {
   CreateLetterForm,
   UpdateLetterForm,
   LetterDispatchMethod,
+  LetterTypeRecord,
 } from '@/types'
 import type {
   LetterDetail,
@@ -129,6 +130,16 @@ export const addEnclosure = (
 
 export const removeEnclosure = (id: string, enclosureId: string) =>
   fetch(`/api/letters/${id}/enclosures/${enclosureId}`, { method: 'DELETE' }).then(parse<{ id: string }>)
+
+export const listLetterTypes = (): Promise<LetterTypeRecord[]> =>
+  fetch('/api/letters/types').then(parse<LetterTypeRecord[]>)
+
+export const createLetterType = (input: { name: string; code?: string; description?: string }): Promise<LetterTypeRecord> =>
+  fetch('/api/letters/types', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(input),
+  }).then(parse<LetterTypeRecord>)
 
 export const searchOdooContacts = (q: string) =>
   fetch(`/api/letters/odoo/contacts?q=${encodeURIComponent(q)}`).then(

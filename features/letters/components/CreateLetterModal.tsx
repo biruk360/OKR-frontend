@@ -2,8 +2,8 @@
 
 import { useState } from 'react'
 import { Modal, Button, Input, Label } from '@/components/ui'
-import { LETTER_TYPE_LABEL, type LetterType } from '@/types'
 import CustomerLookup from './CustomerLookup'
+import LetterTypeSelect from './LetterTypeSelect'
 import { createLetter } from '../services/lettersApi'
 import { useT } from '../i18n'
 import type { LetterListItem } from '../types'
@@ -14,41 +14,34 @@ interface Props {
   onCreated: (letter: LetterListItem) => void
 }
 
-const LETTER_TYPES: LetterType[] = ['COVER', 'OFFER', 'GUARANTEE']
-
 export default function CreateLetterModal({ open, onClose, onCreated }: Props) {
   const t = useT()
   const [subject, setSubject] = useState('')
-  const [letterType, setLetterType] = useState<LetterType>('COVER')
+  const [letterTypeId, setLetterTypeId] = useState<string | null>(null)
   const [customerName, setCustomerName] = useState('')
   const [odooPartnerId, setOdooPartnerId] = useState<string | null>(null)
-  const [address, setAddress] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   function reset() {
     setSubject('')
-    setLetterType('COVER')
+    setLetterTypeId(null)
     setCustomerName('')
     setOdooPartnerId(null)
-    setAddress('')
     setError(null)
   }
 
   async function handle() {
     setError(null)
-    if (subject.trim().length < 3) {
-      setError('Subject must be at least 3 characters')
-      return
-    }
+    if (subject.trim().length < 3) { setError('Subject must be at least 3 characters'); return }
+    if (!letterTypeId) { setError('Please choose a letter type'); return }
     setSubmitting(true)
     try {
       const letter = await createLetter({
         subject: subject.trim(),
-        letterType,
-        customerName: customerName.trim(),
+        letterTypeId,
+        customerName: customerName.trim() || undefined,
         odooPartnerId,
-        recipientAddress: address || undefined,
       })
       reset()
       onCreated(letter)
@@ -61,55 +54,79 @@ export default function CreateLetterModal({ open, onClose, onCreated }: Props) {
 
   return (
     <Modal open={open} onClose={onClose} title={t('create.title')} size="md">
-      <div className="space-y-3 p-4">
-        <div>
-          <Label htmlFor="subject">{t('create.subject')}</Label>
+      <div className="space-y-4 p-5">
+        <Field label={t('create.subject')} htmlFor="cl-subject">
           <Input
-            id="subject"
+            id="cl-subject"
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
             placeholder={t('create.subject.placeholder')}
             maxLength={255}
+            className="h-10"
           />
-        </div>
-        <div>
-          <Label>{t('create.type')}</Label>
-          <div className="mt-1 flex gap-2">
-            {LETTER_TYPES.map((lt) => (
-              <button
-                key={lt}
-                type="button"
-                onClick={() => setLetterType(lt)}
-                className={`flex-1 rounded-md border px-3 py-2 text-sm ${
-                  letterType === lt
-                    ? 'border-blue-500 bg-blue-50 text-blue-700'
-                    : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                {LETTER_TYPE_LABEL[lt]}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div>
-          <Label>{t('create.customer')} <span className="text-xs font-normal text-gray-400">{t('create.customer.optional')}</span></Label>
+        </Field>
+
+        <LetterTypeSelect
+          label={t('create.type')}
+          value={letterTypeId}
+          onChange={(id) => setLetterTypeId(id)}
+        />
+
+        <Field
+          label={
+            <>
+              {t('create.customer')}{' '}
+              <span className="text-[11px] font-normal text-muted-foreground">
+                {t('create.customer.optional')}
+              </span>
+            </>
+          }
+        >
           <CustomerLookup
             value={{ odooPartnerId, customerName }}
             onChange={(v) => {
               setOdooPartnerId(v.odooPartnerId)
               setCustomerName(v.customerName)
-              if (v.address) setAddress(v.address)
             }}
           />
-        </div>
-        {error && <p className="text-xs text-red-600">{error}</p>}
-        <div className="flex justify-end gap-2 pt-2">
-          <Button variant="outline" onClick={onClose} disabled={submitting}>{t('create.cancel')}</Button>
-          <Button onClick={handle} disabled={submitting}>
+        </Field>
+
+        {error && (
+          <div className="rounded-[10px] bg-red-50 px-3 py-2 text-[12px] text-red-700 dark:bg-red-900/20 dark:text-red-300">
+            {error}
+          </div>
+        )}
+
+        <div className="flex justify-end gap-2 pt-1">
+          <Button variant="outline" onClick={onClose} disabled={submitting} className="h-10">
+            {t('create.cancel')}
+          </Button>
+          <Button
+            onClick={handle}
+            disabled={submitting || !subject.trim() || !letterTypeId}
+            className="h-10"
+          >
             {submitting ? t('create.submitting') : t('create.submit')}
           </Button>
         </div>
       </div>
     </Modal>
+  )
+}
+
+function Field({
+  label,
+  htmlFor,
+  children,
+}: {
+  label: React.ReactNode
+  htmlFor?: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="space-y-1">
+      <Label htmlFor={htmlFor} className="text-[12px]">{label}</Label>
+      {children}
+    </div>
   )
 }

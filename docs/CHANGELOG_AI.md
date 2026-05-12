@@ -13,6 +13,26 @@
 
 ---
 
+## 2026-05-12 — Letters: dynamic letter types, slimmer form, Apple-style redesign, altChunk fix
+
+Three things in one pass:
+
+1. **Dynamic letter types.** New `LetterTypeDef` Prisma model + `Letter.letterTypeId` FK column. `GET/POST /api/letters/types` lists/creates types; built-in `CL/OF/GR` are auto-seeded with `isBuiltIn: true`. New `LetterTypeSelect` combobox shows built-ins first, then custom types, with an inline "Create new letter type" modal that derives a 2–4 letter code from the name. Reference numbers (`360G/LT/{CODE}/{SEQ}/{YEAR}`) work with any code.
+2. **Trim form fields.** Removed Recipient Address, Salutation, Closing, and Sender Department from the form per user feedback. DB columns retained for back-compat with the PDF placeholder pipeline. Customer remains optional.
+3. **Apple-style redesign.** Consumed the existing `--ap-*` design tokens (CSS variables in `app/globals.css`) and the `ap-status-pill` class. `LetterStatusBadge`, `LettersTable`, `LettersPageClient`, `LetterFormClient`, and `CreateLetterModal` all rebuilt around `rounded-[14px]` / `rounded-[16px]` cards, `shadow-card`, `var(--ap-border)` borders, and the platform's grey scale. Button positioning matches `PageHeader` conventions (actions top-right). Status tabs now look like a real iOS segmented control. Type-filter pills replaced the old square buttons.
+
+Also fixed the **altChunk-wrapped docx** bug from the earlier SuperDoc round-trip:
+- Replaced `html-docx-js-typescript` (which writes MIME-HTML `w:altChunk` that mammoth can't read) with a focused `lib/html-to-docx.ts` using the `docx` library — produces real OOXML that round-trips cleanly through mammoth (verified locally).
+- Hardened `PUT /api/letters/[id]/docx`: if mammoth ever returns an empty HTML mirror in the future, the previous `bodyContent` is kept rather than blanked. Activity log records mammoth warnings for any save where this happens, so we can diagnose silently-broken docx imports without dropping content.
+- Dropped `html-docx-js-typescript` and the Tiptap table extensions (no longer used since SuperDoc owns the editor).
+
+Files: `prisma/schema.prisma`, `app/api/letters/{route.ts,types/route.ts,[id]/docx/route.ts}`, `lib/{letters.ts,html-to-docx.ts}`, `types/index.ts`, `features/letters/{services/lettersApi.ts,types.ts,components/{LetterTypeSelect,LetterStatusBadge,LettersTable,LettersPageClient,CreateLetterModal,LetterFormClient}.tsx,index.ts}`.
+
+**Tests:** `tsc --noEmit` clean, `npm run build` clean.
+**Docs updated:** `docs/CHANGELOG_AI.md`.
+
+---
+
 ## 2026-05-12 — Letter Management: swap Tiptap for SuperDoc (Word-class .docx editor)
 
 Replace the Tiptap-based `LetterBodyEditor` with SuperDoc (Harbour Enterprises, AGPLv3) for true Word-class editing — native .docx storage, tables with cell ops, headers/footers, comments, track changes, pagination. Keeps the existing PDF pipeline (mammoth converts the saved .docx back to HTML, which feeds the existing @react-pdf parser).

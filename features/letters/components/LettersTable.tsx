@@ -2,73 +2,110 @@
 
 import Link from 'next/link'
 import { format } from 'date-fns'
-import { Paperclip } from 'lucide-react'
+import { Paperclip, FileText } from 'lucide-react'
 import { LETTER_TYPE_LABEL, type LetterStatus } from '@/types'
 import { EmptyState } from '@/components/ui'
 import LetterStatusBadge from './LetterStatusBadge'
 import type { LetterListItem } from '../types'
+import { useT } from '../i18n'
 
 export default function LettersTable({ items, loading }: { items: LetterListItem[]; loading: boolean }) {
+  const t = useT()
   if (!loading && items.length === 0) {
     return (
-      <EmptyState
-        title="No letters yet"
-        description="Create your first letter to get started."
-      />
+      <div
+        className="rounded-[14px] border bg-card shadow-card"
+        style={{ borderColor: 'var(--ap-border)' }}
+      >
+        <EmptyState
+          title={t('list.empty.title')}
+          description={t('list.empty.description')}
+          icon={FileText as any}
+        />
+      </div>
     )
   }
+
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
-      <table className="min-w-full divide-y divide-gray-200 text-sm">
-        <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+    <div
+      className="overflow-hidden rounded-[14px] border bg-card shadow-card"
+      style={{ borderColor: 'var(--ap-border)' }}
+    >
+      <table className="min-w-full divide-y divide-[color:var(--ap-border)] text-[13px]">
+        <thead className="bg-[color:var(--ap-bg-sunken)]">
           <tr>
-            <th className="px-4 py-2.5">Reference</th>
-            <th className="px-4 py-2.5">Subject</th>
-            <th className="px-4 py-2.5">Customer</th>
-            <th className="px-4 py-2.5">Type</th>
-            <th className="px-4 py-2.5">Date</th>
-            <th className="px-4 py-2.5">Status</th>
-            <th className="px-4 py-2.5" aria-label="Enclosures" />
+            <Th>{t('list.col.reference')}</Th>
+            <Th>{t('list.col.subject')}</Th>
+            <Th>{t('list.col.customer')}</Th>
+            <Th>{t('list.col.type')}</Th>
+            <Th>{t('list.col.date')}</Th>
+            <Th>{t('list.col.status')}</Th>
+            <Th aria-label="Enclosures" />
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-100">
+        <tbody className="divide-y divide-[color:var(--ap-border)]">
           {loading
             ? Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i} className="animate-pulse">
-                  <td className="px-4 py-3"><div className="h-3 w-32 rounded bg-gray-100" /></td>
-                  <td className="px-4 py-3"><div className="h-3 w-48 rounded bg-gray-100" /></td>
-                  <td className="px-4 py-3"><div className="h-3 w-32 rounded bg-gray-100" /></td>
-                  <td className="px-4 py-3"><div className="h-3 w-20 rounded bg-gray-100" /></td>
-                  <td className="px-4 py-3"><div className="h-3 w-24 rounded bg-gray-100" /></td>
-                  <td className="px-4 py-3"><div className="h-3 w-16 rounded bg-gray-100" /></td>
+                  <Td><div className="h-3 w-32 rounded bg-[color:var(--ap-bg-sunken)]" /></Td>
+                  <Td><div className="h-3 w-48 rounded bg-[color:var(--ap-bg-sunken)]" /></Td>
+                  <Td><div className="h-3 w-32 rounded bg-[color:var(--ap-bg-sunken)]" /></Td>
+                  <Td><div className="h-3 w-20 rounded bg-[color:var(--ap-bg-sunken)]" /></Td>
+                  <Td><div className="h-3 w-24 rounded bg-[color:var(--ap-bg-sunken)]" /></Td>
+                  <Td><div className="h-3 w-16 rounded bg-[color:var(--ap-bg-sunken)]" /></Td>
                   <td />
                 </tr>
               ))
-            : items.map((l) => (
-                <tr key={l.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-mono text-xs text-gray-700">
-                    <Link href={`/dashboard/letters/${l.id}`} className="hover:underline">
-                      {l.referenceNumber || 'DRAFT'}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3">
-                    <Link href={`/dashboard/letters/${l.id}`} className="font-medium text-gray-900 hover:underline">
-                      {l.subject}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3 text-gray-700">{l.customerName}</td>
-                  <td className="px-4 py-3 text-gray-600">{LETTER_TYPE_LABEL[l.letterType as keyof typeof LETTER_TYPE_LABEL]}</td>
-                  <td className="px-4 py-3 text-gray-600">{format(new Date(l.date), 'd MMM yyyy')}</td>
-                  <td className="px-4 py-3"><LetterStatusBadge status={l.status as LetterStatus} /></td>
-                  <td className="px-4 py-3 text-xs text-gray-500">
-                    {l._count?.enclosures ? (
-                      <span className="inline-flex items-center gap-1"><Paperclip className="size-3.5" />{l._count.enclosures}</span>
-                    ) : null}
-                  </td>
-                </tr>
-              ))}
+            : items.map((l) => {
+                const typeName =
+                  l.letterTypeDef?.name ??
+                  LETTER_TYPE_LABEL[l.letterType as keyof typeof LETTER_TYPE_LABEL] ??
+                  l.letterType
+                return (
+                  <tr
+                    key={l.id}
+                    className="cursor-pointer transition-colors hover:bg-[color:var(--ap-bg-sunken)]"
+                    onClick={() => { window.location.href = `/dashboard/letters/${l.id}` }}
+                  >
+                    <Td className="font-mono text-[11px] text-muted-foreground">
+                      <Link href={`/dashboard/letters/${l.id}`} className="hover:underline" onClick={(e) => e.stopPropagation()}>
+                        {l.referenceNumber || 'DRAFT'}
+                      </Link>
+                    </Td>
+                    <Td>
+                      <Link href={`/dashboard/letters/${l.id}`} className="font-medium text-foreground hover:underline" onClick={(e) => e.stopPropagation()}>
+                        {l.subject}
+                      </Link>
+                    </Td>
+                    <Td className="text-muted-foreground">{l.customerName || '—'}</Td>
+                    <Td className="text-muted-foreground">{typeName}</Td>
+                    <Td className="text-muted-foreground">{format(new Date(l.date), 'd MMM yyyy')}</Td>
+                    <Td><LetterStatusBadge status={l.status as LetterStatus} /></Td>
+                    <Td className="text-[11px] text-muted-foreground">
+                      {l._count?.enclosures ? (
+                        <span className="inline-flex items-center gap-1"><Paperclip className="size-3.5" />{l._count.enclosures}</span>
+                      ) : null}
+                    </Td>
+                  </tr>
+                )
+              })}
         </tbody>
       </table>
     </div>
   )
+}
+
+function Th({ children, ...rest }: React.ThHTMLAttributes<HTMLTableCellElement>) {
+  return (
+    <th
+      {...rest}
+      className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
+    >
+      {children}
+    </th>
+  )
+}
+
+function Td({ children, className = '' }: { children?: React.ReactNode; className?: string }) {
+  return <td className={`px-4 py-3 ${className}`}>{children}</td>
 }

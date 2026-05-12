@@ -228,16 +228,28 @@ export const LETTER_STATUS_LABEL: Record<LetterStatus, string> = {
 
 export interface CreateLetterForm {
   subject: string
-  letterType: LetterType
+  /** Legacy enum literal — only meaningful for the three built-in types. */
+  letterType?: LetterType
+  /** Authoritative letter-type FK. Required when the type is user-defined. */
+  letterTypeId?: string
   date?: string
-  customerName: string
+  customerName?: string
   odooPartnerId?: string | null
+  /** Deprecated — UI no longer collects these but the columns remain. */
   recipientAddress?: string
   salutation?: string
   closing?: string
   senderDepartment?: string
   signatoryId?: string | null
   bodyContent?: string
+}
+
+export interface LetterTypeRecord {
+  id: string
+  code: string
+  name: string
+  description: string | null
+  isBuiltIn: boolean
 }
 
 export type UpdateLetterForm = Partial<CreateLetterForm>

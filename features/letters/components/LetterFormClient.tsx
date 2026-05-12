@@ -1,8 +1,7 @@
 'use client'
 
-import { useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { useContext, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import {
   ArrowLeft,
   Send,
@@ -12,26 +11,11 @@ import {
   Archive,
   Save,
 } from 'lucide-react'
-import {
-  PageHeader,
-  Button,
-  Input,
-  Textarea,
-  Label,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-  Card,
-} from '@/components/ui'
+import { Button, Input, Label, PageHeader, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui'
 import { ActivityLogPanel } from '@/components/shared/ActivityLogPanel'
-import {
-  LETTER_TYPE_LABEL,
-  type LetterStatus,
-  type UpdateLetterForm,
-  type LetterType,
-} from '@/types'
+import { type LetterStatus, type UpdateLetterForm, LETTER_TYPE_LABEL } from '@/types'
 import { useUsersForSelection } from '@/hooks/useUsersForSelection'
+import { cn } from '@/lib/utils'
 import LetterStatusBadge from './LetterStatusBadge'
 import LetterStatusBar from './LetterStatusBar'
 import CustomerLookup from './CustomerLookup'
@@ -79,20 +63,12 @@ export default function LetterFormClient(props: Props) {
 function LetterFormInner({ initial, viewer }: Props) {
   const t = useT()
   const { lang, setLang } = useContext(LetterLangContext)
-  const router = useRouter()
   const [letter, setLetter] = useState<LetterDetail>(initial)
   const [calendarMode, setCalendarMode] = useState<CalendarMode>('GC')
   const [subject, setSubject] = useState(letter.subject)
-  const [salutation, setSalutation] = useState(letter.salutation || '')
-  const [closing, setClosing] = useState(letter.closing || '')
-  const [recipientAddress, setRecipientAddress] = useState(letter.recipientAddress || '')
-  const [senderDepartment, setSenderDepartment] = useState(letter.senderDepartment || '')
   const [signatoryId, setSignatoryId] = useState<string | null>(letter.signatoryId)
   const [customerName, setCustomerName] = useState(letter.customerName)
   const [odooPartnerId, setOdooPartnerId] = useState<string | null>(letter.odooPartnerId)
-  // Body content is now owned by SuperDocEditorClient — it saves the .docx
-  // binary (and HTML mirror) directly via PUT /api/letters/[id]/docx. The
-  // form only manages the structured fields (subject, customer, dates, etc.).
   const [date, setDate] = useState(() => new Date(letter.date).toISOString().slice(0, 10))
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -104,6 +80,11 @@ function LetterFormInner({ initial, viewer }: Props) {
   const status = letter.status as LetterStatus
   const { users } = useUsersForSelection()
 
+  const typeName =
+    letter.letterTypeDef?.name ??
+    LETTER_TYPE_LABEL[letter.letterType as keyof typeof LETTER_TYPE_LABEL] ??
+    letter.letterType
+
   async function save(opts?: { silent?: boolean }): Promise<void> {
     if (!editable) return
     setSaving(true)
@@ -114,10 +95,6 @@ function LetterFormInner({ initial, viewer }: Props) {
         date,
         customerName,
         odooPartnerId,
-        recipientAddress,
-        salutation,
-        closing,
-        senderDepartment,
         signatoryId,
       }
       const updated = await updateLetter(letter.id, payload)
@@ -131,79 +108,68 @@ function LetterFormInner({ initial, viewer }: Props) {
 
   async function handleSubmit() {
     try {
-      await save() // ensure latest fields persisted first
+      await save()
       const updated = await submitLetter(letter.id)
       setLetter((prev) => ({ ...prev, ...updated, enclosures: prev.enclosures }))
-    } catch (e: any) {
-      setSaveError(e?.message || 'Submit failed')
-    }
+    } catch (e: any) { setSaveError(e?.message || 'Submit failed') }
   }
-
   async function handleApprove() {
     try {
       const updated = await approveLetter(letter.id)
       setLetter((prev) => ({ ...prev, ...updated, enclosures: prev.enclosures }))
-    } catch (e: any) {
-      setSaveError(e?.message || 'Approval failed')
-    }
+    } catch (e: any) { setSaveError(e?.message || 'Approval failed') }
   }
-
   async function handleArchive() {
     try {
       const updated = await archiveLetter(letter.id)
       setLetter((prev) => ({ ...prev, ...updated, enclosures: prev.enclosures }))
-    } catch (e: any) {
-      setSaveError(e?.message || 'Archive failed')
-    }
+    } catch (e: any) { setSaveError(e?.message || 'Archive failed') }
   }
-
   async function handleUnarchive() {
     try {
       const updated = await unarchiveLetter(letter.id)
       setLetter((prev) => ({ ...prev, ...updated, enclosures: prev.enclosures }))
-    } catch (e: any) {
-      setSaveError(e?.message || 'Unarchive failed')
-    }
+    } catch (e: any) { setSaveError(e?.message || 'Unarchive failed') }
   }
 
   const transitionButtons = useMemo(() => {
     const buttons: React.ReactNode[] = []
     if (status === 'DRAFT' && editable) {
       buttons.push(
-        <Button key="submit" onClick={handleSubmit} size="sm">
+        <Button key="submit" onClick={handleSubmit} className="h-10">
           <Send className="mr-1.5 size-3.5" /> {t('action.submitForApproval')}
         </Button>
       )
     }
     if (status === 'SUBMITTED' && canApprove(viewer.role)) {
       buttons.push(
-        <Button key="approve" onClick={handleApprove} size="sm">
+        <Button key="approve" onClick={handleApprove} className="h-10">
           <CheckCircle2 className="mr-1.5 size-3.5" /> {t('action.approve')}
         </Button>
       )
       buttons.push(
-        <Button key="reject" variant="outline" size="sm" onClick={() => setShowRejectModal(true)}>
+        <Button key="reject" variant="outline" className="h-10" onClick={() => setShowRejectModal(true)}>
           <XCircle className="mr-1.5 size-3.5" /> {t('action.returnToDraft')}
         </Button>
       )
     }
     if (status === 'APPROVED') {
       buttons.push(
-        <Button key="send" onClick={() => setShowSendModal(true)} size="sm">
+        <Button key="send" onClick={() => setShowSendModal(true)} className="h-10">
           <PackageCheck className="mr-1.5 size-3.5" /> {t('action.markAsSent')}
         </Button>
       )
     }
     if (status === 'SENT') {
       buttons.push(
-        <Button key="archive" variant="outline" size="sm" onClick={handleArchive}>
+        <Button key="archive" variant="outline" className="h-10" onClick={handleArchive}>
           <Archive className="mr-1.5 size-3.5" /> {t('action.archive')}
         </Button>
       )
     }
     if (status === 'ARCHIVED' && viewer.role === 'ADMIN') {
       buttons.push(
-        <Button key="unarchive" variant="outline" size="sm" onClick={handleUnarchive}>
+        <Button key="unarchive" variant="outline" className="h-10" onClick={handleUnarchive}>
           {t('action.unarchive')}
         </Button>
       )
@@ -213,31 +179,20 @@ function LetterFormInner({ initial, viewer }: Props) {
   }, [status, editable, viewer.role, lang])
 
   return (
-    <div className={`space-y-4 p-6 ${lang === 'am' ? 'font-amharic' : ''}`}>
+    <div className={cn('space-y-4 p-6', lang === 'am' && 'font-amharic')}>
       <PageHeader
         title={letter.referenceNumber || 'Draft Letter'}
-        description={`${LETTER_TYPE_LABEL[letter.letterType as LetterType]} · ${t('form.preparedBy')} ${letter.preparedBy.name}`}
+        description={`${typeName} · ${t('form.preparedBy')} ${letter.preparedBy.name}`}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <div className="inline-flex overflow-hidden rounded-md border border-gray-200 bg-white text-xs" title={t('form.lang.label')}>
-              <button
-                type="button"
-                onClick={() => setLang('en')}
-                className={`px-2.5 py-1 ${lang === 'en' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
-              >EN</button>
-              <button
-                type="button"
-                onClick={() => setLang('am')}
-                className={`px-2.5 py-1 ${lang === 'am' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
-              >አማ</button>
-            </div>
+            <LangSwitch lang={lang} onChange={setLang} />
             <Link href="/dashboard/letters">
-              <Button variant="outline" size="sm">
+              <Button variant="outline" className="h-10">
                 <ArrowLeft className="mr-1.5 size-3.5" /> {t('form.back')}
               </Button>
             </Link>
             {editable && (
-              <Button variant="outline" size="sm" onClick={() => save()} disabled={saving}>
+              <Button variant="outline" className="h-10" onClick={() => save()} disabled={saving}>
                 <Save className="mr-1.5 size-3.5" /> {saving ? t('form.saving') : t('form.save')}
               </Button>
             )}
@@ -246,156 +201,133 @@ function LetterFormInner({ initial, viewer }: Props) {
         }
       />
 
-      <Card className="p-4">
+      {/* Status strip */}
+      <ApCard padding="md">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <LetterStatusBar status={status} />
           <LetterStatusBadge status={status} />
         </div>
-      </Card>
+      </ApCard>
 
       {saveError && (
-        <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{saveError}</div>
+        <div className="rounded-[12px] border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700 dark:border-red-900/30 dark:bg-red-900/15 dark:text-red-300">
+          {saveError}
+        </div>
       )}
 
-      <Card className="space-y-4 p-4">
-        <div>
-          <Label htmlFor="lf-subject">{t('create.subject')}</Label>
-          <Input
-            id="lf-subject"
-            value={subject}
-            disabled={!editable}
-            onChange={(e) => setSubject(e.target.value)}
-            maxLength={255}
-          />
-        </div>
-
+      {/* Details card — single column, compact */}
+      <ApCard padding="lg" header={<SectionLabel>Details</SectionLabel>}>
         <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">{t('form.recipientDetails')}</h3>
-            <div>
-              <Label>{t('create.customer')} <span className="text-xs font-normal text-gray-400">{t('create.customer.optional')}</span></Label>
-              <CustomerLookup
-                value={{ odooPartnerId, customerName }}
-                onChange={(v) => {
-                  setCustomerName(v.customerName)
-                  setOdooPartnerId(v.odooPartnerId)
-                  if (v.address && !recipientAddress) setRecipientAddress(v.address)
-                }}
-                disabled={!editable}
-              />
-            </div>
-            <div>
-              <Label htmlFor="lf-address">{t('form.recipientAddress')}</Label>
-              <Textarea
-                id="lf-address"
-                rows={3}
-                value={recipientAddress}
-                disabled={!editable}
-                onChange={(e) => setRecipientAddress(e.target.value)}
-                className={lang === 'am' ? 'font-amharic' : ''}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label htmlFor="lf-salutation">{t('form.salutation')}</Label>
-                <Input id="lf-salutation" value={salutation} disabled={!editable}
-                  onChange={(e) => setSalutation(e.target.value)}
-                  className={lang === 'am' ? 'font-amharic' : ''} />
-              </div>
-              <div>
-                <Label htmlFor="lf-closing">{t('form.closing')}</Label>
-                <Input id="lf-closing" value={closing} disabled={!editable}
-                  onChange={(e) => setClosing(e.target.value)}
-                  className={lang === 'am' ? 'font-amharic' : ''} />
-              </div>
-            </div>
-          </div>
+          <Field label={t('create.subject')} htmlFor="lf-subject" className="md:col-span-2">
+            <Input
+              id="lf-subject"
+              value={subject}
+              disabled={!editable}
+              onChange={(e) => setSubject(e.target.value)}
+              maxLength={255}
+              className={cn('h-10', lang === 'am' && 'font-amharic')}
+            />
+          </Field>
 
-          <div className="space-y-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">{t('form.senderInfo')}</h3>
-            <div>
-              <LetterDatePicker
-                value={date}
-                onChange={setDate}
-                mode={calendarMode}
-                onModeChange={setCalendarMode}
-                disabled={!editable}
-                lang={lang}
-                label={t('form.date')}
-                modeLabel={{ gc: t('form.calendar.gc'), ec: t('form.calendar.ec'), toggle: t('form.calendar.label') }}
-              />
-            </div>
-            <div>
-              <Label>{t('form.letterType')}</Label>
-              <Input value={LETTER_TYPE_LABEL[letter.letterType as LetterType]} disabled />
-            </div>
-            <div>
-              <Label htmlFor="lf-signatory">{t('form.signatory')}</Label>
-              <select
-                id="lf-signatory"
-                value={signatoryId || ''}
-                disabled={!editable && status !== 'SUBMITTED'}
-                onChange={(e) => setSignatoryId(e.target.value || null)}
-                className="flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
-              >
-                <option value="">{t('form.signatory.empty')}</option>
-                {(users || []).map((u) => (
-                  <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <Label htmlFor="lf-dept">{t('form.senderDepartment')}</Label>
-              <Input id="lf-dept" value={senderDepartment} disabled={!editable}
-                onChange={(e) => setSenderDepartment(e.target.value)}
-                className={lang === 'am' ? 'font-amharic' : ''} />
-            </div>
-          </div>
+          <Field
+            label={
+              <>
+                {t('create.customer')}{' '}
+                <span className="text-[11px] font-normal text-muted-foreground">{t('create.customer.optional')}</span>
+              </>
+            }
+          >
+            <CustomerLookup
+              value={{ odooPartnerId, customerName }}
+              onChange={(v) => {
+                setCustomerName(v.customerName)
+                setOdooPartnerId(v.odooPartnerId)
+              }}
+              disabled={!editable}
+            />
+          </Field>
+
+          <Field label={t('form.date')}>
+            <LetterDatePicker
+              value={date}
+              onChange={setDate}
+              mode={calendarMode}
+              onModeChange={setCalendarMode}
+              disabled={!editable}
+              lang={lang}
+              modeLabel={{ gc: t('form.calendar.gc'), ec: t('form.calendar.ec'), toggle: t('form.calendar.label') }}
+            />
+          </Field>
+
+          <Field label={t('form.letterType')}>
+            <Input value={typeName} disabled className="h-10" />
+          </Field>
+
+          <Field label={t('form.signatory')} htmlFor="lf-signatory">
+            <select
+              id="lf-signatory"
+              value={signatoryId || ''}
+              disabled={!editable && status !== 'SUBMITTED'}
+              onChange={(e) => setSignatoryId(e.target.value || null)}
+              className="flex h-10 w-full rounded-[14px] border bg-card px-3 text-[13px] focus:outline-none focus:ring-2 focus:ring-[color:var(--ap-accent)] focus:ring-offset-1 disabled:opacity-60"
+              style={{ borderColor: 'var(--ap-border)' }}
+            >
+              <option value="">{t('form.signatory.empty')}</option>
+              {(users || []).map((u) => (
+                <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
+              ))}
+            </select>
+          </Field>
         </div>
-      </Card>
+      </ApCard>
 
+      {/* Body / Enclosures / Preview tabs */}
       <Tabs defaultValue="body" className="w-full">
-        <TabsList>
+        <TabsList
+          className="rounded-[12px] border bg-card p-1 shadow-sm"
+          style={{ borderColor: 'var(--ap-border)' } as any}
+        >
           <TabsTrigger value="body">{t('form.tabs.body')}</TabsTrigger>
-          <TabsTrigger value="enclosures">{t('form.tabs.enclosures')} ({enclosures.length})</TabsTrigger>
+          <TabsTrigger value="enclosures">
+            {t('form.tabs.enclosures')} <span className="ml-1 text-[11px] text-muted-foreground">({enclosures.length})</span>
+          </TabsTrigger>
           <TabsTrigger value="preview">{t('form.tabs.preview')}</TabsTrigger>
         </TabsList>
-        <TabsContent value="body">
-          <Card className="p-2">
-            <p className="px-2 pb-2 pt-1 text-xs text-gray-500">{t('form.body.help')}</p>
+
+        <TabsContent value="body" className="mt-3">
+          <ApCard padding="md">
+            <p className="mb-2 text-[12px] text-muted-foreground">{t('form.body.help')}</p>
             <SuperDocEditorClient
               letterId={letter.id}
               docxUrl={`/api/letters/${letter.id}/docx`}
               editable={editable}
-              user={{
-                id: viewer.id,
-                name: letter.preparedBy.name,
-                email: letter.preparedBy.email,
-              }}
+              user={{ id: viewer.id, name: letter.preparedBy.name, email: letter.preparedBy.email }}
             />
-          </Card>
+          </ApCard>
         </TabsContent>
-        <TabsContent value="enclosures">
-          <Card className="p-4">
+
+        <TabsContent value="enclosures" className="mt-3">
+          <ApCard padding="lg">
             <EnclosuresPanel
               letterId={letter.id}
               enclosures={enclosures}
               canEdit={editable}
               onChange={setEnclosures}
             />
-          </Card>
+          </ApCard>
         </TabsContent>
-        <TabsContent value="preview">
-          <Card className="p-4">
+
+        <TabsContent value="preview" className="mt-3">
+          <ApCard padding="lg">
             <PdfPreviewPanel letterId={letter.id} canPrint={status !== 'DRAFT'} />
-          </Card>
+          </ApCard>
         </TabsContent>
       </Tabs>
 
-      <Card className="p-4">
-        <h3 className="mb-2 text-sm font-semibold text-gray-700">{t('form.activityLog')}</h3>
+      {/* Activity log */}
+      <ApCard padding="lg" header={<SectionLabel>{t('form.activityLog')}</SectionLabel>}>
         <ActivityLogPanel entityType="letter" entityId={letter.id} embedded />
-      </Card>
+      </ApCard>
 
       <RejectLetterModal
         open={showRejectModal}
@@ -413,6 +345,83 @@ function LetterFormInner({ initial, viewer }: Props) {
           setLetter((prev) => ({ ...prev, ...updated, enclosures: prev.enclosures }))
         }}
       />
+    </div>
+  )
+}
+
+// ---------- Local building blocks (kept inside this file so they can lean on
+// the form's specific spacing / status colours without polluting the shared
+// component catalog) ----------
+
+function ApCard({
+  children,
+  padding = 'md',
+  header,
+}: {
+  children: React.ReactNode
+  padding?: 'sm' | 'md' | 'lg'
+  header?: React.ReactNode
+}) {
+  const pad = padding === 'sm' ? 'p-3' : padding === 'lg' ? 'p-5' : 'p-4'
+  return (
+    <div
+      className="rounded-[16px] border bg-card shadow-card"
+      style={{ borderColor: 'var(--ap-border)' }}
+    >
+      {header && (
+        <div className="border-b px-5 py-3" style={{ borderColor: 'var(--ap-border)' }}>
+          {header}
+        </div>
+      )}
+      <div className={pad}>{children}</div>
+    </div>
+  )
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <h3 className="text-[13px] font-semibold tracking-tight text-foreground">{children}</h3>
+  )
+}
+
+function Field({
+  label,
+  htmlFor,
+  className,
+  children,
+}: {
+  label: React.ReactNode
+  htmlFor?: string
+  className?: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className={cn('space-y-1', className)}>
+      <Label htmlFor={htmlFor} className="text-[12px]">{label}</Label>
+      {children}
+    </div>
+  )
+}
+
+function LangSwitch({ lang, onChange }: { lang: LetterLang; onChange: (l: LetterLang) => void }) {
+  return (
+    <div
+      className="inline-flex h-10 overflow-hidden rounded-[10px] border bg-card text-[12px] shadow-sm"
+      style={{ borderColor: 'var(--ap-border)' }}
+    >
+      {(['en', 'am'] as LetterLang[]).map((l) => (
+        <button
+          key={l}
+          type="button"
+          onClick={() => onChange(l)}
+          className={cn(
+            'px-3 font-medium transition-colors',
+            lang === l ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground'
+          )}
+        >
+          {l === 'en' ? 'EN' : 'አማ'}
+        </button>
+      ))}
     </div>
   )
 }

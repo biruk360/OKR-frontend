@@ -423,9 +423,20 @@ function formatDate(d: Date): string {
 // ---------- Block rendering ----------
 
 function Runs({ runs }: { runs: InlineRun[] }) {
+  // Filter out empty-text runs defensively — even though parseInline tries
+  // hard not to emit them, an empty string child inside a Text node trips
+  // react-pdf's reconciler with "Invalid '' string child outside <Text>" and
+  // can put the renderer into a non-terminating retry loop that OOMs the
+  // whole Node process (see the 502 incident on 2026-05-12).
+  const cleaned = runs.filter((r) => r.text && r.text.length > 0)
+  if (cleaned.length === 0) {
+    // Never return an empty fragment inside a Text — give react-pdf a single
+    // non-empty rune to anchor against.
+    return <Text> </Text>
+  }
   return (
     <>
-      {runs.map((r, i) => {
+      {cleaned.map((r, i) => {
         if (r.missing) return <Text key={i} style={{ color: '#b91c1c', fontWeight: 700 }}>{r.text}</Text>
         const s: any = {}
         if (r.bold) s.fontWeight = 700
@@ -568,18 +579,22 @@ export async function renderLetterPdf({ letter, lang = 'en' }: RenderArgs): Prom
             {/* MAIN column */}
             <View style={styles.main}>
               <View style={styles.body}>
-                {/* To line */}
-                {letter.customerName && (
+                {/* To line — `&&` would leak '' to the View when customerName
+                    is an empty string, which crashes react-pdf with "Invalid
+                    '' string child outside <Text> component". Use a strict
+                    ternary returning null instead. */}
+                {letter.customerName ? (
                   <View style={styles.toRow}>
                     <Text style={styles.toLabel}>ለ</Text>
                     <Text style={styles.toName}>{letter.customerName}</Text>
                   </View>
-                )}
+                ) : null}
 
-                {/* Subject heading */}
+                {/* Subject heading — guard against empty subject; an empty
+                    Text child also trips react-pdf's reconciler. */}
                 <View style={styles.subjectRow}>
                   <Text style={styles.subjectLabel}>ጉዳዩ</Text>
-                  <Text style={styles.subjectText}>{subjectText}</Text>
+                  <Text style={styles.subjectText}>{subjectText || ' '}</Text>
                 </View>
 
                 {/* Paragraph blocks from the body editor */}
@@ -588,19 +603,19 @@ export async function renderLetterPdf({ letter, lang = 'en' }: RenderArgs): Prom
                 ))}
 
                 {/* Signature */}
-                {letter.signatory?.name && (
+                {letter.signatory?.name ? (
                   <View style={styles.sig}>
                     <Text style={styles.sigClosing}>Sincerely,</Text>
                     <View style={styles.sigLine} />
                     <Text style={styles.sigName}>{letter.signatory.name}</Text>
-                    {letter.senderDepartment && (
+                    {letter.senderDepartment ? (
                       <Text style={styles.sigTitle}>{letter.senderDepartment}</Text>
-                    )}
+                    ) : null}
                   </View>
-                )}
+                ) : null}
 
                 {/* Enclosures appended below the signature if any */}
-                {letter.enclosures.length > 0 && (
+                {letter.enclosures.length > 0 ? (
                   <View>
                     <Text style={styles.enclosuresHeader}>Enclosures</Text>
                     {letter.enclosures.map((e, i) => (
@@ -609,7 +624,7 @@ export async function renderLetterPdf({ letter, lang = 'en' }: RenderArgs): Prom
                       </Text>
                     ))}
                   </View>
-                )}
+                ) : null}
               </View>
 
               {/* Page number, pushed to the bottom of the main column */}
@@ -659,12 +674,12 @@ export async function renderLetterPdf({ letter, lang = 'en' }: RenderArgs): Prom
 
               {/* Brand block at the bottom of the rail */}
               <View style={styles.brand}>
-                {head.eldixLogoPath && (
+                {head.eldixLogoPath ? (
                   <Image src={head.eldixLogoPath} style={styles.brandEldix} />
-                )}
-                {head.groundLogoPath && (
+                ) : null}
+                {head.groundLogoPath ? (
                   <Image src={head.groundLogoPath} style={styles.brandGround} />
-                )}
+                ) : null}
                 <View style={styles.stamp}>
                   <Text style={styles.stampText}>Addis Ababa · Ethiopia</Text>
                   <EthiopianFlag />

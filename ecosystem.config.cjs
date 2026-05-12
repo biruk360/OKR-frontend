@@ -9,12 +9,15 @@ module.exports = {
       interpreter: 'none',
       instances: 1,
       autorestart: true,
-      // Bumped from 512M: the AI sprint generation pipeline (context bundler
-      // pulls every objective/KR/initiative into memory) was tripping the old
-      // limit mid-request and PM2 was killing the worker, which surfaces in
-      // the browser as ERR_NAME_NOT_RESOLVED / 502 Bad Gateway. 1.5G keeps
-      // headroom while still catching real leaks.
-      max_memory_restart: '1536M',
+      // Bumped to 3G to give the Letter PDF renderer headroom. @react-pdf
+      // loads three font families + logo decoding + Tiptap HTML parsing,
+      // and at the 1.5G ceiling it was hitting v8's heap limit and OOMing
+      // mid-request — surfaces in the browser as 502 Bad Gateway for every
+      // route (the worker dies, nginx upstream is unreachable).
+      max_memory_restart: '3072M',
+      // Give v8 explicit headroom under the pm2 cap; without this Node
+      // hard-OOMs at ~2G even when pm2 would allow more.
+      node_args: '--max-old-space-size=2560',
       env: {
         NODE_ENV: 'production',
         PORT: process.env.PORT || '3000',

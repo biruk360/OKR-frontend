@@ -13,6 +13,17 @@
 
 ---
 
+## 2026-05-12 — Letters: fix Amharic text clipping and multi-page truncation
+
+- **Fix** Removed `position:absolute;inset` from `.lh .pad` — replaced with `padding` so content flows naturally and is never clipped — `lib/letter-html.tsx`
+- **Fix** Set `align-self:start` on `.rail` so it doesn't stretch to full grid height — `lib/letter-html.tsx`
+- **Fix** Added `@media print { .lh .pad { min-height:0 } }` so print page sizing is natural — `lib/letter-html.tsx`
+- **Fix** Iframe auto-resizes to content `scrollHeight` on load so multi-page letters display in full — `features/letters/components/PdfPreviewPanel.tsx`
+- **Tests:** not run
+- **Docs updated:** CHANGELOG_AI.md
+
+---
+
 ## 2026-05-12 — Letters: switch to HTML-based preview + Puppeteer PDF (ERPNext-style)
 
 Replace the @react-pdf rendering pipeline with a unified HTML approach that

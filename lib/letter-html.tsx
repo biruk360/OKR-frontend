@@ -108,13 +108,14 @@ function styles(base: string): string {
 
     .lh {
       width: 210mm; min-height: 297mm; background: var(--paper); color: var(--ink);
-      position: relative; overflow: hidden; margin: 20px auto;
+      margin: 20px auto;
       font-size: 10pt; line-height: 1.5;
       box-shadow: 0 12px 40px rgba(0,0,0,.1);
     }
     .lh .pad {
-      position: absolute; inset: 12mm 10mm 14mm 14mm;
+      padding: 12mm 10mm 14mm 14mm;
       display: flex; flex-direction: column;
+      min-height: calc(297mm - 26mm);
     }
 
     /* Header */
@@ -137,12 +138,13 @@ function styles(base: string): string {
     /* Body grid */
     .body-grid {
       flex: 1; display: grid; grid-template-columns: 1fr 42mm;
-      gap: 6mm; min-height: 0;
+      gap: 6mm;
     }
     .main { display: flex; flex-direction: column; padding-right: 2mm; min-width: 0; }
     .rail {
       border-left: 1px solid var(--rule); padding-left: 5mm;
       display: flex; flex-direction: column; gap: 5mm;
+      align-self: start;
     }
 
     /* Body content */
@@ -248,7 +250,8 @@ function styles(base: string): string {
     @page { size: A4; margin: 0; }
     @media print {
       html, body { background: #fff; }
-      .lh { box-shadow: none; margin: 0; page-break-after: always; }
+      .lh { box-shadow: none; margin: 0; width: 210mm; page-break-after: always; }
+      .lh .pad { min-height: 0; }
     }
   `
 }

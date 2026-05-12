@@ -55,6 +55,17 @@ export default function PdfPreviewPanel({ letterId }: Props) {
 
   function onIframeLoad() {
     setLoading(false)
+    // Auto-size the iframe to its content so multi-page letters aren't clipped.
+    const iframe = iframeRef.current
+    if (!iframe) return
+    try {
+      const doc = iframe.contentDocument
+      if (doc?.documentElement) {
+        iframe.style.height = doc.documentElement.scrollHeight + 'px'
+      }
+    } catch {
+      // cross-origin — leave at default height
+    }
   }
 
   function regenerate() {
@@ -138,7 +149,7 @@ export default function PdfPreviewPanel({ letterId }: Props) {
           title="Letter preview"
           src={htmlUrl}
           onLoad={onIframeLoad}
-          className="h-[720px] w-full bg-[color:var(--ap-bg-sunken)]"
+          className="min-h-[900px] w-full bg-[color:var(--ap-bg-sunken)]"
         />
       </div>
     </div>

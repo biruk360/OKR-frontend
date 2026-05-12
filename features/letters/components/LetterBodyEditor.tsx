@@ -2,13 +2,14 @@
 
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
-import Link from '@tiptap/extension-link'
 import Placeholder from '@tiptap/extension-placeholder'
-import { Underline } from '@tiptap/extension-underline'
 import { Table } from '@tiptap/extension-table'
 import { TableRow } from '@tiptap/extension-table-row'
 import { TableCell } from '@tiptap/extension-table-cell'
 import { TableHeader } from '@tiptap/extension-table-header'
+// StarterKit 3.22+ already includes Link and Underline — registering them
+// separately would trigger Tiptap's "duplicate extension names" warning and
+// can clobber the configured options. We configure them via StarterKit instead.
 import {
   Bold,
   Italic,
@@ -80,15 +81,14 @@ export default function LetterBodyEditor({ value, onChange, disabled, lang = 'en
     extensions: [
       StarterKit.configure({
         heading: { levels: [2, 3] },
-      }),
-      Underline,
-      Link.configure({
-        openOnClick: false,
-        autolink: true,
-        HTMLAttributes: {
-          class: 'text-blue-600 underline underline-offset-2 hover:text-blue-700',
-          rel: 'noopener noreferrer nofollow',
-          target: '_blank',
+        link: {
+          openOnClick: false,
+          autolink: true,
+          HTMLAttributes: {
+            class: 'text-blue-600 underline underline-offset-2 hover:text-blue-700',
+            rel: 'noopener noreferrer nofollow',
+            target: '_blank',
+          },
         },
       }),
       Placeholder.configure({

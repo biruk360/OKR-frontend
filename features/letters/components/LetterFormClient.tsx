@@ -1,6 +1,6 @@
 'use client'
 
-import { useContext, useMemo, useState } from 'react'
+import { useContext, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import {
   ArrowLeft,
@@ -86,7 +86,14 @@ function LetterFormInner({ initial, viewer }: Props) {
     LETTER_TYPE_LABEL[letter.letterType as keyof typeof LETTER_TYPE_LABEL] ??
     letter.letterType
 
-  async function save(opts?: { silent?: boolean }): Promise<void> {
+  // Refs so saveWith() always reads the latest value even when called
+  // immediately after a state-setter (before re-render).
+  const signatoryIdRef = useRef(signatoryId)
+  signatoryIdRef.current = signatoryId
+  const signatoryTitleRef = useRef(signatoryTitle)
+  signatoryTitleRef.current = signatoryTitle
+
+  async function saveWith(overrides?: Partial<UpdateLetterForm>, opts?: { silent?: boolean }): Promise<void> {
     if (!editable) return
     setSaving(true)
     setSaveError(null)
@@ -96,8 +103,9 @@ function LetterFormInner({ initial, viewer }: Props) {
         date,
         customerName,
         odooPartnerId,
-        signatoryId,
-        signatoryTitle: signatoryTitle || null,
+        signatoryId: signatoryIdRef.current,
+        signatoryTitle: signatoryTitleRef.current || null,
+        ...overrides,
       }
       const updated = await updateLetter(letter.id, payload)
       setLetter((prev) => ({ ...prev, ...updated, enclosures: prev.enclosures }))
@@ -106,6 +114,10 @@ function LetterFormInner({ initial, viewer }: Props) {
     } finally {
       setSaving(false)
     }
+  }
+
+  function save(opts?: { silent?: boolean }) {
+    return saveWith(undefined, opts)
   }
 
   async function handleSubmit() {
@@ -290,7 +302,11 @@ function LetterFormInner({ initial, viewer }: Props) {
               id="lf-signatory"
               value={signatoryId || ''}
               disabled={!editable && status !== 'SUBMITTED'}
-              onChange={(e) => setSignatoryId(e.target.value || null)}
+              onChange={(e) => {
+                const newId = e.target.value || null
+                setSignatoryId(newId)
+                if (editable) void saveWith({ signatoryId: newId }, { silent: true })
+              }}
               className="flex h-10 w-full rounded-[14px] border bg-card px-3 text-[13px] focus:outline-none focus:ring-2 focus:ring-[color:var(--ap-accent)] focus:ring-offset-1 disabled:opacity-60"
               style={{ borderColor: 'var(--ap-border)' }}
             >

@@ -23,6 +23,7 @@ export default async function UsersSettingsPage() {
       name: true,
       email: true,
       role: true,
+      designation: true,
       isActive: true,
       createdAt: true,
       lastLoginAt: true

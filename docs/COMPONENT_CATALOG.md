@@ -222,6 +222,7 @@ import { Target, CheckSquare } from 'lucide-react'
 | `OKRRulesManagement` | Page section | react-hook-form |
 | `BrandingManagement` | Page section | react-hook-form |
 | `IntegrationsManagement` | Page section | react-hook-form |
+| `LetterPermissionsManagement` | Page section | 3-tab component: Role Matrix (toggle grid), User Overrides (per-user grant/revoke), Letter Types (LetterTypeDef CRUD). Consumes `/api/settings/letter-permissions/roles`, `/api/settings/letter-permissions/users`, `/api/letters/types`. ADMIN-only. |
 
 ## Feature Barrels (`features/`)
 

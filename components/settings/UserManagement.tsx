@@ -10,6 +10,7 @@ interface User {
   name: string
   email: string
   role: string
+  designation?: string | null
   isActive: boolean
   createdAt: string | Date
   lastLoginAt?: string | Date | null
@@ -209,6 +210,11 @@ export default function UserManagement({ initialUsers }: UserManagementProps) {
                         >
                           {user.name}
                         </Link>
+                        {user.designation && (
+                          <div className="text-xs font-medium text-blue-600">
+                            {user.designation}
+                          </div>
+                        )}
                         <div className="text-sm text-muted-foreground">
                           {user.email}
                         </div>
@@ -550,6 +556,7 @@ function EditUserModal({ isOpen, onClose, onUserUpdated, user }: EditUserModalPr
     name: user.name,
     email: user.email,
     role: user.role,
+    designation: user.designation || '',
     isActive: user.isActive
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -681,6 +688,20 @@ function EditUserModal({ isOpen, onClose, onUserUpdated, user }: EditUserModalPr
                         <option value="EXECUTIVE">Executive</option>
                         <option value="ADMIN">Administrator</option>
                       </select>
+                    </div>
+
+                    <div>
+                      <label htmlFor="edit-designation" className="block text-sm font-medium text-muted-foreground">
+                        Designation
+                      </label>
+                      <input
+                        type="text"
+                        id="edit-designation"
+                        value={formData.designation}
+                        onChange={(e) => setFormData(prev => ({ ...prev, designation: e.target.value }))}
+                        className="mt-1 block w-full border border-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-ring focus:border-blue-500 sm:text-sm"
+                        placeholder="e.g. CEO, Sales Engineer, Project Manager"
+                      />
                     </div>
 
                     <div>

@@ -87,37 +87,26 @@ function formatDate(d: Date): string {
 // Bundled TTFs under /public/fonts. Inter is substituted with Noto Sans
 // (similar metrics, already bundled) to avoid shipping yet another family.
 
+function src(filename: string, base: string): string {
+  // Embed as base64 data URI if readable — guarantees the font is available
+  // during print and PDF generation without any network fetch.
+  // Falls back to a URL (works in browser iframe but not in Puppeteer/print).
+  const uri = fontDataUri(filename)
+  return uri ? `url('${uri}') format('truetype')` : `url('${base}/fonts/${filename}') format('truetype')`
+}
+
 function fontFaces(base: string): string {
-  // Ethiopic fonts are embedded as base64 data URIs so Chrome's print renderer
-  // never needs a network fetch — URL-based @font-face declarations are skipped
-  // during print/PDF generation, causing Amharic glyphs to render as boxes.
-  const ethRegUri = fontDataUri('NotoSansEthiopic-Regular.ttf') || `${base}/fonts/NotoSansEthiopic-Regular.ttf`
-  const ethBoldUri = fontDataUri('NotoSansEthiopic-Bold.ttf') || `${base}/fonts/NotoSansEthiopic-Bold.ttf`
-  const ethRegSrc = ethRegUri.startsWith('data:') ? `url('${ethRegUri}') format('truetype')` : `url('${ethRegUri}') format('truetype')`
-  const ethBoldSrc = ethBoldUri.startsWith('data:') ? `url('${ethBoldUri}') format('truetype')` : `url('${ethBoldUri}') format('truetype')`
+  // ALL fonts embedded as base64 — no URL fetches during print/PDF.
   return `
-    @font-face { font-family:'Inter'; font-weight:400; font-style:normal;
-                 src: url('${base}/fonts/NotoSans-Regular.ttf') format('truetype'); }
-    @font-face { font-family:'Inter'; font-weight:500; font-style:normal;
-                 src: url('${base}/fonts/NotoSans-Regular.ttf') format('truetype'); }
-    @font-face { font-family:'Inter'; font-weight:600; font-style:normal;
-                 src: url('${base}/fonts/NotoSans-Bold.ttf') format('truetype'); }
-    @font-face { font-family:'Inter'; font-weight:700; font-style:normal;
-                 src: url('${base}/fonts/NotoSans-Bold.ttf') format('truetype'); }
-    @font-face { font-family:'Inter'; font-style:italic; font-weight:400;
-                 src: url('${base}/fonts/NotoSans-Italic.ttf') format('truetype'); }
-    @font-face { font-family:'JetBrains Mono'; font-weight:400; font-style:normal;
-                 src: url('${base}/fonts/JetBrainsMono-Regular.ttf') format('truetype'); }
-    @font-face { font-family:'JetBrains Mono'; font-weight:500; font-style:normal;
-                 src: url('${base}/fonts/JetBrainsMono-Medium.ttf') format('truetype'); }
-    @font-face { font-family:'Noto Sans Ethiopic'; font-weight:400; font-style:normal;
-                 src: ${ethRegSrc}; }
-    @font-face { font-family:'Noto Sans Ethiopic'; font-weight:500; font-style:normal;
-                 src: ${ethRegSrc}; }
-    @font-face { font-family:'Noto Sans Ethiopic'; font-weight:600; font-style:normal;
-                 src: ${ethBoldSrc}; }
-    @font-face { font-family:'Noto Sans Ethiopic'; font-weight:700; font-style:normal;
-                 src: ${ethBoldSrc}; }
+    @font-face { font-family:'Inter'; font-weight:400; font-style:normal;  src: ${src('NotoSans-Regular.ttf', base)}; }
+    @font-face { font-family:'Inter'; font-weight:500; font-style:normal;  src: ${src('NotoSans-Regular.ttf', base)}; }
+    @font-face { font-family:'Inter'; font-weight:600; font-style:normal;  src: ${src('NotoSans-Bold.ttf', base)}; }
+    @font-face { font-family:'Inter'; font-weight:700; font-style:normal;  src: ${src('NotoSans-Bold.ttf', base)}; }
+    @font-face { font-family:'Inter'; font-style:italic; font-weight:400;  src: ${src('NotoSans-Italic.ttf', base)}; }
+    @font-face { font-family:'JetBrains Mono'; font-weight:400; font-style:normal; src: ${src('JetBrainsMono-Regular.ttf', base)}; }
+    @font-face { font-family:'JetBrains Mono'; font-weight:500; font-style:normal; src: ${src('JetBrainsMono-Medium.ttf', base)}; }
+    @font-face { font-family:'Noto Sans Ethiopic'; font-weight:100 900; font-style:normal; src: ${src('NotoSansEthiopic-Regular.ttf', base)}; unicode-range: U+1200-137F,U+1380-139F,U+2D80-2DDF,U+AB01-AB2F; }
+    @font-face { font-family:'Inter'; font-weight:100 900; font-style:normal; src: ${src('NotoSansEthiopic-Regular.ttf', base)}; unicode-range: U+1200-137F,U+1380-139F,U+2D80-2DDF,U+AB01-AB2F; }
   `
 }
 
@@ -129,8 +118,8 @@ function styles(base: string): string {
 
     /* === Tokens === */
     :root {
-      --paper:#ffffff; --ink:#0e0e0e; --ink-soft:#2a2a2a;
-      --muted:#8a8a86; --rule:#c4c4be;
+      --paper:#ffffff; --ink:#000000; --ink-soft:#000000;
+      --rule:#c4c4be;
     }
     *, *::before, *::after { box-sizing: border-box; }
     html, body {
@@ -168,7 +157,7 @@ function styles(base: string): string {
     .main-hdr .hdr-refdate .item .label {
       font-family: 'JetBrains Mono', monospace; font-size: 5.5pt;
       letter-spacing: .18em; text-transform: uppercase;
-      color: var(--muted); font-weight: 500; margin-bottom: 1mm;
+      color: #000000; font-weight: 500; margin-bottom: 1mm;
     }
     .main-hdr .hdr-refdate .item .val {
       font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums;
@@ -197,7 +186,7 @@ function styles(base: string): string {
     .page-num {
       padding-top: 6mm; text-align: right;
       font-family: 'JetBrains Mono', monospace; font-size: 6pt;
-      letter-spacing: .18em; text-transform: uppercase; color: var(--muted);
+      letter-spacing: .18em; text-transform: uppercase; color: #000000;
     }
     @media print {
       .page-num { display: none; }
@@ -211,9 +200,9 @@ function styles(base: string): string {
     .rail .info .label {
       font-family: 'JetBrains Mono', monospace; font-size: 5.5pt;
       letter-spacing: .18em; text-transform: uppercase;
-      color: var(--muted); font-weight: 500; margin-bottom: 1mm;
+      color: #000000; font-weight: 500; margin-bottom: 1mm;
     }
-    .rail .info .val { font-size: 7pt; line-height: 1.55; color: var(--ink-soft); }
+    .rail .info .val { font-size: 7pt; line-height: 1.55; color: #000000; }
     .rail .info .val > div { white-space: nowrap; }
     .rail .brand-block {
       padding-top: 8mm; display: flex; flex-direction: column;
@@ -224,27 +213,28 @@ function styles(base: string): string {
 
     /* === Body content === */
     .lh-body {
-      font-family: 'Noto Sans Ethiopic', 'Inter', sans-serif;
-      font-size: 10pt; line-height: 1.55; color: var(--ink-soft);
+      font-family: 'Inter', sans-serif;
+      font-size: 10pt; line-height: 1.55; color: #000000;
     }
     .to-line {
       margin-bottom: 5mm; display: flex; align-items: baseline; gap: 3mm;
     }
     .to-line .label {
-      font-family: 'Noto Sans Ethiopic', 'Inter', sans-serif; font-size: 9.5pt;
-      color: var(--muted); font-weight: 500; line-height: 1;
+      font-family: 'Inter', sans-serif; font-size: 9.5pt;
+      color: #000000; font-weight: 500; line-height: 1;
     }
     .to-line .recipient { font-family: 'Inter', sans-serif; font-weight: 600; color: var(--ink); font-size: 10pt; }
     h1.subject {
-      font-family: 'Noto Sans Ethiopic', 'Inter', sans-serif;
+      font-family: 'Inter', sans-serif;
       font-size: 11pt; font-weight: 600; line-height: 1.4;
       color: var(--ink); margin: 0 0 4mm;
     }
     h1.subject .subject-label {
-      display: inline-block; font-size: 10pt; color: var(--muted);
+      display: inline-block; font-size: 10pt; color: #000000;
       font-weight: 500; margin-right: 3mm;
     }
     h1.subject .subject-text {
+      font-family: 'Inter', sans-serif;
       text-decoration: underline; text-decoration-thickness: 1px;
       text-underline-offset: 3px; text-decoration-color: var(--ink);
     }
@@ -255,7 +245,7 @@ function styles(base: string): string {
     .lh-body li { margin-bottom: 1mm; }
     .lh-body blockquote {
       border-left: 1px solid var(--rule); padding-left: 3mm;
-      color: var(--muted); margin: 0 0 2.5mm;
+      color: #000000; margin: 0 0 2.5mm;
     }
     .lh-body table {
       border-collapse: collapse; width: 100%; margin: 2mm 0 3mm; font-size: 9pt;
@@ -272,20 +262,20 @@ function styles(base: string): string {
 
     /* === Signature === */
     .sig { margin-top: 7mm; font-family: 'Inter', sans-serif; }
-    .sig .closing { margin-bottom: 3mm; color: var(--ink-soft); }
-    .sig .line { width: 50mm; height: 11mm; border-bottom: 1px solid var(--ink); margin-bottom: 1.5mm; }
-    .sig .name { font-weight: 600; color: var(--ink); font-size: 10pt; }
-    .sig .title { font-size: 8.5pt; color: var(--muted); }
+    .sig .closing { margin-bottom: 3mm; color: #000000; }
+    .sig .line { width: 50mm; height: 11mm; border-bottom: 1px solid #000000; margin-bottom: 1.5mm; }
+    .sig .name { font-weight: 600; color: #000000; font-size: 10pt; }
+    .sig .title { font-size: 8.5pt; color: #000000; font-style: italic; }
 
     /* === Enclosures === */
     .enclosures {
       margin-top: 6mm; padding-top: 2mm; border-top: 1px solid var(--rule);
-      font-size: 9pt; color: var(--ink-soft);
+      font-size: 9pt; color: #000000;
     }
     .enclosures .enc-heading {
       font-family: 'JetBrains Mono', monospace; font-size: 5.5pt;
       letter-spacing: .18em; text-transform: uppercase;
-      color: var(--muted); font-weight: 500; margin-bottom: 1mm;
+      color: #000000; font-weight: 500; margin-bottom: 1mm;
     }
     .enclosures ol { margin: 0; padding-left: 5mm; }
     .enclosures li { margin-bottom: 0.5mm; }
@@ -298,7 +288,7 @@ function styles(base: string): string {
         content: "Page " counter(page) " / " counter(pages);
         font-family: 'JetBrains Mono', monospace;
         font-size: 6pt; letter-spacing: .18em;
-        text-transform: uppercase; color: #8a8a86;
+        text-transform: uppercase; color: #000000;
       }
     }
     @media print {
@@ -314,6 +304,35 @@ function styles(base: string): string {
   `
 }
 
+// ---------- Localised label strings ----------
+
+const LABELS = {
+  en: {
+    to: 'To',
+    subject: 'Subject',
+    reference: 'Reference',
+    date: 'Date',
+    enclosures: 'Enclosures',
+    address: 'Address',
+    telephone: 'Telephone',
+    emailWeb: 'Email · Web',
+    mailing: 'Mailing',
+    sincerely: 'Sincerely,',
+  },
+  am: {
+    to: 'ለ',
+    subject: 'ጉዳዩ',
+    reference: 'ቁጥር',
+    date: 'ቀን',
+    enclosures: 'ተያያዥ ሰነዶች',
+    address: 'አድራሻ',
+    telephone: 'ስልክ',
+    emailWeb: 'ኢሜል · ድር',
+    mailing: 'ፖስታ ሣጥን',
+    sincerely: 'ከሰላምታ ጋር',
+  },
+} as const
+
 // ---------- HTML rendering ----------
 
 /**
@@ -325,6 +344,7 @@ export function renderLetterHtml({ letter, origin = '', lang = 'en' }: RenderHtm
   missing: string[]
 } {
   const head: LetterheadInfo = getLetterhead()
+  const lbl = LABELS[lang] ?? LABELS.en
 
   // Resolve {{placeholders}} in the body. The resolver returns the HTML
   // with `[MISSING: x]` markers for unresolved tokens, plus an array of
@@ -356,19 +376,19 @@ export function renderLetterHtml({ letter, origin = '', lang = 'en' }: RenderHtm
   // Right-rail HTML — contact info stack + spacer + brand block at bottom.
   const railHtml = `
     <div class="info">
-      <div class="label">Address</div>
+      <div class="label">${lbl.address}</div>
       <div class="val">${head.addressLines.map((l) => `<div>${esc(l)}</div>`).join('')}</div>
     </div>
     <div class="info">
-      <div class="label">Telephone</div>
+      <div class="label">${lbl.telephone}</div>
       <div class="val">${head.phones.map((p) => `<div>${esc(p)}</div>`).join('')}</div>
     </div>
     <div class="info">
-      <div class="label">Email · Web</div>
+      <div class="label">${lbl.emailWeb}</div>
       <div class="val"><div>${esc(head.email)}</div><div>${esc(head.web)}</div></div>
     </div>
     <div class="info">
-      <div class="label">Mailing</div>
+      <div class="label">${lbl.mailing}</div>
       <div class="val"><div>${esc(head.pobox)}</div><div>${esc(head.city)}</div></div>
     </div>
     <div class="brand-block">
@@ -381,7 +401,7 @@ export function renderLetterHtml({ letter, origin = '', lang = 'en' }: RenderHtm
   const enclosuresHtml =
     letter.enclosures.length > 0
       ? `<div class="enclosures">
-           <div class="enc-heading">Enclosures</div>
+           <div class="enc-heading">${lbl.enclosures}</div>
            <ol>${letter.enclosures
              .map((e) => `<li>${esc(e.fileName)} (${formatBytes(e.fileSize)})</li>`)
              .join('')}</ol>
@@ -389,18 +409,20 @@ export function renderLetterHtml({ letter, origin = '', lang = 'en' }: RenderHtm
       : ''
 
   // Signature block (only if a signatory is assigned).
+  const closingText = letter.closing?.trim() || lbl.sincerely
+  const sigTitle = letter.signatoryTitle?.trim() || letter.senderDepartment?.trim() || ''
   const sigHtml = letter.signatory?.name
     ? `<div class="sig">
-         <div class="closing">Sincerely,</div>
+         <div class="closing">${esc(closingText)}</div>
          <div class="line"></div>
          <div class="name">${esc(letter.signatory.name)}</div>
-         ${letter.senderDepartment ? `<div class="title">${esc(letter.senderDepartment)}</div>` : ''}
+         ${sigTitle ? `<div class="title">${esc(sigTitle)}</div>` : ''}
        </div>`
     : ''
 
   // To-line (only if a customer is assigned).
   const toHtml = letter.customerName
-    ? `<div class="to-line"><span class="label">ለ</span><span class="recipient">${esc(letter.customerName)}</span></div>`
+    ? `<div class="to-line"><span class="label">${lbl.to}</span><span class="recipient">${esc(letter.customerName)}</span></div>`
     : ''
 
   const refNumber = letter.referenceNumber || 'DRAFT'
@@ -416,11 +438,11 @@ export function renderLetterHtml({ letter, origin = '', lang = 'en' }: RenderHtm
         : `<div style="font-size:14pt;font-weight:700;letter-spacing:.1em;">ELDIX</div>`}
       <div class="hdr-refdate">
         <div class="item">
-          <div class="label">Reference</div>
+          <div class="label">${lbl.reference}</div>
           <div class="val">${esc(refNumber)}</div>
         </div>
         <div class="item">
-          <div class="label">Date</div>
+          <div class="label">${lbl.date}</div>
           <div class="val">${esc(dateStr)}</div>
         </div>
       </div>
@@ -432,7 +454,7 @@ export function renderLetterHtml({ letter, origin = '', lang = 'en' }: RenderHtm
           <div class="lh-body">
             ${toHtml}
             <h1 class="subject">
-              <span class="subject-label">ጉዳዩ</span>
+              <span class="subject-label">${lbl.subject}</span>
               <span class="subject-text">${esc(letter.subject)}</span>
             </h1>
             ${bodyHtml}

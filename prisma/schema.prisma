@@ -22,6 +22,7 @@ model User {
   password               String?
   avatar                 String?
   role                   String    @default("EMPLOYEE") // ADMIN, EXECUTIVE, DEPARTMENT_LEAD, EMPLOYEE
+  designation            String?   // Job title / position, e.g. "CEO", "Sales Engineer"
   isActive               Boolean   @default(true)
   activationToken        String?
   activationTokenExpires DateTime?
@@ -73,6 +74,9 @@ model User {
   signatoryLetters            Letter[]                 @relation("LetterSignatory")
   uploadedEnclosures          LetterEnclosure[]        @relation("LetterEnclosureUploader")
   createdLetterTypes          LetterTypeDef[]          @relation("LetterTypeCreator")
+  letterRolePermissionsSet    LetterRolePermission[]   @relation("LetterRolePermissionUpdater")
+  letterUserPermissions       LetterUserPermission[]   @relation("LetterUserPermissionTarget")
+  letterUserPermissionsSet    LetterUserPermission[]   @relation("LetterUserPermissionUpdater")
 
   @@map("users")
 }
@@ -1555,6 +1559,7 @@ model Letter {
   // Authors / signatory.
   preparedById      String
   signatoryId       String?
+  signatoryTitle    String?   // Job title shown below signatory name on the letter
   // Dispatch (filled at Mark as Sent).
   dispatchMethod    String? // EMAIL | PRINTED | COURIER
   dispatchDate      DateTime?
@@ -1626,4 +1631,42 @@ model LetterTypeDef {
   letters   Letter[]
 
   @@map("letter_types")
+}
+
+/// DB-driven letter permission matrix.
+/// Stores whether a given system role has a given letter permission.
+/// Seeded with defaults matching the original hardcoded rules in lib/permissions.ts.
+/// Admins can edit rows at runtime via Settings > Letter Permissions.
+model LetterRolePermission {
+  id          String   @id @default(cuid())
+  role        String   // ADMIN | EXECUTIVE | DEPARTMENT_LEAD | EMPLOYEE
+  permission  String   // LetterPermission value (e.g. "letter.read")
+  granted     Boolean  @default(true)
+  updatedById String?
+  updatedAt   DateTime @updatedAt
+
+  updatedBy User? @relation("LetterRolePermissionUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@unique([role, permission])
+  @@index([role])
+  @@map("letter_role_permissions")
+}
+
+/// Per-user letter permission overrides.
+/// A row with granted=true adds a permission the user's role doesn't have.
+/// A row with granted=false revokes a permission the user's role does have.
+model LetterUserPermission {
+  id          String   @id @default(cuid())
+  userId      String
+  permission  String   // LetterPermission value
+  granted     Boolean  // true = grant extra, false = revoke
+  updatedById String?
+  updatedAt   DateTime @updatedAt
+
+  user      User  @relation("LetterUserPermissionTarget", fields: [userId], references: [id], onDelete: Cascade)
+  updatedBy User? @relation("LetterUserPermissionUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@unique([userId, permission])
+  @@index([userId])
+  @@map("letter_user_permissions")
 }

@@ -13,6 +13,31 @@
 
 ---
 
+## 2026-05-14 — Letter Permissions: DB-driven role/permission management UI
+
+- **Added** `lib/letter-permissions.ts` — canonical permission key list, labels, role labels, and default matrix (shared constants, no business logic)
+- **Added** Prisma schema: `LetterRolePermission` + `LetterUserPermission` models + back-relations on `User` — `prisma/schema.prisma`
+- **Added** `prisma/seed-letter-permissions.ts` — idempotent seed script; run after `prisma db push` to populate default matrix
+- **Added** API route `GET|PUT /api/settings/letter-permissions/roles` — fetch/update role × permission matrix (ADMIN only) — `app/api/settings/letter-permissions/roles/route.ts`
+- **Added** API route `GET|POST /api/settings/letter-permissions/users` — fetch/create per-user overrides — `app/api/settings/letter-permissions/users/route.ts`
+- **Added** API route `GET|DELETE /api/settings/letter-permissions/users/[userId]` — per-user override detail + delete — `app/api/settings/letter-permissions/users/[userId]/route.ts`
+- **Added** `components/settings/LetterPermissionsManagement.tsx` — 3-tab settings component: Role Matrix (toggle grid), User Overrides (per-user exception panel), Letter Types (LetterTypeDef CRUD)
+- **Added** `app/dashboard/settings/letter-permissions/page.tsx` — settings page (ADMIN only)
+- **Updated** `lib/permissions.ts` — letter permission helpers now use DB-driven `checkLetterPermission()` async resolver with static fallback; synchronous shims preserved for non-async callers
+- **Updated** `components/settings/SettingsNav.tsx` — added "Letter Permissions" nav item (ADMIN only, ShieldCheck icon)
+- **Updated** `lib/dashboard-navigation.ts` — added "Letter Permissions" entry under Settings group
+- **Tests:** not run
+- **Docs updated:** `docs/CHANGELOG_AI.md`, `docs/FEATURE_STATUS.md`, `docs/SITEMAP.md`, `docs/COMPONENT_CATALOG.md`
+
+## 2026-05-14 — Letters: language-aware letterhead labels + historical import
+
+- **Fix** `lib/letter-html.tsx` — extracted `LABELS` map (`en`/`am`) and replaced all hardcoded label strings (To/ለ, Subject/ጉዳዩ, Reference/ቁጥር, Date/ቀን, Address/አድራሻ, Telephone/ስልክ, Email·Web, Mailing/ፖስታ ሣጥን, Enclosures/ተያያዥ ሰነዶች, Sincerely/ከሰላምታ ጋር) with `lbl.*` lookups driven by the `lang` URL param. Signature closing now falls back to `lbl.sincerely` only when `letter.closing` is empty.
+- **Data** Imported 914 historical letters from Eldix legacy system (`EL/CL/...` reference format) into `letters` table via server-side Python script. Stripped `<div class="ql-editor read-mode">` wrapper from `bodyContent` and `closing` fields (907 rows updated) to match system's plain-HTML storage format.
+- **Tests:** not run
+- **Docs updated:** CHANGELOG_AI.md
+
+---
+
 ## 2026-05-12 — Letters: fix Amharic text clipping and multi-page truncation
 
 - **Fix** Removed `position:absolute;inset` from `.lh .pad` — replaced with `padding` so content flows naturally and is never clipped — `lib/letter-html.tsx`

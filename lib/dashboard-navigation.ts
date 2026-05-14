@@ -23,6 +23,7 @@ import {
   MapPin,
   Truck,
   ClipboardList,
+  ShieldCheck,
 } from 'lucide-react'
 
 export interface NavItem {
@@ -157,6 +158,7 @@ export const navigationGroups: NavGroup[] = [
       { name: 'Integrations', href: '/dashboard/settings/integrations', icon: Settings },
       { name: 'Audit Logs', href: '/dashboard/settings/audit-logs', icon: FileText },
       { name: 'Travel & Mobility', href: '/dashboard/settings/travel', icon: MapPin },
+      { name: 'Letter Permissions', href: '/dashboard/settings/letter-permissions', icon: ShieldCheck },
     ],
     defaultOpen: false,
   },

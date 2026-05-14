@@ -20,6 +20,7 @@ export const GET = withRole<RouteIdParams>('ADMIN', async (_request, { params })
       name: true,
       email: true,
       role: true,
+      designation: true,
       isActive: true,
       createdAt: true,
       lastLoginAt: true,
@@ -35,7 +36,7 @@ export const PATCH = withRole<RouteIdParams>('ADMIN', async (request: NextReques
   if (!userId) return apiBadRequest('Invalid user id')
 
   const body = await request.json()
-  const { name, email, role, isActive } = body
+  const { name, email, role, isActive, designation } = body
 
   const existingUser = await prisma.user.findUnique({ where: { id: userId } })
   if (!existingUser) return apiNotFound('User not found')
@@ -69,12 +70,14 @@ export const PATCH = withRole<RouteIdParams>('ADMIN', async (request: NextReques
       ...(email && { email }),
       ...(role && { role }),
       ...(isActive !== undefined && { isActive }),
+      designation: designation !== undefined ? (designation?.trim() || null) : undefined,
     },
     select: {
       id: true,
       name: true,
       email: true,
       role: true,
+      designation: true,
       isActive: true,
       createdAt: true,
       lastLoginAt: true,

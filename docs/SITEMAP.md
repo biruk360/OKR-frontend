@@ -102,6 +102,7 @@
 | `/dashboard/settings/branding` | `app/dashboard/settings/branding/page.tsx` | settings | Branding config |
 | `/dashboard/settings/integrations` | `app/dashboard/settings/integrations/page.tsx` | settings | Integrations config |
 | `/dashboard/settings/audit-logs` | `app/dashboard/settings/audit-logs/page.tsx` | settings | Audit log viewer |
+| `/dashboard/settings/letter-permissions` | `app/dashboard/settings/letter-permissions/page.tsx` | settings | Letter role matrix + user overrides + letter types (ADMIN only) |
 
 ## API Routes
 
@@ -181,6 +182,9 @@
 | GET/PUT | `/api/settings/okr-rules` | OKR rules config |
 | GET/PUT | `/api/settings/branding` | Branding config |
 | GET/PUT | `/api/settings/integrations` | Integrations config |
+| GET/PUT | `/api/settings/letter-permissions/roles` | Letter role × permission matrix (ADMIN) |
+| GET/POST | `/api/settings/letter-permissions/users` | Per-user letter permission overrides (ADMIN) |
+| GET/DELETE | `/api/settings/letter-permissions/users/[userId]` | Per-user override detail + delete (ADMIN) |
 | POST | `/api/email/test` | Admin-only SMTP test email |
 
 ### Reports & Background

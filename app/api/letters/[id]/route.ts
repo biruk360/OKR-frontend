@@ -22,6 +22,7 @@ const EDITABLE_FIELDS = [
   'closing',
   'senderDepartment',
   'signatoryId',
+  'signatoryTitle',
   'bodyContent',
 ] as const
 

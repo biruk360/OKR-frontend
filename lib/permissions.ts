@@ -498,28 +498,70 @@ export function redactKeyResult(keyResult: any) {
 }
 
 // =====================================================================
-// Letter Management permissions
+// Letter Management permissions — DB-driven with hardcoded fallback
 //
-// Mapping from spec → role matrix (see docs/letter_management_requirements.md §FR-15):
-//   letter:create   → ADMIN, EXECUTIVE, DEPARTMENT_LEAD, EMPLOYEE
-//   letter:approve  → ADMIN, EXECUTIVE
-//   letter:dispatch → ADMIN, EXECUTIVE, DEPARTMENT_LEAD
-//   letter:admin    → ADMIN
+// The role matrix is stored in letter_role_permissions and editable at
+// runtime via Settings > Letter Permissions. These helpers are the
+// runtime resolver: they query the DB first, falling back to
+// DEFAULT_LETTER_MATRIX when the DB has no rows yet (e.g. before the
+// first seed run).
 //
-// Until a dedicated role/permission management UI is wired in, these helpers
-// derive permission from the platform's existing UserRole enum.
+// Per-user overrides in letter_user_permissions take highest precedence.
+//
+// Synchronous shims (canCreateLetter, canApproveLetter, etc.) are kept
+// for call sites that don't have an async context. They use the static
+// fallback matrix only. Prefer checkLetterPermission() in async
+// server contexts (API routes, server components).
 // =====================================================================
 
+import { DEFAULT_LETTER_MATRIX, type LetterPermission } from './letter-permissions'
+
+/**
+ * Async resolver — checks per-user override first, then DB role matrix,
+ * then static fallback. Use in API routes and server components.
+ */
+export async function checkLetterPermission(
+  userId: string,
+  role: UserRole,
+  permission: LetterPermission
+): Promise<boolean> {
+  // ADMIN always wins — avoids DB round-trip for the common case
+  if (role === 'ADMIN') return true
+
+  try {
+    // 1. Per-user override takes highest precedence
+    const userOverride = await prisma.letterUserPermission.findUnique({
+      where: { userId_permission: { userId, permission } },
+    })
+    if (userOverride !== null) return userOverride.granted
+
+    // 2. Role matrix row
+    const roleRow = await prisma.letterRolePermission.findUnique({
+      where: { role_permission: { role, permission } },
+    })
+    if (roleRow !== null) return roleRow.granted
+  } catch {
+    // DB unavailable — fall through to static fallback
+  }
+
+  // 3. Static fallback
+  return DEFAULT_LETTER_MATRIX[role as keyof typeof DEFAULT_LETTER_MATRIX]?.[permission] ?? false
+}
+
+// ---------------------------------------------------------------------------
+// Synchronous shims — use static fallback only, for non-async callers
+// ---------------------------------------------------------------------------
+
 export function canCreateLetter(role: UserRole): boolean {
-  return role === 'ADMIN' || role === 'EXECUTIVE' || role === 'DEPARTMENT_LEAD' || role === 'EMPLOYEE'
+  return DEFAULT_LETTER_MATRIX[role as keyof typeof DEFAULT_LETTER_MATRIX]?.['letter.create'] ?? false
 }
 
 export function canApproveLetter(role: UserRole): boolean {
-  return role === 'ADMIN' || role === 'EXECUTIVE'
+  return DEFAULT_LETTER_MATRIX[role as keyof typeof DEFAULT_LETTER_MATRIX]?.['letter.approve'] ?? false
 }
 
 export function canDispatchLetter(role: UserRole): boolean {
-  return role === 'ADMIN' || role === 'EXECUTIVE' || role === 'DEPARTMENT_LEAD'
+  return DEFAULT_LETTER_MATRIX[role as keyof typeof DEFAULT_LETTER_MATRIX]?.['letter.dispatch'] ?? false
 }
 
 export function canAdminLetter(role: UserRole): boolean {

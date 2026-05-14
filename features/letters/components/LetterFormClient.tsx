@@ -68,6 +68,7 @@ function LetterFormInner({ initial, viewer }: Props) {
   const [calendarMode, setCalendarMode] = useState<CalendarMode>('GC')
   const [subject, setSubject] = useState(letter.subject)
   const [signatoryId, setSignatoryId] = useState<string | null>(letter.signatoryId)
+  const [signatoryTitle, setSignatoryTitle] = useState<string>((letter as any).signatoryTitle || '')
   const [customerName, setCustomerName] = useState(letter.customerName)
   const [odooPartnerId, setOdooPartnerId] = useState<string | null>(letter.odooPartnerId)
   const [date, setDate] = useState(() => new Date(letter.date).toISOString().slice(0, 10))
@@ -97,6 +98,7 @@ function LetterFormInner({ initial, viewer }: Props) {
         customerName,
         odooPartnerId,
         signatoryId,
+        signatoryTitle: signatoryTitle || null,
       }
       const updated = await updateLetter(letter.id, payload)
       setLetter((prev) => ({ ...prev, ...updated, enclosures: prev.enclosures }))
@@ -291,6 +293,17 @@ function LetterFormInner({ initial, viewer }: Props) {
                 <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
               ))}
             </select>
+          </Field>
+
+          <Field label={t('form.signatoryTitle')} htmlFor="lf-signatory-title">
+            <Input
+              id="lf-signatory-title"
+              value={signatoryTitle}
+              disabled={!editable && status !== 'SUBMITTED'}
+              onChange={(e) => setSignatoryTitle(e.target.value)}
+              placeholder={t('form.signatoryTitle.placeholder')}
+              className="h-10"
+            />
           </Field>
         </div>
       </ApCard>

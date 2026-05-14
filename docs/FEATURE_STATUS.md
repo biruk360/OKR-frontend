@@ -109,7 +109,8 @@ Spec: `docs/letter_management_requirements.md` (v2.0). Implemented as a vertical
 | PDF preview & print | MOCKED | `features/letters/components/PdfPreviewPanel.tsx`, `app/api/letters/[id]/pdf/route.ts` | Returns server-rendered HTML; swap for `@react-pdf/renderer` or Puppeteer worker |
 | Odoo customer typeahead | MOCKED | `features/letters/components/CustomerLookup.tsx`, `app/api/letters/odoo/contacts/route.ts` | Returns a small stub roster; replace with real Odoo `res.partner` integration |
 | Activity log integration | DONE | `components/shared/ActivityLogPanel.tsx` (extended), `lib/activity-log.ts` (LETTER entityType + 9 actions) | Reuses shared panel |
-| Permissions | DONE | `lib/permissions.ts` (`canCreateLetter`, `canApproveLetter`, `canDispatchLetter`, `canAdminLetter`, `canEditLetter`) | Derived from existing `UserRole`; dedicated `letter:*` roles deferred |
+| Permissions | DONE | `lib/permissions.ts`, `lib/letter-permissions.ts`, `app/api/settings/letter-permissions/` | DB-driven role × permission matrix + per-user overrides; editable via Settings > Letter Permissions (ADMIN only); `checkLetterPermission()` async resolver with static fallback |
+| Letter Permissions settings UI | DONE | `components/settings/LetterPermissionsManagement.tsx`, `app/dashboard/settings/letter-permissions/page.tsx` | 3-tab UI: Role Matrix toggle grid, User Overrides panel, Letter Types CRUD |
 | Reporting view | PLANNED | — | FR-16 — not yet built |
 | Notifications on transitions | PLANNED | — | Hook into `lib/notifications.ts` once the letter UI stabilises |
 | Template management screen | PLANNED | — | Currently constants in `lib/letters.ts` |

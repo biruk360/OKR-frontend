@@ -102,10 +102,52 @@ export const PUT = withAuth<RouteIdParams>(async (req, { session, params }) => {
   let mammothWarnings: unknown = null
   try {
     const mammoth = await import('mammoth')
+    // Extract paragraph alignments from OOXML before mammoth strips them.
+    // We zip-open the docx, parse word/document.xml, and collect the 0-based
+    // paragraph index → CSS text-align value for any non-left paragraphs.
+    const alignMap: Map<number, string> = new Map()
+    try {
+      const JSZip = (await import('jszip')).default
+      const zip = await JSZip.loadAsync(buf)
+      const docXml = await zip.file('word/document.xml')?.async('string')
+      if (docXml) {
+        // Match every <w:p ...> block and find <w:jc w:val="..."/> inside its <w:pPr>
+        const paraBlocks = docXml.match(/<w:p[ >][\s\S]*?<\/w:p>/g) || []
+        paraBlocks.forEach((block, idx) => {
+          const jcMatch = block.match(/<w:jc[^>]+w:val="([^"]+)"/)
+          if (jcMatch) {
+            const val = jcMatch[1]
+            const css = val === 'both' || val === 'distribute' ? 'justify'
+              : val === 'center' ? 'center'
+              : val === 'right' || val === 'end' ? 'right'
+              : null
+            if (css) alignMap.set(idx, css)
+          }
+        })
+      }
+    } catch {
+      // Non-fatal — alignment will just default to left
+    }
+
     const result = await mammoth.convertToHtml({ buffer: buf })
     mammothWarnings = result.messages
-    if (result.value && result.value.trim().length > 0) {
-      bodyContent = result.value
+
+    // Inject text-align inline styles onto <p> tags in the order they appear.
+    let htmlValue = result.value
+    if (alignMap.size > 0) {
+      let pIdx = 0
+      htmlValue = htmlValue.replace(/<p(\s[^>]*)?>/g, (match: string, attrs: string) => {
+        const align = alignMap.get(pIdx++)
+        if (!align) return match
+        // Merge into existing style attr or add new one
+        if (attrs && /\bstyle=/.test(attrs)) {
+          return `<p${attrs.replace(/style="([^"]*)"/, `style="$1; text-align:${align}"`)}>`
+        }
+        return `<p${attrs || ''} style="text-align:${align}">`
+      })
+    }
+    if (htmlValue && htmlValue.trim().length > 0) {
+      bodyContent = htmlValue
     } else {
       console.warn('[docx-save] mammoth returned empty HTML; keeping previous bodyContent', {
         letterId: id,

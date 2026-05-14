@@ -34,7 +34,7 @@ export const GET = withAuth<RouteIdParams>(async (_req, { params }) => {
     where: { id },
     include: {
       preparedBy: { select: { id: true, name: true, avatar: true, email: true } },
-      signatory: { select: { id: true, name: true, avatar: true, email: true } },
+      signatory: { select: { id: true, name: true, avatar: true, email: true, designation: true } },
       enclosures: {
         orderBy: { createdAt: 'desc' },
         include: { uploadedBy: { select: { id: true, name: true, avatar: true } } },
@@ -88,7 +88,7 @@ export const PATCH = withAuth<RouteIdParams>(async (req, { session, params }) =>
     data,
     include: {
       preparedBy: { select: { id: true, name: true, avatar: true } },
-      signatory: { select: { id: true, name: true, avatar: true } },
+      signatory: { select: { id: true, name: true, avatar: true, designation: true } },
     },
   })
 

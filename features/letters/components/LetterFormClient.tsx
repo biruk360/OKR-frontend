@@ -20,7 +20,6 @@ import { cn } from '@/lib/utils'
 import LetterStatusBadge from './LetterStatusBadge'
 import LetterStatusBar from './LetterStatusBar'
 import CustomerLookup from './CustomerLookup'
-import EnclosuresPanel from './EnclosuresPanel'
 import PdfPreviewPanel from './PdfPreviewPanel'
 import MarkAsSentModal from './MarkAsSentModal'
 import RejectLetterModal from './RejectLetterModal'
@@ -188,7 +187,6 @@ function LetterFormInner({ initial, viewer }: Props) {
         description={`${typeName} · ${t('form.preparedBy')} ${letter.preparedBy.name}`}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <LangSwitch lang={lang} onChange={setLang} />
             <Link href="/dashboard/letters">
               <Button variant="outline" className="h-10">
                 <ArrowLeft className="mr-1.5 size-3.5" /> {t('form.back')}
@@ -232,7 +230,15 @@ function LetterFormInner({ initial, viewer }: Props) {
       )}
 
       {/* Details card — single column, compact */}
-      <ApCard padding="lg" header={<SectionLabel>Details</SectionLabel>}>
+      <ApCard
+        padding="lg"
+        header={
+          <div className="flex items-center justify-between">
+            <SectionLabel>Details</SectionLabel>
+            <LangSwitch lang={lang} onChange={setLang} />
+          </div>
+        }
+      >
         <div className="grid gap-4 md:grid-cols-2">
           <Field label={t('create.subject')} htmlFor="lf-subject" className="md:col-span-2">
             <Input
@@ -308,16 +314,13 @@ function LetterFormInner({ initial, viewer }: Props) {
         </div>
       </ApCard>
 
-      {/* Body / Enclosures / Preview tabs */}
+      {/* Body / Preview tabs */}
       <Tabs defaultValue="body" className="w-full">
         <TabsList
           className="rounded-[12px] border bg-card p-1 shadow-sm"
           style={{ borderColor: 'var(--ap-border)' } as any}
         >
           <TabsTrigger value="body">{t('form.tabs.body')}</TabsTrigger>
-          <TabsTrigger value="enclosures">
-            {t('form.tabs.enclosures')} <span className="ml-1 text-[11px] text-muted-foreground">({enclosures.length})</span>
-          </TabsTrigger>
           <TabsTrigger value="preview">{t('form.tabs.preview')}</TabsTrigger>
         </TabsList>
 
@@ -329,17 +332,6 @@ function LetterFormInner({ initial, viewer }: Props) {
               docxUrl={`/api/letters/${letter.id}/docx`}
               editable={editable}
               user={{ id: viewer.id, name: letter.preparedBy.name, email: letter.preparedBy.email }}
-            />
-          </ApCard>
-        </TabsContent>
-
-        <TabsContent value="enclosures" className="mt-3">
-          <ApCard padding="lg">
-            <EnclosuresPanel
-              letterId={letter.id}
-              enclosures={enclosures}
-              canEdit={editable}
-              onChange={setEnclosures}
             />
           </ApCard>
         </TabsContent>

@@ -42,7 +42,7 @@ function fontDataUri(filename: string): string {
 
 export interface RenderHtmlArgs {
   letter: Letter & {
-    signatory: { name: string | null } | null
+    signatory: { name: string | null; designation?: string | null } | null
     enclosures: Pick<LetterEnclosure, 'fileName' | 'fileSize'>[]
     letterTypeDef?: Pick<LetterTypeDef, 'id' | 'code' | 'name'> | null
   }
@@ -125,7 +125,7 @@ function styles(base: string): string {
     html, body {
       margin: 0; padding: 0;
       background: #e8e8e3;
-      font-family: 'Inter', system-ui, sans-serif;
+      font-family: 'Noto Sans Ethiopic', 'Inter', system-ui, sans-serif;
       -webkit-font-smoothing: antialiased;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
@@ -213,19 +213,19 @@ function styles(base: string): string {
 
     /* === Body content === */
     .lh-body {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Noto Sans Ethiopic', 'Inter', sans-serif;
       font-size: 10pt; line-height: 1.55; color: #000000;
     }
     .to-line {
       margin-bottom: 5mm; display: flex; align-items: baseline; gap: 3mm;
     }
     .to-line .label {
-      font-family: 'Inter', sans-serif; font-size: 9.5pt;
+      font-family: 'Noto Sans Ethiopic', 'Inter', sans-serif; font-size: 9.5pt;
       color: #000000; font-weight: 500; line-height: 1;
     }
-    .to-line .recipient { font-family: 'Inter', sans-serif; font-weight: 600; color: var(--ink); font-size: 10pt; }
+    .to-line .recipient { font-family: 'Noto Sans Ethiopic', 'Inter', sans-serif; font-weight: 600; color: var(--ink); font-size: 10pt; }
     h1.subject {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Noto Sans Ethiopic', 'Inter', sans-serif;
       font-size: 11pt; font-weight: 600; line-height: 1.4;
       color: var(--ink); margin: 0 0 4mm;
     }
@@ -234,7 +234,7 @@ function styles(base: string): string {
       font-weight: 500; margin-right: 3mm;
     }
     h1.subject .subject-text {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Noto Sans Ethiopic', 'Inter', sans-serif;
       text-decoration: underline; text-decoration-thickness: 1px;
       text-underline-offset: 3px; text-decoration-color: var(--ink);
     }
@@ -261,7 +261,7 @@ function styles(base: string): string {
     .placeholder-missing { color: #b91c1c; font-weight: 600; }
 
     /* === Signature === */
-    .sig { margin-top: 7mm; font-family: 'Inter', sans-serif; }
+    .sig { margin-top: 7mm; font-family: 'Noto Sans Ethiopic', 'Inter', sans-serif; }
     .sig .closing { margin-bottom: 3mm; color: #000000; }
     .sig .line { width: 50mm; height: 11mm; border-bottom: 1px solid #000000; margin-bottom: 1.5mm; }
     .sig .name { font-weight: 600; color: #000000; font-size: 10pt; }
@@ -410,7 +410,11 @@ export function renderLetterHtml({ letter, origin = '', lang = 'en' }: RenderHtm
 
   // Signature block (only if a signatory is assigned).
   const closingText = letter.closing?.trim() || lbl.sincerely
-  const sigTitle = letter.signatoryTitle?.trim() || letter.senderDepartment?.trim() || ''
+  // Priority: manual signatoryTitle field → signatory user's designation → senderDepartment
+  const sigTitle = letter.signatoryTitle?.trim()
+    || letter.signatory?.designation?.trim()
+    || letter.senderDepartment?.trim()
+    || ''
   const sigHtml = letter.signatory?.name
     ? `<div class="sig">
          <div class="closing">${esc(closingText)}</div>

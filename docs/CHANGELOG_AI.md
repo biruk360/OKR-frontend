@@ -36,6 +36,12 @@
 - **Tests:** not run
 - **Docs updated:** CHANGELOG_AI.md
 
+## 2026-05-18 — Letters: fix Amharic header/rail labels invisible due to text-transform:uppercase
+
+- **Fix** `lib/letter-html.tsx` — Ethiopic script has no uppercase form; `text-transform:uppercase` caused Reference/ቁጥር and Date/ቀን labels (and all rail/enclosure labels) to render invisibly in Chromium/Puppeteer when `lang=am`. Passed `lang` into `styles()` and set `text-transform:none; letter-spacing:normal` for Amharic, preserving the monospace uppercase style for English.
+- **Tests:** not run
+- **Docs updated:** CHANGELOG_AI.md
+
 ---
 
 ## 2026-05-12 — Letters: fix Amharic text clipping and multi-page truncation

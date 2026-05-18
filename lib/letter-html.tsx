@@ -112,7 +112,11 @@ function fontFaces(base: string): string {
 
 // ---------- Layout CSS — Design 4 "Right Rail" (master spec) ----------
 
-function styles(base: string): string {
+function styles(base: string, lang: 'en' | 'am' = 'en'): string {
+  // Ethiopic script has no uppercase — applying text-transform:uppercase makes
+  // those characters invisible in Chromium/Puppeteer. Suppress it for Amharic.
+  const labelTransform = lang === 'am' ? 'none' : 'uppercase'
+  const labelSpacing   = lang === 'am' ? 'normal' : '.18em'
   return `
     ${fontFaces(base)}
 
@@ -156,7 +160,7 @@ function styles(base: string): string {
     .main-hdr .hdr-refdate { display: flex; gap: 8mm; align-items: flex-start; }
     .main-hdr .hdr-refdate .item .label {
       font-family: 'JetBrains Mono', monospace; font-size: 5.5pt;
-      letter-spacing: .18em; text-transform: uppercase;
+      letter-spacing: ${labelSpacing}; text-transform: ${labelTransform};
       color: #000000; font-weight: 500; margin-bottom: 1mm;
     }
     .main-hdr .hdr-refdate .item .val {
@@ -199,7 +203,7 @@ function styles(base: string): string {
     }
     .rail .info .label {
       font-family: 'JetBrains Mono', monospace; font-size: 5.5pt;
-      letter-spacing: .18em; text-transform: uppercase;
+      letter-spacing: ${labelSpacing}; text-transform: ${labelTransform};
       color: #000000; font-weight: 500; margin-bottom: 1mm;
     }
     .rail .info .val { font-size: 7pt; line-height: 1.55; color: #000000; }
@@ -274,7 +278,7 @@ function styles(base: string): string {
     }
     .enclosures .enc-heading {
       font-family: 'JetBrains Mono', monospace; font-size: 5.5pt;
-      letter-spacing: .18em; text-transform: uppercase;
+      letter-spacing: ${labelSpacing}; text-transform: ${labelTransform};
       color: #000000; font-weight: 500; margin-bottom: 1mm;
     }
     .enclosures ol { margin: 0; padding-left: 5mm; }
@@ -480,7 +484,7 @@ export function renderLetterHtml({ letter, origin = '', lang = 'en' }: RenderHtm
 <head>
 <meta charset="utf-8" />
 <title>${esc(refNumber)}</title>
-<style>${styles(base)}</style>
+<style>${styles(base, lang)}</style>
 </head>
 <body>
 ${pageHtml('Page 01 / 01')}

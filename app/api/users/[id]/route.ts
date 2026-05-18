@@ -21,6 +21,8 @@ export const GET = withRole<RouteIdParams>('ADMIN', async (_request, { params })
       email: true,
       role: true,
       designation: true,
+      nameAmharic: true,
+      designationAmharic: true,
       isActive: true,
       createdAt: true,
       lastLoginAt: true,
@@ -36,7 +38,7 @@ export const PATCH = withRole<RouteIdParams>('ADMIN', async (request: NextReques
   if (!userId) return apiBadRequest('Invalid user id')
 
   const body = await request.json()
-  const { name, email, role, isActive, designation } = body
+  const { name, email, role, isActive, designation, nameAmharic, designationAmharic } = body
 
   const existingUser = await prisma.user.findUnique({ where: { id: userId } })
   if (!existingUser) return apiNotFound('User not found')
@@ -71,6 +73,8 @@ export const PATCH = withRole<RouteIdParams>('ADMIN', async (request: NextReques
       ...(role && { role }),
       ...(isActive !== undefined && { isActive }),
       designation: designation !== undefined ? (designation?.trim() || null) : undefined,
+      nameAmharic: nameAmharic !== undefined ? (nameAmharic?.trim() || null) : undefined,
+      designationAmharic: designationAmharic !== undefined ? (designationAmharic?.trim() || null) : undefined,
     },
     select: {
       id: true,
@@ -78,6 +82,8 @@ export const PATCH = withRole<RouteIdParams>('ADMIN', async (request: NextReques
       email: true,
       role: true,
       designation: true,
+      nameAmharic: true,
+      designationAmharic: true,
       isActive: true,
       createdAt: true,
       lastLoginAt: true,

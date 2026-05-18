@@ -23,6 +23,8 @@ model User {
   avatar                 String?
   role                   String    @default("EMPLOYEE") // ADMIN, EXECUTIVE, DEPARTMENT_LEAD, EMPLOYEE
   designation            String?   // Job title / position, e.g. "CEO", "Sales Engineer"
+  nameAmharic            String?   // Full name in Amharic — used on Amharic letterhead
+  designationAmharic     String?   // Job title in Amharic — used on Amharic letterhead
   isActive               Boolean   @default(true)
   activationToken        String?
   activationTokenExpires DateTime?
@@ -1559,7 +1561,8 @@ model Letter {
   // Authors / signatory.
   preparedById      String
   signatoryId       String?
-  signatoryTitle    String?   // Job title shown below signatory name on the letter
+  signatoryTitle    String?   // Job title shown below signatory name on the letter (English)
+  signatoryTitleAmharic String? // Job title in Amharic — used when lang=am
   // Dispatch (filled at Mark as Sent).
   dispatchMethod    String? // EMAIL | PRINTED | COURIER
   dispatchDate      DateTime?

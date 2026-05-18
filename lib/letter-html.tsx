@@ -42,7 +42,12 @@ function fontDataUri(filename: string): string {
 
 export interface RenderHtmlArgs {
   letter: Letter & {
-    signatory: { name: string | null; designation?: string | null } | null
+    signatory: {
+      name: string | null
+      nameAmharic?: string | null
+      designation?: string | null
+      designationAmharic?: string | null
+    } | null
     enclosures: Pick<LetterEnclosure, 'fileName' | 'fileSize'>[]
     letterTypeDef?: Pick<LetterTypeDef, 'id' | 'code' | 'name'> | null
   }
@@ -113,8 +118,11 @@ function fontFaces(base: string): string {
 // ---------- Layout CSS — Design 4 "Right Rail" (master spec) ----------
 
 function styles(base: string, lang: 'en' | 'am' = 'en'): string {
-  // Ethiopic script has no uppercase — applying text-transform:uppercase makes
-  // those characters invisible in Chromium/Puppeteer. Suppress it for Amharic.
+  // JetBrains Mono has zero Ethiopic glyph coverage — Ethiopic chars render as
+  // tofu boxes. For Amharic labels switch to Noto Sans Ethiopic.
+  // text-transform:uppercase also causes Ethiopic chars to vanish (no uppercase
+  // form exists), so suppress it. letter-spacing looks wrong on Ethiopic too.
+  const labelFont      = lang === 'am' ? "'Noto Sans Ethiopic', sans-serif" : "'JetBrains Mono', monospace"
   const labelTransform = lang === 'am' ? 'none' : 'uppercase'
   const labelSpacing   = lang === 'am' ? 'normal' : '.18em'
   return `
@@ -159,7 +167,7 @@ function styles(base: string, lang: 'en' | 'am' = 'en'): string {
     .main-hdr .hdr-logo { height: 15mm; width: auto; }
     .main-hdr .hdr-refdate { display: flex; gap: 8mm; align-items: flex-start; }
     .main-hdr .hdr-refdate .item .label {
-      font-family: 'JetBrains Mono', monospace; font-size: 5.5pt;
+      font-family: ${labelFont}; font-size: 5.5pt;
       letter-spacing: ${labelSpacing}; text-transform: ${labelTransform};
       color: #000000; font-weight: 500; margin-bottom: 1mm;
     }
@@ -202,7 +210,7 @@ function styles(base: string, lang: 'en' | 'am' = 'en'): string {
       display: flex; flex-direction: column; gap: 5mm;
     }
     .rail .info .label {
-      font-family: 'JetBrains Mono', monospace; font-size: 5.5pt;
+      font-family: ${labelFont}; font-size: 5.5pt;
       letter-spacing: ${labelSpacing}; text-transform: ${labelTransform};
       color: #000000; font-weight: 500; margin-bottom: 1mm;
     }
@@ -277,7 +285,7 @@ function styles(base: string, lang: 'en' | 'am' = 'en'): string {
       font-size: 9pt; color: #000000;
     }
     .enclosures .enc-heading {
-      font-family: 'JetBrains Mono', monospace; font-size: 5.5pt;
+      font-family: ${labelFont}; font-size: 5.5pt;
       letter-spacing: ${labelSpacing}; text-transform: ${labelTransform};
       color: #000000; font-weight: 500; margin-bottom: 1mm;
     }
@@ -414,16 +422,21 @@ export function renderLetterHtml({ letter, origin = '', lang = 'en' }: RenderHtm
 
   // Signature block (only if a signatory is assigned).
   const closingText = letter.closing?.trim() || lbl.sincerely
-  // Priority: manual signatoryTitle field → signatory user's designation → senderDepartment
-  const sigTitle = letter.signatoryTitle?.trim()
-    || letter.signatory?.designation?.trim()
+  // For Amharic letters prefer the Amharic name/title fields if populated.
+  const sigName = (lang === 'am' && letter.signatory?.nameAmharic?.trim())
+    ? letter.signatory.nameAmharic.trim()
+    : (letter.signatory?.name ?? '')
+  // Priority: lang-specific signatoryTitle → signatory user's lang-specific designation → senderDepartment
+  const sigTitle = (lang === 'am'
+    ? (letter.signatoryTitleAmharic?.trim() || letter.signatory?.designationAmharic?.trim())
+    : (letter.signatoryTitle?.trim() || letter.signatory?.designation?.trim()))
     || letter.senderDepartment?.trim()
     || ''
   const sigHtml = letter.signatory?.name
     ? `<div class="sig">
          <div class="closing">${esc(closingText)}</div>
          <div class="line"></div>
-         <div class="name">${esc(letter.signatory.name)}</div>
+         <div class="name">${esc(sigName)}</div>
          ${sigTitle ? `<div class="title">${esc(sigTitle)}</div>` : ''}
        </div>`
     : ''

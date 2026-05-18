@@ -242,6 +242,7 @@ export interface CreateLetterForm {
   senderDepartment?: string
   signatoryId?: string | null
   signatoryTitle?: string | null
+  signatoryTitleAmharic?: string | null
   bodyContent?: string
 }
 

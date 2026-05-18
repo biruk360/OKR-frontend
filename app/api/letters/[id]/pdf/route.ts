@@ -32,7 +32,7 @@ async function loadLetter(id: string) {
   return prisma.letter.findUnique({
     where: { id },
     include: {
-      signatory: { select: { name: true } },
+      signatory: { select: { name: true, nameAmharic: true, designation: true, designationAmharic: true } },
       enclosures: { select: { fileName: true, fileSize: true } },
       letterTypeDef: { select: { id: true, code: true, name: true } },
     },

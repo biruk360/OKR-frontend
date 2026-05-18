@@ -23,6 +23,7 @@ const EDITABLE_FIELDS = [
   'senderDepartment',
   'signatoryId',
   'signatoryTitle',
+  'signatoryTitleAmharic',
   'bodyContent',
 ] as const
 
@@ -33,8 +34,8 @@ export const GET = withAuth<RouteIdParams>(async (_req, { params }) => {
   const letter = await prisma.letter.findUnique({
     where: { id },
     include: {
-      preparedBy: { select: { id: true, name: true, avatar: true, email: true } },
-      signatory: { select: { id: true, name: true, avatar: true, email: true, designation: true } },
+      preparedBy: { select: { id: true, name: true, nameAmharic: true, avatar: true, email: true } },
+      signatory: { select: { id: true, name: true, nameAmharic: true, avatar: true, email: true, designation: true, designationAmharic: true } },
       enclosures: {
         orderBy: { createdAt: 'desc' },
         include: { uploadedBy: { select: { id: true, name: true, avatar: true } } },

@@ -11,6 +11,8 @@ interface User {
   email: string
   role: string
   designation?: string | null
+  nameAmharic?: string | null
+  designationAmharic?: string | null
   isActive: boolean
   createdAt: string | Date
   lastLoginAt?: string | Date | null
@@ -557,6 +559,8 @@ function EditUserModal({ isOpen, onClose, onUserUpdated, user }: EditUserModalPr
     email: user.email,
     role: user.role,
     designation: user.designation || '',
+    nameAmharic: user.nameAmharic || '',
+    designationAmharic: user.designationAmharic || '',
     isActive: user.isActive
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -702,6 +706,40 @@ function EditUserModal({ isOpen, onClose, onUserUpdated, user }: EditUserModalPr
                         className="mt-1 block w-full border border-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-ring focus:border-blue-500 sm:text-sm"
                         placeholder="e.g. CEO, Sales Engineer, Project Manager"
                       />
+                    </div>
+
+                    <div className="border-t border-border pt-3">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Amharic Letterhead Fields</p>
+                      <div className="space-y-3">
+                        <div>
+                          <label htmlFor="edit-nameAmharic" className="block text-sm font-medium text-muted-foreground">
+                            Name (አማርኛ)
+                          </label>
+                          <input
+                            type="text"
+                            id="edit-nameAmharic"
+                            value={formData.nameAmharic}
+                            onChange={(e) => setFormData(prev => ({ ...prev, nameAmharic: e.target.value }))}
+                            className="mt-1 block w-full border border-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-ring focus:border-blue-500 sm:text-sm"
+                            placeholder="ሙሉ ስም በአማርኛ"
+                            dir="auto"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="edit-designationAmharic" className="block text-sm font-medium text-muted-foreground">
+                            Designation (አማርኛ)
+                          </label>
+                          <input
+                            type="text"
+                            id="edit-designationAmharic"
+                            value={formData.designationAmharic}
+                            onChange={(e) => setFormData(prev => ({ ...prev, designationAmharic: e.target.value }))}
+                            className="mt-1 block w-full border border-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-ring focus:border-blue-500 sm:text-sm"
+                            placeholder="ለምሳሌ፦ ዋና ሥራ አስኪያጅ"
+                            dir="auto"
+                          />
+                        </div>
+                      </div>
                     </div>
 
                     <div>

@@ -36,9 +36,17 @@
 - **Tests:** not run
 - **Docs updated:** CHANGELOG_AI.md
 
-## 2026-05-18 — Letters: fix Amharic header/rail labels invisible due to text-transform:uppercase
+## 2026-05-18 — Letters: fix all Amharic label rendering (tofu boxes) + Amharic name/title fields
 
-- **Fix** `lib/letter-html.tsx` — Ethiopic script has no uppercase form; `text-transform:uppercase` caused Reference/ቁጥር and Date/ቀን labels (and all rail/enclosure labels) to render invisibly in Chromium/Puppeteer when `lang=am`. Passed `lang` into `styles()` and set `text-transform:none; letter-spacing:normal` for Amharic, preserving the monospace uppercase style for English.
+- **Fix** `lib/letter-html.tsx` — Root cause of broken-box (tofu) labels: `JetBrains Mono` has zero Ethiopic glyph coverage. For `lang=am` the label font now switches to `'Noto Sans Ethiopic', sans-serif` on all three label rules (header ref/date, right-rail info, enclosures heading). Also suppresses `text-transform:uppercase` and `letter-spacing` for Amharic (Ethiopic has no uppercase form and spacing looks wrong). The previous commit only partially fixed this (suppressed transform, but left JetBrains Mono).
+- **Feat** `prisma/schema.prisma` — Added `nameAmharic String?` and `designationAmharic String?` to `User`; added `signatoryTitleAmharic String?` to `Letter`. `prisma db push` applied.
+- **Feat** `lib/letter-html.tsx` — `renderLetterHtml` now uses signatory's `nameAmharic`/`designationAmharic` and letter's `signatoryTitleAmharic` when `lang=am` and the fields are populated, falling back to English values.
+- **Feat** `app/api/letters/[id]/html/route.ts`, `pdf/route.ts` — signatory select now includes `nameAmharic`, `designation`, `designationAmharic`.
+- **Feat** `app/api/letters/[id]/route.ts` — GET includes Amharic fields; `signatoryTitleAmharic` added to `EDITABLE_FIELDS`.
+- **Feat** `app/api/users/route.ts`, `[id]/route.ts` — list + PATCH now select/accept/save `nameAmharic` and `designationAmharic`.
+- **Feat** `components/settings/UserManagement.tsx` — Edit User modal now shows "Amharic Letterhead Fields" section with Name (አማርኛ) and Designation (አማርኛ) inputs.
+- **Feat** `features/letters/components/LetterFormClient.tsx` — Letter form now shows Signatory Title (አማርኛ) input and saves `signatoryTitleAmharic`.
+- **Feat** `types/index.ts` — `CreateLetterForm` / `UpdateLetterForm` now includes `signatoryTitleAmharic`.
 - **Tests:** not run
 - **Docs updated:** CHANGELOG_AI.md
 

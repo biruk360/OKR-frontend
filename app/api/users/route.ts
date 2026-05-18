@@ -12,6 +12,8 @@ export const GET = withRole('ADMIN', async () => {
       email: true,
       role: true,
       designation: true,
+      nameAmharic: true,
+      designationAmharic: true,
       isActive: true,
       createdAt: true,
       lastLoginAt: true,

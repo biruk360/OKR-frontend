@@ -68,6 +68,7 @@ function LetterFormInner({ initial, viewer }: Props) {
   const [subject, setSubject] = useState(letter.subject)
   const [signatoryId, setSignatoryId] = useState<string | null>(letter.signatoryId)
   const [signatoryTitle, setSignatoryTitle] = useState<string>((letter as any).signatoryTitle || '')
+  const [signatoryTitleAmharic, setSignatoryTitleAmharic] = useState<string>((letter as any).signatoryTitleAmharic || '')
   const [customerName, setCustomerName] = useState(letter.customerName)
   const [odooPartnerId, setOdooPartnerId] = useState<string | null>(letter.odooPartnerId)
   const [date, setDate] = useState(() => new Date(letter.date).toISOString().slice(0, 10))
@@ -92,6 +93,8 @@ function LetterFormInner({ initial, viewer }: Props) {
   signatoryIdRef.current = signatoryId
   const signatoryTitleRef = useRef(signatoryTitle)
   signatoryTitleRef.current = signatoryTitle
+  const signatoryTitleAmharicRef = useRef(signatoryTitleAmharic)
+  signatoryTitleAmharicRef.current = signatoryTitleAmharic
 
   async function saveWith(overrides?: Partial<UpdateLetterForm>, opts?: { silent?: boolean }): Promise<void> {
     if (!editable) return
@@ -105,6 +108,7 @@ function LetterFormInner({ initial, viewer }: Props) {
         odooPartnerId,
         signatoryId: signatoryIdRef.current,
         signatoryTitle: signatoryTitleRef.current || null,
+        signatoryTitleAmharic: signatoryTitleAmharicRef.current || null,
         ...overrides,
       }
       const updated = await updateLetter(letter.id, payload)
@@ -325,6 +329,18 @@ function LetterFormInner({ initial, viewer }: Props) {
               onChange={(e) => setSignatoryTitle(e.target.value)}
               placeholder={t('form.signatoryTitle.placeholder')}
               className="h-10"
+            />
+          </Field>
+
+          <Field label={`${t('form.signatoryTitle')} (አማርኛ)`} htmlFor="lf-signatory-title-am">
+            <Input
+              id="lf-signatory-title-am"
+              value={signatoryTitleAmharic}
+              disabled={!editable && status !== 'SUBMITTED'}
+              onChange={(e) => setSignatoryTitleAmharic(e.target.value)}
+              placeholder="ለምሳሌ፦ ዋና ሥራ አስኪያጅ"
+              className="h-10"
+              dir="auto"
             />
           </Field>
         </div>

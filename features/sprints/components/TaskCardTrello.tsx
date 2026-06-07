@@ -38,6 +38,8 @@ interface Props {
   todo: TrelloTodo
   onClick: () => void
   onDragStart: (e: React.DragEvent) => void
+  onDragEnd?: (e: React.DragEvent) => void
+  isDragging?: boolean
 }
 
 /** Number of priority dots rendered along the top strip. */
@@ -92,7 +94,7 @@ function MemberStack({ members }: { members: CardUser[] }) {
   )
 }
 
-export default function TaskCardTrello({ todo, onClick, onDragStart }: Props) {
+export default function TaskCardTrello({ todo, onClick, onDragStart, onDragEnd, isDragging }: Props) {
   const start = todo.startDate ? new Date(todo.startDate) : null
   const end = todo.dueDate ? new Date(todo.dueDate) : null
   const tone = pickDateChipTone({ start, end, status: todo.status })
@@ -132,10 +134,11 @@ export default function TaskCardTrello({ todo, onClick, onDragStart }: Props) {
       tabIndex={0}
       draggable
       onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
       onClick={onClick}
       onKeyDown={(e) => { if (e.key === 'Enter') onClick() }}
       className="group cursor-pointer overflow-hidden rounded-[8px] border bg-card shadow-sm transition hover:shadow-card"
-      style={{ borderColor: 'var(--ap-border-soft, var(--ap-border))' }}
+      style={{ opacity: isDragging ? 0.4 : undefined, borderColor: 'var(--ap-border-soft, var(--ap-border))' }}
     >
       {/* URGENT striped indicator (mirrors the yellow striped band in the screenshots) */}
       {todo.priority === 'URGENT' && (

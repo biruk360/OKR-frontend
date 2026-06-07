@@ -67,7 +67,8 @@ export const authOptions: NextAuthOptions = {
     })
   ],
   session: {
-    strategy: 'jwt'
+    strategy: 'jwt',
+    maxAge: 4 * 60 * 60, // 4 hours — matches client-side idle timeout
   },
   callbacks: {
     async jwt({ token, user }) {

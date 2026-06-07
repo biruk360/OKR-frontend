@@ -86,7 +86,7 @@ export default function TodosPageClient({
   currentUserId,
 }: Props) {
   // ─── Zustand stores ───
-  const { todos: rows, setTodos, toggleComplete, changeStatus, changeAssignee, changeDueDate, deleteTodo, addTodo, updateTodo, fetchTodos } = useTodoStore()
+  const { todos: rows, setTodos, toggleComplete, changeStatus, changeAssignee, changeDueDate, deleteTodo, addTodo, updateTodo, fetchTodos, reorder } = useTodoStore()
   const { todoViewMode: viewMode, load: loadPrefs, setTodoViewMode } = useUserPrefsStore()
 
   const [query, setQuery] = useState('')
@@ -357,6 +357,7 @@ export default function TodosPageClient({
             users={users}
             onToggle={handleToggle}
             onStatusChange={handleChangeStatus}
+            onReorder={(columnOrders) => void reorder(columnOrders)}
             onOpen={setOpenTodoId}
             onAssigneeChange={handleChangeAssignee}
           />

@@ -61,6 +61,18 @@
 | `/dashboard/initiative-report` | `app/dashboard/initiative-report/page.tsx` | reports | Daily initiative updates report |
 | `/dashboard/analytics` | `app/dashboard/analytics/page.tsx` | reports | Analytics dashboard |
 
+### Performance & Scorecard
+
+| Route | Page File | Feature | Description |
+|-------|-----------|---------|-------------|
+| `/dashboard/performance` | `app/dashboard/performance/page.tsx` | performance | Employee My Performance dashboard |
+| `/dashboard/performance/evaluations` | `app/dashboard/performance/evaluations/page.tsx` | performance | Evaluator/admin queue |
+| `/dashboard/performance/evaluations/[id]/score` | `app/dashboard/performance/evaluations/[id]/score/page.tsx` | performance | Scoring, calibration, and report workspace |
+| `/dashboard/performance/templates` | `app/dashboard/performance/templates/page.tsx` | performance | Scorecard template/version management |
+| `/dashboard/performance/templates/[id]` | `app/dashboard/performance/templates/[id]/page.tsx` | performance | Template builder and metric mappings |
+| `/dashboard/performance/cycles` | `app/dashboard/performance/cycles/page.tsx` | performance | Review-cycle management |
+| `/dashboard/performance/actions` | `app/dashboard/performance/actions/page.tsx` | performance | Development/reward action queue |
+
 ### Communication
 | Route | Page File | Feature | Description |
 |-------|-----------|---------|-------------|
@@ -169,6 +181,7 @@
 | GET | `/api/users/me/direct-reports` | Manager's direct reports |
 | GET | `/api/users/me/departments` | User's departments |
 | POST | `/api/users/[id]/reset-password` | Admin password reset |
+| POST | `/api/auth/change-password` | Authenticated user changes own password (requires `currentPassword` + `newPassword`) |
 | GET/POST | `/api/departments` | List / Create |
 | GET/PUT/DELETE | `/api/departments/[id]` | Read / Update / Delete |
 
@@ -187,6 +200,51 @@
 | GET/DELETE | `/api/settings/letter-permissions/users/[userId]` | Per-user override detail + delete (ADMIN) |
 | POST | `/api/email/test` | Admin-only SMTP test email |
 
+### Permissions — Miscellaneous
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | `/api/permissions/me` | Caller's effective permissions: union of all active roles → `{ doctypePermissions, featurePermissions }` (any authenticated user) |
+| POST | `/api/permissions/export` | Export full permission snapshot as JSON download (ADMIN only) |
+| POST | `/api/permissions/import` | Import permission JSON; `dryRun=true` returns per-table diff counts, `dryRun=false` upserts in $transaction (ADMIN only) |
+| GET | `/api/permissions/preview/[userId]` | Preview effective permissions for any user: `{ user, activeRoles, effectivePermissions, overrides, visibleFeatures, hiddenFeatures }` (ADMIN only) |
+
+### Permissions & Role Profiles
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET/POST | `/api/permissions/profiles` | List all RoleProfiles with memberships / Create (ADMIN) |
+| GET/PUT/DELETE | `/api/permissions/profiles/[id]` | Profile detail / Update (incl. replace memberships) / Delete — 409 if users assigned (ADMIN) |
+
+### Permissions — Roles CRUD
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | `/api/permissions/roles` | List all roles with userRoles count (ADMIN only) |
+| POST | `/api/permissions/roles` | Create a new role; key auto-uppercased/slugified, unique name+key enforced (ADMIN only) |
+| GET | `/api/permissions/roles/[id]` | Role detail with doctypePermissions, featurePermissions, _count.userRoles (ADMIN only) |
+| PUT | `/api/permissions/roles/[id]` | Update role fields; blocks key change on isSystem roles (ADMIN only) |
+| DELETE | `/api/permissions/roles/[id]` | Delete role; guards isSystem (400) and roles with users (409 HAS_USERS) (ADMIN only) |
+| POST | `/api/permissions/roles/[id]/clone` | Clone role copying all doctype perms, feature perms, and scope rules (ADMIN only) |
+
+### Permissions — Role Scope Rules
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | `/api/permissions/roles/[id]/scope-rules` | List all RecordScopeRule rows for a role (ADMIN only) |
+| POST | `/api/permissions/roles/[id]/scope-rules` | Create a new scope rule for a role; validates operator, valueType, and doctypeKey existence (ADMIN only) |
+| PUT | `/api/permissions/roles/[id]/scope-rules/[ruleId]` | Partial-update a scope rule; verifies ownership by role before saving (ADMIN only) |
+| DELETE | `/api/permissions/roles/[id]/scope-rules/[ruleId]` | Delete a scope rule; verifies ownership by role before deleting (ADMIN only) |
+
+### User Permission Management
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | `/api/permissions/users/[id]` | Full permission picture: basic info, userRoles, userRoleProfiles (with memberships), permissionOverrides, effectivePermissions union (ADMIN only) |
+| POST | `/api/permissions/users/[id]/roles` | Assign a role to a user (upsert); validates roleId and future expiresAt; self-mod blocked (ADMIN only) |
+| DELETE | `/api/permissions/users/[id]/roles/[roleId]` | Remove a role assignment from a user; 404 if not found; self-mod blocked (ADMIN only) |
+| POST | `/api/permissions/users/[id]/profiles` | Assign a RoleProfile to a user (upsert); validates profileId; self-mod blocked (ADMIN only) |
+| DELETE | `/api/permissions/users/[id]/profiles/[profileId]` | Remove a profile assignment from a user; 404 if not found; self-mod blocked (ADMIN only) |
+| GET | `/api/permissions/users/[id]/overrides` | List all UserPermissionOverride records for the user (ADMIN only) |
+| POST | `/api/permissions/users/[id]/overrides` | Create a permission override; validates overrideType (grant/deny), reason (min 10 chars), future expiresAt; self-mod blocked (ADMIN only) |
+| DELETE | `/api/permissions/users/[id]/overrides/[overrideId]` | Delete an override; verifies it belongs to the target user; self-mod blocked (ADMIN only) |
+| GET | `/api/permissions/explain` | Explain why a user can/cannot perform an action on a doctype; traces overrides, role grants, and scope rules (ADMIN only; query params: userId, doctypeKey, action) |
+
 ### Reports & Background
 | Method | Route | Description |
 |--------|-------|-------------|
@@ -195,6 +253,29 @@
 | POST | `/api/cron/weekly-digest` | Weekly email digest |
 | GET | `/api/health` | Health check |
 | POST | `/api/client-errors` | Client error logging |
+
+### Performance & Scorecard
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET/POST | `/api/performance/templates` | List/create scorecard templates |
+| GET/PATCH | `/api/performance/templates/[id]` | Template detail/configuration |
+| PUT | `/api/performance/templates/[id]/builder` | Replace draft tiers and criteria |
+| POST | `/api/performance/templates/[id]/{publish,fork,archive,culture-block}` | Template lifecycle and culture block |
+| GET/PUT/DELETE | `/api/performance/template-mappings` | Role/designation-to-template mappings |
+| GET/PUT/DELETE | `/api/performance/metric-mappings` | Employee KR-to-metric mappings |
+| GET/POST | `/api/performance/cycles` | List/create review cycles |
+| GET | `/api/performance/cycles/[id]` | Cycle detail, issues, evaluations, and panels |
+| POST | `/api/performance/cycles/[id]/{open,close}` | Generate or close cycle evaluations |
+| GET | `/api/performance/evaluations` | Actor-scoped evaluation queue |
+| GET | `/api/performance/evaluations/[id]` | Sealed/employee/evaluator/admin detail DTO |
+| PUT/POST | `/api/performance/evaluations/[id]/{scores,submit,panel,calibration,share-draft,acknowledge,dispute,finalize}` | Evaluation workflow |
+| GET | `/api/performance/evaluations/[id]/report` | Employee-safe report |
+| GET | `/api/performance/okr-actual/[criterionId]?evaluationId=...` | Resolve period-bounded metric actual and score |
+| GET | `/api/performance/me` | Employee performance history and active focuses |
+| PUT | `/api/performance/focuses/[id]/weekly-step` | Save employee weekly growth step |
+| GET/PATCH | `/api/performance/actions`, `/api/performance/actions/[id]` | Recommendation queue and transitions |
+| GET/POST | `/api/cron/performance-nudge` | Bundled score-free weekly focus notification |
 
 ### Letters
 | Method | Route | Description |

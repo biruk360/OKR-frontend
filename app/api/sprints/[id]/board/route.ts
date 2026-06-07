@@ -63,7 +63,7 @@ export const GET = withAuth<RouteIdParams>(async (_request, { params }) => {
     // append at the bottom of their lane (the user's expectation). Avoid sorting
     // by dueDate here — null due dates can appear above existing dated tasks
     // depending on DB null-ordering, which made fresh todos jump to the top.
-    orderBy: [{ status: 'asc' }, { createdAt: 'asc' }],
+    orderBy: [{ status: 'asc' }, { sprintPosition: 'asc' }, { createdAt: 'asc' }],
     include: TODO_INCLUDE,
   })
 

@@ -13,6 +13,7 @@ import Header from '@/components/layout/Header'
 import CmdkActionListener from '@/components/cmdk/CmdkActionListener'
 import CheckInPickerModal from '@/components/cmdk/CheckInPickerModal'
 import GlobalCheckInModal from '@/components/cmdk/GlobalCheckInModal'
+import { useIdleTimeout } from '@/hooks'
 
 interface DashboardShellProps {
   user: {
@@ -25,6 +26,7 @@ interface DashboardShellProps {
 }
 
 export default function DashboardShell({ user, children }: DashboardShellProps) {
+  useIdleTimeout()
   const pathname = usePathname()
   const isStrategyMap =
     pathname === '/dashboard/alignment-map' ||

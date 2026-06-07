@@ -15,3 +15,5 @@ export { useViewTracker } from './useViewTracker'
 export type { ViewerRow } from './useViewTracker'
 
 export { useMediaQuery, useIsMobile } from './useMediaQuery'
+
+export { useIdleTimeout } from './useIdleTimeout'

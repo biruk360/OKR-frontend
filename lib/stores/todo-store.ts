@@ -37,6 +37,7 @@ interface TodoState {
   updateTodo: (id: string, patch: Partial<TodoItem>) => void
   deleteTodo: (id: string) => Promise<void>
   addTodo: (todo: TodoItem) => void
+  reorder: (columnOrders: Record<string, string[]>) => Promise<void>
 }
 
 export const useTodoStore = create<TodoState>((set, get) => ({
@@ -163,5 +164,17 @@ export const useTodoStore = create<TodoState>((set, get) => ({
 
   addTodo: (todo) => {
     set({ todos: [todo, ...get().todos] })
+  },
+
+  reorder: async (columnOrders) => {
+    try {
+      await fetch('/api/todos/reorder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ columnOrders }),
+      })
+    } catch {
+      toast.error('Failed to save order')
+    }
   },
 }))

@@ -8,7 +8,7 @@
  * via PATCH /api/todos/[id]. Click a card → opens TodoCardModal in drawer mode.
  */
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 import { useRouter } from 'next/navigation'
@@ -27,6 +27,7 @@ import { cn } from '@/lib/utils'
 import type { TodoStatus } from '@/types'
 import { BOARD_STATUSES, TODO_STATUS_META } from '@/lib/todo-status'
 import TaskCardTrello, { type TrelloTodo } from './TaskCardTrello'
+import { KanbanDropLine } from '@/components/shared/KanbanDropLine'
 import { GenerateSprintButton } from '@/features/sprints-ai'
 import SprintBackgroundPicker from './SprintBackgroundPicker'
 import SprintFloatingBar, { type SprintBoardView } from './SprintFloatingBar'
@@ -46,6 +47,7 @@ interface BoardTodo {
   title: string
   status: TodoStatus
   priority: string
+  sprintPosition: number
   taskType?: string | null
   startDate: string | null
   dueDate: string | null
@@ -264,6 +266,34 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
   const [view, setView] = useState<SprintBoardView>('board')
   const [showSwitcher, setShowSwitcher] = useState(false)
 
+  // ── Drag-and-drop state ──────────────────────────────────────────────────
+  // localColumns mirrors filteredColumns and is updated optimistically during drag.
+  const [localColumns, setLocalColumns] = useState<BoardColumn[]>([])
+  const [draggedId, setDraggedId] = useState<string | null>(null)
+  // indicator: which column and after which array-index the drop line appears.
+  // afterIndex = -1 means "before all cards in the column".
+  const indicatorRef = useRef<{ colId: string; afterIndex: number } | null>(null)
+  const [indicator, setIndicator] = useState<{ colId: string; afterIndex: number } | null>(null)
+  const rafRef = useRef<number | null>(null)
+
+  const updateIndicator = useCallback((colId: string, afterIndex: number) => {
+    if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
+    rafRef.current = requestAnimationFrame(() => {
+      if (
+        indicatorRef.current?.colId === colId &&
+        indicatorRef.current?.afterIndex === afterIndex
+      ) return
+      indicatorRef.current = { colId, afterIndex }
+      setIndicator({ colId, afterIndex })
+    })
+  }, [])
+
+  const clearIndicator = useCallback(() => {
+    if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
+    indicatorRef.current = null
+    setIndicator(null)
+  }, [])
+
   const { data, isLoading } = useQuery({
     queryKey: ['sprint-board', sprintId],
     queryFn: async () => {
@@ -305,18 +335,31 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
     void startSprintNow()
   }
 
-  async function moveTodo(todoId: string, newStatus: BoardColumn['status']) {
+  async function moveTodo(todoId: string, newStatus: BoardColumn['status'], sprintPosition?: number) {
     try {
       const res = await fetch(`/api/todos/${todoId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({ status: newStatus, ...(sprintPosition !== undefined && { sprintPosition }) }),
       })
       const json = await res.json()
       if (!res.ok || !json.success) throw new Error(json.error || 'Failed')
       invalidate()
     } catch (err: any) {
       toast.error(err.message || 'Failed to move task')
+    }
+  }
+
+  async function reorderBoard(columnOrders: Record<string, string[]>) {
+    try {
+      await fetch(`/api/sprints/${sprintId}/board/reorder`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ columnOrders }),
+      })
+      invalidate()
+    } catch {
+      toast.error('Failed to save order')
     }
   }
 
@@ -332,6 +375,19 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
       }),
     }))
   }, [data, filterAssignee, filterLinked])
+
+  // Keep localColumns in sync with server data (backfill zero-positions so midpoints work).
+  useEffect(() => {
+    setLocalColumns(
+      filteredColumns.map((col) => ({
+        ...col,
+        todos: col.todos.map((t, i) => ({
+          ...t,
+          sprintPosition: t.sprintPosition || (i + 1) * 1000,
+        })),
+      }))
+    )
+  }, [filteredColumns])
 
   if (isLoading || !data) {
     return <div className="p-6 text-[13px] text-muted-foreground">Loading sprint…</div>
@@ -519,54 +575,131 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
 
       {view === 'board' ? (
         <div className="flex gap-3 overflow-x-auto pb-2">
-          {filteredColumns.map((col) => (
-            <div
-              key={col.id}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => {
-                const todoId = e.dataTransfer.getData('todoId')
-                if (todoId) moveTodo(todoId, col.status)
-              }}
-              className={cn(
-                'flex w-[272px] shrink-0 flex-col rounded-[12px] border p-2 backdrop-blur-md',
-                dark ? 'bg-white/15' : 'bg-white/85',
-                isMobile && mobileCol !== col.status && 'hidden',
-              )}
-              style={{ borderColor: 'var(--ap-border)' }}
-            >
-              <div className="mb-2 flex items-center justify-between px-1">
-                <p className={cn('text-[13px] font-semibold', dark && 'text-white')}>
-                  {col.name}
-                  <span className="ml-1.5 tabular-nums opacity-60">{col.todos.length}</span>
-                </p>
-                <button type="button" className="rounded-md p-0.5 opacity-60 hover:bg-muted hover:opacity-100">
-                  <MoreHorizontal className="h-3.5 w-3.5" />
-                </button>
-              </div>
+          {localColumns.map((col) => {
+            const isEmpty = col.todos.length === 0
+            return (
+              <div
+                key={col.id}
+                onDragOver={(e) => {
+                  e.preventDefault()
+                  // Find insertion point by scanning card rects
+                  const cardEls = Array.from(
+                    e.currentTarget.querySelectorAll<HTMLElement>('[data-sprint-card]')
+                  )
+                  let afterIndex = col.todos.length - 1 // default: end of column
+                  for (let i = 0; i < cardEls.length; i++) {
+                    const rect = cardEls[i].getBoundingClientRect()
+                    if (e.clientY < rect.top + rect.height / 2) {
+                      afterIndex = i - 1
+                      break
+                    }
+                  }
+                  updateIndicator(col.id, afterIndex)
+                }}
+                onDragLeave={(e) => {
+                  if (!e.currentTarget.contains(e.relatedTarget as Node)) clearIndicator()
+                }}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  if (!draggedId) return
+                  const ind = indicatorRef.current
+                  clearIndicator()
+                  setDraggedId(null)
 
-              <div className="space-y-2">
-                {col.todos.map((t) => (
-                  <TaskCardTrello
-                    key={t.id}
-                    todo={t as unknown as TrelloTodo}
-                    onClick={() => setOpenTodoId(t.id)}
-                    onDragStart={(e) => e.dataTransfer.setData('todoId', t.id)}
-                  />
-                ))}
-              </div>
-
-              {col.id === 'PENDING' && (
-                <div className="mt-2">
-                  <AddTaskInline
-                    sprintId={sprintId}
-                    currentUserId={currentUserId}
-                    defaultDueDate={sprint.endDate}
-                    onCreated={invalidate}
-                  />
+                  // Rebuild target column order with the card inserted at the right position
+                  const targetCol = localColumns.find((c) => c.id === col.id)!
+                  const insertAfter = ind?.colId === col.id ? ind.afterIndex : targetCol.todos.length - 1
+                  const destTodos = targetCol.todos.filter((t) => t.id !== draggedId)
+                  const sourceCard = localColumns.flatMap((c) => c.todos).find((t) => t.id === draggedId)
+                  if (!sourceCard) return
+                  const insertIdx = insertAfter + 1
+                  const newOrder = [
+                    ...destTodos.slice(0, insertIdx),
+                    { ...sourceCard, status: col.status as TodoStatus },
+                    ...destTodos.slice(insertIdx),
+                  ]
+                  // Optimistic UI update
+                  setLocalColumns((prev) =>
+                    prev.map((c) => {
+                      if (c.id === col.id) return { ...c, todos: newOrder }
+                      return { ...c, todos: c.todos.filter((t) => t.id !== draggedId) }
+                    })
+                  )
+                  // Persist order for the target column (and source column if cross-column move)
+                  const columnOrders: Record<string, string[]> = {
+                    [col.status]: newOrder.map((t) => t.id),
+                  }
+                  if (sourceCard.status !== col.status) {
+                    columnOrders[sourceCard.status] = localColumns
+                      .find((c) => c.status === sourceCard.status)!
+                      .todos.filter((t) => t.id !== draggedId)
+                      .map((t) => t.id)
+                  }
+                  void reorderBoard(columnOrders)
+                  // Persist new status for cross-column moves
+                  if (sourceCard.status !== col.status) {
+                    void moveTodo(draggedId, col.status as TodoStatus)
+                  }
+                }}
+                className={cn(
+                  'flex w-[272px] shrink-0 flex-col rounded-[12px] border p-2 backdrop-blur-md',
+                  dark ? 'bg-white/15' : 'bg-white/85',
+                  isMobile && mobileCol !== col.status && 'hidden',
+                )}
+                style={{ borderColor: 'var(--ap-border)' }}
+              >
+                <div className="mb-2 flex items-center justify-between px-1">
+                  <p className={cn('text-[13px] font-semibold', dark && 'text-white')}>
+                    {col.name}
+                    <span className="ml-1.5 tabular-nums opacity-60">{col.todos.length}</span>
+                  </p>
+                  <button type="button" className="rounded-md p-0.5 opacity-60 hover:bg-muted hover:opacity-100">
+                    <MoreHorizontal className="h-3.5 w-3.5" />
+                  </button>
                 </div>
-              )}
-            </div>
-          ))}
+
+                {/* Drop indicator before first card */}
+                <KanbanDropLine active={!!indicator && indicator.colId === col.id && indicator.afterIndex === -1} />
+
+                {isEmpty && indicator?.colId === col.id ? (
+                  <div className="flex min-h-[60px] items-center justify-center rounded-lg border-2 border-dashed border-primary/40 bg-primary/5 text-[11px] text-primary">
+                    Drop here
+                  </div>
+                ) : (
+                  col.todos.map((t, cardIdx) => (
+                    <div key={t.id} data-sprint-card>
+                      <TaskCardTrello
+                        todo={t as unknown as TrelloTodo}
+                        isDragging={draggedId === t.id}
+                        onClick={() => setOpenTodoId(t.id)}
+                        onDragStart={(e) => {
+                          e.dataTransfer.effectAllowed = 'move'
+                          e.dataTransfer.setData('todoId', t.id)
+                          setDraggedId(t.id)
+                        }}
+                        onDragEnd={() => {
+                          clearIndicator()
+                          setDraggedId(null)
+                        }}
+                      />
+                      <KanbanDropLine active={!!indicator && indicator.colId === col.id && indicator.afterIndex === cardIdx} />
+                    </div>
+                  ))
+                )}
+
+                {col.id === 'PENDING' && (
+                  <div className="mt-2">
+                    <AddTaskInline
+                      sprintId={sprintId}
+                      currentUserId={currentUserId}
+                      defaultDueDate={sprint.endDate}
+                      onCreated={invalidate}
+                    />
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       ) : view === 'planner' ? (
         <SprintPlannerView

@@ -17,8 +17,9 @@
 |---------|--------|------|-------------|-------|
 | Daily Trip Plan (DTP) — web Phase 1 | IN PROGRESS | `features/daily-trip-plan/`, `lib/dtp/`, `app/api/dtp/`, `app/dashboard/travel/` | `PlanEditor`, `CoordinatorConsole`, `MovementSheetView`, `RunSheetView`, `PoolConsole`, `TravelSettingsForm`, `dtpApi` | Web slice of spec `docs/Daily_Trip_Plan_Requirements_v1.0.md`. Phase-2 stubs: Distance Matrix (10-min placeholder), VRP optimizer (no suggestions), Flutter mobile, SMS/Telegram, server-PDF, KR linkage UI. |
 | Telegram Bot — Stage 1 (foundation) | IN PROGRESS | `lib/telegram/`, `lib/ai/telegram-chat.ts`, `app/api/telegram/` | `webhook` route, `admin/setup` route, `TelegramChat`/`TelegramMessage`/`TelegramBotConfig` models | Logs all group/channel messages, answers `/ask` via Claude Sonnet 4.6. Stages 2 (Odoo digests) and 3 (tool use + admin UI) deferred. See `docs/TELEGRAM_BOT.md`. |
-| Authentication | DONE | `app/auth/`, `lib/auth.ts` | Sign-in, sign-up, session | NextAuth Credentials provider, JWT |
+| Authentication | DONE | `app/auth/`, `lib/auth.ts`, `app/api/auth/change-password/` | Sign-in, sign-up, session, change password, 4-hour idle timeout | NextAuth Credentials provider, JWT; `maxAge` 14400 s; client-side `useIdleTimeout` hook with 5-min warning toast |
 | Permissions (RBAC) | DONE | `lib/rbac.ts` + `lib/permissions.ts` | `can(action, resource, actor)` unified API | Covers all 40 matrix actions — `lib/permissions.ts` is wrapped by `rbac.ts` |
+| Permission Management — Roles CRUD API | DONE | `app/api/permissions/roles/`, `app/api/permissions/roles/[id]/`, `app/api/permissions/roles/[id]/clone/` | REST API for Role, RoleDocTypePermission, FeaturePermission, RecordScopeRule management. Roles list, create, detail, update, delete, clone. ADMIN-only via `withRole`. |
 | Activity Logging | DONE | `lib/activity-log.ts` | `recordActivity()` | Append-only audit trail |
 | Real-time Notifications | DONE | `lib/pusher.ts`, `lib/stores/notification-store.ts` | Pusher integration | |
 | Notification Dispatcher | DONE | `lib/notifications/` | `emit(event, payload)`, 40 canonical events, per-user prefs, org defaults, digest queue | Wired into objective/KR/todo/user/timeframe/comment mutations |
@@ -46,8 +47,8 @@
 
 | Feature | Status | Path | Key Exports | Notes |
 |---------|--------|------|-------------|-------|
-| Todos / Initiatives | DONE, NEEDS REFACTOR | `components/todos/`, `app/api/todos/` | CRUD modals + lists | Duplicate status toggle logic in ToDoList vs MyTasksList |
-| Sprint Board | DONE | `components/sprints/`, `app/api/sprints/` | Kanban board | Trello-style with columns, cards, comments, sub-tasks |
+| Todos / Initiatives | DONE, NEEDS REFACTOR | `components/todos/`, `app/api/todos/`, `app/api/todos/reorder/` | CRUD modals + lists | Duplicate status toggle logic in ToDoList vs MyTasksList; kanban now supports precise drop-position with insertion-line indicator (`sortOrder` field) |
+| Sprint Board | DONE | `components/sprints/`, `app/api/sprints/`, `app/api/sprints/[id]/board/reorder/` | Kanban board | Trello-style with columns, cards, comments, sub-tasks; precise drag-and-drop with insertion-line indicator and position persistence (`sprintPosition`) |
 | Sprint-to-Initiative Convert | DONE | `app/api/sprints/[id]/activities/[actId]/convert-to-initiative/` | | |
 | AI Sprint Planning | IN PROGRESS | `app/api/sprints/ai/`, `features/sprints-ai/` | `GenerateSprintButton`, `GenerateSprintModal`, `ReviewPlanClient`, `runSprintPlanPipeline` | Per-user generation INTO an existing PLANNING team sprint (no longer creates one). Trigger is in the sprint board header. Multiple users can have plans on the same sprint; each is reviewed and approved independently. Sprint stays in PLANNING until the lead manually starts it. Behind `OrganizationSettings.aiSprintPlanningEnabled` flag. |
 | Initiative Daily Updates | DONE | `components/initiative-report/`, `app/api/initiatives/` | Report grid | |
@@ -70,6 +71,21 @@
 | Comments | DONE | `app/dashboard/comments/` | |
 | Notifications | DONE | `app/dashboard/notifications/` | |
 | Archived Objectives | DONE | `app/dashboard/archived-objectives/` | |
+
+## Performance & Scorecard
+
+Implementation reference: `docs/PERFORMANCE_SCORECARD_IMPLEMENTATION_PROPOSAL.md`. Detailed delivery status: `docs/PERFORMANCE_SCORECARD_IMPLEMENTATION_STATUS.md`.
+
+| Feature | Status | Path | Notes |
+|---------|--------|------|-------|
+| Scorecard schema, scoring, state machine, and policy | DONE | `prisma/schema.prisma`, `lib/performance/` | Fail-closed relationship access and immutable published versions |
+| Performance permissions and role alignment | DONE | `lib/performance/policy.ts`, `lib/permission-resolver.ts`, `scripts/seed-permissions.ts` | Effective direct/profile roles, module-scoped Performance Admin, 22 DocTypes, sensitive fields, API/page/navigation/action enforcement |
+| Template management | IN PROGRESS | `features/performance/`, `app/api/performance/templates/` | Create/build/publish/fork/archive, role mappings, metric mappings, culture block; drag-drop remains |
+| Review cycles and evaluator panels | DONE | `app/api/performance/cycles/`, `app/api/performance/evaluations/[id]/panel/` | Idempotent open, issue queue, default manager lead |
+| Scoring, metric auto-pull, consolidation, calibration | IN PROGRESS | `ScoringWorkspace`, `lib/performance/consolidation.ts` | Core flow works; no AG Grid or manual unavailable-actual resolution |
+| Reports, acknowledgement, finalization | IN PROGRESS | `PerformanceReport`, evaluation workflow APIs | Core workflow works; radar/trend/OKR attainment remain |
+| Continuous development and rewards | IN PROGRESS | `PerformanceHome`, `ActionsWorkspace`, `/api/cron/performance-nudge` | In-app nudge and recommendation queue work; dispatcher/email/activity audit remain |
+| Excel template import | BLOCKED | — | Required source workbooks are absent |
 
 ## Organization
 

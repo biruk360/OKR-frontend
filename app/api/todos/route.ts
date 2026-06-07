@@ -4,6 +4,7 @@ import { canEditKeyResultWithObjectiveContext, canViewObjective, type UserRole }
 import { recordActivity } from '@/lib/activity-log'
 import { emit } from '@/lib/notifications'
 import { broadcastSprintEvent } from '@/lib/pusher'
+import { buildScopeFilter } from '@/lib/apply-scope'
 import {
   apiSuccess,
   apiBadRequest,
@@ -62,6 +63,13 @@ export const GET = withAuth(async (request: NextRequest, { session }) => {
     where.AND = [...(where.AND || []), { title: { contains: q, mode: 'insensitive' as const } }]
   }
 
+  // Apply record-scope filter (RBAC row-level scoping via RecordScopeRule).
+  // buildScopeFilter returns null when no rules are configured → no change to where.
+  const scopeFilter = await buildScopeFilter(session.user.id, 'todo')
+  if (scopeFilter) {
+    where.AND = [...(where.AND || []), scopeFilter]
+  }
+
   const todos = await prisma.todo.findMany({
     where,
     include: {
@@ -76,7 +84,7 @@ export const GET = withAuth(async (request: NextRequest, { session }) => {
       },
       objective: { select: { id: true, title: true, level: true } },
     },
-    orderBy: [{ status: 'asc' }, { dueDate: 'asc' }, { updatedAt: 'desc' }],
+    orderBy: [{ status: 'asc' }, { sortOrder: 'asc' }, { createdAt: 'asc' }],
     take: 500,
   })
 

@@ -2,6 +2,188 @@
 
 > **Purpose:** Log of all changes made by AI assistants. Every AI session that modifies code MUST append an entry here.
 
+## 2026-06-07 — Precise kanban drag-and-drop with insertion-line indicator
+
+- **Schema** `prisma/schema.prisma` — added `sortOrder Int @default(0)` to `Todo` model + `@@index([status, sortOrder])`.
+- **Updated** `app/api/sprints/[id]/board/route.ts` — `orderBy` now `[sprintPosition ASC, createdAt ASC]`.
+- **Updated** `app/api/todos/route.ts` — `orderBy` now `[sortOrder ASC, createdAt ASC]`.
+- **Updated** `app/api/todos/[id]/route.ts` — PATCH now accepts and persists `sprintPosition` and `sortOrder`.
+- **New** `app/api/sprints/[id]/board/reorder/route.ts` — `POST { columnOrders }` writes sprintPosition for sprint lanes.
+- **New** `app/api/todos/reorder/route.ts` — `POST { columnOrders }` writes sortOrder for global todo kanban.
+- **New** `components/shared/KanbanDropLine.tsx` — animated 2 px insertion-line indicator with circle cap.
+- **Updated** `features/sprints/components/TaskCardTrello.tsx` — added `onDragEnd` + `isDragging` props.
+- **Rewritten** `features/sprints/components/SprintBoardClient.tsx` — full DnD: localColumns optimistic state, per-column onDragOver card-rect scan, KanbanDropLine between cards, empty-column highlighted drop zone, cross-column status + position persistence.
+- **Rewritten** `components/todos-page/TodoKanbanView.tsx` — same DnD pattern; localRows optimistic state; onReorder prop.
+- **Updated** `lib/stores/todo-store.ts` — added `reorder(columnOrders)` action.
+- **Updated** `components/todos-page/TodosPageClient.tsx` — passes `onReorder` to `TodoKanbanView`.
+- **Tests:** not run
+
+## 2026-06-07 — Performance permission and role-design alignment
+
+- Replaced hardcoded Performance `ADMIN` checks with effective permission policy: module feature + workflow feature + DocType action + mandatory relationship/lifecycle/privacy predicate.
+- Added module-scoped `PERFORMANCE_ADMIN` system role/profile, all 22 Performance DocTypes, 11 sensitive field definitions, and 32 Performance page/action feature keys to the idempotent permission seed.
+- Updated effective permission resolution to include active direct roles and role-profile memberships; feature resolution now honors `enabled` and user overrides.
+- Updated record scoping and field filtering to use the same effective role set.
+- Enforced permissions across all Performance list/detail/workflow APIs, including draft template visibility, score create/write/submit, panel management, calibration, reports, acknowledgement/dispute, and development actions.
+- Preserved server-side blind evaluation and score sealing; employee acknowledgement override is restricted to a Performance administrator.
+- Added permission-aware Performance navigation, server page guards, and workflow action visibility.
+- Verification: targeted syntax transpilation passed across 64 files; structural audit confirms 22 Performance DocTypes, 32 Performance feature/action keys, and 29 Performance API routes; `git diff --check` passed. Full TypeScript check remains blocked by the unrelated `hooks/useIdleTimeout.ts` JSX parse error.
+
+## 2026-06-07 — User dropdown menu + session idle timeout
+
+- **Updated** `lib/auth.ts` — added `maxAge: 14400` (4 hours) to NextAuth session config so JWTs expire server-side after 4 hours of inactivity regardless of client state.
+- **New route** `app/api/auth/change-password/route.ts` — `POST` handler using `withAuth`; verifies current password via bcrypt, validates new != current, hashes and persists new password.
+- **New hook** `hooks/useIdleTimeout.ts` — monitors `mousedown`, `mousemove`, `keydown`, `scroll`, `touchstart` events; shows a warning toast with "Stay signed in" button at T−5 min; calls `signOut` at T=4 hours.
+- **Updated** `hooks/index.ts` — exports `useIdleTimeout`.
+- **Updated** `components/layout/Header.tsx` — expanded user dropdown: added "My OKRs" (`/dashboard/okrs?owner=me`), "My To-Dos" (`/dashboard/todos`), "Change Password" (inline modal), proper group separators, destructive styling on Sign Out. Change Password modal uses `react-hook-form`, calls `/api/auth/change-password`, shows inline field errors and success toast.
+- **Updated** `components/layout/DashboardShell.tsx` — mounts `useIdleTimeout()` so the idle timer covers all authenticated pages.
+- **Tests:** not run
+
+## 2026-06-07 — Per-field R/W permission storage and cache invalidation
+
+- **Schema** `prisma/schema.prisma`
+  - Added `fieldPermissions RoleDocTypeFieldPermission[]` relation to `Role` model.
+  - Added new `RoleDocTypeFieldPermission` model (table `role_doctype_field_permissions`) with fields `id, roleId, doctypeKey, fieldName, canRead, canWrite`, unique constraint `[roleId, doctypeKey, fieldName]`, and cascade-delete via `Role`.
+- **New route** `app/api/permissions/roles/[id]/field-permissions/[doctypeKey]/route.ts`
+  - `GET`: returns all `RoleDocTypeFieldPermission` rows for `(roleId, doctypeKey)`.
+  - `PUT`: bulk-upserts `{ fieldPerms: [{fieldName, canRead, canWrite}] }` in a `$transaction`, then calls `permissionCache.invalidateAll()`. Both handlers use `withRole(['ADMIN'])`.
+- **Updated** `app/api/permissions/doctypes/[key]/fields/route.ts`
+  - After upsert, now also calls `invalidateAllFieldPermLevelCache()` (dynamic import, best-effort) to flush the module-local numeric permLevel cache and per-field R/W cache in `field-filter.ts`.
+- **Updated** `lib/field-filter.ts`
+  - Added module-local `fieldRwCache` (Map keyed by sorted roleIds + doctypeKey) with 30-second TTL and LRU eviction at 5,000 entries.
+  - Exported new `invalidateAllFieldPermLevelCache()` that clears both `permLevelCache` and `fieldRwCache`.
+  - Added `getFieldRwPermissions(roleIds, doctypeKey)`: fetches `RoleDocTypeFieldPermission` rows, merges most-permissive-wins across roles, caches result.
+  - Added `getPerFieldRedactSet(userId, doctypeKey, operation)`: resolves user's active role IDs, calls `getFieldRwPermissions`, returns Set of field names to redact based on `canRead` (read ops) or `canWrite` (write ops).
+  - Updated `filterFieldsByPermLevel` and `filterArrayByPermLevel` with new optional 4th param `operation: 'read' | 'write' = 'read'`. Both now run permLevel and per-field R/W checks in combination; both lookups run in parallel via `Promise.all`.
+- **Tests:** not run
+
+## 2026-06-07 — Add per-field Read/Write toggles to FieldLevelsTab
+
+- **Updated** `components/settings/permissions/FieldLevelsTab.tsx`
+  - Added `useRef` import for debounce timer.
+  - Added `FieldReadWrite` interface `{ canRead, canWrite }`.
+  - Added `fieldPerms` state (`Map<string, FieldReadWrite>`) and `fieldPermsLoading` state, plus `debounceRef`.
+  - Added new `useEffect` that fetches `GET /api/permissions/roles/[selectedRole]/field-permissions/[selectedDoctype]` whenever both selectors are set; populates `fieldPerms` map; clears map when either selector is cleared.
+  - Added `handleFieldPermChange` callback: optimistically updates `fieldPerms`, debounces 800 ms, then fires `PUT /api/permissions/roles/[selectedRole]/field-permissions/[selectedDoctype]` with full `{ fieldPerms: Array<{fieldName,canRead,canWrite}> }` body.
+  - Added two new `<th>` columns — "Read" and "Write" — after the existing Mandatory column.
+  - Added corresponding `<td>` checkboxes per row: Read defaults to `true`, Write defaults to `false` when a field has no stored entry.
+  - Added explanatory note `<p className="text-xs text-muted-foreground mb-2">` above the table.
+  - All existing permLevel (visible/editable/mandatory) toggle logic left intact.
+- **Tests:** not run
+
+## 2026-06-07 — Performance & Scorecard module implementation
+
+- Added the performance implementation proposal and requirement-level status tracker.
+- Added the Prisma performance domain: versioned templates, criteria library, role/employee/metric mappings, review cycles/issues, evaluations/panels/scores/results, reports/acknowledgements, improvement focuses/nudge delivery, and development actions.
+- Added fail-closed performance policy, scoring, validation, cycle-opening, metric resolution, consolidation, report, finalization, and recommendation services under `lib/performance/`.
+- Added 29 performance API routes covering template lifecycle, culture block insertion, mappings, cycles, evaluator panels, live OKR actuals, scoring, consolidation/calibration, reports, acknowledgement/dispute/finalization, focuses, and action transitions.
+- Added the `features/performance/` client module and seven dashboard routes for My Performance, evaluation queue/workspace, templates/builder, cycles, and development actions.
+- Added Performance navigation, DocTypes, and feature permission seed entries.
+- Verification: `prisma validate`, `prisma generate`, performance-focused TypeScript check, and scoped `git diff --check` pass. Full build compiles Next.js but is blocked by the pre-existing unrelated type error at `app/api/permissions/export/route.ts:17`.
+- Remaining partial/blocked scope is recorded in `docs/PERFORMANCE_SCORECARD_IMPLEMENTATION_STATUS.md`, including Excel seed source absence, report visuals, dispatcher/email wiring, and performance ActivityLog integration.
+
+## 2026-06-07 — Verify FeaturesTab orphan + wire filterFieldsByPermLevel into API routes
+
+- **Task A — FeaturesTab.tsx** (`components/settings/permissions/FeaturesTab.tsx`)
+  - Verified the file contains only `export { default } from './FeaturesNavTab'` (re-export, no unique content).
+  - Confirmed no file in the codebase imports `FeaturesTab`; `PermissionManager.tsx` does not exist as a discoverable file importing it. No changes needed.
+- **Task B — Wire filterFieldsByPermLevel into additional routes**
+  - **Updated** `app/api/keyresults/[id]/route.ts`: added `import { filterFieldsByPermLevel } from '@/lib/field-filter'`; GET handler now runs `filterFieldsByPermLevel(processedKeyResult, 'key_result', session.user.id)` before returning.
+  - **Updated** `app/api/objectives/[id]/route.ts`: added `import { filterFieldsByPermLevel } from '@/lib/field-filter'`; GET handler now runs `filterFieldsByPermLevel(processedObjective, 'objective', session.user.id)` before returning.
+  - **Updated** `app/api/users/route.ts`: added `import { filterArrayByPermLevel } from '@/lib/field-filter'`; GET handler signature updated to receive `(_request, { session })`; users array passed through `filterArrayByPermLevel(users, 'user', session.user.id)` before returning.
+- **Tests:** not run
+
+## 2026-06-07 — Fix RecordScopingTab API paths + add live preview
+
+- **Updated** `components/settings/permissions/RecordScopingTab.tsx`
+  - Fixed all four wrong API paths (`/api/permissions/scope-rules`, `/api/permissions/scope-rules/[id]`) — replaced with correct role-scoped routes: `GET/POST /api/permissions/roles/[selectedRoleId]/scope-rules` and `PUT/DELETE /api/permissions/roles/[selectedRoleId]/scope-rules/[ruleId]`
+  - Introduced `selectedRoleId` state as the role selector driving all rule fetches; rules reload on role change
+  - Updated `ScopeRule` interface to match the real `RecordScopeRule` Prisma model (`doctypeKey`, `fieldName`, `operator`, `valueType`, `staticValue`, `isActive`) — removed non-existent `defaultScope`, `allowedScopes`, `conditions`, `roleName` fields
+  - Client-side `doctypeFilter` input filters the fetched rule list by `doctypeKey` without extra API calls
+  - Updated POST body fields to match what the API actually accepts (`doctypeKey`, `fieldName`, `operator`, `valueType`, `staticValue`)
+  - Replaced scope toggle (PUT `defaultScope`) with `isActive` toggle; PUT body is now `{ isActive: boolean }` matching the API
+  - Added live preview section: user search (client-side filter over `/api/users/for-selection`), DocType picker, runs `GET /api/permissions/preview/[userId]` and reads `effectivePermissions.doctypePermissions[key].applyScoping` to show whether scoping is ON or OFF for that user+doctype
+- **Tests:** not run
+
+## 2026-06-07 — Fix FeaturesNavTab API paths and add module cascade-hide
+
+- **Updated** `components/settings/permissions/FeaturesNavTab.tsx`
+  - TASK A: replaced wrong `GET /api/permissions/features` with `GET /api/permissions/roles/[selectedRoleId]/features` (fetched when role selector changes)
+  - TASK A: replaced wrong `PUT /api/permissions/features/[id]` with bulk `PUT /api/permissions/roles/[selectedRoleId]/features` sending full `{ features: [{ featureKey, visible, enabled }] }` array on every toggle
+  - TASK A: added role selector dropdown (fetched from existing `GET /api/permissions/roles`); features reload whenever selected role changes
+  - TASK B: added `MODULE_CHILDREN` hierarchy map; when a `module.*` key is toggled off, all child page/button/tab keys in the map are also set `visible = false` in local state before the bulk PUT
+  - TASK B: added amber cascade note banner: "Hidden modules auto-hide their pages and buttons"
+  - Replaced cross-role `roleAccess` data model with per-role `FeaturePermission[]` matching the real API shape `{ id, roleId, featureKey, visible, enabled }`
+  - Re-grouped display by key prefix (module / page / button / tab / other) instead of the old `category` field that no longer comes from the API
+- **Tests:** not run
+
+## 2026-06-07 — Fix can() DB deny short-circuit in lib/rbac.ts
+
+- **Updated** `lib/rbac.ts` — FIX A: replaced broken short-circuit logic in the DOCTYPE_ACTION_MAP DB check; previously a `false` DB result fell through to hardcoded logic which could still grant access; now both directions are terminal: `if (dbResult) return true; return false` — safe because `resolveDocTypePermission` already checks UserPermissionOverride grants before returning
+- FIX B: audited the `Action` type — no `sprint.*`, `letter.*`, or `dtp.*` actions exist in the type definition; no DOCTYPE_ACTION_MAP entries were added
+- **Tests:** not run
+
+## 2026-06-07 — Add ExplainPanel "Permission Check" tab to PermissionManager
+
+- **Created** `components/settings/permissions/ExplainPanel.tsx` — self-contained panel; fetches user list from `/api/users/for-selection`; three selectors (User, DocType, Action); calls `GET /api/permissions/explain`; renders allowed/denied badge, explanation, and full details breakdown (adminBypass, explicitDeny, explicitGrant, roleGrants, scopingApplied, scopeRules)
+- **Updated** `components/settings/PermissionManager.tsx` — added `'permission-check'` to Tab union and TABS array; imported `ExplainPanel`; rendered it when the new tab is active
+- **Updated** `docs/COMPONENT_CATALOG.md` — added `ExplainPanel` row to Permission Manager Tabs table
+- **Tests:** not run
+
+## 2026-06-07 — Add permission cache/resolver performance benchmark script
+
+- **Created** `scripts/benchmark-permissions.ts` — standalone tsx/ts-node script that benchmarks `resolveDocTypePermission()` and `permissionCache.get()` with nanosecond precision (`process.hrtime.bigint()`); reports cache MISS time (target ≤10 ms), cache HIT avg over 99 warm runs (target ≤1 ms), and pure `permissionCache.get()` avg over 10,000 calls (target ≤0.1 ms); exits 0 if DB unreachable, exits 1 if any target is missed
+- **Tests:** not run
+- **Docs updated:** `docs/CHANGELOG_AI.md`
+
+## 2026-06-07 — Wire buildScopeFilter into remaining list API routes
+
+- **Updated** `app/api/letters/route.ts` — GET handler: imported `buildScopeFilter`, added `scopeFilter = await buildScopeFilter(session.user.id, 'letter')`, spread into both `findMany` and `count` where clauses
+- **Updated** `app/api/sprints/route.ts` — GET handler: imported `buildScopeFilter`, destructured `{ session }` from handler context (was missing), added `scopeFilter = await buildScopeFilter(session.user.id, 'sprint')`, spread into `findMany` where clause
+- **Updated** `app/api/dtp/plans/route.ts` — GET handler: imported `buildScopeFilter`, added `scopeFilter = await buildScopeFilter(session.user.id, 'daily_trip_plan')`, spread into both `findMany` and `count` where clauses (after existing role-based visibility scoping block)
+- **Updated** `app/api/keyresults/route.ts` — GET handler: imported `buildScopeFilter`, added `scopeFilter = await buildScopeFilter(session.user.id, 'key_result')`, spread into both `findMany` and `count` where clauses
+- All POST handlers left untouched; null-coalescing pattern `...(scopeFilter ?? {})` used throughout so routes remain unaffected when no scope rules apply
+- **Tests:** not run
+- **Docs updated:** `docs/CHANGELOG_AI.md`
+
+## 2026-06-07 — Wire filterFieldsByPermLevel into sensitive API routes
+
+- **Updated** `app/api/users/[id]/route.ts` — GET handler now destructures `session` from ctx, imports `filterFieldsByPermLevel`, and awaits it on the fetched user record before returning; doctype key `'user'`
+- **Updated** `app/api/letters/[id]/route.ts` — GET handler now destructures `session` from ctx, imports `filterFieldsByPermLevel`, and awaits it on the fetched letter record before returning; doctype key `'letter'`
+- **Updated** `app/api/dtp/drivers/route.ts` — GET handler now destructures `session` from ctx (replacing unused `_ctx`), imports `filterArrayByPermLevel`, and awaits it on the full drivers list before returning; doctype key `'driver'`
+- POST/PATCH/DELETE handlers in all three files left unchanged
+- **Tests:** not run
+- **Docs updated:** `docs/CHANGELOG_AI.md`
+
+## 2026-06-07 — Add canFeature DB-backed gate to DTP workflow action routes
+
+- **Updated** `app/api/dtp/plans/[id]/approve/route.ts` — imported `canFeature` from `@/lib/rbac`; added dual-gate check (`button.dtp.approve` feature key OR `ADMIN`/`DEPARTMENT_LEAD` role) after existing `canActAsCoordinator` guard
+- **Updated** `app/api/dtp/plans/[id]/reject/route.ts` — same pattern with feature key `button.dtp.reject`
+- **Updated** `app/api/dtp/plans/[id]/endorse/route.ts` — same pattern with feature key `button.dtp.endorse`, placed after existing manager-relationship guard
+- Skipped `app/api/letters/[id]/approve/route.ts` — already uses `checkLetterPermissionV2('letter.approve')` which is the correct feature check
+- All existing auth/ownership/coordinator checks remain intact; canFeature is additive (fails open on DB error)
+- **Tests:** not run
+- **Docs updated:** `docs/CHANGELOG_AI.md`
+
+## 2026-06-07 — Expand DOCTYPE_ACTION_MAP in lib/rbac.ts
+
+- **Updated** `lib/rbac.ts` — replaced the partial `DOCTYPE_ACTION_MAP` (11 entries) with a complete map covering all Action values: objective (9), keyResult (7), todo (6), comment (3), watcher (2), user (3), department (3), timeframe (1) — 34 entries total; no other code changed
+- **Tests:** not run
+- **Docs updated:** `docs/CHANGELOG_AI.md`
+
+## 2026-06-07 — Permission explain endpoint
+
+- **Created** `app/api/permissions/explain/route.ts` — `GET /api/permissions/explain` (ADMIN only); accepts `userId`, `doctypeKey`, `action` query params; traces the full decision chain: admin bypass → explicit deny override → explicit grant override → role grants via `RoleDocTypePermission` → scope rules via `RecordScopeRule`; returns `{ allowed, explanation, details }` with plain-English explanation strings
+- **Updated** `docs/SITEMAP.md` — added new route entry under Permissions API section
+- **Tests:** TypeScript check passed (`npx tsc --noEmit` — zero errors on new file)
+- **Docs updated:** `docs/CHANGELOG_AI.md`, `docs/SITEMAP.md`
+
+## 2026-06-07 — Field-level permission filtering for API responses
+
+- **Created** `lib/field-filter.ts` — `getUserFieldPermLevel`, `filterFieldsByPermLevel`, `filterArrayByPermLevel`, and `invalidateFieldPermLevelCache`; resolves effective permLevel from UserRole → RoleDocTypePermission (MAX), respects UserPermissionOverride grant/deny, caches results in a module-local numeric cache (TTL 30 s, LRU 10k entries); strips fields from API response objects whose DocTypeFieldRegistry permLevel exceeds the caller's effective level
+- **Tests:** TypeScript check passed (`npx tsc --noEmit` — zero errors in `lib/field-filter.ts`)
+- **Docs updated:** `docs/CHANGELOG_AI.md`
+
 ## Format
 
 ```
@@ -10,6 +192,221 @@
 - **Tests:** [ran / not run / passed / failed with reason]
 - **Docs updated:** [list which docs were updated]
 ```
+
+---
+
+## 2026-06-07 — Implement record-scope filter builder and wire into list API routes
+
+- **Created** `lib/apply-scope.ts` — Exports `buildScopeFilter(userId, doctypeKey)` which queries `RecordScopeRule`, `UserRole`, and `RoleDocTypePermission` to produce a Prisma WHERE fragment for row-level scoping. Supports operators `equals`, `is_owner`, `is_child_of`, and `in` with value types `user_id`, `user_department`, and `user_primary_dept`. Department subtree traversal (`is_child_of`) uses BFS limited to depth 5 via `getDeptAndDescendants`. Multiple rules within a role are AND-ed; multiple roles are OR-ed. Returns `null` (no-op) when no rules exist or any role has `applyScoping=false`.
+- **Edited** `app/api/objectives/route.ts` — Added `buildScopeFilter(session.user.id, 'objective')` call after auth-based where construction; merges scope filter via top-level `AND` wrapping.
+- **Edited** `app/api/todos/route.ts` — Added `buildScopeFilter(session.user.id, 'todo')` call before `prisma.todo.findMany`; appends to existing `where.AND` array.
+- **Tests:** not run
+- **Docs updated:** CHANGELOG_AI.md
+
+---
+
+## 2026-06-07 — Add EffectivePermissionsPreview modal and "Preview as User" button
+
+- **Created** `components/settings/permissions/EffectivePermissionsPreview.tsx` — Modal overlay (fixed inset-0, max-w-3xl) showing three sections: (1) Nav Preview — simulated sidebar listing all module.* features with green/gray dots + collapsible page sub-items for visible modules; (2) "Why can/can't they do X?" — DocType selector + Action selector with [Check] button that resolves against effectivePermissions and outputs a plain-English ok/warn/no message; (3) DocType Permissions Table — grouped by module, collapsible, columns Read/Write/Create/Delete/Submit + Scope. Fetches `GET /api/permissions/preview/{userId}`.
+- **Modified** `components/settings/permissions/UserRolesPanel.tsx` — Added `userName` to Props, `showPreview` state, `Eye` icon import, `EffectivePermissionsPreview` import, "Preview as User" button in the Effective Permissions section header, and conditional render of the preview modal.
+- **Modified** `components/settings/UserManagement.tsx` — Passed `userName={detailUser.name}` to `<UserRolesPanel>` to satisfy new prop.
+- **Tests:** not run
+- **Docs updated:** CHANGELOG_AI.md, COMPONENT_CATALOG.md
+
+## 2026-06-07 — Add DTP coordinator permission migration script
+
+- **Created** `scripts/migrate-dtp-coordinators.ts` — Idempotent one-shot migration that reads `DtpSettings.poolCoordinatorIds` (CSV) and `DtpDepartmentApproval.primaryCoordinatorId`, then creates `UserPermissionOverride` grant rows for the appropriate DTP feature keys (`button.dtp.assign-driver`, `page.dtp.pool` from pool coordinators; `button.dtp.approve`, `button.dtp.reject` from department approval coordinators). Uses `findFirst` + `create` pattern (no composite unique index on the model). Validates each user ID exists before inserting. Writes a summary `ActivityLog` entry on completion. Run with `tsx scripts/migrate-dtp-coordinators.ts`.
+- **Tests:** not run
+- **Docs updated:** CHANGELOG_AI.md
+
+## 2026-06-07 — Rewrite Audit Logs page to show real ActivityLog data with category filter
+
+- **Modified** `app/dashboard/settings/audit-logs/page.tsx` — Replaced broken `prisma.systemSettings.findMany` query with `prisma.activityLog.findMany` (take 200, orderBy createdAt desc, includes actor name/email). Passes typed logs to `AuditLogsView`.
+- **Modified** `components/settings/AuditLogsView.tsx` — Rewrote entirely. New `ActivityLogEntry` type with actor relation. Added category filter tabs [All, OKR, Letters, DTP, Sprints, Permissions, System] with entry counts. Category bucketing by `entityType`. Updated table columns to Timestamp | Actor | Entity Type | Action | Details. Shield icon prefix for Permissions entityType column. `formatChangesPreview` shows first 2 JSON keys with truncation and "+N more" suffix. Action badge colored by create/update/delete. Search filters entityType, action, actor name/email. Uses `useMemo` for filtered/counted results.
+- **Tests:** not run
+- **Docs updated:** CHANGELOG_AI.md
+
+## 2026-06-07 — Add Export/Import control bar with confirmation modal to PermissionManager
+
+- **Modified** `components/settings/PermissionManager.tsx` — Added `importData`, `showImportModal`, `importDiff`, `importLoading`, `importError` state. Added action bar with Export (POST /api/permissions/export → browser download) and Import (file picker → FileReader → POST /api/permissions/import dryRun:true → diff preview modal → POST dryRun:false on confirm) buttons. Modal uses `components/ui/Modal`; toast via `react-hot-toast`.
+- **Tests:** not run
+- **Docs updated:** CHANGELOG_AI.md
+
+## 2026-06-07 — Add withFeature and withRoleOrFeature to withAuth.ts
+
+- **Modified** `lib/api/withAuth.ts` — Added `withFeature<P>` and `withRoleOrFeature<P>` exports. Added import for `resolveFeaturePermission` from `../permission-resolver`. `withFeature` authenticates via `withAuth`, ADMIN always passes, non-admin calls `resolveFeaturePermission` (fail-open on DB error). `withRoleOrFeature` allows access if role is in `allowedRoles` OR `resolveFeaturePermission` returns true; falls back to role-only check on DB error.
+- **Tests:** not run
+- **Docs updated:** CHANGELOG_AI.md
+
+## 2026-06-07 — Integrate DB-backed permission resolution into can()
+
+- **Modified** `lib/rbac.ts` — Added `DOCTYPE_ACTION_MAP` block at the top of `can()` body (after actor destructuring). For 11 mapped action→doctype pairs (objective CRUD, keyResult CRUD, todo create/edit/delete), the function now calls `resolveDocTypePermission()` first. If DB returns true, the function short-circuits with `return true`. If DB returns false, execution falls through to the existing hardcoded role logic (preserving ownership-based overrides). DB errors are caught silently and fall through to hardcoded logic. Both imports (`resolveDocTypePermission` and `DocTypeAction`) were already present from a prior session.
+- **Tests:** not run
+- **Docs updated:** CHANGELOG_AI.md
+
+---
+
+## 2026-06-07 — Add Roles tab to User Management
+
+- **Created** `components/settings/permissions/UserRolesPanel.tsx` — Self-contained panel with four sections: Role Profiles (assign/remove via `/api/permissions/users/{id}/profiles`), Individually Assigned Roles (assign with optional expiry/revoke via `/api/permissions/users/{id}/roles`), User-Specific Overrides (add/remove via `/api/permissions/users/{id}/overrides` with doctypeKey, featureKey, action, overrideType, reason, expiresAt), Effective Permissions (read-only table from the GET response). Shows a self-modification banner and hides all action buttons when `userId === currentUserId`. Props: `{ userId: string, currentUserId: string }`.
+- **Modified** `components/settings/UserManagement.tsx` — Added `currentUserId: string` prop, added `UserDetailTab` type and state for `isUserDetailOpen`/`userDetailTab`/`detailUser`, added purple Shield button per row that calls `handleOpenRoles`, added `<Modal size="xl">` containing a tab strip (Roles | Info) and renders `<UserRolesPanel>` in the Roles tab. Imports `cn`, `Modal`, `UserRolesPanel`.
+- **Modified** `app/dashboard/settings/users/page.tsx` — Passes `currentUserId={session.user.id}` to `<UserManagement>`.
+- **Tests:** not run
+- **Docs updated:** `docs/CHANGELOG_AI.md`, `docs/COMPONENT_CATALOG.md`
+
+---
+
+## 2026-06-07 — Add User Permission Management API routes
+
+- **Created** `app/api/permissions/users/[id]/route.ts` — GET returns user's full permission picture: basic info, direct `userRoles` (with full `Role`), `userRoleProfiles` (with profile + memberships + roles), all `permissionOverrides`, and `effectivePermissions` (union of all active roles' `RoleDocTypePermission` grouped by `doctypeKey`). Uses `withRole(['ADMIN'])`.
+- **Created** `app/api/permissions/users/[id]/roles/route.ts` — POST assigns a role to a user (`upsert UserRole`); validates `roleId`, validates `expiresAt` is future if provided, blocks self-modification, verifies user and role exist, calls `permissionCache.invalidateUser`. Uses `withRole(['ADMIN'])`.
+- **Created** `app/api/permissions/users/[id]/roles/[roleId]/route.ts` — DELETE removes a role assignment; blocks self-modification, returns 404 if assignment not found, calls `permissionCache.invalidateUser`. Uses `withRole(['ADMIN'])`.
+- **Created** `app/api/permissions/users/[id]/profiles/route.ts` — POST assigns a RoleProfile to a user (`upsert UserRoleProfile`); validates `profileId`, blocks self-modification, verifies user and profile exist, calls `permissionCache.invalidateUser`. Uses `withRole(['ADMIN'])`.
+- **Created** `app/api/permissions/users/[id]/profiles/[profileId]/route.ts` — DELETE removes a profile assignment; blocks self-modification, returns 404 if assignment not found, calls `permissionCache.invalidateUser`. Uses `withRole(['ADMIN'])`.
+- **Created** `app/api/permissions/users/[id]/overrides/route.ts` — GET lists all `UserPermissionOverride` rows for the user. POST creates an override; validates `overrideType` enum (`grant|deny`), validates `reason` (min 10 chars), validates `expiresAt` future if provided, blocks self-modification, calls `permissionCache.invalidateUser`. Uses `withRole(['ADMIN'])`.
+- **Created** `app/api/permissions/users/[id]/overrides/[overrideId]/route.ts` — DELETE removes an override; blocks self-modification, verifies override belongs to the target user before deletion, calls `permissionCache.invalidateUser`. Uses `withRole(['ADMIN'])`.
+- **Tests:** not run
+- **Docs updated:** `docs/CHANGELOG_AI.md`, `docs/SITEMAP.md`
+
+---
+
+## 2026-06-07 — Add RecordScopingTab and FeaturesTab for Permission Manager
+
+- **Created** `components/settings/permissions/RecordScopingTab.tsx` — Role + DocType selectors; fetches `GET /api/permissions/roles` and `GET /api/permissions/doctypes` on mount; when both selected fetches `GET /api/permissions/roles/{id}/scope-rules` and filters client-side by doctypeKey. Renders rules table (#, Field, Operator, Value Type, Status, Actions); toggle fires `PUT .../scope-rules/{ruleId}` with optimistic update; delete fires `DELETE .../scope-rules/{ruleId}`. Inline Add Rule form (fieldName input, operator select, valueType select, staticValue input) submits via `POST .../scope-rules`. Note below table when multiple rules present.
+- **Created** `components/settings/permissions/FeaturesTab.tsx` — Role selector; fetches `GET /api/permissions/roles/{id}/features`; two-panel layout (left 40%, right 60%). Left panel: feature tree grouped into Modules, Pages (OKR), Pages (Letters), Pages (DTP), Admin, Widgets with green/gray dot per visible state. Right panel: featureKey label, visible toggle, enabled toggle; each toggle auto-saves via `PUT .../features` with 500ms debounce; shows "Inherited from parent: {label} (OFF)" amber banner when parent is hidden.
+- **Tests:** not run
+- **Docs updated:** `docs/CHANGELOG_AI.md`, `docs/COMPONENT_CATALOG.md`
+
+---
+
+## 2026-06-07 — Add ByDocTypeTab and FieldLevelsTab for Permission Manager
+
+- **Created** `components/settings/permissions/ByDocTypeTab.tsx` — DocType selector (grouped optgroup by module), fetches `GET /api/permissions/doctypes` + `GET /api/permissions/roles` on mount; on DocType select fetches `GET /api/permissions/doctypes/{key}`; renders Role × 9-actions grid with checkbox cells (optimistic toggle + rollback via `PUT /api/permissions/roles/{roleId}/permissions`) and a per-row Scope dropdown (own/department/all) that propagates to all granted actions for that role.
+- **Created** `components/settings/permissions/FieldLevelsTab.tsx` — DocType selector (same grouped optgroup); on select fetches `GET /api/permissions/doctypes/{key}` for fields list; renders fieldName/displayLabel/permLevel dropdown (0–3)/isSensitive checkbox table; Save button fires `PUT /api/permissions/doctypes/{key}/fields`; preview panel below shows Level 0 and Level 0+1 visibility field lists derived from live local state.
+- **Tests:** not run
+- **Docs updated:** `docs/CHANGELOG_AI.md`, `docs/COMPONENT_CATALOG.md`
+
+## 2026-06-07 — Add Roles CRUD API routes for permission management system
+
+- **Created** `app/api/permissions/roles/route.ts` — GET lists all roles with `_count.userRoles`; POST creates a new role (key auto-uppercased/slugified, unique name+key enforced with 400 on conflict). Both use `withRole(['ADMIN'])`.
+- **Created** `app/api/permissions/roles/[id]/route.ts` — GET returns role detail with `doctypePermissions` (+ doctype), `featurePermissions`, and `_count.userRoles`; PUT updates editable fields (blocks key change on `isSystem` roles); DELETE guards against `isSystem` (400) and roles with assigned users (409 `HAS_USERS`). All use `withRole(['ADMIN'])`.
+- **Created** `app/api/permissions/roles/[id]/clone/route.ts` — POST clones a role: copies `RoleDocTypePermission`, `FeaturePermission`, and `RecordScopeRule` rows inside a `$transaction`, returns `{ newRole }`. Uses `withRole(['ADMIN'])`.
+- **Fixed** `prisma/schema.prisma` — removed invalid `scopeRules RecordScopeRule[]` virtual relation from `Role` model (polymorphic `targetType`/`targetId` table has no Prisma back-relation); ran `prisma generate` to regenerate client.
+- **Tests:** not run
+- **Docs updated:** `docs/CHANGELOG_AI.md`, `docs/FEATURE_STATUS.md`, `docs/SITEMAP.md`
+
+## 2026-06-07 — Add permission system seed script
+
+- **Created** `scripts/seed-permissions.ts` — Idempotent seed script that bootstraps the full permission system in 6 steps: (1) upserts 4 system roles (ADMIN, EXECUTIVE, DEPARTMENT_LEAD, EMPLOYEE); (2) syncs existing `User.role` string field into `UserRole` junction table; (3) upserts all 58 doctypes into `DocTypeRegistry`; (4) upserts 232 `RoleDocTypePermission` rows covering the full role/doctype access matrix (all, readOnly, readScoped, none, and custom flag combinations); (5) upserts 144 `FeaturePermission` rows for 36 feature keys across all 4 roles; (6) creates 5 default `RecordScopeRule` rows (FR-4.1) with existence-check idempotency. Compiles clean with `tsc --noEmit`.
+- **Tests:** not run (script runs against live DB — execute with `tsx scripts/seed-permissions.ts`)
+- **Docs updated:** `docs/CHANGELOG_AI.md`
+
+## 2026-06-07 — Add permission-cleanup cron route
+
+- **Created** `app/api/cron/permission-cleanup/route.ts` — POST handler protected by `CRON_SECRET` (Bearer header or `x-cron-secret`). Deletes expired `UserRole` rows and expired `UserPermissionOverride` rows, calls `permissionCache.invalidateAll()`, logs each revoked record via `recordActivity` (best-effort), returns `{ ok, revokedUserRoles, revokedOverrides, timestamp }`.
+- **Tests:** not run
+- **Docs updated:** CHANGELOG_AI.md
+
+## 2026-06-07 — Add API routes for RecordScopeRule (role scope rules)
+
+- **Created** `app/api/permissions/roles/[id]/scope-rules/route.ts` — GET returns all `RecordScopeRule` rows where `targetType='role'` and `targetId` matches the route param; POST creates a new rule with full validation (operator enum, valueType enum, doctypeKey existence check via `DocTypeRegistry`). Both handlers use `withRole(['ADMIN'])`.
+- **Created** `app/api/permissions/roles/[id]/scope-rules/[ruleId]/route.ts` — PUT partial-updates a rule (validates enums and `staticValue` constraint when `valueType='static'`, returns 400 if no fields supplied); DELETE removes the rule. Both verify `targetId === role id` via `findFirst` before acting, returning 404 on mismatch. Both use `withRole(['ADMIN'])`.
+- **Tests:** not run
+- **Docs updated:** `docs/CHANGELOG_AI.md`, `docs/SITEMAP.md`
+
+---
+
+## 2026-06-07 — Add miscellaneous permission API routes (me, export, import, preview)
+
+- **Created** `app/api/permissions/me/route.ts` — GET (withAuth): fetches all active UserRoles for the caller, iterates nested `doctypePermissions` and `featurePermissions` on each role, OR-merges them into flat maps (`{ doctypePermissions: { [key]: {...} }, featurePermissions: { [key]: {visible, enabled} } }`). No admin required; any authenticated user may call this.
+- **Created** `app/api/permissions/export/route.ts` — POST (withRole ADMIN): parallel-fetches roles, roleDocTypePermissions, featurePermissions, recordScopeRules, and docTypeRegistry (with fields) then returns a raw `Response` with `Content-Type: application/json` and `Content-Disposition: attachment; filename=permissions-{YYYY-MM-DD}.json`. Snapshot includes `exportedAt`, `exportedBy`, and `version` metadata fields.
+- **Created** `app/api/permissions/import/route.ts` — POST (withRole ADMIN): accepts `{ data, dryRun? }`. Validates that data has all five required top-level arrays; `dryRun=true` returns per-table `{ added, modified, unchanged }` diff counts without writing. Live import runs a `$transaction` upsert over all five tables in dependency order (roles → doctypes → fields → roleDocTypePerms → featurePerms → scopeRules); skips overwriting system role keys (ADMIN/EXECUTIVE/DEPARTMENT_LEAD/EMPLOYEE) on `role.isSystem` rows; calls `permissionCache.invalidateAll()` on success.
+- **Created** `app/api/permissions/preview/[userId]/route.ts` — GET (withRole ADMIN): loads the target user, their active UserRoles (direct), UserRoleProfiles (with memberships), and UserPermissionOverrides; deduplicates roles by id; computes the same OR-merged effective permission maps as `/me`; returns `{ user, activeRoles, effectivePermissions, overrides: { grant, deny }, visibleFeatures, hiddenFeatures }`.
+- **Tests:** not run
+- **Docs updated:** `docs/CHANGELOG_AI.md`, `docs/SITEMAP.md`
+
+---
+
+## 2026-06-07 — Add RoleDocTypePermission and FeaturePermission API routes
+
+- **Created** `app/api/permissions/roles/[id]/permissions/route.ts` — GET returns all `RoleDocTypePermission` rows for the role joined with `DocTypeRegistry` (key, displayName, module), grouped by module into `{ role, byModule }`. PUT accepts `{ permissions: [...] }`, validates doctypeKeys against `DocTypeRegistry`, bulk-upserts via `prisma.$transaction` on the `@@unique([roleId, doctypeKey, permLevel])` constraint, then calls `permissionCache.invalidateAll()` and returns the updated `byModule` map.
+- **Created** `app/api/permissions/roles/[id]/features/route.ts` — GET returns all `FeaturePermission` rows for the role as `{ role, features }`. PUT accepts `{ features: [...] }`, validates each entry has boolean `visible`/`enabled`, bulk-upserts via `prisma.$transaction` on the `@@unique([roleId, featureKey])` constraint, calls `permissionCache.invalidateAll()`, and returns `{ features: [...] }`. Both routes use `withRole(['ADMIN'])`, `resolveParams`, and the standard response envelope.
+- **Tests:** not run
+- **Docs updated:** `docs/CHANGELOG_AI.md`
+
+---
+
+## 2026-06-07 — Add Role Profile API routes (GET/POST collection, GET/PUT/DELETE detail)
+
+- **Created** `app/api/permissions/profiles/route.ts` — GET returns all RoleProfiles with role memberships (id, name, key, color). POST creates a profile and bulk-creates RoleProfileMembership rows in a $transaction; validates non-empty name and that all supplied roleIds exist before touching the DB. Returns 201 with the created profile including memberships.
+- **Created** `app/api/permissions/profiles/[id]/route.ts` — GET returns profile detail with memberships and _count.userProfiles. PUT updates scalar fields and, when roleIds is provided, replaces all memberships atomically in a $transaction. DELETE guards against assigned users (_count.userProfiles > 0) and returns 409 `{ error: 'HAS_USERS' }` if any exist; otherwise deletes memberships then the profile. All handlers use withRole(['ADMIN']), resolveParams, and the standard apiSuccess/apiNotFound/apiBadRequest/apiError envelope.
+- **Tests:** not run
+- **Docs updated:** `docs/CHANGELOG_AI.md`, `docs/SITEMAP.md`
+
+---
+
+## 2026-06-07 — Extend lib/rbac.ts with canDocType and canFeature helpers
+
+- **Updated** `lib/rbac.ts` — Added two new imports (`resolveDocTypePermission`, `resolveFeaturePermission`, `getUserActiveRoleKeys` from `./permission-resolver`; `DocTypeAction` type). Added two new exported async functions: `canDocType(userId, doctypeKey, action, fallbackRole?)` which resolves document-type permissions with a graceful fallback to `getUserActiveRoleKeys` when the permission-resolver throws; `canFeature(userId, featureKey)` which resolves feature-gate access and fails open (returns `true`) on any error. All existing exports, types, and the `can()` signature are unchanged.
+- **Tests:** not run
+- **Docs updated:** `docs/CHANGELOG_AI.md`
+
+---
+
+## 2026-06-07 — Refactor AddUserModal and EditUserModal to use react-hook-form
+
+- **Updated** `components/settings/UserManagement.tsx` — Replaced raw `useState` form state (`formData`, `errors`, `isLoading`) and manual `validateForm` logic in `AddUserModal` and `EditUserModal` with `useForm` from react-hook-form. Uses `register` with inline validation rules, `handleSubmit`, `formState: { errors, isSubmitting }`, `setError` for server-side errors, and `reset()` after successful creation. Outer `UserManagement` component and `DeleteUserModal`/`PasswordResetModal` are unchanged.
+- **Tests:** not run
+- **Docs updated:** `docs/CHANGELOG_AI.md`
+
+---
+
+## 2026-06-07 — Dedup todo status toggle + alignment type helper text
+
+- **Created** `features/todos/components/useTodoStatusToggle.ts` — Extracted shared `useTodoStatusToggle` hook from the copy-pasted `handleToggleTodo` in ToDoList and MyTasksList. Accepts an `onSuccess` callback so each consumer handles its own post-toggle behaviour (local state update vs page reload).
+- **Updated** `features/todos/components/ToDoList.tsx` — Replaced inline `handleToggleTodo` with `useTodoStatusToggle`; removed duplicate fetch/toast logic. Dropped unused `toast` import from toggle path (toast still used elsewhere in the file).
+- **Updated** `features/todos/components/MyTasksList.tsx` — Replaced inline `handleToggleTodo` with `useTodoStatusToggle`; removed `useSession` and `toast` imports that were only used by the old function.
+- **Updated** `features/objectives/components/EditObjectiveModal.tsx` — Added dynamic helper text beneath the Alignment mode select: "Visual alignment only — progress does not roll up to parent." for LOOSE and "Progress rolls up to parent using the configured rollup calculation." for STRICT_DEPENDENCY. Uses existing `text-xs text-muted-foreground` classes.
+- **Note:** `CreateObjectiveModal.tsx` has no `alignmentType` field — no change needed there.
+- **Tests:** not run
+- **Docs updated:** `docs/CHANGELOG_AI.md`
+
+---
+
+## 2026-06-07 — Replaced inline empty-state blocks with shared EmptyState component
+
+- **Updated** `features/goals/components/GoalsTable.tsx` — Fixed import path from `@/components/ui/EmptyState` to barrel `@/components/ui`.
+- **Updated** `features/goals/components/GoalsFeedView.tsx` — Added `EmptyState` import; replaced inline `<div className="text-center py-12 ..."><p>...</p></div>` with `<EmptyState title="No goals found" description="..." />`.
+- **Updated** `features/goals/components/MyTeamView.tsx` — Fixed import path to barrel; replaced inline `<p>No goals yet</p>` inside each user card with `<EmptyState bare title="No goals yet" />`.
+- **Updated** `components/settings/TeamsManagement.tsx` — Added `EmptyState` import; replaced inline icon + h3 + p block with `<EmptyState icon={Building2} title="No teams found" description="..." />`.
+- **Updated** `components/settings/AuditLogsView.tsx` — Added `EmptyState` import; replaced inline icon + h3 + p block (with dynamic description) with `<EmptyState icon={Settings} title="No audit logs found" description={...} />`.
+- **Tests:** not run
+- **Docs updated:** `docs/CHANGELOG_AI.md`
+
+---
+
+## 2026-06-07 — Removed deprecated SprintActivity, SprintActivityComment, SprintActivityTask models from schema
+
+- **Updated** `prisma/schema.prisma` — Deleted the three deprecated model blocks (`SprintActivity`, `SprintActivityComment`, `SprintActivityTask`) and removed all back-relation fields pointing to them: `ownedSprintActivities`/`sprintActivityComments`/`assignedSprintActivityTasks` on `User`; `activities SprintActivity[]` on `Sprint`; `activities SprintActivity[]` on `SprintColumn`; `sprintActivities SprintActivity[]` on `KeyResult`; `sprintActivities SprintActivity[] @relation("SprintActivityObjective")` on `Objective`.
+- **Tests:** not run
+- **Docs updated:** `docs/CHANGELOG_AI.md`
+
+---
+
+## 2026-06-07 — Added helper text distinguishing manual vs auto-calculated confidence
+
+- **Updated** `features/key-results/components/CreateCheckInModal.tsx` — Extended the existing "Calculated automatically from pace vs plan." helper under the Confidence section to also note that the system computes a separate bi-weekly confidence snapshot (velocity + cadence + initiatives), so users understand the check-in value is a momentary pace-based figure, not the periodic auto score.
+- **Updated** `features/key-results/components/KeyResultDetailClient.tsx` — Added `(auto)` qualifier to the "Confidence" stat-strip label; when the latest check-in carries a `confidenceScore`, a secondary `Manual: N/100` line is shown directly below the bar so users see both values side-by-side.
+- **Tests:** not run
+- **Docs updated:** `docs/CHANGELOG_AI.md`
+
+---
+
+## 2026-06-07 — Created MASTER_REFERENCE.md — comprehensive system reference
+
+- **Added** `docs/MASTER_REFERENCE.md` — full-system reference covering all 20 sections: system overview, tech stack, project structure, all feature modules, 50+ pages/sitemap, 58 database models, 170+ API routes, all components (UI primitives, shared, feature barrels, DTP), shared hooks, Zustand stores, RBAC matrix, notification event table, email/digest system, cron schedule, library utilities, design conventions, deployment, feature status summary, and refactor backlog
+- **Tests:** not run (documentation only)
+- **Docs updated:** `docs/MASTER_REFERENCE.md` (created), `MEMORY.md` + `project_master_reference.md` in project memory
 
 ---
 

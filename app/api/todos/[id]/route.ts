@@ -77,6 +77,8 @@ export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { sess
     title, description, status, startDate, dueDate, startTime, endTime, completedAt, progressValue,
     assigneeId, priority, coverColor,
     sprintId, taskType,
+    sprintPosition, // number — card position within its sprint+status lane
+    sortOrder,      // number — card position within its status column on the global todo kanban
     memberIds,   // string[] — full replacement of members list
     labelIds,    // string[] (TodoLabelDef ids) — full replacement
     keyResultId, // string | null — link/unlink to a Key Result. Recalculates KR currentValue on change.
@@ -191,6 +193,8 @@ export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { sess
         ...(coverColor !== undefined && { coverColor }),
         ...(sprintId !== undefined && { sprintId: sprintId ?? null }),
         ...(taskType !== undefined && { taskType: taskType ?? null }),
+        ...(typeof sprintPosition === 'number' && { sprintPosition }),
+        ...(typeof sortOrder === 'number' && { sortOrder }),
         ...(keyResultId !== undefined && { keyResultId: keyResultId ?? null }),
         ...(objectiveId !== undefined && { objectiveId: objectiveId ?? null }),
         // Replace members list atomically

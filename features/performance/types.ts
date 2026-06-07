@@ -1,0 +1,142 @@
+export type PerformanceTemplateSummary = {
+  id: string
+  version: number
+  status: string
+  maxTotal: number
+  publishedAt: string | null
+  family: { id: string; name: string; roleLabel: string | null; isActive: boolean }
+  _count: { tiers: number; evaluations: number }
+}
+
+export type PerformanceCriterion = {
+  id: string
+  type: 'RUBRIC' | 'METRIC'
+  code: string | null
+  title: string
+  position: number
+  maxPoints: number
+  weight: number
+  anchorJson: Record<string, unknown> | null
+  unit: string | null
+  periodLabel: string | null
+  target: number | null
+  scoringRuleJson: Record<string, unknown> | null
+  krAggregation: string | null
+}
+
+export type PerformanceTier = {
+  id: string
+  name: string
+  position: number
+  maxPoints: number
+  criteria: PerformanceCriterion[]
+}
+
+export type PerformanceTemplateDetail = {
+  id: string
+  version: number
+  status: string
+  maxTotal: number
+  gatekeeperJson: Record<string, unknown>
+  bandsJson: Array<Record<string, unknown>>
+  family: {
+    id: string
+    name: string
+    roleLabel: string | null
+    templates: Array<{ id: string; version: number; status: string; publishedAt: string | null }>
+  }
+  tiers: PerformanceTier[]
+}
+
+export type ReviewCycleSummary = {
+  id: string
+  name: string
+  cadence: string
+  periodStart: string
+  periodEnd: string
+  status: string
+  allCompany: boolean
+  departments: Array<{ department: { id: string; name: string } }>
+  _count: { evaluations: number; issues: number }
+}
+
+export type EvaluationSummary = {
+  id: string
+  status: string
+  employee: { id: string; name: string; designation: string | null; avatar: string | null }
+  cycle: { id: string; name: string; status: string; periodStart: string; periodEnd: string }
+  template: { name: string; roleLabel: string | null }
+  assignment: { evaluatorId: string; role: string; status: string; submittedAt: string | null } | null
+  normalized?: number | null
+  gatekeeperPass?: boolean | null
+  decisionBand?: string | null
+}
+
+export type EvaluationDetail = {
+  id: string
+  status: string
+  sealed?: boolean
+  employee: { id: string; name: string; designation: string | null; avatar: string | null }
+  cycle: { id: string; name: string; status: string; periodStart: string; periodEnd: string }
+  template?: PerformanceTemplateDetail
+  scores?: Array<{ criterionId: string; evaluatorId: string; score: number; remark: string | null; lockedAt: string | null }>
+  results?: Array<{ criterionId: string; consolidated: number; variance: number; flagged: boolean; actualValue: number | null; calibrationNote?: string | null; resolvedAt?: string | null }>
+  report?: {
+    id: string
+    version: number
+    status: string
+    contentJson: {
+      rawTotal?: number
+      maxTotal?: number
+      normalized?: number
+      gatekeeperPass?: boolean
+      decisionBand?: string
+      tierBreakdown?: Array<{
+        id: string
+        name: string
+        maxPoints: number
+        subtotal: number
+        criteria: Array<{ id: string; title: string; maxPoints: number; consolidated: number | null; feedbackSummary: string | null }>
+      }>
+    }
+  } | null
+  normalized?: number | null
+  gatekeeperPass?: boolean | null
+  decisionBand?: string | null
+}
+
+export type PerformanceMetricMapping = {
+  id: string
+  criterionId: string
+  employeeId: string
+  keyResultId: string
+  position: number
+  criterion: { id: string; title: string; type: string }
+  employee: { id: string; name: string | null; designation: string | null }
+  keyResult: {
+    id: string
+    title: string
+    currentValue: number
+    targetValue: number
+    unit: string
+    status: string
+  }
+}
+
+export type MetricActual = {
+  criterionId: string
+  title: string
+  actual: number | null
+  target: number | null
+  unit: string | null
+  score: number | null
+  sources: Array<{
+    keyResultId: string
+    title: string
+    value: number
+    asOfDate: string | null
+    fallbackToCurrentValue: boolean
+  }>
+  unavailable: boolean
+  reason?: string
+}

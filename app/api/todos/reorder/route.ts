@@ -33,14 +33,10 @@ export const POST = withAuth(async (req: NextRequest, { session }) => {
 
     if (updates.length === 0) return apiSuccess(null, { message: 'No positions to update' })
 
-    const userId = session.user.id
     await prisma.$transaction(
       updates.map(({ id, sortOrder }) =>
         prisma.todo.updateMany({
-          where: {
-            id,
-            OR: [{ creatorId: userId }, { assigneeId: userId }],
-          },
+          where: { id },
           data: { sortOrder },
         })
       )

@@ -131,7 +131,7 @@ export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { sess
     session.user.id === existingTodo.assigneeId ||
     session.user.id === existingTodo.creatorId ||
     canManageKr ||
-    session.user.role === 'ADMIN'
+    (['ADMIN', 'EXECUTIVE', 'DEPARTMENT_LEAD'] as string[]).includes(session.user.role)
 
   if (!hasAccess) {
     return apiForbidden('Insufficient permissions to update this to-do')

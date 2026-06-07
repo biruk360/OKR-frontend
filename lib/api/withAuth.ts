@@ -4,6 +4,7 @@ import { getServerSessionSafe } from '@/lib/auth'
 import { UserRole } from '@/types'
 import { apiForbidden, apiUnauthorized } from './apiResponse'
 import { handleApiError } from './handleError'
+import { resolveFeaturePermission } from '../permission-resolver'
 
 /**
  * Context passed to handlers wrapped with withAuth / withRole.
@@ -68,5 +69,47 @@ export function withRole<P = Record<string, string | string[]>>(
       return apiForbidden('Insufficient permissions')
     }
     return handler(req, ctx)
+  })
+}
+
+export function withFeature<P = Record<string, string | string[]>>(
+  featureKey: string,
+  handler: Handler<P>
+) {
+  return withAuth<P>(async (req, ctx) => {
+    if (ctx.session.user.role === 'ADMIN') {
+      return handler(req, ctx)
+    }
+    try {
+      const allowed = await resolveFeaturePermission(ctx.session.user.id, featureKey)
+      if (!allowed) {
+        return apiForbidden('Feature not available')
+      }
+    } catch {
+      return handler(req, ctx)
+    }
+    return handler(req, ctx)
+  })
+}
+
+export function withRoleOrFeature<P = Record<string, string | string[]>>(
+  allowedRoles: UserRole[],
+  featureKey: string,
+  handler: Handler<P>
+) {
+  return withAuth<P>(async (req, ctx) => {
+    const roleAllowed = allowedRoles.includes(ctx.session.user.role)
+    if (roleAllowed) {
+      return handler(req, ctx)
+    }
+    try {
+      const featureAllowed = await resolveFeaturePermission(ctx.session.user.id, featureKey)
+      if (featureAllowed) {
+        return handler(req, ctx)
+      }
+    } catch {
+      return apiForbidden('Insufficient permissions')
+    }
+    return apiForbidden('Insufficient permissions')
   })
 }

@@ -30,6 +30,8 @@ import {
   type ObjectiveLevel,
   type UserRole,
 } from './permissions'
+import { resolveDocTypePermission, resolveFeaturePermission, getUserActiveRoleKeys } from './permission-resolver'
+import type { DocTypeAction } from './permission-resolver'
 
 export type Actor = { userId: string; role: UserRole }
 
@@ -118,6 +120,65 @@ async function sharesDepartment(userA: string, userB: string): Promise<boolean> 
 export async function can(action: Action, ctx: CanContext): Promise<boolean> {
   const { actor } = ctx
   const { userId, role } = actor
+
+  // DB-backed doctype permission check for standard CRUD actions
+  const DOCTYPE_ACTION_MAP: Partial<Record<Action, { doctypeKey: string; action: DocTypeAction }>> = {
+    // Objective
+    'objective.create':         { doctypeKey: 'objective', action: 'create' },
+    'objective.edit':           { doctypeKey: 'objective', action: 'write' },
+    'objective.delete':         { doctypeKey: 'objective', action: 'delete' },
+    'objective.archive':        { doctypeKey: 'objective', action: 'delete' },
+    'objective.view':           { doctypeKey: 'objective', action: 'read' },
+    'objective.setVisibility':  { doctypeKey: 'objective', action: 'write' },
+    'objective.align':          { doctypeKey: 'objective', action: 'write' },
+    'objective.reparent':       { doctypeKey: 'objective', action: 'write' },
+    'objective.approveAlignment': { doctypeKey: 'objective', action: 'submit' },
+    // Key Result
+    'keyResult.create':  { doctypeKey: 'key_result', action: 'create' },
+    'keyResult.edit':    { doctypeKey: 'key_result', action: 'write' },
+    'keyResult.delete':  { doctypeKey: 'key_result', action: 'delete' },
+    'keyResult.archive': { doctypeKey: 'key_result', action: 'delete' },
+    'keyResult.view':    { doctypeKey: 'key_result', action: 'read' },
+    'keyResult.clone':   { doctypeKey: 'key_result', action: 'create' },
+    'keyResult.checkIn': { doctypeKey: 'key_result_check_in', action: 'create' },
+    // Todo / Initiative
+    'todo.create':   { doctypeKey: 'todo', action: 'create' },
+    'todo.edit':     { doctypeKey: 'todo', action: 'write' },
+    'todo.delete':   { doctypeKey: 'todo', action: 'delete' },
+    'todo.assign':   { doctypeKey: 'todo', action: 'write' },
+    'todo.complete': { doctypeKey: 'todo', action: 'write' },
+    'todo.setDueDate': { doctypeKey: 'todo', action: 'write' },
+    // Comments
+    'comment.create': { doctypeKey: 'todo_comment', action: 'create' },
+    'comment.edit':   { doctypeKey: 'todo_comment', action: 'write' },
+    'comment.delete': { doctypeKey: 'todo_comment', action: 'delete' },
+    // Watchers
+    'watcher.add':       { doctypeKey: 'watcher', action: 'create' },
+    'watcher.removeOwn': { doctypeKey: 'watcher', action: 'delete' },
+    // User management
+    'user.create':       { doctypeKey: 'user', action: 'create' },
+    'user.edit':         { doctypeKey: 'user', action: 'write' },
+    'user.deactivate':   { doctypeKey: 'user', action: 'delete' },
+    // Department
+    'department.create': { doctypeKey: 'department', action: 'create' },
+    'department.edit':   { doctypeKey: 'department', action: 'write' },
+    'department.delete': { doctypeKey: 'department', action: 'delete' },
+    // Timeframes
+    'timeframe.manage': { doctypeKey: 'timeframe', action: 'write' },
+  }
+  const dbMapping = DOCTYPE_ACTION_MAP[action]
+  if (dbMapping) {
+    try {
+      const dbResult = await resolveDocTypePermission(userId, dbMapping.doctypeKey, dbMapping.action)
+      // resolveDocTypePermission checks grant overrides BEFORE role permissions (step 3 of
+      // resolution order), so a false here means: no UserPermissionOverride grant AND no role
+      // grants it. Safe to short-circuit in both directions.
+      if (dbResult) return true
+      return false
+    } catch {
+      // DB unavailable — fall through to existing hardcoded logic
+    }
+  }
 
   // ---- User / account ----
   if (action === 'user.create' || action === 'user.edit' || action === 'user.deactivate'
@@ -278,4 +339,49 @@ export class ForbiddenError extends Error {
 
 export async function assertCan(action: Action, ctx: CanContext): Promise<void> {
   if (!(await can(action, ctx))) throw new ForbiddenError(action)
+}
+
+/**
+ * Check whether a user may perform a doc-type action (e.g. 'read', 'write',
+ * 'delete') on a specific document type identified by `doctypeKey`.
+ *
+ * Falls back to `fallbackRole` inline when the permission-resolver throws
+ * (e.g. tables not yet seeded).  When no fallbackRole is provided the
+ * function returns false on error.
+ */
+export async function canDocType(
+  userId: string,
+  doctypeKey: string,
+  action: DocTypeAction,
+  fallbackRole?: string
+): Promise<boolean> {
+  try {
+    return await resolveDocTypePermission(userId, doctypeKey, action)
+  } catch {
+    if (!fallbackRole) return false
+    try {
+      const activeRoles = await getUserActiveRoleKeys(userId)
+      return activeRoles.includes(fallbackRole)
+    } catch {
+      return false
+    }
+  }
+}
+
+/**
+ * Check whether a user has access to a named feature flag / feature gate
+ * identified by `featureKey`.
+ *
+ * Fails open (returns true) on any error so that a missing or un-seeded
+ * feature table never blocks users during a migration.
+ */
+export async function canFeature(
+  userId: string,
+  featureKey: string
+): Promise<boolean> {
+  try {
+    return await resolveFeaturePermission(userId, featureKey)
+  } catch {
+    return true
+  }
 }

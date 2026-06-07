@@ -286,24 +286,7 @@ async function main() {
     include: { columns: true },
   })
 
-  const sprintActivities = [
-    { title: 'Draft Q2 launch blog post', col: 1, owner: omar },
-    { title: 'Design social media assets', col: 0, owner: omar },
-    { title: 'Prepare webinar slides', col: 2, owner: david },
-    { title: 'Review email campaign copy', col: 3, owner: david },
-    { title: 'Set up event registration page', col: 1, owner: omar },
-    { title: 'Coordinate with sales on demo', col: 0, owner: elena },
-  ]
-
-  for (const act of sprintActivities) {
-    await prisma.sprintActivity.create({
-      data: {
-        id: cuid(), sprintId: sprint.id, columnId: sprint.columns[act.col].id,
-        title: act.title, ownerId: act.owner.id, position: 0,
-      },
-    })
-  }
-  console.log(`  Created 1 sprint with ${sprintActivities.length} activities`)
+  console.log(`  Created 1 sprint`)
 
   // ─── Comments ───
   let commentCount = 0

@@ -104,13 +104,12 @@ async function main() {
     process.exit(2)
   }
 
-  const [objectives, keyResults, todosAssigned, todosCreated, sprints, sprintActivities, comments] = await Promise.all([
+  const [objectives, keyResults, todosAssigned, todosCreated, sprints, comments] = await Promise.all([
     prisma.objective.count({ where: { ownerId: { in: victimIds } } }),
     prisma.keyResult.count({ where: { ownerId: { in: victimIds } } }),
     prisma.todo.count({ where: { assigneeId: { in: victimIds } } }),
     prisma.todo.count({ where: { creatorId: { in: victimIds } } }),
     prisma.sprint.count({ where: { ownerId: { in: victimIds } } }),
-    prisma.sprintActivity.count({ where: { ownerId: { in: victimIds } } }),
     prisma.comment.count({ where: { authorId: { in: victimIds } } }),
   ])
 
@@ -121,7 +120,7 @@ async function main() {
   console.log('[purge] entities to reassign → admin:')
   console.log(`  objectives=${objectives} keyResults=${keyResults} ` +
               `todos(assigned/created)=${todosAssigned}/${todosCreated} ` +
-              `sprints=${sprints} sprintActivities=${sprintActivities} comments=${comments}`)
+              `sprints=${sprints} comments=${comments}`)
   console.log('[purge] cascades that will DELETE with the user:')
   const cascades = await Promise.all([
     prisma.favorite.count({ where: { userId: { in: victimIds } } }),
@@ -157,7 +156,6 @@ async function main() {
     const r3 = await tx.todo.updateMany({ where: { assigneeId: { in: victimIds } }, data: { assigneeId: admin.id } })
     const r4 = await tx.todo.updateMany({ where: { creatorId: { in: victimIds } }, data: { creatorId: admin.id } })
     const r5 = await tx.sprint.updateMany({ where: { ownerId: { in: victimIds } }, data: { ownerId: admin.id } })
-    const r6 = await tx.sprintActivity.updateMany({ where: { ownerId: { in: victimIds } }, data: { ownerId: admin.id } })
     const r7 = await tx.comment.updateMany({ where: { authorId: { in: victimIds } }, data: { authorId: admin.id } })
 
     // ObjectiveContributor / Watcher / Favorite / NotificationPreference have
@@ -166,13 +164,13 @@ async function main() {
     // preference rows, not data.
 
     const del = await tx.user.deleteMany({ where: { id: { in: victimIds } } })
-    return { r1, r2, r3, r4, r5, r6, r7, del }
+    return { r1, r2, r3, r4, r5, r7, del }
   })
 
   console.log('[purge] reassignments applied:')
   console.log(`  objectives=${result.r1.count} keyResults=${result.r2.count} ` +
               `todos(assigned/created)=${result.r3.count}/${result.r4.count} ` +
-              `sprints=${result.r5.count} sprintActivities=${result.r6.count} comments=${result.r7.count}`)
+              `sprints=${result.r5.count} comments=${result.r7.count}`)
   console.log(`[purge] users deleted: ${result.del.count}`)
   console.log('[purge] done')
 }

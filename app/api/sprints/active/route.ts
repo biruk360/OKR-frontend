@@ -35,7 +35,7 @@ export const GET = withAuth(async (_request: NextRequest, { session }) => {
     where,
     include: {
       owner: { select: { id: true, name: true, avatar: true } },
-      _count: { select: { todos: true, activities: true } },
+      _count: { select: { todos: true } },
     },
     orderBy: [{ endDate: 'asc' }, { createdAt: 'desc' }],
   })

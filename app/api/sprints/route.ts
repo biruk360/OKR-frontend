@@ -1,8 +1,10 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { apiSuccess, apiBadRequest, apiForbidden, withAuth } from '@/lib/api'
+import { canFeature } from '@/lib/rbac'
 import { canCreateSprint, type UserRole } from '@/lib/permissions'
 import { recordActivity } from '@/lib/activity-log'
+import { buildScopeFilter } from '@/lib/apply-scope'
 
 /**
  * GET — list sprints visible to the user.
@@ -13,7 +15,10 @@ import { recordActivity } from '@/lib/activity-log'
  *   - ?participantId=<id>
  * Legacy ?status filter still honoured.
  */
-export const GET = withAuth(async (request: NextRequest) => {
+export const GET = withAuth(async (request: NextRequest, { session }) => {
+  const hasFeatureAccess = await canFeature(session.user.id, 'page.sprints')
+  const hasRoleAccess = ['ADMIN', 'EXECUTIVE', 'DEPARTMENT_LEAD', 'EMPLOYEE'].includes(session.user.role)
+  if (!hasFeatureAccess && !hasRoleAccess) return apiForbidden('Feature not available')
   const { searchParams } = new URL(request.url)
   const status = searchParams.get('status')
   const state = searchParams.get('state')
@@ -27,12 +32,14 @@ export const GET = withAuth(async (request: NextRequest) => {
   if (departmentId) where.departmentId = departmentId
   if (participantId) where.participants = { some: { userId: participantId } }
 
+  const scopeFilter = await buildScopeFilter(session.user.id, 'sprint')
+
   const sprints = await prisma.sprint.findMany({
-    where,
+    where: { ...where, ...(scopeFilter ?? {}) },
     include: {
       owner: { select: { id: true, name: true, avatar: true } },
       participants: { include: { user: { select: { id: true, name: true, avatar: true } } } },
-      _count: { select: { activities: true, columns: true, todos: true } },
+      _count: { select: { columns: true, todos: true } },
     },
     orderBy: { createdAt: 'desc' },
   })
@@ -53,6 +60,9 @@ const DEFAULT_COLUMNS = [
 const VALID_STATES = new Set(['PLANNING', 'ACTIVE', 'COMPLETED', 'CANCELLED'])
 
 export const POST = withAuth(async (request: NextRequest, { session }) => {
+  const hasFeatureAccess = await canFeature(session.user.id, 'page.sprints')
+  const hasRoleAccess = ['ADMIN', 'EXECUTIVE', 'DEPARTMENT_LEAD', 'EMPLOYEE'].includes(session.user.role)
+  if (!hasFeatureAccess && !hasRoleAccess) return apiForbidden('Feature not available')
   const body = await request.json()
   const {
     name, description, startDate, endDate,

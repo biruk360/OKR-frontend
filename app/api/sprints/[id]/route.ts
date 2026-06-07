@@ -13,7 +13,7 @@ import { recordActivity } from '@/lib/activity-log'
 import { broadcastSprintEvent } from '@/lib/pusher'
 import { isSprintBackgroundKey } from '@/lib/sprint-backgrounds'
 
-/** Full sprint with columns + activities (board fetch). */
+/** Full sprint with columns (board fetch). */
 export const GET = withAuth<RouteIdParams>(async (_request, { params }) => {
   const { id } = await resolveParams(params)
   if (!id) return apiBadRequest('Invalid sprint id')
@@ -23,24 +23,7 @@ export const GET = withAuth<RouteIdParams>(async (_request, { params }) => {
     include: {
       owner: { select: { id: true, name: true, avatar: true } },
       participants: { include: { user: { select: { id: true, name: true, avatar: true } } } },
-      columns: {
-        orderBy: { position: 'asc' },
-        include: {
-          activities: {
-            orderBy: { position: 'asc' },
-            include: {
-              owner: { select: { id: true, name: true, avatar: true } },
-              keyResult: {
-                select: {
-                  id: true,
-                  title: true,
-                  objective: { select: { id: true, title: true } },
-                },
-              },
-            },
-          },
-        },
-      },
+      columns: { orderBy: { position: 'asc' } },
     },
   })
 

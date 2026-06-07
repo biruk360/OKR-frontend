@@ -7,9 +7,11 @@ import {
   apiNotFound,
   apiConflict,
   withRole,
+  withRoleOrFeature,
 } from '@/lib/api'
+import { filterFieldsByPermLevel } from '@/lib/field-filter'
 
-export const GET = withRole<RouteIdParams>('ADMIN', async (_request, { params }) => {
+export const GET = withRoleOrFeature<RouteIdParams>(['ADMIN'], 'page.settings.users', async (_request, { session, params }) => {
   const { id: userId } = await resolveParams(params)
   if (!userId) return apiBadRequest('Invalid user id')
 
@@ -30,10 +32,11 @@ export const GET = withRole<RouteIdParams>('ADMIN', async (_request, { params })
   })
 
   if (!user) return apiNotFound('User not found')
-  return apiSuccess(user)
+  const filtered = await filterFieldsByPermLevel(user, 'user', session.user.id)
+  return apiSuccess(filtered)
 })
 
-export const PATCH = withRole<RouteIdParams>('ADMIN', async (request: NextRequest, { params }) => {
+export const PATCH = withRoleOrFeature<RouteIdParams>(['ADMIN'], 'page.settings.users', async (request: NextRequest, { params }) => {
   const { id: userId } = await resolveParams(params)
   if (!userId) return apiBadRequest('Invalid user id')
 
@@ -93,7 +96,7 @@ export const PATCH = withRole<RouteIdParams>('ADMIN', async (request: NextReques
   return apiSuccess(updatedUser, { message: 'User updated successfully' })
 })
 
-export const DELETE = withRole<RouteIdParams>('ADMIN', async (_request, { session, params }) => {
+export const DELETE = withRoleOrFeature<RouteIdParams>(['ADMIN'], 'page.settings.users', async (_request, { session, params }) => {
   const { id: userId } = await resolveParams(params)
   if (!userId) return apiBadRequest('Invalid user id')
 
@@ -114,7 +117,6 @@ export const DELETE = withRole<RouteIdParams>('ADMIN', async (_request, { sessio
     prisma.todo.deleteMany({
       where: { OR: [{ assigneeId: userId }, { creatorId: userId }] },
     }),
-    prisma.sprintActivity.deleteMany({ where: { ownerId: userId } }),
     prisma.sprint.deleteMany({ where: { ownerId: userId } }),
     prisma.risk.deleteMany({ where: { reporterId: userId } }),
     prisma.keyResult.deleteMany({ where: { ownerId: userId } }),

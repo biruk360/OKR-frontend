@@ -18,5 +18,5 @@ export type {
 
 export { handleApiError } from './handleError'
 
-export { withAuth, withRole } from './withAuth'
+export { withAuth, withRole, withFeature, withRoleOrFeature } from './withAuth'
 export type { AuthContext } from './withAuth'

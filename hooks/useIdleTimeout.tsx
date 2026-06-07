@@ -77,7 +77,6 @@ export function useIdleTimeout({
   }, [timeoutMs, warningMs, clearTimers, dismissWarning])
 
   const handleActivity = useCallback(() => {
-    // Only reschedule if the warning hasn't appeared yet
     if (!warningToastId.current) {
       scheduleLogout()
     }

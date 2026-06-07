@@ -1,10 +1,10 @@
 import { prisma } from '@/lib/prisma'
 import { apiBadRequest, apiSuccess } from '@/lib/api/apiResponse'
-import { withRole } from '@/lib/api/withAuth'
+import { withRole, withRoleOrFeature } from '@/lib/api/withAuth'
 import { ALL_CATEGORIES, ensureOrgDefaults } from '@/lib/notifications'
 
 /** GET — org-level notification defaults (Admin only). */
-export const GET = withRole(['ADMIN', 'EXECUTIVE'], async () => {
+export const GET = withRoleOrFeature(['ADMIN', 'EXECUTIVE'], 'page.settings.notification-defaults', async () => {
   await ensureOrgDefaults()
   const rows = await prisma.orgNotificationDefault.findMany()
   const byCat = new Map(rows.map((r) => [r.category, r]))
@@ -13,7 +13,7 @@ export const GET = withRole(['ADMIN', 'EXECUTIVE'], async () => {
 })
 
 /** PATCH — upsert org-level defaults. Admin only. */
-export const PATCH = withRole(['ADMIN', 'EXECUTIVE'], async (req) => {
+export const PATCH = withRoleOrFeature(['ADMIN', 'EXECUTIVE'], 'page.settings.notification-defaults', async (req) => {
   const body = await req.json().catch(() => null)
   const rows: Array<{ category: string; inApp?: boolean; email?: boolean; emailCadence?: string }> =
     Array.isArray(body?.defaults) ? body.defaults : []

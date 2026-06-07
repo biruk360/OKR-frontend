@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server'
-import { withRole } from '@/lib/api/withAuth'
+import { withRole, withRoleOrFeature } from '@/lib/api/withAuth'
 import { apiBadRequest, apiSuccess } from '@/lib/api/apiResponse'
 import { sendMail } from '@/lib/email'
 import { isValidEmail } from '@/lib/utils'
@@ -11,7 +11,7 @@ type TestEmailBody = {
   text?: string
 }
 
-export const POST = withRole('ADMIN', async (req: NextRequest, { session }) => {
+export const POST = withRoleOrFeature(['ADMIN'], 'page.admin.org-settings', async (req: NextRequest, { session }) => {
   let body: TestEmailBody = {}
   try {
     body = await req.json()

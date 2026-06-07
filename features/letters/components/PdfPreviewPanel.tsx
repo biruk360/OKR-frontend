@@ -23,7 +23,7 @@ interface Props {
  */
 export default function PdfPreviewPanel({ letterId }: Props) {
   const t = useT()
-  const { lang } = useContext(LetterLangContext)
+  const { lang, font } = useContext(LetterLangContext)
   const iframeRef = useRef<HTMLIFrameElement>(null)
   // bust=force a refresh of the iframe src after a regenerate. Bumping the
   // query param is the cheapest way to invalidate the same-document load.
@@ -32,9 +32,10 @@ export default function PdfPreviewPanel({ letterId }: Props) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const htmlUrl = `/api/letters/${letterId}/html?lang=${lang}&_=${bust}`
-  const printUrl = `/api/letters/${letterId}/pdf?lang=${lang}`
-  const downloadUrl = `/api/letters/${letterId}/pdf?lang=${lang}&download=1`
+  const fontParam = `&font=${encodeURIComponent(font ?? '')}`
+  const htmlUrl = `/api/letters/${letterId}/html?lang=${lang}${fontParam}&_=${bust}`
+  const printUrl = `/api/letters/${letterId}/pdf?lang=${lang}${fontParam}`
+  const downloadUrl = `/api/letters/${letterId}/pdf?lang=${lang}${fontParam}&download=1`
 
   // When the iframe finishes loading, peek at the `x-missing-placeholders`
   // header via a separate HEAD-ish fetch so we can surface the warning band

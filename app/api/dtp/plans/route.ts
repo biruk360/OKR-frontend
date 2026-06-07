@@ -9,13 +9,18 @@
 
 import type { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { apiSuccess, apiBadRequest, apiPaginated } from '@/lib/api'
+import { apiSuccess, apiBadRequest, apiPaginated, apiForbidden } from '@/lib/api'
 import { withAuth } from '@/lib/api/withAuth'
+import { canFeature } from '@/lib/rbac'
 import { canReadAllDtp, isAnyTravelCoordinator, isPoolCoordinator } from '@/lib/dtp/permissions'
 import { recordDtpEvent } from '@/lib/dtp/audit'
 import { readJson } from '@/lib/dtp/api-helpers'
+import { buildScopeFilter } from '@/lib/apply-scope'
 
 export const GET = withAuth(async (req, { session }) => {
+  const hasFeatureAccess = await canFeature(session.user.id, 'page.dtp.home')
+  const hasRoleAccess = ['ADMIN', 'EXECUTIVE', 'DEPARTMENT_LEAD', 'EMPLOYEE'].includes(session.user.role)
+  if (!hasFeatureAccess && !hasRoleAccess) return apiForbidden('Feature not available')
   const url = new URL(req.url)
   const status = url.searchParams.get('status')
   const dept = url.searchParams.get('department')
@@ -50,9 +55,11 @@ export const GET = withAuth(async (req, { session }) => {
     // scoping is the responsibility of the UI's filter chips.
   }
 
+  const scopeFilter = await buildScopeFilter(session.user.id, 'daily_trip_plan')
+
   const [rows, total] = await Promise.all([
     prisma.dailyTripPlan.findMany({
-      where,
+      where: { ...where, ...(scopeFilter ?? {}) },
       include: {
         requester: { select: { id: true, name: true, email: true } },
         stops: { select: { id: true, seq: true, plannedStart: true, dwellMinutes: true, destinationName: true, tripMode: true, requiresVehicle: true } },
@@ -62,7 +69,7 @@ export const GET = withAuth(async (req, { session }) => {
       skip: (page - 1) * limit,
       take: limit,
     }),
-    prisma.dailyTripPlan.count({ where }),
+    prisma.dailyTripPlan.count({ where: { ...where, ...(scopeFilter ?? {}) } }),
   ])
 
   return apiPaginated(rows, { page, limit, total })
@@ -76,6 +83,9 @@ interface CreateBody {
 }
 
 export const POST = withAuth(async (req: NextRequest, { session }) => {
+  const hasFeatureAccess = await canFeature(session.user.id, 'page.dtp.home')
+  const hasRoleAccess = ['ADMIN', 'EXECUTIVE', 'DEPARTMENT_LEAD', 'EMPLOYEE'].includes(session.user.role)
+  if (!hasFeatureAccess && !hasRoleAccess) return apiForbidden('Feature not available')
   const body = (await readJson<CreateBody>(req)) ?? {}
   if (!body.tripDate || !/^\d{4}-\d{2}-\d{2}$/.test(body.tripDate)) {
     return apiBadRequest('tripDate (YYYY-MM-DD) is required')

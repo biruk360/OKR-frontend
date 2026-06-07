@@ -40,6 +40,26 @@ function fontDataUri(filename: string): string {
   return b64 ? `data:font/truetype;base64,${b64}` : ''
 }
 
+// ---------- Google Fonts catalog ----------
+// Subset of fonts available in the UI picker. Each entry maps the font family
+// name to the Google Fonts URL parameters needed to load it.
+const GOOGLE_FONTS_IMPORT: Record<string, string> = {
+  'Noto Serif Ethiopic':  'https://fonts.googleapis.com/css2?family=Noto+Serif+Ethiopic:wdth,wght@75..125,100..900&display=swap',
+  'Playfair Display':     'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap',
+  'Merriweather':         'https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,400;0,700;1,300;1,400&display=swap',
+  'Lora':                 'https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400..700;1,400..700&display=swap',
+  'EB Garamond':          'https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..800;1,400..800&display=swap',
+  'Cormorant Garamond':   'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap',
+  'Noto Sans Ethiopic':   'https://fonts.googleapis.com/css2?family=Noto+Sans+Ethiopic:wdth,wght@75..125,100..900&display=swap',
+  'Inter':                'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap',
+  'Roboto':               'https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,700;1,400&display=swap',
+  'Open Sans':            'https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap',
+  'Lato':                 'https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,400;0,700;1,400&display=swap',
+  'Source Sans 3':        'https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,400;0,600;0,700;1,400&display=swap',
+}
+
+const DEFAULT_FONT = 'Noto Serif Ethiopic'
+
 export interface RenderHtmlArgs {
   letter: Letter & {
     signatory: {
@@ -55,6 +75,8 @@ export interface RenderHtmlArgs {
   origin?: string
   /** Letter content language for label-switching. Default 'en'. */
   lang?: 'en' | 'am'
+  /** Google Font family to use for the letter body. Default 'Noto Serif Ethiopic'. */
+  font?: string
 }
 
 // ---------- HTML escaping ----------
@@ -117,7 +139,12 @@ function fontFaces(base: string): string {
 
 // ---------- Layout CSS — Design 4 "Right Rail" (master spec) ----------
 
-function styles(base: string, lang: 'en' | 'am' = 'en'): string {
+function googleFontLink(font: string): string {
+  const url = GOOGLE_FONTS_IMPORT[font]
+  return url ? `<link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" /><link rel="stylesheet" href="${url}" />` : ''
+}
+
+function styles(base: string, lang: 'en' | 'am' = 'en', font: string = DEFAULT_FONT): string {
   // JetBrains Mono has zero Ethiopic glyph coverage — Ethiopic chars render as
   // tofu boxes. For Amharic labels switch to Noto Sans Ethiopic.
   // text-transform:uppercase also causes Ethiopic chars to vanish (no uppercase
@@ -125,6 +152,9 @@ function styles(base: string, lang: 'en' | 'am' = 'en'): string {
   const labelFont      = lang === 'am' ? "'Noto Sans Ethiopic', sans-serif" : "'JetBrains Mono', monospace"
   const labelTransform = lang === 'am' ? 'none' : 'uppercase'
   const labelSpacing   = lang === 'am' ? 'normal' : '.18em'
+  // Body font stack: selected Google Font, with Noto Ethiopic as Ethiopic-script
+  // fallback and system-ui as last resort.
+  const bodyFont = `'${font}', 'Noto Sans Ethiopic', system-ui, sans-serif`
   return `
     ${fontFaces(base)}
 
@@ -137,7 +167,7 @@ function styles(base: string, lang: 'en' | 'am' = 'en'): string {
     html, body {
       margin: 0; padding: 0;
       background: #e8e8e3;
-      font-family: 'Noto Sans Ethiopic', 'Inter', system-ui, sans-serif;
+      font-family: ${bodyFont};
       -webkit-font-smoothing: antialiased;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
@@ -225,19 +255,19 @@ function styles(base: string, lang: 'en' | 'am' = 'en'): string {
 
     /* === Body content === */
     .lh-body {
-      font-family: 'Noto Sans Ethiopic', 'Inter', sans-serif;
+      font-family: ${bodyFont};
       font-size: 10pt; line-height: 1.55; color: #000000;
     }
     .to-line {
       margin-bottom: 5mm; display: flex; align-items: baseline; gap: 3mm;
     }
     .to-line .label {
-      font-family: 'Noto Sans Ethiopic', 'Inter', sans-serif; font-size: 9.5pt;
+      font-family: ${bodyFont}; font-size: 9.5pt;
       color: #000000; font-weight: 500; line-height: 1;
     }
-    .to-line .recipient { font-family: 'Noto Sans Ethiopic', 'Inter', sans-serif; font-weight: 600; color: var(--ink); font-size: 10pt; }
+    .to-line .recipient { font-family: ${bodyFont}; font-weight: 600; color: var(--ink); font-size: 10pt; }
     h1.subject {
-      font-family: 'Noto Sans Ethiopic', 'Inter', sans-serif;
+      font-family: ${bodyFont};
       font-size: 11pt; font-weight: 600; line-height: 1.4;
       color: var(--ink); margin: 0 0 4mm;
     }
@@ -246,7 +276,7 @@ function styles(base: string, lang: 'en' | 'am' = 'en'): string {
       font-weight: 500; margin-right: 3mm;
     }
     h1.subject .subject-text {
-      font-family: 'Noto Sans Ethiopic', 'Inter', sans-serif;
+      font-family: ${bodyFont};
       text-decoration: underline; text-decoration-thickness: 1px;
       text-underline-offset: 3px; text-decoration-color: var(--ink);
     }
@@ -273,7 +303,7 @@ function styles(base: string, lang: 'en' | 'am' = 'en'): string {
     .placeholder-missing { color: #b91c1c; font-weight: 600; }
 
     /* === Signature === */
-    .sig { margin-top: 7mm; font-family: 'Noto Sans Ethiopic', 'Inter', sans-serif; }
+    .sig { margin-top: 7mm; font-family: ${bodyFont}; }
     .sig .closing { margin-bottom: 3mm; color: #000000; }
     .sig .line { width: 50mm; height: 11mm; border-bottom: 1px solid #000000; margin-bottom: 1.5mm; }
     .sig .name { font-weight: 600; color: #000000; font-size: 10pt; }
@@ -351,7 +381,7 @@ const LABELS = {
  * Build the complete HTML document. Self-contained (no external network
  * dependencies once fonts/logos resolve under `origin`).
  */
-export function renderLetterHtml({ letter, origin = '', lang = 'en' }: RenderHtmlArgs): {
+export function renderLetterHtml({ letter, origin = '', lang = 'en', font = DEFAULT_FONT }: RenderHtmlArgs): {
   html: string
   missing: string[]
 } {
@@ -497,7 +527,8 @@ export function renderLetterHtml({ letter, origin = '', lang = 'en' }: RenderHtm
 <head>
 <meta charset="utf-8" />
 <title>${esc(refNumber)}</title>
-<style>${styles(base, lang)}</style>
+${googleFontLink(font)}
+<style>${styles(base, lang, font)}</style>
 </head>
 <body>
 ${pageHtml('Page 01 / 01')}

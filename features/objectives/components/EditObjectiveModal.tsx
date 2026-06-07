@@ -286,6 +286,15 @@ export default function EditObjectiveModal({ isOpen, onClose, objective }: EditO
                 <option value="LOOSE">Loose (visual link only)</option>
                 <option value="STRICT_DEPENDENCY">Strict (roll up from children)</option>
               </select>
+              {watch('alignmentType') === 'LOOSE' ? (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Visual alignment only — progress does not roll up to parent.
+                </p>
+              ) : (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Progress rolls up to parent using the configured rollup calculation.
+                </p>
+              )}
             </div>
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1">Roll-up calculation</label>

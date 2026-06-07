@@ -6,7 +6,7 @@ import AuditLogsView from '@/components/settings/AuditLogsView'
 
 export default async function AuditLogsSettingsPage() {
   const session = await getServerSessionSafe()
-  
+
   if (!session) {
     redirect('/auth/signin')
   }
@@ -15,17 +15,15 @@ export default async function AuditLogsSettingsPage() {
     redirect('/dashboard/settings/profile')
   }
 
-  // Get audit logs (for now, we'll use system settings changes and user actions)
-  // In a full implementation, you'd have a dedicated AuditLog model
-  const recentActions = await prisma.systemSettings.findMany({
-    take: 50,
-    orderBy: { updatedAt: 'desc' }
+  const logs = await prisma.activityLog.findMany({
+    take: 200,
+    orderBy: { createdAt: 'desc' },
+    include: { actor: { select: { id: true, name: true, email: true } } },
   })
 
   return (
     <div className="space-y-6">
-      <AuditLogsView initialLogs={recentActions} />
+      <AuditLogsView initialLogs={logs} />
     </div>
   )
 }
-

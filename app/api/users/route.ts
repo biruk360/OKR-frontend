@@ -1,10 +1,11 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { sendUserInvitationEmail } from '@/lib/email'
-import { apiSuccess, apiBadRequest, apiConflict, withRole } from '@/lib/api'
+import { apiSuccess, apiBadRequest, apiConflict, withRole, withRoleOrFeature } from '@/lib/api'
 import { emit } from '@/lib/notifications'
+import { filterArrayByPermLevel } from '@/lib/field-filter'
 
-export const GET = withRole('ADMIN', async () => {
+export const GET = withRoleOrFeature(['ADMIN'], 'page.settings.users', async (_request, { session }) => {
   const users = await prisma.user.findMany({
     select: {
       id: true,
@@ -20,10 +21,15 @@ export const GET = withRole('ADMIN', async () => {
     },
     orderBy: { createdAt: 'desc' },
   })
-  return apiSuccess(users)
+  const filtered = await filterArrayByPermLevel(
+    users as unknown as Record<string, unknown>[],
+    'user',
+    session.user.id,
+  )
+  return apiSuccess(filtered)
 })
 
-export const POST = withRole('ADMIN', async (request: NextRequest) => {
+export const POST = withRoleOrFeature(['ADMIN'], 'page.settings.users', async (request: NextRequest) => {
   const body = await request.json()
   const { name, email, role = 'EMPLOYEE' } = body
 

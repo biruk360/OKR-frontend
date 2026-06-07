@@ -6,6 +6,7 @@ import {
   apiConflict,
   withAuth,
   withRole,
+  withRoleOrFeature,
 } from '@/lib/api'
 
 export const GET = withAuth(async () => {
@@ -13,7 +14,7 @@ export const GET = withAuth(async () => {
   return apiSuccess(labels)
 })
 
-export const POST = withRole(['ADMIN', 'EXECUTIVE'], async (request: NextRequest) => {
+export const POST = withRoleOrFeature(['ADMIN', 'EXECUTIVE'], 'module.okr', async (request: NextRequest) => {
   const body = await request.json()
   const { name, color, description } = body
 

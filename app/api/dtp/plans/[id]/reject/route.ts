@@ -12,6 +12,7 @@ import { withAuth } from '@/lib/api/withAuth'
 import { transitionPlan, loadReadablePlan, readJson, badStatus } from '@/lib/dtp/api-helpers'
 import { canActAsCoordinator } from '@/lib/dtp/permissions'
 import { notifyDtpEvent } from '@/lib/dtp/notifier'
+import { canFeature } from '@/lib/rbac'
 import type { DtpStatus } from '@/types/dtp'
 
 interface Body { note: string }
@@ -21,6 +22,9 @@ export const POST = withAuth<{ id: string }>(async (req: NextRequest, { session,
   if (!r.ok) return r.error
   const plan = r.plan
   if (!(await canActAsCoordinator(session, plan.departmentId))) return apiForbidden('Only the Travel Coordinator can reject this plan')
+  const hasFeatureAccess = await canFeature(session.user.id, 'button.dtp.reject')
+  const hasRoleAccess = ['ADMIN', 'DEPARTMENT_LEAD'].includes(session.user.role)
+  if (!hasFeatureAccess && !hasRoleAccess) return apiForbidden('Not permitted to reject trips')
   const body = await readJson<Body>(req)
   if (!body?.note?.trim()) return apiBadRequest('A rejection note is required')
   const status = plan.status as DtpStatus

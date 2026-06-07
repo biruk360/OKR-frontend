@@ -6,9 +6,10 @@ import {
   apiBadRequest,
   apiNotFound,
   withRole,
+  withRoleOrFeature,
 } from '@/lib/api'
 
-export const POST = withRole<RouteIdParams>('ADMIN', async (_request, { params }) => {
+export const POST = withRoleOrFeature<RouteIdParams>(['ADMIN'], 'page.settings.users', async (_request, { params }) => {
   const { id: userId } = await resolveParams(params)
   if (!userId) return apiBadRequest('Invalid user id')
 

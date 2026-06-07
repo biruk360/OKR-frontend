@@ -35,7 +35,8 @@ export async function runDigestDrain(cadence: 'DAILY' | 'WEEKLY' | 'MONTHLY'): P
   const userById = new Map(users.map((u) => [u.id, u]))
 
   let sent = 0, errors = 0
-  // Helper: extract { deepLink, entityType, entityId } from each row's metadata JSON.
+  const CHUNK = 15 // max concurrent sends
+
   const metaOf = (i: QueueRow): { deepLink: string | null; entityType: string | null; entityId: string | null } => {
     if (!i.metadata) return { deepLink: null, entityType: null, entityId: null }
     try {
@@ -48,36 +49,40 @@ export async function runDigestDrain(cadence: 'DAILY' | 'WEEKLY' | 'MONTHLY'): P
     } catch { return { deepLink: null, entityType: null, entityId: null } }
   }
 
-  for (const [userId, items] of Array.from(byUser.entries())) {
-    const user = userById.get(userId)
-    if (!user) continue
-    try {
-      const digestItems: DigestItem[] = items.map((i: QueueRow) => {
-        const m = metaOf(i)
-        return {
-          eventKey: i.eventKey,
-          category: i.category,
-          subject: i.subject,
-          deepLink: m.deepLink,
-          entityType: m.entityType,
-          entityId: m.entityId,
-        }
-      })
-      const { subject, text, html } = await renderDigest({
-        recipientName: user.name,
-        cadence,
-        items: digestItems,
-      })
-      await sendMail({ to: user.email, toName: user.name, subject, text, html, template: `digest-${cadence.toLowerCase()}` })
-      await prisma.emailDigestQueue.updateMany({
-        where: { id: { in: items.map((i: QueueRow) => i.id) } },
-        data: { sentAt: new Date() },
-      })
-      sent++
-    } catch (err) {
-      console.error('[digest-drain] error for', userId, err)
-      errors++
-    }
+  const userEntries = Array.from(byUser.entries())
+  for (let i = 0; i < userEntries.length; i += CHUNK) {
+    const chunk = userEntries.slice(i, i + CHUNK)
+    await Promise.all(chunk.map(async ([userId, items]) => {
+      const user = userById.get(userId)
+      if (!user) return
+      try {
+        const digestItems: DigestItem[] = items.map((item: QueueRow) => {
+          const m = metaOf(item)
+          return {
+            eventKey: item.eventKey,
+            category: item.category,
+            subject: item.subject,
+            deepLink: m.deepLink,
+            entityType: m.entityType,
+            entityId: m.entityId,
+          }
+        })
+        const { subject, text, html } = await renderDigest({
+          recipientName: user.name,
+          cadence,
+          items: digestItems,
+        })
+        await sendMail({ to: user.email, toName: user.name, subject, text, html, template: `digest-${cadence.toLowerCase()}` })
+        await prisma.emailDigestQueue.updateMany({
+          where: { id: { in: items.map((item: QueueRow) => item.id) } },
+          data: { sentAt: new Date() },
+        })
+        sent++
+      } catch (err) {
+        console.error('[digest-drain] error for', userId, err)
+        errors++
+      }
+    }))
   }
   return { users: byUser.size, sent, errors }
 }
@@ -223,6 +228,30 @@ export async function runAdminWeeklyHealth(): Promise<{ sent: boolean }> {
     data: { activeObjectives, atRisk, offTrack },
   })
   return { sent: true }
+}
+
+/**
+ * Notification retention sweep.
+ * - Marks unread notifications older than 30 days as read.
+ * - Deletes read notifications older than 90 days.
+ * Run nightly.
+ */
+export async function runPruneNotifications(): Promise<{ markedRead: number; deleted: number }> {
+  const now = new Date()
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+  const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
+
+  const [markedRead, deleted] = await Promise.all([
+    prisma.notification.updateMany({
+      where: { isRead: false, createdAt: { lt: thirtyDaysAgo } },
+      data: { isRead: true },
+    }),
+    prisma.notification.deleteMany({
+      where: { isRead: true, createdAt: { lt: ninetyDaysAgo } },
+    }),
+  ])
+
+  return { markedRead: markedRead.count, deleted: deleted.count }
 }
 
 /** Monthly executive summary. */

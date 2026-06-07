@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { CreateLetterForm, LetterStatus } from '@/types'
-import { canCreateLetter } from '@/lib/permissions'
+import { checkLetterPermissionV2 } from '@/lib/letter-permissions'
 import { recordActivity } from '@/lib/activity-log'
 import { allocateLetterReference, LETTER_TEMPLATES } from '@/lib/letters'
 import {
@@ -11,6 +11,7 @@ import {
   apiForbidden,
   withAuth,
 } from '@/lib/api'
+import { buildScopeFilter } from '@/lib/apply-scope'
 
 const LETTER_STATUSES: LetterStatus[] = ['DRAFT', 'SUBMITTED', 'APPROVED', 'SENT', 'ARCHIVED']
 
@@ -50,10 +51,12 @@ export const GET = withAuth(async (request: NextRequest, { session }) => {
     ]
   }
 
+  const scopeFilter = await buildScopeFilter(session.user.id, 'letter')
+
   const skip = (page - 1) * limit
   const [letters, total] = await Promise.all([
     prisma.letter.findMany({
-      where,
+      where: { ...where, ...(scopeFilter ?? {}) },
       orderBy: { date: 'desc' },
       skip,
       take: limit,
@@ -64,14 +67,14 @@ export const GET = withAuth(async (request: NextRequest, { session }) => {
         _count: { select: { enclosures: true } },
       },
     }),
-    prisma.letter.count({ where }),
+    prisma.letter.count({ where: { ...where, ...(scopeFilter ?? {}) } }),
   ])
 
   return apiPaginated(letters, { page, limit, total })
 })
 
 export const POST = withAuth(async (request: NextRequest, { session }) => {
-  if (!canCreateLetter(session.user.role)) {
+  if (!(await checkLetterPermissionV2(session.user.id, 'letter.create'))) {
     return apiForbidden('You are not permitted to create letters')
   }
 

@@ -13,6 +13,7 @@ import EditTodoButton from './EditTodoButton'
 import DeleteTodoButton from './DeleteTodoButton'
 import { UserAvatar } from '@/components/shared/UserAvatar'
 import { userColor } from '@/lib/user-color'
+import { useTodoStatusToggle } from './useTodoStatusToggle'
 
 interface ToDoListProps {
   keyResultId: string
@@ -122,41 +123,20 @@ export default function ToDoList({
   }
 
   // Toggle todo completion
-  const handleToggleTodo = async (todoId: string, currentStatus: string) => {
-    const newStatus = currentStatus === 'COMPLETED' ? 'PENDING' : 'COMPLETED'
-    
-    try {
-      const response = await fetch(`/api/todos/${todoId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          status: newStatus,
-          completedAt: newStatus === 'COMPLETED' ? new Date().toISOString() : null
-        }),
-      })
-
-      if (response.ok) {
-        setTodos(prev => prev.map(todo =>
-          todo.id === todoId
-            ? {
-                ...todo,
-                status: newStatus,
-                completedAt: newStatus === 'COMPLETED' ? new Date().toISOString() : null
-              }
-            : todo
-        ))
-        toast.success(newStatus === 'COMPLETED' ? 'Initiative completed!' : 'Initiative marked as pending')
-        onChanged?.()
-      } else {
-        const error = await response.json()
-        toast.error(error.error || 'Failed to update initiative')
-      }
-    } catch (error) {
-      toast.error('An error occurred. Please try again.')
-    }
-  }
+  const handleToggleTodo = useTodoStatusToggle((todoId, newStatus) => {
+    setTodos(prev =>
+      prev.map(todo =>
+        todo.id === todoId
+          ? {
+              ...todo,
+              status: newStatus,
+              completedAt: newStatus === 'COMPLETED' ? new Date().toISOString() : null,
+            }
+          : todo,
+      ),
+    )
+    onChanged?.()
+  })
 
   // Update an initiative's progressValue (in the parent KR's unit). The server
   // re-aggregates the KR's currentValue + progress and cascades to the objective.

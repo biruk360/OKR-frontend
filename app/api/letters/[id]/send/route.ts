@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { recordActivity } from '@/lib/activity-log'
-import { canCreateLetter, canDispatchLetter } from '@/lib/permissions'
+import { checkLetterPermissionV2 } from '@/lib/letter-permissions'
 import { notifyLetterSent } from '@/lib/letters-notify'
 import { LetterDispatchMethod } from '@/types'
 import {
@@ -19,7 +19,11 @@ export const POST = withAuth<RouteIdParams>(async (req, { session, params }) => 
   const { id } = await resolveParams(params)
   if (!id) return apiBadRequest('Invalid letter id')
 
-  if (!canCreateLetter(session.user.role) && !canDispatchLetter(session.user.role)) {
+  const [canCreate, canDispatch] = await Promise.all([
+    checkLetterPermissionV2(session.user.id, 'letter.create'),
+    checkLetterPermissionV2(session.user.id, 'letter.dispatch'),
+  ])
+  if (!canCreate && !canDispatch) {
     return apiForbidden('You are not permitted to dispatch letters')
   }
 

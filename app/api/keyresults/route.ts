@@ -14,6 +14,7 @@ import {
   apiNotFound,
   withAuth,
 } from '@/lib/api'
+import { buildScopeFilter } from '@/lib/apply-scope'
 
 export const GET = withAuth(async (request: NextRequest, { session }) => {
   const { searchParams } = new URL(request.url)
@@ -38,10 +39,12 @@ export const GET = withAuth(async (request: NextRequest, { session }) => {
   if (objectiveId) where.objectiveId = objectiveId
   if (search) where.title = { contains: search, mode: 'insensitive' }
 
+  const scopeFilter = await buildScopeFilter(session.user.id, 'key_result')
+
   const skip = (page - 1) * limit
   const [keyResults, total] = await Promise.all([
     prisma.keyResult.findMany({
-      where,
+      where: { ...where, ...(scopeFilter ?? {}) },
       skip,
       take: limit,
       orderBy: { createdAt: 'desc' },
@@ -78,7 +81,7 @@ export const GET = withAuth(async (request: NextRequest, { session }) => {
         _count: { select: { todos: true } },
       },
     }),
-    prisma.keyResult.count({ where }),
+    prisma.keyResult.count({ where: { ...where, ...(scopeFilter ?? {}) } }),
   ])
 
   return apiPaginated(keyResults, { total, page, limit })

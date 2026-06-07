@@ -247,10 +247,36 @@ const STRINGS = {
 
 export type StringKey = keyof typeof STRINGS['en']
 
+// ---------- Font catalog ----------
+
+export const LETTER_FONTS = [
+  // Serif — default first
+  { id: 'Noto Serif Ethiopic', label: 'Noto Serif Ethiopic', category: 'serif' },
+  { id: 'Playfair Display',    label: 'Playfair Display',    category: 'serif' },
+  { id: 'Merriweather',        label: 'Merriweather',        category: 'serif' },
+  { id: 'Lora',                label: 'Lora',                category: 'serif' },
+  { id: 'EB Garamond',         label: 'EB Garamond',         category: 'serif' },
+  { id: 'Cormorant Garamond',  label: 'Cormorant Garamond',  category: 'serif' },
+  // Sans-serif
+  { id: 'Noto Sans Ethiopic',  label: 'Noto Sans Ethiopic',  category: 'sans-serif' },
+  { id: 'Inter',               label: 'Inter',               category: 'sans-serif' },
+  { id: 'Roboto',              label: 'Roboto',              category: 'sans-serif' },
+  { id: 'Open Sans',           label: 'Open Sans',           category: 'sans-serif' },
+  { id: 'Lato',                label: 'Lato',                category: 'sans-serif' },
+  { id: 'Source Sans 3',       label: 'Source Sans 3',       category: 'sans-serif' },
+] as const
+
+export type LetterFontId = typeof LETTER_FONTS[number]['id']
+export const DEFAULT_LETTER_FONT: LetterFontId = 'Noto Serif Ethiopic'
+
+// ---------- Context ----------
+
 export const LetterLangContext = createContext<{
   lang: LetterLang
   setLang: (l: LetterLang) => void
-}>({ lang: 'en', setLang: () => {} })
+  font: LetterFontId
+  setFont: (f: LetterFontId) => void
+}>({ lang: 'en', setLang: () => {}, font: DEFAULT_LETTER_FONT, setFont: () => {} })
 
 export function useLetterLang() {
   return useContext(LetterLangContext)

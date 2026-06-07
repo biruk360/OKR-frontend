@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { formatDate } from '@/lib/utils'
 import { User, Calendar, Building2, Target, MessageSquare, TrendingUp } from 'lucide-react'
+import { EmptyState } from '@/components/ui'
 
 interface GoalsFeedViewProps {
   objectives: any[]
@@ -43,9 +44,10 @@ export default function GoalsFeedView({ objectives, onRefresh }: GoalsFeedViewPr
 
   if (objectives.length === 0) {
     return (
-      <div className="text-center py-12 bg-card rounded-lg border border-border">
-        <p className="text-muted-foreground">No goals found. Create your first goal to get started.</p>
-      </div>
+      <EmptyState
+        title="No goals found"
+        description="Create your first goal to get started."
+      />
     )
   }
 

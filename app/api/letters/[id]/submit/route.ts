@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { recordActivity } from '@/lib/activity-log'
-import { canCreateLetter } from '@/lib/permissions'
+import { checkLetterPermissionV2 } from '@/lib/letter-permissions'
 import { notifyLetterSubmitted } from '@/lib/letters-notify'
 import {
   apiSuccess,
@@ -19,7 +19,7 @@ export const POST = withAuth<RouteIdParams>(async (_req, { session, params }) =>
 
   const letter = await prisma.letter.findUnique({ where: { id } })
   if (!letter) return apiNotFound('Letter not found')
-  if (!canCreateLetter(session.user.role)) return apiForbidden('Not permitted')
+  if (!(await checkLetterPermissionV2(session.user.id, 'letter.submit'))) return apiForbidden('Not permitted')
   if (letter.status !== 'DRAFT') return apiBadRequest('Only DRAFT letters can be submitted')
   if (letter.preparedById !== session.user.id && session.user.role !== 'ADMIN') {
     return apiForbidden('Only the preparer can submit this letter')

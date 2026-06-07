@@ -67,6 +67,8 @@ export interface RenderToPdfArgs {
     letterTypeDef?: Pick<LetterTypeDef, 'id' | 'code' | 'name'> | null
   }
   lang?: 'en' | 'am'
+  /** Google Font family name to use for the letter body. */
+  font?: string
   /** Absolute base URL so Puppeteer can fetch fonts/logos from /branding & /fonts. */
   origin: string
 }
@@ -78,9 +80,10 @@ export interface RenderToPdfArgs {
 export async function renderLetterToPdf({
   letter,
   lang = 'en',
+  font,
   origin,
 }: RenderToPdfArgs): Promise<{ pdf: Buffer; missing: string[] }> {
-  const { html, missing } = renderLetterHtml({ letter, lang, origin })
+  const { html, missing } = renderLetterHtml({ letter, lang, font, origin })
   const browser = await getBrowser()
   const page = await browser.newPage()
   try {

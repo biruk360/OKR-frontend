@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import {
   runCheckinEscalation, runDigestDrain, runTimeframeWatcher, runTodoReminders,
-  runAdminWeeklyHealth, runAdminMonthlyExecSummary,
+  runAdminWeeklyHealth, runAdminMonthlyExecSummary, runPruneNotifications,
 } from '@/lib/notifications/jobs'
 
 /**
@@ -28,6 +28,7 @@ export async function POST(request: NextRequest) {
       case 'timeframes': return NextResponse.json({ success: true, ...(await runTimeframeWatcher()) })
       case 'admin-weekly': return NextResponse.json({ success: true, ...(await runAdminWeeklyHealth()) })
       case 'admin-monthly': return NextResponse.json({ success: true, ...(await runAdminMonthlyExecSummary()) })
+      case 'prune-notifications': return NextResponse.json({ success: true, ...(await runPruneNotifications()) })
       default: return NextResponse.json({ error: 'unknown job' }, { status: 400 })
     }
   } catch (err) {

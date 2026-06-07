@@ -1,9 +1,9 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
-import { apiSuccess, apiBadRequest, withRole } from '@/lib/api'
+import { apiSuccess, apiBadRequest, withRole, withRoleOrFeature } from '@/lib/api'
 
-export const PATCH = withRole<RouteIdParams>('ADMIN', async (request: NextRequest, { params }) => {
+export const PATCH = withRoleOrFeature<RouteIdParams>(['ADMIN'], 'page.settings.timeframes', async (request: NextRequest, { params }) => {
   const { id } = await resolveParams(params)
   if (!id) return apiBadRequest('Invalid timeframe id')
 
@@ -39,7 +39,7 @@ export const PATCH = withRole<RouteIdParams>('ADMIN', async (request: NextReques
   return apiSuccess(timeframe)
 })
 
-export const DELETE = withRole<RouteIdParams>('ADMIN', async (_request, { params }) => {
+export const DELETE = withRoleOrFeature<RouteIdParams>(['ADMIN'], 'page.settings.timeframes', async (_request, { params }) => {
   const { id } = await resolveParams(params)
   if (!id) return apiBadRequest('Invalid timeframe id')
 

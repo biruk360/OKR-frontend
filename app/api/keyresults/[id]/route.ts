@@ -17,6 +17,7 @@ import {
   apiNotFound,
   withAuth,
 } from '@/lib/api'
+import { filterFieldsByPermLevel } from '@/lib/field-filter'
 
 export const GET = withAuth<RouteIdParams>(async (_request, { session, params }) => {
   const { id } = await resolveParams(params)
@@ -64,7 +65,12 @@ export const GET = withAuth<RouteIdParams>(async (_request, { session, params })
     processedKeyResult = redactKeyResult(keyResult) as any
   }
 
-  return apiSuccess(processedKeyResult)
+  const filtered = await filterFieldsByPermLevel(
+    processedKeyResult as unknown as Record<string, unknown>,
+    'key_result',
+    session.user.id,
+  )
+  return apiSuccess(filtered)
 })
 
 export const PUT = withAuth<RouteIdParams>(async (request: NextRequest, { session, params }) => {

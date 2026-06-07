@@ -8,6 +8,7 @@ import {
   apiConflict,
   withAuth,
   withRole,
+  withRoleOrFeature,
 } from '@/lib/api'
 
 export const GET = withAuth<RouteIdParams>(async (_request, { params }) => {
@@ -30,7 +31,7 @@ export const GET = withAuth<RouteIdParams>(async (_request, { params }) => {
   return apiSuccess(department)
 })
 
-export const PATCH = withRole<RouteIdParams>(['ADMIN', 'EXECUTIVE'], async (request: NextRequest, { params }) => {
+export const PATCH = withRoleOrFeature<RouteIdParams>(['ADMIN', 'EXECUTIVE'], 'module.org', async (request: NextRequest, { params }) => {
   const { id } = await resolveParams(params)
   if (!id) return apiBadRequest('Invalid department id')
 
@@ -54,7 +55,7 @@ export const PATCH = withRole<RouteIdParams>(['ADMIN', 'EXECUTIVE'], async (requ
   }
 })
 
-export const DELETE = withRole<RouteIdParams>(['ADMIN', 'EXECUTIVE'], async (_request, { params }) => {
+export const DELETE = withRoleOrFeature<RouteIdParams>(['ADMIN', 'EXECUTIVE'], 'module.org', async (_request, { params }) => {
   const { id } = await resolveParams(params)
   if (!id) return apiBadRequest('Invalid department id')
 

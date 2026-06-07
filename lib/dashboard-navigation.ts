@@ -24,12 +24,15 @@ import {
   Truck,
   ClipboardList,
   ShieldCheck,
+  ClipboardCheck,
+  Award,
 } from 'lucide-react'
 
 export interface NavItem {
   name: string
   href: string
   icon: LucideIcon
+  featureKey?: string
 }
 
 export interface NavGroup {
@@ -37,6 +40,7 @@ export interface NavGroup {
   icon: LucideIcon
   items: NavItem[]
   defaultOpen?: boolean
+  featureKey?: string
 }
 
 export const navigationGroups: NavGroup[] = [
@@ -98,6 +102,19 @@ export const navigationGroups: NavGroup[] = [
     defaultOpen: false,
   },
   {
+    name: 'Performance',
+    icon: Award,
+    featureKey: 'module.performance',
+    items: [
+      { name: 'My Performance', href: '/dashboard/performance', icon: Award, featureKey: 'page.performance.my' },
+      { name: 'Evaluation Queue', href: '/dashboard/performance/evaluations', icon: ClipboardCheck, featureKey: 'page.performance.evaluations' },
+      { name: 'Review Cycles', href: '/dashboard/performance/cycles', icon: Calendar, featureKey: 'page.performance.cycles' },
+      { name: 'Scorecard Templates', href: '/dashboard/performance/templates', icon: ClipboardList, featureKey: 'page.performance.templates' },
+      { name: 'Development Actions', href: '/dashboard/performance/actions', icon: Award, featureKey: 'page.performance.actions' },
+    ],
+    defaultOpen: false,
+  },
+  {
     name: 'Tracking & Analytics',
     icon: TrendingUp,
     items: [
@@ -152,6 +169,7 @@ export const navigationGroups: NavGroup[] = [
       { name: 'Notifications', href: '/dashboard/settings/notifications', icon: Bell },
       { name: 'Users', href: '/dashboard/settings/users', icon: Users },
       { name: 'Teams', href: '/dashboard/settings/teams', icon: Users },
+      { name: 'Permissions', href: '/dashboard/settings/permissions', icon: ShieldCheck },
       { name: 'Timeframes', href: '/dashboard/settings/timeframes', icon: Calendar },
       { name: 'OKR Rules', href: '/dashboard/settings/okr-rules', icon: Target },
       { name: 'Branding', href: '/dashboard/settings/branding', icon: Building2 },
@@ -168,6 +186,18 @@ export function getFlatNavItems(): NavItem[] {
   return navigationGroups.flatMap((g) => g.items)
 }
 
+export function getVisibleNavigationGroups(
+  canFeature: (featureKey: string) => boolean,
+): NavGroup[] {
+  return navigationGroups
+    .filter((group) => !group.featureKey || canFeature(group.featureKey))
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => !item.featureKey || canFeature(item.featureKey)),
+    }))
+    .filter((group) => group.items.length > 0)
+}
+
 /** True if this nav href is the current route (dashboard home is exact match only). */
 export function isNavPathActive(pathname: string, href: string): boolean {
   if (href === '/dashboard') return pathname === '/dashboard'
@@ -178,9 +208,9 @@ export function isNavPathActive(pathname: string, href: string): boolean {
 /**
  * Best matching nav item for the pathname (longest href wins so /settings/account beats /settings/users).
  */
-export function getActiveNavContext(pathname: string): { group: NavGroup; item: NavItem } | null {
+export function getActiveNavContext(pathname: string, groups: NavGroup[] = navigationGroups): { group: NavGroup; item: NavItem } | null {
   let best: { group: NavGroup; item: NavItem; hrefLen: number } | null = null
-  for (const group of navigationGroups) {
+  for (const group of groups) {
     for (const item of group.items) {
       if (isNavPathActive(pathname, item.href)) {
         const hrefLen = item.href.length

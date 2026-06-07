@@ -6,7 +6,7 @@
  *   POST   → setWebhook to <TELEGRAM_PUBLIC_URL or NEXTAUTH_URL>/api/telegram/webhook
  *   DELETE → deleteWebhook
  */
-import { withRole } from '@/lib/api/withAuth'
+import { withRole, withRoleOrFeature } from '@/lib/api/withAuth'
 import { apiSuccess } from '@/lib/api/apiResponse'
 import { prisma } from '@/lib/prisma'
 import {
@@ -24,7 +24,7 @@ function publicBase(): string {
   return url.replace(/\/+$/, '')
 }
 
-export const GET = withRole(['ADMIN', 'EXECUTIVE'], async () => {
+export const GET = withRoleOrFeature(['ADMIN', 'EXECUTIVE'], 'page.admin.telegram', async () => {
   const [me, info] = await Promise.all([getMe(), getWebhookInfo()])
   return apiSuccess({
     bot: { id: me.id, username: me.username, name: me.first_name },
@@ -33,7 +33,7 @@ export const GET = withRole(['ADMIN', 'EXECUTIVE'], async () => {
   })
 })
 
-export const POST = withRole(['ADMIN', 'EXECUTIVE'], async () => {
+export const POST = withRoleOrFeature(['ADMIN', 'EXECUTIVE'], 'page.admin.telegram', async () => {
   const secret = process.env.TELEGRAM_WEBHOOK_SECRET
   if (!secret) throw new Error('TELEGRAM_WEBHOOK_SECRET is not set')
   const url = `${publicBase()}/api/telegram/webhook`
@@ -50,7 +50,7 @@ export const POST = withRole(['ADMIN', 'EXECUTIVE'], async () => {
   return apiSuccess({ url, bot: me.username })
 })
 
-export const DELETE = withRole(['ADMIN', 'EXECUTIVE'], async () => {
+export const DELETE = withRoleOrFeature(['ADMIN', 'EXECUTIVE'], 'page.admin.telegram', async () => {
   await deleteWebhook()
   await prisma.telegramBotConfig.upsert({
     where: { id: 'default' },

@@ -1,9 +1,13 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useForm } from 'react-hook-form'
 import Link from 'next/link'
 import { Plus, Mail, User, Shield, Calendar, MoreVertical, Edit, Trash2, Key, AlertTriangle } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { cn } from '@/lib/utils'
+import { Modal } from '@/components/ui/Modal'
+import UserRolesPanel from '@/components/settings/permissions/UserRolesPanel'
 
 interface User {
   id: string
@@ -20,9 +24,12 @@ interface User {
 
 interface UserManagementProps {
   initialUsers: User[]
+  currentUserId: string
 }
 
-export default function UserManagement({ initialUsers }: UserManagementProps) {
+type UserDetailTab = 'info' | 'roles'
+
+export default function UserManagement({ initialUsers, currentUserId }: UserManagementProps) {
   const [users, setUsers] = useState(initialUsers)
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false)
   const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false)
@@ -30,6 +37,9 @@ export default function UserManagement({ initialUsers }: UserManagementProps) {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [isUserDetailOpen, setIsUserDetailOpen] = useState(false)
+  const [userDetailTab, setUserDetailTab] = useState<UserDetailTab>('roles')
+  const [detailUser, setDetailUser] = useState<User | null>(null)
 
   const refreshUsers = async () => {
     try {
@@ -118,6 +128,12 @@ export default function UserManagement({ initialUsers }: UserManagementProps) {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const handleOpenRoles = (user: User) => {
+    setDetailUser(user)
+    setUserDetailTab('roles')
+    setIsUserDetailOpen(true)
   }
 
   const getRoleColor = (role: string) => {
@@ -246,7 +262,7 @@ export default function UserManagement({ initialUsers }: UserManagementProps) {
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex items-center justify-end space-x-2">
                       {user.isActive && (
-                        <button 
+                        <button
                           onClick={() => handlePasswordReset(user)}
                           className="text-orange-600 hover:text-orange-900"
                           title="Send Password Reset"
@@ -254,14 +270,21 @@ export default function UserManagement({ initialUsers }: UserManagementProps) {
                           <Key className="h-4 w-4" />
                         </button>
                       )}
-                      <button 
+                      <button
+                        onClick={() => handleOpenRoles(user)}
+                        className="text-purple-600 hover:text-purple-900"
+                        title="Manage Roles"
+                      >
+                        <Shield className="h-4 w-4" />
+                      </button>
+                      <button
                         onClick={() => handleEditUser(user)}
                         className="text-blue-600 hover:text-blue-900"
                         title="Edit User"
                       >
                         <Edit className="h-4 w-4" />
                       </button>
-                      <button 
+                      <button
                         onClick={() => handleDeleteUser(user)}
                         className="text-red-600 hover:text-red-900"
                         title="Delete User"
@@ -343,6 +366,77 @@ export default function UserManagement({ initialUsers }: UserManagementProps) {
           isLoading={isLoading}
         />
       )}
+
+      {/* User Detail Modal with Roles tab */}
+      {isUserDetailOpen && detailUser && (
+        <Modal
+          open={isUserDetailOpen}
+          onClose={() => {
+            setIsUserDetailOpen(false)
+            setDetailUser(null)
+          }}
+          title={detailUser.name}
+          icon={User}
+          size="xl"
+          scrollBehavior="internal"
+        >
+          <div className="flex flex-col h-full">
+            <div className="border-b border-border mb-4">
+              <nav className="-mb-px flex gap-0">
+                {([
+                  { id: 'roles' as UserDetailTab, label: 'Roles' },
+                  { id: 'info' as UserDetailTab, label: 'Info' },
+                ] as { id: UserDetailTab; label: string }[]).map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setUserDetailTab(tab.id)}
+                    className={cn(
+                      'px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors',
+                      userDetailTab === tab.id
+                        ? 'border-b-2 border-blue-600 text-blue-600'
+                        : 'border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+                    )}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </nav>
+            </div>
+
+            <div className="flex-1 overflow-y-auto pb-4">
+              {userDetailTab === 'roles' && (
+                <UserRolesPanel userId={detailUser.id} userName={detailUser.name} currentUserId={currentUserId} />
+              )}
+              {userDetailTab === 'info' && (
+                <div className="space-y-3 text-sm">
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                    <span className="font-medium text-muted-foreground">Name</span>
+                    <span className="text-foreground">{detailUser.name}</span>
+                    <span className="font-medium text-muted-foreground">Email</span>
+                    <span className="text-foreground">{detailUser.email}</span>
+                    <span className="font-medium text-muted-foreground">Role</span>
+                    <span className="text-foreground">{detailUser.role.replace(/_/g, ' ')}</span>
+                    {detailUser.designation && (
+                      <>
+                        <span className="font-medium text-muted-foreground">Designation</span>
+                        <span className="text-foreground">{detailUser.designation}</span>
+                      </>
+                    )}
+                    <span className="font-medium text-muted-foreground">Status</span>
+                    <span className={detailUser.isActive ? 'text-green-700' : 'text-yellow-700'}>
+                      {detailUser.isActive ? 'Active' : 'Pending'}
+                    </span>
+                    <span className="font-medium text-muted-foreground">Created</span>
+                    <span className="text-foreground">{formatDate(detailUser.createdAt)}</span>
+                    <span className="font-medium text-muted-foreground">Last Login</span>
+                    <span className="text-foreground">{detailUser.lastLoginAt ? formatDate(detailUser.lastLoginAt) : 'Never'}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }
@@ -355,68 +449,45 @@ interface AddUserModalProps {
 }
 
 function AddUserModal({ isOpen, onClose, onUserCreated }: AddUserModalProps) {
-  const [isLoading, setIsLoading] = useState(false)
-  const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    role: 'EMPLOYEE'
-  })
-  const [errors, setErrors] = useState<Record<string, string>>({})
-
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {}
-
-    if (!formData.firstName.trim()) {
-      newErrors.firstName = 'First name is required'
-    }
-
-    if (!formData.lastName.trim()) {
-      newErrors.lastName = 'Last name is required'
-    }
-
-    if (!formData.email.trim()) {
-      newErrors.email = 'Email address is required'
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = 'A valid email address is required'
-    }
-
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
+  type AddUserFields = {
+    firstName: string
+    lastName: string
+    email: string
+    role: string
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (!validateForm()) {
-      return
-    }
+  const {
+    register,
+    handleSubmit,
+    setError,
+    reset,
+    formState: { errors, isSubmitting }
+  } = useForm<AddUserFields>({
+    defaultValues: { firstName: '', lastName: '', email: '', role: 'EMPLOYEE' }
+  })
 
-    setIsLoading(true)
+  const onSubmit = async (data: AddUserFields) => {
     try {
       const response = await fetch('/api/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: `${formData.firstName} ${formData.lastName}`,
-          email: formData.email,
-          role: formData.role
+          name: `${data.firstName} ${data.lastName}`,
+          email: data.email,
+          role: data.role
         })
       })
 
       if (response.ok) {
-        const data = await response.json()
-        onUserCreated(data.data)
-        setFormData({ firstName: '', lastName: '', email: '', role: 'EMPLOYEE' })
-        setErrors({})
+        const result = await response.json()
+        onUserCreated(result.data)
+        reset()
       } else {
         const error = await response.json()
-        setErrors({ email: error.error || 'Failed to create user' })
+        setError('email', { message: error.error || 'Failed to create user' })
       }
     } catch (error) {
-      setErrors({ email: 'An error occurred. Please try again.' })
-    } finally {
-      setIsLoading(false)
+      setError('email', { message: 'An error occurred. Please try again.' })
     }
   }
 
@@ -432,7 +503,7 @@ function AddUserModal({ isOpen, onClose, onUserCreated }: AddUserModalProps) {
         <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
 
         <div className="inline-block align-bottom bg-card rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit(onSubmit)}>
             <div className="bg-card px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
               <div className="sm:flex sm:items-start">
                 <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10">
@@ -451,15 +522,14 @@ function AddUserModal({ isOpen, onClose, onUserCreated }: AddUserModalProps) {
                         <input
                           type="text"
                           id="firstName"
-                          value={formData.firstName}
-                          onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
+                          {...register('firstName', { required: 'First name is required' })}
                           className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-ring focus:border-blue-500 sm:text-sm ${
                             errors.firstName ? 'border-red-300' : 'border-border'
                           }`}
                           placeholder="Enter first name"
                         />
                         {errors.firstName && (
-                          <p className="mt-1 text-sm text-red-600">{errors.firstName}</p>
+                          <p className="mt-1 text-sm text-red-600">{errors.firstName.message}</p>
                         )}
                       </div>
                       <div>
@@ -469,15 +539,14 @@ function AddUserModal({ isOpen, onClose, onUserCreated }: AddUserModalProps) {
                         <input
                           type="text"
                           id="lastName"
-                          value={formData.lastName}
-                          onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))}
+                          {...register('lastName', { required: 'Last name is required' })}
                           className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-ring focus:border-blue-500 sm:text-sm ${
                             errors.lastName ? 'border-red-300' : 'border-border'
                           }`}
                           placeholder="Enter last name"
                         />
                         {errors.lastName && (
-                          <p className="mt-1 text-sm text-red-600">{errors.lastName}</p>
+                          <p className="mt-1 text-sm text-red-600">{errors.lastName.message}</p>
                         )}
                       </div>
                     </div>
@@ -489,15 +558,20 @@ function AddUserModal({ isOpen, onClose, onUserCreated }: AddUserModalProps) {
                       <input
                         type="email"
                         id="email"
-                        value={formData.email}
-                        onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                        {...register('email', {
+                          required: 'Email address is required',
+                          pattern: {
+                            value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+                            message: 'A valid email address is required'
+                          }
+                        })}
                         className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-ring focus:border-blue-500 sm:text-sm ${
                           errors.email ? 'border-red-300' : 'border-border'
                         }`}
                         placeholder="Enter email address"
                       />
                       {errors.email && (
-                        <p className="mt-1 text-sm text-red-600">{errors.email}</p>
+                        <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
                       )}
                     </div>
 
@@ -507,8 +581,7 @@ function AddUserModal({ isOpen, onClose, onUserCreated }: AddUserModalProps) {
                       </label>
                       <select
                         id="role"
-                        value={formData.role}
-                        onChange={(e) => setFormData(prev => ({ ...prev, role: e.target.value }))}
+                        {...register('role')}
                         className="mt-1 block w-full border border-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-ring focus:border-blue-500 sm:text-sm"
                       >
                         <option value="EMPLOYEE">Employee</option>
@@ -524,10 +597,10 @@ function AddUserModal({ isOpen, onClose, onUserCreated }: AddUserModalProps) {
             <div className="bg-muted px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
               <button
                 type="submit"
-                disabled={isLoading}
+                disabled={isSubmitting}
                 className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
               >
-                {isLoading ? 'Sending...' : 'Send Invite'}
+                {isSubmitting ? 'Sending...' : 'Send Invite'}
               </button>
               <button
                 type="button"
@@ -553,66 +626,55 @@ interface EditUserModalProps {
 }
 
 function EditUserModal({ isOpen, onClose, onUserUpdated, user }: EditUserModalProps) {
-  const [isLoading, setIsLoading] = useState(false)
-  const [formData, setFormData] = useState({
-    name: user.name,
-    email: user.email,
-    role: user.role,
-    designation: user.designation || '',
-    nameAmharic: user.nameAmharic || '',
-    designationAmharic: user.designationAmharic || '',
-    isActive: user.isActive
-  })
-  const [errors, setErrors] = useState<Record<string, string>>({})
-
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {}
-
-    if (!formData.name.trim()) {
-      newErrors.name = 'Name is required'
-    }
-
-    if (!formData.email.trim()) {
-      newErrors.email = 'Email address is required'
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = 'A valid email address is required'
-    }
-
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
+  type EditUserFields = {
+    name: string
+    email: string
+    role: string
+    designation: string
+    nameAmharic: string
+    designationAmharic: string
+    isActive: boolean
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (!validateForm()) {
-      return
+  const {
+    register,
+    handleSubmit,
+    setError,
+    formState: { errors, isSubmitting }
+  } = useForm<EditUserFields>({
+    defaultValues: {
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      designation: user.designation || '',
+      nameAmharic: user.nameAmharic || '',
+      designationAmharic: user.designationAmharic || '',
+      isActive: user.isActive
     }
+  })
 
-    setIsLoading(true)
+  const onSubmit = async (data: EditUserFields) => {
     try {
       const response = await fetch(`/api/users/${user.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(data)
       })
 
       if (response.ok) {
-        const data = await response.json()
-        onUserUpdated(data.data)
+        const result = await response.json()
+        onUserUpdated(result.data)
         toast.success('User updated successfully')
       } else {
         const error = await response.json()
         const errorMessage = error.error || 'Failed to update user'
-        setErrors({ email: errorMessage })
+        setError('email', { message: errorMessage })
         toast.error(errorMessage)
       }
     } catch (error) {
       const errorMessage = 'An error occurred. Please try again.'
-      setErrors({ email: errorMessage })
+      setError('email', { message: errorMessage })
       toast.error(errorMessage)
-    } finally {
-      setIsLoading(false)
     }
   }
 
@@ -628,7 +690,7 @@ function EditUserModal({ isOpen, onClose, onUserUpdated, user }: EditUserModalPr
         <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
 
         <div className="inline-block align-bottom bg-card rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit(onSubmit)}>
             <div className="bg-card px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
               <div className="sm:flex sm:items-start">
                 <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10">
@@ -646,15 +708,14 @@ function EditUserModal({ isOpen, onClose, onUserUpdated, user }: EditUserModalPr
                       <input
                         type="text"
                         id="edit-name"
-                        value={formData.name}
-                        onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                        {...register('name', { required: 'Name is required' })}
                         className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-ring focus:border-blue-500 sm:text-sm ${
                           errors.name ? 'border-red-300' : 'border-border'
                         }`}
                         placeholder="Enter full name"
                       />
                       {errors.name && (
-                        <p className="mt-1 text-sm text-red-600">{errors.name}</p>
+                        <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>
                       )}
                     </div>
 
@@ -665,15 +726,20 @@ function EditUserModal({ isOpen, onClose, onUserUpdated, user }: EditUserModalPr
                       <input
                         type="email"
                         id="edit-email"
-                        value={formData.email}
-                        onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                        {...register('email', {
+                          required: 'Email address is required',
+                          pattern: {
+                            value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+                            message: 'A valid email address is required'
+                          }
+                        })}
                         className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-ring focus:border-blue-500 sm:text-sm ${
                           errors.email ? 'border-red-300' : 'border-border'
                         }`}
                         placeholder="Enter email address"
                       />
                       {errors.email && (
-                        <p className="mt-1 text-sm text-red-600">{errors.email}</p>
+                        <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
                       )}
                     </div>
 
@@ -683,8 +749,7 @@ function EditUserModal({ isOpen, onClose, onUserUpdated, user }: EditUserModalPr
                       </label>
                       <select
                         id="edit-role"
-                        value={formData.role}
-                        onChange={(e) => setFormData(prev => ({ ...prev, role: e.target.value }))}
+                        {...register('role')}
                         className="mt-1 block w-full border border-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-ring focus:border-blue-500 sm:text-sm"
                       >
                         <option value="EMPLOYEE">Employee</option>
@@ -701,8 +766,7 @@ function EditUserModal({ isOpen, onClose, onUserUpdated, user }: EditUserModalPr
                       <input
                         type="text"
                         id="edit-designation"
-                        value={formData.designation}
-                        onChange={(e) => setFormData(prev => ({ ...prev, designation: e.target.value }))}
+                        {...register('designation')}
                         className="mt-1 block w-full border border-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-ring focus:border-blue-500 sm:text-sm"
                         placeholder="e.g. CEO, Sales Engineer, Project Manager"
                       />
@@ -718,8 +782,7 @@ function EditUserModal({ isOpen, onClose, onUserUpdated, user }: EditUserModalPr
                           <input
                             type="text"
                             id="edit-nameAmharic"
-                            value={formData.nameAmharic}
-                            onChange={(e) => setFormData(prev => ({ ...prev, nameAmharic: e.target.value }))}
+                            {...register('nameAmharic')}
                             className="mt-1 block w-full border border-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-ring focus:border-blue-500 sm:text-sm"
                             placeholder="ሙሉ ስም በአማርኛ"
                             dir="auto"
@@ -732,8 +795,7 @@ function EditUserModal({ isOpen, onClose, onUserUpdated, user }: EditUserModalPr
                           <input
                             type="text"
                             id="edit-designationAmharic"
-                            value={formData.designationAmharic}
-                            onChange={(e) => setFormData(prev => ({ ...prev, designationAmharic: e.target.value }))}
+                            {...register('designationAmharic')}
                             className="mt-1 block w-full border border-border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-ring focus:border-blue-500 sm:text-sm"
                             placeholder="ለምሳሌ፦ ዋና ሥራ አስኪያጅ"
                             dir="auto"
@@ -746,8 +808,7 @@ function EditUserModal({ isOpen, onClose, onUserUpdated, user }: EditUserModalPr
                       <label className="flex items-center">
                         <input
                           type="checkbox"
-                          checked={formData.isActive}
-                          onChange={(e) => setFormData(prev => ({ ...prev, isActive: e.target.checked }))}
+                          {...register('isActive')}
                           className="h-4 w-4 text-blue-600 focus:ring-ring border-border rounded"
                         />
                         <span className="ml-2 text-sm text-muted-foreground">Active Account</span>
@@ -763,10 +824,10 @@ function EditUserModal({ isOpen, onClose, onUserUpdated, user }: EditUserModalPr
             <div className="bg-muted px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
               <button
                 type="submit"
-                disabled={isLoading}
+                disabled={isSubmitting}
                 className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
               >
-                {isLoading ? 'Updating...' : 'Update User'}
+                {isSubmitting ? 'Updating...' : 'Update User'}
               </button>
               <button
                 type="button"

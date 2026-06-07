@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { apiSuccess, apiBadRequest, apiForbidden, withAuth, withRole } from '@/lib/api'
+import { apiSuccess, apiBadRequest, apiForbidden, withAuth, withRole, withRoleOrFeature } from '@/lib/api'
 import { assertCeoEligible } from '@/lib/orgValidation'
 import { canSetCeo } from '@/lib/permissions'
 
@@ -10,7 +10,7 @@ import { canSetCeo } from '@/lib/permissions'
  *
  * Setting the CEO is restricted to ADMIN; other field updates allow EXEC too.
  */
-export const GET = withRole(['ADMIN', 'EXECUTIVE'], async () => {
+export const GET = withRoleOrFeature(['ADMIN', 'EXECUTIVE'], 'page.admin.org-settings', async () => {
   const settings = await ensure()
   return apiSuccess(settings)
 })

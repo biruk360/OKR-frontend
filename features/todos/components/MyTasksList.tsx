@@ -2,9 +2,8 @@
 
 import { useState } from 'react'
 import { CheckSquare, Square, Target, User, Calendar, Building, Clock } from 'lucide-react'
-import { useSession } from 'next-auth/react'
-import toast from 'react-hot-toast'
 import { useInitiativeDetailStore } from '@/lib/stores/initiative-detail-store'
+import { useTodoStatusToggle } from './useTodoStatusToggle'
 
 interface MyTasksListProps {
   assignedTodos: any[]
@@ -13,7 +12,6 @@ interface MyTasksListProps {
 
 export default function MyTasksList({ assignedTodos, completedTodos }: MyTasksListProps) {
   const [showCompleted, setShowCompleted] = useState(false)
-  const { data: session } = useSession()
 
   // Helper function to get due date status
   const getDueDateStatus = (dueDate: string) => {
@@ -36,33 +34,10 @@ export default function MyTasksList({ assignedTodos, completedTodos }: MyTasksLi
   }
 
   // Toggle todo completion
-  const handleToggleTodo = async (todoId: string, currentStatus: string) => {
-    const newStatus = currentStatus === 'COMPLETED' ? 'PENDING' : 'COMPLETED'
-    
-    try {
-      const response = await fetch(`/api/todos/${todoId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          status: newStatus,
-          completedAt: newStatus === 'COMPLETED' ? new Date().toISOString() : null
-        }),
-      })
-
-      if (response.ok) {
-        toast.success(newStatus === 'COMPLETED' ? 'Initiative completed!' : 'Initiative marked as pending')
-        // Refresh the page to show updated data
-        window.location.reload()
-      } else {
-        const error = await response.json()
-        toast.error(error.error || 'Failed to update initiative')
-      }
-    } catch (error) {
-      toast.error('An error occurred. Please try again.')
-    }
-  }
+  const handleToggleTodo = useTodoStatusToggle(() => {
+    // Refresh the page to show updated data
+    window.location.reload()
+  })
 
   // Calculate stats
   const totalAssigned = assignedTodos.length

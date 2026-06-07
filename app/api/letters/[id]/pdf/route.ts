@@ -43,17 +43,22 @@ function pickLang(req: NextRequest): 'en' | 'am' {
   return new URL(req.url).searchParams.get('lang') === 'am' ? 'am' : 'en'
 }
 
+function pickFont(req: NextRequest): string | undefined {
+  return new URL(req.url).searchParams.get('font') || undefined
+}
+
 async function respond(req: NextRequest, letterId: string, opts?: { recordActor?: string }) {
   const letter = await loadLetter(letterId)
   if (!letter) return apiNotFound('Letter not found')
 
   try {
     const lang = pickLang(req)
+    const font = pickFont(req)
     // Puppeteer needs an absolute origin so asset URLs (fonts, logos)
     // resolve. In dev this is http://localhost:3000; in prod it's whatever
     // NEXTAUTH_URL is set to.
     const origin = process.env.NEXTAUTH_URL || `http://localhost:${process.env.PORT || 3000}`
-    const { pdf, missing } = await renderLetterToPdf({ letter: letter as any, lang, origin })
+    const { pdf, missing } = await renderLetterToPdf({ letter: letter as any, lang, origin, font })
 
     if (opts?.recordActor) {
       await recordActivity({
@@ -61,7 +66,7 @@ async function respond(req: NextRequest, letterId: string, opts?: { recordActor?
         letterId,
         action: 'LETTER_PDF_GENERATED',
         actorId: opts.recordActor,
-        metadata: { missingPlaceholders: missing, lang },
+        metadata: { missingPlaceholders: missing, lang, font },
       })
     }
 

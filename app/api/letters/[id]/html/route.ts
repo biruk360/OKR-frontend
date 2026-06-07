@@ -29,12 +29,13 @@ export const GET = withAuth<RouteIdParams>(async (req, { params }) => {
 
   const url = new URL(req.url)
   const lang = url.searchParams.get('lang') === 'am' ? 'am' : 'en'
+  const font = url.searchParams.get('font') || undefined
   // For iframe preview, relative URLs are fine because the browser loads the
   // doc from the same origin. The /pdf route passes `origin` explicitly so
   // Puppeteer can resolve assets via http://localhost:3000.
   const origin = url.searchParams.get('origin') || ''
 
-  const { html, missing } = renderLetterHtml({ letter: letter as any, origin, lang })
+  const { html, missing } = renderLetterHtml({ letter: letter as any, origin, lang, font })
 
   return new NextResponse(html, {
     status: 200,

@@ -1,16 +1,17 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef, type Dispatch, type SetStateAction } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, type Dispatch, type SetStateAction } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import {
-  navigationGroups,
   getActiveNavContext,
+  getVisibleNavigationGroups,
   isNavPathActive,
   type NavGroup,
 } from '@/lib/dashboard-navigation'
+import { useEffectivePermissions } from '@/hooks/useEffectivePermissions'
 import { Target, X, ChevronDown, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
@@ -27,9 +28,10 @@ export function writeSidebarCollapsed(collapsed: boolean): void {
   window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0')
 }
 
-function useNavOpenState() {
+function useNavOpenState(navigationGroups: NavGroup[]) {
   const pathname = usePathname()
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({})
+  const groupSignature = navigationGroups.map((group) => `${group.name}:${group.items.map((item) => item.href).join(',')}`).join('|')
 
   useEffect(() => {
     setOpenGroups((prev) => {
@@ -48,7 +50,7 @@ function useNavOpenState() {
       })
       return updated
     })
-  }, [pathname])
+  }, [pathname, groupSignature, navigationGroups])
 
   const toggleGroup = (groupName: string) => {
     setOpenGroups((prev) => ({ ...prev, [groupName]: !prev[groupName] }))
@@ -62,13 +64,14 @@ function isGroupActive(pathname: string, group: NavGroup) {
 }
 
 type NavRendererProps = {
+  navigationGroups: NavGroup[]
   pathname: string
   openGroups: Record<string, boolean>
   toggleGroup: (name: string) => void
   onNavigate?: () => void
 }
 
-function renderExpandedGroupNav({ pathname, openGroups, toggleGroup, onNavigate }: NavRendererProps) {
+function renderExpandedGroupNav({ navigationGroups, pathname, openGroups, toggleGroup, onNavigate }: NavRendererProps) {
   return navigationGroups.map((group) => {
     const isGroupOpen = openGroups[group.name] ?? false
     const groupHasActive = isGroupActive(pathname, group)
@@ -133,7 +136,7 @@ function renderExpandedGroupNav({ pathname, openGroups, toggleGroup, onNavigate 
 
 type FlyoutState = { groupName: string; top: number; left: number }
 
-function CollapsedNavFlyout({ flyout, pathname, onClose, onNavigate }: { flyout: FlyoutState; pathname: string; onClose: () => void; onNavigate?: () => void }) {
+function CollapsedNavFlyout({ navigationGroups, flyout, pathname, onClose, onNavigate }: { navigationGroups: NavGroup[]; flyout: FlyoutState; pathname: string; onClose: () => void; onNavigate?: () => void }) {
   const group = navigationGroups.find((g) => g.name === flyout.groupName)
   const panelRef = useRef<HTMLDivElement>(null)
 
@@ -182,7 +185,7 @@ function CollapsedNavFlyout({ flyout, pathname, onClose, onNavigate }: { flyout:
   )
 }
 
-function CollapsedSidebarNav({ pathname, flyout, setFlyout }: { pathname: string; flyout: FlyoutState | null; setFlyout: Dispatch<SetStateAction<FlyoutState | null>> }) {
+function CollapsedSidebarNav({ navigationGroups, pathname, flyout, setFlyout }: { navigationGroups: NavGroup[]; pathname: string; flyout: FlyoutState | null; setFlyout: Dispatch<SetStateAction<FlyoutState | null>> }) {
   const openFlyout = useCallback((groupName: string, el: HTMLElement) => {
     const rect = el.getBoundingClientRect()
     setFlyout((prev) => prev?.groupName === groupName ? null : { groupName, top: rect.top, left: rect.right + 8 })
@@ -219,7 +222,12 @@ function CollapsedSidebarNav({ pathname, flyout, setFlyout }: { pathname: string
 
 export function SidebarMobileDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
   const pathname = usePathname()
-  const { openGroups, toggleGroup } = useNavOpenState()
+  const permissions = useEffectivePermissions()
+  const navigationGroups = useMemo(
+    () => getVisibleNavigationGroups(permissions.canFeature),
+    [permissions.data],
+  )
+  const { openGroups, toggleGroup } = useNavOpenState(navigationGroups)
 
   if (!open) return null
 
@@ -238,7 +246,7 @@ export function SidebarMobileDrawer({ open, onClose }: { open: boolean; onClose:
         </div>
         <ScrollArea className="flex-1">
           <nav className="space-y-1 px-3 py-4">
-            {renderExpandedGroupNav({ pathname, openGroups, toggleGroup, onNavigate: onClose })}
+            {renderExpandedGroupNav({ navigationGroups, pathname, openGroups, toggleGroup, onNavigate: onClose })}
           </nav>
         </ScrollArea>
       </div>
@@ -248,12 +256,17 @@ export function SidebarMobileDrawer({ open, onClose }: { open: boolean; onClose:
 
 export function SidebarDesktopColumn({ collapsed, onToggleCollapsed, className }: { collapsed: boolean; onToggleCollapsed: () => void; className?: string }) {
   const pathname = usePathname()
-  const { openGroups, toggleGroup } = useNavOpenState()
+  const permissions = useEffectivePermissions()
+  const navigationGroups = useMemo(
+    () => getVisibleNavigationGroups(permissions.canFeature),
+    [permissions.data],
+  )
+  const { openGroups, toggleGroup } = useNavOpenState(navigationGroups)
   const [flyout, setFlyout] = useState<FlyoutState | null>(null)
 
   useEffect(() => { setFlyout(null) }, [pathname, collapsed])
 
-  const activeCtx = getActiveNavContext(pathname)
+  const activeCtx = getActiveNavContext(pathname, navigationGroups)
 
   return (
     <aside className={cn('ap-glass hidden min-h-0 shrink-0 flex-col border-r lg:flex', collapsed ? 'w-[52px]' : 'w-[220px]', className)} style={{ borderRightColor: 'var(--ap-border)' }}>
@@ -269,13 +282,13 @@ export function SidebarDesktopColumn({ collapsed, onToggleCollapsed, className }
 
       {collapsed ? (
         <>
-          <CollapsedSidebarNav pathname={pathname} flyout={flyout} setFlyout={setFlyout} />
-          {flyout && <CollapsedNavFlyout flyout={flyout} pathname={pathname} onClose={() => setFlyout(null)} />}
+          <CollapsedSidebarNav navigationGroups={navigationGroups} pathname={pathname} flyout={flyout} setFlyout={setFlyout} />
+          {flyout && <CollapsedNavFlyout navigationGroups={navigationGroups} flyout={flyout} pathname={pathname} onClose={() => setFlyout(null)} />}
         </>
       ) : (
         <ScrollArea className="flex-1">
           <nav className="space-y-0.5 px-2 pb-4 pt-3">
-            {renderExpandedGroupNav({ pathname, openGroups, toggleGroup })}
+            {renderExpandedGroupNav({ navigationGroups, pathname, openGroups, toggleGroup })}
           </nav>
         </ScrollArea>
       )}

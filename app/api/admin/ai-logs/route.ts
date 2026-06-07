@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
-import { apiPaginated, withRole } from '@/lib/api'
+import { apiPaginated, withRole, withRoleOrFeature } from '@/lib/api'
 
 /**
  * GET /api/admin/ai-logs — list AiGenerationLog rows with filters + pagination.
@@ -10,7 +10,7 @@ import { apiPaginated, withRole } from '@/lib/api'
  * Response: standard `{ success, data, pagination }` envelope. Each row joins the
  * generating user's email + role for the table view.
  */
-export const GET = withRole(['ADMIN', 'EXECUTIVE'], async (req: NextRequest) => {
+export const GET = withRoleOrFeature(['ADMIN', 'EXECUTIVE'], 'page.admin.ai-logs', async (req: NextRequest) => {
   const url = new URL(req.url)
   const page = Math.max(1, Number(url.searchParams.get('page') || 1))
   const limit = Math.min(100, Math.max(1, Number(url.searchParams.get('limit') || 25)))

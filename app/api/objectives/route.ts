@@ -6,6 +6,7 @@ import { recalcNodeAndAncestors } from '@/lib/objectiveProgress'
 import { recordActivity } from '@/lib/activity-log'
 import { normalizeCadence } from '@/lib/check-in-cadence'
 import { emit } from '@/lib/notifications'
+import { buildScopeFilter } from '@/lib/apply-scope'
 import {
   apiSuccess,
   apiPaginated,
@@ -66,6 +67,18 @@ export const GET = withAuth(async (request: NextRequest, { session }) => {
     } else {
       where.OR = searchConditions
     }
+  }
+
+  // Apply record-scope filter (RBAC row-level scoping via RecordScopeRule).
+  // buildScopeFilter returns null when no rules are configured → no change to where.
+  const scopeFilter = await buildScopeFilter(session.user.id, 'objective')
+  if (scopeFilter) {
+    // Wrap both the existing where and the scope filter in a top-level AND so
+    // neither the role-based conditions nor the scope rules are clobbered.
+    const existingWhere = { ...where }
+    // Reset and rebuild as AND of both constraints.
+    for (const key of Object.keys(where)) delete where[key]
+    where.AND = [existingWhere, scopeFilter]
   }
 
   const skip = (page - 1) * limit

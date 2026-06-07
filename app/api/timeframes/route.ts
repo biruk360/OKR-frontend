@@ -6,6 +6,7 @@ import {
   apiConflict,
   withAuth,
   withRole,
+  withRoleOrFeature,
 } from '@/lib/api'
 import { emit } from '@/lib/notifications'
 
@@ -20,7 +21,7 @@ export const GET = withAuth(async (request: NextRequest) => {
   return apiSuccess(timeframes)
 })
 
-export const POST = withRole('ADMIN', async (request: NextRequest) => {
+export const POST = withRoleOrFeature(['ADMIN'], 'page.settings.timeframes', async (request: NextRequest) => {
   const body = await request.json()
   const { name, type, startDate, endDate } = body
 

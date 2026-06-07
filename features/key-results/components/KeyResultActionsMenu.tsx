@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Pencil,
@@ -9,6 +9,7 @@ import {
   ArchiveRestore,
   CheckCircle2,
   Bell,
+  BellOff,
   History,
   Download,
   MoveRight,
@@ -17,6 +18,47 @@ import {
 import toast from 'react-hot-toast'
 import { ActionsMenu, ConfirmDialog } from '@/components/ui'
 import type { ActionsMenuItem } from '@/components/ui'
+
+function useWatcher(entityType: string, entityId: string) {
+  const [watching, setWatching] = useState(false)
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    fetch(`/api/watchers?mine=1`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) {
+          setWatching(d.data.some((w: any) => w.entityType === entityType && w.entityId === entityId))
+        }
+      })
+      .catch(() => {})
+  }, [entityType, entityId])
+
+  async function toggle() {
+    setLoading(true)
+    try {
+      if (watching) {
+        await fetch(`/api/watchers?entityType=${entityType}&entityId=${entityId}`, { method: 'DELETE' })
+        setWatching(false)
+        toast.success('Stopped watching')
+      } else {
+        await fetch('/api/watchers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ entityType, entityId }),
+        })
+        setWatching(true)
+        toast.success('Watching — you\'ll be notified of changes')
+      }
+    } catch {
+      toast.error('Failed to update watch status')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return { watching, loading, toggle }
+}
 
 interface KeyResultActionsMenuProps {
   keyResult: any
@@ -56,6 +98,7 @@ export default function KeyResultActionsMenu({
   const [archiveOpen, setArchiveOpen] = useState(false)
   const [isCompleting, setIsCompleting] = useState(false)
   const [isArchiving, setIsArchiving] = useState(false)
+  const { watching, loading: watchLoading, toggle: toggleWatch } = useWatcher('KEY_RESULT', keyResult.id)
 
   const isArchived = keyResult.status === 'ARCHIVED'
 
@@ -171,6 +214,13 @@ export default function KeyResultActionsMenu({
           'Check-in requested from the owner.',
         ),
       hidden: isArchived,
+    },
+    {
+      key: 'watch',
+      label: watching ? 'Unwatch' : 'Watch',
+      icon: watching ? BellOff : Bell,
+      disabled: watchLoading,
+      onSelect: toggleWatch,
     },
     { key: 'd1', label: '', divider: true, onSelect: () => {} },
     {

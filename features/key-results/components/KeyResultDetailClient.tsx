@@ -470,7 +470,9 @@ export default function KeyResultDetailClient({
 
               {/* Confidence (use confidence string as a 0/50/100 proxy) */}
               <div className="flex flex-col justify-center gap-1.5 px-4 py-4 border-r" style={{ borderColor: 'var(--ap-border)' }}>
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Confidence</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Confidence <span className="normal-case font-normal">(auto)</span>
+                </p>
                 {(() => {
                   const c = kr.confidence === 'ON_TRACK' ? 85 : kr.confidence === 'AT_RISK' ? 55 : kr.confidence === 'OFF_TRACK' ? 25 : 50
                   return (
@@ -482,6 +484,11 @@ export default function KeyResultDetailClient({
                         <div className="h-full rounded-full"
                           style={{ width: `${c}%`, background: c >= 70 ? 'var(--ap-green)' : c >= 40 ? 'var(--ap-orange)' : 'var(--ap-red)' }} />
                       </div>
+                      {typeof latest?.confidenceScore === 'number' && (
+                        <p className="text-[10px] text-muted-foreground tabular-nums">
+                          Manual: {latest.confidenceScore}/100
+                        </p>
+                      )}
                     </>
                   )
                 })()}

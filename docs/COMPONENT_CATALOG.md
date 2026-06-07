@@ -24,6 +24,27 @@
 
 Hooks (TanStack Query) exported from the same barrel: `usePlans`, `usePlan`, `useTripTypes`, `useDrivers`, `useVehicles`, `useMovementSheet`, `useRunSheet`, `useDtpSettings`, `useCreateOrOpenPlan`, `useAddStop`, `useUpdateStop`, `useDeleteStop`, `usePlanTransition`, `useAssignDriver`, `useSetLegStatus`, `useUpdateSettings`, `useInvalidatePlan`.
 
+## Performance & Scorecard (`features/performance`)
+
+> Import from the barrel: `import { PerformanceHome, TemplatesWorkspace, TemplateBuilder, CyclesWorkspace, EvaluatorQueue, ScoringWorkspace, ActionsWorkspace } from '@/features/performance'`
+
+| Component | Props | Purpose |
+|-----------|-------|---------|
+| `PerformanceHome` | — | Employee focus cards, weekly-step entry, sealed reviews, and finalized history |
+| `TemplatesWorkspace` | — | Template family/version list, create/publish/fork/archive actions, and role mappings |
+| `TemplateBuilder` | `templateId` | Draft tier/criterion editor, rubric anchors, metric rules, and culture block insertion |
+| `RoleMappingManager` | — | Maps normalized employee designations to scorecard families |
+| `MetricMappingManager` | `templateId`, `tiers` | Maps employee-owned Key Results to reusable metric criteria |
+| `CyclesWorkspace` | — | Review-cycle creation and open-cycle action |
+| `EvaluatorQueue` | — | Evaluator/admin work queue |
+| `ScoringWorkspace` | `evaluationId` | Keyboard-driven scoring, live metric actuals, submission, calibration, and report access |
+| `CalibrationPanel` | `evaluation` | Flag-resolution notes and report/finalization workflow controls |
+| `PerformanceReport` | `evaluation` | Employee-safe consolidated report and acknowledgement/dispute actions |
+| `ActionsWorkspace` | — | HR recommendation approval/rejection/execution queue |
+| `PerformanceStatusBadge` | `status` | Shared performance workflow badge |
+
+Hooks and API client are exported from the same barrel. Server-side scoring, policy, cycle-opening, consolidation, report, and finalization services live in `lib/performance/`.
+
 ## Shared UI Primitives (`components/ui/`)
 
 > Import from the barrel: `import { Modal, ConfirmDialog, EmptyState, StatCard, StatGrid, PageHeader } from '@/components/ui'`
@@ -217,12 +238,24 @@ import { Target, CheckSquare } from 'lucide-react'
 | `EditTeamModal` | Form modal | MIGRATED to Modal |
 | `DeleteTeamModal` | Confirm modal | MIGRATED to ConfirmDialog |
 | `TeamsManagement` | Page section | Team CRUD with empty state (duplicate) |
-| `UserManagement` | Page section | User CRUD (uses useState, not react-hook-form — INCONSISTENT) |
+| `UserManagement` | Page section | User CRUD (uses useState, not react-hook-form — INCONSISTENT). Props: `{ initialUsers, currentUserId }`. Includes purple Shield button per row opening a `<Modal size="xl">` with Roles \| Info tab strip; renders `<UserRolesPanel>` in the Roles tab. |
 | `AuditLogsView` | Page section | Audit log viewer with empty state (duplicate) |
 | `OKRRulesManagement` | Page section | react-hook-form |
 | `BrandingManagement` | Page section | react-hook-form |
 | `IntegrationsManagement` | Page section | react-hook-form |
 | `LetterPermissionsManagement` | Page section | 3-tab component: Role Matrix (toggle grid), User Overrides (per-user grant/revoke), Letter Types (LetterTypeDef CRUD). Consumes `/api/settings/letter-permissions/roles`, `/api/settings/letter-permissions/users`, `/api/letters/types`. ADMIN-only. |
+
+### Permission Manager Tabs (`components/settings/permissions/`)
+
+| Component | Type | Notes |
+|-----------|------|-------|
+| `UserRolesPanel` | Panel | Props: `{ userId, userName, currentUserId }`. Four sections: Role Profiles (assign/remove), Individually Assigned Roles (assign with optional expiry/revoke), User-Specific Overrides (add/remove with doctypeKey, featureKey, action, overrideType, reason, expiresAt), Effective Permissions (read-only, with "Preview as User" button). Shows self-mod banner and hides all action buttons when `userId === currentUserId`. Uses `/api/permissions/users/{id}`, `.../profiles`, `.../roles`, `.../overrides`. |
+| `EffectivePermissionsPreview` | Modal | Props: `{ userId, userName, onClose }`. Full-screen overlay modal. Three sections: (1) Nav Preview — simulated sidebar with green/gray dot per module + collapsible page sub-items; (2) Why can/can't they do X? — DocType + Action selectors with plain-English result (ok/no/warn); (3) DocType Permissions Table — grouped by module, collapsible, shows Read/Write/Create/Delete/Submit columns + Scope. Fetches `GET /api/permissions/preview/{userId}`. |
+| `ByDocTypeTab` | Tab panel | Select a DocType (grouped `<optgroup>` by module), fetch all roles + per-doctype role permissions from `GET /api/permissions/doctypes/{key}` + `GET /api/permissions/roles`. Renders Role × 9-Actions grid (checkbox cells) plus a per-row Scope dropdown (own/department/all). Each cell toggle fires `PUT /api/permissions/roles/{roleId}/permissions`. Scope change propagates to all granted actions for that role. Optimistic updates with rollback. |
+| `FieldLevelsTab` | Tab panel | Select a DocType, then renders fields table: fieldName, displayLabel, permLevel dropdown (0–3), isSensitive checkbox. Save button fires `PUT /api/permissions/doctypes/{key}/fields`. Preview panel below table shows "Level 0 visibility" and "Level 0+1 visibility" field lists derived from live state. |
+| `RecordScopingTab` | Tab panel | Role + DocType dual selectors. Fetches `GET /api/permissions/roles/{id}/scope-rules`, filters by doctypeKey client-side. Rules table: #, Field, Operator, Value Type, Status toggle (`PUT .../scope-rules/{ruleId}`), Delete (`DELETE .../scope-rules/{ruleId}`). Inline Add Rule form (fieldName, operator, valueType, staticValue) submits via `POST .../scope-rules`. Multi-rule AND note shown when >1 rule present. |
+| `FeaturesTab` | Tab panel | Role selector; fetches `GET /api/permissions/roles/{id}/features`. Two-panel layout (40/60%). Left: feature tree grouped into Modules, Pages (OKR), Pages (Letters), Pages (DTP), Admin, Widgets; green dot = visible, gray = hidden. Right: visible + enabled toggles with 500ms debounce auto-save via `PUT .../features`; amber banner when parent feature is hidden (inherited OFF). |
+| `ExplainPanel` | Tab panel | Self-contained "Permission Check" panel. User dropdown (from `/api/users/for-selection`), DocType selector (8 hardcoded options), Action selector (read/write/create/delete/submit/export). On submit calls `GET /api/permissions/explain?userId=&doctypeKey=&action=`. Displays green/red allowed badge, explanation text, and detail rows (adminBypass, explicitDeny, explicitGrant, roleGrants, scopingApplied, scopeRules). No props. |
 
 ## Feature Barrels (`features/`)
 

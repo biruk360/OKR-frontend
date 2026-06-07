@@ -6,7 +6,7 @@ import { ChevronDown, ChevronRight, User } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { KeyResultsList } from '@/features/key-results'
 import StatusPill, { LevelBadge } from '@/components/shared/StatusPill'
-import { EmptyState } from '@/components/ui/EmptyState'
+import { EmptyState } from '@/components/ui'
 
 interface GoalsTableProps {
   objectives: any[]

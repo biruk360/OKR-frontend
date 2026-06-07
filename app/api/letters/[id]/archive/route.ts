@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { recordActivity } from '@/lib/activity-log'
-import { canAdminLetter } from '@/lib/permissions'
+import { checkLetterPermissionV2 } from '@/lib/letter-permissions'
 import {
   apiSuccess,
   apiBadRequest,
@@ -19,7 +19,8 @@ export const POST = withAuth<RouteIdParams>(async (req, { session, params }) => 
   const letter = await prisma.letter.findUnique({ where: { id } })
   if (!letter) return apiNotFound('Letter not found')
 
-  const isForce = Boolean(body.force) && canAdminLetter(session.user.role)
+  const canAdmin = await checkLetterPermissionV2(session.user.id, 'letter.view_all')
+  const isForce = Boolean(body.force) && canAdmin
   if (letter.status !== 'SENT' && !isForce) {
     return apiBadRequest('Only SENT letters can be archived (or use force as an admin)')
   }
@@ -43,7 +44,7 @@ export const DELETE = withAuth<RouteIdParams>(async (_req, { session, params }) 
   const { id } = await resolveParams(params)
   if (!id) return apiBadRequest('Invalid letter id')
 
-  if (!canAdminLetter(session.user.role)) {
+  if (!(await checkLetterPermissionV2(session.user.id, 'letter.view_all'))) {
     return apiForbidden('Only a Letter Administrator can unarchive')
   }
 

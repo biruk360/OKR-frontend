@@ -358,7 +358,10 @@ export default function CreateCheckInModal({
                 </div>
               </div>
               <p className="mt-1 text-[11px] text-muted-foreground">
-                Calculated automatically from pace vs plan.
+                Calculated automatically from pace vs plan.{' '}
+                <span className="italic">
+                  The system also calculates a separate bi-weekly confidence score based on progress velocity, check-in cadence, and initiative completion — distinct from this check-in snapshot.
+                </span>
               </p>
             </div>
 

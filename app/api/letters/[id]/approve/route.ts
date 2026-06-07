@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { recordActivity } from '@/lib/activity-log'
-import { canApproveLetter } from '@/lib/permissions'
+import { checkLetterPermissionV2 } from '@/lib/letter-permissions'
 import { notifyLetterApproved } from '@/lib/letters-notify'
 import {
   apiSuccess,
@@ -16,7 +16,7 @@ export const POST = withAuth<RouteIdParams>(async (_req, { session, params }) =>
   const { id } = await resolveParams(params)
   if (!id) return apiBadRequest('Invalid letter id')
 
-  if (!canApproveLetter(session.user.role)) {
+  if (!(await checkLetterPermissionV2(session.user.id, 'letter.approve'))) {
     return apiForbidden('You are not permitted to approve letters')
   }
 

@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { canCreateLetter } from '@/lib/permissions'
+import { checkLetterPermissionV2 } from '@/lib/letter-permissions'
 import {
   apiBadRequest,
   apiConflict,
@@ -40,7 +40,7 @@ export const GET = withAuth(async () => {
 })
 
 export const POST = withAuth(async (req: NextRequest, { session }) => {
-  if (!canCreateLetter(session.user.role)) {
+  if (!(await checkLetterPermissionV2(session.user.id, 'letter.create'))) {
     return apiForbidden('Not permitted to create letter types')
   }
   const body = (await req.json().catch(() => ({}))) as { name?: string; code?: string; description?: string }

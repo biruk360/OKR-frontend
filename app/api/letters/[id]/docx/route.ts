@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
-import { canEditLetter } from '@/lib/permissions'
+import { checkLetterPermissionV2 } from '@/lib/letter-permissions'
 import { recordActivity } from '@/lib/activity-log'
 import {
   apiBadRequest,
@@ -74,7 +74,13 @@ export const PUT = withAuth<RouteIdParams>(async (req, { session, params }) => {
 
   const letter = await prisma.letter.findUnique({ where: { id } })
   if (!letter) return apiNotFound('Letter not found')
-  if (!canEditLetter(session.user.role, session.user.id, letter)) {
+  const canAdminDocx = await checkLetterPermissionV2(session.user.id, 'letter.view_all')
+  const canWriteDocx = canAdminDocx || (
+    await checkLetterPermissionV2(session.user.id, 'letter.write') &&
+    letter.status === 'DRAFT' &&
+    letter.preparedById === session.user.id
+  )
+  if (!canWriteDocx) {
     return apiForbidden('Letter is not editable in its current state')
   }
 

@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { UpdateLetterForm } from '@/types'
-import { canAdminLetter, canEditLetter } from '@/lib/permissions'
+import { checkLetterPermissionV2 } from '@/lib/letter-permissions'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { recordActivity } from '@/lib/activity-log'
 import {
@@ -11,6 +11,7 @@ import {
   apiNotFound,
   withAuth,
 } from '@/lib/api'
+import { filterFieldsByPermLevel } from '@/lib/field-filter'
 
 const EDITABLE_FIELDS = [
   'subject',
@@ -27,7 +28,7 @@ const EDITABLE_FIELDS = [
   'bodyContent',
 ] as const
 
-export const GET = withAuth<RouteIdParams>(async (_req, { params }) => {
+export const GET = withAuth<RouteIdParams>(async (_req, { session, params }) => {
   const { id } = await resolveParams(params)
   if (!id) return apiBadRequest('Invalid letter id')
 
@@ -44,7 +45,8 @@ export const GET = withAuth<RouteIdParams>(async (_req, { params }) => {
   })
   if (!letter) return apiNotFound('Letter not found')
 
-  return apiSuccess(letter)
+  const filtered = await filterFieldsByPermLevel(letter, 'letter', session.user.id)
+  return apiSuccess(filtered)
 })
 
 export const PATCH = withAuth<RouteIdParams>(async (req, { session, params }) => {
@@ -54,7 +56,13 @@ export const PATCH = withAuth<RouteIdParams>(async (req, { session, params }) =>
   const letter = await prisma.letter.findUnique({ where: { id } })
   if (!letter) return apiNotFound('Letter not found')
 
-  if (!canEditLetter(session.user.role, session.user.id, letter)) {
+  const canAdminEdit = await checkLetterPermissionV2(session.user.id, 'letter.view_all')
+  const canWriteEdit = canAdminEdit || (
+    await checkLetterPermissionV2(session.user.id, 'letter.write') &&
+    letter.status === 'DRAFT' &&
+    letter.preparedById === session.user.id
+  )
+  if (!canWriteEdit) {
     return apiForbidden('You cannot edit this letter in its current state')
   }
 
@@ -77,7 +85,7 @@ export const PATCH = withAuth<RouteIdParams>(async (req, { session, params }) =>
   // Letter type is locked after submission (spec FR-4); we don't include it in
   // EDITABLE_FIELDS so it's already excluded. Customer & body are locked once
   // status leaves DRAFT (FR-3, FR-5) — admins can still edit via canEditLetter.
-  const stateLocksContent = letter.status !== 'DRAFT' && !canAdminLetter(session.user.role)
+  const stateLocksContent = letter.status !== 'DRAFT' && !canAdminEdit
   if (stateLocksContent) {
     for (const locked of ['customerName', 'odooPartnerId', 'bodyContent', 'recipientAddress']) {
       delete (data as any)[locked]
@@ -112,7 +120,8 @@ export const DELETE = withAuth<RouteIdParams>(async (_req, { session, params }) 
   if (!letter) return apiNotFound('Letter not found')
 
   // Hard-delete only allowed for admins on DRAFT letters.
-  if (!canAdminLetter(session.user.role) && !(letter.preparedById === session.user.id && letter.status === 'DRAFT')) {
+  const canAdminDelete = await checkLetterPermissionV2(session.user.id, 'letter.view_all')
+  if (!canAdminDelete && !(letter.preparedById === session.user.id && letter.status === 'DRAFT')) {
     return apiForbidden('Cannot delete this letter')
   }
 

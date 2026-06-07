@@ -19,6 +19,7 @@ import {
   apiNotFound,
   withAuth,
 } from '@/lib/api'
+import { filterFieldsByPermLevel } from '@/lib/field-filter'
 
 export const GET = withAuth<RouteIdParams>(async (_request, { session, params }) => {
   const { id } = await resolveParams(params)
@@ -119,7 +120,12 @@ export const GET = withAuth<RouteIdParams>(async (_request, { session, params })
     }
   }
 
-  return apiSuccess(processedObjective)
+  const filtered = await filterFieldsByPermLevel(
+    processedObjective as unknown as Record<string, unknown>,
+    'objective',
+    session.user.id,
+  )
+  return apiSuccess(filtered)
 })
 
 export const PUT = withAuth<RouteIdParams>(async (request: NextRequest, { session, params }) => {

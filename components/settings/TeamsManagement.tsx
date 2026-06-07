@@ -7,6 +7,7 @@ import CreateTeamModal from './CreateTeamModal'
 import EditTeamModal from './EditTeamModal'
 import DeleteTeamModal from './DeleteTeamModal'
 import { useDepartments } from '@/hooks'
+import { EmptyState } from '@/components/ui'
 
 interface TeamsManagementProps {
   initialDepartments: any[]
@@ -131,13 +132,11 @@ export default function TeamsManagement({ initialDepartments }: TeamsManagementP
       </div>
 
       {departments.length === 0 && (
-        <div className="text-center py-12 bg-card rounded-lg border border-border">
-          <Building2 className="mx-auto h-12 w-12 text-muted-foreground" />
-          <h3 className="mt-2 text-sm font-medium text-foreground">No teams found</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Get started by creating your first team.
-          </p>
-        </div>
+        <EmptyState
+          icon={Building2}
+          title="No teams found"
+          description="Get started by creating your first team."
+        />
       )}
 
       {/* Modals */}

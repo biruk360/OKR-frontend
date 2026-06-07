@@ -33,7 +33,7 @@ export default async function UsersSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <UserManagement initialUsers={users} />
+      <UserManagement initialUsers={users} currentUserId={session.user.id} />
     </div>
   )
 }

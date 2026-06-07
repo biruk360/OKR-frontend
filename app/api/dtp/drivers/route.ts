@@ -8,14 +8,16 @@ import { prisma } from '@/lib/prisma'
 import { apiSuccess, apiBadRequest, apiForbidden } from '@/lib/api'
 import { withAuth } from '@/lib/api/withAuth'
 import { readJson } from '@/lib/dtp/api-helpers'
+import { filterArrayByPermLevel } from '@/lib/field-filter'
 
-export const GET = withAuth(async (_req, _ctx) => {
+export const GET = withAuth(async (_req, { session }) => {
   const drivers = await prisma.driver.findMany({
     where: { isActive: true },
     orderBy: { fullName: 'asc' },
     include: { defaultVehicle: { select: { id: true, plate: true } }, user: { select: { id: true, name: true, email: true } } },
   })
-  return apiSuccess(drivers)
+  const filtered = await filterArrayByPermLevel(drivers, 'driver', session.user.id)
+  return apiSuccess(filtered)
 })
 
 interface Body {

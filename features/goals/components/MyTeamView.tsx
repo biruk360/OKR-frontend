@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { Plus, User, Users } from 'lucide-react'
 import CreateGoalModal from './CreateGoalModal'
-import { EmptyState } from '@/components/ui/EmptyState'
+import { EmptyState } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
@@ -260,9 +260,7 @@ export default function MyTeamView() {
                     </a>
                   ))
                 ) : (
-                  <p className="text-[12px] text-center py-4" style={{ color: 'var(--ap-fg-muted, hsl(var(--muted-foreground)))' }}>
-                    No goals yet
-                  </p>
+                  <EmptyState bare title="No goals yet" />
                 )}
               </div>
             </div>

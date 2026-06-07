@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { recordActivity } from '@/lib/activity-log'
-import { canEditLetter } from '@/lib/permissions'
+import { checkLetterPermissionV2 } from '@/lib/letter-permissions'
 import {
   apiSuccess,
   apiBadRequest,
@@ -28,7 +28,13 @@ export const POST = withAuth<RouteIdParams>(async (req, { session, params }) => 
 
   const letter = await prisma.letter.findUnique({ where: { id } })
   if (!letter) return apiNotFound('Letter not found')
-  if (!canEditLetter(session.user.role, session.user.id, letter)) {
+  const canAdminEnc = await checkLetterPermissionV2(session.user.id, 'letter.view_all')
+  const canWriteEnc = canAdminEnc || (
+    await checkLetterPermissionV2(session.user.id, 'letter.write') &&
+    letter.status === 'DRAFT' &&
+    letter.preparedById === session.user.id
+  )
+  if (!canWriteEnc) {
     return apiForbidden('Enclosures can only be added to letters you can edit (DRAFT)')
   }
 

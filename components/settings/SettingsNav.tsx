@@ -10,6 +10,7 @@ import {
   Users,
   Calendar,
   ShieldCheck,
+  Shield,
 } from 'lucide-react'
 
 interface SettingsNavProps {
@@ -54,10 +55,16 @@ const settingsNavItems = [
     available: false, // Only for admins
   },
   {
-    name: 'Letter Permissions',
+    name: 'Permission Manager',
+    href: '/dashboard/settings/permissions',
+    icon: Shield,
+    available: false,
+  },
+  {
+    name: 'Letter Permissions (Legacy)',
     href: '/dashboard/settings/letter-permissions',
     icon: ShieldCheck,
-    available: false, // Only for admins
+    available: false,
   },
 ]
 
@@ -70,7 +77,8 @@ export default function SettingsNav({ userRole }: SettingsNavProps) {
       || (item.name === 'Users' && isAdmin)
       || (item.name === 'Timeframes' && isAdmin)
       || (item.name === 'Notification defaults' && isAdmin)
-      || (item.name === 'Letter Permissions' && isAdmin)
+      || (item.name === 'Permission Manager' && isAdmin)
+      || (item.name === 'Letter Permissions (Legacy)' && isAdmin)
   )
 
   return (

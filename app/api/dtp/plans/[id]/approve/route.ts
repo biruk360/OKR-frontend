@@ -20,6 +20,7 @@ import { rebuildLegsForPlan } from '@/lib/dtp/legs'
 import { getDtpSettings, parseCsvIds } from '@/lib/dtp/settings'
 import { notifyDtpEvent } from '@/lib/dtp/notifier'
 import { recordDtpEvent } from '@/lib/dtp/audit'
+import { canFeature } from '@/lib/rbac'
 import type { DtpStatus } from '@/types/dtp'
 
 interface ApproveBody {
@@ -33,6 +34,9 @@ export const POST = withAuth<{ id: string }>(async (req: NextRequest, { session,
   if (!(await canActAsCoordinator(session, plan.departmentId))) {
     return apiForbidden('Only the Travel Coordinator can approve this plan')
   }
+  const hasFeatureAccess = await canFeature(session.user.id, 'button.dtp.approve')
+  const hasRoleAccess = ['ADMIN', 'DEPARTMENT_LEAD'].includes(session.user.role)
+  if (!hasFeatureAccess && !hasRoleAccess) return apiForbidden('Not permitted to approve trips')
   const body = (await readJson<ApproveBody>(req)) ?? {}
   const status = plan.status as DtpStatus
   if (status !== 'SUBMITTED' && status !== 'MANAGER_ENDORSED' && status !== 'UNDER_REVIEW' && status !== 'ADJUSTED') {

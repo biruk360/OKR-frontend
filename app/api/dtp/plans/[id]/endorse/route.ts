@@ -11,6 +11,7 @@ import { withAuth } from '@/lib/api/withAuth'
 import { transitionPlan, loadReadablePlan, readJson, badStatus } from '@/lib/dtp/api-helpers'
 import { resolveApprovalRouting } from '@/lib/dtp/settings'
 import { notifyDtpEvent } from '@/lib/dtp/notifier'
+import { canFeature } from '@/lib/rbac'
 import type { DtpStatus } from '@/types/dtp'
 
 interface EndorseBody {
@@ -31,6 +32,9 @@ export const POST = withAuth<{ id: string }>(async (req: NextRequest, { session,
     select: { id: true },
   })
   if (!isManager) return apiForbidden('Only the requester\'s line manager can endorse')
+  const hasFeatureAccess = await canFeature(session.user.id, 'button.dtp.endorse')
+  const hasRoleAccess = ['ADMIN', 'DEPARTMENT_LEAD'].includes(session.user.role)
+  if (!hasFeatureAccess && !hasRoleAccess) return apiForbidden('Not permitted to endorse trips')
   if (plan.status !== 'SUBMITTED') return badStatus()
 
   if (body.decision === 'REJECT') {

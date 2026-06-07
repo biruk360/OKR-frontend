@@ -6,6 +6,7 @@
  *   - LetterPermissionsManagement UI component
  *   - prisma/seed-letter-permissions.ts
  */
+import { resolveDocTypePermission, resolveFeaturePermission } from './permission-resolver'
 
 export const LETTER_PERMISSIONS = [
   'letter.read',
@@ -101,4 +102,27 @@ export const DEFAULT_LETTER_MATRIX: Record<SystemRole, Record<LetterPermission, 
     'letter.export':       false,
     'letter.view_all':     false,
   },
+}
+
+export async function checkLetterPermissionV2(
+  userId: string,
+  permission: LetterPermission
+): Promise<boolean> {
+  try {
+    switch (permission) {
+      case 'letter.read':         return resolveDocTypePermission(userId, 'letter', 'read')
+      case 'letter.create':       return resolveDocTypePermission(userId, 'letter', 'create')
+      case 'letter.write':        return resolveDocTypePermission(userId, 'letter', 'write')
+      case 'letter.submit':       return resolveDocTypePermission(userId, 'letter', 'submit')
+      case 'letter.approve':      return resolveFeaturePermission(userId, 'button.letter.approve')
+      case 'letter.dispatch':     return resolveFeaturePermission(userId, 'button.letter.send')
+      case 'letter.delete':       return resolveDocTypePermission(userId, 'letter', 'delete')
+      case 'letter.archive':      return resolveFeaturePermission(userId, 'button.letter.archive')
+      case 'letter.manage_types': return resolveDocTypePermission(userId, 'letter_type_def', 'create')
+      case 'letter.export':       return resolveDocTypePermission(userId, 'letter', 'export')
+      case 'letter.view_all':     return resolveFeaturePermission(userId, 'module.letters')
+    }
+  } catch {
+    return false
+  }
 }

@@ -6,6 +6,7 @@ import {
   apiConflict,
   withAuth,
   withRole,
+  withRoleOrFeature,
 } from '@/lib/api'
 
 export const GET = withAuth(async () => {
@@ -20,7 +21,7 @@ export const GET = withAuth(async () => {
   return apiSuccess(departments)
 })
 
-export const POST = withRole(['ADMIN', 'EXECUTIVE'], async (request: NextRequest) => {
+export const POST = withRoleOrFeature(['ADMIN', 'EXECUTIVE'], 'module.org', async (request: NextRequest) => {
   const body = await request.json()
   const { name, description, isActive } = body
 

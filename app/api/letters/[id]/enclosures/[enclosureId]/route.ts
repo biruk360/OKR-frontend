@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { recordActivity } from '@/lib/activity-log'
-import { canAdminLetter, canEditLetter } from '@/lib/permissions'
+import { checkLetterPermissionV2 } from '@/lib/letter-permissions'
 import {
   apiSuccess,
   apiBadRequest,
@@ -22,8 +22,13 @@ export const DELETE = withAuth<Params>(async (_req, { session, params }) => {
   if (!enclosure || enclosure.letterId !== resolved.id) return apiNotFound('Enclosure not found')
 
   const isUploader = enclosure.uploadedById === session.user.id
-  const editable = canEditLetter(session.user.role, session.user.id, enclosure.letter)
-  if (!editable || (!isUploader && !canAdminLetter(session.user.role))) {
+  const canAdminEnc = await checkLetterPermissionV2(session.user.id, 'letter.view_all')
+  const canWriteEnc = canAdminEnc || (
+    await checkLetterPermissionV2(session.user.id, 'letter.write') &&
+    enclosure.letter.status === 'DRAFT' &&
+    enclosure.letter.preparedById === session.user.id
+  )
+  if (!canWriteEnc || (!isUploader && !canAdminEnc)) {
     return apiForbidden('You cannot delete this enclosure')
   }
 

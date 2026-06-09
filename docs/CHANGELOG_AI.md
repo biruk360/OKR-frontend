@@ -2,6 +2,27 @@
 
 > **Purpose:** Log of all changes made by AI assistants. Every AI session that modifies code MUST append an entry here.
 
+## 2026-06-09 — Permission system fallback + letter duplicate + fonts + settings nav + CI fixes
+
+- **Fixed** `lib/permission-resolver.ts` — `fetchActiveUserRoles` synthesizes a `legacy-<ROLE>` entry from `User.role` when `UserRole` table has no rows, ensuring the ADMIN shortcut fires for admin users even before seed runs.
+- **Fixed** `lib/rbac.ts` — DB returning `false` from `resolveDocTypePermission` no longer short-circuits to `return false`; now falls through to legacy hardcoded role logic.
+- **Fixed** `lib/letter-permissions.ts` — `checkLetterPermissionV2` counts active `UserRole` rows first; if zero, skips resolver and uses `DEFAULT_LETTER_MATRIX` keyed by `User.role`. Added `legacyLetterCheck` helper. Added `prisma` import.
+- **Fixed** `lib/api/withAuth.ts` — `withRoleOrFeature` catch now fails open (runs handler) instead of returning 403 when feature-permission DB unavailable.
+- **Fixed** `scripts/benchmark-permissions.ts` — replaced `BigInt`/`hrtime.bigint()` with `process.hrtime()` for `es5` tsconfig compat.
+- **Fixed** `scripts/migrate-letter-permissions.ts` — `actorId`/`changes` changed from `null` to `undefined`.
+- **Fixed** `app/api/permissions/export/route.ts` — changed `new Response` to `new NextResponse` to match `withRole` handler type.
+- **Fixed** `components/settings/permissions/ByDocTypeTab.tsx` — flatten `dtRes.data?.modules` via `Object.values(...).flat()` to fix `p.reduce is not a function`.
+- **Fixed** `components/settings/permissions/FieldLevelsTab.tsx` — same modules-flatten fix.
+- **Fixed** `app/dashboard/settings/layout.tsx` — rendered `SettingsNav` in sidebar so Permission Manager menu is visible.
+- **Added** `app/api/letters/[id]/duplicate/route.ts` — `POST` endpoint to copy a letter as DRAFT.
+- **Added** `lib/activity-log.ts` — `LETTER_DUPLICATED` action type.
+- **Added** `features/letters/services/lettersApi.ts` — `duplicateLetter()` API call.
+- **Updated** `features/letters/components/LettersTable.tsx` — copy icon button per row to duplicate a letter.
+- **Updated** `features/letters/components/LetterFormClient.tsx` — Duplicate button in PageHeader; removed `FontPicker` and `font`/`setFont` from context.
+- **Updated** `features/letters/i18n.ts` — 10 fonts with Noto Sans Ethiopic as default; simplified `LetterLangContext` (removed font/setFont).
+- **Updated** `lib/letter-html.tsx` — `GOOGLE_FONTS_IMPORT` for 10 fonts; `DEFAULT_FONT = 'Noto Sans Ethiopic'`; NotoSansEthiopic TTF font-faces.
+- Tests run: `npx tsc --noEmit` — passes clean.
+
 ## 2026-06-07 — Precise kanban drag-and-drop with insertion-line indicator
 
 - **Schema** `prisma/schema.prisma` — added `sortOrder Int @default(0)` to `Todo` model + `@@index([status, sortOrder])`.

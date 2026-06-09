@@ -324,8 +324,8 @@ async function main(): Promise<void> {
     data: {
       entityType: 'migration',
       action:     'letter_permissions_migrated',
-      actorId:    null,
-      changes:    null,
+      actorId:    undefined,
+      changes:    undefined,
       metadata:   {
         roleMigratedCount,
         roleSkippedCount,

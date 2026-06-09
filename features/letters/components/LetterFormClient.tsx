@@ -1,6 +1,7 @@
 'use client'
 
 import { useContext, useMemo, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   ArrowLeft,
@@ -11,6 +12,8 @@ import {
   Archive,
   Save,
   Printer,
+  Copy,
+  Loader2,
 } from 'lucide-react'
 import { Button, Input, Label, PageHeader, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui'
 import { ActivityLogPanel } from '@/components/shared/ActivityLogPanel'
@@ -30,6 +33,7 @@ import type { LetterDetail, LetterEnclosureWithUploader } from '../types'
 import {
   approveLetter,
   archiveLetter,
+  duplicateLetter,
   submitLetter,
   markLetterSent,
   rejectLetter,
@@ -63,6 +67,7 @@ export default function LetterFormClient(props: Props) {
 
 function LetterFormInner({ initial, viewer }: Props) {
   const t = useT()
+  const router = useRouter()
   const { lang, setLang, font } = useContext(LetterLangContext)
   const [letter, setLetter] = useState<LetterDetail>(initial)
   const [calendarMode, setCalendarMode] = useState<CalendarMode>('GC')
@@ -74,6 +79,7 @@ function LetterFormInner({ initial, viewer }: Props) {
   const [odooPartnerId, setOdooPartnerId] = useState<string | null>(letter.odooPartnerId)
   const [date, setDate] = useState(() => new Date(letter.date).toISOString().slice(0, 10))
   const [saving, setSaving] = useState(false)
+  const [duplicating, setDuplicating] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [enclosures, setEnclosures] = useState<LetterEnclosureWithUploader[]>(letter.enclosures)
   const [showRejectModal, setShowRejectModal] = useState(false)
@@ -151,6 +157,16 @@ function LetterFormInner({ initial, viewer }: Props) {
     } catch (e: any) { setSaveError(e?.message || 'Unarchive failed') }
   }
 
+  async function handleDuplicate() {
+    setDuplicating(true)
+    try {
+      const copy = await duplicateLetter(letter.id)
+      router.push(`/dashboard/letters/${copy.id}`)
+    } catch (e: any) { setSaveError(e?.message || 'Duplicate failed') } finally {
+      setDuplicating(false)
+    }
+  }
+
   const transitionButtons = useMemo(() => {
     const buttons: React.ReactNode[] = []
     if (status === 'DRAFT' && editable) {
@@ -209,6 +225,10 @@ function LetterFormInner({ initial, viewer }: Props) {
                 <ArrowLeft className="mr-1.5 size-3.5" /> {t('form.back')}
               </Button>
             </Link>
+            <Button variant="outline" className="h-10" onClick={handleDuplicate} disabled={duplicating} title="Duplicate this letter as a new draft">
+              {duplicating ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <Copy className="mr-1.5 size-3.5" />}
+              Duplicate
+            </Button>
             {editable && (
               <Button variant="outline" className="h-10" onClick={() => save()} disabled={saving}>
                 <Save className="mr-1.5 size-3.5" /> {saving ? t('form.saving') : t('form.save')}

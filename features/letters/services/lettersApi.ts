@@ -148,3 +148,6 @@ export const searchOdooContacts = (q: string) =>
   fetch(`/api/letters/odoo/contacts?q=${encodeURIComponent(q)}`).then(
     parse<{ odooAvailable: boolean; results: OdooContact[] }>
   )
+
+export const duplicateLetter = (id: string): Promise<{ id: string; referenceNumber: string; subject: string }> =>
+  fetch(`/api/letters/${id}/duplicate`, { method: 'POST' }).then(parse<{ id: string; referenceNumber: string; subject: string }>)

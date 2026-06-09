@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { NextResponse } from 'next/server'
 import { withRole } from '@/lib/api/withAuth'
 import { apiForbidden } from '@/lib/api/apiResponse'
 
@@ -64,7 +65,7 @@ export const POST = withRole(['ADMIN'], async (_req, { session }) => {
   const filename = `permissions-${isoDate}.json`
   const body = JSON.stringify(snapshot, null, 2)
 
-  return new Response(body, {
+  return new NextResponse(body, {
     status: 200,
     headers: {
       'Content-Type': 'application/json',

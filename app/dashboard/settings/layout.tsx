@@ -1,6 +1,7 @@
 import { getServerSessionSafe } from '@/lib/auth'
 import { canAccessSettings } from '@/lib/permissions'
 import { redirect } from 'next/navigation'
+import SettingsNav from '@/components/settings/SettingsNav'
 
 export default async function SettingsLayout({
   children,
@@ -18,11 +19,11 @@ export default async function SettingsLayout({
   }
 
   return (
-    <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
-        Manage your account settings and preferences.
-      </p>
-      <div>{children}</div>
+    <div className="flex gap-8">
+      <aside className="w-56 shrink-0">
+        <SettingsNav userRole={session.user.role} />
+      </aside>
+      <div className="flex-1 min-w-0">{children}</div>
     </div>
   )
 }

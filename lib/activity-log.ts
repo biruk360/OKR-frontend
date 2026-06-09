@@ -52,6 +52,7 @@ export type ActivityAction =
   | 'LETTER_PDF_FAILED'
   | 'LETTER_ENCLOSURE_ADDED'
   | 'LETTER_ENCLOSURE_REMOVED'
+  | 'LETTER_DUPLICATED'
 
 export interface FieldChange {
   from: unknown

@@ -24,9 +24,9 @@ const ITERATIONS = 100
 const DOCTYPE    = 'objective'
 const ACTION     = 'read' as const
 
-/** Nanoseconds → milliseconds, rounded to 4 decimal places. */
-function ns2ms(ns: bigint): string {
-  return (Number(ns) / 1_000_000).toFixed(4)
+/** Microseconds → milliseconds, rounded to 4 decimal places. */
+function us2ms(us: number): string {
+  return (us / 1000).toFixed(4)
 }
 
 /** Simple pass/fail label. */
@@ -92,25 +92,25 @@ async function benchmarkResolver(userId: string): Promise<{
   // Ensure the cache is cold for this user/doctype/action before we start.
   permissionCache.invalidateUser(userId)
 
-  const timings: bigint[] = []
+  const timings: number[] = []
 
   for (let i = 0; i < ITERATIONS; i++) {
-    const t0 = process.hrtime.bigint()
+    const t0 = process.hrtime()
     await resolveDocTypePermission(userId, DOCTYPE, ACTION)
-    const t1 = process.hrtime.bigint()
-    timings.push(t1 - t0)
+    const t1 = process.hrtime(t0)
+    timings.push(t1[0] * 1_000_000 + t1[1] / 1000) // microseconds
   }
 
   const missDuration = timings[0]
   const hitTimings   = timings.slice(1) // ITERATIONS-1 warm runs
-  const hitTotal     = hitTimings.reduce((acc, v) => acc + v, 0n)
-  const hitAvg       = hitTotal / BigInt(hitTimings.length)
+  const hitTotal     = hitTimings.reduce((acc, v) => acc + v, 0)
+  const hitAvg       = hitTotal / hitTimings.length
 
-  const missDurationMs = ns2ms(missDuration)
-  const hitAvgMs       = ns2ms(hitAvg)
+  const missDurationMs = us2ms(missDuration)
+  const hitAvgMs       = us2ms(hitAvg)
 
-  const missPass = Number(missDuration) / 1_000_000 <= 10
-  const hitPass  = Number(hitAvg)       / 1_000_000 <= 1
+  const missPass = missDuration / 1000 <= 10
+  const hitPass  = hitAvg / 1000 <= 1
 
   return { missDurationMs, hitAvgMs, missPass, hitPass }
 }
@@ -129,16 +129,16 @@ async function benchmarkCacheGet(userId: string): Promise<{
   // Seed the cache entry.
   permissionCache.set(key, true)
 
-  const t0 = process.hrtime.bigint()
+  const t0 = process.hrtime()
   for (let i = 0; i < CACHE_ITERATIONS; i++) {
     permissionCache.get(key)
   }
-  const t1 = process.hrtime.bigint()
+  const t1 = process.hrtime(t0)
 
-  const totalNs = t1 - t0
-  const avgNs   = totalNs / BigInt(CACHE_ITERATIONS)
-  const avgMs   = ns2ms(avgNs)
-  const pass    = Number(avgNs) / 1_000_000 <= 0.1
+  const totalUs = t1[0] * 1_000_000 + t1[1] / 1000 // microseconds
+  const avgUs   = totalUs / CACHE_ITERATIONS
+  const avgMs   = us2ms(avgUs)
+  const pass    = avgUs / 1000 <= 0.1
 
   return { avgMs, pass }
 }

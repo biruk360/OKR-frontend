@@ -250,24 +250,24 @@ export type StringKey = keyof typeof STRINGS['en']
 // ---------- Font catalog ----------
 
 export const LETTER_FONTS = [
-  // Serif — default first
-  { id: 'Noto Serif Ethiopic', label: 'Noto Serif Ethiopic', category: 'serif' },
-  { id: 'Playfair Display',    label: 'Playfair Display',    category: 'serif' },
-  { id: 'Merriweather',        label: 'Merriweather',        category: 'serif' },
-  { id: 'Lora',                label: 'Lora',                category: 'serif' },
-  { id: 'EB Garamond',         label: 'EB Garamond',         category: 'serif' },
-  { id: 'Cormorant Garamond',  label: 'Cormorant Garamond',  category: 'serif' },
-  // Sans-serif
+  // Noto Sans Ethiopic family — Ethiopic-native, default first
   { id: 'Noto Sans Ethiopic',  label: 'Noto Sans Ethiopic',  category: 'sans-serif' },
-  { id: 'Inter',               label: 'Inter',               category: 'sans-serif' },
+  { id: 'Noto Serif Ethiopic', label: 'Noto Serif Ethiopic', category: 'serif'      },
+  // Roboto family
   { id: 'Roboto',              label: 'Roboto',              category: 'sans-serif' },
+  { id: 'Roboto Condensed',    label: 'Roboto Condensed',    category: 'sans-serif' },
+  { id: 'Roboto Slab',         label: 'Roboto Slab',         category: 'serif'      },
+  // Standard sans-serif
+  { id: 'Inter',               label: 'Inter',               category: 'sans-serif' },
   { id: 'Open Sans',           label: 'Open Sans',           category: 'sans-serif' },
   { id: 'Lato',                label: 'Lato',                category: 'sans-serif' },
-  { id: 'Source Sans 3',       label: 'Source Sans 3',       category: 'sans-serif' },
+  // Standard serif
+  { id: 'Merriweather',        label: 'Merriweather',        category: 'serif'      },
+  { id: 'Playfair Display',    label: 'Playfair Display',    category: 'serif'      },
 ] as const
 
 export type LetterFontId = typeof LETTER_FONTS[number]['id']
-export const DEFAULT_LETTER_FONT: LetterFontId = 'Noto Serif Ethiopic'
+export const DEFAULT_LETTER_FONT: LetterFontId = 'Noto Sans Ethiopic'
 
 // ---------- Context ----------
 

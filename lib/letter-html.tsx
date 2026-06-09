@@ -44,21 +44,23 @@ function fontDataUri(filename: string): string {
 // Subset of fonts available in the UI picker. Each entry maps the font family
 // name to the Google Fonts URL parameters needed to load it.
 const GOOGLE_FONTS_IMPORT: Record<string, string> = {
-  'Noto Serif Ethiopic':  'https://fonts.googleapis.com/css2?family=Noto+Serif+Ethiopic:wdth,wght@75..125,100..900&display=swap',
-  'Playfair Display':     'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap',
-  'Merriweather':         'https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,400;0,700;1,300;1,400&display=swap',
-  'Lora':                 'https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400..700;1,400..700&display=swap',
-  'EB Garamond':          'https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..800;1,400..800&display=swap',
-  'Cormorant Garamond':   'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap',
-  'Noto Sans Ethiopic':   'https://fonts.googleapis.com/css2?family=Noto+Sans+Ethiopic:wdth,wght@75..125,100..900&display=swap',
-  'Inter':                'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap',
-  'Roboto':               'https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,700;1,400&display=swap',
-  'Open Sans':            'https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap',
-  'Lato':                 'https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,400;0,700;1,400&display=swap',
-  'Source Sans 3':        'https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,400;0,600;0,700;1,400&display=swap',
+  // Noto Sans Ethiopic family (also embedded locally as TTF)
+  'Noto Sans Ethiopic':  'https://fonts.googleapis.com/css2?family=Noto+Sans+Ethiopic:wdth,wght@75..125,100..900&display=swap',
+  'Noto Serif Ethiopic': 'https://fonts.googleapis.com/css2?family=Noto+Serif+Ethiopic:wdth,wght@75..125,100..900&display=swap',
+  // Roboto family
+  'Roboto':              'https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400&display=swap',
+  'Roboto Condensed':    'https://fonts.googleapis.com/css2?family=Roboto+Condensed:ital,wght@0,300;0,400;0,700;1,300;1,400&display=swap',
+  'Roboto Slab':         'https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@300;400;500;700&display=swap',
+  // Standard sans-serif
+  'Inter':               'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap',
+  'Open Sans':           'https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap',
+  'Lato':                'https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,300;0,400;0,700;1,300;1,400&display=swap',
+  // Standard serif
+  'Merriweather':        'https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,400;0,700;1,300;1,400&display=swap',
+  'Playfair Display':    'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap',
 }
 
-const DEFAULT_FONT = 'Noto Serif Ethiopic'
+const DEFAULT_FONT = 'Noto Sans Ethiopic'
 
 export interface RenderHtmlArgs {
   letter: Letter & {
@@ -75,7 +77,7 @@ export interface RenderHtmlArgs {
   origin?: string
   /** Letter content language for label-switching. Default 'en'. */
   lang?: 'en' | 'am'
-  /** Google Font family to use for the letter body. Default 'Noto Serif Ethiopic'. */
+  /** Google Font family to use for the letter body. Default 'Noto Sans Ethiopic'. */
   font?: string
 }
 
@@ -123,8 +125,12 @@ function src(filename: string, base: string): string {
 }
 
 function fontFaces(base: string): string {
-  // ALL fonts embedded as base64 — no URL fetches during print/PDF.
+  // Noto Sans Ethiopic is the default letter font — embed full weight range
+  // from local TTF so it renders offline (no Google Fonts request needed).
+  // Other fonts in the catalog are loaded via Google Fonts <link> in the <head>.
   return `
+    @font-face { font-family:'Noto Sans Ethiopic'; font-weight:400; font-style:normal; src: ${src('NotoSansEthiopic-Regular.ttf', base)}; }
+    @font-face { font-family:'Noto Sans Ethiopic'; font-weight:700; font-style:normal; src: ${src('NotoSansEthiopic-Bold.ttf', base)}; }
     @font-face { font-family:'Inter'; font-weight:400; font-style:normal;  src: ${src('NotoSans-Regular.ttf', base)}; }
     @font-face { font-family:'Inter'; font-weight:500; font-style:normal;  src: ${src('NotoSans-Regular.ttf', base)}; }
     @font-face { font-family:'Inter'; font-weight:600; font-style:normal;  src: ${src('NotoSans-Bold.ttf', base)}; }
@@ -132,7 +138,6 @@ function fontFaces(base: string): string {
     @font-face { font-family:'Inter'; font-style:italic; font-weight:400;  src: ${src('NotoSans-Italic.ttf', base)}; }
     @font-face { font-family:'JetBrains Mono'; font-weight:400; font-style:normal; src: ${src('JetBrainsMono-Regular.ttf', base)}; }
     @font-face { font-family:'JetBrains Mono'; font-weight:500; font-style:normal; src: ${src('JetBrainsMono-Medium.ttf', base)}; }
-    @font-face { font-family:'Noto Sans Ethiopic'; font-weight:100 900; font-style:normal; src: ${src('NotoSansEthiopic-Regular.ttf', base)}; unicode-range: U+1200-137F,U+1380-139F,U+2D80-2DDF,U+AB01-AB2F; }
     @font-face { font-family:'Inter'; font-weight:100 900; font-style:normal; src: ${src('NotoSansEthiopic-Regular.ttf', base)}; unicode-range: U+1200-137F,U+1380-139F,U+2D80-2DDF,U+AB01-AB2F; }
   `
 }

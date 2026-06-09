@@ -6,6 +6,7 @@
  *   - LetterPermissionsManagement UI component
  *   - prisma/seed-letter-permissions.ts
  */
+import { prisma } from './prisma'
 import { resolveDocTypePermission, resolveFeaturePermission } from './permission-resolver'
 
 export const LETTER_PERMISSIONS = [
@@ -104,10 +105,32 @@ export const DEFAULT_LETTER_MATRIX: Record<SystemRole, Record<LetterPermission, 
   },
 }
 
+async function legacyLetterCheck(userId: string, permission: LetterPermission): Promise<boolean> {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } })
+  const role = (user?.role as SystemRole | undefined) ?? 'EMPLOYEE'
+  return DEFAULT_LETTER_MATRIX[role]?.[permission] ?? false
+}
+
 export async function checkLetterPermissionV2(
   userId: string,
   permission: LetterPermission
 ): Promise<boolean> {
+  // If the new permission tables have no UserRole rows for this user, fall back to
+  // the legacy role matrix. This keeps letters functional until the seed script runs.
+  try {
+    const db = prisma as any
+    const activeRoleCount: number = await db.userRole.count({
+      where: {
+        userId,
+        OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+      },
+    })
+    if (activeRoleCount === 0) return legacyLetterCheck(userId, permission)
+  } catch {
+    // Permission tables not yet migrated — use legacy matrix entirely
+    return legacyLetterCheck(userId, permission)
+  }
+
   try {
     switch (permission) {
       case 'letter.read':         return resolveDocTypePermission(userId, 'letter', 'read')
@@ -123,6 +146,6 @@ export async function checkLetterPermissionV2(
       case 'letter.view_all':     return resolveFeaturePermission(userId, 'module.letters')
     }
   } catch {
-    return false
+    return legacyLetterCheck(userId, permission)
   }
 }

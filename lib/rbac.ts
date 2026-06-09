@@ -170,11 +170,11 @@ export async function can(action: Action, ctx: CanContext): Promise<boolean> {
   if (dbMapping) {
     try {
       const dbResult = await resolveDocTypePermission(userId, dbMapping.doctypeKey, dbMapping.action)
-      // resolveDocTypePermission checks grant overrides BEFORE role permissions (step 3 of
-      // resolution order), so a false here means: no UserPermissionOverride grant AND no role
-      // grants it. Safe to short-circuit in both directions.
+      // Only short-circuit to true — if DB returns false it could mean the permission
+      // tables exist but haven't been seeded yet. Fall through to legacy hardcoded logic
+      // so existing functionality keeps working until the seed script is run.
+      // Explicit deny overrides are handled inside resolveDocTypePermission (step 2).
       if (dbResult) return true
-      return false
     } catch {
       // DB unavailable — fall through to existing hardcoded logic
     }

@@ -101,6 +101,21 @@ async function fetchActiveUserRoles(userId: string): Promise<Array<{ roleId: str
       roles.set(membership.roleId, { roleId: membership.roleId, role: membership.role })
     }
   }
+
+  // No rows in new permission tables yet (seed not run) — synthesize a role from
+  // the user's legacy User.role field so downstream resolvers see at least one entry.
+  if (roles.size === 0) {
+    try {
+      const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } })
+      if (user?.role) {
+        const legacyKey = `legacy-${user.role}`
+        roles.set(legacyKey, { roleId: legacyKey, role: { key: user.role } })
+      }
+    } catch {
+      // If even this fails, return empty and let callers handle it
+    }
+  }
+
   return Array.from(roles.values())
 }
 

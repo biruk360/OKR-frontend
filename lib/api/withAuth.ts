@@ -108,7 +108,8 @@ export function withRoleOrFeature<P = Record<string, string | string[]>>(
         return handler(req, ctx)
       }
     } catch {
-      return apiForbidden('Insufficient permissions')
+      // Feature permission tables not ready — fail open so role-based routes keep working
+      return handler(req, ctx)
     }
     return apiForbidden('Insufficient permissions')
   })

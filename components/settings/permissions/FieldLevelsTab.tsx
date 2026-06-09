@@ -81,8 +81,11 @@ export default function FieldLevelsTab({ initialDoctype }: FieldLevelsTabProps =
       fetch('/api/permissions/roles').then(r => r.json()),
     ])
       .then(([dtRes, rolesRes]) => {
-        if (dtRes.success) setDoctypes(dtRes.data)
-        if (rolesRes.success) {
+        if (dtRes.success) {
+          const modules: Record<string, DocType[]> = dtRes.data?.modules ?? {}
+          setDoctypes(Object.values(modules).flat())
+        }
+        if (rolesRes.success && Array.isArray(rolesRes.data)) {
           setRoles(rolesRes.data)
           if (rolesRes.data.length > 0) setSelectedRole(rolesRes.data[0].id)
         }

@@ -82,10 +82,13 @@ export default function ByDocTypeTab() {
       fetch('/api/permissions/roles').then(r => r.json()),
     ])
       .then(([dtRes, rolesRes]) => {
-        if (dtRes.success) setDoctypes(dtRes.data)
-        else setError(dtRes.error ?? 'Failed to load doc types')
-        if (rolesRes.success) setRoles(rolesRes.data)
-        else setError(rolesRes.error ?? 'Failed to load roles')
+        if (dtRes.success) {
+          // API returns { modules: { okr: [...], work: [...] } } — flatten to array
+          const modules: Record<string, DocType[]> = dtRes.data?.modules ?? {}
+          setDoctypes(Object.values(modules).flat())
+        } else setError(dtRes.error ?? 'Failed to load doc types')
+        if (rolesRes.success && Array.isArray(rolesRes.data)) setRoles(rolesRes.data)
+        else if (!rolesRes.success) setError(rolesRes.error ?? 'Failed to load roles')
       })
       .catch(() => setError('Failed to load data'))
       .finally(() => setLoadingDoctypes(false))

@@ -28,7 +28,7 @@ import MarkAsSentModal from './MarkAsSentModal'
 import RejectLetterModal from './RejectLetterModal'
 import SuperDocEditorClient from './SuperDocEditorClient'
 import LetterDatePicker, { type CalendarMode } from './LetterDatePicker'
-import { LetterLangContext, useT, type LetterLang, LETTER_FONTS, type LetterFontId, DEFAULT_LETTER_FONT } from '../i18n'
+import { LetterLangContext, useT, type LetterLang, DEFAULT_LETTER_FONT } from '../i18n'
 import type { LetterDetail, LetterEnclosureWithUploader } from '../types'
 import {
   approveLetter,
@@ -57,9 +57,8 @@ function canApprove(role: string) {
 
 export default function LetterFormClient(props: Props) {
   const [lang, setLang] = useState<LetterLang>('en')
-  const [font, setFont] = useState<LetterFontId>(DEFAULT_LETTER_FONT)
   return (
-    <LetterLangContext.Provider value={{ lang, setLang, font, setFont }}>
+    <LetterLangContext.Provider value={{ lang, setLang }}>
       <LetterFormInner {...props} />
     </LetterLangContext.Provider>
   )
@@ -68,7 +67,7 @@ export default function LetterFormClient(props: Props) {
 function LetterFormInner({ initial, viewer }: Props) {
   const t = useT()
   const router = useRouter()
-  const { lang, setLang, font } = useContext(LetterLangContext)
+  const { lang, setLang } = useContext(LetterLangContext)
   const [letter, setLetter] = useState<LetterDetail>(initial)
   const [calendarMode, setCalendarMode] = useState<CalendarMode>('GC')
   const [subject, setSubject] = useState(letter.subject)
@@ -238,7 +237,7 @@ function LetterFormInner({ initial, viewer }: Props) {
               variant="outline"
               className="h-10"
               onClick={() => {
-                const url = `/api/letters/${letter.id}/pdf?lang=${lang}&font=${encodeURIComponent(font)}`
+                const url = `/api/letters/${letter.id}/pdf?lang=${lang}&font=${encodeURIComponent(DEFAULT_LETTER_FONT)}`
                 const win = window.open(url, '_blank')
                 if (win) win.addEventListener('load', () => { try { win.print() } catch {} })
                 else window.location.href = url
@@ -273,7 +272,6 @@ function LetterFormInner({ initial, viewer }: Props) {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <SectionLabel>Details</SectionLabel>
             <div className="flex items-center gap-2">
-              <FontPicker />
               <LangSwitch lang={lang} onChange={setLang} />
             </div>
           </div>
@@ -474,30 +472,6 @@ function Field({
     <div className={cn('space-y-1', className)}>
       <Label htmlFor={htmlFor} className="text-[12px]">{label}</Label>
       {children}
-    </div>
-  )
-}
-
-function FontPicker() {
-  const { font, setFont } = useContext(LetterLangContext)
-  const serif = LETTER_FONTS.filter((f) => f.category === 'serif')
-  const sans  = LETTER_FONTS.filter((f) => f.category === 'sans-serif')
-  return (
-    <div className="flex items-center gap-1.5">
-      <span className="text-[11px] text-muted-foreground">Font</span>
-      <select
-        value={font}
-        onChange={(e) => setFont(e.target.value as LetterFontId)}
-        className="h-9 rounded-[10px] border bg-card px-2 text-[12px] focus:outline-none focus:ring-2 focus:ring-[color:var(--ap-accent)] focus:ring-offset-1"
-        style={{ borderColor: 'var(--ap-border)' }}
-      >
-        <optgroup label="Serif">
-          {serif.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
-        </optgroup>
-        <optgroup label="Sans-serif">
-          {sans.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
-        </optgroup>
-      </select>
     </div>
   )
 }

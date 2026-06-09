@@ -274,9 +274,7 @@ export const DEFAULT_LETTER_FONT: LetterFontId = 'Noto Sans Ethiopic'
 export const LetterLangContext = createContext<{
   lang: LetterLang
   setLang: (l: LetterLang) => void
-  font: LetterFontId
-  setFont: (f: LetterFontId) => void
-}>({ lang: 'en', setLang: () => {}, font: DEFAULT_LETTER_FONT, setFont: () => {} })
+}>({ lang: 'en', setLang: () => {} })
 
 export function useLetterLang() {
   return useContext(LetterLangContext)

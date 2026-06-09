@@ -10,7 +10,7 @@ import LettersTable from './LettersTable'
 import CreateLetterModal from './CreateLetterModal'
 import type { LetterListItem } from '../types'
 import { listLetters, listLetterTypes } from '../services/lettersApi'
-import { LetterLangContext, useT, type LetterLang } from '../i18n'
+import { LetterLangContext, useT, type LetterLang, type LetterFontId, DEFAULT_LETTER_FONT } from '../i18n'
 
 interface Props {
   user: { id: string; role: string }
@@ -24,8 +24,9 @@ const PAGE_SIZE = 20
 
 export default function LettersPageClient(props: Props) {
   const [lang, setLang] = useState<LetterLang>('en')
+  const [font, setFont] = useState<LetterFontId>(DEFAULT_LETTER_FONT)
   return (
-    <LetterLangContext.Provider value={{ lang, setLang }}>
+    <LetterLangContext.Provider value={{ lang, setLang, font, setFont }}>
       <LettersPageInner {...props} />
     </LetterLangContext.Provider>
   )

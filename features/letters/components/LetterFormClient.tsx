@@ -28,7 +28,7 @@ import MarkAsSentModal from './MarkAsSentModal'
 import RejectLetterModal from './RejectLetterModal'
 import SuperDocEditorClient from './SuperDocEditorClient'
 import LetterDatePicker, { type CalendarMode } from './LetterDatePicker'
-import { LetterLangContext, useT, type LetterLang, DEFAULT_LETTER_FONT } from '../i18n'
+import { LetterLangContext, useT, type LetterLang, type LetterFontId, LETTER_FONTS, DEFAULT_LETTER_FONT } from '../i18n'
 import type { LetterDetail, LetterEnclosureWithUploader } from '../types'
 import {
   approveLetter,
@@ -57,8 +57,9 @@ function canApprove(role: string) {
 
 export default function LetterFormClient(props: Props) {
   const [lang, setLang] = useState<LetterLang>('en')
+  const [font, setFont] = useState<LetterFontId>(DEFAULT_LETTER_FONT)
   return (
-    <LetterLangContext.Provider value={{ lang, setLang }}>
+    <LetterLangContext.Provider value={{ lang, setLang, font, setFont }}>
       <LetterFormInner {...props} />
     </LetterLangContext.Provider>
   )
@@ -67,7 +68,7 @@ export default function LetterFormClient(props: Props) {
 function LetterFormInner({ initial, viewer }: Props) {
   const t = useT()
   const router = useRouter()
-  const { lang, setLang } = useContext(LetterLangContext)
+  const { lang, setLang, font, setFont } = useContext(LetterLangContext)
   const [letter, setLetter] = useState<LetterDetail>(initial)
   const [calendarMode, setCalendarMode] = useState<CalendarMode>('GC')
   const [subject, setSubject] = useState(letter.subject)
@@ -237,7 +238,7 @@ function LetterFormInner({ initial, viewer }: Props) {
               variant="outline"
               className="h-10"
               onClick={() => {
-                const url = `/api/letters/${letter.id}/pdf?lang=${lang}&font=${encodeURIComponent(DEFAULT_LETTER_FONT)}`
+                const url = `/api/letters/${letter.id}/pdf?lang=${lang}&font=${encodeURIComponent(font)}`
                 const win = window.open(url, '_blank')
                 if (win) win.addEventListener('load', () => { try { win.print() } catch {} })
                 else window.location.href = url
@@ -380,7 +381,21 @@ function LetterFormInner({ initial, viewer }: Props) {
 
         <TabsContent value="body" className="mt-3">
           <ApCard padding="md">
-            <p className="mb-2 text-[12px] text-muted-foreground">{t('form.body.help')}</p>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+              <p className="text-[12px] text-muted-foreground">{t('form.body.help')}</p>
+              <div className="flex items-center gap-2">
+                <label className="text-[12px] font-medium text-muted-foreground">PDF Font</label>
+                <select
+                  value={font}
+                  onChange={(e) => setFont(e.target.value as LetterFontId)}
+                  className="h-7 rounded-md border border-input bg-background px-2 text-[12px] text-foreground shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                >
+                  {LETTER_FONTS.map((f) => (
+                    <option key={f.id} value={f.id}>{f.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
             <SuperDocEditorClient
               letterId={letter.id}
               docxUrl={`/api/letters/${letter.id}/docx`}

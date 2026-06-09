@@ -3,7 +3,7 @@
 import { useContext, useEffect, useRef, useState } from 'react'
 import { AlertTriangle, Download, Loader2, Printer, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui'
-import { LetterLangContext, useT, DEFAULT_LETTER_FONT } from '../i18n'
+import { LetterLangContext, useT } from '../i18n'
 
 interface Props {
   letterId: string
@@ -23,7 +23,7 @@ interface Props {
  */
 export default function PdfPreviewPanel({ letterId }: Props) {
   const t = useT()
-  const { lang } = useContext(LetterLangContext)
+  const { lang, font } = useContext(LetterLangContext)
   const iframeRef = useRef<HTMLIFrameElement>(null)
   // bust=force a refresh of the iframe src after a regenerate. Bumping the
   // query param is the cheapest way to invalidate the same-document load.
@@ -32,7 +32,7 @@ export default function PdfPreviewPanel({ letterId }: Props) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const fontParam = `&font=${encodeURIComponent(DEFAULT_LETTER_FONT)}`
+  const fontParam = `&font=${encodeURIComponent(font)}`
   const htmlUrl = `/api/letters/${letterId}/html?lang=${lang}${fontParam}&_=${bust}`
   const printUrl = `/api/letters/${letterId}/pdf?lang=${lang}${fontParam}`
   const downloadUrl = `/api/letters/${letterId}/pdf?lang=${lang}${fontParam}&download=1`

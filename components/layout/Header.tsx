@@ -15,6 +15,7 @@ import {
   Target,
   CheckSquare,
   Lock,
+  ChevronDown,
 } from 'lucide-react'
 import { useCmdkStore } from '@/lib/stores/cmdk-store'
 import { getDashboardPageTitle } from '@/lib/dashboard-page-titles'
@@ -206,16 +207,24 @@ export default function Header({ user, onMobileNavOpen }: HeaderProps) {
             {/* Profile dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="rounded-full">
+                <Button
+                  variant="ghost"
+                  size="default"
+                  className="h-9 gap-2 rounded-full px-2 pr-2.5"
+                >
                   {user.avatar ? (
-                    <img className="size-7 rounded-full object-cover" src={user.avatar} alt={user.name || 'User'} />
+                    <img className="size-6 rounded-full object-cover" src={user.avatar} alt={user.name || 'User'} />
                   ) : (
-                    <div className="flex size-7 items-center justify-center rounded-full bg-primary/10">
-                      <span className="text-xs font-semibold text-primary-600">
+                    <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                      <span className="text-[11px] font-semibold text-primary-600">
                         {user.name ? getInitials(user.name) : 'U'}
                       </span>
                     </div>
                   )}
+                  <span className="hidden max-w-[120px] truncate text-[13px] font-medium sm:block">
+                    {user.name ?? user.email ?? 'Account'}
+                  </span>
+                  <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">

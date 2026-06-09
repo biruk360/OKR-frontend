@@ -152,5 +152,5 @@ module.exports = {
       },
     },
   },
-  plugins: [require('@tailwindcss/typography'), require('tw-animate-css')],
+  plugins: [require('@tailwindcss/typography')],
 }

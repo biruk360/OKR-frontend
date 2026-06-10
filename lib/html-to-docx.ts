@@ -15,6 +15,7 @@
  */
 
 import { Document, Packer, Paragraph, TextRun } from 'docx'
+import { DEFAULT_LETTER_DOCUMENT_FONT } from './letter-docx-font'
 
 interface InlineRun {
   text: string
@@ -127,6 +128,13 @@ function parseBlocks(html: string): Paragraph[] {
 export async function htmlToDocxBuffer(html: string): Promise<Buffer> {
   const paragraphs = parseBlocks(html || '')
   const doc = new Document({
+    styles: {
+      default: {
+        document: {
+          run: { font: DEFAULT_LETTER_DOCUMENT_FONT },
+        },
+      },
+    },
     sections: [{ properties: {}, children: paragraphs }],
   })
   return Packer.toBuffer(doc)

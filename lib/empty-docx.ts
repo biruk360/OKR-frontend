@@ -8,12 +8,20 @@
  */
 
 import { Document, Packer, Paragraph, TextRun } from 'docx'
+import { DEFAULT_LETTER_DOCUMENT_FONT } from './letter-docx-font'
 
 let cached: Buffer | null = null
 
 export async function emptyDocxBuffer(): Promise<Buffer> {
   if (cached) return cached
   const doc = new Document({
+    styles: {
+      default: {
+        document: {
+          run: { font: DEFAULT_LETTER_DOCUMENT_FONT },
+        },
+      },
+    },
     sections: [
       {
         properties: {},

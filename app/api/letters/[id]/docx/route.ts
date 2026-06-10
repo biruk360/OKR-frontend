@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { checkLetterPermissionV2 } from '@/lib/letter-permissions'
 import { recordActivity } from '@/lib/activity-log'
+import { ensureLetterDocumentDefaultFont } from '@/lib/letter-docx-font'
 import {
   apiBadRequest,
   apiForbidden,
@@ -51,6 +52,13 @@ export const GET = withAuth<RouteIdParams>(async (_req, { params }) => {
     buffer = await (await import('@/lib/empty-docx')).emptyDocxBuffer()
   }
 
+  try {
+    buffer = await ensureLetterDocumentDefaultFont(buffer)
+  } catch (err) {
+    // A malformed styles.xml must not make an otherwise readable letter unavailable.
+    console.warn('[docx-get] failed to apply default letter font', err)
+  }
+
   const filename = `${(letter.referenceNumber || letter.id).replace(/[^A-Za-z0-9._-]+/g, '_')}.docx`
   const body = new Blob([new Uint8Array(buffer)], {
     type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -85,7 +93,7 @@ export const PUT = withAuth<RouteIdParams>(async (req, { session, params }) => {
   }
 
   const arrayBuffer = await req.arrayBuffer()
-  const buf = Buffer.from(arrayBuffer)
+  let buf: Buffer = Buffer.from(arrayBuffer)
   if (buf.length === 0) return apiBadRequest('Empty body')
   // Sanity check: a real .docx is a ZIP — starts with "PK\x03\x04".
   if (!(buf[0] === 0x50 && buf[1] === 0x4b)) {
@@ -93,6 +101,13 @@ export const PUT = withAuth<RouteIdParams>(async (req, { session, params }) => {
   }
   if (buf.length > 25 * 1024 * 1024) {
     return apiBadRequest('Body exceeds 25 MB limit')
+  }
+
+  try {
+    buf = await ensureLetterDocumentDefaultFont(buf)
+  } catch (err) {
+    // Preserve the user's valid DOCX even if its styles.xml cannot be normalized.
+    console.warn('[docx-save] failed to apply default letter font', err)
   }
 
   // Derive the HTML mirror. Failures here should not block the save — they

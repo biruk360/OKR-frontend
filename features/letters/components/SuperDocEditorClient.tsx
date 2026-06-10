@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Loader2, Save, AlertTriangle, Check } from 'lucide-react'
+import type { FontConfig } from 'superdoc'
 import { cn } from '@/lib/utils'
+import { LETTER_FONTS } from '../i18n'
 
 // SuperDoc's runtime depends on window/document, Vue, Pinia, and Konva.
 // Loading it via a normal `import` from a Server Component file would crash
@@ -20,6 +22,42 @@ interface Props {
 }
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
+
+const LETTER_EDITOR_FONT_STYLESHEET_ID = 'letter-editor-google-fonts'
+const LETTER_EDITOR_FONT_STYLESHEET = [
+  'https://fonts.googleapis.com/css2?',
+  'family=Inter:wght@400;500;600;700',
+  '&family=Lato:ital,wght@0,300;0,400;0,700;1,300;1,400',
+  '&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300;1,400',
+  '&family=Noto+Sans+Ethiopic:wdth,wght@75..125,100..900',
+  '&family=Noto+Serif+Ethiopic:wdth,wght@75..125,100..900',
+  '&family=Open+Sans:ital,wght@0,400;0,600;0,700;1,400',
+  '&family=Playfair+Display:ital,wght@0,400..900;1,400..900',
+  '&family=Roboto:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400',
+  '&family=Roboto+Condensed:ital,wght@0,300;0,400;0,700;1,300;1,400',
+  '&family=Roboto+Slab:wght@300;400;500;700',
+  '&display=swap',
+].join('')
+
+const SUPERDOC_TOOLBAR_FONTS: FontConfig[] = LETTER_FONTS.map((font) => {
+  const stack = `${font.id}, ${font.category}`
+  return {
+    label: font.id,
+    key: stack,
+    fontWeight: 400,
+    props: {
+      style: { fontFamily: stack },
+      'data-item': 'btn-fontFamily-option',
+    },
+  }
+})
+
+// Keep this object stable: the React wrapper recreates SuperDoc when modules changes.
+const SUPERDOC_MODULES = {
+  toolbar: {
+    fonts: SUPERDOC_TOOLBAR_FONTS,
+  },
+}
 
 /**
  * Word-class editor wrapped around SuperDoc's React component.
@@ -45,6 +83,14 @@ export default function SuperDocEditorClient({ letterId, docxUrl, editable, user
   const ignoreUpdatesUntil = useRef<number>(Date.now() + 1500)
 
   useEffect(() => {
+    if (!document.getElementById(LETTER_EDITOR_FONT_STYLESHEET_ID)) {
+      const link = document.createElement('link')
+      link.id = LETTER_EDITOR_FONT_STYLESHEET_ID
+      link.rel = 'stylesheet'
+      link.href = LETTER_EDITOR_FONT_STYLESHEET
+      document.head.appendChild(link)
+    }
+
     let cancelled = false
     ;(async () => {
       try {
@@ -144,6 +190,7 @@ export default function SuperDocEditorClient({ letterId, docxUrl, editable, user
           role={editable ? 'editor' : 'viewer'}
           user={{ id: user.id, name: user.name, email: user.email }}
           users={[{ id: user.id, name: user.name, email: user.email }]}
+          modules={SUPERDOC_MODULES}
           onReady={() => {
             // Allow saves once the doc has loaded.
             ignoreUpdatesUntil.current = Date.now() + 1000

@@ -328,6 +328,15 @@ function styles(base: string, lang: 'en' | 'am' = 'en', font: string = DEFAULT_F
     .lh-body strong { font-weight: 700; color: var(--ink); }
     .lh-body em { font-style: italic; }
     .lh-body a { color: inherit; text-decoration: underline; }
+    .lh-body .letter-page-break {
+      break-before: page;
+      page-break-before: always;
+      height: 0;
+    }
+    .lh-body .letter-column-break {
+      break-before: column;
+      height: 0;
+    }
 
     .placeholder-missing { color: #b91c1c; font-weight: 600; }
 

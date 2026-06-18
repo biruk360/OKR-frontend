@@ -59,6 +59,11 @@ const SUPERDOC_MODULES = {
   },
 }
 
+const SUPERDOC_LAYOUT_ENGINE_OPTIONS = {
+  flowMode: 'paginated',
+  virtualization: { enabled: false },
+} as const
+
 /**
  * Word-class editor wrapped around SuperDoc's React component.
  *
@@ -182,7 +187,7 @@ export default function SuperDocEditorClient({ letterId, docxUrl, editable, user
       <div className="flex items-center justify-end gap-2 text-xs">
         <SaveIndicator state={saveState} error={saveError} onRetry={persist} editable={editable} />
       </div>
-      <div className="overflow-hidden rounded-md border border-gray-200 bg-gray-100/40">
+      <div className="overflow-auto rounded-md border border-gray-200 bg-gray-100/40">
         <SuperDocEditor
           ref={editorRef}
           document={docxUrl}
@@ -191,6 +196,10 @@ export default function SuperDocEditorClient({ letterId, docxUrl, editable, user
           user={{ id: user.id, name: user.name, email: user.email }}
           users={[{ id: user.id, name: user.name, email: user.email }]}
           modules={SUPERDOC_MODULES}
+          rulers
+          useLayoutEngine
+          layoutEngineOptions={SUPERDOC_LAYOUT_ENGINE_OPTIONS}
+          uiDisplayFallbackFont="Inter, Noto Sans Ethiopic, system-ui, sans-serif"
           onReady={() => {
             // Allow saves once the doc has loaded.
             ignoreUpdatesUntil.current = Date.now() + 1000
@@ -204,7 +213,7 @@ export default function SuperDocEditorClient({ letterId, docxUrl, editable, user
           onException={(e: any) => {
             console.warn('[superdoc] exception', e)
           }}
-          style={{ minHeight: 640 }}
+          style={{ minHeight: 760 }}
         />
       </div>
     </div>

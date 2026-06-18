@@ -144,9 +144,33 @@ function fontFaces(base: string): string {
 
 // ---------- Layout CSS — Design 4 "Right Rail" (master spec) ----------
 
-function googleFontLink(font: string): string {
-  const url = GOOGLE_FONTS_IMPORT[font]
-  return url ? `<link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" /><link rel="stylesheet" href="${url}" />` : ''
+function googleFontLinks(fonts: Iterable<string>): string {
+  const urls = Array.from(new Set(
+    Array.from(fonts)
+      .map((font) => GOOGLE_FONTS_IMPORT[font])
+      .filter(Boolean)
+  ))
+  if (urls.length === 0) return ''
+
+  return `<link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />${urls
+    .map((url) => `<link rel="stylesheet" href="${url}" />`)
+    .join('')}`
+}
+
+function collectInlineFonts(html: string): string[] {
+  const fonts = new Set<string>()
+  let match: RegExpExecArray | null
+  const familyRe = /font-family\s*:\s*([^;"']+)/gi
+
+  while ((match = familyRe.exec(html)) !== null) {
+    match[1]
+      .split(',')
+      .map((family) => family.trim().replace(/^['"]|['"]$/g, ''))
+      .filter((family) => GOOGLE_FONTS_IMPORT[family])
+      .forEach((family) => fonts.add(family))
+  }
+
+  return Array.from(fonts)
 }
 
 function styles(base: string, lang: 'en' | 'am' = 'en', font: string = DEFAULT_FONT): string {
@@ -412,6 +436,7 @@ export function renderLetterHtml({ letter, origin = '', lang = 'en', font = DEFA
     /\[MISSING:\s*([a-z_]+)\]/gi,
     '<span class="placeholder-missing">[MISSING: $1]</span>'
   )
+  const fontsToLoad = [font, ...collectInlineFonts(bodyHtml)]
 
   // Asset URLs. When `origin` is provided (Puppeteer needs absolute URLs
   // because it loads the HTML as `file://` or a temp doc with no base),
@@ -532,7 +557,7 @@ export function renderLetterHtml({ letter, origin = '', lang = 'en', font = DEFA
 <head>
 <meta charset="utf-8" />
 <title>${esc(refNumber)}</title>
-${googleFontLink(font)}
+${googleFontLinks(fontsToLoad)}
 <style>${styles(base, lang, font)}</style>
 </head>
 <body>

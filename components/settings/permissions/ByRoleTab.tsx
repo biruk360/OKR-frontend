@@ -1,19 +1,19 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { ChevronDown, ChevronRight, AlertCircle, Loader2, Copy, RotateCcw } from 'lucide-react'
+import { Fragment, useCallback, useEffect, useState } from 'react'
+import { AlertCircle, ChevronDown, ChevronRight, Copy, Loader2, RotateCcw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface Role {
   id: string
   name: string
-  label: string
+  key: string
 }
 
 interface Permission {
   id: string
-  docType: string
-  module: string
+  doctypeKey: string
+  permLevel: number
   canRead: boolean
   canWrite: boolean
   canCreate: boolean
@@ -21,54 +21,60 @@ interface Permission {
   canSubmit: boolean
   canExport: boolean
   canPrint: boolean
-  scopeEnabled: boolean
+  canShare: boolean
+  canImport: boolean
+  canReport: boolean
+  applyScoping: boolean
+  doctype: { key: string; displayName: string; module: string }
 }
 
-interface GroupedPermissions {
-  [module: string]: Permission[]
-}
+type BooleanPermissionKey =
+  | 'canRead' | 'canWrite' | 'canCreate' | 'canDelete' | 'canSubmit'
+  | 'canExport' | 'canPrint' | 'canShare' | 'canImport' | 'canReport'
 
-const PERM_COLS: { key: keyof Permission; label: string }[] = [
-  { key: 'canRead', label: 'Rd' },
-  { key: 'canWrite', label: 'Wr' },
-  { key: 'canCreate', label: 'Cr' },
-  { key: 'canDelete', label: 'Del' },
-  { key: 'canSubmit', label: 'Sub' },
-  { key: 'canExport', label: 'Exp' },
-  { key: 'canPrint', label: 'Prt' },
+const PERM_COLS: Array<{ key: BooleanPermissionKey; label: string; title: string }> = [
+  { key: 'canRead', label: 'Rd', title: 'Read' },
+  { key: 'canWrite', label: 'Wr', title: 'Write' },
+  { key: 'canCreate', label: 'Cr', title: 'Create' },
+  { key: 'canDelete', label: 'Del', title: 'Delete' },
+  { key: 'canSubmit', label: 'Sub', title: 'Submit' },
+  { key: 'canExport', label: 'Exp', title: 'Export' },
+  { key: 'canPrint', label: 'Prt', title: 'Print' },
+  { key: 'canShare', label: 'Shr', title: 'Share' },
+  { key: 'canImport', label: 'Imp', title: 'Import' },
+  { key: 'canReport', label: 'Rpt', title: 'Report' },
 ]
 
-function groupByModule(permissions: Permission[]): GroupedPermissions {
-  return permissions.reduce<GroupedPermissions>((acc, perm) => {
-    const mod = perm.module || 'General'
-    if (!acc[mod]) acc[mod] = []
-    acc[mod].push(perm)
-    return acc
-  }, {})
+function flattenPermissions(data: unknown): Permission[] {
+  const byModule = (data as { byModule?: Record<string, Permission[]> } | null)?.byModule
+  return byModule ? Object.values(byModule).flat() : []
 }
 
-function SkeletonRow() {
-  return (
-    <tr className="border-b border-gray-100">
-      <td className="px-3 py-2">
-        <div className="h-4 w-32 bg-gray-200 rounded animate-pulse" />
-      </td>
-      {Array.from({ length: 8 }).map((_, i) => (
-        <td key={i} className="px-3 py-2 text-center">
-          <div className="h-4 w-4 bg-gray-200 rounded animate-pulse mx-auto" />
-        </td>
-      ))}
-    </tr>
-  )
+function permissionPayload(permission: Permission) {
+  return {
+    doctypeKey: permission.doctypeKey,
+    permLevel: permission.permLevel,
+    canRead: permission.canRead,
+    canWrite: permission.canWrite,
+    canCreate: permission.canCreate,
+    canDelete: permission.canDelete,
+    canSubmit: permission.canSubmit,
+    canExport: permission.canExport,
+    canPrint: permission.canPrint,
+    canShare: permission.canShare,
+    canImport: permission.canImport,
+    canReport: permission.canReport,
+    applyScoping: permission.applyScoping,
+  }
 }
 
 interface ByRoleTabProps {
   onConfigureFields?: (doctypeKey: string) => void
 }
 
-export default function ByRoleTab({ onConfigureFields }: ByRoleTabProps = {}) {
+export default function ByRoleTab({ onConfigureFields }: ByRoleTabProps) {
   const [roles, setRoles] = useState<Role[]>([])
-  const [selectedRoleId, setSelectedRoleId] = useState<string>('')
+  const [selectedRoleId, setSelectedRoleId] = useState('')
   const [permissions, setPermissions] = useState<Permission[]>([])
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
   const [loadingRoles, setLoadingRoles] = useState(true)
@@ -77,333 +83,167 @@ export default function ByRoleTab({ onConfigureFields }: ByRoleTabProps = {}) {
   const [cloning, setCloning] = useState(false)
   const [resetting, setResetting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [pendingToast, setPendingToast] = useState(false)
-  const [pendingChange, setPendingChange] = useState<Permission[]>([])
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const pendingRef = useRef<Permission[]>([])
+
+  const loadPermissions = useCallback(async (roleId: string) => {
+    if (!roleId) return
+    setLoadingPerms(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/permissions/roles/${encodeURIComponent(roleId)}/permissions`)
+      const json = await res.json()
+      if (!res.ok || !json.success) throw new Error(json.error ?? 'Failed to load permissions')
+      setPermissions(flattenPermissions(json.data))
+    } catch (err) {
+      setPermissions([])
+      setError(err instanceof Error ? err.message : 'Failed to load permissions')
+    } finally {
+      setLoadingPerms(false)
+    }
+  }, [])
 
   useEffect(() => {
-    async function fetchRoles() {
+    async function loadRoles() {
       try {
         const res = await fetch('/api/permissions/roles')
-        if (!res.ok) throw new Error('Failed to load roles')
         const json = await res.json()
-        const data: Role[] = json.data ?? json
-        setRoles(data)
-        if (data.length > 0) setSelectedRoleId(data[0].id)
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Failed to load roles')
+        if (!res.ok || !json.success || !Array.isArray(json.data)) {
+          throw new Error(json.error ?? 'Failed to load roles')
+        }
+        setRoles(json.data)
+        setSelectedRoleId(json.data[0]?.id ?? '')
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load roles')
       } finally {
         setLoadingRoles(false)
       }
     }
-    fetchRoles()
+    loadRoles()
   }, [])
 
-  useEffect(() => {
-    if (!selectedRoleId) return
-    setLoadingPerms(true)
-    setError(null)
-    async function fetchPerms() {
-      try {
-        const res = await fetch(`/api/permissions/roles/${selectedRoleId}/permissions`)
-        if (!res.ok) throw new Error('Failed to load permissions')
-        const json = await res.json()
-        setPermissions(json.data ?? json)
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Failed to load permissions')
-      } finally {
-        setLoadingPerms(false)
-      }
-    }
-    fetchPerms()
-  }, [selectedRoleId])
+  useEffect(() => { loadPermissions(selectedRoleId) }, [selectedRoleId, loadPermissions])
 
-  const flushSave = useCallback(async (perms: Permission[]) => {
+  async function persist(next: Permission[]) {
     setSaving(true)
     try {
-      const res = await fetch(`/api/permissions/roles/${selectedRoleId}/permissions`, {
+      const res = await fetch(`/api/permissions/roles/${encodeURIComponent(selectedRoleId)}/permissions`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ permissions: perms }),
+        body: JSON.stringify({ permissions: next.map(permissionPayload) }),
       })
-      if (!res.ok) throw new Error('Failed to save permissions')
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Save failed')
+      const json = await res.json()
+      if (!res.ok || !json.success) throw new Error(json.error ?? 'Failed to save permissions')
+      setPermissions(flattenPermissions(json.data))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save permissions')
+      await loadPermissions(selectedRoleId)
     } finally {
       setSaving(false)
     }
-  }, [selectedRoleId])
+  }
 
-  const handleUndo = useCallback(() => {
-    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-    setPermissions(pendingChange)
-    setPendingToast(false)
-  }, [pendingChange])
-
-  const scheduleToastSave = useCallback(
-    (prev: Permission[], next: Permission[]) => {
-      setPendingChange(prev)
-      pendingRef.current = next
-      if (debounceRef.current) clearTimeout(debounceRef.current)
-      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
-      setPendingToast(true)
-      saveTimeoutRef.current = setTimeout(() => {
-        flushSave(pendingRef.current)
-        setPendingToast(false)
-      }, 5000)
-    },
-    [flushSave]
-  )
-
-  const handlePermChange = useCallback(
-    (permId: string, field: keyof Permission, value: boolean) => {
-      setPermissions((prev) => {
-        const next = prev.map((p) => (p.id === permId ? { ...p, [field]: value } : p))
-        scheduleToastSave(prev, next)
-        return next
-      })
-    },
-    [scheduleToastSave]
-  )
-
-  const handleScopeToggle = useCallback(
-    (permId: string) => {
-      setPermissions((prev) => {
-        const next = prev.map((p) =>
-          p.id === permId ? { ...p, scopeEnabled: !p.scopeEnabled } : p
-        )
-        scheduleToastSave(prev, next)
-        return next
-      })
-    },
-    [scheduleToastSave]
-  )
+  function toggle(permissionId: string, field: BooleanPermissionKey | 'applyScoping') {
+    const next = permissions.map((permission) =>
+      permission.id === permissionId ? { ...permission, [field]: !permission[field] } : permission
+    )
+    setPermissions(next)
+    void persist(next)
+  }
 
   async function handleClone() {
-    if (!selectedRoleId) return
     setCloning(true)
     setError(null)
     try {
-      const res = await fetch(`/api/permissions/roles/${selectedRoleId}/clone`, {
-        method: 'POST',
-      })
-      if (!res.ok) throw new Error('Failed to clone role')
+      const res = await fetch(`/api/permissions/roles/${encodeURIComponent(selectedRoleId)}/clone`, { method: 'POST' })
       const json = await res.json()
-      const newRole: Role = json.data ?? json
-      setRoles((prev) => [...prev, newRole])
+      if (!res.ok || !json.success) throw new Error(json.error ?? 'Failed to clone role')
+      const newRole: Role | undefined = json.data?.newRole
+      if (!newRole) throw new Error('Clone response did not include the new role')
+      setRoles((current) => [...current, newRole])
       setSelectedRoleId(newRole.id)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Clone failed')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to clone role')
     } finally {
       setCloning(false)
     }
   }
 
   async function handleReset() {
-    if (!selectedRoleId) return
+    if (!window.confirm('Reset this role to the default permission matrix?')) return
     setResetting(true)
     setError(null)
     try {
-      const res = await fetch(`/api/permissions/roles/${selectedRoleId}/permissions/reset`, {
-        method: 'POST',
-      })
-      if (!res.ok) throw new Error('Failed to reset permissions')
+      const res = await fetch(`/api/permissions/roles/${encodeURIComponent(selectedRoleId)}/permissions/reset`, { method: 'POST' })
       const json = await res.json()
-      setPermissions(json.data ?? json)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Reset failed')
+      if (!res.ok || !json.success) throw new Error(json.error ?? 'Failed to reset permissions')
+      await loadPermissions(selectedRoleId)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to reset permissions')
     } finally {
       setResetting(false)
     }
   }
 
-  function toggleModule(mod: string) {
-    setCollapsed((prev) => ({ ...prev, [mod]: !prev[mod] }))
-  }
-
-  const grouped = groupByModule(permissions)
-  const modules = Object.keys(grouped).sort()
+  const grouped = permissions.reduce<Record<string, Permission[]>>((result, permission) => {
+    const moduleName = permission.doctype.module || 'General'
+    ;(result[moduleName] ??= []).push(permission)
+    return result
+  }, {})
 
   if (loadingRoles) {
-    return (
-      <div className="flex items-center justify-center py-16 text-gray-400">
-        <Loader2 className="h-5 w-5 animate-spin mr-2" />
-        <span className="text-sm">Loading roles…</span>
-      </div>
-    )
+    return <div className="flex items-center justify-center py-16 text-gray-400"><Loader2 className="mr-2 h-5 w-5 animate-spin" />Loading roles…</div>
   }
 
   return (
     <div className="space-y-5">
-      {error && (
-        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          <AlertCircle className="h-4 w-4 shrink-0" />
-          {error}
-        </div>
-      )}
+      {error && <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"><AlertCircle className="h-4 w-4" />{error}</div>}
 
       <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-gray-700">Role</label>
-          <select
-            value={selectedRoleId}
-            onChange={(e) => setSelectedRoleId(e.target.value)}
-            className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          >
-            {roles.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.label || r.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex items-center gap-2 ml-auto">
-          {saving && (
-            <span className="flex items-center gap-1 text-xs text-gray-400">
-              <Loader2 className="h-3 w-3 animate-spin" />
-              Saving…
-            </span>
-          )}
-          <button
-            onClick={handleClone}
-            disabled={cloning || !selectedRoleId}
-            className={cn(
-              'inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50'
-            )}
-          >
-            {cloning ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Copy className="h-3.5 w-3.5" />
-            )}
-            Clone Role
+        <label className="text-sm font-medium text-gray-700">Role</label>
+        <select value={selectedRoleId} onChange={(event) => setSelectedRoleId(event.target.value)} className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm shadow-sm">
+          {roles.map((role) => <option key={role.id} value={role.id}>{role.name}</option>)}
+        </select>
+        <div className="ml-auto flex items-center gap-2">
+          {saving && <span className="flex items-center gap-1 text-xs text-gray-400"><Loader2 className="h-3 w-3 animate-spin" />Saving…</span>}
+          <button onClick={handleClone} disabled={!selectedRoleId || cloning} className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm disabled:opacity-50">
+            {cloning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Copy className="h-3.5 w-3.5" />}Clone Role
           </button>
-          <button
-            onClick={handleReset}
-            disabled={resetting || !selectedRoleId}
-            className={cn(
-              'inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50'
-            )}
-          >
-            {resetting ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <RotateCcw className="h-3.5 w-3.5" />
-            )}
-            Reset Defaults
+          <button onClick={handleReset} disabled={!selectedRoleId || resetting} className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm disabled:opacity-50">
+            {resetting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}Reset Defaults
           </button>
         </div>
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-gray-200">
         <table className="min-w-full divide-y divide-gray-200 text-sm">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-3 py-2.5 text-left font-semibold text-gray-600 w-56">DocType</th>
-              {PERM_COLS.map((col) => (
-                <th key={col.key} className="px-3 py-2.5 text-center font-semibold text-gray-600 w-12">
-                  {col.label}
-                </th>
-              ))}
-              <th className="px-3 py-2.5 text-center font-semibold text-gray-600 w-16">Scope</th>
-              {onConfigureFields && <th className="px-3 py-2.5 text-center font-semibold text-gray-600 w-28">Fields</th>}
-            </tr>
-          </thead>
+          <thead className="bg-gray-50"><tr>
+            <th className="w-56 px-3 py-2.5 text-left font-semibold text-gray-600">DocType</th>
+            {PERM_COLS.map((column) => <th key={column.key} title={column.title} className="w-12 px-2 py-2.5 text-center font-semibold text-gray-600">{column.label}</th>)}
+            <th className="w-16 px-2 py-2.5 text-center font-semibold text-gray-600">Scope</th>
+            {onConfigureFields && <th className="w-24 px-2 py-2.5 text-center font-semibold text-gray-600">Fields</th>}
+          </tr></thead>
           <tbody className="divide-y divide-gray-100 bg-white">
-            {loadingPerms ? (
-              Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} />)
-            ) : modules.length === 0 ? (
-              <tr>
-                <td colSpan={onConfigureFields ? 10 : 9} className="px-3 py-8 text-center text-sm text-gray-400">
-                  No permissions configured for this role.
-                </td>
-              </tr>
-            ) : (
-              modules.map((mod) => (
-                <>
-                  <tr
-                    key={`mod-${mod}`}
-                    className="bg-gray-50 cursor-pointer select-none hover:bg-gray-100"
-                    onClick={() => toggleModule(mod)}
-                  >
-                    <td
-                      colSpan={onConfigureFields ? 10 : 9}
-                      className="px-3 py-2 font-semibold text-gray-700 text-xs uppercase tracking-wide"
-                    >
-                      <span className="inline-flex items-center gap-1">
-                        {collapsed[mod] ? (
-                          <ChevronRight className="h-3.5 w-3.5" />
-                        ) : (
-                          <ChevronDown className="h-3.5 w-3.5" />
-                        )}
-                        {mod}
-                        <span className="ml-1 text-gray-400 font-normal normal-case tracking-normal">
-                          ({grouped[mod].length})
-                        </span>
-                      </span>
-                    </td>
+            {loadingPerms ? <tr><td colSpan={13} className="py-12 text-center text-gray-400"><Loader2 className="mr-2 inline h-4 w-4 animate-spin" />Loading permissions…</td></tr> : Object.keys(grouped).length === 0 ? (
+              <tr><td colSpan={13} className="py-10 text-center text-gray-400">No permissions configured for this role.</td></tr>
+            ) : Object.keys(grouped).sort().map((moduleName) => (
+              <Fragment key={moduleName}>
+                <tr onClick={() => setCollapsed((value) => ({ ...value, [moduleName]: !value[moduleName] }))} className="cursor-pointer bg-gray-50 hover:bg-gray-100">
+                  <td colSpan={13} className="px-3 py-2 text-xs font-semibold uppercase text-gray-700">
+                    <span className="inline-flex items-center gap-1">{collapsed[moduleName] ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}{moduleName} ({grouped[moduleName].length})</span>
+                  </td>
+                </tr>
+                {!collapsed[moduleName] && grouped[moduleName].map((permission) => (
+                  <tr key={permission.id} className="hover:bg-gray-50">
+                    <td className="px-3 py-2 pl-7 text-gray-800">{permission.doctype.displayName}</td>
+                    {PERM_COLS.map((column) => <td key={column.key} className="px-2 py-2 text-center"><input type="checkbox" checked={permission[column.key]} disabled={saving} onChange={() => toggle(permission.id, column.key)} className="h-4 w-4 rounded border-gray-300 text-blue-600" /></td>)}
+                    <td className="px-2 py-2 text-center"><button disabled={saving} onClick={() => toggle(permission.id, 'applyScoping')} className={cn('rounded-full px-2 py-0.5 text-xs font-medium', permission.applyScoping ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500')}>{permission.applyScoping ? 'ON' : 'OFF'}</button></td>
+                    {onConfigureFields && <td className="px-2 py-2 text-center"><button onClick={() => onConfigureFields(permission.doctypeKey)} className="text-xs text-blue-600 hover:underline">Configure</button></td>}
                   </tr>
-                  {!collapsed[mod] &&
-                    grouped[mod].map((perm) => (
-                      <tr
-                        key={perm.id}
-                        className="border-b border-gray-50 hover:bg-gray-50 transition-colors"
-                      >
-                        <td className="px-3 py-2 text-gray-800 pl-7">{perm.docType}</td>
-                        {PERM_COLS.map((col) => (
-                          <td key={col.key} className="px-3 py-2 text-center">
-                            <input
-                              type="checkbox"
-                              checked={perm[col.key] as boolean}
-                              onChange={(e) =>
-                                handlePermChange(perm.id, col.key, e.target.checked)
-                              }
-                              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                            />
-                          </td>
-                        ))}
-                        <td className="px-3 py-2 text-center">
-                          <button
-                            onClick={() => handleScopeToggle(perm.id)}
-                            className={cn(
-                              'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium transition-colors',
-                              perm.scopeEnabled
-                                ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                            )}
-                          >
-                            {perm.scopeEnabled ? 'ON' : 'OFF'}
-                          </button>
-                        </td>
-                        {onConfigureFields && (
-                          <td className="px-3 py-2 text-center">
-                            <button
-                              onClick={() => onConfigureFields(perm.docType)}
-                              className="text-xs text-blue-500 hover:text-blue-700 hover:underline ml-2 whitespace-nowrap"
-                            >
-                              Configure Fields &rarr;
-                            </button>
-                          </td>
-                        )}
-                      </tr>
-                    ))}
-                </>
-              ))
-            )}
+                ))}
+              </Fragment>
+            ))}
           </tbody>
         </table>
       </div>
-
-      {pendingToast && (
-        <div className="fixed bottom-4 right-4 bg-gray-900 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 z-50">
-          <span className="text-sm">Permission change pending...</span>
-          <button onClick={handleUndo} className="text-sm text-blue-400 hover:text-blue-300 font-medium">Undo</button>
-        </div>
-      )}
     </div>
   )
 }

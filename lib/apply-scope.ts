@@ -9,6 +9,7 @@
 
 import { prisma } from './prisma'
 import { getUserActiveRoleIds } from './permission-resolver'
+import type { DocTypeAction } from './permission-resolver'
 
 // Cast to any so we can access RBAC models that may not yet appear in the
 // generated Prisma client types (added in Phase 1 schema migrations).
@@ -97,23 +98,34 @@ async function getDeptAndDescendants(deptId: string): Promise<string[]> {
  */
 export async function buildScopeFilter(
   userId: string,
-  doctypeKey: string
+  doctypeKey: string,
+  action?: DocTypeAction,
 ): Promise<Record<string, unknown> | null> {
   // ── 1. Resolve the user's role IDs ───────────────────────────────────────
   const roleIds = await getUserActiveRoleIds(userId)
 
   // ── 2. Check if any role has applyScoping=false for this doctype ──────────
   //    Such a role grants an unrestricted view → return null (no filtering).
+  let scopedRoleIds = roleIds
   if (roleIds.length > 0) {
-    const bypassPerm = await db.roleDocTypePermission.findFirst({
-      where: {
-        roleId: { in: roleIds },
-        doctypeKey,
-        applyScoping: false,
-      },
-      select: { id: true },
-    })
-    if (bypassPerm) return null
+    const actionFields: Record<DocTypeAction, string> = {
+      read: 'canRead', write: 'canWrite', create: 'canCreate', delete: 'canDelete',
+      submit: 'canSubmit', export: 'canExport', print: 'canPrint', share: 'canShare',
+      import: 'canImport', report: 'canReport',
+    }
+    const grantingPerms: Array<{ roleId: string; applyScoping: boolean }> =
+      await db.roleDocTypePermission.findMany({
+        where: {
+          roleId: { in: roleIds },
+          doctypeKey,
+          ...(action ? { [actionFields[action]]: true } : {}),
+        },
+        select: { roleId: true, applyScoping: true },
+      })
+    if (grantingPerms.some((perm) => !perm.applyScoping)) return null
+    if (action) {
+      scopedRoleIds = Array.from(new Set(grantingPerms.map((perm) => perm.roleId)))
+    }
   }
 
   // ── 3. Fetch all active scope rules that apply to this user/doctype ───────
@@ -130,7 +142,7 @@ export async function buildScopeFilter(
       doctypeKey,
       isActive: true,
       OR: [
-        ...(roleIds.length > 0 ? [{ targetType: 'role', targetId: { in: roleIds } }] : []),
+        ...(scopedRoleIds.length > 0 ? [{ targetType: 'role', targetId: { in: scopedRoleIds } }] : []),
         { targetType: 'user', targetId: userId },
       ],
     },

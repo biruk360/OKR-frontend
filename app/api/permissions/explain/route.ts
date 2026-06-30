@@ -206,6 +206,8 @@ export const GET = withRole(
     // ------------------------------------------------------------------
     const overrides: Array<{
       id: string
+      doctypeKey: string | null
+      action: string | null
       overrideType: string
       reason: string
       grantedAt: Date
@@ -214,8 +216,12 @@ export const GET = withRole(
     }> = await db.userPermissionOverride.findMany({
       where: {
         userId,
-        doctypeKey,
-        action,
+        featureKey: null,
+        OR: [{ expiresAt: null }, { expiresAt: { gt: now() } }],
+        AND: [
+          { OR: [{ doctypeKey }, { doctypeKey: null }] },
+          { OR: [{ action }, { action: null }] },
+        ],
       },
       orderBy: { grantedAt: 'desc' },
     })
@@ -223,7 +229,9 @@ export const GET = withRole(
     const activeOverrides = overrides.filter(isActiveOverride)
 
     const denyOverride  = activeOverrides.find((o) => o.overrideType === 'deny')  ?? null
-    const grantOverride = activeOverrides.find((o) => o.overrideType === 'grant') ?? null
+    const grantOverride = activeOverrides.find((o) =>
+      o.overrideType === 'grant' && o.doctypeKey === doctypeKey && o.action === action
+    ) ?? null
 
     const explicitDeny: ExplainDetails['explicitDeny'] = denyOverride
       ? {
@@ -265,13 +273,40 @@ export const GET = withRole(
       },
     })
 
+    const profileAssignments: Array<{
+      profile: { memberships: Array<{ role: (typeof activeUserRoles)[number]['role'] }> }
+    }> = await db.userRoleProfile.findMany({
+      where: { userId },
+      include: {
+        profile: {
+          include: {
+            memberships: {
+              include: {
+                role: { include: { doctypePermissions: { where: { doctypeKey } } } },
+              },
+            },
+          },
+        },
+      },
+    })
+
+    const effectiveRoleMap = new Map<string, (typeof activeUserRoles)[number]>()
+    for (const assignment of activeUserRoles) effectiveRoleMap.set(assignment.role.id, assignment)
+    for (const assignment of profileAssignments) {
+      for (const membership of assignment.profile.memberships) {
+        effectiveRoleMap.set(membership.role.id, { role: membership.role })
+      }
+    }
+    const effectiveRoles = Array.from(effectiveRoleMap.values())
+    const effectiveAdminBypass = adminBypass || effectiveRoles.some(({ role }) => role.key === 'ADMIN')
+
     // ------------------------------------------------------------------
     // 5. Build roleGrants array
     //    For each active role, find if any of its RoleDocTypePermission
     //    rows for this doctypeKey grants the requested action (OR across
     //    permLevels — any single row granting is sufficient).
     // ------------------------------------------------------------------
-    const roleGrants: RoleGrantDetail[] = activeUserRoles.map(({ role }) => {
+    const roleGrants: RoleGrantDetail[] = effectiveRoles.map(({ role }) => {
       const granted = role.doctypePermissions.some((perm) =>
         getActionValue(perm, action)
       )
@@ -291,7 +326,7 @@ export const GET = withRole(
     let scopingApplied = false
     const grantingRoleIds: string[] = []
 
-    for (const { role } of activeUserRoles) {
+    for (const { role } of effectiveRoles) {
       for (const perm of role.doctypePermissions) {
         if (getActionValue(perm, action) && Boolean(perm.applyScoping)) {
           scopingApplied = true
@@ -348,7 +383,7 @@ export const GET = withRole(
     // ------------------------------------------------------------------
     let allowed: boolean
 
-    if (adminBypass) {
+    if (effectiveAdminBypass) {
       allowed = true
     } else if (denyOverride) {
       // Explicit deny always wins over role grants and explicit grants
@@ -363,7 +398,7 @@ export const GET = withRole(
     // 9. Build details + explanation
     // ------------------------------------------------------------------
     const details: ExplainDetails = {
-      adminBypass,
+      adminBypass: effectiveAdminBypass,
       explicitDeny,
       explicitGrant,
       roleGrants,

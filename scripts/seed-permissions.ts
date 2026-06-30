@@ -918,7 +918,9 @@ async function upsertDocTypePermissions(roleIdMap: Record<string, string>): Prom
           permLevel: 0,
           ...perms,
         },
-        update: perms,
+        // Preserve administrator changes made in Permission Manager. This
+        // script runs on every deploy and must only fill missing baseline rows.
+        update: {},
       })
       count++
     }
@@ -941,7 +943,7 @@ async function upsertDocTypePermissions(roleIdMap: Record<string, string>): Prom
           permLevel: 3,
           ...all(),
         },
-        update: all(),
+        update: {},
       })
       count++
     }
@@ -1048,7 +1050,8 @@ async function upsertFeaturePermissions(roleIdMap: Record<string, string>): Prom
           roleId_featureKey: { roleId, featureKey },
         },
         create: { roleId, featureKey, visible, enabled: visible },
-        update: { visible, enabled: visible },
+        // Do not reset a configured feature flag during deployment.
+        update: {},
       })
       count++
     }
@@ -1062,7 +1065,7 @@ async function upsertFeaturePermissions(roleIdMap: Record<string, string>): Prom
       await prisma.featurePermission.upsert({
         where: { roleId_featureKey: { roleId: performanceAdminRoleId, featureKey } },
         create: { roleId: performanceAdminRoleId, featureKey, visible: true, enabled: true },
-        update: { visible: true, enabled: true },
+        update: {},
       })
       count++
     }
@@ -1095,7 +1098,7 @@ async function upsertPerformanceFields(): Promise<void> {
     await prisma.docTypeFieldRegistry.upsert({
       where: { doctypeKey_fieldName: { doctypeKey, fieldName } },
       create: { doctypeKey, fieldName, displayLabel, permLevel, isSensitive: true },
-      update: { displayLabel, permLevel, isSensitive: true },
+      update: {},
     })
   }
   console.log(`  Upserted ${PERFORMANCE_FIELDS.length} sensitive field definitions`)
@@ -1192,13 +1195,7 @@ async function upsertScopeRules(roleIdMap: Record<string, string>): Promise<void
       })
       created++
     } else {
-      // Ensure it's active
-      if (!existing.isActive) {
-        await prisma.recordScopeRule.update({
-          where: { id: existing.id },
-          data: { isActive: true },
-        })
-      }
+      // Existing rules may have been intentionally disabled by an admin.
       skipped++
     }
   }

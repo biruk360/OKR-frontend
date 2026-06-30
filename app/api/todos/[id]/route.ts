@@ -1,6 +1,8 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { canEditKeyResultWithObjectiveContext, type UserRole } from '@/lib/permissions'
+import { resolveDocTypePermission } from '@/lib/permission-resolver'
+import { buildScopeFilter } from '@/lib/apply-scope'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { recordActivity } from '@/lib/activity-log'
 import { emit, resolveTodoStakeholders } from '@/lib/notifications'
@@ -127,11 +129,28 @@ export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { sess
       }
     )
   }
-  const hasAccess =
+  const legacyHasAccess =
     session.user.id === existingTodo.assigneeId ||
     session.user.id === existingTodo.creatorId ||
     canManageKr ||
     (['ADMIN', 'EXECUTIVE', 'DEPARTMENT_LEAD'] as string[]).includes(session.user.role)
+
+  let hasAccess = legacyHasAccess
+  try {
+    hasAccess = await resolveDocTypePermission(session.user.id, 'todo', 'write')
+    if (hasAccess) {
+      const scopeFilter = await buildScopeFilter(session.user.id, 'todo', 'write')
+      if (scopeFilter) {
+        const scopedTodo = await prisma.todo.findFirst({
+          where: { id: todoId, AND: [scopeFilter] },
+          select: { id: true },
+        })
+        hasAccess = scopedTodo !== null
+      }
+    }
+  } catch {
+    // Keep legacy access only while a deployment is still applying RBAC tables.
+  }
 
   if (!hasAccess) {
     return apiForbidden('Insufficient permissions to update this to-do')

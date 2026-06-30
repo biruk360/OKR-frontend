@@ -323,6 +323,41 @@ export default function FeaturesNavTab() {
     [permissions, selectedRoleId, getPerm]
   )
 
+  const toggleEnabled = useCallback(async (featureKey: string) => {
+    const current = getPerm(featureKey)
+    const latestPerms = permissions.map(permission =>
+      permission.featureKey === featureKey
+        ? { ...permission, enabled: !permission.enabled }
+        : permission
+    )
+    setPermissions(latestPerms)
+    setSaving(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/permissions/roles/${encodeURIComponent(selectedRoleId)}/features`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          features: latestPerms.map(permission => ({
+            featureKey: permission.featureKey,
+            visible: permission.visible,
+            enabled: permission.enabled,
+          })),
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok || !json.success) throw new Error(json.error ?? 'Failed to save')
+      setPermissions(json.data.features ?? [])
+    } catch (err) {
+      setPermissions(previous => previous.map(permission =>
+        permission.featureKey === featureKey ? { ...permission, enabled: current.enabled } : permission
+      ))
+      setError(err instanceof Error ? err.message : 'Failed to save feature permissions')
+    } finally {
+      setSaving(false)
+    }
+  }, [getPerm, permissions, selectedRoleId])
+
   // ---------------------------------------------------------------------------
   // Derive unique featureKeys and group them
   // ---------------------------------------------------------------------------
@@ -430,6 +465,7 @@ export default function FeaturesNavTab() {
                     <tr>
                       <th className="px-3 py-2.5 text-left font-semibold text-gray-600">Feature Key</th>
                       <th className="px-3 py-2.5 text-center font-semibold text-gray-600 w-28">Visible</th>
+                      <th className="px-3 py-2.5 text-center font-semibold text-gray-600 w-28">Enabled</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 bg-white">
@@ -462,6 +498,20 @@ export default function FeaturesNavTab() {
                             >
                               {perm.visible ? (
                                 <ToggleRight className="h-6 w-6 text-blue-600 hover:text-blue-700" />
+                              ) : (
+                                <ToggleLeft className="h-6 w-6 text-gray-300 hover:text-gray-400" />
+                              )}
+                            </button>
+                          </td>
+                          <td className="px-3 py-2 text-center">
+                            <button
+                              onClick={() => toggleEnabled(featureKey)}
+                              disabled={saving}
+                              className={cn('inline-flex items-center justify-center', saving && 'opacity-50 cursor-not-allowed')}
+                              title={perm.enabled ? 'Disable' : 'Enable'}
+                            >
+                              {perm.enabled ? (
+                                <ToggleRight className="h-6 w-6 text-green-600 hover:text-green-700" />
                               ) : (
                                 <ToggleLeft className="h-6 w-6 text-gray-300 hover:text-gray-400" />
                               )}

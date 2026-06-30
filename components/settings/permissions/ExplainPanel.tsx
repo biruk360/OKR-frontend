@@ -13,11 +13,11 @@ interface User {
 
 interface ExplainDetails {
   adminBypass: boolean
-  explicitDeny: string | null
-  explicitGrant: string | null
-  roleGrants: { role: string; field: string; value: boolean }[]
+  explicitDeny: { reason: string; expiresAt: string | null } | null
+  explicitGrant: { reason: string; expiresAt: string | null } | null
+  roleGrants: { roleName: string; roleKey: string; action: string; granted: boolean }[]
   scopingApplied: boolean
-  scopeRules: { field: string; operator: string; value: string }[]
+  scopeRules: { fieldName: string; operator: string; valueType: string }[]
 }
 
 interface ExplainResult {
@@ -87,7 +87,7 @@ export default function ExplainPanel() {
       const res = await fetch(`/api/permissions/explain?${params.toString()}`)
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Request failed')
-      setResult(json)
+      setResult(json.data)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to check permission')
     } finally {
@@ -224,14 +224,14 @@ export default function ExplainPanel() {
               <div className="flex items-start gap-2 text-sm text-gray-700">
                 <span className="text-gray-500 w-32 shrink-0">Explicit deny:</span>
                 <span className={result.details.explicitDeny ? 'text-red-600 font-medium' : 'text-gray-500'}>
-                  {result.details.explicitDeny ?? 'None'}
+                  {result.details.explicitDeny?.reason ?? 'None'}
                 </span>
               </div>
 
               <div className="flex items-start gap-2 text-sm text-gray-700">
                 <span className="text-gray-500 w-32 shrink-0">Explicit grant:</span>
                 <span className={result.details.explicitGrant ? 'text-green-600 font-medium' : 'text-gray-500'}>
-                  {result.details.explicitGrant ?? 'None'}
+                  {result.details.explicitGrant?.reason ?? 'None'}
                 </span>
               </div>
 
@@ -241,9 +241,9 @@ export default function ExplainPanel() {
                   <ul className="space-y-0.5">
                     {result.details.roleGrants.map((g, i) => (
                       <li key={i} className="font-medium">
-                        {g.role} → {g.field} ={' '}
-                        <span className={g.value ? 'text-green-600' : 'text-red-600'}>
-                          {String(g.value)}
+                        {g.roleName} → {g.action} ={' '}
+                        <span className={g.granted ? 'text-green-600' : 'text-red-600'}>
+                          {String(g.granted)}
                         </span>
                       </li>
                     ))}
@@ -264,7 +264,7 @@ export default function ExplainPanel() {
                   <ul className="space-y-0.5">
                     {result.details.scopeRules.map((r, i) => (
                       <li key={i} className="font-mono text-xs text-gray-700">
-                        {r.field} {r.operator} {r.value}
+                        {r.fieldName} {r.operator} {r.valueType}
                       </li>
                     ))}
                   </ul>

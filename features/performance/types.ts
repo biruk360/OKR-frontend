@@ -240,6 +240,16 @@ export type EvaluationReportContent = NonNullable<NonNullable<EvaluationDetail['
   okrAttainment?: OkrAttainment
 }
 
+/** Row returned by GET /api/performance/evaluations/[id]/activity (admin / lead-only audit trail). */
+export type EvaluationActivityEntry = {
+  id: string
+  action: string
+  actor: { id: string; name: string | null; avatar: string | null } | null
+  changes: Record<string, { from: unknown; to: unknown }> | null
+  metadata: Record<string, unknown> | null
+  createdAt: string
+}
+
 /** Extra fields returned by /api/performance/me beyond the base client type. */
 export type MyPerformanceChartData = {
   latestReport?: {

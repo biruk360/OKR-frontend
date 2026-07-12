@@ -263,6 +263,7 @@ model Objective {
   todos            Todo[]                 @relation("TodoObjective")
   contributors     ObjectiveContributor[]
   risks            Risk[]
+  projects         Project[] // Project Management module — projects linked to this objective (K1)
 
   @@index([departmentId])
   @@index([ownerId])
@@ -319,6 +320,7 @@ model KeyResult {
   risks            Risk[]
   performanceMetricMappings MetricSourceMapping[]
   performanceMetricSources  EvaluationMetricSource[]
+  milestones       Milestone[] // Project Management module — milestones driving this KR (K1)
 
   @@map("key_results")
 }
@@ -781,7 +783,7 @@ model ObjectiveLabel {
 /// `changes` is a JSON string: `{ field: { from: any, to: any }, ... }`.
 model ActivityLog {
   id          String   @id @default(cuid())
-  entityType  String // OBJECTIVE | KEY_RESULT | TODO | SPRINT | LETTER | EVALUATION | REVIEW_CYCLE | DEVELOPMENT_ACTION
+  entityType  String // OBJECTIVE | KEY_RESULT | TODO | SPRINT | LETTER | EVALUATION | REVIEW_CYCLE | DEVELOPMENT_ACTION | PERFORMANCE_SETTINGS
   objectiveId String?
   keyResultId String?
   todoId      String?
@@ -792,6 +794,10 @@ model ActivityLog {
   /// Performance module — optional evaluation association for evaluation, cycle,
   /// and development-action lifecycle events (cycle/action ids live in metadata).
   evaluationId String?
+  /// Project Management module — optional project association for project, phase,
+  /// milestone, activity, baseline, delay, and register lifecycle events
+  /// (child entity ids live in metadata).
+  projectId   String?
   action      String
   actorId     String?
   /// JSONB on Postgres — `{ field: { from, to } }`. Was `String` (JSON-encoded) before
@@ -808,6 +814,7 @@ model ActivityLog {
   sprint    Sprint?    @relation(fields: [sprintId], references: [id], onDelete: Cascade)
   letter    Letter?    @relation(fields: [letterId], references: [id], onDelete: Cascade)
   evaluation Evaluation? @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  project   Project?   @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([objectiveId, createdAt])
   @@index([keyResultId, createdAt])
@@ -815,6 +822,7 @@ model ActivityLog {
   @@index([sprintId, createdAt])
   @@index([letterId, createdAt])
   @@index([evaluationId, createdAt])
+  @@index([projectId, createdAt])
   @@index([entityType, createdAt])
   @@map("activity_logs")
 }
@@ -2232,4 +2240,679 @@ model RoleDocTypeFieldPermission {
 
   @@unique([roleId, doctypeKey, fieldName])
   @@map("role_doctype_field_permissions")
+}
+
+// =============================================================================
+// PROJECT MANAGEMENT & DELIVERY INTELLIGENCE MODULE
+// Build spec: docs/project_management_module_BUILD_SPEC.md (Part 3 — Data Model)
+// Conventions: enums stored as String; userId references are plain-string FKs
+// (no formal Prisma relation) to avoid User back-relation explosion — matching
+// the build spec. Formal relations only for intra-module links + Project->
+// Objective and Milestone->KeyResult (OKR integration, Epic K).
+// =============================================================================
+
+// --- 3.1 Core Schedule --------------------------------------------------------
+
+model Project {
+  id                  String    @id @default(cuid())
+  code                String    @unique // "PRJ-2026-014"
+  name                String
+  description         String?
+  clientName          String
+  clientId            String? // optional CRM link
+  projectManagerId    String // plain FK -> User
+  departmentId        String? // plain FK -> Department
+  templateId          String? // FK -> ProjectTemplate
+
+  // Dates
+  plannedStart        DateTime
+  plannedEnd          DateTime
+  actualStart         DateTime?
+  actualEnd           DateTime?
+
+  // Baseline
+  baselineCommittedAt DateTime? // NULL = not yet baselined
+  baselineVersion     Int       @default(0)
+
+  // Status & health
+  status              String    @default("PLANNING") // PLANNING|ACTIVE|ON_HOLD|COMPLETED|CANCELLED
+  ragStatus           String    @default("GREEN") // GREEN|AMBER|RED (computed)
+  confidence          Int       @default(100) // 0-100
+  percentComplete     Float     @default(0) // weighted rollup
+  percentPlanned      Float     @default(0) // expected % as of today
+
+  // EVM
+  spi                 Float?
+  cpi                 Float?
+  eac                 Float?
+  plannedValue        Float?
+  earnedValue         Float?
+  actualCost          Float?
+  budgetAtCompletion  Float?
+
+  // Contract
+  contractValue       Float?
+  currency            String    @default("ETB")
+
+  // Jira (OPTIONAL)
+  jiraLinked          Boolean   @default(false)
+  jiraConnectionId    String?
+
+  // Client portal
+  portalEnabled       Boolean   @default(false)
+  clientEmails        String[] // report distribution list
+
+  // OKR link
+  objectiveId         String?
+
+  createdById         String
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  archivedAt          DateTime?
+
+  phases              Phase[]
+  members             ProjectMember[]
+  delayEvents         DelayEvent[]
+  changeRequests      ChangeRequest[]
+  raidItems           RaidItem[]
+  stageGates          StageGate[]
+  clientObligations   ClientObligation[]
+  coeRecords          CorrectionOfError[]
+  paymentMilestones   PaymentMilestone[]
+  reports             ProjectReport[]
+  scrumLogs           ScrumLog[]
+  activityLogs        ActivityLog[]
+  template            ProjectTemplate? @relation(fields: [templateId], references: [id])
+  jiraConnection      JiraConnection?  @relation(fields: [jiraConnectionId], references: [id])
+  objective           Objective?       @relation(fields: [objectiveId], references: [id])
+
+  @@index([status, ragStatus])
+  @@index([projectManagerId])
+  @@map("projects")
+}
+
+model Phase {
+  id              String   @id @default(cuid())
+  projectId       String
+  name            String
+  position        Int
+  weight          Float    @default(0) // % contribution to project
+  percentComplete Float    @default(0) // rollup from milestones
+  status          String   @default("NOT_STARTED")
+
+  plannedStart    DateTime?
+  plannedEnd      DateTime?
+  baselineStart   DateTime?
+  baselineEnd     DateTime?
+  currentStart    DateTime?
+  currentEnd      DateTime?
+
+  project         Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  milestones      Milestone[]
+  stageGate       StageGate?
+
+  @@index([projectId, position])
+  @@map("project_phases")
+}
+
+model Milestone {
+  id              String   @id @default(cuid())
+  phaseId         String
+  name            String
+  position        Int
+  weight          Float    @default(0)
+  percentComplete Float    @default(0)
+  status          String   @default("NOT_STARTED")
+  isKeyMilestone  Boolean  @default(false) // shown as diamond on Gantt
+
+  baselineDate    DateTime?
+  currentDate     DateTime?
+
+  // OKR link
+  keyResultId     String?
+
+  phase           Phase      @relation(fields: [phaseId], references: [id], onDelete: Cascade)
+  activities      Activity[]
+  keyResult       KeyResult? @relation(fields: [keyResultId], references: [id])
+
+  @@index([phaseId, position])
+  @@map("project_milestones")
+}
+
+model Activity {
+  id               String   @id @default(cuid())
+  milestoneId      String
+  parentActivityId String? // ONE level of subtasks (Instagantt parity)
+  position         Int
+
+  title            String
+  description      String? // rich text
+
+  // Ownership — critical for delay attribution & client anonymization
+  assigneeId       String? // plain FK -> User. INTERNAL ONLY. Never sent to client.
+  ownerParty       String   @default("360GROUND") // 360GROUND | CLIENT | SHARED
+
+  // Baseline (frozen at commit — NEVER edited directly)
+  baselineStart    DateTime?
+  baselineEnd      DateTime?
+
+  // Current (live, editable)
+  currentStart     DateTime?
+  currentEnd       DateTime?
+
+  // Status enum: NOT_STARTED|STARTED|FINISHED|APPROVAL_REQUESTED|APPROVED|REJECTED
+  status           String   @default("NOT_STARTED")
+
+  percentComplete  Float    @default(0)
+  weight           Float    @default(1)
+
+  // Effort & cost
+  estimatedHours   Float?
+  actualHours      Float?
+  estimatedCost    Float?
+  actualCost       Float?
+
+  priority         String? // LOW|MEDIUM|HIGH|CRITICAL
+  risk             String? // LOW|MEDIUM|HIGH
+
+  isMilestone      Boolean  @default(false) // "Convert to Milestone"
+
+  // Delay ledger
+  waitingSince     DateTime? // set when status -> APPROVAL_REQUESTED
+  slipDays         Int      @default(0) // computed: currentEnd - baselineEnd
+  slipReason       String?
+  slipOwner        String? // 360GROUND | CLIENT | SHARED
+
+  // Custom bar color override (Activity Detail Panel)
+  color            String?
+
+  // Jira mapping
+  jiraIssueKeys    String[]
+  jiraAutoRollup   Boolean  @default(false)
+
+  milestone        Milestone            @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+  parent           Activity?            @relation("ActivitySubtasks", fields: [parentActivityId], references: [id])
+  subtasks         Activity[]           @relation("ActivitySubtasks")
+  predecessors     ActivityDependency[] @relation("Successor")
+  successors       ActivityDependency[] @relation("Predecessor")
+  comments         ActivityComment[]
+  attachments      ActivityAttachment[]
+  tags             ActivityTag[]
+  delayEvents      DelayEvent[]
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([milestoneId, position])
+  @@index([status])
+  @@index([assigneeId])
+  @@map("project_activities")
+}
+
+model ActivityDependency {
+  id            String   @id @default(cuid())
+  predecessorId String
+  successorId   String
+  type          String   @default("FS") // FS|SS|FF|SF
+  lagDays       Int      @default(0)
+  predecessor   Activity @relation("Predecessor", fields: [predecessorId], references: [id], onDelete: Cascade)
+  successor     Activity @relation("Successor", fields: [successorId], references: [id], onDelete: Cascade)
+
+  @@unique([predecessorId, successorId])
+  @@map("project_activity_dependencies")
+}
+
+model ActivityComment {
+  id             String   @id @default(cuid())
+  activityId     String
+  authorId       String // plain FK -> User (or ClientPortalUser when isClientAuthor)
+  content        String // HTML (WYSIWYG)
+  parentId       String? // threaded
+  visibility     String   @default("INTERNAL") // INTERNAL | CLIENT_VISIBLE
+  mentions       String[] // userIds @mentioned
+  isClientAuthor Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  activity       Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@index([activityId])
+  @@map("project_activity_comments")
+}
+
+model ActivityAttachment {
+  id           String   @id @default(cuid())
+  activityId   String
+  fileName     String
+  fileSize     Int
+  mimeType     String
+  storagePath  String
+  uploadedById String
+  visibility   String   @default("INTERNAL") // INTERNAL | CLIENT_VISIBLE
+  createdAt    DateTime @default(now())
+  activity     Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@map("project_activity_attachments")
+}
+
+model ActivityTag {
+  id         String   @id @default(cuid())
+  activityId String
+  label      String
+  color      String
+  activity   Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@map("project_activity_tags")
+}
+
+model ProjectMember {
+  id            String  @id @default(cuid())
+  projectId     String
+  userId        String
+  role          String // PM | DEVELOPER | QA | DESIGNER | BA | CLIENT_CONTACT
+  allocationPct Float   @default(100)
+  project       Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@map("project_members")
+}
+
+// --- 3.2 Delay Ledger (Epic C) ------------------------------------------------
+
+model DelayEvent {
+  id             String    @id @default(cuid())
+  projectId      String
+  activityId     String?
+
+  eventType      String // APPROVAL_WAIT | BASELINE_SLIP | BLOCKED
+  daysLost       Float
+
+  // Attribution
+  owner          String // CLIENT | 360GROUND | SHARED
+  reason         String // 9-value taxonomy (see build spec §C4)
+  reasonDetail   String?
+  phaseAtTime    String? // for Pareto analysis
+
+  startedAt      DateTime
+  endedAt        DateTime?
+  isAutoDetected Boolean   @default(false) // true = approval clock, false = PM-tagged
+
+  // Recovery plan (Delay Ledger T1)
+  recoveryPlan   String?
+  recoveryOwner  String?
+  recoveryDate   DateTime?
+
+  recordedById   String?
+  createdAt      DateTime  @default(now())
+
+  project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  activity       Activity? @relation(fields: [activityId], references: [id])
+
+  @@index([projectId, owner])
+  @@index([reason])
+  @@map("project_delay_events")
+}
+
+model BaselineSnapshot {
+  id           String   @id @default(cuid())
+  projectId    String
+  version      Int
+  reason       String // why re-baselined
+  approvedById String
+  snapshotJson Json // full schedule at time of baseline
+  createdAt    DateTime @default(now())
+
+  @@unique([projectId, version])
+  @@map("project_baseline_snapshots")
+}
+
+// --- 3.3 Governance Registers (Epic H) ---------------------------------------
+
+model RaidItem {
+  id             String    @id @default(cuid())
+  projectId      String
+  type           String // RISK | ASSUMPTION | ISSUE | DEPENDENCY
+  refCode        String // "R-001", "I-004"
+  title          String
+  description    String?
+  category       String?
+
+  // RISK-specific
+  probability    Int? // 1-5
+  impact         Int? // 1-5
+  score          Int? // computed P x I
+  mitigation     String?
+  contingency    String?
+
+  // ISSUE-specific
+  severity       String? // LOW|MEDIUM|HIGH|CRITICAL
+  resolution     String?
+  daysOpen       Int? // computed
+
+  // DEPENDENCY-specific
+  dependsOnParty String? // CLIENT | 360GROUND | THIRD_PARTY
+  neededByDate   DateTime?
+
+  // ASSUMPTION-specific
+  validated      Boolean?  @default(false)
+  validatedAt    DateTime?
+  impactIfFalse  String?
+
+  ownerId        String?
+  status         String    @default("OPEN") // OPEN|MITIGATING|CLOSED|REALISED
+  clientVisible  Boolean   @default(false)
+  reviewDate     DateTime?
+  createdAt      DateTime  @default(now())
+  closedAt       DateTime?
+  project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, type, status])
+  @@map("project_raid_items")
+}
+
+model ChangeRequest {
+  id                  String    @id @default(cuid())
+  projectId           String
+  crCode              String // "CR-001"
+  title               String
+  description         String
+  type                String // SCOPE_ADD | REQUIREMENT_CHANGE | DESCOPE
+  requestedBy         String // free text
+  requestedByParty    String // CLIENT | 360GROUND
+  requestDate         DateTime
+
+  scheduleImpactDays  Float     @default(0)
+  costImpact          Float     @default(0)
+  affectedActivityIds String[]
+
+  status              String    @default("SUBMITTED") // SUBMITTED|UNDER_REVIEW|APPROVED|REJECTED|IMPLEMENTED
+  ccbDecisionDate     DateTime?
+  approvedById        String?
+  clientSignOff       Boolean   @default(false)
+  clientSignOffAt     DateTime?
+  rejectionReason     String?
+
+  createdAt           DateTime  @default(now())
+  project             Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, status])
+  @@map("project_change_requests")
+}
+
+model StageGate {
+  id                   String    @id @default(cuid())
+  projectId            String
+  phaseId              String    @unique
+  name                 String // "Requirements Gate"
+  entryCriteria        String[]
+  exitCriteria         String[]
+  requiredDeliverables String[]
+  requiredApprovals    String[]
+  status               String    @default("NOT_REACHED") // NOT_REACHED|PENDING|PASSED|FAILED|WAIVED
+  gateDate             DateTime?
+  approvedById         String?
+  waiverReason         String? // MANDATORY if WAIVED
+  waivedById           String?
+  project              Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  phase                Phase     @relation(fields: [phaseId], references: [id], onDelete: Cascade)
+
+  @@map("project_stage_gates")
+}
+
+model ClientObligation {
+  id                String   @id @default(cuid())
+  projectId         String
+  obligation        String
+  type              String // APPROVAL|AVAILABILITY|DATA|ACCESS|DECISION|ENVIRONMENT
+  responsiblePerson String // named client-side person
+  responsibleEmail  String?
+  slaBusinessDays   Int
+  isContractual     Boolean  @default(false)
+  breachCount       Int      @default(0)
+  complianceRate    Float? // computed %
+  notes             String?
+  project           Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("project_client_obligations")
+}
+
+model ApprovalSlaBreach {
+  id                String    @id @default(cuid())
+  projectId         String
+  activityId        String
+  obligationId      String?
+  sentForApprovalAt DateTime
+  slaBusinessDays   Int
+  approvedAt        DateTime?
+  daysOverSla       Float
+  clientApprover    String?
+  createdAt         DateTime  @default(now())
+
+  @@index([projectId])
+  @@map("project_approval_sla_breaches")
+}
+
+model CorrectionOfError {
+  id              String    @id @default(cuid())
+  projectId       String
+  coeCode         String // "COE-001"
+  trigger         String // what slipped
+  daysLost        Float
+  costImpact      Float?
+  timeline        String // factual sequence
+  whys            Json // 5-Whys chain: [{why, answer}]
+  rootCauseClass  String // PLANNING|REQUIREMENTS|APPROVAL|IMPLEMENTATION|ESTIMATION|EXTERNAL
+  systemicFix     String // the mechanism that prevents recurrence
+  fixOwnerId      String
+  fixDueDate      DateTime
+  fixStatus       String    @default("OPEN") // OPEN|IN_PROGRESS|DONE
+  fedIntoTemplate Boolean   @default(false)
+  closedAt        DateTime?
+  createdAt       DateTime  @default(now())
+  project         Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("project_correction_of_errors")
+}
+
+model PaymentMilestone {
+  id                 String    @id @default(cuid())
+  projectId          String
+  name               String
+  contractClause     String?
+  triggerActivityId  String? // fires when this activity -> APPROVED
+  amount             Float
+  currency           String    @default("ETB")
+  plannedInvoiceDate DateTime?
+  actualInvoiceDate  DateTime?
+  invoiceStatus      String    @default("PENDING") // PENDING|INVOICED|PAID|OVERDUE
+  paymentStatus      String    @default("UNPAID")
+  daysOutstanding    Int?
+  project            Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("project_payment_milestones")
+}
+
+// --- 3.4 Jira Integration (Epic G) -------------------------------------------
+
+model JiraConnection {
+  id             String        @id @default(cuid())
+  name           String
+  siteUrl        String // https://xxx.atlassian.net
+  authType       String        @default("API_TOKEN") // API_TOKEN | OAUTH2
+  email          String? // for API_TOKEN
+  encryptedToken String // AES-256 encrypted at rest
+  projectKey     String // Jira project key e.g. "MEDA"
+  isActive       Boolean       @default(true)
+  lastSyncAt     DateTime?
+  lastSyncStatus String? // SUCCESS|PARTIAL|FAILED
+  createdById    String
+  createdAt      DateTime      @default(now())
+  projects       Project[]
+  syncLogs       JiraSyncLog[]
+  issues         JiraIssue[]
+  sprints        JiraSprint[]
+
+  @@map("project_jira_connections")
+}
+
+model JiraIssue {
+  id                      String           @id @default(cuid())
+  connectionId            String
+  jiraKey                 String // "MEDA-142"
+  jiraId                  String
+  summary                 String
+  issueType               String // Bug|Story|Task|Epic|Sub-task
+  status                  String
+  statusCategory          String // TODO|IN_PROGRESS|DONE
+  assigneeEmail           String?
+  assigneeUserId          String? // resolved -> platform User
+  epicKey                 String?
+  sprintId                String?
+  storyPoints             Float?
+  originalEstimateSeconds Int?
+  timeSpentSeconds        Int?
+  labels                  String[]
+  components              String[]
+  jiraCreatedAt           DateTime
+  jiraUpdatedAt           DateTime
+  resolvedAt              DateTime?
+  isBlocked               Boolean          @default(false)
+  blockedSince            DateTime?
+  lastActivityAt          DateTime? // for IDLE detection
+  connection              JiraConnection   @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  worklogs                JiraWorklog[]
+  transitions             JiraTransition[]
+
+  @@unique([connectionId, jiraKey])
+  @@index([assigneeUserId])
+  @@index([sprintId])
+  @@map("project_jira_issues")
+}
+
+model JiraSprint {
+  id              String         @id @default(cuid())
+  connectionId    String
+  jiraSprintId    String
+  name            String
+  state           String // future|active|closed
+  startDate       DateTime?
+  endDate         DateTime?
+  completeDate    DateTime?
+  committedPoints Float?
+  completedPoints Float?
+  connection      JiraConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@unique([connectionId, jiraSprintId])
+  @@map("project_jira_sprints")
+}
+
+model JiraWorklog {
+  id               String    @id @default(cuid())
+  issueId          String
+  authorEmail      String
+  authorUserId     String?
+  timeSpentSeconds Int
+  startedAt        DateTime
+  issue            JiraIssue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+
+  @@index([authorUserId, startedAt])
+  @@map("project_jira_worklogs")
+}
+
+model JiraTransition {
+  id             String    @id @default(cuid())
+  issueId        String
+  fromStatus     String?
+  toStatus       String
+  transitionedAt DateTime
+  authorEmail    String?
+  issue          JiraIssue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+
+  @@index([issueId, transitionedAt])
+  @@map("project_jira_transitions")
+}
+
+model JiraSyncLog {
+  id             String         @id @default(cuid())
+  connectionId   String
+  trigger        String // CRON|MANUAL|WEBHOOK
+  status         String // SUCCESS|PARTIAL|FAILED
+  issuesPulled   Int            @default(0)
+  sprintsPulled  Int            @default(0)
+  worklogsPulled Int            @default(0)
+  errors         String?
+  durationMs     Int
+  createdAt      DateTime       @default(now())
+  connection     JiraConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@map("project_jira_sync_logs")
+}
+
+// --- 3.5 Templates, Scrum, Reports, Portal -----------------------------------
+
+model ProjectTemplate {
+  id            String    @id @default(cuid())
+  name          String // "Standard Software Delivery"
+  description   String?
+  version       Int       @default(1)
+  isSystem      Boolean   @default(false)
+  structureJson Json // phases -> milestones -> activities
+  createdById   String
+  createdAt     DateTime  @default(now())
+  projects      Project[]
+
+  @@map("project_templates")
+}
+
+model ScrumLog {
+  id             String   @id @default(cuid())
+  projectId      String
+  scrumDate      DateTime
+  timeHeld       String // "09:15"
+  durationMin    Int
+  facilitatorId  String
+  attendeeIds    String[]
+  absenteeIds    String[]
+  lateIds        String[]
+  blockersRaised String?
+  notes          String?
+  createdAt      DateTime @default(now())
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, scrumDate])
+  @@map("project_scrum_logs")
+}
+
+model ProjectReport {
+  id              String    @id @default(cuid())
+  projectId       String? // null = portfolio-level (WBR)
+  type            String // CLIENT_BIMONTHLY|WBR|INDIVIDUAL|TEAM|SCRUM|STEERING|COE|PORTFOLIO|ESTIMATION|CAPACITY
+  periodStart     DateTime
+  periodEnd       DateTime
+  status          String    @default("DRAFT") // DRAFT|PM_REVIEW|APPROVED|SENT
+  aiSummary       String? // AI-generated, PM-EDITABLE
+  aiSummaryEdited Boolean   @default(false)
+  contentJson     Json // full report payload
+  generatedAt     DateTime  @default(now())
+  approvedById    String?
+  approvedAt      DateTime?
+  sentAt          DateTime?
+  sentToEmails    String[]
+  project         Project?  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, type])
+  @@map("project_reports")
+}
+
+model ClientPortalUser {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String
+  clientName   String
+  passwordHash String
+  projectIds   String[] // HARD scope — only these projects
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdById  String
+  createdAt    DateTime  @default(now())
+
+  @@map("project_client_portal_users")
 }

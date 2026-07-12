@@ -13,11 +13,29 @@ function isoWeekKey(date: Date): string {
 }
 
 export async function POST(request: NextRequest) {
+  const url = new URL(request.url)
   const expected = process.env.CRON_SECRET
   if (expected) {
     const auth = request.headers.get('authorization') || ''
-    const key = auth.replace(/^Bearer\s+/i, '') || new URL(request.url).searchParams.get('key') || ''
+    const key = auth.replace(/^Bearer\s+/i, '') || url.searchParams.get('key') || ''
     if (key !== expected) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  // Only send on the configured weekly nudge day (ISO weekday, Monday = 1).
+  // `?force=1` bypasses the day gate for manual runs; idempotency per weekKey still holds.
+  const settings = await prisma.performanceSettings.upsert({
+    where: { id: 'singleton' },
+    create: { id: 'singleton' },
+    update: {},
+  })
+  const todayIso = new Date().getUTCDay() || 7
+  const force = url.searchParams.get('force') === '1'
+  if (!force && todayIso !== settings.weeklyNudgeDay) {
+    return NextResponse.json({
+      success: true,
+      skipped: true,
+      reason: `Weekly nudge day is ${settings.weeklyNudgeDay} (ISO, Monday=1); today is ${todayIso}`,
+    })
   }
 
   const weekKey = isoWeekKey(new Date())

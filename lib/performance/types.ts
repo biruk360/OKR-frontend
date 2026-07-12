@@ -43,3 +43,20 @@ export type TemplateValidationIssue = {
   message: string
 }
 
+/**
+ * Configurable reward/development recommendation rules stored on
+ * PerformanceSettings.recommendationRulesJson (null = defaults).
+ */
+export type RecommendationRules = {
+  /** PROMOTION for Ready band requires an improving normalized trend vs the prior finalized cycle. */
+  readyPromotionRequiresImprovingTrend: boolean
+  /** SALARY_ADJUSTMENT for Ready band + gatekeeper pass. */
+  readySalaryAdjustment: boolean
+  /** Top-tier BONUS ({ tier: 'top' }) for Ready band + gatekeeper pass. */
+  readyTopTierBonus: boolean
+  /** BONUS for On Track band. */
+  onTrackBonus: boolean
+  /** TRAINING recommended for each criterion consolidated below this score. */
+  criterionTrainingThreshold: number
+}
+

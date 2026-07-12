@@ -122,3 +122,59 @@ This is a **Next.js 14 OKR Management System** — TypeScript, Tailwind CSS, Pri
 | EMPLOYEE | Own individual objectives, assigned todos |
 
 See `lib/permissions.ts` for the full matrix.
+
+---
+
+## Project Management Module — Guardrails
+
+> The **Project Management & Delivery Intelligence** module (`features/projects/`, `lib/projects/`,
+> `app/dashboard/projects/`, `app/portal/`, `app/api/projects/`, `app/api/portal/`) is built to
+> `docs/project_management_module_BUILD_SPEC.md`. Status is tracked in
+> `docs/PROJECT_MANAGEMENT_MODULE_TRACKER.md` — **update the tracker row for every feature you touch.**
+> All the "Before Writing Code", "Rules (Non-Negotiable)", and "After Completing Work" sections above
+> apply in full. The rules below are additional and **override nothing** — they are non-negotiable.
+
+### General development rules (apply module-wide)
+
+1. **Reuse first, always.** Before adding any dependency, component, hook, service, type, or design
+   token, confirm nothing existing satisfies the need (see the reuse table in the tracker/plan). The
+   platform already provides auth (`lib/api/withAuth.ts`), the response envelope
+   (`lib/api/apiResponse.ts`), audit (`lib/activity-log.ts`), notifications (`lib/notifications/*`),
+   confidence pattern (`lib/confidence-calc.ts`), OKR rollup (`lib/objectiveProgress.ts`), all UI
+   primitives (`components/ui/*`), charts (`recharts`), rich-text (TipTap), tables
+   (`@tanstack/react-table`/`ag-grid`), mindmap (`reactflow`), PDF (`lib/letter-pdf-puppeteer.ts`),
+   and AI (`@anthropic-ai/sdk` + `AiGenerationLog`). The **only** approved new dependency is
+   `@tanstack/react-virtual` (Gantt row virtualization).
+2. **Design system is the existing one.** Apple-HIG tokens only: `surface-*`/`ink-*`/`primary`/
+   `success`/`warning`/`danger`, `rounded-card`/`shadow-card`, `text-page-title`/`text-section-title`/
+   `text-body`/`text-body-sm`, `ease-apple` 180ms, Lucide ~1.75px, skeletons over spinners. **No
+   hardcoded hex.** The spec's 6 exact Gantt status colors + baseline-ghost are registered as named
+   `project-status-*` tokens in `tailwind.config.js` — use those tokens, never inline hex.
+3. **The Gantt is a custom React component.** Do **NOT** use `dhtmlx-gantt` for this module.
+4. **Business logic lives in `lib/projects/*` services** (`rollup`, `confidence`, `delay-ledger`,
+   `business-days`, `scheduling`, `evm`) and is unit-tested. Routes stay thin; features never import
+   other features.
+
+### The 10 Critical Invariants (must never break — §6.3 of the spec)
+
+1. ⭐ **`baselineStart`/`baselineEnd` are immutable after commit.** Enforce with a **server-side
+   write guard** (reject with 403), never a UI-only lock.
+2. ⭐ **No date change on a baselined project without a slip reason + owner.** Hard gate — the write
+   does not persist until reason+owner are supplied; the Gantt bar reverts on cancel.
+3. ⭐ **The Approval Clock is automatic.** Setting an activity to `APPROVAL_REQUESTED` starts it and
+   `APPROVED`/`REJECTED` stops it, creating a `DelayEvent` with **business-day** math — no PM action
+   required to accrue client delay.
+4. ⭐ **No employee name, userId, or avatar ever reaches the client portal.** All `/api/portal/*`
+   responses go through the single `features/projects/services/portal-serializer.ts`; owner is shown
+   as "Your Team"/"360Ground Team". An **automated test asserts zero DB `User.name` in any portal
+   response** — it must pass before the portal ships.
+5. ⭐ **Internal comments/attachments are filtered at the SQL level** (`WHERE
+   visibility='CLIENT_VISIBLE'`), never hidden by CSS. Visibility defaults to `INTERNAL` (fail-safe).
+6. ⭐ **AI output is capped (≤5 bullets / ≤800 chars) and post-validated**, and requires explicit PM
+   approval before any external use. Never auto-send. Reuse `AiGenerationLog`.
+7. **Jira is read-only.** Never write to Jira. Tokens are AES-256 encrypted at rest and never
+   returned by any API.
+8. **Projects work fully without Jira.** Layer 1 (schedule of record) is always sufficient; a Jira
+   failure never breaks a project page.
+9. **Rollup runs in the same DB transaction as the mutation** — no stale percentages.
+10. **Every mutation writes to `ActivityLog`** via `recordActivity()`.

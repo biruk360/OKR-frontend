@@ -1,20 +1,27 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSession } from 'next-auth/react'
-import { AlertTriangle, CheckCircle2, ExternalLink, FileX2, Info, LockKeyhole, RefreshCw, Save, SearchX } from 'lucide-react'
-import { Alert, AlertDescription, AlertTitle, Button, EmptyState, Input, Textarea, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui'
+import { useQueries } from '@tanstack/react-query'
+import { AlertTriangle, CheckCircle2, ExternalLink, FileX2, Info, LockKeyhole, RefreshCw, Save, SearchX, UserX } from 'lucide-react'
+import { Alert, AlertDescription, AlertTitle, Button, ConfirmDialog, EmptyState, Input, Label, Textarea, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui'
 import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton'
+import { performanceApi } from '../services/api'
 import { useEvaluation, useMetricActual, useRetryConsolidation, useSaveScores, useSubmitEvaluation } from '../hooks/queries'
+import { useExcuseEvaluation } from '../hooks/ui-extras'
 import { humanizeEnum, PerformanceStatusBadge } from './PerformanceStatusBadge'
 import { PerformanceReport } from './PerformanceReport'
 import { CalibrationPanel } from './CalibrationPanel'
+import { EvaluationActivityPanel } from './EvaluationActivityPanel'
 import { PanelManager } from './PanelManager'
 import { SectionCard } from './SectionCard'
 import { usePerformancePermissions } from '../hooks/usePerformancePermissions'
 
 type DraftScore = { score: string; remark: string }
+
+/** Debounced autosave fires this long after the last keystroke (blur-save remains the fast path). */
+const AUTOSAVE_DELAY_MS = 3000
 
 function MetricActualCell({ evaluationId, criterionId }: { evaluationId: string; criterionId: string }) {
   const query = useMetricActual(evaluationId, criterionId)
@@ -108,8 +115,15 @@ export function ScoringWorkspace({ evaluationId }: { evaluationId: string }) {
   const canRetryConsolidation = permissions.canFeature('module.performance')
     && permissions.canDo('evaluation', 'canRead')
     && permissions.canDo('criterion_result', 'canWrite')
+  const excuse = useExcuseEvaluation(evaluationId)
+  const canExcuse = permissions.canFeature('module.performance') && permissions.canDo('evaluation', 'canSubmit')
+  const [excuseOpen, setExcuseOpen] = useState(false)
+  const [excuseReason, setExcuseReason] = useState('')
   const [drafts, setDrafts] = useState<Record<string, DraftScore>>({})
   const [clampHints, setClampHints] = useState<Record<string, string>>({})
+  // Criterion ids edited since the last save — drained by blur-save and the debounced autosave.
+  const [dirtyIds, setDirtyIds] = useState<ReadonlySet<string>>(new Set())
+  const saveScoresBatch = save.mutateAsync
 
   useEffect(() => {
     if (!query.data?.scores) return
@@ -117,6 +131,56 @@ export function ScoringWorkspace({ evaluationId }: { evaluationId: string }) {
     for (const score of query.data.scores) next[score.criterionId] = { score: String(score.score), remark: score.remark ?? '' }
     setDrafts(next)
   }, [query.data?.scores])
+
+  // Auto-computed METRIC criteria: their scores come from useMetricActual queries
+  // (shared with each MetricActualCell via identical query keys), so the header
+  // total can include them once resolved.
+  const scoringView = !!query.data && !query.data.sealed && !!query.data.template && !!query.data.scores
+  const autoCriteria = useMemo(
+    () => (query.data?.template?.tiers ?? [])
+      .flatMap((tier) => tier.criteria)
+      .filter((criterion) => criterion.type === 'METRIC' && criterion.scoringRuleJson?.type !== 'MANUAL'),
+    [query.data],
+  )
+  const metricQueries = useQueries({
+    queries: autoCriteria.map((criterion) => ({
+      queryKey: ['performance', 'metric-actual', evaluationId, criterion.id] as const,
+      queryFn: () => performanceApi.getMetricActual(evaluationId, criterion.id),
+      enabled: scoringView,
+    })),
+  })
+
+  // Timed autosave: ~3s after the last keystroke, flush every dirty draft in one
+  // batched save. The timer resets on each draft change; dirty ids clear on flush
+  // (and on blur-save) so rows are never double-saved.
+  useEffect(() => {
+    if (dirtyIds.size === 0) return
+    const criteria = (query.data?.template?.tiers ?? []).flatMap((tier) => tier.criteria)
+    const maxByCriterion = new Map(criteria.map((criterion) => [criterion.id, criterion.maxPoints]))
+    const timer = window.setTimeout(() => {
+      const rows = Array.from(dirtyIds).flatMap((criterionId) => {
+        const draft = drafts[criterionId]
+        if (!draft || draft.score === '') return []
+        const raw = Number(draft.score)
+        if (!Number.isFinite(raw)) return []
+        const max = maxByCriterion.get(criterionId)
+        return [{ criterionId, score: max === undefined ? raw : Math.min(Math.max(raw, 0), max), remark: draft.remark }]
+      })
+      setDirtyIds(new Set())
+      if (rows.length > 0) void saveScoresBatch(rows).catch(() => { /* onError already toasts */ })
+    }, AUTOSAVE_DELAY_MS)
+    return () => window.clearTimeout(timer)
+  }, [dirtyIds, drafts, query.data, saveScoresBatch])
+
+  function markDirty(criterionId: string) {
+    setDirtyIds((current) => { const next = new Set(current); next.add(criterionId); return next })
+  }
+  function clearDirty(criterionId: string) {
+    setDirtyIds((current) => {
+      if (!current.has(criterionId)) return current
+      const next = new Set(current); next.delete(criterionId); return next
+    })
+  }
 
   if (query.isLoading) {
     return (
@@ -150,6 +214,7 @@ export function ScoringWorkspace({ evaluationId }: { evaluationId: string }) {
           </div>
         </div>
         <PerformanceReport evaluation={evaluation} />
+        <EvaluationActivityPanel evaluationId={evaluationId} />
       </div>
     )
   }
@@ -161,9 +226,27 @@ export function ScoringWorkspace({ evaluationId }: { evaluationId: string }) {
     && (evaluation.assignments?.length ?? 0) > 0
     && (evaluation.assignments ?? []).every((assignment) => assignment.status === 'SUBMITTED')
 
+  // Running raw grand total across all tiers: draft (rubric + manual metric)
+  // scores plus auto-metric computed scores once their queries resolve.
+  const draftTotal = evaluation.template.tiers.reduce(
+    (sum, tier) => sum + tier.criteria.reduce((tierSum, criterion) => tierSum + Number(drafts[criterion.id]?.score || 0), 0),
+    0,
+  )
+  const resolvedMetricScores = metricQueries
+    .map((metricQuery) => metricQuery.data?.score)
+    .filter((score): score is number => typeof score === 'number' && Number.isFinite(score))
+  const pendingMetricCount = autoCriteria.length - resolvedMetricScores.length
+  const grandTotal = draftTotal + resolvedMetricScores.reduce((sum, score) => sum + score, 0)
+  const totalCaption = pendingMetricCount === 0
+    ? 'Running raw total'
+    : pendingMetricCount === autoCriteria.length
+      ? 'Running raw total · rubric + manual only'
+      : `Running raw total · ${pendingMetricCount} metric score${pendingMetricCount === 1 ? '' : 's'} unresolved`
+
   async function saveCriterion(criterionId: string) {
     const draft = drafts[criterionId]
     if (!draft || draft.score === '') return
+    clearDirty(criterionId)
     await save.mutateAsync([{ criterionId, score: Number(draft.score), remark: draft.remark }])
   }
 
@@ -178,6 +261,7 @@ export function ScoringWorkspace({ evaluationId }: { evaluationId: string }) {
     if (Number.isFinite(raw)) {
       const clamped = Math.min(Math.max(raw, 0), criterion.maxPoints)
       if (clamped !== raw) {
+        clearDirty(criterion.id)
         setDrafts((current) => ({ ...current, [criterion.id]: { score: String(clamped), remark: current[criterion.id]?.remark ?? '' } }))
         setClampHints((current) => ({ ...current, [criterion.id]: `Adjusted to ${clamped} — allowed range is 0–${criterion.maxPoints}.` }))
         window.setTimeout(() => setClampHints((current) => {
@@ -201,7 +285,16 @@ export function ScoringWorkspace({ evaluationId }: { evaluationId: string }) {
           <div className="flex items-center gap-2"><h2 className="text-lg font-semibold" style={{ letterSpacing: '-0.01em' }}>{evaluation.employee.name}</h2><PerformanceStatusBadge status={evaluation.status} /></div>
           <p className="text-[13px] text-muted-foreground">{evaluation.cycle.name} · {evaluation.template.family.name}</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="text-right">
+            <p className="text-sm font-semibold tabular-nums">{grandTotal.toFixed(1)} / {evaluation.template.maxTotal}</p>
+            <p className="text-[11px] text-muted-foreground">{totalCaption}</p>
+          </div>
+          {canExcuse && !['EXCUSED', 'FINALIZED'].includes(evaluation.status) && (
+            <Button size="sm" variant="outline" onClick={() => { setExcuseReason(''); setExcuseOpen(true) }}>
+              <UserX className="mr-1 size-3.5" /> Excuse evaluation
+            </Button>
+          )}
           {canManagePanel && panelEditable && <PanelManager evaluation={evaluation} />}
           {canRetryConsolidation && consolidationStuck && (
             <Button size="sm" variant="outline" onClick={() => retryConsolidation.mutate()} disabled={retryConsolidation.isPending}>
@@ -244,13 +337,19 @@ export function ScoringWorkspace({ evaluationId }: { evaluationId: string }) {
                           value={drafts[criterion.id]?.score ?? ''}
                           disabled={assignmentLocked || !canSave}
                           placeholder="Score"
-                          onChange={(event) => setDrafts((current) => ({ ...current, [criterion.id]: { score: event.target.value, remark: current[criterion.id]?.remark ?? '' } }))}
+                          onChange={(event) => {
+                            markDirty(criterion.id)
+                            setDrafts((current) => ({ ...current, [criterion.id]: { score: event.target.value, remark: current[criterion.id]?.remark ?? '' } }))
+                          }}
                           onBlur={() => clampAndSave(criterion)}
                           onKeyDown={(event) => {
-                            if (event.key !== 'Enter') return
+                            if (event.key !== 'Enter' && event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
+                            // Prevent the number input's default increment/decrement — Up/Down navigate the grid.
+                            event.preventDefault()
                             const inputs = Array.from(document.querySelectorAll<HTMLInputElement>('[data-score-input]:not(:disabled)'))
                             const index = inputs.indexOf(event.currentTarget)
-                            inputs[index + 1]?.focus()
+                            const delta = event.key === 'ArrowUp' ? -1 : 1
+                            inputs[index + delta]?.focus()
                           }}
                         />
                         {clampHints[criterion.id] && <p className="mt-1 text-[11px] text-warning-700">{clampHints[criterion.id]}</p>}
@@ -259,7 +358,10 @@ export function ScoringWorkspace({ evaluationId }: { evaluationId: string }) {
                         value={drafts[criterion.id]?.remark ?? ''}
                         disabled={assignmentLocked || !canSave}
                         placeholder="Optional criterion remark"
-                        onChange={(event) => setDrafts((current) => ({ ...current, [criterion.id]: { score: current[criterion.id]?.score ?? '', remark: event.target.value } }))}
+                        onChange={(event) => {
+                          markDirty(criterion.id)
+                          setDrafts((current) => ({ ...current, [criterion.id]: { score: current[criterion.id]?.score ?? '', remark: event.target.value } }))
+                        }}
                         onBlur={() => saveCriterion(criterion.id)}
                       />
                       {canSave && <Button variant="outline" size="sm" disabled={assignmentLocked || save.isPending} onClick={() => saveCriterion(criterion.id)}><Save className="size-3.5" /></Button>}
@@ -271,6 +373,33 @@ export function ScoringWorkspace({ evaluationId }: { evaluationId: string }) {
           </SectionCard>
         )
       })}
+      <EvaluationActivityPanel evaluationId={evaluationId} />
+      <ConfirmDialog
+        open={excuseOpen}
+        onClose={() => { setExcuseOpen(false); setExcuseReason('') }}
+        onConfirm={async () => {
+          if (!excuseReason.trim()) return
+          try {
+            await excuse.mutateAsync(excuseReason.trim())
+            setExcuseOpen(false)
+            setExcuseReason('')
+          } catch { /* onError already toasts; keep the dialog open */ }
+        }}
+        title="Excuse evaluation"
+        message={`Excuse ${evaluation.employee.name} from this review cycle?`}
+        description="The evaluation is removed from evaluator queues and excluded from cycle completion. This is an administrator action — provide a reason for the audit trail."
+        variant="danger"
+        icon={UserX}
+        confirmLabel="Excuse evaluation"
+        isLoading={excuse.isPending}
+        disabled={!excuseReason.trim()}
+        extraContent={
+          <div>
+            <Label>Reason</Label>
+            <Textarea value={excuseReason} onChange={(event) => setExcuseReason(event.target.value)} placeholder="Why is this evaluation being excused?" />
+          </div>
+        }
+      />
     </div>
   )
 }

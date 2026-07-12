@@ -377,6 +377,7 @@ Implementation reference: `docs/PERFORMANCE_SCORECARD_IMPLEMENTATION_PROPOSAL.md
 | `/dashboard/performance/templates/[id]` | `app/dashboard/performance/templates/[id]/page.tsx` | Template builder and metric mappings |
 | `/dashboard/performance/cycles` | `app/dashboard/performance/cycles/page.tsx` | Review-cycle management |
 | `/dashboard/performance/actions` | `app/dashboard/performance/actions/page.tsx` | Development/reward action queue |
+| `/dashboard/performance/settings` | `app/dashboard/performance/settings/page.tsx` | Performance module settings (admin: thresholds, attribution, nudge day, reward rules) |
 
 ### 5.5 Dashboard — Communication
 
@@ -863,6 +864,8 @@ All cron routes: `POST /api/cron/*` — require Bearer `CRON_SECRET` header.
 | GET/PATCH | `/api/performance/actions`, `/api/performance/actions/[id]` | Admin | Recommendation queue and transitions (audit-logged) |
 | POST | `/api/performance/evaluations/[id]/consolidate` | Lead/Admin | Manual consolidation retry — refreshes frozen metric-source snapshots from current mappings, re-runs consolidation (used after fixing an `ACTUAL_UNAVAILABLE` issue) |
 | PATCH | `/api/performance/cycles/[id]/issues/[issueId]` | Admin/cycles write | Resolve / waive / reopen a review-cycle issue (`NO_TEMPLATE`, `NO_LEAD`, `AMBIGUOUS_LEAD`, `METRIC_SOURCE_MISSING`, `ACTUAL_UNAVAILABLE`) |
+| GET/PATCH | `/api/performance/settings` | Performance admin | PerformanceSettings singleton — `varianceThreshold`, `improvementFocusLimit`, `remarkAttributionEnabled`, `weeklyNudgeDay` (ISO, Monday=1), `recommendationRulesJson`; PATCH is audit-logged (`PERFORMANCE_SETTINGS` / `SETTINGS_UPDATED`) |
+| POST | `/api/performance/evaluations/[id]/excuse` | Performance admin | Excuse an evaluation — body `{ reason }` (required); state-machine-validated transition to `EXCUSED`; sets `excusedAt`/`excusedReason`; audit-logged (`EVALUATION_EXCUSED`) |
 
 Cross-cutting (2026-07-12): the module emits `PERFORMANCE`-category notification events — `PERF_CYCLE_OPENED`, `PERF_PANEL_COMPLETE`, `PERF_DRAFT_SHARED`, `PERF_DISPUTE_RAISED`, `PERF_ACTION_RECOMMENDED`, `PERF_WEEKLY_FOCUS` (weekly nudge now goes through the dispatcher, so email delivers) — and writes an audit trail via `recordActivity` (`ActivityLog.evaluationId`; entity types `EVALUATION` / `REVIEW_CYCLE` / `DEVELOPMENT_ACTION`) on every lifecycle transition: cycle open/close, panel updates, consolidation, calibration resolve, share, acknowledge, dispute, finalize, issue resolution, action approve/reject/execute.
 

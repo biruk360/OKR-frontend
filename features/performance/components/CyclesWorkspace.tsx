@@ -2,9 +2,10 @@
 
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { CalendarRange, ListChecks, Lock, Play, Plus } from 'lucide-react'
-import { Button, ConfirmDialog, EmptyState, Input, Label, Modal, Textarea } from '@/components/ui'
+import { Building2, CalendarRange, ListChecks, Lock, Play, Plus } from 'lucide-react'
+import { Button, Checkbox, ConfirmDialog, EmptyState, Input, Label, Modal, Textarea } from '@/components/ui'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { useDepartments } from '@/hooks/useDepartments'
 import { getErrorDetailIds, useCloseReviewCycle, useCreateReviewCycle, useOpenReviewCycle, useReviewCycles } from '../hooks/queries'
 import { humanizeEnum, PerformanceStatusBadge } from './PerformanceStatusBadge'
 import { CycleIssuesModal } from './CycleIssuesModal'
@@ -12,7 +13,8 @@ import { NativeSelect } from './NativeSelect'
 import { SectionCard } from './SectionCard'
 import { usePerformancePermissions } from '../hooks/usePerformancePermissions'
 
-type CycleForm = { name: string; cadence: string; periodStart: string; periodEnd: string }
+type CycleScope = 'ALL' | 'DEPARTMENTS'
+type CycleForm = { name: string; cadence: string; periodStart: string; periodEnd: string; scope: CycleScope; departmentIds: string[] }
 
 export function CyclesWorkspace() {
   const cycles = useReviewCycles()
@@ -31,10 +33,35 @@ export function CyclesWorkspace() {
   const [issuesCycleId, setIssuesCycleId] = useState<string | null>(null)
   const [closeOverride, setCloseOverride] = useState<{ cycleId: string; incompleteCount: number } | null>(null)
   const [overrideReason, setOverrideReason] = useState('')
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<CycleForm>({ defaultValues: { cadence: 'MONTHLY' } })
+  const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<CycleForm>({
+    defaultValues: { cadence: 'MONTHLY', scope: 'ALL', departmentIds: [] },
+  })
+  const scope = watch('scope')
+  const selectedDepartmentIds = watch('departmentIds') ?? []
+  const { departments, isLoading: departmentsLoading } = useDepartments({ enabled: modalOpen && scope === 'DEPARTMENTS' })
+  // Registered without an input so the checkbox list participates in RHF validation.
+  register('departmentIds', {
+    validate: (value, values) => values.scope === 'ALL' || (value?.length ?? 0) > 0 || 'Select at least one department',
+  })
+  function toggleDepartment(departmentId: string, checked: boolean) {
+    const next = checked
+      ? [...selectedDepartmentIds, departmentId]
+      : selectedDepartmentIds.filter((id) => id !== departmentId)
+    setValue('departmentIds', next, { shouldValidate: true })
+  }
   const submit = handleSubmit(async (values) => {
-    await create.mutateAsync({ ...values, allCompany: true })
-    reset({ name: '', cadence: 'MONTHLY', periodStart: '', periodEnd: '' })
+    // POST /api/performance/cycles accepts { allCompany, departmentIds } — scoped
+    // cycles require allCompany: false plus at least one department id.
+    const body = {
+      name: values.name,
+      cadence: values.cadence,
+      periodStart: values.periodStart,
+      periodEnd: values.periodEnd,
+      allCompany: values.scope === 'ALL',
+      departmentIds: values.scope === 'ALL' ? undefined : values.departmentIds,
+    }
+    await create.mutateAsync(body)
+    reset({ name: '', cadence: 'MONTHLY', periodStart: '', periodEnd: '', scope: 'ALL', departmentIds: [] })
     setModalOpen(false)
   })
 
@@ -89,6 +116,12 @@ export function CyclesWorkspace() {
                 <div>
                   <div className="flex items-center gap-2"><p className="text-sm font-semibold">{cycle.name}</p><PerformanceStatusBadge status={cycle.status} /></div>
                   <p className="mt-1 text-xs text-muted-foreground">{humanizeEnum(cycle.cadence)} · <span className="tabular-nums">{cycle._count.evaluations}</span> evaluations · <span className="tabular-nums">{cycle._count.issues}</span> issues</p>
+                  {!cycle.allCompany && cycle.departments.length > 0 && (
+                    <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                      <Building2 className="size-3" />
+                      {cycle.departments.map((entry) => entry.department.name).join(', ')}
+                    </p>
+                  )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   {cycle._count.issues > 0 && <Button size="sm" variant="outline" onClick={() => setIssuesCycleId(cycle.id)}><ListChecks className="mr-1 size-3.5" /> View issues</Button>}
@@ -128,6 +161,38 @@ export function CyclesWorkspace() {
             <Input type="date" {...register('periodEnd', { required: 'Period end is required' })} />
             {errors.periodEnd && <p className="mt-1 text-xs text-danger-600">{errors.periodEnd.message}</p>}
           </div>
+          <div className="sm:col-span-2">
+            <Label>Scope</Label>
+            <NativeSelect {...register('scope')}>
+              <option value="ALL">All company</option>
+              <option value="DEPARTMENTS">Specific departments</option>
+            </NativeSelect>
+          </div>
+          {scope === 'DEPARTMENTS' && (
+            <div className="sm:col-span-2">
+              <Label>Departments</Label>
+              {departmentsLoading ? (
+                <div className="mt-2 space-y-2">
+                  {Array.from({ length: 3 }).map((_, index) => <Skeleton key={index} className="h-4 w-1/2" />)}
+                </div>
+              ) : departments.length === 0 ? (
+                <p className="mt-2 text-xs text-muted-foreground">No departments found.</p>
+              ) : (
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  {departments.map((department) => (
+                    <Label key={department.id} className="flex items-center gap-2 text-sm font-normal">
+                      <Checkbox
+                        checked={selectedDepartmentIds.includes(department.id)}
+                        onCheckedChange={(checked) => toggleDepartment(department.id, checked === true)}
+                      />
+                      {department.name}
+                    </Label>
+                  ))}
+                </div>
+              )}
+              {errors.departmentIds && <p className="mt-1 text-xs text-danger-600">{errors.departmentIds.message}</p>}
+            </div>
+          )}
         </form>
       </Modal>
       {issuesCycleId && <CycleIssuesModal cycleId={issuesCycleId} open onClose={() => setIssuesCycleId(null)} />}

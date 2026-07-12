@@ -8,7 +8,7 @@ export async function createEvaluationReport(evaluationId: string) {
       include: {
         employee: { select: { id: true, name: true, designation: true } },
         cycle: { select: { id: true, name: true, periodStart: true, periodEnd: true } },
-        scores: { select: { criterionId: true, remark: true } },
+        scores: { select: { criterionId: true, remark: true, evaluator: { select: { name: true } } } },
         results: true,
         template: {
           include: {
@@ -25,13 +25,23 @@ export async function createEvaluationReport(evaluationId: string) {
     const unresolved = evaluation.results.filter((result) => result.flagged && !result.resolvedAt)
     if (unresolved.length > 0) throw new Error('Resolve every calibration flag before sharing a draft')
 
+    // Remark attribution is a global setting: when enabled the synthesized
+    // feedback carries evaluator names ("Name: remark"); when disabled remarks
+    // stay unattributed. Numeric scores are never included either way.
+    const settings = await tx.performanceSettings.upsert({
+      where: { id: 'singleton' },
+      create: { id: 'singleton' },
+      update: {},
+    })
+
     const resultByCriterion = new Map(evaluation.results.map((result) => [result.criterionId, result]))
     const remarksByCriterion = new Map<string, string[]>()
     for (const score of evaluation.scores) {
       const remark = score.remark?.trim()
       if (!remark) continue
+      const entry = settings.remarkAttributionEnabled ? `${score.evaluator.name}: ${remark}` : remark
       const rows = remarksByCriterion.get(score.criterionId) ?? []
-      if (!rows.includes(remark)) rows.push(remark)
+      if (!rows.includes(entry)) rows.push(entry)
       remarksByCriterion.set(score.criterionId, rows)
     }
     const tierBreakdown = evaluation.template.tiers.map((tier) => ({
@@ -49,7 +59,9 @@ export async function createEvaluationReport(evaluationId: string) {
           maxPoints: criterion.maxPoints,
           consolidated: result?.consolidated ?? null,
           actualValue: result?.actualValue ?? null,
-          feedbackSummary: remarks.length > 0 ? `Panel feedback: ${remarks.join(' ')}` : null,
+          feedbackSummary: remarks.length > 0
+            ? `Panel feedback: ${remarks.join(settings.remarkAttributionEnabled ? '; ' : ' ')}`
+            : null,
         }
       }),
     }))

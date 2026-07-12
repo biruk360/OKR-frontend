@@ -66,7 +66,7 @@ export const performanceApi = {
     ),
 
   listCycles: () => request<ReviewCycleSummary[]>('/api/performance/cycles'),
-  createCycle: (body: { name: string; cadence: string; periodStart: string; periodEnd: string; allCompany: boolean }) =>
+  createCycle: (body: { name: string; cadence: string; periodStart: string; periodEnd: string; allCompany: boolean; departmentIds?: string[] }) =>
     request<ReviewCycleSummary>('/api/performance/cycles', { method: 'POST', body: JSON.stringify(body) }),
   openCycle: (id: string) =>
     request<{ createdEvaluations: number; issueCount: number; alreadyOpen: boolean }>(`/api/performance/cycles/${id}/open`, { method: 'POST' }),

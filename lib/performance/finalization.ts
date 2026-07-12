@@ -1,7 +1,40 @@
 import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { resolveNextAnchor } from './scoring'
-import type { RubricAnchors } from './types'
+import type { RecommendationRules, RubricAnchors } from './types'
+
+/**
+ * Default recommendation rules used when PerformanceSettings.recommendationRulesJson is null:
+ * {
+ *   "readyPromotionRequiresImprovingTrend": true,
+ *   "readySalaryAdjustment": true,
+ *   "readyTopTierBonus": true,
+ *   "onTrackBonus": true,
+ *   "criterionTrainingThreshold": 4
+ * }
+ */
+export const DEFAULT_RECOMMENDATION_RULES: RecommendationRules = {
+  readyPromotionRequiresImprovingTrend: true,
+  readySalaryAdjustment: true,
+  readyTopTierBonus: true,
+  onTrackBonus: true,
+  criterionTrainingThreshold: 4,
+}
+
+/** Merge stored recommendationRulesJson over the defaults, ignoring malformed values. */
+export function resolveRecommendationRules(json: Prisma.JsonValue | null | undefined): RecommendationRules {
+  const rules = { ...DEFAULT_RECOMMENDATION_RULES }
+  if (!json || typeof json !== 'object' || Array.isArray(json)) return rules
+  const source = json as Record<string, unknown>
+  for (const key of ['readyPromotionRequiresImprovingTrend', 'readySalaryAdjustment', 'readyTopTierBonus', 'onTrackBonus'] as const) {
+    if (typeof source[key] === 'boolean') rules[key] = source[key] as boolean
+  }
+  const threshold = source.criterionTrainingThreshold
+  if (typeof threshold === 'number' && Number.isFinite(threshold) && threshold >= 0) {
+    rules.criterionTrainingThreshold = threshold
+  }
+  return rules
+}
 
 export async function finalizeEvaluation(evaluationId: string, actorId: string, overrideReason?: string) {
   return prisma.$transaction(async (tx) => {
@@ -66,20 +99,34 @@ export async function finalizeEvaluation(evaluationId: string, actorId: string, 
       }
     }
 
+    // Recommendations only — never auto-executed. Rules are configurable via
+    // PerformanceSettings.recommendationRulesJson (see DEFAULT_RECOMMENDATION_RULES).
+    const rules = resolveRecommendationRules(settings.recommendationRulesJson)
     if (evaluation.gatekeeperPass && evaluation.decisionBand === 'Ready') {
-      await recommend('SALARY_ADJUSTMENT', { reason: 'Ready decision band' })
-      const prior = await tx.evaluation.findFirst({
-        where: { employeeId: evaluation.employeeId, status: 'FINALIZED', finalizedAt: { not: null } },
-        orderBy: { finalizedAt: 'desc' },
-        select: { normalized: true },
-      })
-      if (prior?.normalized != null && evaluation.normalized != null && evaluation.normalized > prior.normalized) {
-        await recommend('PROMOTION', { reason: 'Ready decision band with improving trend' })
+      if (rules.readySalaryAdjustment) await recommend('SALARY_ADJUSTMENT', { reason: 'Ready decision band' })
+      if (rules.readyTopTierBonus) await recommend('BONUS', { tier: 'top' })
+      let promotionEligible = true
+      if (rules.readyPromotionRequiresImprovingTrend) {
+        const prior = await tx.evaluation.findFirst({
+          where: { employeeId: evaluation.employeeId, status: 'FINALIZED', finalizedAt: { not: null } },
+          orderBy: { finalizedAt: 'desc' },
+          select: { normalized: true },
+        })
+        promotionEligible = prior?.normalized != null
+          && evaluation.normalized != null
+          && evaluation.normalized > prior.normalized
       }
-    } else if (evaluation.decisionBand === 'On Track') {
+      if (promotionEligible) {
+        await recommend('PROMOTION', {
+          reason: rules.readyPromotionRequiresImprovingTrend
+            ? 'Ready decision band with improving trend'
+            : 'Ready decision band',
+        })
+      }
+    } else if (evaluation.decisionBand === 'On Track' && rules.onTrackBonus) {
       await recommend('BONUS', { reason: 'On Track decision band' })
     }
-    for (const result of evaluation.results.filter((item) => item.consolidated < 4)) {
+    for (const result of evaluation.results.filter((item) => item.consolidated < rules.criterionTrainingThreshold)) {
       await recommend('TRAINING', { criterionId: result.criterionId, criterionTitle: result.criterion.title })
     }
 

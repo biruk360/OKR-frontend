@@ -72,6 +72,7 @@
 | `/dashboard/performance/templates/[id]` | `app/dashboard/performance/templates/[id]/page.tsx` | performance | Template builder and metric mappings |
 | `/dashboard/performance/cycles` | `app/dashboard/performance/cycles/page.tsx` | performance | Review-cycle management |
 | `/dashboard/performance/actions` | `app/dashboard/performance/actions/page.tsx` | performance | Development/reward action queue |
+| `/dashboard/performance/settings` | `app/dashboard/performance/settings/page.tsx` | performance | Performance module settings (admin) |
 
 ### Communication
 | Route | Page File | Feature | Description |

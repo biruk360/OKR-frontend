@@ -103,6 +103,19 @@ module.exports = {
           800: '#862019',
           900: '#5C1612',
         },
+        // Project Management module — exact Instagantt-parity activity status colors
+        // (build spec Epic B1 / D2). These are hard requirements, so they live as
+        // named tokens rather than inline hex (satisfies the "no hardcoded hex" rule).
+        'project-status': {
+          'not-started': '#E5E5EA',
+          started: '#A8D0F0',
+          finished: '#4A90D9',
+          'approval-requested': '#F5D547',
+          approved: '#5CB85C',
+          rejected: '#F0932B',
+        },
+        // Baseline ghost bar on the Gantt (rendered at 40% opacity via /40 modifier).
+        'project-baseline': '#D1D1D6',
       },
       fontSize: {
         display: ['2.5rem', { lineHeight: '1.1', letterSpacing: '-0.02em', fontWeight: '600' }],

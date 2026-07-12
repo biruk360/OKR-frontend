@@ -9,6 +9,17 @@ export type ActivityEntityType =
   | 'EVALUATION'
   | 'REVIEW_CYCLE'
   | 'DEVELOPMENT_ACTION'
+  | 'PERFORMANCE_SETTINGS'
+  // Project Management module entity types.
+  | 'PROJECT'
+  | 'PROJECT_PHASE'
+  | 'PROJECT_MILESTONE'
+  | 'PROJECT_ACTIVITY'
+  | 'PROJECT_DELAY_EVENT'
+  | 'PROJECT_CHANGE_REQUEST'
+  | 'PROJECT_RAID_ITEM'
+  | 'PROJECT_STAGE_GATE'
+  | 'PROJECT_REPORT'
 
 export type ActivityAction =
   | 'CREATED'
@@ -76,6 +87,18 @@ export type ActivityAction =
   | 'ACTION_APPROVED'
   | 'ACTION_REJECTED'
   | 'ACTION_EXECUTED'
+  | 'EVALUATION_EXCUSED'
+  | 'SETTINGS_UPDATED'
+  // Project Management module actions.
+  | 'BASELINE_COMMITTED'
+  | 'REBASELINED'
+  | 'SLIP_RECORDED'
+  | 'APPROVAL_REQUESTED'
+  | 'APPROVAL_RESOLVED'
+  | 'GATE_PASSED'
+  | 'GATE_WAIVED'
+  | 'CR_APPROVED'
+  | 'REPORT_SENT'
 
 export interface FieldChange {
   from: unknown
@@ -92,6 +115,7 @@ interface RecordParams {
   sprintId?: string | null
   letterId?: string | null
   evaluationId?: string | null
+  projectId?: string | null
   action: ActivityAction
   actorId?: string | null
   changes?: ChangeMap | null
@@ -113,6 +137,7 @@ export async function recordActivity(params: RecordParams): Promise<void> {
         sprintId: params.sprintId ?? null,
         letterId: params.letterId ?? null,
         evaluationId: params.evaluationId ?? null,
+        projectId: params.projectId ?? null,
         action: params.action,
         actorId: params.actorId ?? null,
         // JSONB columns — Prisma stores the object directly. No JSON.stringify.

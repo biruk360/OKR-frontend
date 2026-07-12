@@ -11,12 +11,18 @@ import { NativeSelect } from './NativeSelect'
 import { TemplateScoringSettings } from './TemplateScoringSettings'
 import { usePerformancePermissions } from '../hooks/usePerformancePermissions'
 
+/**
+ * Anchor values match lib/performance RubricAnchors: a plain English string, or
+ * a bilingual `{ en, am }` object when an Amharic translation is present.
+ */
+type AnchorValue = string | { en?: string; am?: string }
+
 type BuilderCriterion = {
   type: 'RUBRIC' | 'METRIC'
   code?: string
   title: string
   maxPoints: number
-  anchorJson?: Record<string, string>
+  anchorJson?: Record<string, AnchorValue>
   target?: number
   unit?: string
   periodLabel?: string
@@ -50,6 +56,22 @@ const newRubric = (): BuilderCriterion => ({
   anchorJson: { '0': '', '4': '', '7': '', '10': '' },
 })
 
+/** English text of an anchor value (handles both legacy string and `{ en, am }` shapes). */
+function anchorEn(value: AnchorValue | undefined): string {
+  if (value && typeof value === 'object') return value.en ?? ''
+  return value ?? ''
+}
+
+/** Amharic text of an anchor value, if present. */
+function anchorAm(value: AnchorValue | undefined): string {
+  return value && typeof value === 'object' ? value.am ?? '' : ''
+}
+
+/** Persist as `{ en, am }` only when Amharic is present; plain string otherwise. */
+function buildAnchorValue(en: string, am: string): AnchorValue {
+  return am.trim() ? { en, am } : en
+}
+
 export function TemplateBuilder({ templateId }: { templateId: string }) {
   const query = usePerformanceTemplate(templateId)
   const save = useSaveTemplateBuilder(templateId)
@@ -68,7 +90,8 @@ export function TemplateBuilder({ templateId }: { templateId: string }) {
         code: criterion.code ?? undefined,
         title: criterion.title,
         maxPoints: criterion.maxPoints,
-        anchorJson: criterion.anchorJson as Record<string, string> | undefined,
+        // Existing anchors load in both shapes: plain string or bilingual { en, am }.
+        anchorJson: criterion.anchorJson as Record<string, AnchorValue> | undefined,
         target: criterion.target ?? undefined,
         unit: criterion.unit ?? undefined,
         periodLabel: criterion.periodLabel ?? undefined,
@@ -189,18 +212,37 @@ export function TemplateBuilder({ templateId }: { templateId: string }) {
                 </div>
                 {criterion.type === 'RUBRIC' ? (
                   <div className="mt-4 grid gap-3 md:grid-cols-2">
-                    {['0', '4', '7', '10'].map((anchor) => (
-                      <div key={anchor}>
-                        <Label>{anchor} anchor</Label>
-                        <Textarea
-                          value={criterion.anchorJson?.[anchor] ?? ''}
-                          disabled={!editable}
-                          onChange={(event) => updateCriterion(tierIndex, criterionIndex, {
-                            anchorJson: { ...(criterion.anchorJson ?? {}), [anchor]: event.target.value },
-                          })}
-                        />
-                      </div>
-                    ))}
+                    {['0', '4', '7', '10'].map((anchor) => {
+                      const value = criterion.anchorJson?.[anchor]
+                      const en = anchorEn(value)
+                      const am = anchorAm(value)
+                      return (
+                        <div key={anchor} className="space-y-2">
+                          <div>
+                            <Label>{anchor} anchor</Label>
+                            <Textarea
+                              value={en}
+                              disabled={!editable}
+                              placeholder="English description"
+                              onChange={(event) => updateCriterion(tierIndex, criterionIndex, {
+                                anchorJson: { ...(criterion.anchorJson ?? {}), [anchor]: buildAnchorValue(event.target.value, am) },
+                              })}
+                            />
+                          </div>
+                          <div>
+                            <Label>{anchor} anchor (Amharic, optional)</Label>
+                            <Textarea
+                              value={am}
+                              disabled={!editable}
+                              placeholder="አማርኛ"
+                              onChange={(event) => updateCriterion(tierIndex, criterionIndex, {
+                                anchorJson: { ...(criterion.anchorJson ?? {}), [anchor]: buildAnchorValue(en, event.target.value) },
+                              })}
+                            />
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
                 ) : (() => {
                   const rule = (criterion.scoringRuleJson ?? DEFAULT_RULES.LINEAR_CAPPED) as MetricRuleDraft

@@ -35,13 +35,21 @@ Hooks (TanStack Query) exported from the same barrel: `usePlans`, `usePlan`, `us
 | `TemplateBuilder` | `templateId` | Draft tier/criterion editor, rubric anchors, metric rules, and culture block insertion |
 | `RoleMappingManager` | — | Maps normalized employee designations to scorecard families |
 | `MetricMappingManager` | `templateId`, `tiers` | Maps employee-owned Key Results to reusable metric criteria |
-| `CyclesWorkspace` | — | Review-cycle creation and open-cycle action |
+| `CyclesWorkspace` | — | Review-cycle creation (with inline validation), open/close-cycle actions (close supports incomplete-evaluation override), and issues drill-down |
+| `CycleIssuesModal` | `cycleId`, `open`, `onClose` | Per-cycle issue list (type/employee/detail/status) with Resolve/Waive actions |
 | `EvaluatorQueue` | — | Evaluator/admin work queue |
-| `ScoringWorkspace` | `evaluationId` | Keyboard-driven scoring, live metric actuals, submission, calibration, and report access |
-| `CalibrationPanel` | `evaluation` | Flag-resolution notes and report/finalization workflow controls |
+| `ScoringWorkspace` | `evaluationId` | Keyboard-driven scoring, live metric actuals, submission, calibration, panel management, consolidation retry, and report access |
+| `PanelManager` | `evaluation` | Evaluator panel editor (add/remove evaluators, set lead) with submitted-score discard confirmation |
+| `CalibrationPanel` | `evaluation` | Side-by-side evaluator score comparison for calibration, flag-resolution notes, and report/finalization workflow controls |
 | `PerformanceReport` | `evaluation` | Employee-safe consolidated report and acknowledgement/dispute actions |
 | `ActionsWorkspace` | — | HR recommendation approval/rejection/execution queue |
-| `PerformanceStatusBadge` | `status` | Shared performance workflow badge |
+| `PerformanceStatusBadge` | `status`, `className?` | Status chip in the shared StatusPill visual language (colored dot + humanized label, AP rgba tints); also exports `humanizeEnum()` |
+| `SectionCard` (internal) | `title?`, `actions?`, `children`, `className?`, `contentClassName?` | Apple Pro section card (rounded-[14px], `var(--ap-border)`, uppercase kicker header) used across the performance module |
+| `NativeSelect` (internal) | native `<select>` props (forwardRef) | Styled native select matching `components/ui/input.tsx`; react-hook-form `register()`-compatible |
+| `CompetencyRadar` | `items`, `height?` | Single-series competency radar (% of max per axis); `radarItemsFromTierBreakdown()` derives tier- or criterion-level axes from a report tierBreakdown |
+| `PerformanceTrend` | `points`, `height?` | Multi-cycle normalized-score line chart (0-100); single point renders a "more data needed" note |
+| `OkrAttainmentSection` | `attainment` | Employee-scoped OKR attainment list (objectives + KRs with progress bars) for the evaluation period |
+| `TemplateScoringSettings` | `templateId`, `editable`, `tiers`, `gatekeeperJson`, `bandsJson` | Gatekeeper + decision-bands editor with inline validation, saved via template PATCH |
 
 Hooks and API client are exported from the same barrel. Server-side scoring, policy, cycle-opening, consolidation, report, and finalization services live in `lib/performance/`.
 

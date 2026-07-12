@@ -4,10 +4,12 @@ import Link from 'next/link'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Archive, Copy, FilePlus2, GitBranch, Plus } from 'lucide-react'
-import { Button, Card, CardContent, CardHeader, CardTitle, EmptyState, Input, Label, Modal } from '@/components/ui'
+import { Button, EmptyState, Input, Label, Modal } from '@/components/ui'
+import { Skeleton } from '@/components/ui/Skeleton'
 import { useCreatePerformanceTemplate, usePerformanceTemplates, useTemplateTransition } from '../hooks/queries'
 import { PerformanceStatusBadge } from './PerformanceStatusBadge'
 import { RoleMappingManager } from './RoleMappingManager'
+import { SectionCard } from './SectionCard'
 import { usePerformancePermissions } from '../hooks/usePerformancePermissions'
 
 type CreateTemplateForm = { name: string; roleLabel: string }
@@ -39,20 +41,33 @@ export function TemplatesWorkspace() {
 
   return (
     <>
-      {canCreate && <div className="mb-4 flex justify-end">
-        <Button onClick={() => setOpen(true)}><Plus className="mr-2 size-4" /> New template</Button>
-      </div>}
-      <Card>
-        <CardHeader><CardTitle className="text-base">Template versions</CardTitle></CardHeader>
-        <CardContent>
-          {templates.isLoading ? (
-            <p className="text-sm text-muted-foreground">Loading templates...</p>
+      <SectionCard
+        title="Template versions"
+        actions={canCreate && (
+          <Button size="sm" onClick={() => setOpen(true)}><Plus className="mr-1 size-3.5" /> New template</Button>
+        )}
+      >
+        {templates.isLoading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="space-y-2 py-2">
+                  <Skeleton className="h-4 w-1/2" />
+                  <Skeleton className="h-3 w-2/3" />
+                </div>
+              ))}
+            </div>
           ) : (templates.data ?? []).length === 0 ? (
-            <EmptyState icon={FilePlus2} title="No scorecard templates" description="Create the first role scorecard template." />
+            <EmptyState
+              bare
+              icon={FilePlus2}
+              title="No scorecard templates"
+              description="Create the first role scorecard template."
+              action={canCreate ? { label: 'New template', onClick: () => setOpen(true) } : undefined}
+            />
           ) : (
             <div className="divide-y divide-border">
               {(templates.data ?? []).map((template) => (
-                <div key={template.id} className="flex flex-wrap items-center justify-between gap-3 py-4">
+                <div key={template.id} className="flex flex-wrap items-center justify-between gap-3 py-4 first:pt-0 last:pb-0">
                   <div>
                     <div className="flex items-center gap-2">
                       <Link href={`/dashboard/performance/templates/${template.id}`} className="text-sm font-semibold hover:underline">
@@ -85,8 +100,7 @@ export function TemplatesWorkspace() {
               ))}
             </div>
           )}
-        </CardContent>
-      </Card>
+      </SectionCard>
       {canMapRoles && <div className="mt-6"><RoleMappingManager /></div>}
       <Modal
         open={open}

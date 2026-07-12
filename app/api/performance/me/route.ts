@@ -25,13 +25,32 @@ export const GET = withAuth(async (_request, { session }) => {
         normalized: true,
         decisionBand: true,
         gatekeeperPass: true,
-        cycle: { select: { id: true, name: true, periodStart: true, periodEnd: true } },
+        cycle: { select: { id: true, name: true, periodStart: true, periodEnd: true, status: true } },
         template: { select: { family: { select: { name: true } } } },
       },
       orderBy: { cycle: { periodStart: 'desc' } },
     }),
   ])
+  // Latest finalized evaluation's shared/final report content for dashboard charts.
+  // Finalized-only, consolidated data — never raw per-evaluator scores.
+  const latestFinalized = evaluations.find((evaluation) => evaluation.status === 'FINALIZED')
+  let latestReport: { evaluationId: string; cycleName: string; contentJson: unknown } | null = null
+  if (latestFinalized) {
+    const report = await prisma.evaluationReport.findFirst({
+      where: { evaluationId: latestFinalized.id, status: { in: ['SHARED', 'FINAL'] } },
+      orderBy: { version: 'desc' },
+      select: { contentJson: true },
+    })
+    if (report) {
+      latestReport = {
+        evaluationId: latestFinalized.id,
+        cycleName: latestFinalized.cycle.name,
+        contentJson: report.contentJson,
+      }
+    }
+  }
   return apiSuccess({
+    latestReport,
     focuses,
     evaluations: evaluations.map((evaluation) => ({
       id: evaluation.id,

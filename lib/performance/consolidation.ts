@@ -10,9 +10,79 @@ import {
   scoreMetric,
 } from './scoring'
 import { parseBands, parseGatekeeper, parseMetricRule } from './template-validation'
-import { resolveMetricActual } from './metric-resolver'
+import { MetricActualUnavailableError, resolveMetricActual } from './metric-resolver'
+
+type UnavailableMetric = { criterionId: string; criterionTitle: string; reason: string }
+
+/**
+ * Pre-flight every automatic metric criterion. Failures become
+ * ACTUAL_UNAVAILABLE review-cycle issues (deduplicated against open ones) and
+ * consolidation is blocked with a typed error so callers can route the
+ * evaluation to manual resolution instead of surfacing a 500.
+ */
+async function assertMetricActualsAvailable(evaluationId: string): Promise<void> {
+  const evaluation = await prisma.evaluation.findUnique({
+    where: { id: evaluationId },
+    select: {
+      cycleId: true,
+      employeeId: true,
+      template: { select: { tiers: { select: { criteria: true } } } },
+    },
+  })
+  if (!evaluation) throw new Error('Evaluation not found')
+
+  const unavailable: UnavailableMetric[] = []
+  for (const tier of evaluation.template.tiers) {
+    for (const criterion of tier.criteria) {
+      if (criterion.type !== 'METRIC') continue
+      const rule = parseMetricRule(criterion.scoringRuleJson)
+      if (!rule || rule.type === 'MANUAL') continue
+      try {
+        await resolveMetricActual(prisma, evaluationId, criterion.id, criterion.krAggregation)
+      } catch (error) {
+        if (!(error instanceof MetricActualUnavailableError)) throw error
+        unavailable.push({ criterionId: criterion.id, criterionTitle: criterion.title, reason: error.message })
+      }
+    }
+  }
+  if (unavailable.length === 0) return
+
+  const openIssues = await prisma.reviewCycleIssue.findMany({
+    where: { evaluationId, type: 'ACTUAL_UNAVAILABLE', status: 'OPEN' },
+    select: { detailJson: true },
+  })
+  const flaggedCriterionIds = new Set(
+    openIssues.map((issue) => (issue.detailJson as { criterionId?: string } | null)?.criterionId).filter(Boolean),
+  )
+  const fresh = unavailable.filter((item) => !flaggedCriterionIds.has(item.criterionId))
+  if (fresh.length > 0) {
+    await prisma.reviewCycleIssue.createMany({
+      data: fresh.map((item) => ({
+        cycleId: evaluation.cycleId,
+        employeeId: evaluation.employeeId,
+        evaluationId,
+        type: 'ACTUAL_UNAVAILABLE',
+        detailJson: item as unknown as Prisma.InputJsonValue,
+      })),
+    })
+  }
+  throw new MetricActualUnavailableError(
+    `Consolidation is blocked — metric actuals unavailable for: ${unavailable.map((item) => item.criterionTitle).join(', ')}. Re-map the Key Result sources and retry consolidation.`,
+  )
+}
 
 export async function consolidateEvaluation(evaluationId: string) {
+  await assertMetricActualsAvailable(evaluationId)
+  const consolidated = await runConsolidation(evaluationId)
+  // Every actual resolved — any lingering unavailable-actual flags are stale.
+  await prisma.reviewCycleIssue.updateMany({
+    where: { evaluationId, type: 'ACTUAL_UNAVAILABLE', status: 'OPEN' },
+    data: { status: 'RESOLVED', resolvedAt: new Date() },
+  })
+  return consolidated
+}
+
+function runConsolidation(evaluationId: string) {
   return prisma.$transaction(async (tx) => {
     const evaluation = await tx.evaluation.findUnique({
       where: { id: evaluationId },

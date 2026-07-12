@@ -171,6 +171,28 @@ export async function canResolveCalibration(actor: PerformanceActor, evaluationI
     && await hasCapability(actor, 'button.performance.calibration.resolve', 'criterion_result', 'write')
 }
 
+/** Retry consolidation (e.g. after re-mapping an unavailable metric source). Lead or admin. */
+export async function canTriggerConsolidation(actor: PerformanceActor, evaluationId: string): Promise<boolean> {
+  const allowed = await Promise.all([
+    hasPerformanceFeature(actor, 'module.performance'),
+    hasPerformancePermission(actor, 'evaluation', 'read'),
+    hasPerformancePermission(actor, 'criterion_result', 'write'),
+  ])
+  if (!allowed.every(Boolean)) return false
+  if (await isPerformanceAdmin(actor)) return true
+  const lead = await prisma.evaluatorAssignment.findUnique({
+    where: { evaluationId_evaluatorId: { evaluationId, evaluatorId: actor.userId } },
+    select: { role: true },
+  })
+  return lead?.role === 'LEAD'
+}
+
+/** Resolve or waive review-cycle issues (NO_TEMPLATE, NO_LEAD, ACTUAL_UNAVAILABLE, ...). */
+export async function canResolveCycleIssue(actor: PerformanceActor): Promise<boolean> {
+  if (await isPerformanceAdmin(actor)) return true
+  return hasCapability(actor, 'page.performance.cycles', 'review_cycle_issue', 'write')
+}
+
 export async function canShareDraft(actor: PerformanceActor, evaluationId: string): Promise<boolean> {
   const allowed = await Promise.all([
     hasCapability(actor, 'button.performance.draft.share', 'evaluation_report', 'share'),

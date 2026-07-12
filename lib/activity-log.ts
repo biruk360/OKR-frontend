@@ -1,6 +1,14 @@
 import { prisma } from '@/lib/prisma'
 
-export type ActivityEntityType = 'OBJECTIVE' | 'KEY_RESULT' | 'TODO' | 'SPRINT' | 'LETTER'
+export type ActivityEntityType =
+  | 'OBJECTIVE'
+  | 'KEY_RESULT'
+  | 'TODO'
+  | 'SPRINT'
+  | 'LETTER'
+  | 'EVALUATION'
+  | 'REVIEW_CYCLE'
+  | 'DEVELOPMENT_ACTION'
 
 export type ActivityAction =
   | 'CREATED'
@@ -53,6 +61,21 @@ export type ActivityAction =
   | 'LETTER_ENCLOSURE_ADDED'
   | 'LETTER_ENCLOSURE_REMOVED'
   | 'LETTER_DUPLICATED'
+  // Performance & scorecard lifecycle actions.
+  | 'CYCLE_OPENED'
+  | 'CYCLE_CLOSED'
+  | 'PANEL_UPDATED'
+  | 'EVALUATION_CONSOLIDATED'
+  | 'CALIBRATION_RESOLVED'
+  | 'DRAFT_SHARED'
+  | 'EVALUATION_ACKNOWLEDGED'
+  | 'EVALUATION_DISPUTED'
+  | 'EVALUATION_FINALIZED'
+  | 'ISSUE_RESOLVED'
+  | 'ACTION_RECOMMENDED'
+  | 'ACTION_APPROVED'
+  | 'ACTION_REJECTED'
+  | 'ACTION_EXECUTED'
 
 export interface FieldChange {
   from: unknown
@@ -68,6 +91,7 @@ interface RecordParams {
   todoId?: string | null
   sprintId?: string | null
   letterId?: string | null
+  evaluationId?: string | null
   action: ActivityAction
   actorId?: string | null
   changes?: ChangeMap | null
@@ -88,6 +112,7 @@ export async function recordActivity(params: RecordParams): Promise<void> {
         todoId: params.todoId ?? null,
         sprintId: params.sprintId ?? null,
         letterId: params.letterId ?? null,
+        evaluationId: params.evaluationId ?? null,
         action: params.action,
         actorId: params.actorId ?? null,
         // JSONB columns — Prisma stores the object directly. No JSON.stringify.

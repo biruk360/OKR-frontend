@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { apiBadRequest, apiForbidden, apiNotFound, apiSuccess, withAuth } from '@/lib/api'
 import { assertCycleTransition, canManageCycles } from '@/lib/performance'
+import { recordActivity } from '@/lib/activity-log'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 
 export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { session, params }) => {
@@ -33,6 +34,17 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
       closedAt: new Date(),
       closedById: session.user.id,
       closeOverrideReason: overrideReason || null,
+    },
+  })
+  await recordActivity({
+    entityType: 'REVIEW_CYCLE',
+    action: 'CYCLE_CLOSED',
+    actorId: session.user.id,
+    metadata: {
+      cycleId: id,
+      cycleName: cycle.name,
+      incompleteEvaluationIds: incomplete.map((evaluation) => evaluation.id),
+      overrideReason: overrideReason || null,
     },
   })
   return apiSuccess(closed)

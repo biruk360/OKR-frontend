@@ -1,0 +1,2036 @@
+{
+  "source": [
+    "Engineering Team Scorecard v1.xlsx",
+    "Sales_Engineering_OKR_Scorecard 2025-2026 OKR.xlsx"
+  ],
+  "templates": [
+    {
+      "familyName": "Software Engineer",
+      "roleLabel": "Software Engineer",
+      "gatekeeper": {
+        "tierName": "Tier 1: Core Execution & Mindset",
+        "threshold": 25,
+        "failureBand": "Not Ready"
+      },
+      "bands": [
+        {
+          "min": 85,
+          "label": "Ready"
+        },
+        {
+          "min": 70,
+          "label": "On Track"
+        },
+        {
+          "min": 0,
+          "label": "Not Ready"
+        }
+      ],
+      "tiers": [
+        {
+          "name": "Tier 1: Core Execution & Mindset",
+          "criteria": [
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Quality & Reliability",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Frequent prod incidents/bugs.",
+                "4": "Needs heavy QA.",
+                "7": "Clean, well-tested, low defects.",
+                "10": "Exemplary resilient code; improves codebase."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Delivery Velocity & Urgency",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Fails to complete; slow to start.",
+                "4": "Delivers within sprint.",
+                "7": "Bias for action; reliable.",
+                "10": "Accelerates team; ahead of schedule."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "First Principles Problem Solving",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Solves by analogy.",
+                "4": "Routine problems only.",
+                "7": "Breaks problems to fundamentals.",
+                "10": "Re-examines from ground up; simpler innovative solutions."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Accountability & Learning",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Deflects; repeats mistakes.",
+                "4": "Acknowledges; shallow RCA.",
+                "7": "Owns failures; RCA; prevents recurrence.",
+                "10": "Documents lessons; builds psychological safety."
+              }
+            }
+          ],
+          "maxPoints": 40.0
+        },
+        {
+          "name": "Tier 2: Impact & Influence",
+          "criteria": [
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Solution Design & Architecture",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Implements predefined only.",
+                "4": "Useful feedback.",
+                "7": "Designs scalable systems.",
+                "10": "Leads complex architectural work."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Customer Focus & Communication",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Unclear; avoids customers.",
+                "4": "Handles basics.",
+                "7": "Proactive cross-functional comms; resolves complex issues.",
+                "10": "Trusted partner; translates complex tech."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Radical Candor & Collaboration",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Avoids feedback; shallow reviews.",
+                "4": "Helpful reviews.",
+                "7": "Direct, constructive feedback; elevates team.",
+                "10": "Sought for insights; fosters transparency."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Process Improvement & Simplification",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Follows bloat.",
+                "4": "Minor suggestions.",
+                "7": "Removes unnecessary steps.",
+                "10": "Leads deletions with measurable velocity/simplicity gains."
+              }
+            }
+          ],
+          "maxPoints": 40.0
+        },
+        {
+          "name": "Tier 3: Leadership & Initiative",
+          "criteria": [
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Extreme Ownership & Initiative",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Stays in ticket lane.",
+                "4": "Extra tasks when asked.",
+                "7": "Proactively owns problems.",
+                "10": "Drives high-value initiatives."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Mentorship & Knowledge Sharing",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "No sharing.",
+                "4": "Helps when asked; some docs.",
+                "7": "Proactive sharing; talks; effective mentor.",
+                "10": "Go-to mentor; levels up team."
+              }
+            }
+          ],
+          "maxPoints": 20.0
+        },
+        {
+          "name": "Tier 4: Culture & Values (360 Alignment)",
+          "criteria": [
+            {
+              "type": "RUBRIC",
+              "code": "C1",
+              "title": "Judgment (High Performance)",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Shortsighted decisions; ignores ambiguity.",
+                "4": "Decent decisions; limited strategic clarity.",
+                "7": "Sound judgment under ambiguity; clear tradeoffs.",
+                "10": "Consistently wise, strategic calls with measurable impact."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": "C2",
+              "title": "Clear Communication & Honesty Always",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Unclear; avoids hard feedback; spin.",
+                "4": "Basic updates; timid feedback.",
+                "7": "Concise, respectful, direct communication; addresses issues early.",
+                "10": "Radical candor; sets transparency rhythm; calm under pressure."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": "C3",
+              "title": "Freedom & Responsibility (Ownership)",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Needs control to act; blames process.",
+                "4": "Acts with guidance; sporadic ownership.",
+                "7": "Self-motivated, self-disciplined; acts in company’s best interest.",
+                "10": "Role model of autonomy with accountability; raises standards."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": "C4",
+              "title": "Highly Aligned, Loosely Coupled",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Creates silos/control gates.",
+                "4": "Alignment occasional; heavy coordination.",
+                "7": "Aligns on goals/metrics and moves fast without micromanagement.",
+                "10": "Enables speed at scale through clear context & trust across teams."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": "C5",
+              "title": "Curiosity & Innovation",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Rarely learns; avoids experiments.",
+                "4": "Learns occasionally; limited application.",
+                "7": "Continuously learns; reframes problems; simplifies.",
+                "10": "Re-conceptualizes issues; ships novel, practical solutions."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": "C6",
+              "title": "Patriotism & Community Impact (🇪🇹)",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Disregards local context; erodes trust.",
+                "4": "Basic compliance and minimal community engagement.",
+                "7": "Builds trust with customers/partners; positive local impact.",
+                "10": "Actively advances socio-economic progress; earns deep trust."
+              }
+            }
+          ],
+          "maxPoints": 60.0
+        }
+      ]
+    },
+    {
+      "familyName": "UI-UX Designer",
+      "roleLabel": "UI/UX Designer",
+      "gatekeeper": {
+        "tierName": "Tier 1: Core Execution & Mindset",
+        "threshold": 25,
+        "failureBand": "Not Ready"
+      },
+      "bands": [
+        {
+          "min": 85,
+          "label": "Ready"
+        },
+        {
+          "min": 70,
+          "label": "On Track"
+        },
+        {
+          "min": 0,
+          "label": "Not Ready"
+        }
+      ],
+      "tiers": [
+        {
+          "name": "Tier 1: Core Execution & Mindset",
+          "criteria": [
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Usability & Accessibility Quality",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Ignores basic usability/a11y.",
+                "4": "Basics present; friction remains.",
+                "7": "Intuitive flows; WCAG-conscious.",
+                "10": "Exceptional, inclusive UX; fewer usability issues."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Design Delivery Velocity & Urgency",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Slow; misses milestones.",
+                "4": "On time with reminders.",
+                "7": "Meets/beats timelines; bias for action.",
+                "10": "Unblocks others; proactively pulls work."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "First Principles Interaction Design",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Follows patterns blindly.",
+                "4": "Minor adaptation.",
+                "7": "Deconstructs to essentials.",
+                "10": "Reframes from fundamentals; simpler, novel solutions."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Accountability & Learning",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Deflects blame.",
+                "4": "Acknowledges; limited RCA.",
+                "7": "Owns outcomes; RCA; applies learnings.",
+                "10": "Documents lessons; raises team bar."
+              }
+            }
+          ],
+          "maxPoints": 40.0
+        },
+        {
+          "name": "Tier 2: Impact & Influence",
+          "criteria": [
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Research Depth & Synthesis",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "No user input.",
+                "4": "Ad-hoc tests/interviews.",
+                "7": "Plans & synthesizes research.",
+                "10": "Leads programs; triangulation influences roadmap."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Cross-Functional Communication & Customer Focus",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Unclear handoff; avoids customers.",
+                "4": "Updates; handles basics.",
+                "7": "Proactive with PM/Eng; resolves issues.",
+                "10": "Trusted partner; translates complexity."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Design System Contribution",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Duplicates/components; ignores tokens.",
+                "4": "Inconsistent use.",
+                "7": "Adds/maintains with docs.",
+                "10": "Leads system evolution across products."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Process Improvement & Simplification",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Accepts bloat.",
+                "4": "Minor optimizations.",
+                "7": "Eliminates steps/screens; reduces cycle time.",
+                "10": "Drives measurable velocity gains."
+              }
+            }
+          ],
+          "maxPoints": 40.0
+        },
+        {
+          "name": "Tier 3: Leadership & Initiative",
+          "criteria": [
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Handoff Quality & Implementation Support",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Specs absent.",
+                "4": "Basic specs; clarifications needed.",
+                "7": "Clear specs; responsive support; design QA.",
+                "10": "Gold-standard handoff (redlines, tokens, states)."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Extreme Ownership & Initiative",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Stays within assigned tickets.",
+                "4": "Takes extra tasks when asked.",
+                "7": "Proactively identifies and owns problems.",
+                "10": "Drives initiatives with product/metric impact."
+              }
+            }
+          ],
+          "maxPoints": 20.0
+        },
+        {
+          "name": "Tier 4: Culture & Values (360 Alignment)",
+          "criteria": [
+            {
+              "type": "RUBRIC",
+              "code": "C1",
+              "title": "Judgment (High Performance)",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Shortsighted decisions; ignores ambiguity.",
+                "4": "Decent decisions; limited strategic clarity.",
+                "7": "Sound judgment under ambiguity; clear tradeoffs.",
+                "10": "Consistently wise, strategic calls with measurable impact."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": "C2",
+              "title": "Clear Communication & Honesty Always",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Unclear; avoids hard feedback; spin.",
+                "4": "Basic updates; timid feedback.",
+                "7": "Concise, respectful, direct communication; addresses issues early.",
+                "10": "Radical candor; sets transparency rhythm; calm under pressure."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": "C3",
+              "title": "Freedom & Responsibility (Ownership)",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Needs control to act; blames process.",
+                "4": "Acts with guidance; sporadic ownership.",
+                "7": "Self-motivated, self-disciplined; acts in company’s best interest.",
+                "10": "Role model of autonomy with accountability; raises standards."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": "C4",
+              "title": "Highly Aligned, Loosely Coupled",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Creates silos/control gates.",
+                "4": "Alignment occasional; heavy coordination.",
+                "7": "Aligns on goals/metrics and moves fast without micromanagement.",
+                "10": "Enables speed at scale through clear context & trust across teams."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": "C5",
+              "title": "Curiosity & Innovation",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Rarely learns; avoids experiments.",
+                "4": "Learns occasionally; limited application.",
+                "7": "Continuously learns; reframes problems; simplifies.",
+                "10": "Re-conceptualizes issues; ships novel, practical solutions."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": "C6",
+              "title": "Patriotism & Community Impact (🇪🇹)",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Disregards local context; erodes trust.",
+                "4": "Basic compliance and minimal community engagement.",
+                "7": "Builds trust with customers/partners; positive local impact.",
+                "10": "Actively advances socio-economic progress; earns deep trust."
+              }
+            }
+          ],
+          "maxPoints": 60.0
+        }
+      ]
+    },
+    {
+      "familyName": "WordPress Developer",
+      "roleLabel": "WordPress Developer",
+      "gatekeeper": {
+        "tierName": "Tier 1: Core Execution & Mindset",
+        "threshold": 25,
+        "failureBand": "Not Ready"
+      },
+      "bands": [
+        {
+          "min": 85,
+          "label": "Ready"
+        },
+        {
+          "min": 70,
+          "label": "On Track"
+        },
+        {
+          "min": 0,
+          "label": "Not Ready"
+        }
+      ],
+      "tiers": [
+        {
+          "name": "Tier 1: Core Execution & Mindset",
+          "criteria": [
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Site Performance & Core Web Vitals",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Poor FCP/LCP/CLS; no optimization.",
+                "4": "Basic caching/minify; inconsistent.",
+                "7": "Good vitals; image/CDN optimization.",
+                "10": "Excellent vitals across site; monitored."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Delivery Velocity & Urgency",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Misses deadlines; slow to start.",
+                "4": "Meets sprint goals with reminders.",
+                "7": "Consistently on time; bias for action.",
+                "10": "Pulls work early; accelerates throughput."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Secure Configuration & Updates",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Outdated core/plugins; no backups.",
+                "4": "Irregular updates; basic backups.",
+                "7": "Regular updates; hardened configs; scheduled backups.",
+                "10": "Defense-in-depth, tested DR, security monitoring."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Accountability & Post-Release QA",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Disowns regressions; no RCA.",
+                "4": "Acknowledges issues; shallow RCA.",
+                "7": "Owns and fixes with RCA; adds checks.",
+                "10": "Documents postmortems; prevents recurrence."
+              }
+            }
+          ],
+          "maxPoints": 40.0
+        },
+        {
+          "name": "Tier 2: Impact & Influence",
+          "criteria": [
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Code Quality & WP Standards (Themes/Plugins)",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Edits vendor/core; spaghetti code.",
+                "4": "Works but violates standards.",
+                "7": "Follows WP standards; child themes; modular.",
+                "10": "Reusable plugins/blocks; automated checks; exemplary architecture."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "WooCommerce & Integrations (Chapa/APIs)",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Broken flows; payment/integration issues.",
+                "4": "Basic setups; occasional issues.",
+                "7": "Reliable stores/payments; stable APIs.",
+                "10": "Complex storefronts; custom gateways/webhooks; robust errors."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Customer Focus & Communication",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Unclear status; avoids client comms.",
+                "4": "Shares updates; handles basics.",
+                "7": "Anticipates needs; clear explanations; positive feedback.",
+                "10": "Trusted advisor; manages expectations; drives outcomes."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Process Improvement & Simplification",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Bloated plugins; no environments.",
+                "4": "Minor cleanups.",
+                "7": "Reduces bloat; implements staging/CI; improves DX.",
+                "10": "Leads hosting/CDN/tooling revamp with gains."
+              }
+            }
+          ],
+          "maxPoints": 40.0
+        },
+        {
+          "name": "Tier 3: Leadership & Initiative",
+          "criteria": [
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Documentation & Knowledge Sharing",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "No docs; bus-factor risk.",
+                "4": "Basic readme/admin notes.",
+                "7": "SOPs, admin guides, handover docs.",
+                "10": "Comprehensive docs + training sessions."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Monitoring, Backups & Support Readiness",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "No monitoring; ad-hoc backups; slow responses.",
+                "4": "Periodic checks; manual backups.",
+                "7": "Uptime monitoring, logs, scheduled backups; responsive support.",
+                "10": "Automated recovery, alerting, SLAs; excellent metrics."
+              }
+            }
+          ],
+          "maxPoints": 20.0
+        },
+        {
+          "name": "Tier 4: Culture & Values (360 Alignment)",
+          "criteria": [
+            {
+              "type": "RUBRIC",
+              "code": "C1",
+              "title": "Judgment (High Performance)",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Shortsighted decisions; ignores ambiguity.",
+                "4": "Decent decisions; limited strategic clarity.",
+                "7": "Sound judgment under ambiguity; clear tradeoffs.",
+                "10": "Consistently wise, strategic calls with measurable impact."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": "C2",
+              "title": "Clear Communication & Honesty Always",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Unclear; avoids hard feedback; spin.",
+                "4": "Basic updates; timid feedback.",
+                "7": "Concise, respectful, direct communication; addresses issues early.",
+                "10": "Radical candor; sets transparency rhythm; calm under pressure."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": "C3",
+              "title": "Freedom & Responsibility (Ownership)",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Needs control to act; blames process.",
+                "4": "Acts with guidance; sporadic ownership.",
+                "7": "Self-motivated, self-disciplined; acts in company’s best interest.",
+                "10": "Role model of autonomy with accountability; raises standards."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": "C4",
+              "title": "Highly Aligned, Loosely Coupled",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Creates silos/control gates.",
+                "4": "Alignment occasional; heavy coordination.",
+                "7": "Aligns on goals/metrics and moves fast without micromanagement.",
+                "10": "Enables speed at scale through clear context & trust across teams."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": "C5",
+              "title": "Curiosity & Innovation",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Rarely learns; avoids experiments.",
+                "4": "Learns occasionally; limited application.",
+                "7": "Continuously learns; reframes problems; simplifies.",
+                "10": "Re-conceptualizes issues; ships novel, practical solutions."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": "C6",
+              "title": "Patriotism & Community Impact (🇪🇹)",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Disregards local context; erodes trust.",
+                "4": "Basic compliance and minimal community engagement.",
+                "7": "Builds trust with customers/partners; positive local impact.",
+                "10": "Actively advances socio-economic progress; earns deep trust."
+              }
+            }
+          ],
+          "maxPoints": 60.0
+        }
+      ]
+    },
+    {
+      "familyName": "Project Manager",
+      "roleLabel": "Project Manager",
+      "gatekeeper": {
+        "tierName": "Tier 1: Planning & Delivery (Core Execution & Mindset)",
+        "threshold": 25,
+        "failureBand": "Not Ready"
+      },
+      "bands": [
+        {
+          "min": 85,
+          "label": "Ready"
+        },
+        {
+          "min": 70,
+          "label": "On Track"
+        },
+        {
+          "min": 0,
+          "label": "Not Ready"
+        }
+      ],
+      "tiers": [
+        {
+          "name": "Tier 1: Planning & Delivery (Core Execution & Mindset)",
+          "criteria": [
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Scope & Requirements Management",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Unclear scope; creep common.",
+                "4": "Basic docs; rework due to gaps.",
+                "7": "Clear/testable requirements; change control.",
+                "10": "Crisp boundaries; aligned stakeholders; no surprise changes."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Schedule Reliability & Velocity",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Chronic delays; slow to start.",
+                "4": "Meets some milestones; reactive replan.",
+                "7": "Predictable delivery; anticipates blockers.",
+                "10": "Accelerates schedule; unblocks teams."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Risk & Issue Management",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Unmanaged; surprises.",
+                "4": "Tracks risks; vague mitigations.",
+                "7": "Proactive register; fast closure.",
+                "10": "Anticipates systemic risks; reduces impact."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Quality & Acceptance Rate",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Frequent UAT failures; low acceptance.",
+                "4": "Basic QA; sporadic AC.",
+                "7": "Strong AC; high first-pass acceptance.",
+                "10": "Release readiness checklists; near-zero escaped defects."
+              }
+            }
+          ],
+          "maxPoints": 40.0
+        },
+        {
+          "name": "Tier 2: Stakeholder, Customer & Influence",
+          "criteria": [
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Stakeholder Communication & Transparency",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Hides bad news.",
+                "4": "Periodic updates; limited depth.",
+                "7": "Clear, candid comms; timely escalations.",
+                "10": "Sets transparency rhythm; trusted by all levels."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Customer Satisfaction & Escalation Handling",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Frequent complaints; unmanaged expectations.",
+                "4": "Handles queries; reactive.",
+                "7": "Proactive status; high CSAT; fast resolution.",
+                "10": "Turns escalations into advocacy; business outcomes."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Process Improvement & Waste Elimination",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Accepts waste; process bloat.",
+                "4": "Minor tweaks.",
+                "7": "Deletes non-value steps; reduces cycle time/WIP.",
+                "10": "Leads lean transformation with measurable gains."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Cross-Functional Coordination & Dependency Mgmt",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Unmanaged dependencies.",
+                "4": "Tracks; reactive.",
+                "7": "Smooth cross-team delivery.",
+                "10": "Predictable cadence across multiple teams."
+              }
+            }
+          ],
+          "maxPoints": 40.0
+        },
+        {
+          "name": "Tier 3: Leadership & Strategic Impact",
+          "criteria": [
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Budget & Resource Management",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Overruns; uncontrolled burn.",
+                "4": "Basic tracking; variances unaddressed.",
+                "7": "Accurate forecasts; optimized allocations.",
+                "10": "Under budget; clear ROI; strategic planning."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Team Leadership, Coaching & Morale",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Low morale; conflicts unresolved.",
+                "4": "Ad-hoc coaching.",
+                "7": "Healthy culture; regular 1:1s; talent growth.",
+                "10": "Builds future leaders; engagement gains."
+              }
+            }
+          ],
+          "maxPoints": 20.0
+        },
+        {
+          "name": "Tier 4: Culture & Values (360 Alignment)",
+          "criteria": [
+            {
+              "type": "RUBRIC",
+              "code": "C1",
+              "title": "Judgment (High Performance)",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Shortsighted decisions; ignores ambiguity.",
+                "4": "Decent decisions; limited strategic clarity.",
+                "7": "Sound judgment under ambiguity; clear tradeoffs.",
+                "10": "Consistently wise, strategic calls with measurable impact."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": "C2",
+              "title": "Clear Communication & Honesty Always",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Unclear; avoids hard feedback; spin.",
+                "4": "Basic updates; timid feedback.",
+                "7": "Concise, respectful, direct communication; addresses issues early.",
+                "10": "Radical candor; sets transparency rhythm; calm under pressure."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": "C3",
+              "title": "Freedom & Responsibility (Ownership)",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Needs control to act; blames process.",
+                "4": "Acts with guidance; sporadic ownership.",
+                "7": "Self-motivated, self-disciplined; acts in company’s best interest.",
+                "10": "Role model of autonomy with accountability; raises standards."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": "C4",
+              "title": "Highly Aligned, Loosely Coupled",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Creates silos/control gates.",
+                "4": "Alignment occasional; heavy coordination.",
+                "7": "Aligns on goals/metrics and moves fast without micromanagement.",
+                "10": "Enables speed at scale through clear context & trust across teams."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": "C5",
+              "title": "Curiosity & Innovation",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Rarely learns; avoids experiments.",
+                "4": "Learns occasionally; limited application.",
+                "7": "Continuously learns; reframes problems; simplifies.",
+                "10": "Re-conceptualizes issues; ships novel, practical solutions."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": "C6",
+              "title": "Patriotism & Community Impact (🇪🇹)",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Disregards local context; erodes trust.",
+                "4": "Basic compliance and minimal community engagement.",
+                "7": "Builds trust with customers/partners; positive local impact.",
+                "10": "Actively advances socio-economic progress; earns deep trust."
+              }
+            }
+          ],
+          "maxPoints": 60.0
+        }
+      ]
+    },
+    {
+      "familyName": "System Analyst",
+      "roleLabel": "System Analyst",
+      "gatekeeper": {
+        "tierName": "Tier 1: Requirements Excellence (Core Execution & Mindset)",
+        "threshold": 25,
+        "failureBand": "Not Ready"
+      },
+      "bands": [
+        {
+          "min": 85,
+          "label": "Ready"
+        },
+        {
+          "min": 70,
+          "label": "On Track"
+        },
+        {
+          "min": 0,
+          "label": "Not Ready"
+        }
+      ],
+      "tiers": [
+        {
+          "name": "Tier 1: Requirements Excellence (Core Execution & Mindset)",
+          "criteria": [
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Elicitation & Clarity of Requirements",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Ambiguous; rework.",
+                "4": "Basic elicitation; gaps.",
+                "7": "Structured workshops; clear stories/use cases.",
+                "10": "Consensus & crisp prioritization."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Acceptance Criteria & Testability",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "No AC; not testable.",
+                "4": "Vague/incomplete AC.",
+                "7": "Given-When-Then; edge cases.",
+                "10": "Comprehensive AC incl. negative cases."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Traceability & Change Control",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "No traceability.",
+                "4": "Partial links; ad-hoc notes.",
+                "7": "End-to-end matrix; impact analysis.",
+                "10": "Automated traceability; risk-based control."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Specification Quality & Documentation",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Outdated/inconsistent.",
+                "4": "Basic, partly outdated.",
+                "7": "Current specs + BPMN/UML.",
+                "10": "High-quality living docs; style-guide compliant."
+              }
+            }
+          ],
+          "maxPoints": 40.0
+        },
+        {
+          "name": "Tier 2: Analytical Depth & Solution Design",
+          "criteria": [
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Process & System Modeling (BPMN/UML)",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "No/incorrect modeling.",
+                "4": "Simple with errors.",
+                "7": "Accurate main/alt paths.",
+                "10": "Enterprise-grade models driving design."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Data Analysis & Source-of-Truth (ERD/SQL)",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Inconsistent definitions.",
+                "4": "Basic ERDs.",
+                "7": "Solid ERD/data contracts; SQL verification.",
+                "10": "Data dictionary/lineage; dashboards."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "First Principles Decomposition",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Analogy/band-aid.",
+                "4": "Shallow RCA.",
+                "7": "Fundamentals & quantified constraints.",
+                "10": "Simpler architectures with measurable gains."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Simplification & Waste Elimination",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Accepts bloat.",
+                "4": "Small optimizations.",
+                "7": "Deletes steps; reduces WIP/cycle time.",
+                "10": "Leads lean simplification with gains."
+              }
+            }
+          ],
+          "maxPoints": 40.0
+        },
+        {
+          "name": "Tier 3: Stakeholder Impact & Ownership",
+          "criteria": [
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Stakeholder Comms & Radical Transparency",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Surprises; poor facilitation.",
+                "4": "Updates lack clarity.",
+                "7": "Candid status; proactive escalation; strong workshops.",
+                "10": "Transparent rhythm; executive/customer trust."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Collab with Dev/QA & Customer Handling",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Throws over wall; slow support.",
+                "4": "Responds when prompted.",
+                "7": "Partners with Dev/QA; triages customer issues.",
+                "10": "Seamless collab; customers commend responsiveness."
+              }
+            }
+          ],
+          "maxPoints": 20.0
+        },
+        {
+          "name": "Tier 4: Culture & Values (360 Alignment)",
+          "criteria": [
+            {
+              "type": "RUBRIC",
+              "code": "C1",
+              "title": "Judgment (High Performance)",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Shortsighted decisions; ignores ambiguity.",
+                "4": "Decent decisions; limited strategic clarity.",
+                "7": "Sound judgment under ambiguity; clear tradeoffs.",
+                "10": "Consistently wise, strategic calls with measurable impact."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": "C2",
+              "title": "Clear Communication & Honesty Always",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Unclear; avoids hard feedback; spin.",
+                "4": "Basic updates; timid feedback.",
+                "7": "Concise, respectful, direct communication; addresses issues early.",
+                "10": "Radical candor; sets transparency rhythm; calm under pressure."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": "C3",
+              "title": "Freedom & Responsibility (Ownership)",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Needs control to act; blames process.",
+                "4": "Acts with guidance; sporadic ownership.",
+                "7": "Self-motivated, self-disciplined; acts in company’s best interest.",
+                "10": "Role model of autonomy with accountability; raises standards."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": "C4",
+              "title": "Highly Aligned, Loosely Coupled",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Creates silos/control gates.",
+                "4": "Alignment occasional; heavy coordination.",
+                "7": "Aligns on goals/metrics and moves fast without micromanagement.",
+                "10": "Enables speed at scale through clear context & trust across teams."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": "C5",
+              "title": "Curiosity & Innovation",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Rarely learns; avoids experiments.",
+                "4": "Learns occasionally; limited application.",
+                "7": "Continuously learns; reframes problems; simplifies.",
+                "10": "Re-conceptualizes issues; ships novel, practical solutions."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": "C6",
+              "title": "Patriotism & Community Impact (🇪🇹)",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Disregards local context; erodes trust.",
+                "4": "Basic compliance and minimal community engagement.",
+                "7": "Builds trust with customers/partners; positive local impact.",
+                "10": "Actively advances socio-economic progress; earns deep trust."
+              }
+            }
+          ],
+          "maxPoints": 60.0
+        }
+      ]
+    },
+    {
+      "familyName": "CEO",
+      "roleLabel": "Chief Executive Officer",
+      "gatekeeper": {
+        "tierName": "Tier 1: Outcomes & Strategy Execution",
+        "threshold": 25,
+        "failureBand": "Not Ready"
+      },
+      "bands": [
+        {
+          "min": 85,
+          "label": "Ready"
+        },
+        {
+          "min": 70,
+          "label": "On Track"
+        },
+        {
+          "min": 0,
+          "label": "Not Ready"
+        }
+      ],
+      "tiers": [
+        {
+          "name": "Tier 1: Outcomes & Strategy Execution",
+          "criteria": [
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Vision & Strategy Realization",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Vague/oscillating strategy.",
+                "4": "Partially aligned; shifting priorities.",
+                "7": "Clear vision cascaded to goals/metrics.",
+                "10": "Strategy realized with measurable business outcomes."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Impact & Unit Economics",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Poor growth/efficiency; unclear metrics.",
+                "4": "Some wins; inconsistent economics.",
+                "7": "Sustainable growth; healthy margins/ROIC.",
+                "10": "Exemplary results relative to peers/market cycles."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Velocity & Focus",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Slow; analysis paralysis.",
+                "4": "Moderate speed; frequent pivots.",
+                "7": "Bias for action; eliminates distractions.",
+                "10": "Ruthless prioritization; ships high-leverage bets fast."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Innovation Portfolio & Simplification",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Stagnant; complexity accrues.",
+                "4": "Incremental only.",
+                "7": "Balanced core/bets; deletes low-value work.",
+                "10": "Re-conceptualizes markets; simplification drives advantage."
+              }
+            }
+          ],
+          "maxPoints": 40.0
+        },
+        {
+          "name": "Tier 2: Talent Density & Organization",
+          "criteria": [
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Talent Density & Keeper Test",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Tolerates mediocrity/brilliant jerks.",
+                "4": "Mixed team quality.",
+                "7": "Stars in key roles; acts on the keeper test.",
+                "10": "Stars in every seat; stunning colleagues culture."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Top of Market Compensation Stewardship",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Under/over paying broadly.",
+                "4": "Inconsistent market alignment.",
+                "7": "Annual market checks; pay reflects true market value.",
+                "10": "Proactive comp strategy keeps top talent."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Context, Not Control",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Micromanages; approvals everywhere.",
+                "4": "Some context; many controls.",
+                "7": "Sets clear context/metrics; autonomy at edges.",
+                "10": "Org moves fast with clarity and minimal control gates."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Highly Aligned, Loosely Coupled Org",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Siloed or tightly coupled bureaucracy.",
+                "4": "Ad-hoc alignment.",
+                "7": "Clear goals broadly understood; fast execution.",
+                "10": "Big, fast, flexible org with reinforced alignment systems."
+              }
+            }
+          ],
+          "maxPoints": 40.0
+        },
+        {
+          "name": "Tier 3: Governance & Stakeholders",
+          "criteria": [
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Ethics, Honesty & Transparency",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Spins/obfuscates; surprises.",
+                "4": "Basic reporting; limited candor.",
+                "7": "Candid communication; timely disclosures; high integrity.",
+                "10": "Culture of honesty; tough truths handled with courage."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Customer/Partner Trust & Country Impact (🇪🇹)",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Trust eroding; local disconnect.",
+                "4": "Mixed trust; limited community engagement.",
+                "7": "Strong trust; positive local impact.",
+                "10": "Earns deep trust; advances socio-economic progress."
+              }
+            }
+          ],
+          "maxPoints": 20.0
+        },
+        {
+          "name": "Tier 4: Culture & Values (360 Alignment)",
+          "criteria": [
+            {
+              "type": "RUBRIC",
+              "code": "C1",
+              "title": "Judgment (High Performance)",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Shortsighted decisions; ignores ambiguity.",
+                "4": "Decent decisions; limited strategic clarity.",
+                "7": "Sound judgment under ambiguity; clear tradeoffs.",
+                "10": "Consistently wise, strategic calls with measurable impact."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": "C2",
+              "title": "Clear Communication & Honesty Always",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Unclear; avoids hard feedback; spin.",
+                "4": "Basic updates; timid feedback.",
+                "7": "Concise, respectful, direct communication; addresses issues early.",
+                "10": "Radical candor; sets transparency rhythm; calm under pressure."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": "C3",
+              "title": "Freedom & Responsibility (Ownership)",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Needs control to act; blames process.",
+                "4": "Acts with guidance; sporadic ownership.",
+                "7": "Self-motivated, self-disciplined; acts in company’s best interest.",
+                "10": "Role model of autonomy with accountability; raises standards."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": "C4",
+              "title": "Highly Aligned, Loosely Coupled",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Creates silos/control gates.",
+                "4": "Alignment occasional; heavy coordination.",
+                "7": "Aligns on goals/metrics and moves fast without micromanagement.",
+                "10": "Enables speed at scale through clear context & trust across teams."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": "C5",
+              "title": "Curiosity & Innovation",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Rarely learns; avoids experiments.",
+                "4": "Learns occasionally; limited application.",
+                "7": "Continuously learns; reframes problems; simplifies.",
+                "10": "Re-conceptualizes issues; ships novel, practical solutions."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": "C6",
+              "title": "Patriotism & Community Impact (🇪🇹)",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Disregards local context; erodes trust.",
+                "4": "Basic compliance and minimal community engagement.",
+                "7": "Builds trust with customers/partners; positive local impact.",
+                "10": "Actively advances socio-economic progress; earns deep trust."
+              }
+            }
+          ],
+          "maxPoints": 60.0
+        }
+      ]
+    },
+    {
+      "familyName": "Sales Engineering",
+      "roleLabel": "Sales Engineer",
+      "gatekeeper": {
+        "tierName": "Tier 1: Core Pre‑Sales Execution & Technical Rigor",
+        "threshold": 25,
+        "failureBand": "Not Ready"
+      },
+      "bands": [
+        {
+          "min": 85,
+          "label": "Ready"
+        },
+        {
+          "min": 70,
+          "label": "On Track"
+        },
+        {
+          "min": 0,
+          "label": "Not Ready"
+        }
+      ],
+      "tiers": [
+        {
+          "name": "Tier 1: Core Pre‑Sales Execution & Technical Rigor",
+          "criteria": [
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Discovery Quality & Requirements Capture",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Jumps to demos; misses core needs.",
+                "4": "Basic discovery; gaps lead to rework.",
+                "7": "Structured discovery; clear success criteria & constraints.",
+                "10": "Masterful discovery mapped to measurable outcomes; risks surfaced early."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Demo/POC Quality & Conversion",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Generic demos; low conversion.",
+                "4": "Adequate demos; limited tailoring.",
+                "7": "Tailored demos/POCs for key use cases; strong conversion.",
+                "10": "Exceptional demos/POCs shorten cycles and materially lift win rate."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Solution Fit & Architecture",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Misaligned solutions; over/under‑engineered.",
+                "4": "Fit for basics; lacks scalability/security nuance.",
+                "7": "Right‑sized architectures meeting NFRs (perf, security, a11y).",
+                "10": "Elegant, cost‑aware designs that de‑risk delivery and wow customers."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Scoping Accuracy & Estimation",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Frequent misses causing margin/schedule pain.",
+                "4": "Estimates within ±40%.",
+                "7": "Estimates within ±20% with clear assumptions.",
+                "10": "Consistently within ±10% and influences packaging/pricing smartly."
+              }
+            }
+          ],
+          "maxPoints": 40.0
+        },
+        {
+          "name": "Tier 2: Revenue Impact & GTM Collaboration",
+          "criteria": [
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Win‑Rate Influence (Weighted by Involvement)",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Negative/neutral influence; no pattern of impact.",
+                "4": "Occasional influence on winnable deals.",
+                "7": "Clear positive impact across opportunities; references cite SE.",
+                "10": "Materially lifts segment win rate; force‑multiplier for sales."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Proposal/RFP Excellence & Responsiveness",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Late/low‑quality proposals; errors.",
+                "4": "On‑time but generic responses.",
+                "7": "Crisp, tailored, measurable proposals; hits SLAs.",
+                "10": "RFP “A‑team” quality; templates/tools that upgrade the whole org."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Pipeline Velocity & SLA Adherence",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Slow solutioning blocks deals; missed SLAs.",
+                "4": "Meets basic turnaround times.",
+                "7": "Fast iterations; removes blockers proactively.",
+                "10": "Dramatically accelerates cycles; orchestrates stakeholders efficiently."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Sales/Marketing Enablement & Collateral",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "No reusable assets; ad‑hoc.",
+                "4": "Some decks/docs exist but stale.",
+                "7": "Maintains living playbooks, demos, calculators.",
+                "10": "Sets enablement standard; trains AE/AM; collateral elevates brand."
+              }
+            }
+          ],
+          "maxPoints": 40.0
+        },
+        {
+          "name": "Tier 3: Trust, Risk & Handoff",
+          "criteria": [
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Security/Compliance & Risk Handling",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Security claims unverified; risks ignored.",
+                "4": "Addresses basic security questions.",
+                "7": "Provides documented controls and risk registers.",
+                "10": "Leads security/compliance readiness; de‑risks integrations (e.g., payments)."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": null,
+              "title": "Handoff Quality to Delivery & Post‑Sale Support",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Tosses over the wall; context lost.",
+                "4": "Basic notes; frequent clarifications needed.",
+                "7": "Clear SOW, decisions, assumptions; active kickoff support.",
+                "10": "Gold‑standard handoff; zero‑surprise delivery; CSAT praises continuity."
+              }
+            }
+          ],
+          "maxPoints": 20.0
+        },
+        {
+          "name": "Tier 4: Culture & Values (360 Alignment)",
+          "criteria": [
+            {
+              "type": "RUBRIC",
+              "code": "C1",
+              "title": "Judgment (High Performance)",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Shortsighted decisions; ignores ambiguity.",
+                "4": "Decent decisions; limited strategic clarity.",
+                "7": "Sound judgment under ambiguity; clear tradeoffs.",
+                "10": "Consistently wise, strategic calls with measurable impact."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": "C2",
+              "title": "Clear Communication & Honesty Always",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Unclear updates; avoids direct feedback.",
+                "4": "Basic updates; timid feedback.",
+                "7": "Concise, candid, respectful communication; addresses issues early.",
+                "10": "Radical candor; sets transparency rhythm with customers & sales."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": "C3",
+              "title": "Freedom & Responsibility (Ownership)",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Needs control to act; blames process.",
+                "4": "Acts with guidance; sporadic ownership.",
+                "7": "Self-motivated, disciplined; acts in company’s best interest.",
+                "10": "Role model of autonomy + accountability; raises standards."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": "C4",
+              "title": "Highly Aligned, Loosely Coupled",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Creates silos/control gates.",
+                "4": "Alignment occasional; heavy coordination.",
+                "7": "Aligns on goals/metrics and moves fast without micromanagement.",
+                "10": "Enables speed at scale through clear context & trust across teams."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": "C5",
+              "title": "Curiosity & Innovation",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Rarely learns; avoids experiments.",
+                "4": "Learns occasionally; limited application.",
+                "7": "Continuously learns; reframes problems; simplifies.",
+                "10": "Re-conceptualizes issues; ships novel, practical solutions."
+              }
+            },
+            {
+              "type": "RUBRIC",
+              "code": "C6",
+              "title": "Patriotism & Community Impact (🇪🇹)",
+              "maxPoints": 10.0,
+              "anchorJson": {
+                "0": "Disregards local context; erodes trust.",
+                "4": "Minimal community engagement.",
+                "7": "Builds trust with customers/partners; positive local impact.",
+                "10": "Actively advances socio-economic progress; earns deep trust."
+              }
+            }
+          ],
+          "maxPoints": 60.0
+        }
+      ]
+    },
+    {
+      "familyName": "Sales Engineering OKR",
+      "roleLabel": "Sales Engineer — OKR metric scorecard (FY25/26)",
+      "gatekeeper": {
+        "tierName": "Tier 1: Revenue & Pipeline",
+        "threshold": 25,
+        "failureBand": "Not Ready"
+      },
+      "bands": [
+        {
+          "min": 85,
+          "label": "Ready"
+        },
+        {
+          "min": 70,
+          "label": "On Track"
+        },
+        {
+          "min": 0,
+          "label": "Not Ready"
+        }
+      ],
+      "tiers": [
+        {
+          "name": "Tier 1: Revenue & Pipeline",
+          "criteria": [
+            {
+              "type": "METRIC",
+              "code": null,
+              "title": "Quota Attainment",
+              "maxPoints": 10.0,
+              "unit": "%",
+              "periodLabel": "FY25/26",
+              "target": 100.0,
+              "scoringRuleJson": {
+                "type": "LINEAR_CAPPED",
+                "maxScore": 10
+              }
+            },
+            {
+              "type": "METRIC",
+              "code": null,
+              "title": "Mega-Deal Wins (>= 5M)",
+              "maxPoints": 10.0,
+              "unit": "count",
+              "periodLabel": "FY25/26",
+              "target": 5.0,
+              "scoringRuleJson": {
+                "type": "LINEAR_CAPPED",
+                "maxScore": 10
+              }
+            },
+            {
+              "type": "METRIC",
+              "code": null,
+              "title": "Pipeline Coverage",
+              "maxPoints": 10.0,
+              "unit": "x",
+              "periodLabel": "Quarterly Avg",
+              "target": 10.0,
+              "scoringRuleJson": {
+                "type": "LINEAR_CAPPED",
+                "maxScore": 10
+              }
+            },
+            {
+              "type": "METRIC",
+              "code": null,
+              "title": "Proactive Presales Share of Pipeline",
+              "maxPoints": 10.0,
+              "unit": "%",
+              "periodLabel": "FY25/26",
+              "target": 35.0,
+              "scoringRuleJson": {
+                "type": "LINEAR_CAPPED",
+                "maxScore": 10
+              }
+            }
+          ],
+          "maxPoints": 40.0
+        },
+        {
+          "name": "Tier 2: Process & Bid Excellence",
+          "criteria": [
+            {
+              "type": "METRIC",
+              "code": null,
+              "title": "Go/No-Go Checklist Adoption (for bids > 1M)",
+              "maxPoints": 10.0,
+              "unit": "%",
+              "periodLabel": "Always",
+              "target": 100.0,
+              "scoringRuleJson": {
+                "type": "LINEAR_CAPPED",
+                "maxScore": 10
+              }
+            },
+            {
+              "type": "METRIC",
+              "code": null,
+              "title": "CRM/ERP Data Integrity (activities logged ≤24h)",
+              "maxPoints": 10.0,
+              "unit": "%",
+              "periodLabel": "Always",
+              "target": 100.0,
+              "scoringRuleJson": {
+                "type": "LINEAR_CAPPED",
+                "maxScore": 10
+              }
+            },
+            {
+              "type": "METRIC",
+              "code": null,
+              "title": "Compliance / Spec Errors (preventable)",
+              "maxPoints": 10.0,
+              "unit": "count",
+              "periodLabel": "FY25/26",
+              "target": 0.0,
+              "scoringRuleJson": {
+                "type": "INVERSE_BANDS",
+                "bands": [
+                  {
+                    "maxActual": 0,
+                    "score": 10
+                  },
+                  {
+                    "maxActual": 1,
+                    "score": 5
+                  },
+                  {
+                    "maxActual": null,
+                    "score": 0
+                  }
+                ]
+              }
+            }
+          ],
+          "maxPoints": 30.0
+        },
+        {
+          "name": "Tier 3: Presales & Conversion",
+          "criteria": [
+            {
+              "type": "METRIC",
+              "code": null,
+              "title": "C-level Strategic Meetings",
+              "maxPoints": 10.0,
+              "unit": "count",
+              "periodLabel": "Per Quarter",
+              "target": 20.0,
+              "scoringRuleJson": {
+                "type": "LINEAR_CAPPED",
+                "maxScore": 10
+              }
+            },
+            {
+              "type": "METRIC",
+              "code": null,
+              "title": "Win Rate on Qualified Deals",
+              "maxPoints": 10.0,
+              "unit": "%",
+              "periodLabel": "FY25/26",
+              "target": 55.0,
+              "scoringRuleJson": {
+                "type": "LINEAR_CAPPED",
+                "maxScore": 10
+              }
+            }
+          ],
+          "maxPoints": 20.0
+        },
+        {
+          "name": "Tier 4: Account Expansion & Recurring",
+          "criteria": [
+            {
+              "type": "METRIC",
+              "code": null,
+              "title": "Cross-sell / Upsell Revenue",
+              "maxPoints": 10.0,
+              "unit": "ETB",
+              "periodLabel": "FY25/26",
+              "target": 5000000.0,
+              "scoringRuleJson": {
+                "type": "LINEAR_CAPPED",
+                "maxScore": 10
+              }
+            },
+            {
+              "type": "METRIC",
+              "code": null,
+              "title": "Customer Satisfaction (CSAT)",
+              "maxPoints": 10.0,
+              "unit": "/10",
+              "periodLabel": "Per Project Avg",
+              "target": 9.0,
+              "scoringRuleJson": {
+                "type": "LINEAR_CAPPED",
+                "maxScore": 10
+              }
+            },
+            {
+              "type": "METRIC",
+              "code": null,
+              "title": "Converted 'Canceled' Tenders",
+              "maxPoints": 10.0,
+              "unit": "count",
+              "periodLabel": "FY25/26",
+              "target": 3.0,
+              "scoringRuleJson": {
+                "type": "LINEAR_CAPPED",
+                "maxScore": 10
+              }
+            }
+          ],
+          "maxPoints": 30.0
+        },
+        {
+          "name": "Tier 5: Mastery & Ecosystem Influence",
+          "criteria": [
+            {
+              "type": "METRIC",
+              "code": null,
+              "title": "Advanced Certifications Completed",
+              "maxPoints": 10.0,
+              "unit": "count",
+              "periodLabel": "FY25/26",
+              "target": 3.0,
+              "scoringRuleJson": {
+                "type": "LINEAR_CAPPED",
+                "maxScore": 10
+              }
+            },
+            {
+              "type": "METRIC",
+              "code": null,
+              "title": "Internal Workshops Led",
+              "maxPoints": 10.0,
+              "unit": "count",
+              "periodLabel": "FY25/26",
+              "target": 4.0,
+              "scoringRuleJson": {
+                "type": "LINEAR_CAPPED",
+                "maxScore": 10
+              }
+            },
+            {
+              "type": "METRIC",
+              "code": null,
+              "title": "Strategic Partnerships Closed",
+              "maxPoints": 10.0,
+              "unit": "count",
+              "periodLabel": "FY25/26",
+              "target": 5.0,
+              "scoringRuleJson": {
+                "type": "LINEAR_CAPPED",
+                "maxScore": 10
+              }
+            }
+          ],
+          "maxPoints": 30.0
+        },
+        {
+          "name": "Tier 6: Culture & Values (360 Alignment)",
+          "criteria": [
+            {
+              "type": "METRIC",
+              "code": "C1",
+              "title": "Judgment (High Performance)",
+              "maxPoints": 10.0,
+              "unit": "score",
+              "periodLabel": "FY25/26",
+              "target": 10.0,
+              "scoringRuleJson": {
+                "type": "MANUAL"
+              }
+            },
+            {
+              "type": "METRIC",
+              "code": "C2",
+              "title": "Clear Communication & Honesty Always",
+              "maxPoints": 10.0,
+              "unit": "score",
+              "periodLabel": "FY25/26",
+              "target": 10.0,
+              "scoringRuleJson": {
+                "type": "MANUAL"
+              }
+            },
+            {
+              "type": "METRIC",
+              "code": "C3",
+              "title": "Freedom & Responsibility (Ownership)",
+              "maxPoints": 10.0,
+              "unit": "score",
+              "periodLabel": "FY25/26",
+              "target": 10.0,
+              "scoringRuleJson": {
+                "type": "MANUAL"
+              }
+            },
+            {
+              "type": "METRIC",
+              "code": "C4",
+              "title": "Highly Aligned, Loosely Coupled",
+              "maxPoints": 10.0,
+              "unit": "score",
+              "periodLabel": "FY25/26",
+              "target": 10.0,
+              "scoringRuleJson": {
+                "type": "MANUAL"
+              }
+            },
+            {
+              "type": "METRIC",
+              "code": "C5",
+              "title": "Curiosity & Innovation",
+              "maxPoints": 10.0,
+              "unit": "score",
+              "periodLabel": "FY25/26",
+              "target": 10.0,
+              "scoringRuleJson": {
+                "type": "MANUAL"
+              }
+            },
+            {
+              "type": "METRIC",
+              "code": "C6",
+              "title": "Patriotism & Community Impact (🇪🇹)",
+              "maxPoints": 10.0,
+              "unit": "score",
+              "periodLabel": "FY25/26",
+              "target": 10.0,
+              "scoringRuleJson": {
+                "type": "MANUAL"
+              }
+            }
+          ],
+          "maxPoints": 60.0
+        }
+      ]
+    }
+  ]
+}

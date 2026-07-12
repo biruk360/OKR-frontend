@@ -1,4 +1,3 @@
-import { PageHeader } from '@/components/ui'
 import { EvaluatorQueue } from '@/features/performance'
 import { requirePerformancePage } from '@/lib/performance'
 
@@ -6,7 +5,17 @@ export default async function PerformanceEvaluationsPage() {
   await requirePerformancePage('page.performance.evaluations', 'evaluation')
   return (
     <div className="space-y-4">
-      <PageHeader title="Evaluation Queue" description="Complete scorecards assigned to you while other evaluator scores remain blind." />
+      <div
+        className="rounded-[14px] border bg-card px-5 pt-5 pb-4"
+        style={{ borderColor: 'var(--ap-border)' }}
+      >
+        <h1 className="text-[24px] font-semibold leading-tight" style={{ letterSpacing: '-0.02em' }}>
+          Evaluation Queue
+        </h1>
+        <p className="mt-1 text-[13px] text-muted-foreground" style={{ maxWidth: 720 }}>
+          Complete scorecards assigned to you while other evaluator scores remain blind.
+        </p>
+      </div>
       <EvaluatorQueue />
     </div>
   )

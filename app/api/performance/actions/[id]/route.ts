@@ -3,6 +3,7 @@ import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { apiBadRequest, apiForbidden, apiNotFound, apiSuccess, withAuth } from '@/lib/api'
 import { canManageDevelopmentAction } from '@/lib/performance'
+import { recordActivity } from '@/lib/activity-log'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
@@ -34,6 +35,13 @@ export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { sess
       executedById: status === 'EXECUTED' ? session.user.id : action.executedById,
       ...(body.detailJson ? { detailJson: body.detailJson as Prisma.InputJsonValue } : {}),
     },
+  })
+  await recordActivity({
+    entityType: 'DEVELOPMENT_ACTION',
+    evaluationId: action.evaluationId,
+    action: status === 'EXECUTED' ? 'ACTION_EXECUTED' : status === 'REJECTED' ? 'ACTION_REJECTED' : 'ACTION_APPROVED',
+    actorId: session.user.id,
+    metadata: { developmentActionId: id, actionType: action.type, reason: reason || null },
   })
   return apiSuccess(updated)
 })

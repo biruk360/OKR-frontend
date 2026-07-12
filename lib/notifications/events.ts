@@ -17,6 +17,7 @@ export type EventCategory =
   | 'ALIGNMENT'
   | 'COMMENT'
   | 'ADMIN'
+  | 'PERFORMANCE'
 
 export type EventKey =
   // Account
@@ -69,6 +70,14 @@ export type EventKey =
   // Comments / mentions
   | 'USER_MENTIONED'
   | 'COMMENT_ON_OWNED_ENTITY'
+  // Performance & scorecard — payloads must stay score-free until the draft is
+  // shared (spec F1); callers only pass names, cycle labels, and deep links.
+  | 'PERF_CYCLE_OPENED'
+  | 'PERF_PANEL_COMPLETE'
+  | 'PERF_DRAFT_SHARED'
+  | 'PERF_DISPUTE_RAISED'
+  | 'PERF_ACTION_RECOMMENDED'
+  | 'PERF_WEEKLY_FOCUS'
   // Admin / system
   | 'ADMIN_USER_CREATED'
   | 'ADMIN_BULK_JOB_DONE'
@@ -138,6 +147,13 @@ export const EVENT_META: Record<EventKey, EventMeta> = {
   USER_MENTIONED: { key: 'USER_MENTIONED', category: 'COMMENT', defaultCadence: 'IMMEDIATE', redactable: true, label: 'You were mentioned' },
   COMMENT_ON_OWNED_ENTITY: { key: 'COMMENT_ON_OWNED_ENTITY', category: 'COMMENT', defaultCadence: 'DAILY', redactable: true, label: 'Comment on your OKR / KR / to-do' },
 
+  PERF_CYCLE_OPENED: { key: 'PERF_CYCLE_OPENED', category: 'PERFORMANCE', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Review cycle opened — evaluations assigned to you' },
+  PERF_PANEL_COMPLETE: { key: 'PERF_PANEL_COMPLETE', category: 'PERFORMANCE', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Evaluator panel complete — ready for review' },
+  PERF_DRAFT_SHARED: { key: 'PERF_DRAFT_SHARED', category: 'PERFORMANCE', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Your performance draft report is ready' },
+  PERF_DISPUTE_RAISED: { key: 'PERF_DISPUTE_RAISED', category: 'PERFORMANCE', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Evaluation disputed by employee' },
+  PERF_ACTION_RECOMMENDED: { key: 'PERF_ACTION_RECOMMENDED', category: 'PERFORMANCE', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Reward / development action recommended' },
+  PERF_WEEKLY_FOCUS: { key: 'PERF_WEEKLY_FOCUS', category: 'PERFORMANCE', defaultCadence: 'WEEKLY', redactable: false, label: 'Weekly growth focus' },
+
   ADMIN_USER_CREATED: { key: 'ADMIN_USER_CREATED', category: 'ADMIN', defaultCadence: 'IMMEDIATE', redactable: false, label: 'New user created' },
   ADMIN_BULK_JOB_DONE: { key: 'ADMIN_BULK_JOB_DONE', category: 'ADMIN', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Bulk import / export done' },
   ADMIN_SECURITY_ALERT: { key: 'ADMIN_SECURITY_ALERT', category: 'ADMIN', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Security alert' },
@@ -146,7 +162,7 @@ export const EVENT_META: Record<EventKey, EventMeta> = {
 }
 
 export const ALL_CATEGORIES: EventCategory[] = [
-  'ACCOUNT', 'OBJECTIVE', 'KEY_RESULT', 'CHECK_IN', 'TODO', 'TIMEFRAME', 'ALIGNMENT', 'COMMENT', 'ADMIN',
+  'ACCOUNT', 'OBJECTIVE', 'KEY_RESULT', 'CHECK_IN', 'TODO', 'TIMEFRAME', 'ALIGNMENT', 'COMMENT', 'ADMIN', 'PERFORMANCE',
 ]
 
 /** Categories the user may NOT disable (account/security emails bypass prefs). */

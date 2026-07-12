@@ -2,32 +2,46 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import { AlertTriangle, CheckCircle2, ExternalLink, Info, LockKeyhole, Save } from 'lucide-react'
-import { Button, Card, CardContent, CardHeader, CardTitle, EmptyState, Input, Textarea, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui'
-import { useEvaluation, useMetricActual, useSaveScores, useSubmitEvaluation } from '../hooks/queries'
-import { PerformanceStatusBadge } from './PerformanceStatusBadge'
+import { useSession } from 'next-auth/react'
+import { AlertTriangle, CheckCircle2, ExternalLink, FileX2, Info, LockKeyhole, RefreshCw, Save, SearchX } from 'lucide-react'
+import { Alert, AlertDescription, AlertTitle, Button, EmptyState, Input, Textarea, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui'
+import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton'
+import { useEvaluation, useMetricActual, useRetryConsolidation, useSaveScores, useSubmitEvaluation } from '../hooks/queries'
+import { humanizeEnum, PerformanceStatusBadge } from './PerformanceStatusBadge'
 import { PerformanceReport } from './PerformanceReport'
 import { CalibrationPanel } from './CalibrationPanel'
+import { PanelManager } from './PanelManager'
+import { SectionCard } from './SectionCard'
 import { usePerformancePermissions } from '../hooks/usePerformancePermissions'
 
 type DraftScore = { score: string; remark: string }
 
 function MetricActualCell({ evaluationId, criterionId }: { evaluationId: string; criterionId: string }) {
   const query = useMetricActual(evaluationId, criterionId)
-  if (query.isLoading) return <p className="text-sm text-muted-foreground md:col-span-3">Resolving period-bounded Key Result actual...</p>
+  if (query.isLoading) {
+    return (
+      <div className="space-y-2 md:col-span-3">
+        <Skeleton className="h-4 w-64 max-w-full" />
+        <Skeleton className="h-4 w-40" />
+      </div>
+    )
+  }
   if (!query.data || query.data.unavailable) {
     return (
-      <div className="flex items-start gap-2 rounded-md border border-warning-200 bg-warning-50 p-3 text-sm text-warning-800 md:col-span-3">
-        <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-        <div><p className="font-medium">Actual unavailable</p><p className="text-xs">{query.data?.reason ?? query.error?.message ?? 'Metric source could not be resolved.'}</p></div>
-      </div>
+      <Alert className="border-warning-200 bg-warning-50 text-warning-800 md:col-span-3">
+        <AlertTriangle className="size-4" />
+        <AlertTitle>Actual unavailable</AlertTitle>
+        <AlertDescription className="text-xs text-warning-800/80">
+          {query.data?.reason ?? query.error?.message ?? 'Metric source could not be resolved.'}
+        </AlertDescription>
+      </Alert>
     )
   }
   return (
     <div className="grid gap-3 rounded-md bg-muted/50 p-3 text-sm sm:grid-cols-[repeat(3,minmax(0,1fr))] md:col-span-3">
-      <div><p className="text-xs text-muted-foreground">Actual</p><p className="font-semibold">{query.data.actual} {query.data.unit}</p></div>
-      <div><p className="text-xs text-muted-foreground">Target</p><p className="font-semibold">{query.data.target} {query.data.unit}</p></div>
-      <div><p className="text-xs text-muted-foreground">Computed score</p><p className="font-semibold">{query.data.score?.toFixed(2)}</p></div>
+      <div><p className="text-xs text-muted-foreground">Actual</p><p className="font-semibold tabular-nums">{query.data.actual} {query.data.unit}</p></div>
+      <div><p className="text-xs text-muted-foreground">Target</p><p className="font-semibold tabular-nums">{query.data.target} {query.data.unit}</p></div>
+      <div><p className="text-xs text-muted-foreground">Computed score</p><p className="font-semibold tabular-nums">{query.data.score?.toFixed(2)}</p></div>
       <div className="sm:col-span-3">
         <p className="text-xs text-muted-foreground">Sources</p>
         <div className="mt-1 flex flex-wrap gap-2">
@@ -42,15 +56,60 @@ function MetricActualCell({ evaluationId, criterionId }: { evaluationId: string;
   )
 }
 
+/** Anchor values are strings or bilingual `{ en, am }` objects — render the English text. */
+function anchorText(value: unknown): string {
+  if (value && typeof value === 'object') {
+    const en = (value as { en?: unknown }).en
+    return typeof en === 'string' ? en : ''
+  }
+  return value == null ? '' : String(value)
+}
+
+/** Formatted rubric-anchor popover, listed in ascending score order (0, 4, 7, 10). */
+function AnchorPopover({ anchorJson }: { anchorJson: Record<string, unknown> | null }) {
+  const entries = Object.entries(anchorJson ?? {})
+    .map(([key, value]) => ({ key, order: Number(key), text: anchorText(value) }))
+    .sort((a, b) => (Number.isFinite(a.order) && Number.isFinite(b.order) ? a.order - b.order : a.key.localeCompare(b.key)))
+  if (entries.length === 0) return null
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button type="button" aria-label="View rubric anchors"><Info className="size-3.5 text-muted-foreground" /></button>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-sm">
+          <div className="space-y-1.5 py-1">
+            {entries.map((entry) => (
+              <div key={entry.key} className="flex items-start gap-2 text-xs">
+                <span className="w-6 shrink-0 text-right font-semibold tabular-nums">{entry.key}</span>
+                <span className="flex-1">{entry.text || '—'}</span>
+              </div>
+            ))}
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
+
 export function ScoringWorkspace({ evaluationId }: { evaluationId: string }) {
+  const { data: session } = useSession()
   const query = useEvaluation(evaluationId)
   const save = useSaveScores(evaluationId)
   const submit = useSubmitEvaluation(evaluationId)
+  const retryConsolidation = useRetryConsolidation(evaluationId)
   const permissions = usePerformancePermissions()
   const canSave = permissions.can('button.performance.score.save', 'evaluator_score', 'canWrite')
     && permissions.canDo('evaluator_score', 'canCreate')
   const canSubmit = permissions.can('button.performance.score.submit', 'evaluator_score', 'canSubmit')
+  const canManagePanel = permissions.can('button.performance.panel.manage', 'evaluator_assignment', 'canWrite')
+    && permissions.canDo('evaluator_assignment', 'canCreate')
+    && permissions.canDo('evaluator_assignment', 'canDelete')
+  const canRetryConsolidation = permissions.canFeature('module.performance')
+    && permissions.canDo('evaluation', 'canRead')
+    && permissions.canDo('criterion_result', 'canWrite')
   const [drafts, setDrafts] = useState<Record<string, DraftScore>>({})
+  const [clampHints, setClampHints] = useState<Record<string, string>>({})
 
   useEffect(() => {
     if (!query.data?.scores) return
@@ -59,29 +118,48 @@ export function ScoringWorkspace({ evaluationId }: { evaluationId: string }) {
     setDrafts(next)
   }, [query.data?.scores])
 
-  if (query.isLoading) return <p className="text-sm text-muted-foreground">Loading evaluation...</p>
+  if (query.isLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-20 rounded-[14px]" />
+        <SkeletonCard />
+        <SkeletonCard />
+      </div>
+    )
+  }
   const evaluation = query.data
-  if (!evaluation) return <EmptyState title="Evaluation not found" />
+  if (!evaluation) {
+    return <EmptyState icon={SearchX} title="Evaluation not found" description="This evaluation does not exist or you do not have access to it." />
+  }
   if (evaluation.sealed) {
     return <EmptyState icon={LockKeyhole} title="Evaluation in progress" description="Scores remain sealed until the draft report is shared." />
   }
-  if (!evaluation.template) return <EmptyState title="Scorecard unavailable" />
+  if (!evaluation.template) {
+    return <EmptyState icon={FileX2} title="Scorecard unavailable" description="No scorecard template is attached to this evaluation." />
+  }
   if (!evaluation.scores && evaluation.report) {
     return (
       <div className="space-y-4">
-        <Card>
-          <CardContent className="flex flex-wrap items-center justify-between gap-3 pt-6">
-            <div>
-              <div className="flex items-center gap-2"><h2 className="text-lg font-semibold">{evaluation.employee.name}</h2><PerformanceStatusBadge status={evaluation.status} /></div>
-              <p className="text-sm text-muted-foreground">{evaluation.cycle.name} · {evaluation.template.family.name}</p>
-            </div>
-          </CardContent>
-        </Card>
+        <div
+          className="flex flex-wrap items-center justify-between gap-3 rounded-[14px] border bg-card px-4 py-4"
+          style={{ borderColor: 'var(--ap-border)' }}
+        >
+          <div>
+            <div className="flex items-center gap-2"><h2 className="text-lg font-semibold" style={{ letterSpacing: '-0.01em' }}>{evaluation.employee.name}</h2><PerformanceStatusBadge status={evaluation.status} /></div>
+            <p className="text-[13px] text-muted-foreground">{evaluation.cycle.name} · {evaluation.template.family.name}</p>
+          </div>
+        </div>
         <PerformanceReport evaluation={evaluation} />
       </div>
     )
   }
+  const ownAssignment = evaluation.assignments?.find((assignment) => assignment.evaluatorId === session?.user?.id)
   const assignmentLocked = ['CONSOLIDATED', 'CALIBRATION', 'DRAFT_SHARED', 'FINALIZED'].includes(evaluation.status)
+    || ownAssignment?.status === 'SUBMITTED'
+  const panelEditable = ['ASSIGNED', 'IN_PROGRESS'].includes(evaluation.status) && evaluation.cycle.status === 'OPEN'
+  const consolidationStuck = ['ASSIGNED', 'IN_PROGRESS'].includes(evaluation.status)
+    && (evaluation.assignments?.length ?? 0) > 0
+    && (evaluation.assignments ?? []).every((assignment) => assignment.status === 'SUBMITTED')
 
   async function saveCriterion(criterionId: string) {
     const draft = drafts[criterionId]
@@ -89,43 +167,74 @@ export function ScoringWorkspace({ evaluationId }: { evaluationId: string }) {
     await save.mutateAsync([{ criterionId, score: Number(draft.score), remark: draft.remark }])
   }
 
+  /**
+   * Client-side clamp on blur: scores above maxPoints (or below 0) are clamped
+   * with a brief inline hint. Server validation remains the backstop.
+   */
+  function clampAndSave(criterion: { id: string; maxPoints: number }) {
+    const draft = drafts[criterion.id]
+    if (!draft || draft.score === '') return
+    const raw = Number(draft.score)
+    if (Number.isFinite(raw)) {
+      const clamped = Math.min(Math.max(raw, 0), criterion.maxPoints)
+      if (clamped !== raw) {
+        setDrafts((current) => ({ ...current, [criterion.id]: { score: String(clamped), remark: current[criterion.id]?.remark ?? '' } }))
+        setClampHints((current) => ({ ...current, [criterion.id]: `Adjusted to ${clamped} — allowed range is 0–${criterion.maxPoints}.` }))
+        window.setTimeout(() => setClampHints((current) => {
+          const { [criterion.id]: _omit, ...rest } = current
+          return rest
+        }), 4000)
+        void save.mutateAsync([{ criterionId: criterion.id, score: clamped, remark: draft.remark }])
+        return
+      }
+    }
+    void saveCriterion(criterion.id)
+  }
+
   return (
     <div className="space-y-4">
-      <Card>
-        <CardContent className="flex flex-wrap items-center justify-between gap-3 pt-6">
-          <div>
-            <div className="flex items-center gap-2"><h2 className="text-lg font-semibold">{evaluation.employee.name}</h2><PerformanceStatusBadge status={evaluation.status} /></div>
-            <p className="text-sm text-muted-foreground">{evaluation.cycle.name} · {evaluation.template.family.name}</p>
-          </div>
+      <div
+        className="flex flex-wrap items-center justify-between gap-3 rounded-[14px] border bg-card px-4 py-4"
+        style={{ borderColor: 'var(--ap-border)' }}
+      >
+        <div>
+          <div className="flex items-center gap-2"><h2 className="text-lg font-semibold" style={{ letterSpacing: '-0.01em' }}>{evaluation.employee.name}</h2><PerformanceStatusBadge status={evaluation.status} /></div>
+          <p className="text-[13px] text-muted-foreground">{evaluation.cycle.name} · {evaluation.template.family.name}</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {canManagePanel && panelEditable && <PanelManager evaluation={evaluation} />}
+          {canRetryConsolidation && consolidationStuck && (
+            <Button size="sm" variant="outline" onClick={() => retryConsolidation.mutate()} disabled={retryConsolidation.isPending}>
+              <RefreshCw className="mr-1 size-3.5" /> Retry consolidation
+            </Button>
+          )}
           {canSubmit && !assignmentLocked && <Button onClick={() => submit.mutate()} disabled={submit.isPending}><CheckCircle2 className="mr-2 size-4" /> Submit scores</Button>}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
       <CalibrationPanel evaluation={evaluation} />
       {evaluation.template.tiers.map((tier) => {
         const subtotal = tier.criteria.reduce((sum, criterion) => sum + Number(drafts[criterion.id]?.score || 0), 0)
         return (
-          <Card key={tier.id}>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between"><CardTitle className="text-base">{tier.name}</CardTitle><span className="text-sm font-semibold">{subtotal.toFixed(1)} / {tier.maxPoints}</span></div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {tier.criteria.map((criterion) => {
-                const auto = criterion.type === 'METRIC' && criterion.scoringRuleJson?.type !== 'MANUAL'
-                return (
-                  <div key={criterion.id} className="grid gap-3 rounded-lg border border-border p-3 md:grid-cols-[1fr_8rem_1.2fr_auto]">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium">{criterion.title}</p>
-                        {criterion.type === 'RUBRIC' && (
-                          <TooltipProvider>
-                            <Tooltip><TooltipTrigger asChild><button type="button"><Info className="size-3.5 text-muted-foreground" /></button></TooltipTrigger><TooltipContent className="max-w-sm"><pre className="whitespace-pre-wrap text-xs">{JSON.stringify(criterion.anchorJson, null, 2)}</pre></TooltipContent></Tooltip>
-                          </TooltipProvider>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground">{criterion.type} · max {criterion.maxPoints}</p>
+          <SectionCard
+            key={tier.id}
+            title={tier.name}
+            actions={<span className="text-sm font-semibold tabular-nums">{subtotal.toFixed(1)} / {tier.maxPoints}</span>}
+            contentClassName="space-y-3 px-4 py-4"
+          >
+            {tier.criteria.map((criterion) => {
+              const auto = criterion.type === 'METRIC' && criterion.scoringRuleJson?.type !== 'MANUAL'
+              return (
+                <div key={criterion.id} className="grid gap-3 rounded-lg border p-3 md:grid-cols-[1fr_8rem_1.2fr_auto]" style={{ borderColor: 'var(--ap-border)' }}>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium">{criterion.title}</p>
+                      {criterion.type === 'RUBRIC' && <AnchorPopover anchorJson={criterion.anchorJson} />}
                     </div>
-                    {auto ? <MetricActualCell evaluationId={evaluationId} criterionId={criterion.id} /> : (
-                      <>
+                    <p className="text-xs text-muted-foreground">{humanizeEnum(criterion.type)} · max {criterion.maxPoints}</p>
+                  </div>
+                  {auto ? <MetricActualCell evaluationId={evaluationId} criterionId={criterion.id} /> : (
+                    <>
+                      <div>
                         <Input
                           data-score-input
                           type="number"
@@ -136,7 +245,7 @@ export function ScoringWorkspace({ evaluationId }: { evaluationId: string }) {
                           disabled={assignmentLocked || !canSave}
                           placeholder="Score"
                           onChange={(event) => setDrafts((current) => ({ ...current, [criterion.id]: { score: event.target.value, remark: current[criterion.id]?.remark ?? '' } }))}
-                          onBlur={() => saveCriterion(criterion.id)}
+                          onBlur={() => clampAndSave(criterion)}
                           onKeyDown={(event) => {
                             if (event.key !== 'Enter') return
                             const inputs = Array.from(document.querySelectorAll<HTMLInputElement>('[data-score-input]:not(:disabled)'))
@@ -144,21 +253,22 @@ export function ScoringWorkspace({ evaluationId }: { evaluationId: string }) {
                             inputs[index + 1]?.focus()
                           }}
                         />
-                        <Textarea
-                          value={drafts[criterion.id]?.remark ?? ''}
-                          disabled={assignmentLocked || !canSave}
-                          placeholder="Optional criterion remark"
-                          onChange={(event) => setDrafts((current) => ({ ...current, [criterion.id]: { score: current[criterion.id]?.score ?? '', remark: event.target.value } }))}
-                          onBlur={() => saveCriterion(criterion.id)}
-                        />
-                        {canSave && <Button variant="outline" size="sm" disabled={assignmentLocked || save.isPending} onClick={() => saveCriterion(criterion.id)}><Save className="size-3.5" /></Button>}
-                      </>
-                    )}
-                  </div>
-                )
-              })}
-            </CardContent>
-          </Card>
+                        {clampHints[criterion.id] && <p className="mt-1 text-[11px] text-warning-700">{clampHints[criterion.id]}</p>}
+                      </div>
+                      <Textarea
+                        value={drafts[criterion.id]?.remark ?? ''}
+                        disabled={assignmentLocked || !canSave}
+                        placeholder="Optional criterion remark"
+                        onChange={(event) => setDrafts((current) => ({ ...current, [criterion.id]: { score: current[criterion.id]?.score ?? '', remark: event.target.value } }))}
+                        onBlur={() => saveCriterion(criterion.id)}
+                      />
+                      {canSave && <Button variant="outline" size="sm" disabled={assignmentLocked || save.isPending} onClick={() => saveCriterion(criterion.id)}><Save className="size-3.5" /></Button>}
+                    </>
+                  )}
+                </div>
+              )
+            })}
+          </SectionCard>
         )
       })}
     </div>

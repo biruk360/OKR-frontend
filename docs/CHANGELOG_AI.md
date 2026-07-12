@@ -2,6 +2,76 @@
 
 > **Purpose:** Log of all changes made by AI assistants. Every AI session that modifies code MUST append an entry here.
 
+## 2026-07-12 — Performance module: A8 template seed from source Excel workbooks (P6)
+
+- **New** `prisma/performance-templates-seed.json` — all eight role scorecards parsed from `Engineering Team Scorecard v1.xlsx` (Software Engineer, UI-UX Designer, WordPress Developer, Project Manager, System Analyst, CEO) and `Sales_Engineering_OKR_Scorecard 2025-2026 OKR.xlsx` (Sales Engineering rubric + SE OKR metric scorecard). Rubric templates: 4 tiers (40/40/20/60), 10 role criteria + C1–C6 culture criteria with full 0/4/7/10 anchors, gatekeeper Tier 1 ≥ 25, bands 85 "Ready" / 70 "On Track" / 0 "Not Ready". SE OKR: 6 tiers, 210 max points, 14 `LINEAR_CAPPED` metrics with unit/period/target, 1 `INVERSE_BANDS` (compliance errors 0→10, 1→5, else 0), culture tier as `MANUAL`.
+- **New** `prisma/seed-performance-templates.ts` (`npm run db:seed:performance`) — idempotent (skips existing families), runs each template through `validateTemplateForPublish` before creating it as v1 PUBLISHED, owned by the earliest active ADMIN. KR links for SE OKR metrics are per-employee `MetricSourceMapping` and left for HR to wire (flagged `METRIC_SOURCE_MISSING` at cycle open), per spec A8.
+- Tests run: `npx tsc --noEmit` passes; seeder run twice against local dev DB (8× SEED then 8× SKIP).
+
+## 2026-07-12 — Performance module: correctness bugs (P1) + notifications & audit logging (P2)
+
+Full audit of the module against `docs/performance_scorecard_module_requirements_detailed.md` (per-requirement statuses + findings appendix added there). Backend fixes:
+
+- **Fixed** `app/api/performance/evaluations/[id]/calibration/route.ts` — resolve now requires status `CALIBRATION` and asserts the state-machine transition; previously it could demote a FINALIZED evaluation back to CONSOLIDATED.
+- **Fixed** `app/api/performance/evaluations/[id]/panel/route.ts` — diff-based panel update (add/remove/role-change) replaces delete-all-recreate, so retained SUBMITTED evaluators keep their status and `submittedAt`; panel changes now also require the cycle to be OPEN (closed cycles were writable).
+- **Fixed** `app/api/performance/evaluations/[id]/route.ts` — the evaluated employee always gets the sealed/consolidated employee branch of their own evaluation, even when they are a performance admin (spec F1 "never sees own raw evaluator scores").
+- **Fixed** `features/performance/components/ScoringWorkspace.tsx` — inputs lock client-side once the caller's own assignment is SUBMITTED (server already 403'd).
+- **New** graceful `ACTUAL_UNAVAILABLE` flow: `MetricActualUnavailableError` (lib/performance/metric-resolver.ts); consolidation pre-flights every auto metric, creates deduplicated `ACTUAL_UNAVAILABLE` ReviewCycleIssues and blocks with a typed error instead of a 500 (lib/performance/consolidation.ts); submit route reports `consolidationBlocked` while preserving the submission; successful consolidation auto-resolves stale issues.
+- **New** `POST /api/performance/evaluations/[id]/consolidate` — manual consolidation retry (lead/admin): refreshes frozen `EvaluationMetricSource` snapshots from current mappings, re-runs consolidation. Policy: `canTriggerConsolidation`.
+- **New** `PATCH /api/performance/cycles/[id]/issues/[issueId]` — resolve/waive/reopen review-cycle issues (previously the issue lifecycle had no write path). Policy: `canResolveCycleIssue`.
+- **New** notifications: `PERFORMANCE` category + `PERF_CYCLE_OPENED`, `PERF_PANEL_COMPLETE`, `PERF_DRAFT_SHARED`, `PERF_DISPUTE_RAISED`, `PERF_ACTION_RECOMMENDED`, `PERF_WEEKLY_FOCUS` in `lib/notifications/events.ts` with dispatcher routing (explicit recipients), deep links, and email templates. Emitted from cycle open, last-submitter consolidation, share-draft, dispute, and finalize (recommended actions → performance admins via new `resolvePerformanceAdmins()` in `lib/performance/notifications.ts`).
+- **Changed** `app/api/cron/performance-nudge/route.ts` — weekly nudge now routes through the dispatcher (`emit`), so the email half actually delivers (in-app row + email/digest per user prefs); the old `emailMode: 'DIGEST_WEEKLY'` dead flag had no consumer. Weekly idempotency via `PerformanceNudgeDelivery` unchanged; payload stays score-free.
+- **New** audit logging across the module (was entirely absent): `ActivityLog.evaluationId` column + relation (schema — **requires `prisma db push`**), `EVALUATION`/`REVIEW_CYCLE`/`DEVELOPMENT_ACTION` entity types and performance lifecycle actions in `lib/activity-log.ts`; `recordActivity` calls on cycle open/close (incl. override reason), panel updates, consolidation (auto + retry), calibration resolve, draft share, acknowledge, dispute, finalize (incl. recommended action types), issue resolution, and development-action approve/reject/execute.
+- Tests run: `npx tsc --noEmit` passes; `npx prisma validate` passes; `npx next build` run at end of session.
+
+## 2026-07-12 — Performance module UI-consistency restyle (Apple Pro idiom; behavior-preserving)
+
+- **Updated** `features/performance/components/PerformanceStatusBadge.tsx` — reworked to the shared `StatusPill` visual language: colored dot + humanized label ("Draft shared"), `rounded-full text-[11px] font-semibold`, AP rgba tints per status (ASSIGNED/IN_PROGRESS blue, CONSOLIDATED/CONSOLIDATING/EXECUTED teal, CALIBRATION warning, DRAFT_SHARED purple, FINALIZED/PUBLISHED/RESOLVED/SUBMITTED/APPROVED success, REJECTED danger, EXCUSED/DRAFT/ARCHIVED/PLANNED/CLOSED/WAIVED/PENDING neutral). Exports `humanizeEnum()` used to humanize cadence/type/role enum text in CyclesWorkspace, ActionsWorkspace, EvaluatorQueue, ScoringWorkspace.
+- **New** `features/performance/components/SectionCard.tsx` — feature-internal Apple Pro section card (rounded-[14px], `var(--ap-border)`, uppercase kicker header) replacing generic shadcn `Card` across all performance workspaces.
+- **New** `features/performance/components/NativeSelect.tsx` — single styled native `<select>` (forwardRef, matches shared `Input`) replacing 7 hand-rolled `<select className="h-9 ...">` copies (CyclesWorkspace, RoleMappingManager, MetricMappingManager ×2, PanelManager, TemplateBuilder ×3, TemplateScoringSettings).
+- **New** `app/dashboard/performance/loading.tsx` — route-level skeleton (hero + KPI cards + rows) mirroring `app/dashboard/objectives/loading.tsx`.
+- **Updated** all 7 `app/dashboard/performance/**/page.tsx` — `PageHeader` replaced with the MyOKRsPage hero-card header (`rounded-[14px] border var(--ap-border)`, 24px −0.02em title, 13px muted description); breadcrumb back-links on `templates/[id]` (kept) and **new** on `evaluations/[id]/score` → Evaluation Queue.
+- **Updated** `ActionsWorkspace.tsx` — Approve/Reject/Execute now go through `ConfirmDialog` (Reject styled danger) with the decision/execution note field inside the dialog; loading skeletons; humanized action types.
+- **Updated** `RoleMappingManager.tsx` — react-hook-form for the add-mapping form; `ConfirmDialog` (danger) on mapping delete; `NativeSelect`; EmptyState icon.
+- **Updated** `MetricMappingManager.tsx` — react-hook-form for criterion/employee/search fields; shared `Checkbox` replaces raw `<input type="checkbox">`; skeleton loading; EmptyState icons.
+- **Updated** `PerformanceHome.tsx` — StatGrid/StatCard row replaced with `KpiCard` (tabular-nums, AP tints); weekly-step form migrated to react-hook-form with shared `Input`/`Button` and inline required error; SectionCards + skeletons.
+- **Updated** `PerformanceReport.tsx` — KpiCard stat row; acknowledge/dispute comment migrated to react-hook-form with required-on-dispute inline error (dispute button no longer silently disabled); SectionCards; tabular-nums scores.
+- **Updated** `ScoringWorkspace.tsx` — rubric-anchor JSON.stringify tooltip replaced with a formatted anchor popover (keys sorted numerically 0/4/7/10; `{en, am}` values render `.en`); client-side score clamp on blur with a brief inline hint (server validation unchanged); metric-actual warning banner → shared `Alert` (warning tokens kept); page-level and metric-cell skeletons; EmptyStates gained icons/descriptions; header + tier cards restyled to AP idiom.
+- **Updated** `CalibrationPanel.tsx`, `CyclesWorkspace.tsx`, `CycleIssuesModal.tsx`, `EvaluatorQueue.tsx`, `TemplatesWorkspace.tsx`, `TemplateBuilder.tsx`, `TemplateScoringSettings.tsx`, `PanelManager.tsx`, `OkrAttainmentSection.tsx` — SectionCard/AP card conversion, skeleton loaders, NativeSelect, humanized enums, `var(--ap-border)` borders, first/last row padding fixes.
+- **Updated** `CompetencyRadar.tsx`, `PerformanceTrend.tsx` — hardcoded hex chart colors replaced with AP CSS vars (`var(--ap-accent)`, `var(--ap-fg-subtle)`, `var(--ap-border)`, `var(--ap-bg-raised)`).
+- No changes to data flow, API calls, hooks/queries, or permission checks — behavior-preserving restyle only.
+- Tests run: `npx tsc --noEmit` — passes clean.
+
+## 2026-07-12 — Performance module: report charts (radar/trend/OKR attainment), My Performance dashboard charts, builder scoring rules/reordering/gatekeeper editor
+
+- **Updated** `lib/performance/report-builder.ts` — `createEvaluationReport` contentJson now also includes `trend` (prior FINALIZED evaluations' `{ cycleId, cycleName, periodEnd, normalized }`, ordered by period) and `okrAttainment` (`{ periodStart, periodEnd, objectives[] }` — employee-owned objectives whose timeframe overlaps the cycle period, with their key results' start/target/current values and progress).
+- **New** `features/performance/components/CompetencyRadar.tsx` — recharts RadarChart of consolidated scores as % of max; `radarItemsFromTierBreakdown()` picks tier-level axes (≥3 tiers) or falls back to criterion-level.
+- **New** `features/performance/components/PerformanceTrend.tsx` — multi-cycle normalized-score LineChart; single-point series shows a "more data needed" note.
+- **New** `features/performance/components/OkrAttainmentSection.tsx` — compact OKR attainment card (objectives + KRs with progress bars, `getProgressColor` tokens).
+- **Updated** `features/performance/components/PerformanceReport.tsx` — renders competency radar, cross-cycle trend (prior trend points + current report score), and OKR attainment section above the tier breakdown.
+- **Updated** `app/api/performance/me/route.ts` — adds `cycle.status` to evaluation rows and a `latestReport` field (latest FINALIZED evaluation's SHARED/FINAL report contentJson only — consolidated data, never raw evaluator scores; sealing behavior unchanged).
+- **Updated** `features/performance/components/PerformanceHome.tsx` — radar (latest finalized report) + trend charts for employees with ≥1 finalized evaluation, and an "Evaluation in progress — results sealed" alert when a sealed evaluation exists in an OPEN/CONSOLIDATING cycle.
+- **Updated** `features/performance/components/TemplateBuilder.tsx` — metric scoring-rule picker (LINEAR_CAPPED with maxScore, INVERSE_BANDS with editable `{ maxActual, score }` band list, MANUAL), new `periodLabel` input, and move-up/move-down reordering for tiers and criteria (position persists via the full-replace builder PUT).
+- **New** `features/performance/components/TemplateScoringSettings.tsx` — gatekeeper (`{ tierName, threshold }`) and decision-bands (`[{ min, label }]`) editor with inline validation matching `lib/performance/scoring.ts` rules, saved via PATCH `/api/performance/templates/[id]` (`{ gatekeeper, bands }`).
+- **New** `features/performance/hooks/useTemplateSettings.ts` — `useSaveTemplateSettings` mutation for the template PATCH.
+- **Updated** `features/performance/types.ts` (append-only) — `PerformanceTrendPoint`, `OkrAttainmentKeyResult`, `OkrAttainmentObjective`, `OkrAttainment`, `EvaluationReportContent`, `MyPerformanceChartData`.
+- **Updated** `docs/COMPONENT_CATALOG.md` — new performance component rows.
+- Tests run: `npx tsc --noEmit` — passes clean.
+
+## 2026-07-12 — Performance module UI: close cycle, cycle issues, panel management, calibration comparison, consolidation retry
+
+- **Updated** `features/performance/types.ts` — added `CycleIssueType`, `CycleIssueStatus`, `ReviewCycleIssue`, `ReviewCycleDetail`, `PanelMember`, `PanelAssignment`, `CalibrationDetail`.
+- **Updated** `features/performance/services/api.ts` — added `getCycle`, `closeCycle`, `updateCycleIssue`, `savePanel`, `getCalibration`, `retryConsolidation`.
+- **Updated** `features/performance/hooks/queries.ts` — added `useReviewCycle`, `useCloseReviewCycle`, `useUpdateCycleIssue`, `useSavePanel`, `useCalibrationDetail`, `useRetryConsolidation`, and exported `getErrorDetailIds` helper for structured 400 details.
+- **Updated** `features/performance/components/CyclesWorkspace.tsx` — Close-cycle action for OPEN/CONSOLIDATING cycles with incomplete-evaluation override dialog (`ConfirmDialog` + required override reason), View-issues button per cycle, and inline form validation errors on the create-cycle form.
+- **New** `features/performance/components/CycleIssuesModal.tsx` — per-cycle issue list with type labels, employee, detail, status badge, and Resolve/Waive actions (PATCH `/api/performance/cycles/[id]/issues/[issueId]`).
+- **New** `features/performance/components/PanelManager.tsx` — evaluator panel editor (add via `useUsersForSelection`, remove, set exactly one LEAD) saving via PUT `/api/performance/evaluations/[id]/panel`, with confirm-and-resubmit (`confirmDiscardSubmitted: true`) when removing submitted evaluators.
+- **Updated** `features/performance/components/ScoringWorkspace.tsx` — header now hosts PanelManager (permission-gated, ASSIGNED/IN_PROGRESS + open cycle) and a Retry-consolidation button when all evaluators submitted but the evaluation is not consolidated (POST `/api/performance/evaluations/[id]/consolidate`).
+- **Updated** `features/performance/components/CalibrationPanel.tsx` — side-by-side evaluator score comparison table (columns per evaluator, flagged rows highlighted) from GET `/api/performance/evaluations/[id]/calibration`; the query is permission-gated and non-retrying, so 403s just hide the table.
+- **Updated** `features/performance/index.ts` — exported `CycleIssuesModal` and `PanelManager`.
+- **Updated** `docs/COMPONENT_CATALOG.md` — performance component rows updated/added.
+- Tests run: `npx tsc --noEmit` — passes clean.
+
 ## 2026-06-09 — Permission system fallback + letter duplicate + fonts + settings nav + CI fixes
 
 - **Fixed** `lib/permission-resolver.ts` — `fetchActiveUserRoles` synthesizes a `legacy-<ROLE>` entry from `User.role` when `UserRole` table has no rows, ensuring the ADMIN shortcut fires for admin users even before seed runs.

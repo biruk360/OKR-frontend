@@ -3,6 +3,18 @@ import { prisma } from '@/lib/prisma'
 
 type DbClient = Prisma.TransactionClient | typeof prisma
 
+/**
+ * Raised when a metric criterion's actual cannot be resolved (archived KR,
+ * missing mapping). Consolidation converts this into an ACTUAL_UNAVAILABLE
+ * review-cycle issue instead of scoring 0 silently.
+ */
+export class MetricActualUnavailableError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'MetricActualUnavailableError'
+  }
+}
+
 export type ResolvedMetricActual = {
   actual: number
   sources: Array<{
@@ -47,7 +59,7 @@ export async function resolveMetricActual(
   const sources = []
   for (const source of evaluation.metricSources) {
     if (source.keyResult.status !== 'ACTIVE') {
-      throw new Error(`Metric actual unavailable: ${source.keyResultTitleSnapshot} is not active`)
+      throw new MetricActualUnavailableError(`Metric actual unavailable: ${source.keyResultTitleSnapshot} is not active`)
     }
     const checkIn = await db.keyResultCheckIn.findFirst({
       where: { keyResultId: source.keyResultId, asOfDate: { lte: evaluation.cycle.periodEnd } },
@@ -62,7 +74,7 @@ export async function resolveMetricActual(
       fallbackToCurrentValue: !checkIn,
     })
   }
-  if (sources.length === 0) throw new Error('Metric actual unavailable: no Key Result source is mapped')
+  if (sources.length === 0) throw new MetricActualUnavailableError('Metric actual unavailable: no Key Result source is mapped')
 
   const values = sources.map((source) => source.value)
   let actual: number

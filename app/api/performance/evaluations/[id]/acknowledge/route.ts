@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { apiBadRequest, apiForbidden, apiNotFound, apiSuccess, withAuth } from '@/lib/api'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { canRespondToReport } from '@/lib/performance'
+import { recordActivity } from '@/lib/activity-log'
 
 export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { session, params }) => {
   const { id } = await resolveParams(params)
@@ -19,6 +20,12 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
   const updated = await prisma.evaluationAcknowledgement.update({
     where: { id: evaluation.acknowledgements[0].id },
     data: { status: 'ACKNOWLEDGED', comment: typeof body.comment === 'string' ? body.comment.trim() || null : null, acknowledgedAt: new Date() },
+  })
+  await recordActivity({
+    entityType: 'EVALUATION',
+    evaluationId: id,
+    action: 'EVALUATION_ACKNOWLEDGED',
+    actorId: session.user.id,
   })
   return apiSuccess(updated)
 })

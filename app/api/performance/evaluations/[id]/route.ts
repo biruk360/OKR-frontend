@@ -27,7 +27,10 @@ export const GET = withAuth<RouteIdParams>(async (_request, { session, params })
   if (!evaluation) return apiNotFound('Evaluation not found')
 
   const admin = await isPerformanceAdmin(actor)
-  const isEmployee = evaluation.employeeId === session.user.id && !admin
+  // The evaluated employee always gets the sealed/consolidated employee view of
+  // their own evaluation — even performance admins never see their own raw
+  // per-evaluator scores (spec F1).
+  const isEmployee = evaluation.employeeId === session.user.id
   const calibrationAccess = await canViewCalibration(actor, id)
   if (isEmployee && !['DRAFT_SHARED', 'FINALIZED'].includes(evaluation.status)) {
     return apiSuccess({

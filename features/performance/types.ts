@@ -79,6 +79,7 @@ export type EvaluationDetail = {
   employee: { id: string; name: string; designation: string | null; avatar: string | null }
   cycle: { id: string; name: string; status: string; periodStart: string; periodEnd: string }
   template?: PerformanceTemplateDetail
+  assignments?: Array<{ evaluatorId: string; role: string; status: string; submittedAt: string | null; evaluator: { id: string; name: string | null; avatar: string | null } }>
   scores?: Array<{ criterionId: string; evaluatorId: string; score: number; remark: string | null; lockedAt: string | null }>
   results?: Array<{ criterionId: string; consolidated: number; variance: number; flagged: boolean; actualValue: number | null; calibrationNote?: string | null; resolvedAt?: string | null }>
   report?: {
@@ -103,6 +104,65 @@ export type EvaluationDetail = {
   normalized?: number | null
   gatekeeperPass?: boolean | null
   decisionBand?: string | null
+}
+
+export type CycleIssueType = 'NO_TEMPLATE' | 'NO_LEAD' | 'AMBIGUOUS_LEAD' | 'METRIC_SOURCE_MISSING' | 'ACTUAL_UNAVAILABLE'
+export type CycleIssueStatus = 'OPEN' | 'RESOLVED' | 'WAIVED'
+
+export type ReviewCycleIssue = {
+  id: string
+  type: CycleIssueType
+  status: CycleIssueStatus
+  detailJson: Record<string, unknown> | null
+  employeeId: string | null
+  evaluationId: string | null
+  createdAt: string
+}
+
+export type ReviewCycleDetail = {
+  id: string
+  name: string
+  cadence: string
+  periodStart: string
+  periodEnd: string
+  status: string
+  allCompany: boolean
+  departments: Array<{ department: { id: string; name: string } }>
+  issues: ReviewCycleIssue[]
+  evaluations: Array<{
+    id: string
+    status: string
+    employee: { id: string; name: string | null; designation: string | null }
+    template: { family: { name: string } }
+    assignments: Array<{ evaluatorId: string; role: string; status: string; evaluator: { id: string; name: string | null } }>
+  }>
+}
+
+export type PanelMember = { evaluatorId: string; role: 'LEAD' | 'EVALUATOR' }
+
+export type PanelAssignment = {
+  evaluationId: string
+  evaluatorId: string
+  role: string
+  status: string
+  submittedAt: string | null
+  evaluator: { id: string; name: string | null }
+}
+
+export type CalibrationDetail = {
+  id: string
+  status: string
+  assignments: Array<{ evaluatorId: string; role: string; status: string; evaluator: { id: string; name: string | null } }>
+  scores: Array<{ criterionId: string; evaluatorId: string; score: number; remark: string | null }>
+  results: Array<{
+    criterionId: string
+    consolidated: number
+    variance: number
+    flagged: boolean
+    calibrationNote: string | null
+    resolvedAt: string | null
+    criterion: { id: string; title: string; maxPoints: number }
+  }>
 }
 
 export type PerformanceMetricMapping = {
@@ -139,4 +199,59 @@ export type MetricActual = {
   }>
   unavailable: boolean
   reason?: string
+}
+
+// --- Report analytics additions (F2/G3) — appended only ---
+
+export type PerformanceTrendPoint = {
+  cycleId: string
+  cycleName: string
+  periodEnd: string
+  normalized: number | null
+}
+
+export type OkrAttainmentKeyResult = {
+  id: string
+  title: string
+  unit: string
+  startValue: number
+  targetValue: number
+  currentValue: number
+  progress: number
+}
+
+export type OkrAttainmentObjective = {
+  id: string
+  title: string
+  progress: number
+  timeframeName: string
+  keyResults: OkrAttainmentKeyResult[]
+}
+
+export type OkrAttainment = {
+  periodStart: string
+  periodEnd: string
+  objectives: OkrAttainmentObjective[]
+}
+
+/** Full shape of EvaluationReport.contentJson including analytics extensions. */
+export type EvaluationReportContent = NonNullable<NonNullable<EvaluationDetail['report']>['contentJson']> & {
+  trend?: PerformanceTrendPoint[]
+  okrAttainment?: OkrAttainment
+}
+
+/** Extra fields returned by /api/performance/me beyond the base client type. */
+export type MyPerformanceChartData = {
+  latestReport?: {
+    evaluationId: string
+    cycleName: string
+    contentJson: EvaluationReportContent
+  } | null
+  evaluations?: Array<{
+    id: string
+    status: string
+    sealed?: boolean
+    normalized?: number | null
+    cycle: { id: string; name: string; periodStart?: string; periodEnd?: string; status?: string }
+  }>
 }

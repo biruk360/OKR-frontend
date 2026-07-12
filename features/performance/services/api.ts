@@ -1,10 +1,16 @@
 import type {
+  CalibrationDetail,
+  CycleIssueStatus,
   EvaluationDetail,
   EvaluationSummary,
   MetricActual,
+  PanelAssignment,
+  PanelMember,
   PerformanceMetricMapping,
   PerformanceTemplateDetail,
   PerformanceTemplateSummary,
+  ReviewCycleDetail,
+  ReviewCycleIssue,
   ReviewCycleSummary,
 } from '../types'
 
@@ -64,6 +70,11 @@ export const performanceApi = {
     request<ReviewCycleSummary>('/api/performance/cycles', { method: 'POST', body: JSON.stringify(body) }),
   openCycle: (id: string) =>
     request<{ createdEvaluations: number; issueCount: number; alreadyOpen: boolean }>(`/api/performance/cycles/${id}/open`, { method: 'POST' }),
+  getCycle: (id: string) => request<ReviewCycleDetail>(`/api/performance/cycles/${id}`),
+  closeCycle: (id: string, overrideReason?: string) =>
+    request<ReviewCycleSummary>(`/api/performance/cycles/${id}/close`, { method: 'POST', body: JSON.stringify(overrideReason ? { overrideReason } : {}) }),
+  updateCycleIssue: (cycleId: string, issueId: string, status: CycleIssueStatus) =>
+    request<ReviewCycleIssue>(`/api/performance/cycles/${cycleId}/issues/${issueId}`, { method: 'PATCH', body: JSON.stringify({ status }) }),
 
   listEvaluations: () => request<EvaluationSummary[]>('/api/performance/evaluations'),
   getEvaluation: (id: string) => request<EvaluationDetail>(`/api/performance/evaluations/${id}`),
@@ -77,6 +88,14 @@ export const performanceApi = {
     request<unknown>(`/api/performance/evaluations/${id}/acknowledge`, { method: 'POST', body: JSON.stringify({ comment }) }),
   disputeEvaluation: (id: string, comment: string) =>
     request<unknown>(`/api/performance/evaluations/${id}/dispute`, { method: 'POST', body: JSON.stringify({ comment }) }),
+  savePanel: (id: string, panel: PanelMember[], confirmDiscardSubmitted?: boolean) =>
+    request<PanelAssignment[]>(`/api/performance/evaluations/${id}/panel`, {
+      method: 'PUT',
+      body: JSON.stringify(confirmDiscardSubmitted ? { panel, confirmDiscardSubmitted: true } : { panel }),
+    }),
+  getCalibration: (id: string) => request<CalibrationDetail>(`/api/performance/evaluations/${id}/calibration`),
+  retryConsolidation: (id: string) =>
+    request<{ status?: string }>(`/api/performance/evaluations/${id}/consolidate`, { method: 'POST' }),
   resolveCalibration: (id: string, notes: Array<{ criterionId: string; note: string }>) =>
     request<unknown>(`/api/performance/evaluations/${id}/calibration`, { method: 'PUT', body: JSON.stringify({ notes }) }),
   shareDraft: (id: string) =>

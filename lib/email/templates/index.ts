@@ -759,6 +759,81 @@ export function renderTemplate(eventKey: EventKey, data: Data): RenderedEmail {
         `,
       })
 
+    // ─── Performance & scorecard (payloads are score-free by contract) ─────
+    case 'PERF_CYCLE_OPENED':
+      return compose({
+        subject: `Review cycle opened: ${String(data.cycleName ?? entityTitle)}`,
+        recipientName: name,
+        text: `Hi ${name},\n\nThe review cycle "${String(data.cycleName ?? entityTitle)}" is now open and you have ${String(data.evaluationCount ?? 'new')} evaluation(s) assigned to you.\n\nOpen your queue: ${deepLink}`,
+        html: `
+          ${heading({ eyebrow: 'Performance', title: 'A review cycle has opened' })}
+          ${lead(`Hi ${name}, "${String(data.cycleName ?? entityTitle)}" is open and evaluations have been assigned to you.`)}
+          ${button('Open evaluation queue', deepLink)}
+        `,
+      })
+
+    case 'PERF_PANEL_COMPLETE':
+      return compose({
+        subject: `All evaluators submitted for ${String(data.employeeName ?? entityTitle)}`,
+        recipientName: name,
+        text: `Hi ${name},\n\nEvery evaluator has submitted for ${String(data.employeeName ?? entityTitle)} (${String(data.cycleName ?? '')}). The evaluation is consolidated and ready for your review.\n\nReview: ${deepLink}`,
+        html: `
+          ${heading({ eyebrow: 'Performance', title: 'Evaluator panel complete' })}
+          ${lead(`Hi ${name}, every evaluator has submitted for ${String(data.employeeName ?? entityTitle)}. The consolidated result is ready for your review.`)}
+          ${button('Review evaluation', deepLink)}
+        `,
+      })
+
+    case 'PERF_DRAFT_SHARED':
+      return compose({
+        subject: 'Your performance draft report is ready',
+        recipientName: name,
+        text: `Hi ${name},\n\nYour draft performance report for ${String(data.cycleName ?? 'the current review cycle')} has been shared with you. Please review and acknowledge it, or raise a dispute.\n\nOpen your report: ${deepLink}`,
+        html: `
+          ${heading({ eyebrow: 'Performance', title: 'Your draft report is ready' })}
+          ${lead(`Hi ${name}, your draft performance report for ${String(data.cycleName ?? 'the current review cycle')} is ready. Review it and acknowledge, or raise a dispute with a comment.`)}
+          ${button('Open my report', deepLink)}
+        `,
+      })
+
+    case 'PERF_DISPUTE_RAISED':
+      return compose({
+        subject: `Evaluation disputed by ${String(data.employeeName ?? entityTitle)}`,
+        recipientName: name,
+        text: `Hi ${name},\n\n${String(data.employeeName ?? 'An employee')} has disputed their shared draft for ${String(data.cycleName ?? 'the current cycle')}. The evaluation has returned to calibration for review.\n\nOpen calibration: ${deepLink}`,
+        html: `
+          ${heading({ eyebrow: 'Performance', title: 'Evaluation disputed', badgeText: 'Needs review', badgeTone: 'warning' })}
+          ${lead(`Hi ${name}, ${String(data.employeeName ?? 'an employee')} disputed their draft report. The evaluation is back in calibration and needs your review.`)}
+          ${button('Open calibration', deepLink)}
+        `,
+      })
+
+    case 'PERF_ACTION_RECOMMENDED':
+      return compose({
+        subject: `Development actions recommended for ${String(data.employeeName ?? entityTitle)}`,
+        recipientName: name,
+        text: `Hi ${name},\n\nFinalizing ${String(data.employeeName ?? 'an employee')}'s evaluation generated ${String(data.actionCount ?? 'new')} recommended action(s) (${String(data.actionTypes ?? '')}). They await your approval.\n\nOpen the queue: ${deepLink}`,
+        html: `
+          ${heading({ eyebrow: 'Performance', title: 'Recommended actions await approval' })}
+          ${lead(`Hi ${name}, ${String(data.actionCount ?? 'new')} action(s) were recommended for ${String(data.employeeName ?? 'an employee')}: ${String(data.actionTypes ?? '')}.`)}
+          ${button('Open approval queue', deepLink)}
+        `,
+      })
+
+    case 'PERF_WEEKLY_FOCUS':
+      return compose({
+        subject: 'Your weekly growth focus',
+        recipientName: name,
+        text: `Hi ${name},\n\n${String(data.focusText ?? 'Keep working toward your growth focus this week.')}\n\nLog this week's step: ${deepLink}`,
+        html: `
+          ${heading({ eyebrow: 'Growth', title: 'Your weekly focus' })}
+          ${lead(`Hi ${name}, here is what to focus on this week:`)}
+          ${lead(String(data.focusText ?? ''))}
+          ${button('Log my weekly step', deepLink)}
+          ${muted('This nudge is growth-focused only — scores stay sealed between review cycles.')}
+        `,
+      })
+
     default:
       return compose({
         subject: `Notification`,

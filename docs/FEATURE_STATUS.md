@@ -80,11 +80,11 @@ Implementation reference: `docs/PERFORMANCE_SCORECARD_IMPLEMENTATION_PROPOSAL.md
 |---------|--------|------|-------|
 | Scorecard schema, scoring, state machine, and policy | DONE | `prisma/schema.prisma`, `lib/performance/` | Fail-closed relationship access and immutable published versions |
 | Performance permissions and role alignment | DONE | `lib/performance/policy.ts`, `lib/permission-resolver.ts`, `scripts/seed-permissions.ts` | Effective direct/profile roles, module-scoped Performance Admin, 22 DocTypes, sensitive fields, API/page/navigation/action enforcement |
-| Template management | IN PROGRESS | `features/performance/`, `app/api/performance/templates/` | Create/build/publish/fork/archive, role mappings, metric mappings, culture block; drag-drop remains |
-| Review cycles and evaluator panels | DONE | `app/api/performance/cycles/`, `app/api/performance/evaluations/[id]/panel/` | Idempotent open, issue queue, default manager lead |
-| Scoring, metric auto-pull, consolidation, calibration | IN PROGRESS | `ScoringWorkspace`, `lib/performance/consolidation.ts` | Core flow works; no AG Grid or manual unavailable-actual resolution |
-| Reports, acknowledgement, finalization | IN PROGRESS | `PerformanceReport`, evaluation workflow APIs | Core workflow works; radar/trend/OKR attainment remain |
-| Continuous development and rewards | IN PROGRESS | `PerformanceHome`, `ActionsWorkspace`, `/api/cron/performance-nudge` | In-app nudge and recommendation queue work; dispatcher/email/activity audit remain |
+| Template management | IN PROGRESS | `features/performance/`, `app/api/performance/templates/` | Create/build/publish/fork/archive, role mappings, metric mappings, culture block, scoring-rule picker (LINEAR_CAPPED/INVERSE_BANDS/MANUAL), tier/criterion reordering, gatekeeper & decision-bands editor; drag-drop remains |
+| Review cycles and evaluator panels | DONE | `app/api/performance/cycles/`, `app/api/performance/evaluations/[id]/panel/` | Idempotent open, close with incomplete-evaluation override, issue resolve/waive UI (`CycleIssuesModal`), panel management UI (`PanelManager`), default manager lead |
+| Scoring, metric auto-pull, consolidation, calibration | IN PROGRESS | `ScoringWorkspace`, `lib/performance/consolidation.ts` | Core flow works; manual consolidation retry and side-by-side calibration view added; no AG Grid |
+| Reports, acknowledgement, finalization | IN PROGRESS | `PerformanceReport`, evaluation workflow APIs | Core workflow works; competency radar, multi-cycle trend, and OKR attainment sections added to reports |
+| Continuous development and rewards | IN PROGRESS | `PerformanceHome`, `ActionsWorkspace`, `/api/cron/performance-nudge` | In-app nudge and recommendation queue work; dashboard radar/trend charts and sealed-results indicator added; dispatcher/email/activity audit remain |
 | Excel template import | BLOCKED | — | Required source workbooks are absent |
 
 ## Organization

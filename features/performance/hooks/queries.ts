@@ -3,12 +3,23 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { performanceApi } from '../services/api'
+import type { CycleIssueStatus, PanelMember } from '../types'
+
+/** Extract an id-list detail (e.g. `evaluationIds`, `evaluatorIds`) from an API error, if present. */
+export function getErrorDetailIds(error: unknown, key: string): string[] | null {
+  const details = (error as { details?: unknown } | null)?.details
+  if (!details || typeof details !== 'object') return null
+  const value = (details as Record<string, unknown>)[key]
+  return Array.isArray(value) ? value.map(String) : null
+}
 
 const KEYS = {
   me: ['performance', 'me'] as const,
   templates: ['performance', 'templates'] as const,
   template: (id: string) => ['performance', 'template', id] as const,
   cycles: ['performance', 'cycles'] as const,
+  cycle: (id: string) => ['performance', 'cycle', id] as const,
+  calibration: (id: string) => ['performance', 'calibration', id] as const,
   evaluations: ['performance', 'evaluations'] as const,
   evaluation: (id: string) => ['performance', 'evaluation', id] as const,
   metricActual: (evaluationId: string, criterionId: string) => ['performance', 'metric-actual', evaluationId, criterionId] as const,
@@ -153,6 +164,77 @@ export function useOpenReviewCycle() {
     onSuccess: (result) => {
       client.invalidateQueries({ queryKey: ['performance'] })
       toast.success(`Cycle opened: ${result.createdEvaluations} evaluations, ${result.issueCount} issues`)
+    },
+    onError: (error: Error) => toast.error(error.message),
+  })
+}
+
+export function useReviewCycle(id: string, enabled = true) {
+  return useQuery({ queryKey: KEYS.cycle(id), queryFn: () => performanceApi.getCycle(id), enabled: enabled && !!id })
+}
+
+export function useCloseReviewCycle() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, overrideReason }: { id: string; overrideReason?: string }) => performanceApi.closeCycle(id, overrideReason),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ['performance'] })
+      toast.success('Cycle closed')
+    },
+    onError: (error: Error) => {
+      // Incomplete-evaluation 400s are handled by the caller via an override dialog.
+      if (!getErrorDetailIds(error, 'evaluationIds')) toast.error(error.message)
+    },
+  })
+}
+
+export function useUpdateCycleIssue(cycleId: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ issueId, status }: { issueId: string; status: CycleIssueStatus }) =>
+      performanceApi.updateCycleIssue(cycleId, issueId, status),
+    onSuccess: (_result, variables) => {
+      client.invalidateQueries({ queryKey: KEYS.cycle(cycleId) })
+      client.invalidateQueries({ queryKey: KEYS.cycles })
+      toast.success(variables.status === 'WAIVED' ? 'Issue waived' : variables.status === 'RESOLVED' ? 'Issue resolved' : 'Issue reopened')
+    },
+    onError: (error: Error) => toast.error(error.message),
+  })
+}
+
+export function useSavePanel(evaluationId: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ panel, confirmDiscardSubmitted }: { panel: PanelMember[]; confirmDiscardSubmitted?: boolean }) =>
+      performanceApi.savePanel(evaluationId, panel, confirmDiscardSubmitted),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: KEYS.evaluation(evaluationId) })
+      client.invalidateQueries({ queryKey: KEYS.evaluations })
+      toast.success('Evaluator panel saved')
+    },
+    onError: (error: Error) => {
+      // Submitted-evaluator 400s are handled by the caller via a confirm dialog.
+      if (!getErrorDetailIds(error, 'evaluatorIds')) toast.error(error.message)
+    },
+  })
+}
+
+export function useCalibrationDetail(id: string, enabled = true) {
+  return useQuery({
+    queryKey: KEYS.calibration(id),
+    queryFn: () => performanceApi.getCalibration(id),
+    enabled: enabled && !!id,
+    retry: false,
+  })
+}
+
+export function useRetryConsolidation(id: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: () => performanceApi.retryConsolidation(id),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ['performance'] })
+      toast.success('Consolidation completed')
     },
     onError: (error: Error) => toast.error(error.message),
   })

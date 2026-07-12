@@ -82,6 +82,15 @@ function pickPath(eventKey: EventKey, entityType: EntityType | undefined, entity
     return entityId ? `/dashboard/objectives/${entityId}` : '/dashboard/alignment-map'
   }
 
+  // ── Performance & scorecard ──
+  if (eventKey === 'PERF_CYCLE_OPENED') return '/dashboard/performance/evaluations'
+  if (eventKey === 'PERF_PANEL_COMPLETE' || eventKey === 'PERF_DISPUTE_RAISED') {
+    const evaluationId = data.evaluationId as string | undefined
+    return evaluationId ? `/dashboard/performance/evaluations/${evaluationId}/score` : '/dashboard/performance/evaluations'
+  }
+  if (eventKey === 'PERF_DRAFT_SHARED' || eventKey === 'PERF_WEEKLY_FOCUS') return '/dashboard/performance'
+  if (eventKey === 'PERF_ACTION_RECOMMENDED') return '/dashboard/performance/actions'
+
   // ── Comments / mentions: link to the entity the comment lives on ──
   if (eventKey === 'USER_MENTIONED' || eventKey === 'COMMENT_ON_OWNED_ENTITY') {
     if (entityType === 'OBJECTIVE' && entityId) return `/dashboard/objectives/${entityId}`

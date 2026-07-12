@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/prisma'
 import { apiBadRequest, apiForbidden, apiNotFound, apiSuccess, withAuth } from '@/lib/api'
-import { canScoreEvaluation, consolidateEvaluation } from '@/lib/performance'
+import { MetricActualUnavailableError, canScoreEvaluation, consolidateEvaluation } from '@/lib/performance'
+import { emit } from '@/lib/notifications/dispatcher'
+import { recordActivity } from '@/lib/activity-log'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 
 export const POST = withAuth<RouteIdParams>(async (_request, { session, params }) => {
@@ -41,6 +43,36 @@ export const POST = withAuth<RouteIdParams>(async (_request, { session, params }
     }),
   ])
   const pending = await prisma.evaluatorAssignment.count({ where: { evaluationId: id, status: 'PENDING' } })
-  const result = pending === 0 ? await consolidateEvaluation(id) : null
-  return apiSuccess({ submitted: true, consolidated: result })
+  if (pending > 0) return apiSuccess({ submitted: true, consolidated: null })
+  try {
+    const result = await consolidateEvaluation(id)
+    await recordActivity({
+      entityType: 'EVALUATION',
+      evaluationId: id,
+      action: 'EVALUATION_CONSOLIDATED',
+      actorId: session.user.id,
+      metadata: { status: result.status },
+    })
+    const lead = evaluation.assignments.find((assignment) => assignment.role === 'LEAD')
+    if (lead) {
+      const detail = await prisma.evaluation.findUnique({
+        where: { id },
+        select: { employee: { select: { name: true } }, cycle: { select: { name: true } } },
+      })
+      await emit('PERF_PANEL_COMPLETE', {
+        actorId: session.user.id,
+        explicitRecipients: [lead.evaluatorId],
+        data: { evaluationId: id, employeeName: detail?.employee.name, cycleName: detail?.cycle.name },
+      })
+    }
+    return apiSuccess({ submitted: true, consolidated: result })
+  } catch (error) {
+    // The submission itself stands; unavailable metric actuals are flagged as
+    // ACTUAL_UNAVAILABLE issues for manual resolution and consolidation can be
+    // retried once the Key Result sources are re-mapped.
+    if (error instanceof MetricActualUnavailableError) {
+      return apiSuccess({ submitted: true, consolidated: null, consolidationBlocked: error.message })
+    }
+    throw error
+  }
 })

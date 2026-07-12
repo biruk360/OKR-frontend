@@ -781,7 +781,7 @@ model ObjectiveLabel {
 /// `changes` is a JSON string: `{ field: { from: any, to: any }, ... }`.
 model ActivityLog {
   id          String   @id @default(cuid())
-  entityType  String // OBJECTIVE | KEY_RESULT | TODO | SPRINT | LETTER
+  entityType  String // OBJECTIVE | KEY_RESULT | TODO | SPRINT | LETTER | EVALUATION | REVIEW_CYCLE | DEVELOPMENT_ACTION
   objectiveId String?
   keyResultId String?
   todoId      String?
@@ -789,6 +789,9 @@ model ActivityLog {
   sprintId    String?
   /// Letter Management — optional letter association for letter lifecycle events.
   letterId    String?
+  /// Performance module — optional evaluation association for evaluation, cycle,
+  /// and development-action lifecycle events (cycle/action ids live in metadata).
+  evaluationId String?
   action      String
   actorId     String?
   /// JSONB on Postgres — `{ field: { from, to } }`. Was `String` (JSON-encoded) before
@@ -804,12 +807,14 @@ model ActivityLog {
   todo      Todo?      @relation(fields: [todoId], references: [id], onDelete: Cascade)
   sprint    Sprint?    @relation(fields: [sprintId], references: [id], onDelete: Cascade)
   letter    Letter?    @relation(fields: [letterId], references: [id], onDelete: Cascade)
+  evaluation Evaluation? @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
 
   @@index([objectiveId, createdAt])
   @@index([keyResultId, createdAt])
   @@index([todoId, createdAt])
   @@index([sprintId, createdAt])
   @@index([letterId, createdAt])
+  @@index([evaluationId, createdAt])
   @@index([entityType, createdAt])
   @@map("activity_logs")
 }
@@ -2039,6 +2044,7 @@ model Evaluation {
   improvementFocuses ImprovementFocus[]
   developmentActions DevelopmentAction[]
   issues        ReviewCycleIssue[]
+  activityLogs  ActivityLog[]
 
   @@unique([cycleId, employeeId])
   @@index([employeeId, status])

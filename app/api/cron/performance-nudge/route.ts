@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { emit } from '@/lib/notifications/dispatcher'
 
 function isoWeekKey(date: Date): string {
   const utc = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))
@@ -36,23 +37,16 @@ export async function POST(request: NextRequest) {
       include: { criterion: { select: { title: true } } },
     })
     const message = focuses.map((focus) => `${focus.criterion.title}: ${focus.targetText}`).join(' · ')
-    await prisma.$transaction([
-      prisma.notification.create({
-        data: {
-          type: 'PERF_WEEKLY_FOCUS',
-          eventKey: 'PERF_WEEKLY_FOCUS',
-          category: 'PERFORMANCE',
-          title: 'Your weekly growth focus',
-          message,
-          userId: employee.employeeId,
-          metadata: JSON.stringify({ weekKey, focusIds: focuses.map((focus) => focus.id), scoreFree: true }),
-          emailMode: 'DIGEST_WEEKLY',
-        },
-      }),
-      prisma.performanceNudgeDelivery.create({
-        data: { employeeId: employee.employeeId, weekKey, focusCount: focuses.length },
-      }),
-    ])
+    // Route through the dispatcher so the nudge honors the employee's channel
+    // preferences and actually reaches email (in-app row + email/digest queue).
+    // Payload stays score-free by contract (spec G2).
+    await emit('PERF_WEEKLY_FOCUS', {
+      explicitRecipients: [employee.employeeId],
+      data: { weekKey, focusText: message, focusIds: focuses.map((focus) => focus.id), scoreFree: true },
+    })
+    await prisma.performanceNudgeDelivery.create({
+      data: { employeeId: employee.employeeId, weekKey, focusCount: focuses.length },
+    })
     delivered++
   }
   return NextResponse.json({ success: true, weekKey, delivered })

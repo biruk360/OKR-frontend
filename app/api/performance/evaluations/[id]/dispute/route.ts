@@ -2,7 +2,9 @@ import type { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { apiBadRequest, apiForbidden, apiNotFound, apiSuccess, withAuth } from '@/lib/api'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
-import { canRespondToReport } from '@/lib/performance'
+import { canRespondToReport, resolvePerformanceAdmins } from '@/lib/performance'
+import { emit } from '@/lib/notifications/dispatcher'
+import { recordActivity } from '@/lib/activity-log'
 
 export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { session, params }) => {
   const { id } = await resolveParams(params)
@@ -10,7 +12,12 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
   if (!await canRespondToReport(actor, 'dispute')) return apiForbidden('You do not have permission to dispute reports')
   const evaluation = await prisma.evaluation.findUnique({
     where: { id },
-    include: { acknowledgements: { orderBy: { createdAt: 'desc' }, take: 1 } },
+    include: {
+      acknowledgements: { orderBy: { createdAt: 'desc' }, take: 1 },
+      assignments: { where: { role: 'LEAD' }, select: { evaluatorId: true } },
+      employee: { select: { name: true } },
+      cycle: { select: { name: true } },
+    },
   })
   if (!evaluation) return apiNotFound('Evaluation not found')
   if (evaluation.employeeId !== session.user.id) return apiForbidden('Only the evaluated employee can dispute this report')
@@ -25,5 +32,19 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
     }),
     prisma.evaluation.update({ where: { id }, data: { status: 'CALIBRATION' } }),
   ])
+  await recordActivity({
+    entityType: 'EVALUATION',
+    evaluationId: id,
+    action: 'EVALUATION_DISPUTED',
+    actorId: session.user.id,
+    metadata: { comment },
+  })
+  const admins = await resolvePerformanceAdmins()
+  const recipients = Array.from(new Set([...evaluation.assignments.map((assignment) => assignment.evaluatorId), ...admins]))
+  await emit('PERF_DISPUTE_RAISED', {
+    actorId: session.user.id,
+    explicitRecipients: recipients,
+    data: { evaluationId: id, employeeName: evaluation.employee.name, cycleName: evaluation.cycle.name },
+  })
   return apiSuccess({ disputed: true })
 })

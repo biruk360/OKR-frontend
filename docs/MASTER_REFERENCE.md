@@ -860,7 +860,11 @@ All cron routes: `POST /api/cron/*` — require Bearer `CRON_SECRET` header.
 | PUT/POST | `/api/performance/evaluations/[id]/{scores,submit,panel,calibration,share-draft,acknowledge,dispute,finalize}` | Scoped | Evaluation workflow |
 | GET | `/api/performance/okr-actual/[criterionId]` | Scoped | Period-bounded live metric actual and computed score |
 | GET/PUT | `/api/performance/me`, `/api/performance/focuses/[id]/weekly-step` | Employee | My Performance data and weekly commitment |
-| GET/PATCH | `/api/performance/actions`, `/api/performance/actions/[id]` | Admin | Recommendation queue and transitions |
+| GET/PATCH | `/api/performance/actions`, `/api/performance/actions/[id]` | Admin | Recommendation queue and transitions (audit-logged) |
+| POST | `/api/performance/evaluations/[id]/consolidate` | Lead/Admin | Manual consolidation retry — refreshes frozen metric-source snapshots from current mappings, re-runs consolidation (used after fixing an `ACTUAL_UNAVAILABLE` issue) |
+| PATCH | `/api/performance/cycles/[id]/issues/[issueId]` | Admin/cycles write | Resolve / waive / reopen a review-cycle issue (`NO_TEMPLATE`, `NO_LEAD`, `AMBIGUOUS_LEAD`, `METRIC_SOURCE_MISSING`, `ACTUAL_UNAVAILABLE`) |
+
+Cross-cutting (2026-07-12): the module emits `PERFORMANCE`-category notification events — `PERF_CYCLE_OPENED`, `PERF_PANEL_COMPLETE`, `PERF_DRAFT_SHARED`, `PERF_DISPUTE_RAISED`, `PERF_ACTION_RECOMMENDED`, `PERF_WEEKLY_FOCUS` (weekly nudge now goes through the dispatcher, so email delivers) — and writes an audit trail via `recordActivity` (`ActivityLog.evaluationId`; entity types `EVALUATION` / `REVIEW_CYCLE` / `DEVELOPMENT_ACTION`) on every lifecycle transition: cycle open/close, panel updates, consolidation, calibration resolve, share, acknowledge, dispute, finalize, issue resolution, action approve/reject/execute.
 
 ---
 
@@ -1013,8 +1017,8 @@ Import: `import { PlanEditor, CoordinatorConsole, MovementSheetView, RunSheetVie
 | `PerformanceHome` | Employee focus, weekly step, and review history |
 | `TemplatesWorkspace`, `TemplateBuilder` | Template/version management and builder |
 | `RoleMappingManager`, `MetricMappingManager` | Template resolution and employee KR source mapping |
-| `CyclesWorkspace`, `EvaluatorQueue` | Cycle administration and evaluator work queue |
-| `ScoringWorkspace`, `CalibrationPanel` | Scoring, live metric actuals, consolidation workflow, and calibration |
+| `CyclesWorkspace`, `CycleIssuesModal`, `EvaluatorQueue` | Cycle administration (create with validation, open, close with incomplete-evaluation override), per-cycle issue resolve/waive, and evaluator work queue |
+| `ScoringWorkspace`, `PanelManager`, `CalibrationPanel` | Scoring, live metric actuals, evaluator panel management, consolidation retry, and side-by-side calibration |
 | `PerformanceReport` | Employee-safe shared/final report and response |
 | `ActionsWorkspace` | Development/reward recommendation queue |
 

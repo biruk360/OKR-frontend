@@ -53,6 +53,70 @@ export async function createEvaluationReport(evaluationId: string) {
         }
       }),
     }))
+    // Multi-cycle trend: this employee's prior finalized evaluations, ordered by period.
+    const priorFinalized = await tx.evaluation.findMany({
+      where: {
+        employeeId: evaluation.employeeId,
+        status: 'FINALIZED',
+        id: { not: evaluationId },
+        cycle: { periodEnd: { lte: evaluation.cycle.periodEnd } },
+      },
+      select: {
+        normalized: true,
+        cycle: { select: { id: true, name: true, periodStart: true, periodEnd: true } },
+      },
+      orderBy: { cycle: { periodStart: 'asc' } },
+    })
+    const trend = priorFinalized.map((prior) => ({
+      cycleId: prior.cycle.id,
+      cycleName: prior.cycle.name,
+      periodEnd: prior.cycle.periodEnd.toISOString(),
+      normalized: prior.normalized,
+    }))
+
+    // Employee-scoped OKR attainment for objectives whose timeframe overlaps the cycle period.
+    const objectives = await tx.objective.findMany({
+      where: {
+        ownerId: evaluation.employeeId,
+        status: { not: 'DELETED' },
+        timeframe: {
+          startDate: { lte: evaluation.cycle.periodEnd },
+          endDate: { gte: evaluation.cycle.periodStart },
+        },
+      },
+      select: {
+        id: true,
+        title: true,
+        progress: true,
+        timeframe: { select: { name: true } },
+        keyResults: {
+          where: { status: { not: 'DELETED' } },
+          select: {
+            id: true,
+            title: true,
+            unit: true,
+            startValue: true,
+            targetValue: true,
+            currentValue: true,
+            progress: true,
+          },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    })
+    const okrAttainment = {
+      periodStart: evaluation.cycle.periodStart.toISOString(),
+      periodEnd: evaluation.cycle.periodEnd.toISOString(),
+      objectives: objectives.map((objective) => ({
+        id: objective.id,
+        title: objective.title,
+        progress: objective.progress,
+        timeframeName: objective.timeframe.name,
+        keyResults: objective.keyResults,
+      })),
+    }
+
     const content = {
       employee: evaluation.employee,
       cycle: evaluation.cycle,
@@ -63,6 +127,8 @@ export async function createEvaluationReport(evaluationId: string) {
       gatekeeperPass: evaluation.gatekeeperPass,
       decisionBand: evaluation.decisionBand,
       tierBreakdown,
+      trend,
+      okrAttainment,
       generatedAt: new Date().toISOString(),
     }
     const latest = await tx.evaluationReport.findFirst({

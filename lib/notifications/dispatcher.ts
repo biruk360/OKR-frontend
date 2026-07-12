@@ -278,6 +278,16 @@ async function resolveRecipients(eventKey: EventKey, p: EventPayload): Promise<M
       break
     }
 
+    case 'PERF_CYCLE_OPENED':
+    case 'PERF_PANEL_COMPLETE':
+    case 'PERF_DRAFT_SHARED':
+    case 'PERF_DISPUTE_RAISED':
+    case 'PERF_ACTION_RECOMMENDED':
+    case 'PERF_WEEKLY_FOCUS':
+      // Performance recipients are precisely known by the caller (evaluators,
+      // lead, employee, performance admins) — always passed as explicitRecipients.
+      break
+
     case 'ADMIN_USER_CREATED':
     case 'ADMIN_BULK_JOB_DONE':
     case 'ADMIN_SECURITY_ALERT':

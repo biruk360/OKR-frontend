@@ -264,6 +264,7 @@ model Objective {
   contributors     ObjectiveContributor[]
   risks            Risk[]
   projects         Project[] // Project Management module — projects linked to this objective (K1)
+  scrumLinks       ScrumUpdateLink[]
 
   @@index([departmentId])
   @@index([ownerId])
@@ -321,6 +322,7 @@ model KeyResult {
   performanceMetricMappings MetricSourceMapping[]
   performanceMetricSources  EvaluationMetricSource[]
   milestones       Milestone[] // Project Management module — milestones driving this KR (K1)
+  scrumLinks       ScrumUpdateLink[]
 
   @@map("key_results")
 }
@@ -423,6 +425,7 @@ model Todo {
   attachments       TodoAttachment[]
   todoComments      TodoComment[]
   activityLogs      ActivityLog[]
+  scrumLinks        ScrumUpdateLink[]
 
   @@index([assigneeId, status])
   @@index([creatorId, status])
@@ -2879,6 +2882,138 @@ model ScrumLog {
 
   @@unique([projectId, scrumDate])
   @@map("project_scrum_logs")
+}
+
+// ===== DAILY SCRUM MODULE =====
+// User references are plain string IDs by design; resolve names/avatars in services.
+
+model ScrumUpdate {
+  id                  String    @id @default(cuid())
+  userId              String
+  submittedById       String
+  managerId           String?
+  teamId              String?
+  scrumDate           DateTime  @db.Date
+  status              String    @default("SUBMITTED") // DRAFT | SUBMITTED | CONFIRMED | AMENDED
+
+  yesterdayPlan       String?
+  yesterdayStatusJson Json?
+  todayPlan           String
+  blockers            String?
+  blockerCategory     String? // TECHNICAL | CLIENT_APPROVAL | EXTERNAL_DEPENDENCY | INTERNAL_CAPACITY | REQUIREMENT_CLARITY | ACCESS | QA | DEPLOYMENT | OTHER
+  blockerStatus       String?   @default("OPEN") // OPEN | RECURRING | ESCALATED | RESOLVED
+  blockerResolvedAt   DateTime?
+  blockerResolvedById String?
+  blockerResolution   String?
+  escalatedAt         DateTime?
+  escalatedToUserId   String?
+  win                 String?
+  mood                String? // GREAT | GOOD | OKAY | STRESSED | BLOCKED
+
+  hasBlocker          Boolean   @default(false)
+  hasWin              Boolean   @default(false)
+  isLate              Boolean   @default(false)
+  submittedAt         DateTime  @default(now())
+  amendedAt           DateTime?
+  confirmedAt         DateTime?
+
+  isProxyEntry        Boolean   @default(false)
+  proxyReason         String? // MANAGER_ENTRY | PTO | FIELD_WORK | SYSTEM_ISSUE | OTHER
+  proxyConfirmedAt    DateTime?
+
+  comments            ScrumComment[]
+  links               ScrumUpdateLink[]
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@unique([userId, scrumDate])
+  @@index([scrumDate, teamId])
+  @@index([hasBlocker, scrumDate])
+  @@index([hasWin, scrumDate])
+  @@index([managerId, scrumDate])
+  @@index([blockerStatus])
+  @@index([submittedById, scrumDate])
+  @@map("scrum_updates")
+}
+
+model ScrumComment {
+  id          String      @id @default(cuid())
+  updateId    String
+  authorId    String
+  body        String
+  mentions    String[]    @default([])
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  update      ScrumUpdate @relation(fields: [updateId], references: [id], onDelete: Cascade)
+
+  @@index([updateId, createdAt])
+  @@index([authorId, createdAt])
+  @@map("scrum_comments")
+}
+
+model ScrumAbsence {
+  id            String   @id @default(cuid())
+  userId        String
+  date          DateTime @db.Date
+  type          String   @default("EXCUSED") // EXCUSED | PTO | SICK | TRAVEL | HOLIDAY | OTHER
+  reason        String?
+  recordedById  String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([userId, date])
+  @@index([date])
+  @@index([recordedById])
+  @@map("scrum_absences")
+}
+
+model ScrumSettings {
+  id                    String   @id @default("default")
+  timezone              String   @default("Africa/Addis_Ababa")
+  reminderTime          String   @default("08:00")
+  cutoffTime            String   @default("09:00")
+  nudgeTime             String   @default("09:05")
+  weeklyDigestTime      String   @default("16:00")
+  workingDays           Int[]    @default([1, 2, 3, 4, 5])
+  holidays              String[] @default([])
+  moodEnabled           Boolean  @default(true)
+  proxyEnabled          Boolean  @default(true)
+  telegramEnabled       Boolean  @default(false)
+  blockerEscalationDays Int      @default(2)
+  moodAlertDays         Int      @default(10)
+  objectiveNeglectDays  Int      @default(14)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@map("scrum_settings")
+}
+
+model ScrumUpdateLink {
+  id             String       @id @default(cuid())
+  updateId       String
+  objectiveId    String?
+  keyResultId    String?
+  todoId         String?
+  linkType       String // OBJECTIVE | KEY_RESULT | TODO — derived server-side
+  context        String // TODAY | BLOCKER | WIN | YESTERDAY
+  progressNote   String?
+  createdById    String
+  createdAt      DateTime     @default(now())
+
+  update         ScrumUpdate  @relation(fields: [updateId], references: [id], onDelete: Cascade)
+  objective      Objective?   @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
+  keyResult      KeyResult?   @relation(fields: [keyResultId], references: [id], onDelete: Cascade)
+  todo           Todo?        @relation(fields: [todoId], references: [id], onDelete: Cascade)
+
+  @@unique([updateId, objectiveId, context])
+  @@unique([updateId, keyResultId, context])
+  @@unique([updateId, todoId, context])
+  @@index([objectiveId, createdAt])
+  @@index([keyResultId, createdAt])
+  @@index([todoId, createdAt])
+  @@index([createdById, createdAt])
+  @@map("scrum_update_links")
 }
 
 model ProjectReport {

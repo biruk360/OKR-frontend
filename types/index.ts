@@ -201,6 +201,8 @@ export interface KeyResultFilters {
   search?: string
 }
 
+export * from './scrum'
+
 // Letter Management — see docs/letter_management_requirements.md
 export type LetterType = 'COVER' | 'OFFER' | 'GUARANTEE'
 export type LetterStatus = 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'SENT' | 'ARCHIVED'

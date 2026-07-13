@@ -18,6 +18,7 @@ export type EventCategory =
   | 'COMMENT'
   | 'ADMIN'
   | 'PERFORMANCE'
+  | 'SCRUM'
 
 export type EventKey =
   // Account
@@ -84,6 +85,22 @@ export type EventKey =
   | 'ADMIN_SECURITY_ALERT'
   | 'ADMIN_WEEKLY_HEALTH_DIGEST'
   | 'ADMIN_MONTHLY_EXEC_SUMMARY'
+  // Daily Scrum module
+  | 'SCRUM_REMINDER'
+  | 'SCRUM_NUDGE'
+  | 'SCRUM_MANAGER_DIGEST'
+  | 'SCRUM_WEEKLY_DIGEST'
+  | 'SCRUM_BLOCKER_RAISED'
+  | 'SCRUM_BLOCKER_RECURRING'
+  | 'SCRUM_BLOCKER_ESCALATED'
+  | 'SCRUM_BLOCKER_RESOLVED'
+  | 'SCRUM_PROXY_SUBMITTED'
+  | 'SCRUM_PROXY_CONFIRMED'
+  | 'SCRUM_UPDATE_AMENDED'
+  | 'SCRUM_COMMENT_ADDED'
+  | 'SCRUM_WIN_CELEBRATED'
+  | 'SCRUM_TEAM_MOOD_ALERT'
+  | 'SCRUM_OBJECTIVE_NEGLECTED'
 
 export type DefaultCadence = 'IMMEDIATE' | 'DAILY' | 'WEEKLY' | 'MONTHLY'
 
@@ -159,10 +176,27 @@ export const EVENT_META: Record<EventKey, EventMeta> = {
   ADMIN_SECURITY_ALERT: { key: 'ADMIN_SECURITY_ALERT', category: 'ADMIN', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Security alert' },
   ADMIN_WEEKLY_HEALTH_DIGEST: { key: 'ADMIN_WEEKLY_HEALTH_DIGEST', category: 'ADMIN', defaultCadence: 'WEEKLY', redactable: false, label: 'Weekly org OKR health' },
   ADMIN_MONTHLY_EXEC_SUMMARY: { key: 'ADMIN_MONTHLY_EXEC_SUMMARY', category: 'ADMIN', defaultCadence: 'MONTHLY', redactable: false, label: 'Monthly executive summary' },
+
+  // Daily Scrum module.
+  SCRUM_REMINDER: { key: 'SCRUM_REMINDER', category: 'SCRUM', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Daily scrum reminder' },
+  SCRUM_NUDGE: { key: 'SCRUM_NUDGE', category: 'SCRUM', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Daily scrum nudge' },
+  SCRUM_MANAGER_DIGEST: { key: 'SCRUM_MANAGER_DIGEST', category: 'SCRUM', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Manager scrum digest' },
+  SCRUM_WEEKLY_DIGEST: { key: 'SCRUM_WEEKLY_DIGEST', category: 'SCRUM', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Weekly scrum digest' },
+  SCRUM_BLOCKER_RAISED: { key: 'SCRUM_BLOCKER_RAISED', category: 'SCRUM', defaultCadence: 'IMMEDIATE', redactable: true, label: 'Scrum blocker raised' },
+  SCRUM_BLOCKER_RECURRING: { key: 'SCRUM_BLOCKER_RECURRING', category: 'SCRUM', defaultCadence: 'IMMEDIATE', redactable: true, label: 'Recurring scrum blocker' },
+  SCRUM_BLOCKER_ESCALATED: { key: 'SCRUM_BLOCKER_ESCALATED', category: 'SCRUM', defaultCadence: 'IMMEDIATE', redactable: true, label: 'Scrum blocker escalated' },
+  SCRUM_BLOCKER_RESOLVED: { key: 'SCRUM_BLOCKER_RESOLVED', category: 'SCRUM', defaultCadence: 'IMMEDIATE', redactable: true, label: 'Scrum blocker resolved' },
+  SCRUM_PROXY_SUBMITTED: { key: 'SCRUM_PROXY_SUBMITTED', category: 'SCRUM', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Scrum submitted by proxy' },
+  SCRUM_PROXY_CONFIRMED: { key: 'SCRUM_PROXY_CONFIRMED', category: 'SCRUM', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Proxy scrum confirmed' },
+  SCRUM_UPDATE_AMENDED: { key: 'SCRUM_UPDATE_AMENDED', category: 'SCRUM', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Scrum update amended' },
+  SCRUM_COMMENT_ADDED: { key: 'SCRUM_COMMENT_ADDED', category: 'SCRUM', defaultCadence: 'IMMEDIATE', redactable: true, label: 'Scrum comment added' },
+  SCRUM_WIN_CELEBRATED: { key: 'SCRUM_WIN_CELEBRATED', category: 'SCRUM', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Scrum win celebrated' },
+  SCRUM_TEAM_MOOD_ALERT: { key: 'SCRUM_TEAM_MOOD_ALERT', category: 'SCRUM', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Team mood alert' },
+  SCRUM_OBJECTIVE_NEGLECTED: { key: 'SCRUM_OBJECTIVE_NEGLECTED', category: 'SCRUM', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Objective neglected in daily scrum' },
 }
 
 export const ALL_CATEGORIES: EventCategory[] = [
-  'ACCOUNT', 'OBJECTIVE', 'KEY_RESULT', 'CHECK_IN', 'TODO', 'TIMEFRAME', 'ALIGNMENT', 'COMMENT', 'ADMIN', 'PERFORMANCE',
+  'ACCOUNT', 'OBJECTIVE', 'KEY_RESULT', 'CHECK_IN', 'TODO', 'TIMEFRAME', 'ALIGNMENT', 'COMMENT', 'ADMIN', 'PERFORMANCE', 'SCRUM',
 ]
 
 /** Categories the user may NOT disable (account/security emails bypass prefs). */
@@ -171,7 +205,7 @@ export const MANDATORY_CATEGORIES: EventCategory[] = ['ACCOUNT']
 /** Shape of data a dispatcher caller passes for a given event. */
 export interface EventPayload {
   actorId?: string
-  entityType?: 'OBJECTIVE' | 'KEY_RESULT' | 'TODO' | 'TIMEFRAME' | 'USER'
+  entityType?: 'OBJECTIVE' | 'KEY_RESULT' | 'TODO' | 'TIMEFRAME' | 'USER' | 'SCRUM_UPDATE'
   entityId?: string
   entityTitle?: string
   /** If the entity is private, the dispatcher redacts titles/values before sending. */

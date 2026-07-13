@@ -9,6 +9,7 @@
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
+    "test:scrum": "tsx --test features/scrum/services/*.test.ts",
     "postinstall": "prisma generate",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
@@ -18,6 +19,8 @@
     "db:seed:360ground": "tsx prisma/seed-360ground-fy2026.ts",
     "db:seed:performance": "tsx prisma/seed-performance-templates.ts",
     "db:seed:dtp": "tsx prisma/seed-dtp.ts",
+    "db:seed:scrum-permissions": "tsx scripts/seed-scrum-permissions.ts",
+    "db:seed:scrum-settings": "tsx scripts/seed-scrum-settings.ts",
     "db:migrate:biruk": "tsx prisma/migrate-consolidate-biruk.ts",
     "db:wipe:okr": "tsx prisma/wipe-users-objectives-krs.ts"
   },

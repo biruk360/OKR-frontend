@@ -834,6 +834,104 @@ export function renderTemplate(eventKey: EventKey, data: Data): RenderedEmail {
         `,
       })
 
+    case 'SCRUM_REMINDER':
+      return compose({
+        subject: 'Daily scrum is open',
+        recipientName: name,
+        text: `Hi ${name},\n\nSubmit today's scrum update before the cutoff.\n\nOpen daily scrum: ${deepLink}`,
+        html: `
+          ${heading({ eyebrow: 'Daily scrum', title: 'Submit today\'s update' })}
+          ${lead(`Hi ${name}, daily scrum is open. Add today\'s plan, carry-forward items, blockers, wins, and mood before the cutoff.`)}
+          ${button('Open daily scrum', deepLink)}
+        `,
+      })
+
+    case 'SCRUM_NUDGE':
+      return compose({
+        subject: 'Daily scrum cutoff reminder',
+        recipientName: name,
+        text: `Hi ${name},\n\nYour daily scrum update is still missing. Submit it now: ${deepLink}`,
+        html: `
+          ${heading({ eyebrow: 'Daily scrum', title: 'Your update is still missing', badgeText: 'Due now', badgeTone: 'warning' })}
+          ${lead(`Hi ${name}, your daily scrum update has not been submitted yet.`)}
+          ${button('Submit update', deepLink)}
+          ${muted(String(data.yesterdayPlan ? `Yesterday's plan: ${data.yesterdayPlan}` : 'This nudge is sent at most once per person per day.'))}
+        `,
+      })
+
+    case 'SCRUM_MANAGER_DIGEST':
+      return compose({
+        subject: 'Daily scrum manager digest',
+        recipientName: name,
+        text: `Hi ${name},\n\nToday's daily scrum digest is ready. Submitted: ${String(data.submittedCount ?? '—')}; missing: ${String(data.missingCount ?? '—')}; blockers: ${String(data.blockerCount ?? '—')}.\n\nOpen: ${deepLink}`,
+        html: `
+          ${heading({ eyebrow: 'Daily scrum', title: 'Manager digest' })}
+          ${lead(`Hi ${name}, here is today\'s consolidated scrum status.`)}
+          ${kpiRow([
+            { label: 'Submitted', value: String(data.submittedCount ?? '—') },
+            { label: 'Missing', value: String(data.missingCount ?? '—') },
+            { label: 'Blockers', value: String(data.blockerCount ?? '—') },
+          ])}
+          ${button('Open team wall', deepLink)}
+        `,
+      })
+
+    case 'SCRUM_WEEKLY_DIGEST':
+      return compose({
+        subject: 'Weekly scrum digest',
+        recipientName: name,
+        text: `Hi ${name},\n\nYour weekly scrum digest is ready. Wins: ${String(data.winCount ?? '—')}; blockers resolved: ${String(data.resolvedBlockerCount ?? '—')}.\n\nOpen: ${deepLink}`,
+        html: `
+          ${heading({ eyebrow: 'Daily scrum', title: 'Weekly digest' })}
+          ${lead(`Hi ${name}, here is the weekly summary of wins, blockers, and attention signals.`)}
+          ${kpiRow([
+            { label: 'Wins', value: String(data.winCount ?? '—') },
+            { label: 'Resolved blockers', value: String(data.resolvedBlockerCount ?? '—') },
+            { label: 'Submission rate', value: fmtPct(data.submissionRate) },
+          ])}
+          ${button('Open scrum dashboard', deepLink)}
+        `,
+      })
+
+    case 'SCRUM_BLOCKER_RAISED':
+    case 'SCRUM_BLOCKER_RECURRING':
+    case 'SCRUM_BLOCKER_ESCALATED':
+    case 'SCRUM_BLOCKER_RESOLVED':
+      return compose({
+        subject: `Scrum blocker update: ${entityTitle}`,
+        recipientName: name,
+        text: `Hi ${name},\n\nA scrum blocker changed state: ${eventKey}. Open: ${deepLink}`,
+        html: `
+          ${heading({ eyebrow: 'Daily scrum', title: 'Blocker update', badgeText: eventKey.replace('SCRUM_BLOCKER_', '').toLowerCase(), badgeTone: eventKey === 'SCRUM_BLOCKER_RESOLVED' ? 'success' : 'warning' })}
+          ${lead(String(data.blockerSummary ?? entityTitle))}
+          ${button('Open update', deepLink)}
+        `,
+      })
+
+    case 'SCRUM_TEAM_MOOD_ALERT':
+      return compose({
+        subject: 'Team mood alert',
+        recipientName: name,
+        text: `Hi ${name},\n\nA team-level scrum mood alert was triggered. Open: ${deepLink}`,
+        html: `
+          ${heading({ eyebrow: 'Daily scrum', title: 'Team mood needs attention', badgeText: 'Team aggregate', badgeTone: 'warning' })}
+          ${lead('A team-level trend crossed the configured alert threshold. Individual mood remains visible only to the employee and direct manager.')}
+          ${button('Open scrum analytics', deepLink)}
+        `,
+      })
+
+    case 'SCRUM_OBJECTIVE_NEGLECTED':
+      return compose({
+        subject: `Objective missing from daily scrum: ${entityTitle}`,
+        recipientName: name,
+        text: `Hi ${name},\n\n"${entityTitle}" has not appeared in daily scrum updates for the configured working-day threshold. Open: ${deepLink}`,
+        html: `
+          ${heading({ eyebrow: 'Daily scrum', title: 'Objective needs attention', badgeText: 'No recent mentions', badgeTone: 'warning' })}
+          ${lead(`"${entityTitle}" has not appeared in daily scrum updates for the configured threshold.`)}
+          ${button('Open objective', deepLink)}
+        `,
+      })
+
     default:
       return compose({
         subject: `Notification`,

@@ -8,7 +8,7 @@
 
 import type { EventKey } from './events'
 
-export type EntityType = 'OBJECTIVE' | 'KEY_RESULT' | 'TODO' | 'TIMEFRAME' | 'USER'
+export type EntityType = 'OBJECTIVE' | 'KEY_RESULT' | 'TODO' | 'TIMEFRAME' | 'USER' | 'SCRUM_UPDATE'
 
 export function appBaseUrl(): string {
   return (process.env.NEXTAUTH_URL || 'http://localhost:3000').replace(/\/+$/, '')
@@ -90,6 +90,18 @@ function pickPath(eventKey: EventKey, entityType: EntityType | undefined, entity
   }
   if (eventKey === 'PERF_DRAFT_SHARED' || eventKey === 'PERF_WEEKLY_FOCUS') return '/dashboard/performance'
   if (eventKey === 'PERF_ACTION_RECOMMENDED') return '/dashboard/performance/actions'
+
+  // ── Daily Scrum module ──
+  if (eventKey.startsWith('SCRUM_')) {
+    if (data.deepLink) return String(data.deepLink)
+    if (entityType === 'SCRUM_UPDATE' && entityId) return `/dashboard/scrum?update=${entityId}`
+    if (eventKey === 'SCRUM_WEEKLY_DIGEST' || eventKey === 'SCRUM_TEAM_MOOD_ALERT') return '/dashboard/scrum/wins'
+    if (eventKey === 'SCRUM_OBJECTIVE_NEGLECTED') {
+      const objectiveId = data.objectiveId as string | undefined
+      return objectiveId ? `/dashboard/objectives/${objectiveId}` : '/dashboard/scrum'
+    }
+    return '/dashboard/scrum'
+  }
 
   // ── Comments / mentions: link to the entity the comment lives on ──
   if (eventKey === 'USER_MENTIONED' || eventKey === 'COMMENT_ON_OWNED_ENTITY') {

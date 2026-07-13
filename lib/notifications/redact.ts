@@ -11,7 +11,7 @@ export interface RedactInput {
   /** Admins always see full details. */
   recipientRole?: 'ADMIN' | 'EXECUTIVE' | 'DEPARTMENT_LEAD' | 'EMPLOYEE'
   isPrivate: boolean
-  entityType?: 'OBJECTIVE' | 'KEY_RESULT' | 'TODO' | 'TIMEFRAME' | 'USER'
+  entityType?: 'OBJECTIVE' | 'KEY_RESULT' | 'TODO' | 'TIMEFRAME' | 'USER' | 'SCRUM_UPDATE'
   entityTitle?: string
 }
 
@@ -29,6 +29,7 @@ export function displayTitle(input: RedactInput): string {
     case 'OBJECTIVE': return '[Private Objective]'
     case 'KEY_RESULT': return '[Private Key Result]'
     case 'TODO': return '[Private To-do]'
+    case 'SCRUM_UPDATE': return '[Private scrum update]'
     default: return '[Private item]'
   }
 }

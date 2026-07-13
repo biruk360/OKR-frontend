@@ -24,6 +24,16 @@
 
 Hooks (TanStack Query) exported from the same barrel: `usePlans`, `usePlan`, `useTripTypes`, `useDrivers`, `useVehicles`, `useMovementSheet`, `useRunSheet`, `useDtpSettings`, `useCreateOrOpenPlan`, `useAddStop`, `useUpdateStop`, `useDeleteStop`, `usePlanTransition`, `useAssignDriver`, `useSetLegStatus`, `useUpdateSettings`, `useInvalidatePlan`.
 
+## Daily Scrum (`features/scrum`)
+
+> Import from the barrel: `import { ScrumHome } from '@/features/scrum'`
+
+| Component | Props | Purpose |
+|-----------|-------|---------|
+| `ScrumHome` | — | P0 foundation page for `/dashboard/scrum`; shows setup status using existing `PageHeader`, `StatCard`, and `EmptyState`. Submission form, calendar wall, and analytics components are pending P1/P2+. |
+
+Services exported from the same barrel: working-day utilities and `serializeScrumUpdate()` mood privacy serializer.
+
 ## Performance & Scorecard (`features/performance`)
 
 > Import from the barrel: `import { PerformanceHome, TemplatesWorkspace, TemplateBuilder, CyclesWorkspace, EvaluatorQueue, ScoringWorkspace, ActionsWorkspace } from '@/features/performance'`

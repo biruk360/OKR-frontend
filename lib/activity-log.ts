@@ -20,6 +20,9 @@ export type ActivityEntityType =
   | 'PROJECT_RAID_ITEM'
   | 'PROJECT_STAGE_GATE'
   | 'PROJECT_REPORT'
+  // Daily Scrum module entity types.
+  | 'SCRUM_UPDATE'
+  | 'SCRUM_ABSENCE'
 
 export type ActivityAction =
   | 'CREATED'
@@ -99,6 +102,12 @@ export type ActivityAction =
   | 'GATE_WAIVED'
   | 'CR_APPROVED'
   | 'REPORT_SENT'
+  // Daily Scrum module actions.
+  | 'PROXY_SUBMITTED'
+  | 'PROXY_CONFIRMED'
+  | 'AMENDED'
+  | 'ESCALATED'
+  | 'RESOLVED'
 
 export interface FieldChange {
   from: unknown

@@ -4,7 +4,7 @@
 > It is generated from a full traversal of all code, schemas, routes, components, and docs.
 > **Keep it up-to-date:** after every feature addition or significant change, update the relevant section(s) here, then update `docs/CHANGELOG_AI.md`.
 >
-> Last updated: 2026-06-07
+> Last updated: 2026-07-13
 
 ---
 
@@ -43,6 +43,7 @@ A full-stack **OKR (Objectives & Key Results) management platform** built with N
 - Manage **To-dos / Initiatives** linked to Key Results and Objectives
 - Write and track **formal business letters** through a full approval workflow
 - Manage **Daily Trip Plans** for employee travel logistics
+- Capture **Daily Scrum updates** with mood privacy, working-day rules, blockers, wins, and OKR linkage foundations
 - Run **performance scorecards and review cycles** with evaluator panels, calibration, reports, growth focuses, and development actions
 - Receive **real-time notifications** and email digests
 - Visualize org hierarchy, alignment maps, Gantt charts, and analytics
@@ -115,6 +116,7 @@ OKR-frontend/
 │   ├── letters/                  # Letter UI + workflow components
 │   ├── filters/                  # Filters workspace
 │   ├── daily-trip-plan/          # Full DTP feature module
+│   ├── scrum/                    # Daily Scrum foundation
 │   └── index.ts                  # Root namespace barrel
 │
 ├── hooks/                        # Shared React hooks
@@ -149,6 +151,7 @@ OKR-frontend/
 │
 ├── types/
 │   ├── index.ts                  # All shared TypeScript types
+│   ├── scrum.ts                  # Daily Scrum value sets
 │   └── next-auth.d.ts            # Session type augmentation
 │
 ├── prisma/
@@ -263,7 +266,19 @@ Employee travel request and logistics management.
 | Mobile App | PLANNED | Flutter — Phase 2 |
 | SMS/Telegram integration | PLANNED | Phase 2 |
 
-### 4.6 Telegram Bot
+### 4.6 Daily Scrum
+
+Daily employee scrum updates and team visibility. Current status is P0 foundation only; submission API/UI, calendar wall, proxy entry, blocker lifecycle, analytics, cron jobs, and Performance/PM integrations are pending.
+
+| Module | Status | Paths |
+|--------|--------|-------|
+| Schema foundation | IN PROGRESS | `prisma/schema.prisma` (`ScrumUpdate`, `ScrumComment`, `ScrumAbsence`, `ScrumSettings`, `ScrumUpdateLink`) |
+| Feature barrel and foundation page | IN PROGRESS | `features/scrum/`, `app/dashboard/scrum/page.tsx` |
+| Working-day and mood privacy services | IN PROGRESS | `features/scrum/services/working-days.ts`, `features/scrum/services/scrum-serializer.ts` |
+| Permissions/settings seeds | IN PROGRESS | `scripts/seed-scrum-permissions.ts`, `scripts/seed-scrum-settings.ts` |
+| Core loop and visualization | PLANNED | P1/P2 in `docs/SCRUM_MODULE_TRACKER.md` |
+
+### 4.7 Telegram Bot
 
 | Module | Status | Notes |
 |--------|--------|-------|
@@ -272,7 +287,7 @@ Employee travel request and logistics management.
 | Odoo digests | DEFERRED | Stage 2 |
 | Tool use + admin UI | DEFERRED | Stage 3 |
 
-### 4.7 Performance & Scorecard
+### 4.8 Performance & Scorecard
 
 Implementation reference: `docs/PERFORMANCE_SCORECARD_IMPLEMENTATION_PROPOSAL.md`. Requirement-level status: `docs/PERFORMANCE_SCORECARD_IMPLEMENTATION_STATUS.md`.
 
@@ -285,7 +300,7 @@ Implementation reference: `docs/PERFORMANCE_SCORECARD_IMPLEMENTATION_PROPOSAL.md
 | Growth focuses, weekly nudge, and development actions | IN PROGRESS | `PerformanceHome`, `ActionsWorkspace`, `/api/cron/performance-nudge` |
 | Excel scorecard seed | BLOCKED | Required workbooks are absent |
 
-### 4.7 Organization & Settings
+### 4.9 Organization & Settings
 
 | Module | Status | Paths |
 |--------|--------|-------|
@@ -339,6 +354,7 @@ Implementation reference: `docs/PERFORMANCE_SCORECARD_IMPLEMENTATION_PROPOSAL.md
 | `/dashboard/my-tasks` | `app/dashboard/my-tasks/page.tsx` | User's assigned tasks |
 | `/dashboard/todos` | `app/dashboard/todos/page.tsx` | All todos / initiatives |
 | `/dashboard/goals` | `app/dashboard/goals/page.tsx` | Goals (table, feed, team views) |
+| `/dashboard/scrum` | `app/dashboard/scrum/page.tsx` | Daily Scrum foundation page |
 | `/dashboard/sprints` | `app/dashboard/sprints/page.tsx` | Sprint list |
 | `/dashboard/sprints/[id]` | `app/dashboard/sprints/[id]/page.tsx` | Sprint kanban board detail |
 | `/dashboard/sprints/ai/[planId]` | `app/dashboard/sprints/ai/[planId]/page.tsx` | AI sprint plan review + approve |
@@ -542,7 +558,17 @@ Database: **PostgreSQL** (production). All enums stored as `String` for portabil
 | `DtpEvent` | `dtp_events` | `planId`, `actorId`, `action`, `fromStatus`, `toStatus`, `payload` | Append-only audit |
 | `RouteGroup` | `dtp_route_groups` | `runDate`, `tripStopIds`, `status` | Carpool/optimizer suggestions |
 
-### 6.9 Telegram
+### 6.9 Daily Scrum
+
+| Model | Table | Key Fields | Notes |
+|-------|-------|-----------|-------|
+| `ScrumUpdate` | `scrum_updates` | `userId`, `submittedById`, `managerId`, `teamId`, `scrumDate`, `todayPlan`, `blockers`, `blockerCategory`, `blockerStatus`, `win`, `mood`, `hasBlocker`, `hasWin`, `isLate`, proxy fields | One row per user/day via `@@unique([userId, scrumDate])`; user references are plain strings, not Prisma relations |
+| `ScrumComment` | `scrum_comments` | `updateId`, `authorId`, `body`, `mentions` | Cascades with parent update |
+| `ScrumAbsence` | `scrum_absences` | `userId`, `date`, `type`, `reason`, `recordedById` | One row per user/date |
+| `ScrumSettings` | `scrum_settings` | `timezone`, reminder/cutoff/nudge times, `workingDays`, `holidays`, feature toggles, escalation thresholds | Singleton default row (`id="default"`) |
+| `ScrumUpdateLink` | `scrum_update_links` | `updateId`, `objectiveId?`, `keyResultId?`, `todoId?`, `linkType`, `context`, `progressNote` | OKR join table; app-layer guard must enforce exactly one FK |
+
+### 6.10 Telegram
 
 | Model | Table | Key Fields | Notes |
 |-------|-------|-----------|-------|
@@ -550,7 +576,7 @@ Database: **PostgreSQL** (production). All enums stored as `String` for portabil
 | `TelegramMessage` | `telegram_messages` | `chatId`, `messageId`, `fromUserId`, `text`, `isCommand`, `command` | |
 | `TelegramBotConfig` | `telegram_bot_config` | `botUsername`, `webhookUrl`, `systemPrompt` | Singleton (`id="default"`) |
 
-### 6.10 Performance & Scorecard
+### 6.11 Performance & Scorecard
 
 | Model group | Models | Purpose |
 |-------------|--------|---------|
@@ -1013,7 +1039,17 @@ Import: `import { PlanEditor, CoordinatorConsole, MovementSheetView, RunSheetVie
 
 **DTP Hooks:** `usePlans`, `usePlan`, `useTripTypes`, `useDrivers`, `useVehicles`, `useMovementSheet`, `useRunSheet`, `useDtpSettings`, `useCreateOrOpenPlan`, `useAddStop`, `useUpdateStop`, `useDeleteStop`, `usePlanTransition`, `useAssignDriver`, `useSetLegStatus`, `useUpdateSettings`, `useInvalidatePlan`
 
-### 8.11A Performance & Scorecard (`features/performance/`)
+### 8.11A Daily Scrum (`features/scrum/`)
+
+Import: `import { ScrumHome, serializeScrumUpdate } from '@/features/scrum'`
+
+| Component / Service | Purpose |
+|---------------------|---------|
+| `ScrumHome` | P0 `/dashboard/scrum` foundation page using existing UI primitives |
+| `serializeScrumUpdate()` | Mood privacy choke point: mood is present only for the subject or active direct manager |
+| Working-day utilities | Timezone-aware date keys, previous working day, business-day counts, lateness checks |
+
+### 8.11B Performance & Scorecard (`features/performance/`)
 
 | Component | Purpose |
 |-----------|---------|
@@ -1078,6 +1114,7 @@ Import: `import { useDebounce, useUsersForSelection, useTimeframes, useDepartmen
 | `useUserPrefsStore` | `lib/stores/user-prefs-store.ts` | UI preferences (`todoViewMode`: modal/sidebar) |
 | `useThemeStore` | `lib/stores/theme-store.ts` | Light/dark theme selection |
 | `useCmdkStore` | `lib/stores/cmdk-store.ts` | Command palette open/close state |
+| `useScrumStore` | `lib/stores/scrum-store.ts` | Daily Scrum draft buffer, yesterday-panel collapse state, calendar view, filter state |
 
 ---
 
@@ -1158,6 +1195,9 @@ domain code → emit(eventKey, payload)
 | `ALIGNMENT` | ALIGNMENT_REQUESTED, OBJECTIVE_ALIGNED_CHILD_ADDED | — |
 | `COMMENT` | USER_MENTIONED, COMMENT_ON_OWNED_ENTITY | — |
 | `ADMIN` | ADMIN_WEEKLY_HEALTH_DIGEST, ADMIN_MONTHLY_EXEC_SUMMARY | — |
+| `PERFORMANCE` | PERF_CYCLE_OPENED, PERF_DRAFT_SHARED, PERF_WEEKLY_FOCUS | — |
+| `PROJECT` | PROJECT_CREATED, ACTIVITY_BLOCKED, CLIENT_APPROVAL_PENDING | — |
+| `SCRUM` | SCRUM_REMINDER, SCRUM_BLOCKER_RAISED, SCRUM_MANAGER_DIGEST, SCRUM_OBJECTIVE_NEGLECTED | — |
 
 ### 12.3 Recipient Role Tags
 
@@ -1253,6 +1293,8 @@ All cron routes secured by Bearer `CRON_SECRET`.
 | `lib/activity-log.ts` | `recordActivity()` | Append-only audit trail |
 | `lib/letters.ts` | `allocateReferenceNumber()` | `360G/LT/{CL\|OF\|GR}/{SEQ}/{YEAR}` allocation |
 | `lib/letter-permissions.ts` | `checkLetterPermission()` | Async permission resolver: DB row → static fallback |
+| `features/scrum/services/working-days.ts` | `previousScrumWorkingDay()`, `isLateSubmission()` | Daily Scrum timezone, working-day, holiday, and cutoff math |
+| `features/scrum/services/scrum-serializer.ts` | `serializeScrumUpdate()` | Removes `mood` unless viewer is subject or active direct manager |
 | `lib/view-tracking.ts` | `trackView()` | One row per (user, entity, day) |
 | `lib/pusher.ts` | `pushToUser()` | Real-time Pusher push |
 | `lib/dashboard-navigation.ts` | `navGroups` | Sidebar nav structure |
@@ -1393,6 +1435,7 @@ TELEGRAM_BOT_SECRET
 | AI Generation Logging | ✅ DONE |
 | Performance & Scorecard core review lifecycle | 🔄 IN PROGRESS |
 | Daily Trip Plan (DTP) — web Phase 1 | 🔄 IN PROGRESS |
+| Daily Scrum — P0 foundation | 🔄 IN PROGRESS |
 | DTP — Distance Matrix / VRP Optimizer | 🗓 PLANNED (Phase 2) |
 | DTP — Mobile App (Flutter) | 🗓 PLANNED (Phase 2) |
 | Telegram Bot — Stage 1 (Q&A) | 🔄 IN PROGRESS |

@@ -2,6 +2,18 @@
 
 > **Purpose:** Log of all changes made by AI assistants. Every AI session that modifies code MUST append an entry here.
 
+## 2026-07-13 — Daily Scrum module: P0 foundation
+
+Foundation pass for `docs/daily_scrum_module_IMPLEMENTATION_STRATEGY.md` and `docs/SCRUM_MODULE_TRACKER.md`. The referenced `docs/daily_scrum_module_BUILD_SPEC.md` is not present in this workspace, so story-level rows remain not-started and spec-dependent details are tracked as partial.
+
+- **Schema:** added Daily Scrum models to `prisma/schema.prisma`: `ScrumUpdate`, `ScrumComment`, `ScrumAbsence`, `ScrumSettings`, and `ScrumUpdateLink` with OKR back-relations on `Objective`, `KeyResult`, and `Todo`; no `User` back-relations added. Applied with `npx prisma db push` to local Postgres `okr_system`.
+- **Shared contracts:** added `types/scrum.ts`, `features/scrum/{index.ts,types.ts}`, root `features/index.ts` namespace export, and `lib/stores/scrum-store.ts`.
+- **Services/tests:** added `features/scrum/services/working-days.ts` and `scrum-serializer.ts` plus focused tests for working-day math and mood privacy.
+- **Seeds:** added and ran `scripts/seed-scrum-permissions.ts` and `scripts/seed-scrum-settings.ts`; permissions upserted 5 doctypes, 8 sensitive fields, and 20 role permission rows; settings seeded the default row with 10 public holidays.
+- **Platform wiring:** added Scrum nav entry and `/dashboard/scrum` foundation page; registered activity actions/entity types; registered `SCRUM` notification category/event keys/deep links/redaction and basic email templates for scrum cron/event notifications.
+- **Docs:** updated `SCRUM_MODULE_TRACKER.md`, `FEATURE_STATUS.md`, `SITEMAP.md`, `COMPONENT_CATALOG.md`, and this changelog.
+- Tests run: `npx prisma validate`, `npx prisma db push`, `npm run db:seed:scrum-permissions`, `npm run db:seed:scrum-settings`, `npm run test:scrum` (9 pass), `npx tsc --noEmit`.
+
 ## 2026-07-12 — Performance module UI: scoring-grid UX, scoped cycles, bilingual anchors, evaluation activity panel, excuse action
 
 - **Changed** `features/performance/components/ScoringWorkspace.tsx` — (a) ArrowUp/ArrowDown (plus Enter) move focus between `[data-score-input]` cells with `preventDefault` so number inputs don't increment; (b) header shows a live running raw total across all tiers (draft rubric/manual scores + auto-metric computed scores via `useQueries` sharing the `['performance','metric-actual',…]` cache keys with each `MetricActualCell`; caption honestly notes "rubric + manual only" / "N metric scores unresolved" while metric scores are pending), tabular-nums; (c) debounced autosave — dirty criterion ids tracked, one batched `saveScores` flush ~3s after the last keystroke, ids cleared on flush and on blur-save so rows never double-save; (d) subtle outline "Excuse evaluation" header action (gated `canFeature('module.performance') && canDo('evaluation','canSubmit')`, hidden for EXCUSED/FINALIZED; server 403 remains authoritative) opening a danger ConfirmDialog with required reason, POSTing to the new excuse endpoint; (e) renders `EvaluationActivityPanel` at the bottom of both the scoring and report views.

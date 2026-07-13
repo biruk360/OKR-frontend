@@ -36,6 +36,7 @@
 | `/dashboard/my-okrs` | `app/dashboard/my-okrs/page.tsx` | dashboard | User's own OKRs |
 | `/dashboard/my-tasks` | `app/dashboard/my-tasks/page.tsx` | todos | User's assigned tasks |
 | `/dashboard/todos` | `app/dashboard/todos/page.tsx` | todos | All to-dos / initiatives |
+| `/dashboard/scrum` | `app/dashboard/scrum/page.tsx` | scrum | Daily Scrum foundation page; submission loop and team wall pending |
 | `/dashboard/sprints` | `app/dashboard/sprints/page.tsx` | sprints | Sprint list |
 | `/dashboard/sprints/[id]` | `app/dashboard/sprints/[id]/page.tsx` | sprints | Sprint board detail (kanban). Header has "Generate AI tasks" entry that opens a modal scoped to one team member; proposed todos land in the PENDING column after approval. |
 | `/dashboard/sprints/ai/[planId]` | `app/dashboard/sprints/ai/[planId]/page.tsx` | sprints-ai | AI sprint plan review + approve. Shows subject user, KR relationships per task, accept/discard/regenerate. |

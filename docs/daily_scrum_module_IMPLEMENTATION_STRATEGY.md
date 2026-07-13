@@ -15,7 +15,7 @@ The module has moved past foundation into an integrated beta:
 - CI now runs on `push` to `agent/**`, keeps deployment restricted to `main`, and runs `npm run test:scrum` before typecheck/build.
 - Local verification completed: `npx prisma validate`, `npx prisma db push`, `npx prisma generate`, both Scrum seed scripts, `npm run test:scrum`, `npx tsc --noEmit`, and `npm run build`.
 
-Remaining work should be treated as polish/hardening, not blank implementation: add explicit regression tests for proxy auth/link scoping/blocker lifecycle/metrics mood exclusion/SC16 exclusion, complete carry-forward link inheritance, add copy-for-standup and PNG export, and wire Telegram direct sends once a user-to-chat mapping exists.
+Follow-up hardening has also landed: carried previous-update links inherit when a plan item is carried forward; Day view has copy-for-standup; Health analytics can export a PNG summary; and regression tests cover proxy authorization decisions, link one-FK/type derivation, carried-link normalization, blocker lifecycle thresholds, metrics mood exclusion, and SC16 exclusion. Remaining work is mostly manual UX review/polish plus Telegram direct sends once a user-to-chat mapping exists.
 
 ---
 

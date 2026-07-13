@@ -155,9 +155,11 @@ export function ScrumHome() {
     })
   }
 
-  function carryItem(text: string) {
+  function carryItem(item: { text: string; inheritedLinks?: Array<{ objectiveId: string | null; keyResultId: string | null; todoId: string | null; context: SelectedScrumLink['context']; progressNote?: string | null }> }) {
     const current = getValues('todayPlan')
-    setValue('todayPlan', current ? `${current}<p>${text}</p>` : `<p>${text}</p>`, { shouldDirty: true })
+    setValue('todayPlan', current ? `${current}<p>${item.text}</p>` : `<p>${item.text}</p>`, { shouldDirty: true })
+    if (!item.inheritedLinks?.length) return
+    setSelectedLinks((currentLinks) => mergeSelectedLinks(currentLinks, item.inheritedLinks!, item.text))
   }
 
   function monthStep(delta: number) {
@@ -355,7 +357,7 @@ function YesterdayPanel({ items, openBlocker, onCarry }: any) {
           {items.length === 0 ? <p className="text-body-sm text-ink-secondary">No prior plan.</p> : items.map((item: any) => (
             <div key={item.id} className="flex items-center justify-between gap-2 rounded-md bg-surface-card px-3 py-2 text-body-sm">
               <span className="truncate">{item.text}</span>
-              <Button type="button" variant="ghost" size="sm" onClick={() => onCarry(item.text)}>Carry</Button>
+              <Button type="button" variant="ghost" size="sm" onClick={() => onCarry(item)}>Carry</Button>
             </div>
           ))}
           {openBlocker && <div className="rounded-md border border-danger-500/30 bg-danger-50 px-3 py-2 text-body-sm text-danger-700"><Flame className="mr-2 inline size-4" />{openBlocker.daysOpen}d open · {label(openBlocker.category ?? 'OTHER')}</div>}
@@ -363,6 +365,27 @@ function YesterdayPanel({ items, openBlocker, onCarry }: any) {
       )}
     </div>
   )
+}
+
+function mergeSelectedLinks(
+  currentLinks: SelectedScrumLink[],
+  inheritedLinks: Array<{ objectiveId: string | null; keyResultId: string | null; todoId: string | null; context: SelectedScrumLink['context'] }>,
+  carriedText: string,
+): SelectedScrumLink[] {
+  const byKey = new Map(currentLinks.map((link) => [`${link.entityType}:${link.id}:${link.context}`, link]))
+  for (const link of inheritedLinks) {
+    const entityType = link.objectiveId ? 'OBJECTIVE' : link.keyResultId ? 'KEY_RESULT' : link.todoId ? 'TODO' : null
+    const id = link.objectiveId ?? link.keyResultId ?? link.todoId
+    if (!entityType || !id) continue
+    const selected = {
+      entityType,
+      id,
+      title: `Carried: ${carriedText.slice(0, 48)}`,
+      context: link.context,
+    } satisfies SelectedScrumLink
+    byKey.set(`${selected.entityType}:${selected.id}:${selected.context}`, selected)
+  }
+  return [...byKey.values()]
 }
 
 function LinkPicker({ data, selected, onChange }: { data: any; selected: SelectedScrumLink[]; onChange: (links: SelectedScrumLink[]) => void }) {
@@ -449,6 +472,11 @@ function DayView({ data }: any) {
   const wins = updates.filter((u: any) => u.hasWin)
   return (
     <div className="space-y-4">
+      <div className="flex justify-end">
+        <Button type="button" variant="outline" size="sm" onClick={() => copyStandup(updates)}>
+          <Clipboard className="mr-2 size-4" />Copy for standup
+        </Button>
+      </div>
       <UpdateSection title="Blockers first" icon={AlertCircle} updates={blockers} tone="danger" />
       <UpdateSection title="Wins" icon={Trophy} updates={wins} tone="warning" />
       <UpdateSection title="All updates" icon={Clipboard} updates={updates} tone="neutral" />
@@ -509,7 +537,13 @@ function WeekView({ data }: any) {
 function AnalyticsView({ data }: any) {
   if (!data) return <PanelSkeleton />
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
+    <div className="space-y-3">
+      <div className="flex justify-end">
+        <Button type="button" variant="outline" size="sm" onClick={() => downloadHealthPng(data)}>
+          <BarChart3 className="mr-2 size-4" />Export PNG
+        </Button>
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
       <div className="rounded-card bg-surface-card p-4 shadow-card">
         <h3 className="mb-3 text-section-title">Blocker Pareto</h3>
         <div className="space-y-2">{(data.blockerPareto ?? []).map((row: any) => <div key={row.category} className="flex justify-between text-body-sm"><span>{label(row.category)}</span><span>{row.daysLost}d</span></div>)}</div>
@@ -522,8 +556,66 @@ function AnalyticsView({ data }: any) {
           <div className="flex justify-between"><span>Team wins</span><span>{data.totals.wins}</span></div>
         </div>
       </div>
+      </div>
     </div>
   )
+}
+
+async function copyStandup(updates: any[]) {
+  const text = buildStandupText(updates)
+  try {
+    await navigator.clipboard.writeText(text)
+    toast.success('Standup summary copied')
+  } catch {
+    toast.error('Clipboard permission blocked')
+  }
+}
+
+function buildStandupText(updates: any[]) {
+  if (updates.length === 0) return 'Daily Scrum: no submitted updates.'
+  return updates.map((update) => {
+    const header = `${update.userId}${update.isProxyEntry ? ' (proxy)' : ''}${update.isLate ? ' - late' : ''}`
+    const parts = [
+      header,
+      update.blockers ? `Blocker: ${stripHtml(update.blockers)}` : null,
+      update.todayPlan ? `Today: ${stripHtml(update.todayPlan)}` : null,
+      update.wins ? `Win: ${stripHtml(update.wins)}` : null,
+    ].filter(Boolean)
+    return parts.join('\n')
+  }).join('\n\n')
+}
+
+function downloadHealthPng(data: any) {
+  const canvas = document.createElement('canvas')
+  canvas.width = 1200
+  canvas.height = 720
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+  const styles = getComputedStyle(document.documentElement)
+  ctx.fillStyle = styles.getPropertyValue('--ap-bg') || 'white'
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+  ctx.fillStyle = styles.getPropertyValue('--ap-fg') || 'black'
+  ctx.font = 'bold 36px system-ui, -apple-system, BlinkMacSystemFont, sans-serif'
+  ctx.fillText('Daily Scrum Team Health', 48, 64)
+  ctx.font = '24px system-ui, -apple-system, BlinkMacSystemFont, sans-serif'
+  const totals = data.totals ?? {}
+  const rows = [
+    `Submission rate: ${data.submissionRate ?? 0}%`,
+    `Proxy ratio: ${totals.proxyRatio ?? 0}%`,
+    `Carry-forward rate: ${data.carryForwardRate ?? 0}%`,
+    `Wins: ${totals.wins ?? 0}`,
+    `Blockers: ${totals.blockers ?? 0}`,
+  ]
+  rows.forEach((row, index) => ctx.fillText(row, 56, 130 + index * 44))
+  ctx.font = '20px system-ui, -apple-system, BlinkMacSystemFont, sans-serif'
+  ctx.fillText('Blocker Pareto', 56, 400)
+  ;(data.blockerPareto ?? []).slice(0, 8).forEach((row: any, index: number) => {
+    ctx.fillText(`${label(row.category)} - ${row.daysLost}d`, 80, 440 + index * 30)
+  })
+  const link = document.createElement('a')
+  link.download = `daily-scrum-health-${new Date().toISOString().slice(0, 10)}.png`
+  link.href = canvas.toDataURL('image/png')
+  link.click()
 }
 
 function PanelSkeleton() {
@@ -540,6 +632,15 @@ function dotColor(state: string) {
     case 'excused': return 'bg-primary-200'
     default: return 'bg-ink-tertiary'
   }
+}
+
+function stripHtml(value: string) {
+  return String(value)
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|li|div|h[1-6])>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
 function label(value: string) {

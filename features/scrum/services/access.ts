@@ -35,11 +35,32 @@ export async function canViewScrumUser(session: Session, subjectUserId: string):
 }
 
 export async function canProxyFor(session: Session, subjectUserId: string): Promise<boolean> {
-  if (session.user.id === subjectUserId) return true
-  if (session.user.role === 'ADMIN') return true
-  if (await isDirectManager(session.user.id, subjectUserId)) return true
-  if (session.user.role === 'DEPARTMENT_LEAD' && await sharesActiveDepartment(session.user.id, subjectUserId)) return true
-  return isProjectManagerForSubject(session.user.id, subjectUserId)
+  const [directManager, sameDepartment, projectManager] = await Promise.all([
+    isDirectManager(session.user.id, subjectUserId),
+    sharesActiveDepartment(session.user.id, subjectUserId),
+    isProjectManagerForSubject(session.user.id, subjectUserId),
+  ])
+  return canProxyForResolved({
+    isSelf: session.user.id === subjectUserId,
+    role: session.user.role,
+    directManager,
+    sameDepartment,
+    projectManager,
+  })
+}
+
+export function canProxyForResolved(input: {
+  isSelf: boolean
+  role?: string | null
+  directManager: boolean
+  sameDepartment: boolean
+  projectManager: boolean
+}): boolean {
+  if (input.isSelf) return true
+  if (input.role === 'ADMIN') return true
+  if (input.directManager) return true
+  if (input.role === 'DEPARTMENT_LEAD' && input.sameDepartment) return true
+  return input.projectManager
 }
 
 export async function listProxySubjects(session: Session) {

@@ -9,6 +9,13 @@ export interface ScrumMetricActuals {
   blockerResolutionDays: number
 }
 
+export const SCRUM_METRIC_RESPONSE_KEYS = [
+  'submissionRate',
+  'punctualityRate',
+  'winCount',
+  'blockerResolutionDays',
+] as const
+
 export async function getScrumMetrics(userId: string, fromKey: string, toKey: string): Promise<ScrumMetricActuals> {
   const settings = await getScrumSettings()
   const from = dateFromDateKey(fromKey)
@@ -34,6 +41,15 @@ export async function getScrumMetrics(userId: string, fromKey: string, toKey: st
     punctualityRate,
     winCount: updates.filter((update) => update.hasWin).length,
     blockerResolutionDays,
+  }
+}
+
+export function serializeScrumMetricActuals(metrics: ScrumMetricActuals): ScrumMetricActuals {
+  return {
+    submissionRate: metrics.submissionRate,
+    punctualityRate: metrics.punctualityRate,
+    winCount: metrics.winCount,
+    blockerResolutionDays: metrics.blockerResolutionDays,
   }
 }
 

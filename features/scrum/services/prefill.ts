@@ -6,6 +6,15 @@ export interface ScrumPlanItem {
   id: string
   text: string
   state: 'PENDING' | 'DONE' | 'CARRIED' | 'NOT_DONE'
+  inheritedLinks?: PrefillScrumLink[]
+}
+
+export interface PrefillScrumLink {
+  objectiveId: string | null
+  keyResultId: string | null
+  todoId: string | null
+  context: 'TODAY' | 'BLOCKER' | 'WIN' | 'YESTERDAY'
+  progressNote?: string | null
 }
 
 export interface ScrumPrefill {
@@ -46,7 +55,11 @@ export async function getScrumPrefill(userId: string, date = new Date()): Promis
     : previousWorkingDay
       ? toScrumDateKey(previousWorkingDay, settings)
       : null
-  const items = parsePlanItems(previousUpdate?.todayPlan ?? '')
+  const inheritedLinks = normalizeInheritedLinks(previousUpdate?.links ?? [])
+  const items = parsePlanItems(previousUpdate?.todayPlan ?? '').map((item) => ({
+    ...item,
+    inheritedLinks,
+  }))
   const blockerDays = previousUpdate?.blockerFirstRaisedAt
     ? Math.max(1, scrumBusinessDaysBetween(previousUpdate.blockerFirstRaisedAt, date, settings))
     : previousUpdate?.blockerDaysOpen ?? 0
@@ -66,6 +79,35 @@ export async function getScrumPrefill(userId: string, date = new Date()): Promis
         }
       : null,
   }
+}
+
+export function normalizeInheritedLinks(links: Array<{
+  objectiveId?: string | null
+  keyResultId?: string | null
+  todoId?: string | null
+  context?: string | null
+  progressNote?: string | null
+}>): PrefillScrumLink[] {
+  const seen = new Set<string>()
+  const inherited: PrefillScrumLink[] = []
+  for (const link of links) {
+    if (link.context && link.context !== 'TODAY' && link.context !== 'YESTERDAY') continue
+    const objectiveId = link.objectiveId ?? null
+    const keyResultId = link.keyResultId ?? null
+    const todoId = link.todoId ?? null
+    const key = `${objectiveId ?? ''}:${keyResultId ?? ''}:${todoId ?? ''}:TODAY`
+    if (!objectiveId && !keyResultId && !todoId) continue
+    if (seen.has(key)) continue
+    seen.add(key)
+    inherited.push({
+      objectiveId,
+      keyResultId,
+      todoId,
+      context: 'TODAY',
+      progressNote: link.progressNote ?? null,
+    })
+  }
+  return inherited
 }
 
 export function parsePlanItems(htmlOrText: string): ScrumPlanItem[] {

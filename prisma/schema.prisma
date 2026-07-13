@@ -2432,6 +2432,7 @@ model Activity {
 
   // Delay ledger
   waitingSince     DateTime? // set when status -> APPROVAL_REQUESTED
+  approvalEscalationLevel Int @default(0) // C3 cron: 0=none, 1=SLA, 2=SLA+3, 3=SLA+7 fired (reset on resolution)
   slipDays         Int      @default(0) // computed: currentEnd - baselineEnd
   slipReason       String?
   slipOwner        String? // 360GROUND | CLIENT | SHARED

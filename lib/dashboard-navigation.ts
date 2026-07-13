@@ -70,6 +70,15 @@ export const navigationGroups: NavGroup[] = [
     defaultOpen: true,
   },
   {
+    name: 'Delivery',
+    icon: Kanban,
+    items: [
+      { name: 'Projects', href: '/dashboard/projects', icon: Kanban },
+      { name: 'Portfolio', href: '/dashboard/projects/portfolio', icon: TrendingUp },
+    ],
+    defaultOpen: false,
+  },
+  {
     name: 'OKRs',
     icon: Target,
     items: [

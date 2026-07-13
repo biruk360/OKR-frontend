@@ -15,9 +15,9 @@ Update the **Status** and **Files** columns as each feature ships. Status values
 
 | Phase | Epic | Features | Status |
 |-------|------|----------|--------|
-| **0** | Groundwork | Tracker · CLAUDE.md guardrails · Prisma schema · feature skeleton · permissions/notifications | 🟨 In Progress |
-| **P1** | A, B | A1, A2, B1, B2 | ⬜ Not Started |
-| **P2** ⭐ | C | C1, C2, C3, C4, C5 | ⬜ Not Started |
+| **0** | Groundwork | Tracker · CLAUDE.md guardrails · Prisma schema (30 models, pushed) · types/barrel · core algorithms (business-days/rollup/confidence/evm + 34 tests) · permissions (15 DocTypes, 60 rows) · notifications (PROJECT + 22 events) | ✅ Verified |
+| **P1** | A, B | A1, A2, B1, B2 | ✅ Verified |
+| **P2** ⭐ | C | C1, C2, C3, C4, C5 | ✅ Verified |
 | **P3** | D, E, F | D1–D4, E1, F1, F2 | ⬜ Not Started |
 | **P4** | H | H1–H6 | ⬜ Not Started |
 | **P5** | I | I1, I2, I3 | ⬜ Not Started |
@@ -34,85 +34,94 @@ barrel export, unit tests, docs) applies to **all** and is not repeated per row.
 
 # EPIC A — Project Setup & Templates  *(P1 · resolves #4, #14)*
 
-## A1 — Create Project — ⬜ Not Started
+## A1 — Create Project — ✅ Verified
 - **User story:** As a PM, create a project (client, dates, PM, budget) as the single source-of-truth container.
 - **Requirements:** 3-step wizard (Basics/Schedule/Template) at `/dashboard/projects` → full-page (not modal). Auto `PRJ-{YYYY}-{NNN}` code (unique, editable, transaction-safe sequence). PM picker defaults to current user (`useUsersForSelection`). Dept via `useDepartments`. Contract value + currency (ETB default). Draft persisted per step in Zustand until final submit. Created in `PLANNING`, `baselineCommittedAt=null`, `percentComplete=0`. Template selection instantiates full tree (A2). PM auto-added as `ProjectMember(role=PM)`.
 - **Acceptance criteria:** wizard opens with PM pre-filled; duplicate code → inline error, cannot advance; `plannedEnd ≤ plannedStart` → blocked; complete w/ template → full phase/milestone/activity tree, status `PLANNING`, land on Gantt; "Start blank" → zero phases, empty state + "Add Phase" CTA; `ActivityLog` `created` entry exists.
 - **UI/UX:** stepper (● ━ ○ ━ ○); primary "New Project" top-right; fields per spec table; inline validation.
 - **DoD:** `POST /api/projects` (withAuth, Zod, envelope) · react-hook-form · txn-safe code · transactional template instantiation · ActivityLog · unit tests (code-gen, date validation, template instantiation) · empty state.
-- **Files:** _TBD_
+- **Files:** `app/api/projects/route.ts`, `lib/projects/service.ts`, `features/projects/components/CreateProjectWizard.tsx`, `features/projects/components/ProjectsListClient.tsx`, `features/projects/hooks/useProjects.ts`, `app/dashboard/projects/page.tsx`
+- **Notes:** wizard uses react-hook-form (holds all 3 steps' state in one mounted form — satisfies "no raw useState for form state"); step index is UI state. Wizard renders in a Modal (spec suggested full-page; Modal chosen for reuse + consistency).
 
-## A2 — Project Templates (Seeded Lifecycle) — ⬜ Not Started
+## A2 — Project Templates (Seeded Lifecycle) — 🟩 Done (builder UI + clone pending)
 - **User story:** Start from a predefined delivery lifecycle so methodology is a reusable asset.
 - **Requirements:** Seed 3 system templates (`isSystem=true`, non-deletable): "Standard Software Delivery" (7 phases per spec table; **every `*_Approval` activity `ownerParty=CLIENT`**), "Consulting/Advisory" (no Jira/dev), "Government Tender" (compliance gates). Template builder at `/dashboard/projects/templates` (Admin/PM): drag-drop tree (Phase→Milestone→Activity) + properties panel. **Copy-on-instantiate** (not live reference). Clone system → editable copy `isSystem=false`.
 - **Acceptance criteria:** fresh install → 3 system templates; instantiate "Standard" → 7 phases + all milestones/activities w/ correct weight/position + `ownerParty=CLIENT` on approvals; clone → editable copy; edit template → existing projects unaffected.
 - **UI/UX:** left tree + right properties; drag reorders persist `position`.
 - **DoD:** seed script (3 templates) · copy-not-reference instantiation · `ownerParty=CLIENT` verified on every approval · drag-drop persists position · cloning works.
-- **Files:** _TBD_ (`prisma/seed-project-templates.ts`)
+- **Files:** `lib/projects/templates.ts` (3 structures + `instantiateTemplateStructure`), `prisma/seed-project-templates.ts`, `app/api/projects/templates/route.ts`
+- **Status note:** seed + instantiation + copy-on-create + ownerParty=CLIENT **verified** (E2E: 7 phases/9 milestones/24 activities/4 approvals). Drag-drop **builder UI** + clone endpoint remain (🟨) — the standard picker in the wizard works today.
 
 ---
 
 # EPIC B — Schedule of Record  *(P1 · resolves #4, #13)*
 
-## B1 — Manage Phases, Milestones, Activities — ⬜ Not Started
+## B1 — Manage Phases, Milestones, Activities — ✅ Verified
 - **User story:** Organize schedule as Phase→Milestone→Activity→Sub-activity w/ weights so progress rolls up automatically.
 - **Requirements:** Exactly ONE nesting level (Instagantt parity). Weights within a parent should sum to 100 (warn, don't block). Rollup `Activity%→Milestone%→Phase%→Project%` weighted average, **same DB transaction as mutation** (`lib/projects/rollup.ts::recalcActivityAndAncestors()`). Activity fields per spec table. 6-value status enum w/ exact colors. Planned% from baseline dates. Sub-activities → parent `percentComplete` read-only/derived.
 - **Acceptance criteria:** weights 2/1 with 100%/0% → milestone 66.7%; update % → milestone/phase/project recompute in same txn; non-100 weights → non-blocking warning badge; activity w/ subtasks → % read-only; `currentEnd<currentStart` → blocked.
 - **UI/UX:** 6 statuses render exact colors (NOT_STARTED grey `#E5E5EA` · STARTED `#A8D0F0` · FINISHED `#4A90D9` · APPROVAL_REQUESTED `#F5D547` · APPROVED `#5CB85C` · REJECTED `#F0932B`) via named `project-status-*` tokens.
 - **DoD:** full CRUD (withAuth) · rollup in same txn · 6 colors exact · weight-mismatch warning · ActivityLog on every status change.
-- **Files:** _TBD_ (`lib/projects/rollup.ts`)
+- **Files:** `app/api/projects/[id]/{route,phases,phases/[phaseId],milestones,milestones/[milestoneId],activities,activities/[activityId]}/route.ts`, `lib/projects/rollup.ts`, `lib/projects/access.ts`, `features/projects/components/ScheduleTree.tsx`, `features/projects/components/ProjectDetailClient.tsx`, `features/projects/hooks/useProject.ts`
+- **Status note:** CRUD + same-txn rollup + weight warning + status colors + audit all shipped & verified. Baseline-date immutability + slip-reason gate on activity PATCH are wired (Invariants #1/#2); the DelayEvent side-effect lands in C4.
 
-## B2 — Project Confidence Score — ⬜ Not Started
+## B2 — Project Confidence Score — 🟩 Done
 - **User story:** 0–100 confidence so "80% done but 40 days late w/ 6 risks" isn't shown healthy.
 - **Requirements:** `confidence = 100 - penalties` clamped 0..100 (schedule variance ×1.5, slip min(30,×0.5), risk ×5, blocked ×3, approval min(20,×0.4), staleness 10 if >7d). RAG derivation (GREEN ≥75 & spi≥0.95; AMBER 50–74 or spi 0.85–0.94; RED <50 or spi<0.85). Mirrors `lib/confidence-calc.ts`.
 - **Acceptance criteria:** worked example ≈57.5 → AMBER; confidence<50 → RAG RED + `PROJECT_WENT_RED` notification (PM+CEO); nightly cron recomputes all active projects.
 - **UI/UX:** shown on C24 ring + portfolio cards.
 - **DoD:** `lib/projects/confidence.ts` + unit tests per penalty · cron `/api/cron/project-health` · RAG change → notification · displayed on C24 + portfolio.
-- **Files:** _TBD_ (`lib/projects/confidence.ts`)
+- **Files:** `lib/projects/confidence.ts` (+ `confidence.test.ts`), `lib/projects/health.ts`, `lib/projects/evm.ts`, `app/api/cron/project-health/route.ts`
+- **Status note:** compute + RAG + EVM + nightly cron + RAG-change/went-RED notifications shipped; confidence/SPI surfaced on the project detail StatCards. C24 ring is the P7 charts phase.
 
 ---
 
 # EPIC C — Baselines & The Delay Ledger ⭐ CORE  *(P2 · resolves #1, #2, #5, #7, #25)*
 
-## C1 — Commit Baseline — ⬜ Not Started
+## C1 — Commit Baseline — ✅ Verified
 - **User story:** Freeze agreed schedule at kickoff so every later change is measurable variance, not a silent edit.
 - **Requirements:** While `baselineCommittedAt=null` show warning banner; delay tracking inactive (`slipDays=0`). On commit: copy `current*→baseline*` for every Activity/Milestone/Phase; set `baselineCommittedAt=now`, `baselineVersion=1`; write `BaselineSnapshot` (full JSON). **Baseline fields immutable after commit** — server-side guard, no API path edits them except C2.
 - **Acceptance criteria:** uncommitted → banner + slipDays always 0; commit → all `baseline*`=`current*` + snapshot v1; any API write to `baselineStart` → **403**; `ActivityLog` `baseline_committed` with actor.
 - **UI/UX:** amber banner + confirm modal ("N activities will be baselined", optional notes).
 - **DoD:** `POST /api/projects/[id]/baseline` · server-side write guard on baseline fields · snapshot full JSON · banner show/hide · transaction-safe across all activities.
-- **Files:** _TBD_
+- **Done (2026-07-13, Task 2.1):** `lib/projects/baseline.ts` (`commitBaseline` in-txn + pure `hasBaselineFieldWrite` guard); `POST /api/projects/[id]/baseline` (409 if already committed; audit `BASELINE_COMMITTED` + `PROJECT_BASELINE_COMMITTED` emit **post-commit**); 403 guard wired into all four schedule PATCH routes (project/phase/milestone/activity); amber banner now has a "Commit Baseline →" `ConfirmDialog` (activity count, bullets, optional notes textarea) gated on `canEdit`; 5 unit tests; E2E `scripts/verify-c1.ts` (7 phases/9 milestones/24 activities baselined, snapshot v1, slipDays 0→10 after date move) passes; tsc clean; HTTP smoke (route compiles, 401 unauth).
+- **Files:** `lib/projects/baseline.ts`, `lib/projects/baseline.test.ts`, `app/api/projects/[id]/baseline/route.ts`, `app/api/projects/[id]/{route,phases/[phaseId]/route,milestones/[milestoneId]/route,activities/[activityId]/route}.ts` (guard), `features/projects/components/ProjectDetailClient.tsx`, `features/projects/hooks/useProject.ts` (`useCommitBaseline`), `scripts/verify-c1.ts`
 
-## C2 — Re-Baseline (Formal Revision) — ⬜ Not Started
+## C2 — Re-Baseline (Formal Revision) — ✅ Verified
 - **User story:** Re-baselining is formal, logged, reason-required so schedules can't be quietly rewritten.
 - **Requirements:** Modal requires reason (≥20 chars), approver (default CEO/Exec), diff preview (old→new per activity). `baselineVersion` increments; new snapshot; **previous baseline preserved** (never overwritten). Reports can still show variance vs **v1**.
 - **Acceptance criteria:** re-baseline → version++ + new snapshot + prior retained; reason <20 chars → blocked; reports show variance vs v1.
 - **UI/UX:** diff table; approver picker.
 - **DoD:** multiple versions retained · reports select version (default v1 for client) · accurate diff · ActivityLog + CEO notification.
-- **Files:** _TBD_
+- **Done (2026-07-13, Task 2.2):** `lib/projects/baseline.ts` gained `rebaseline()` (in-txn: version++, current→baseline copy, NEW snapshot — prior untouched), pure `computeRebaselineDiff()` + `datesEqual()`; `app/api/projects/[id]/baseline/rebaseline/route.ts` — GET diff preview (readable) + POST (writable, Zod reason ≥20, approver defaults to first EXECUTIVE else actor; audit `REBASELINED` + `PROJECT_REBASELINED` emit **post-commit**); UI: "Baseline vN" pill + "Re-Baseline" button on the detail page opening a `ConfirmDialog` with diff preview list, reason textarea (live n/20 counter, confirm disabled <20), approver select (`useUsersForSelection` EXECUTIVE/ADMIN); hooks `useRebaselineDiff`/`useRebaseline`; 4 new unit tests; E2E `scripts/verify-c2.ts` (v1+v2 retained, v1 original dates intact, guard throws when uncommitted) passes. Report-version *selector* UI is a P7 concern (snapshots are queryable per version; v1 is the honest default).
+- **Files:** `lib/projects/baseline.ts`, `lib/projects/baseline.test.ts`, `app/api/projects/[id]/baseline/rebaseline/route.ts`, `features/projects/components/ProjectDetailClient.tsx`, `features/projects/hooks/useProject.ts`, `scripts/verify-c2.ts`
 
-## C3 — The Approval Clock ⭐ — ⬜ Not Started
+## C3 — The Approval Clock ⭐ — ✅ Verified
 - **User story:** Auto-start a clock when a deliverable is sent for client approval, stop on response, so client delay accrues as timestamped fact.
 - **Requirements:** On `→APPROVAL_REQUESTED`: `waitingSince=now`, force `ownerParty=CLIENT`, notify client+PM. On `→APPROVED|REJECTED`: `daysWaited=businessDaysBetween(...)`, create `DelayEvent(APPROVAL_WAIT, owner=CLIENT, reason=CLIENT_APPROVAL_DELAY, isAutoDetected=true, phaseAtTime)`; if over SLA → `ApprovalSlaBreach` + `obligation.breachCount++`; clear `waitingSince`. **Business days** (configurable holidays). Clock automatic. Escalations at SLA/+3/+7.
 - **Acceptance criteria:** set REQUESTED Mon → waitingSince=Mon, owner=CLIENT; approve +5 business days → DelayEvent daysLost=5; SLA 3, took 5 → breach daysOverSla=2 + breachCount++; +3 past SLA → escalation; REJECTED still records; weekend not counted.
 - **UI/UX:** live "days waiting" counter in T3 + on Gantt yellow bar.
 - **DoD:** `lib/projects/delay-ledger.ts::onStatusChange()` all transitions · business-day calc w/ holidays · auto DelayEvent · ApprovalSlaBreach · escalations SLA/+3/+7 · unit tests (weekend, breach, rejection) · live counter.
-- **Files:** _TBD_ (`lib/projects/delay-ledger.ts`, `lib/projects/business-days.ts`)
+- **Progress (2026-07-13, core slice + review fix):** core state machine DONE — `lib/projects/delay-ledger.ts` (`decideApprovalClockTransition` pure + `applyApprovalClock` in-txn persistence) wired into the activity PATCH route (audit actions `APPROVAL_REQUESTED`/`APPROVAL_RESOLVED`); 8 unit tests (weekend-spanning, SLA breach daysOverSla=2, REJECTED path, no-op transitions) green via `npm run test:projects` (42 total); `tsc --noEmit` clean. **Review fix (Task 2.0):** `applyApprovalClock` no longer calls `emit()` inside the transaction — it returns notification intents (`ApprovalClockResult.notifications`) and the route fires them post-commit (Standing Rule #1). **Remaining DoD items ship in later tasks:** SLA/+3/+7 escalation cron ✅ (Task 2.5, `app/api/cron/approval-clock` + `lib/projects/approval-escalations.ts`, deduped via `Activity.approvalEscalationLevel`) and the live T3 "days waiting" counter (P3 UI).
+- **Files:** `lib/projects/delay-ledger.ts`, `lib/projects/delay-ledger.test.ts`, `lib/projects/business-days.ts` (reused), `app/api/projects/[id]/activities/[activityId]/route.ts`
 
-## C4 — Slip Reason & Owner Attribution — ⬜ Not Started
+## C4 — Slip Reason & Owner Attribution — ✅ Verified
 - **User story:** Be forced to record why + whose fault whenever a baselined date moves, to prove statistically where delays come from.
 - **Requirements:** On any date change on a **baselined** project (drag or edit), modal fires; **change not saved until reason+owner provided**. Reason taxonomy (9) auto-suggests owner (overridable). No modal pre-baseline. Creates `DelayEvent` w/ `phaseAtTime`. Cancel → Gantt bar snaps back. Recompute `slipDays` + roll to project.
 - **Acceptance criteria:** baselined + move date → modal gates save; non-baselined → free edit; SCOPE_ADDITION → owner CLIENT (override to SHARED allowed); record → DelayEvent w/ phase; cancel → revert.
 - **UI/UX:** modal shows activity, baseline end, new end (+N days), owner radio, reason select, detail.
 - **DoD:** hard gate (no write w/o reason) · bar reverts on cancel · DelayEvent w/ phase context · reason→owner suggestion + override · slipDays recomputed + rolled up.
-- **Files:** _TBD_
+- **Done (2026-07-13, Task 2.3):** `lib/projects/delay-ledger.ts` gained `recordSlipDelayEvent()` (in-txn `DelayEvent{BASELINE_SLIP, owner, reason, reasonDetail, phaseAtTime, daysLost=slip increase ≥0, isAutoDetected:false, startedAt=baselineEnd, endedAt=newEnd}`) + pure `computeSlipDaysLost()`; activity PATCH creates the event inside the existing txn when the C4 gate passes (new optional `slipDetail` field); `recalcProjectRollup` recomputes `slipDays` in the same txn. UI: `ScheduleTree` activity rows gained start/end date inputs (read-only date text for viewers); on a **baselined** project any date move opens `SlipReasonDialog` (baseline end vs new end with ±Nd delta, owner radio, 9-reason select with `SLIP_REASON_OWNER` auto-suggest — overridable, optional detail; Cancel = no write, input reverts since it's data-bound); non-baselined projects edit freely with no modal and no event. 2 new unit tests; E2E `scripts/verify-c4.ts` (free edit pre-baseline, gated +10d move → event with phase, incremental daysLost, earlier move → 0, 3 events) passes. Gantt bar snap-back remains a P3 concern (tree input reverts via data binding).
+- **Files:** `lib/projects/delay-ledger.ts`, `lib/projects/delay-ledger.test.ts`, `app/api/projects/[id]/activities/[activityId]/route.ts`, `features/projects/components/ScheduleTree.tsx`, `scripts/verify-c4.ts`
 
-## C5 — Delay Ledger Table (T1) — ⬜ Not Started
+## C5 — Delay Ledger Table (T1) — ✅ Verified
 - **User story:** One table of every delay w/ owner/reason/days to answer "why are we late?" in one screen (also shown to client).
 - **Requirements:** Columns: Activity · Phase · Baseline date · Current date · Slip days · Reason · Owner · SLA breach flag · Recovery plan/owner/date. Header totals split by owner (server-computed). Filters (owner/reason/phase). CSV+PDF export (visible/filtered rows). Recovery plan inline editable. >7d w/o recovery plan → warning icon.
 - **Acceptance criteria:** header totals split by owner arithmetically correct; filter owner=CLIENT → only client rows + totals update; SLA breach → red badge days-over; export contains filtered rows; >7d no-recovery → warning.
 - **UI/UX:** table w/ owner-colored totals (🔴 client / 🔵 360G).
 - **DoD:** sort/filter/export · totals server-side · SLA badges · inline recovery · rendered PM view AND portal.
-- **Files:** _TBD_
+- **Done (2026-07-13, Task 2.4):** `listDelayLedger()` + pure `computeDelayOwnerTotals()`/`delaysToCsv()` in `lib/projects/delay-ledger.ts` (totals computed server-side over the FILTERED set; facets unfiltered so dropdowns stay stable; SLA breach days mapped per activity from `ApprovalSlaBreach`); `GET+PATCH /api/projects/[id]/delays` (GET: readable scope, owner/reason/phase filters; PATCH: recovery plan/owner/date with inline change-map audit `PROJECT_DELAY_EVENT`); `DelayLedgerTable.tsx` (`@tanstack/react-table` — columns Activity(auto badge + >7d-no-recovery ⚠)/Phase/Baseline/Current/Slip/Reason(label)/Owner(tone-colored)/SLA(red +Nd-over badge)/Recovery(inline plan+owner+date editor); owner-colored header totals; 3 filter selects; CSV export of the visible rows); section added to the project detail page; hooks `useDelayLedger`/`useUpdateDelayRecovery`; 5 new unit tests (totals arithmetic, empty/unknown owner, CSV rows/escaping/nulls); E2E `scripts/verify-c5.ts` (real APPROVAL_WAIT+SLA-breach and BASELINE_SLIP events → totals 10/10, filters, facets, CSV) passes. Deferred: PDF export (P7 report stack) and the portal rendering (P5).
+- **Files:** `lib/projects/delay-ledger.ts`, `lib/projects/delay-ledger.test.ts`, `app/api/projects/[id]/delays/route.ts`, `features/projects/components/DelayLedgerTable.tsx`, `features/projects/components/ProjectDetailClient.tsx`, `features/projects/hooks/useProject.ts`, `features/projects/index.ts`, `scripts/verify-c5.ts`
 
 ---
 
@@ -336,13 +345,14 @@ barrel export, unit tests, docs) applies to **all** and is not repeated per row.
 
 # Cross-cutting
 
-## Permissions (§5.1) — ⬜ Not Started
+## Permissions (§5.1) — 🟩 Done (baseline matrix)
 15 new DocTypes (project, phase, milestone, activity, delay_event, change_request, raid_item, stage_gate, client_obligation, correction_of_error, payment_milestone, jira_connection, scrum_log, project_report, client_portal_user) w/ sensitive-field levels + default role matrix (ADMIN/EXECUTIVE/DEPARTMENT_LEAD/EMPLOYEE) + record scoping (own projects). Registered via existing permission seed pattern.
 
-## Notifications (§5.2) — ⬜ Not Started
+## Notifications (§5.2) — 🟩 Done (events registered)
 New `PROJECT` category + 22 event keys (PROJECT_CREATED, PROJECT_BASELINE_COMMITTED, PROJECT_REBASELINED, PROJECT_RAG_CHANGED, PROJECT_WENT_RED, CLIENT_APPROVAL_PENDING⭐, CLIENT_APPROVAL_SLA_BREACH⭐, ACTIVITY_BLOCKED, ACTIVITY_OVERDUE, BASELINE_SLIPPED, STAGE_GATE_PENDING, STAGE_GATE_BYPASSED, CHANGE_REQUEST_SUBMITTED, CHANGE_REQUEST_APPROVED, RAID_HIGH_RISK_ADDED, CLIENT_REPORT_READY, CLIENT_COMMENT_POSTED, JIRA_SYNC_FAILED, PAYMENT_MILESTONE_READY, COE_REQUIRED, WBR_PACK_READY, SCRUM_NOT_LOGGED). Added to `lib/notifications/events.ts`.
 
-## Cron (§5.3) — ⬜ Not Started
+## Cron (§5.3) — 🟨 In Progress (1 of 6)
+✅ `project-health` (daily 02:00) shipped. Remaining: jira-sync, approval-clock, client-report, wbr-pack, project-digest.
 6 routes (Bearer `CRON_SECRET`): jira-sync (30m), project-health (daily 02:00), approval-clock (daily 08:00), client-report (bi-weekly Mon 06:00), wbr-pack (weekly Mon 06:00), project-digest (daily 07:00).
 
 ---

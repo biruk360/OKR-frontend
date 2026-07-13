@@ -9,3 +9,15 @@
 
 // Shared types & enums (single source of truth for module value sets).
 export * from './types'
+
+// Components (exported as phases land).
+export { ProjectsListClient } from './components/ProjectsListClient'
+export { ProjectDetailClient } from './components/ProjectDetailClient'
+export { CreateProjectWizard } from './components/CreateProjectWizard'
+export { ScheduleTree } from './components/ScheduleTree'
+export { DelayLedgerTable } from './components/DelayLedgerTable'
+export { RagBadge, ProjectStatusBadge, ActivityStatusBadge } from './components/ProjectBadges'
+
+// Hooks.
+export * from './hooks/useProjects'
+export * from './hooks/useProject'

@@ -1246,6 +1246,8 @@ All cron routes secured by Bearer `CRON_SECRET`.
 | Sprint deadlines | `POST /api/cron/sprint-deadlines` | Daily | Sprint deadline warnings |
 | Prune activity | `POST /api/cron/prune-activity` | Monthly | Remove old activity log rows |
 | Sprint migration check | `POST /api/cron/sprint-migration-check` | One-time | Legacy sprint migration status |
+| Project health | `POST /api/cron/project-health` | Daily 02:00 | Recompute confidence/RAG/SPI/CPI for all active projects |
+| Approval clock | `POST /api/cron/approval-clock` | Daily | Fire `CLIENT_APPROVAL_SLA_BREACH` escalations at SLA / SLA+3 / SLA+7 business days (deduped per wait) |
 
 ---
 
@@ -1303,6 +1305,9 @@ All cron routes secured by Bearer `CRON_SECRET`.
 | `lib/keyResultChart.ts` | `buildChartData()` | KR progress chart data |
 | `lib/timeframe-utils.ts` | `isTimeframeActive()`, `getTimeframeDates()` | Date range utilities |
 | `lib/check-in-cadence.ts` | `isCheckinDue()` | Validate check-in frequency |
+| `lib/projects/delay-ledger.ts` | `applyApprovalClock()`, `decideApprovalClockTransition()`, `recordSlipDelayEvent()`, `computeSlipDaysLost()`, `listDelayLedger()`, `computeDelayOwnerTotals()`, `delaysToCsv()` | Approval Clock (C3): starts/stops on APPROVAL_REQUESTED transitions, auto-creates `DelayEvent` + `ApprovalSlaBreach` in-txn; returns notification intents for the caller to `emit()` **post-commit**. Slip attribution (C4): PM-tagged `BASELINE_SLIP` DelayEvent on gated baselined date moves (daysLost = slip increase, never negative). Delay Ledger (C5): filtered query with server-side owner totals + facets, CSV rendering |
+| `lib/projects/baseline.ts` | `commitBaseline()`, `rebaseline()`, `computeRebaselineDiff()`, `hasBaselineFieldWrite()` | Baseline commit (C1) + formal re-baseline (C2, versioned — prior snapshots preserved, diff preview old→new per activity); the guard rejects raw baseline-field writes (403) on every schedule PATCH route (Invariant #1) — only this module may write them |
+| `lib/projects/business-days.ts` | `businessDaysBetween()`, `addBusinessDays()` | Business-day math (weekend/holiday aware) for the approval clock, SLA, idle days |
 
 ---
 

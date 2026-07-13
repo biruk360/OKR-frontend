@@ -7,6 +7,23 @@ module.exports = {
     './features/**/*.{js,ts,jsx,tsx,mdx}',
     './lib/**/*.{js,ts,jsx,tsx,mdx}',
   ],
+  safelist: [
+    // Project Management module — activity status swatches are applied via dynamically
+    // constructed class names (badges + Gantt bars), so Tailwind cannot see them in source.
+    'bg-project-status-not-started',
+    'bg-project-status-started',
+    'bg-project-status-finished',
+    'bg-project-status-approval-requested',
+    'bg-project-status-approved',
+    'bg-project-status-rejected',
+    'bg-project-baseline',
+    'border-project-status-not-started',
+    'border-project-status-started',
+    'border-project-status-finished',
+    'border-project-status-approval-requested',
+    'border-project-status-approved',
+    'border-project-status-rejected',
+  ],
   theme: {
     extend: {
       borderRadius: {

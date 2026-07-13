@@ -18,6 +18,7 @@ export type EventCategory =
   | 'COMMENT'
   | 'ADMIN'
   | 'PERFORMANCE'
+  | 'PROJECT'
   | 'SCRUM'
 
 export type EventKey =
@@ -85,8 +86,33 @@ export type EventKey =
   | 'ADMIN_SECURITY_ALERT'
   | 'ADMIN_WEEKLY_HEALTH_DIGEST'
   | 'ADMIN_MONTHLY_EXEC_SUMMARY'
+  // Project Management module (build spec §5.2). Client-facing approval events
+  // (CLIENT_APPROVAL_*) route to the client contact + PM.
+  | 'PROJECT_CREATED'
+  | 'PROJECT_BASELINE_COMMITTED'
+  | 'PROJECT_REBASELINED'
+  | 'PROJECT_RAG_CHANGED'
+  | 'PROJECT_WENT_RED'
+  | 'CLIENT_APPROVAL_PENDING'
+  | 'CLIENT_APPROVAL_SLA_BREACH'
+  | 'ACTIVITY_BLOCKED'
+  | 'ACTIVITY_OVERDUE'
+  | 'BASELINE_SLIPPED'
+  | 'STAGE_GATE_PENDING'
+  | 'STAGE_GATE_BYPASSED'
+  | 'CHANGE_REQUEST_SUBMITTED'
+  | 'CHANGE_REQUEST_APPROVED'
+  | 'RAID_HIGH_RISK_ADDED'
+  | 'CLIENT_REPORT_READY'
+  | 'CLIENT_COMMENT_POSTED'
+  | 'JIRA_SYNC_FAILED'
+  | 'PAYMENT_MILESTONE_READY'
+  | 'COE_REQUIRED'
+  | 'WBR_PACK_READY'
+  | 'SCRUM_NOT_LOGGED'
   // Daily Scrum module
   | 'SCRUM_REMINDER'
+  | 'SCRUM_MISSED'
   | 'SCRUM_NUDGE'
   | 'SCRUM_MANAGER_DIGEST'
   | 'SCRUM_WEEKLY_DIGEST'
@@ -97,9 +123,11 @@ export type EventKey =
   | 'SCRUM_PROXY_SUBMITTED'
   | 'SCRUM_PROXY_CONFIRMED'
   | 'SCRUM_UPDATE_AMENDED'
+  | 'SCRUM_COMMENT'
   | 'SCRUM_COMMENT_ADDED'
   | 'SCRUM_WIN_CELEBRATED'
   | 'SCRUM_TEAM_MOOD_ALERT'
+  | 'SCRUM_LOW_SUBMISSION_RATE'
   | 'SCRUM_OBJECTIVE_NEGLECTED'
 
 export type DefaultCadence = 'IMMEDIATE' | 'DAILY' | 'WEEKLY' | 'MONTHLY'
@@ -177,8 +205,33 @@ export const EVENT_META: Record<EventKey, EventMeta> = {
   ADMIN_WEEKLY_HEALTH_DIGEST: { key: 'ADMIN_WEEKLY_HEALTH_DIGEST', category: 'ADMIN', defaultCadence: 'WEEKLY', redactable: false, label: 'Weekly org OKR health' },
   ADMIN_MONTHLY_EXEC_SUMMARY: { key: 'ADMIN_MONTHLY_EXEC_SUMMARY', category: 'ADMIN', defaultCadence: 'MONTHLY', redactable: false, label: 'Monthly executive summary' },
 
+  // Project Management module (build spec §5.2).
+  PROJECT_CREATED: { key: 'PROJECT_CREATED', category: 'PROJECT', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Project created' },
+  PROJECT_BASELINE_COMMITTED: { key: 'PROJECT_BASELINE_COMMITTED', category: 'PROJECT', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Project baseline committed' },
+  PROJECT_REBASELINED: { key: 'PROJECT_REBASELINED', category: 'PROJECT', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Project re-baselined' },
+  PROJECT_RAG_CHANGED: { key: 'PROJECT_RAG_CHANGED', category: 'PROJECT', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Project RAG status changed' },
+  PROJECT_WENT_RED: { key: 'PROJECT_WENT_RED', category: 'PROJECT', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Project went RED' },
+  CLIENT_APPROVAL_PENDING: { key: 'CLIENT_APPROVAL_PENDING', category: 'PROJECT', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Deliverable awaiting client approval' },
+  CLIENT_APPROVAL_SLA_BREACH: { key: 'CLIENT_APPROVAL_SLA_BREACH', category: 'PROJECT', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Client approval SLA breached' },
+  ACTIVITY_BLOCKED: { key: 'ACTIVITY_BLOCKED', category: 'PROJECT', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Activity blocked' },
+  ACTIVITY_OVERDUE: { key: 'ACTIVITY_OVERDUE', category: 'PROJECT', defaultCadence: 'DAILY', redactable: false, label: 'Activity overdue' },
+  BASELINE_SLIPPED: { key: 'BASELINE_SLIPPED', category: 'PROJECT', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Baseline slipped' },
+  STAGE_GATE_PENDING: { key: 'STAGE_GATE_PENDING', category: 'PROJECT', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Stage gate pending' },
+  STAGE_GATE_BYPASSED: { key: 'STAGE_GATE_BYPASSED', category: 'PROJECT', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Stage gate bypassed' },
+  CHANGE_REQUEST_SUBMITTED: { key: 'CHANGE_REQUEST_SUBMITTED', category: 'PROJECT', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Change request submitted' },
+  CHANGE_REQUEST_APPROVED: { key: 'CHANGE_REQUEST_APPROVED', category: 'PROJECT', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Change request approved' },
+  RAID_HIGH_RISK_ADDED: { key: 'RAID_HIGH_RISK_ADDED', category: 'PROJECT', defaultCadence: 'IMMEDIATE', redactable: false, label: 'High risk added to RAID log' },
+  CLIENT_REPORT_READY: { key: 'CLIENT_REPORT_READY', category: 'PROJECT', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Client report draft ready' },
+  CLIENT_COMMENT_POSTED: { key: 'CLIENT_COMMENT_POSTED', category: 'PROJECT', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Client posted a comment' },
+  JIRA_SYNC_FAILED: { key: 'JIRA_SYNC_FAILED', category: 'PROJECT', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Jira sync failed' },
+  PAYMENT_MILESTONE_READY: { key: 'PAYMENT_MILESTONE_READY', category: 'PROJECT', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Payment milestone ready to invoice' },
+  COE_REQUIRED: { key: 'COE_REQUIRED', category: 'PROJECT', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Correction of Errors required' },
+  WBR_PACK_READY: { key: 'WBR_PACK_READY', category: 'PROJECT', defaultCadence: 'WEEKLY', redactable: false, label: 'Weekly Business Review pack ready' },
+  SCRUM_NOT_LOGGED: { key: 'SCRUM_NOT_LOGGED', category: 'PROJECT', defaultCadence: 'DAILY', redactable: false, label: 'Daily scrum not logged' },
+
   // Daily Scrum module.
   SCRUM_REMINDER: { key: 'SCRUM_REMINDER', category: 'SCRUM', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Daily scrum reminder' },
+  SCRUM_MISSED: { key: 'SCRUM_MISSED', category: 'SCRUM', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Daily scrum missed nudge' },
   SCRUM_NUDGE: { key: 'SCRUM_NUDGE', category: 'SCRUM', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Daily scrum nudge' },
   SCRUM_MANAGER_DIGEST: { key: 'SCRUM_MANAGER_DIGEST', category: 'SCRUM', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Manager scrum digest' },
   SCRUM_WEEKLY_DIGEST: { key: 'SCRUM_WEEKLY_DIGEST', category: 'SCRUM', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Weekly scrum digest' },
@@ -189,14 +242,16 @@ export const EVENT_META: Record<EventKey, EventMeta> = {
   SCRUM_PROXY_SUBMITTED: { key: 'SCRUM_PROXY_SUBMITTED', category: 'SCRUM', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Scrum submitted by proxy' },
   SCRUM_PROXY_CONFIRMED: { key: 'SCRUM_PROXY_CONFIRMED', category: 'SCRUM', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Proxy scrum confirmed' },
   SCRUM_UPDATE_AMENDED: { key: 'SCRUM_UPDATE_AMENDED', category: 'SCRUM', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Scrum update amended' },
+  SCRUM_COMMENT: { key: 'SCRUM_COMMENT', category: 'SCRUM', defaultCadence: 'IMMEDIATE', redactable: true, label: 'Scrum comment' },
   SCRUM_COMMENT_ADDED: { key: 'SCRUM_COMMENT_ADDED', category: 'SCRUM', defaultCadence: 'IMMEDIATE', redactable: true, label: 'Scrum comment added' },
   SCRUM_WIN_CELEBRATED: { key: 'SCRUM_WIN_CELEBRATED', category: 'SCRUM', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Scrum win celebrated' },
   SCRUM_TEAM_MOOD_ALERT: { key: 'SCRUM_TEAM_MOOD_ALERT', category: 'SCRUM', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Team mood alert' },
+  SCRUM_LOW_SUBMISSION_RATE: { key: 'SCRUM_LOW_SUBMISSION_RATE', category: 'SCRUM', defaultCadence: 'WEEKLY', redactable: false, label: 'Low scrum submission rate' },
   SCRUM_OBJECTIVE_NEGLECTED: { key: 'SCRUM_OBJECTIVE_NEGLECTED', category: 'SCRUM', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Objective neglected in daily scrum' },
 }
 
 export const ALL_CATEGORIES: EventCategory[] = [
-  'ACCOUNT', 'OBJECTIVE', 'KEY_RESULT', 'CHECK_IN', 'TODO', 'TIMEFRAME', 'ALIGNMENT', 'COMMENT', 'ADMIN', 'PERFORMANCE', 'SCRUM',
+  'ACCOUNT', 'OBJECTIVE', 'KEY_RESULT', 'CHECK_IN', 'TODO', 'TIMEFRAME', 'ALIGNMENT', 'COMMENT', 'ADMIN', 'PERFORMANCE', 'PROJECT', 'SCRUM',
 ]
 
 /** Categories the user may NOT disable (account/security emails bypass prefs). */
@@ -205,7 +260,7 @@ export const MANDATORY_CATEGORIES: EventCategory[] = ['ACCOUNT']
 /** Shape of data a dispatcher caller passes for a given event. */
 export interface EventPayload {
   actorId?: string
-  entityType?: 'OBJECTIVE' | 'KEY_RESULT' | 'TODO' | 'TIMEFRAME' | 'USER' | 'SCRUM_UPDATE'
+  entityType?: 'OBJECTIVE' | 'KEY_RESULT' | 'TODO' | 'TIMEFRAME' | 'USER' | 'PROJECT' | 'SCRUM_UPDATE'
   entityId?: string
   entityTitle?: string
   /** If the entity is private, the dispatcher redacts titles/values before sending. */

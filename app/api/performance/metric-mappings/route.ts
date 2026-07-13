@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { apiBadRequest, apiForbidden, apiNotFound, apiSuccess, withAuth } from '@/lib/api'
 import { canManageTemplates, hasPerformancePermission } from '@/lib/performance'
+import { SCRUM_PERFORMANCE_METRICS } from '@/types/scrum'
 
 async function canManageMappings(actor: { userId: string; role: string }, action: 'read' | 'write' | 'delete'): Promise<boolean> {
   return await canManageTemplates(actor, 'button.performance.template.map-metric')
@@ -51,8 +52,15 @@ export const PUT = withAuth(async (request: NextRequest, { session }) => {
   const keyResultIds: string[] | null = Array.isArray(body.keyResultIds)
     ? Array.from(new Set<string>(body.keyResultIds.filter((id: unknown): id is string => typeof id === 'string' && !!id)))
     : null
+  const scrumMetricKeys: string[] = Array.isArray(body.scrumMetricKeys)
+    ? Array.from(new Set<string>(body.scrumMetricKeys.filter((key: unknown): key is string => typeof key === 'string' && !!key)))
+    : []
+  const invalidScrumKeys = scrumMetricKeys.filter((key) => !SCRUM_PERFORMANCE_METRICS.includes(key as typeof SCRUM_PERFORMANCE_METRICS[number]))
   if (!criterionId || !employeeId || !keyResultIds) {
     return apiBadRequest('criterionId, employeeId, and keyResultIds are required')
+  }
+  if (invalidScrumKeys.length > 0) {
+    return apiBadRequest(`Unsupported Scrum metric source: ${invalidScrumKeys.join(', ')}`)
   }
 
   const [criterion, employee, keyResults] = await Promise.all([
@@ -70,8 +78,8 @@ export const PUT = withAuth(async (request: NextRequest, { session }) => {
   if (criterion.type !== 'METRIC') return apiBadRequest('Only metric criteria can be linked to Key Results')
   if (!employee?.isActive) return apiBadRequest('Metric mappings require an active employee')
   const rule = criterion.scoringRuleJson as Record<string, unknown> | null
-  if (rule?.type !== 'MANUAL' && keyResultIds.length === 0) {
-    return apiBadRequest('An automatic metric criterion requires at least one Key Result')
+  if (rule?.type !== 'MANUAL' && keyResultIds.length + scrumMetricKeys.length === 0) {
+    return apiBadRequest('An automatic metric criterion requires at least one source')
   }
   if (keyResults.length !== keyResultIds.length) return apiBadRequest('One or more Key Results do not exist')
   if (keyResults.some((keyResult) => keyResult.ownerId !== employeeId)) {
@@ -85,7 +93,24 @@ export const PUT = withAuth(async (request: NextRequest, { session }) => {
     await tx.metricSourceMapping.deleteMany({ where: { criterionId, employeeId } })
     if (keyResultIds.length > 0) {
       await tx.metricSourceMapping.createMany({
-        data: keyResultIds.map((keyResultId, position) => ({ criterionId, employeeId, keyResultId, position })),
+        data: keyResultIds.map((keyResultId, position) => ({
+          criterionId,
+          employeeId,
+          sourceType: 'KEY_RESULT',
+          keyResultId,
+          position,
+        })),
+      })
+    }
+    if (scrumMetricKeys.length > 0) {
+      await tx.metricSourceMapping.createMany({
+        data: scrumMetricKeys.map((scrumMetricKey, offset) => ({
+          criterionId,
+          employeeId,
+          sourceType: 'SCRUM',
+          scrumMetricKey,
+          position: keyResultIds.length + offset,
+        })),
       })
     }
     return tx.metricSourceMapping.findMany({

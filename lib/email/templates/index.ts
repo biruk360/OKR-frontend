@@ -846,6 +846,7 @@ export function renderTemplate(eventKey: EventKey, data: Data): RenderedEmail {
         `,
       })
 
+    case 'SCRUM_MISSED':
     case 'SCRUM_NUDGE':
       return compose({
         subject: 'Daily scrum cutoff reminder',
@@ -917,6 +918,31 @@ export function renderTemplate(eventKey: EventKey, data: Data): RenderedEmail {
           ${heading({ eyebrow: 'Daily scrum', title: 'Team mood needs attention', badgeText: 'Team aggregate', badgeTone: 'warning' })}
           ${lead('A team-level trend crossed the configured alert threshold. Individual mood remains visible only to the employee and direct manager.')}
           ${button('Open scrum analytics', deepLink)}
+        `,
+      })
+
+    case 'SCRUM_COMMENT':
+    case 'SCRUM_COMMENT_ADDED':
+      return compose({
+        subject: 'New comment on a scrum update',
+        recipientName: name,
+        text: `Hi ${name},\n\nA comment was added to a daily scrum update. Open: ${deepLink}`,
+        html: `
+          ${heading({ eyebrow: 'Daily scrum', title: 'New comment' })}
+          ${lead(String(data.commentPreview ?? 'A teammate commented on a daily scrum update.'))}
+          ${button('Open update', deepLink)}
+        `,
+      })
+
+    case 'SCRUM_LOW_SUBMISSION_RATE':
+      return compose({
+        subject: 'Low daily scrum submission rate',
+        recipientName: name,
+        text: `Hi ${name},\n\nA submission-rate signal needs attention. Open: ${deepLink}`,
+        html: `
+          ${heading({ eyebrow: 'Daily scrum', title: 'Submission pattern needs attention', badgeText: 'Weekly signal', badgeTone: 'warning' })}
+          ${lead(String(data.summary ?? 'A team member has fallen below the configured submission-rate threshold.'))}
+          ${button('Open scrum dashboard', deepLink)}
         `,
       })
 

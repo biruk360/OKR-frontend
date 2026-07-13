@@ -1,5 +1,6 @@
 import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
+import { SCRUM_PERFORMANCE_METRIC_LABELS, type ScrumPerformanceMetric } from '@/types/scrum'
 import { assertCycleTransition } from './state-machine'
 
 type DbClient = Prisma.TransactionClient
@@ -181,8 +182,13 @@ export async function openReviewCycle(cycleId: string): Promise<{
           data: mappings.map((mapping) => ({
             evaluationId: evaluation.id,
             criterionId: criterion.id,
+            sourceType: mapping.sourceType,
             keyResultId: mapping.keyResultId,
-            keyResultTitleSnapshot: mapping.keyResult.title,
+            keyResultTitleSnapshot: mapping.keyResult?.title ?? null,
+            scrumMetricKey: mapping.scrumMetricKey,
+            scrumMetricLabelSnapshot: mapping.scrumMetricKey
+              ? SCRUM_PERFORMANCE_METRIC_LABELS[mapping.scrumMetricKey as ScrumPerformanceMetric]
+              : null,
             position: mapping.position,
           })),
           skipDuplicates: true,
@@ -198,4 +204,3 @@ export async function openReviewCycle(cycleId: string): Promise<{
     return { createdEvaluations, issueCount, alreadyOpen: false }
   })
 }
-

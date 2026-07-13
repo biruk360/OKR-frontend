@@ -20,6 +20,7 @@ import KRList from '@/components/objective-detail/KRList'
 import ProgressConfidenceCard from '@/components/objective-detail/ProgressConfidenceCard'
 import PerKrProgressCard from '@/components/objective-detail/PerKrProgressCard'
 import ActivityTabs from '@/components/objective-detail/ActivityTabs'
+import { ScrumActivityPanel } from '@/features/scrum'
 
 interface ObjectiveDetailPageProps {
   params: { id: string } | Promise<{ id: string }>
@@ -215,6 +216,8 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
                 confidence: k.confidence, status: k.status,
               }))}
             />
+
+            <ScrumActivityPanel objectiveId={objective.id} compact />
 
             <ActivityTabs
               objectiveId={objective.id}

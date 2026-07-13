@@ -12,12 +12,14 @@ import type { CheckInBannerData } from '@/components/dashboard/CheckInBanner'
 import type { QuickStatsData } from '@/components/dashboard/QuickStats'
 import type { OkrTreeObjective } from '@/components/dashboard/UserOkrTree'
 import type { ActivityFeedItem } from '@/components/dashboard/TeamActivityFeed'
+import { getScrumSettings } from '@/features/scrum/services/settings'
+import { dateFromDateKey, toScrumDateKey } from '@/features/scrum/services/working-days'
 
 export default async function DashboardPage() {
   const session = await getServerSessionSafe()
   if (!session) redirect('/auth/signin')
 
-  const [heroData, checkInData, quickData, userOkrTree, teamActivity, deadlineData, initiativesData] =
+  const [heroData, checkInData, quickData, userOkrTree, teamActivity, deadlineData, initiativesData, dailyScrum] =
     await Promise.all([
       getHeroStats(session.user.id, session.user.role),
       getCheckInBanner(session.user.id),
@@ -26,6 +28,7 @@ export default async function DashboardPage() {
       getTeamActivity(session.user.id),
       getDeadlines(session.user.id, session.user.role),
       getInitiativesInFlight(session.user.id),
+      getDashboardScrumSummary(session.user.id),
     ])
 
   const kpis: DashboardKpis = {
@@ -48,6 +51,7 @@ export default async function DashboardPage() {
     myOkrs: userOkrTree,
     activity: teamActivity,
     initiatives: initiativesData,
+    dailyScrum,
   }
 
   return <AppleDashboard {...props} />
@@ -341,4 +345,58 @@ async function getInitiativesInFlight(userId: string): Promise<InitiativesInFlig
     select: { id: true, title: true, status: true, keyResultId: true },
   })
   return todos.map(t => ({ id: t.id, title: t.title, status: t.status, keyResultId: t.keyResultId }))
+}
+
+async function getDashboardScrumSummary(userId: string): Promise<AppleDashboardProps['dailyScrum']> {
+  const settings = await getScrumSettings()
+  const todayKey = toScrumDateKey(new Date(), settings)
+  const today = dateFromDateKey(todayKey)
+  const lastMonth = new Date(today.getTime() - 32 * 24 * 60 * 60 * 1000)
+  const [todayUpdate, openBlockers, recentUpdates, directReports] = await Promise.all([
+    prisma.scrumUpdate.findUnique({
+      where: { userId_scrumDate: { userId, scrumDate: today } },
+      select: { status: true, hasBlocker: true, hasWin: true },
+    }),
+    prisma.scrumUpdate.count({
+      where: {
+        userId,
+        hasBlocker: true,
+        blockerStatus: { in: ['OPEN', 'RECURRING', 'ESCALATED'] },
+      },
+    }),
+    prisma.scrumUpdate.findMany({
+      where: { userId, scrumDate: { gte: lastMonth, lte: today }, status: { in: ['SUBMITTED', 'LATE', 'CONFIRMED', 'AMENDED'] } },
+      select: { scrumDate: true },
+      orderBy: { scrumDate: 'desc' },
+      take: 32,
+    }),
+    prisma.managerRelationship.findMany({
+      where: { managerId: userId, endedAt: null },
+      select: { directReportId: true },
+    }),
+  ])
+  const memberIds = Array.from(new Set([userId, ...directReports.map((row: { directReportId: string }) => row.directReportId)]))
+  const teamSubmitted = await prisma.scrumUpdate.count({
+    where: { userId: { in: memberIds }, scrumDate: today, status: { in: ['SUBMITTED', 'LATE', 'CONFIRMED', 'AMENDED'] } },
+  })
+  const submittedKeys = new Set(recentUpdates.map((update: { scrumDate: Date }) => toScrumDateKey(update.scrumDate, settings)))
+  let streakDays = 0
+  let cursor = today
+  for (let i = 0; i < 32; i++) {
+    const key = toScrumDateKey(cursor, settings)
+    if (!submittedKeys.has(key)) break
+    streakDays++
+    cursor = new Date(cursor.getTime() - 24 * 60 * 60 * 1000)
+  }
+
+  return {
+    todaySubmitted: Boolean(todayUpdate),
+    todayStatus: todayUpdate?.status ?? null,
+    todayHasBlocker: todayUpdate?.hasBlocker ?? false,
+    todayHasWin: todayUpdate?.hasWin ?? false,
+    openBlockers,
+    streakDays,
+    teamSubmitted,
+    teamExpected: memberIds.length,
+  }
 }

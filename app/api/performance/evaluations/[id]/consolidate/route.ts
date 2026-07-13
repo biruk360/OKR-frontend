@@ -3,6 +3,7 @@ import { apiBadRequest, apiForbidden, apiNotFound, apiSuccess, withAuth } from '
 import { MetricActualUnavailableError, canTriggerConsolidation, consolidateEvaluation } from '@/lib/performance'
 import { recordActivity } from '@/lib/activity-log'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
+import { SCRUM_PERFORMANCE_METRIC_LABELS, type ScrumPerformanceMetric } from '@/types/scrum'
 
 /**
  * Manual consolidation retry — the resolution path when automatic
@@ -49,8 +50,13 @@ export const POST = withAuth<RouteIdParams>(async (_request, { session, params }
         data: mappings.map((mapping) => ({
           evaluationId: id,
           criterionId: criterion.id,
+          sourceType: mapping.sourceType,
           keyResultId: mapping.keyResultId,
-          keyResultTitleSnapshot: mapping.keyResult.title,
+          keyResultTitleSnapshot: mapping.keyResult?.title ?? null,
+          scrumMetricKey: mapping.scrumMetricKey,
+          scrumMetricLabelSnapshot: mapping.scrumMetricKey
+            ? SCRUM_PERFORMANCE_METRIC_LABELS[mapping.scrumMetricKey as ScrumPerformanceMetric]
+            : null,
           position: mapping.position,
         })),
       })

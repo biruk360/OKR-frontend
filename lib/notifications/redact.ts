@@ -11,7 +11,7 @@ export interface RedactInput {
   /** Admins always see full details. */
   recipientRole?: 'ADMIN' | 'EXECUTIVE' | 'DEPARTMENT_LEAD' | 'EMPLOYEE'
   isPrivate: boolean
-  entityType?: 'OBJECTIVE' | 'KEY_RESULT' | 'TODO' | 'TIMEFRAME' | 'USER' | 'SCRUM_UPDATE'
+  entityType?: 'OBJECTIVE' | 'KEY_RESULT' | 'TODO' | 'TIMEFRAME' | 'USER' | 'PROJECT' | 'SCRUM_UPDATE'
   entityTitle?: string
 }
 

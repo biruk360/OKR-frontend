@@ -1,6 +1,9 @@
 name: CI
 
 on:
+  push:
+    branches:
+      - 'agent/**'
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -34,6 +37,9 @@ jobs:
 
       - name: Prisma generate
         run: npx prisma generate
+
+      - name: Daily Scrum tests
+        run: npm run test:scrum
 
       - name: TypeScript check
         run: npx tsc --noEmit

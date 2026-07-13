@@ -8,6 +8,7 @@ import {
   canEditKeyResultWithObjectiveContext,
 } from '@/lib/permissions'
 import { KeyResultDetailClient } from '@/features/key-results'
+import { ScrumActivityPanel } from '@/features/scrum'
 import type { BreadcrumbNode } from '@/components/shared/OkrBreadcrumb'
 
 interface PageProps {
@@ -206,24 +207,31 @@ export default async function KeyResultDetailPage({ params }: PageProps) {
   ]
 
   return (
-    <KeyResultDetailClient
-      keyResult={krForClient}
-      objective={{
-        id: objFull.id,
-        title: objFull.title,
-        level: objFull.level,
-        timeframe: objFull.timeframe,
-        department: objFull.department,
-        owner: objFull.owner,
-      }}
-      checkIns={checkInsForClient}
-      siblingNav={siblingNav}
-      canEdit={canEdit}
-      users={users}
-      isRedacted={isRedacted}
-      todoCount={keyResult._count.todos}
-      breadcrumbNodes={breadcrumbNodes}
-      initiatives={krInitiatives}
-    />
+    <div className="space-y-4">
+      <KeyResultDetailClient
+        keyResult={krForClient}
+        objective={{
+          id: objFull.id,
+          title: objFull.title,
+          level: objFull.level,
+          timeframe: objFull.timeframe,
+          department: objFull.department,
+          owner: objFull.owner,
+        }}
+        checkIns={checkInsForClient}
+        siblingNav={siblingNav}
+        canEdit={canEdit}
+        users={users}
+        isRedacted={isRedacted}
+        todoCount={keyResult._count.todos}
+        breadcrumbNodes={breadcrumbNodes}
+        initiatives={krInitiatives}
+      />
+      {!isRedacted && (
+        <div className="mx-auto max-w-6xl px-4 pb-6">
+          <ScrumActivityPanel keyResultId={keyResult.id} />
+        </div>
+      )}
+    </div>
   )
 }

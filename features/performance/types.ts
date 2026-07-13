@@ -169,7 +169,9 @@ export type PerformanceMetricMapping = {
   id: string
   criterionId: string
   employeeId: string
-  keyResultId: string
+  sourceType: 'KEY_RESULT' | 'SCRUM'
+  keyResultId: string | null
+  scrumMetricKey: string | null
   position: number
   criterion: { id: string; title: string; type: string }
   employee: { id: string; name: string | null; designation: string | null }
@@ -180,7 +182,7 @@ export type PerformanceMetricMapping = {
     targetValue: number
     unit: string
     status: string
-  }
+  } | null
 }
 
 export type MetricActual = {
@@ -191,7 +193,9 @@ export type MetricActual = {
   unit: string | null
   score: number | null
   sources: Array<{
-    keyResultId: string
+    sourceType: 'KEY_RESULT' | 'SCRUM'
+    keyResultId?: string
+    scrumMetricKey?: string
     title: string
     value: number
     asOfDate: string | null

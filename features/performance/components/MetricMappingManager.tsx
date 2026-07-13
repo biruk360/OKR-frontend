@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { Link2, Target } from 'lucide-react'
+import { BarChart3, Link2, Target } from 'lucide-react'
 import { Button, Checkbox, EmptyState, Input, Label } from '@/components/ui'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { useUsersForSelection } from '@/hooks/useUsersForSelection'
+import { SCRUM_PERFORMANCE_METRICS, SCRUM_PERFORMANCE_METRIC_LABELS } from '@/types/scrum'
 import { useMetricKeyResults, useMetricMappings, useSaveMetricMappings } from '../hooks/queries'
 import type { PerformanceTier } from '../types'
 import { NativeSelect } from './NativeSelect'
@@ -21,6 +22,7 @@ export function MetricMappingManager({ templateId, tiers }: { templateId: string
   const { register, watch } = useForm<MetricMappingForm>({ defaultValues: { criterionId: '', employeeId: '', search: '' } })
   const { criterionId, employeeId, search } = watch()
   const [selected, setSelected] = useState<string[]>([])
+  const [selectedScrum, setSelectedScrum] = useState<string[]>([])
   const keyResults = useMetricKeyResults(employeeId)
 
   useEffect(() => {
@@ -28,7 +30,14 @@ export function MetricMappingManager({ templateId, tiers }: { templateId: string
       .filter((mapping) => mapping.criterionId === criterionId && mapping.employeeId === employeeId)
       .sort((a, b) => a.position - b.position)
       .map((mapping) => mapping.keyResultId)
+      .filter((id): id is string => Boolean(id))
+    const linkedScrum = (mappings.data ?? [])
+      .filter((mapping) => mapping.criterionId === criterionId && mapping.employeeId === employeeId)
+      .sort((a, b) => a.position - b.position)
+      .map((mapping) => mapping.scrumMetricKey)
+      .filter((key): key is string => Boolean(key))
     setSelected(linked)
+    setSelectedScrum(linkedScrum)
   }, [criterionId, employeeId, mappings.data])
 
   const candidates = (keyResults.data ?? []).filter((keyResult) => keyResult.title.toLowerCase().includes(search.trim().toLowerCase()))
@@ -91,10 +100,26 @@ export function MetricMappingManager({ templateId, tiers }: { templateId: string
             </div>
           )}
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-xs text-muted-foreground"><span className="tabular-nums">{currentMappings.length}</span> currently linked · <span className="tabular-nums">{selected.length}</span> selected</p>
-            <Button disabled={save.isPending} onClick={() => save.mutate({ criterionId, employeeId, keyResultIds: selected })}>
+            <p className="text-xs text-muted-foreground"><span className="tabular-nums">{currentMappings.length}</span> currently linked · <span className="tabular-nums">{selected.length + selectedScrum.length}</span> selected</p>
+            <Button disabled={save.isPending} onClick={() => save.mutate({ criterionId, employeeId, keyResultIds: selected, scrumMetricKeys: selectedScrum })}>
               Save metric sources
             </Button>
+          </div>
+          <div className="space-y-2">
+            <Label className="inline-flex items-center gap-1.5"><BarChart3 className="size-3.5" /> Daily Scrum metrics</Label>
+            <div className="grid gap-2 rounded-lg border p-2" style={{ borderColor: 'var(--ap-border)' }}>
+              {SCRUM_PERFORMANCE_METRICS.map((metricKey) => (
+                <label key={metricKey} className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 text-sm hover:bg-muted/50">
+                  <Checkbox
+                    checked={selectedScrum.includes(metricKey)}
+                    onCheckedChange={(checked) => setSelectedScrum((current) => checked === true
+                      ? [...current, metricKey]
+                      : current.filter((key) => key !== metricKey))}
+                  />
+                  <span>{SCRUM_PERFORMANCE_METRIC_LABELS[metricKey]}</span>
+                </label>
+              ))}
+            </div>
           </div>
         </>
       )}

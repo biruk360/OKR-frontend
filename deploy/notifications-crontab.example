@@ -48,5 +48,20 @@
 # Daily auto-confidence recompute for stale (>14d) OKRs — every day at 03:00 EAT (00:00 UTC)
 0 0 * * *  curl -fsS -X POST "$BASE/api/cron/auto-confidence?key=$CRON_SECRET" >/dev/null
 
+# Daily Scrum health recompute — every day at 02:00 EAT (23:00 UTC previous day)
+0 23 * * * curl -fsS -X POST "$BASE/api/cron/scrum-health?key=$CRON_SECRET" >/dev/null
+
+# Daily Scrum reminder — working days at 08:00 EAT (05:00 UTC)
+0 5 * * 1-5 curl -fsS -X POST "$BASE/api/cron/scrum-reminder?key=$CRON_SECRET" >/dev/null
+
+# Daily Scrum finalize + manager digest — working days at 09:00 EAT (06:00 UTC)
+0 6 * * 1-5 curl -fsS -X POST "$BASE/api/cron/scrum-finalize?key=$CRON_SECRET" >/dev/null
+
+# Daily Scrum single nudge — working days at 09:05 EAT (06:05 UTC)
+5 6 * * 1-5 curl -fsS -X POST "$BASE/api/cron/scrum-nudge?key=$CRON_SECRET" >/dev/null
+
+# Daily Scrum weekly digest — Friday 16:00 EAT (13:00 UTC)
+0 13 * * 5 curl -fsS -X POST "$BASE/api/cron/scrum-weekly?key=$CRON_SECRET" >/dev/null
+
 # Daily activity log prune (rows older than 540 days = ~18 months) — every day at 03:30 EAT (00:30 UTC)
 30 0 * * * curl -fsS -X POST "$BASE/api/cron/prune-activity?key=$CRON_SECRET" >/dev/null

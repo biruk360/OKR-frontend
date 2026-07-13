@@ -1951,20 +1951,24 @@ model EmployeeTemplateAssignment {
 
 /// Employee-specific Key Result source for a reusable metric criterion.
 model MetricSourceMapping {
-  id          String   @id @default(cuid())
-  criterionId String
-  employeeId  String
-  keyResultId String
-  position    Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id             String   @id @default(cuid())
+  criterionId    String
+  employeeId     String
+  sourceType     String   @default("KEY_RESULT") // KEY_RESULT | SCRUM
+  keyResultId    String?
+  scrumMetricKey String?
+  position       Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   criterion ScorecardCriterion @relation(fields: [criterionId], references: [id], onDelete: Cascade)
   employee  User               @relation("PerformanceMetricEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
-  keyResult KeyResult          @relation(fields: [keyResultId], references: [id], onDelete: Cascade)
+  keyResult KeyResult?         @relation(fields: [keyResultId], references: [id], onDelete: Cascade)
 
   @@unique([criterionId, employeeId, keyResultId])
+  @@unique([criterionId, employeeId, scrumMetricKey])
   @@index([employeeId, criterionId])
+  @@index([sourceType, scrumMetricKey])
   @@map("performance_metric_source_mappings")
 }
 
@@ -2065,18 +2069,22 @@ model Evaluation {
 
 /// Frozen Key Result source link for one evaluation and criterion.
 model EvaluationMetricSource {
-  id                     String @id @default(cuid())
-  evaluationId           String
-  criterionId            String
-  keyResultId            String
-  keyResultTitleSnapshot String
-  position               Int    @default(0)
+  id                       String @id @default(cuid())
+  evaluationId             String
+  criterionId              String
+  sourceType               String @default("KEY_RESULT") // KEY_RESULT | SCRUM
+  keyResultId              String?
+  keyResultTitleSnapshot   String?
+  scrumMetricKey           String?
+  scrumMetricLabelSnapshot String?
+  position                 Int    @default(0)
 
   evaluation Evaluation         @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
   criterion  ScorecardCriterion @relation(fields: [criterionId], references: [id], onDelete: Cascade)
-  keyResult  KeyResult          @relation(fields: [keyResultId], references: [id], onDelete: Restrict)
+  keyResult  KeyResult?         @relation(fields: [keyResultId], references: [id], onDelete: Restrict)
 
-  @@unique([evaluationId, criterionId, keyResultId])
+  @@unique([evaluationId, criterionId, keyResultId], map: "perf_eval_metric_source_kr_unique")
+  @@unique([evaluationId, criterionId, scrumMetricKey], map: "perf_eval_metric_source_scrum_unique")
   @@map("performance_evaluation_metric_sources")
 }
 
@@ -2417,6 +2425,8 @@ model Activity {
 
   priority         String? // LOW|MEDIUM|HIGH|CRITICAL
   risk             String? // LOW|MEDIUM|HIGH
+  isBlocked        Boolean  @default(false)
+  blockedSince     DateTime?
 
   isMilestone      Boolean  @default(false) // "Convert to Milestone"
 
@@ -2893,22 +2903,27 @@ model ScrumUpdate {
   submittedById       String
   managerId           String?
   teamId              String?
+  projectId           String?
+  projectActivityId   String?
   scrumDate           DateTime  @db.Date
   status              String    @default("SUBMITTED") // DRAFT | SUBMITTED | CONFIRMED | AMENDED
 
-  yesterdayPlan       String?
+  yesterdayDone       String?   @map("yesterdayPlan")
   yesterdayStatusJson Json?
   todayPlan           String
   blockers            String?
-  blockerCategory     String? // TECHNICAL | CLIENT_APPROVAL | EXTERNAL_DEPENDENCY | INTERNAL_CAPACITY | REQUIREMENT_CLARITY | ACCESS | QA | DEPLOYMENT | OTHER
+  blockerCategory     String? // EXTERNAL_DEPENDENCY | CLIENT_APPROVAL | INTERNAL_DEPENDENCY | TECHNICAL | ENVIRONMENT_ACCESS | UNCLEAR_REQUIREMENTS | RESOURCE_CAPACITY | TOOLING | OTHER
   blockerStatus       String?   @default("OPEN") // OPEN | RECURRING | ESCALATED | RESOLVED
+  blockerDaysOpen     Int       @default(0)
+  blockerFirstRaisedAt DateTime?
   blockerResolvedAt   DateTime?
   blockerResolvedById String?
-  blockerResolution   String?
+  blockerResolutionNote String? @map("blockerResolution")
   escalatedAt         DateTime?
   escalatedToUserId   String?
-  win                 String?
-  mood                String? // GREAT | GOOD | OKAY | STRESSED | BLOCKED
+  raidItemId          String?
+  wins                String?   @map("win")
+  mood                String? // GOOD | OKAY | STRUGGLING
 
   hasBlocker          Boolean   @default(false)
   hasWin              Boolean   @default(false)
@@ -2918,20 +2933,26 @@ model ScrumUpdate {
   confirmedAt         DateTime?
 
   isProxyEntry        Boolean   @default(false)
-  proxyReason         String? // MANAGER_ENTRY | PTO | FIELD_WORK | SYSTEM_ISSUE | OTHER
+  proxyReason         String? // IN_CLIENT_MEETING | TRAVELLING | SICK | ON_LEAVE | NO_CONNECTIVITY | VERBAL_UPDATE_IN_STANDUP | OTHER
+  proxyReasonDetail   String?
+  proxyConfirmedByUser Boolean  @default(false)
   proxyConfirmedAt    DateTime?
 
   comments            ScrumComment[]
   links               ScrumUpdateLink[]
+  celebrations        ScrumWinCelebration[]
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
   @@unique([userId, scrumDate])
   @@index([scrumDate, teamId])
+  @@index([projectId, scrumDate])
+  @@index([projectActivityId, scrumDate])
   @@index([hasBlocker, scrumDate])
   @@index([hasWin, scrumDate])
   @@index([managerId, scrumDate])
   @@index([blockerStatus])
+  @@index([raidItemId])
   @@index([submittedById, scrumDate])
   @@map("scrum_updates")
 }
@@ -2972,14 +2993,21 @@ model ScrumSettings {
   id                    String   @id @default("default")
   timezone              String   @default("Africa/Addis_Ababa")
   reminderTime          String   @default("08:00")
-  cutoffTime            String   @default("09:00")
+  cutoffTime            String   @default("08:30")
+  absentTime            String   @default("09:00")
+  managerDigestTime     String   @default("09:00")
   nudgeTime             String   @default("09:05")
+  weeklyDigestDay       Int      @default(5)
   weeklyDigestTime      String   @default("16:00")
   workingDays           Int[]    @default([1, 2, 3, 4, 5])
   holidays              String[] @default([])
   moodEnabled           Boolean  @default(true)
-  proxyEnabled          Boolean  @default(true)
+  winsEnabled           Boolean  @default(true)
+  proxyEntryEnabled     Boolean  @default(true) @map("proxyEnabled")
   telegramEnabled       Boolean  @default(false)
+  requireTodoLink       Boolean  @default(false)
+  recurringThresholdDays Int     @default(2)
+  escalationThresholdDays Int    @default(3)
   blockerEscalationDays Int      @default(2)
   moodAlertDays         Int      @default(10)
   objectiveNeglectDays  Int      @default(14)
@@ -2987,6 +3015,45 @@ model ScrumSettings {
   updatedAt             DateTime @updatedAt
 
   @@map("scrum_settings")
+}
+
+model ScrumWinCelebration {
+  id          String      @id @default(cuid())
+  updateId    String
+  userId      String
+  createdAt   DateTime    @default(now())
+
+  update      ScrumUpdate @relation(fields: [updateId], references: [id], onDelete: Cascade)
+
+  @@unique([updateId, userId])
+  @@index([userId, createdAt])
+  @@map("scrum_win_celebrations")
+}
+
+model ScrumSavedView {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  filtersJson Json
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId, updatedAt])
+  @@map("scrum_saved_views")
+}
+
+model ScrumJobRun {
+  id          String   @id @default(cuid())
+  jobKey      String
+  userId      String?
+  runDate     DateTime @db.Date
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@unique([jobKey, userId, runDate])
+  @@index([jobKey, runDate])
+  @@map("scrum_job_runs")
 }
 
 model ScrumUpdateLink {

@@ -5,6 +5,18 @@
 
 > Read `CLAUDE.md` first (non-negotiable rules). This strategy assumes those rules and only adds specifics. The build spec's inline `.prisma` / TSX snippets are **illustrative** — where they conflict with the conventions below, **the conventions win.** Section 2 lists every such conflict explicitly; do not skip it.
 
+## Current implementation snapshot — 2026-07-13
+
+The module has moved past foundation into an integrated beta:
+
+- Prisma schema reconciled with the build spec, including project/activity links, blocker lifecycle metadata, RAID escalation IDs, proxy confirmation fields, saved views, win celebrations, job idempotency, and Scrum-backed Performance metric source mappings.
+- Server services and API routes are implemented for updates, comments, blocker resolve/escalate, celebrations, calendar, linkable entities, links, attention, analytics, metrics, settings, absences, wins, saved views, proxy subjects, and five cron jobs.
+- UI is implemented for `/dashboard/scrum`, `/dashboard/scrum/wins`, `/dashboard/scrum/settings`, the dashboard Daily Scrum widget, route-level Objective/KR Scrum panels, Project detail Scrum visibility, and Performance metric-source selection for the four Scrum metric keys.
+- CI now runs on `push` to `agent/**`, keeps deployment restricted to `main`, and runs `npm run test:scrum` before typecheck/build.
+- Local verification completed: `npx prisma validate`, `npx prisma db push`, `npx prisma generate`, both Scrum seed scripts, `npm run test:scrum`, `npx tsc --noEmit`, and `npm run build`.
+
+Remaining work should be treated as polish/hardening, not blank implementation: add explicit regression tests for proxy auth/link scoping/blocker lifecycle/metrics mood exclusion/SC16 exclusion, complete carry-forward link inheritance, add copy-for-standup and PNG export, and wire Telegram direct sends once a user-to-chat mapping exists.
+
 ---
 
 ## 0. How Codex should use this document

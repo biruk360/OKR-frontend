@@ -479,6 +479,65 @@ export interface InitiativesInFlight {
   keyResultId?: string | null
 }
 
+export interface DailyScrumDashboardData {
+  todaySubmitted: boolean
+  todayStatus: string | null
+  todayHasBlocker: boolean
+  todayHasWin: boolean
+  openBlockers: number
+  streakDays: number
+  teamSubmitted: number
+  teamExpected: number
+}
+
+function DailyScrumCard({ data }: { data: DailyScrumDashboardData }) {
+  const submittedPct = data.teamExpected > 0 ? Math.round((data.teamSubmitted / data.teamExpected) * 100) : 0
+  return (
+    <APCard>
+      <SectionHeader
+        right={
+          <Link href="/dashboard/scrum" className="text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
+            Open <ChevronRight className="size-3" />
+          </Link>
+        }
+      >
+        Daily Scrum
+      </SectionHeader>
+      <div className="grid gap-3 px-4 py-4 sm:grid-cols-4">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Today</p>
+          <div className="mt-2 flex items-center gap-2">
+            {data.todaySubmitted ? <CheckCircle2 className="size-4 text-emerald-600" /> : <Clock className="size-4 text-amber-600" />}
+            <span className="text-sm font-medium">{data.todaySubmitted ? data.todayStatus ?? 'Submitted' : 'Not submitted'}</span>
+          </div>
+        </div>
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Open blockers</p>
+          <div className="mt-2 flex items-center gap-2">
+            <AlertTriangle className="size-4 text-amber-600" />
+            <span className="text-sm font-mono tabular-nums">{data.openBlockers}</span>
+          </div>
+        </div>
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Streak</p>
+          <div className="mt-2 flex items-center gap-2">
+            <Sparkles className="size-4 text-emerald-600" />
+            <span className="text-sm font-mono tabular-nums">{data.streakDays}d</span>
+          </div>
+        </div>
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Team submitted</p>
+          <div className="mt-2 flex items-center gap-2">
+            <Calendar className="size-4 text-muted-foreground" />
+            <span className="text-sm font-mono tabular-nums">{data.teamSubmitted}/{data.teamExpected || 1}</span>
+            <span className="text-xs text-muted-foreground">{submittedPct}%</span>
+          </div>
+        </div>
+      </div>
+    </APCard>
+  )
+}
+
 function InitiativesKanban({ initiatives }: { initiatives: InitiativesInFlight[] }) {
   // Reuse the existing AP-styled WorkItemsKanban directly
   return (
@@ -503,12 +562,14 @@ export interface AppleDashboardProps {
   myOkrs: OkrTreeObjective[]
   activity: ActivityFeedItem[]
   initiatives: InitiativesInFlight[]
+  dailyScrum: DailyScrumDashboardData
 }
 
 export default function AppleDashboard(props: AppleDashboardProps) {
   return (
     <div className="space-y-3">
       <DashboardHero name={props.userName} banner={props.banner} />
+      <DailyScrumCard data={props.dailyScrum} />
       <KpiStrip kpis={props.kpis} />
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         <MyOkrsCard objectives={props.myOkrs} />

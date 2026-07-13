@@ -27,11 +27,19 @@ const SENSITIVE_FIELDS: [doctypeKey: string, fieldName: string, label: string, p
   ['scrum_update', 'mood', 'Mood', 2],
   ['scrum_update', 'blockers', 'Blockers', 1],
   ['scrum_settings', 'timezone', 'Timezone', 2],
+  ['scrum_settings', 'reminderTime', 'Reminder Time', 2],
+  ['scrum_settings', 'cutoffTime', 'Cutoff Time', 2],
+  ['scrum_settings', 'absentTime', 'Absent Time', 2],
+  ['scrum_settings', 'managerDigestTime', 'Manager Digest Time', 2],
   ['scrum_settings', 'workingDays', 'Working Days', 2],
   ['scrum_settings', 'holidays', 'Holidays', 2],
   ['scrum_settings', 'moodEnabled', 'Mood Enabled', 2],
-  ['scrum_settings', 'proxyEnabled', 'Proxy Enabled', 2],
+  ['scrum_settings', 'winsEnabled', 'Wins Enabled', 2],
+  ['scrum_settings', 'proxyEntryEnabled', 'Proxy Entry Enabled', 2],
   ['scrum_settings', 'telegramEnabled', 'Telegram Enabled', 2],
+  ['scrum_settings', 'requireTodoLink', 'Require Todo Link', 2],
+  ['scrum_settings', 'recurringThresholdDays', 'Recurring Threshold Days', 2],
+  ['scrum_settings', 'escalationThresholdDays', 'Escalation Threshold Days', 2],
 ]
 
 interface PermissionFlags {

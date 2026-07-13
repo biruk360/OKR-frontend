@@ -8,7 +8,7 @@
 
 import type { EventKey } from './events'
 
-export type EntityType = 'OBJECTIVE' | 'KEY_RESULT' | 'TODO' | 'TIMEFRAME' | 'USER' | 'SCRUM_UPDATE'
+export type EntityType = 'OBJECTIVE' | 'KEY_RESULT' | 'TODO' | 'TIMEFRAME' | 'USER' | 'PROJECT' | 'SCRUM_UPDATE'
 
 export function appBaseUrl(): string {
   return (process.env.NEXTAUTH_URL || 'http://localhost:3000').replace(/\/+$/, '')
@@ -90,6 +90,17 @@ function pickPath(eventKey: EventKey, entityType: EntityType | undefined, entity
   }
   if (eventKey === 'PERF_DRAFT_SHARED' || eventKey === 'PERF_WEEKLY_FOCUS') return '/dashboard/performance'
   if (eventKey === 'PERF_ACTION_RECOMMENDED') return '/dashboard/performance/actions'
+
+  // ── Project Management module ──
+  if (eventKey === 'WBR_PACK_READY') return '/dashboard/projects/portfolio'
+  if (eventKey.startsWith('PROJECT_') || eventKey.startsWith('CLIENT_') || eventKey.startsWith('ACTIVITY_') ||
+      eventKey === 'BASELINE_SLIPPED' || eventKey.startsWith('STAGE_GATE_') || eventKey.startsWith('CHANGE_REQUEST_') ||
+      eventKey === 'RAID_HIGH_RISK_ADDED' || eventKey === 'JIRA_SYNC_FAILED' || eventKey === 'PAYMENT_MILESTONE_READY' ||
+      eventKey === 'COE_REQUIRED' || eventKey === 'SCRUM_NOT_LOGGED') {
+    if (data.deepLink) return String(data.deepLink)
+    if (entityType === 'PROJECT' && entityId) return `/dashboard/projects/${entityId}`
+    return '/dashboard/projects'
+  }
 
   // ── Daily Scrum module ──
   if (eventKey.startsWith('SCRUM_')) {

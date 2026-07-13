@@ -58,7 +58,7 @@ export const performanceApi = {
     request<unknown>(`/api/performance/template-mappings?id=${encodeURIComponent(id)}`, { method: 'DELETE' }),
   listMetricMappings: (templateId: string) =>
     request<PerformanceMetricMapping[]>(`/api/performance/metric-mappings?templateId=${encodeURIComponent(templateId)}`),
-  saveMetricMappings: (body: { criterionId: string; employeeId: string; keyResultIds: string[] }) =>
+  saveMetricMappings: (body: { criterionId: string; employeeId: string; keyResultIds: string[]; scrumMetricKeys?: string[] }) =>
     request<unknown>('/api/performance/metric-mappings', { method: 'PUT', body: JSON.stringify(body) }),
   listMetricKeyResults: (employeeId: string) =>
     request<Array<{ id: string; title: string; currentValue: number; targetValue: number; unit: string }>>(

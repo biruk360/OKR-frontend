@@ -2,6 +2,325 @@
 
 > **Purpose:** Log of all changes made by AI assistants. Every AI session that modifies code MUST append an entry here.
 
+## 2026-07-15 — Project Management module: P8 — OKR Integration & Portfolio Intelligence
+
+Implements Epic K: milestone→Key Result progress linkage, CEO portfolio dashboard, and cross-project performance reports.
+
+- **K1 — OKR linkage** — added `lib/projects/okr-bridge.ts` with `recalcKrFromMilestones` and `recalcKrsAndAncestors`, wired into `recalcProjectRollup` so milestone percent changes propagate to linked KRs and ancestor objectives in the same transaction. Added `objectiveId` to `PATCH /api/projects/[id]` and old-KR recompute on milestone unlink/move. Built `ProjectObjectiveLinker`, `MilestoneKeyResultLinker`, and `ObjectiveDeliveryPanel` (with `GET /api/objectives/[id]/delivery`).
+- **K2 — Portfolio dashboard** — added `lib/projects/portfolio-dashboard.ts` aggregation (RAG counts, weighted SPI, delay owner split, root-cause Pareto, client health, capacity forecast, escalations) and `GET /api/projects/portfolio/dashboard`. Built `PortfolioDashboard`, `PortfolioFilters`, and `PortfolioChartsLibrary` with real-data C1/C6/C9/C17/C18/C20 charts. Updated `/dashboard/projects/portfolio` to show the dashboard.
+- **K3 — Cross-project performance report** — added `lib/projects/portfolio-report.ts` with `generatePortfolioReport` and `renderPortfolioReportPdfHtml`. Added `GET/POST /api/projects/portfolio/report`, detail route, and PDF export. Built `PortfolioReportPanel` and added it to the portfolio page.
+- **Tests/docs:** added `lib/projects/okr-bridge.test.ts` for weighted KR recomputation/unit mapping and `lib/projects/portfolio-dashboard.test.ts` for Pareto aggregation; updated tracker, feature status, and reference docs.
+- Tests run: `npx tsc --noEmit` (clean) · `npm run test:projects` (178 pass) · `git diff --check` (clean).
+
+## 2026-07-15 — Project Management module: P7 Task 7.6 — J6 Constrained AI Assistant
+
+Implements the constrained AI assistant for project managers.
+
+- **Constrained assistant service** — added `lib/projects/ai-assistant.ts` with four allowed intents (`EXECUTIVE_SUMMARY`, `RISK_DETECTION`, `DELAY_PATTERN`, `ESTIMATE_SUGGESTION`), pure helpers for intent classification, cap/validation, forbidden-context rejection, and deterministic data-grounded response construction from existing project data only.
+- **Guardrails enforced** — outputs are hard-capped to ≤5 bullets/≤800 chars, post-validated after generation, and marked `approved:false`/`requiresPmApproval:true`. Forbidden intents (`REQUIREMENTS`, `CLIENT_PROSE`, `AUTO_SEND`) and forbidden context phrases (requirements/spec generation, client send/email, auto-send) are rejected before generation.
+- **Audit logging** — every generation is persisted via `AiGenerationLog(feature=PROJECT_AI_ASSISTANT)` through the existing `recordGenerationLog` helper; added `PROJECT_AI_ASSISTANT` to `AI_FEATURE_KEYS`.
+- **API/UI** — added `POST /api/projects/[id]/ai-assistant` (writable-project scoped, Zod-validated) and `AiAssistantPanel` launched from the Gantt toolbar AI button. The panel shows intent selection, optional context, capped output, grounded-in metadata, and a PM-approval warning; the only action is copy-to-clipboard — no send/client/auto-send path exists.
+- **Tests/docs:** added node:test coverage for allowed/forbidden intent classification, output cap enforcement, grounded response behavior for all four intents, and forbidden-context detection; J6 tracker row moved to ✅ Verified and P7 status moved to ✅ Verified.
+- Tests run: `npx tsc --noEmit` (clean) · `npm run test:projects` (170 pass) · `git diff --check` (clean).
+
+## 2026-07-15 — Project Management module: P7 Task 7.5 — J5 Steering, COE, Estimation & Capacity Reports
+
+Implements R6/R7/R9/R10 management reports.
+
+- **Management report service** — added `lib/projects/management-reports.ts` with monthly/quarterly periods, deterministic capped summaries, `AiGenerationLog(feature=PROJECT_MANAGEMENT_REPORTS)`, and `ProjectReport(type=STEERING|COE|ESTIMATION|CAPACITY)` generation.
+- **R6/R7/R9/R10 templates** — R6 composes steering health, stage gates, client-obligation compliance, CRs, risks, delay-owner totals, and payment status. R7 composes COE status, overdue fixes, root-cause Pareto, lessons learned, days lost, and cost impact. R9 compares estimates to actuals from project activities and Jira when linked. R10 summarizes project-member workload, over-allocation, idle capacity, and bench candidates.
+- **API/UI/PDF** — added management report list/generate/detail/update/PDF routes plus `ManagementReportsPanel` on project detail, including PM summary edits and DRAFT→PM_REVIEW→APPROVED→SENT controls.
+- **Tests/docs:** added node:test coverage for monthly/quarterly periods, estimate bias boundaries, and capacity status classification; J5 tracker row moved to 🟩 Done.
+- Tests run: `npx tsc --noEmit` (clean) · `npm run test:projects` (155 pass).
+
+## 2026-07-15 — Project Management module: P7 Task 7.4 — J4 Individual & Team Performance Reports
+
+Implements Jira-backed R3/R4 reporting.
+
+- **Performance report service** — added `lib/projects/performance-reports.ts` generating `ProjectReport(type=INDIVIDUAL|TEAM)` for `DAILY`, `WEEKLY`, `SPRINT`, and `MONTHLY` cadences. Non-Jira projects return `hidden=true` and do not render an empty UI.
+- **R3/R4 fields** — R3 rows include developer, PM, sprint date, assigned, original estimate, buffer, completed, blocked, performance %, idle days, estimate accuracy, cycle time, blocked duration, scrum attendance %, and PM-editable AI insight. R4 includes team assigned/completed/blocked, performance %, velocity/trend, individual completion breakdown, Jira adoption score, and PM-editable AI insight.
+- **API/UI/PDF** — added performance report list/generate/update/PDF routes and `PerformanceReportsPanel` on Jira-linked project detail pages.
+- **Performance integration** — added `lib/performance/project-performance-reports.ts` so the Performance module can auto-pull the same R3/R4 evidence.
+- **Tests/docs:** added node:test coverage for four cadence windows and deterministic insight priority; J4 tracker row moved to 🟩 Done.
+- Tests run: `npx tsc --noEmit` (clean) · `npm run test:projects` (151 pass).
+
+## 2026-07-15 — Project Management module: P7 Task 7.3 — J3 Weekly Business Review Pack
+
+Implements the portfolio-level R1 WBR pack.
+
+- **WBR service** — added `lib/projects/wbr-report.ts` with Monday-Sunday period idempotency, portfolio SPI calculation, week-over-week deltas, delay-owner totals, pending client action counts, resource heat, escalation list, and PDF HTML rendering.
+- **Red item discipline** — WBR red rows include owner and committed recovery date when available; missing recovery dates are flagged `NO RECOVERY PLAN`; prior WBR red items carry forward until the project turns GREEN, completes, or cancels.
+- **Cron/API/UI** — added `app/api/cron/wbr-pack`, portfolio WBR list/create, WBR PDF export, and `PortfolioWbrPanel` on `/dashboard/projects/portfolio`.
+- **Side effects:** `WBR_PACK_READY` is emitted after the WBR report row exists, to CEO/Admin/Executive plus active project PM recipients.
+- **Tests/docs:** added node:test coverage for weekly period boundaries, weighted portfolio SPI, no-recovery-plan flagging, and carry-forward clearing; J3 tracker row moved to 🟩 Done; project cron count moved to 5 of 6.
+- Tests run: `npx tsc --noEmit` (clean) · `npm run test:projects` (148 pass).
+
+## 2026-07-15 — Project Management module: P7 Task 7.2 — J2 Bi-Monthly Client Report
+
+Implements the R2 client report workflow on `ProjectReport`.
+
+- **Report service** — added `lib/projects/client-report.ts` to assemble R2 structured facts, generate a deterministic capped summary from those facts only, validate ≤5 bullets/≤800 chars, write `AiGenerationLog(feature=PROJECT_CLIENT_REPORT)`, and render PDF HTML for the shared Puppeteer renderer.
+- **Workflow APIs** — added project report list/create, report detail patch, PDF export, and `app/api/cron/client-report`. The state machine is DRAFT→PM_REVIEW→APPROVED→SENT; send is hard-blocked until APPROVED, and summary edits set `aiSummaryEdited=true`.
+- **Side effects** — cron/manual draft generation notifies PMs after the report row exists; sending updates the report first, then emails `project.clientEmails` with portal/PDF links.
+- **PM UI** — added `ClientReportsPanel` to project detail for generate draft, edit/save summary, submit review, approve summary, send, and download PDF.
+- **Tests/docs:** added node:test coverage for summary validation/caps and bi-monthly period windows; J2 tracker row moved to 🟩 Done; project cron count moved to 4 of 6.
+- Tests run: `npx tsc --noEmit` (clean) · `npm run test:projects` (144 pass) · `git diff --check` (clean).
+
+## 2026-07-15 — Project Management module: P7 Task 7.1 — J1 Chart Library
+
+Starts Epic J / P7 with the reusable chart catalog and export shell.
+
+- **Chart shell** — added `features/projects/components/charts/ChartWrapper.tsx` with AP design tokens, responsive/dark presentation, and per-chart PNG export using SVG serialization plus an HTML fallback for custom chart surfaces.
+- **C1-C24 catalog** — added `features/projects/components/charts/ProjectChartsLibrary.tsx` and rendered it in the project Overview tab. It includes all 24 required chart slots, using Recharts where the chart shape supports it and custom wall/grid/timeline/ring surfaces for C1/C2/C11/C13/C16/C24.
+- **Priority charts** — C24 includes the completion ring plus six KPI tiles; C18 renders a root-cause Pareto with ranked bars and cumulative percentage line.
+- **Data stance** — charts derive from the live project schedule and registers where available; report-source metrics that arrive in J2-J5 use stable placeholder/sample series so the catalog can be reviewed before the reporting APIs land.
+- **Docs:** J1 tracker row moved to 🟩 Done, P7 status moved to 🟨 In Progress, and the shared feature status/sitemap now include the PM module and project portal/detail routes.
+- Tests run: `npx tsc --noEmit` (clean) · `npm run test:projects` (139 pass) · `git diff --check` (clean).
+
+## 2026-07-14 — Project Management module: P6 Task 6.6 — G5 Adoption Score + G6 Scrum Log
+
+Completes Epic G / P6 with Jira adoption scoring and project scrum attendance logging.
+
+- **Jira adoption** — added `features/projects/services/jira/adoption.ts` with the required weighted data-quality score: assignee coverage, original-estimate coverage, updated-within-3-days coverage, and story-point coverage when points are used. The spec example returns 67.5%, and scores below 60 raise the required warning.
+- **Adoption API/UI** — added `GET /api/projects/[id]/jira/adoption` and surfaced the score/warning in the Jira integration panel.
+- **Scrum attendance** — added `features/projects/services/scrum-attendance.ts` for per-person attendance rate, late/absent counts, team attendance rate, and <70% flags.
+- **Scrum log API/UI** — added `GET/POST /api/projects/[id]/scrum-log`; POST upserts on the existing `projectId+scrumDate` unique key and audits after persistence. Added `ScrumLogWidget` to the project page with date/time/duration/facilitator, In/Late/Out attendance controls, blockers/notes, an R5-style attendance report table, and a compact C16 people-by-date heatmap.
+- **Performance feeds** — added `lib/performance/project-jira-adoption.ts` and `lib/performance/project-scrum-attendance.ts` as R4/R5 import surfaces.
+- **Docs:** G5/G6 tracker rows moved to 🟩 Done and P6 status moved to 🟩 Done.
+- Tests run: `npx tsc --noEmit` (clean) · `npm run test:projects` (139 pass).
+
+## 2026-07-14 — Project Management module: P6 Task 6.5 — G4 Idle Days + Estimate Accuracy
+
+Implements Jira developer evidence metrics for idle days and estimate accuracy.
+
+- **Metrics service** — added `features/projects/services/jira/metrics.ts` with pure working-day idle detection, per-issue `actualHours / estimateHours`, median accuracy per developer, and systematic under/over-estimation flags.
+- **Data source** — DB metrics read synced Jira issues, worklogs, and transitions. The pure model accepts COMMENT events; the current DB-backed report uses Jira issue `lastActivityAt`/`jiraUpdatedAt` as the available comment/update activity signal because separate Jira comment rows are not persisted by G2.
+- **Scoped API/UI** — added `GET /api/projects/[id]/jira/metrics` and a compact "Developer Jira evidence" table in the Jira integration panel. Non-Jira projects return `jiraLinked=false` and no rows.
+- **Performance feed** — added `lib/performance/project-jira-metrics.ts` as the Performance module import surface for R3/review-cycle date windows.
+- **Compile cleanup** — moved the portal project include helper out of a Next route module into `features/projects/services/portal-project-query.ts` so route files only export valid handlers/config.
+- Tests run: `npx tsc --noEmit` (clean) · `npm run test:projects` (134 pass).
+
+## 2026-07-14 — Project Management module: P6 Task 6.4 — G3 Jira Mapping + Rollup
+
+Implements Jira issue mapping and activity auto-rollup without adding schema or dependencies.
+
+- **Mapping service** — added `features/projects/services/jira/rollup.ts` with typed mappings for Manual issue keys, Epic, Label, Component, and Sprint. Existing `Activity.jiraIssueKeys` stores typed mapping tokens so no migration is required.
+- **Auto-rollup** — Jira sync now applies `jiraAutoRollup` after issue ingestion inside a Prisma transaction. Rollup uses story-point weighting when points exist, falls back to issue-count completion, updates mapped activities, and recalculates project rollup in the same transaction.
+- **Manual wins** — direct manual `percentComplete` edits turn `jiraAutoRollup` off in the activity PATCH route, preserving the user's manual value.
+- **Mapping UI/API** — activity detail now shows Jira mapping controls for linked projects, including auto-rollup toggle and live preview via `GET /api/projects/[id]/jira/mapping-preview`.
+- **Compile cleanup** — fixed an unrelated in-progress ScrumHome TypeScript break by restoring missing local form fields, icon imports, link state, and carry-forward helper without changing PM behavior.
+- Tests run: `npx tsc --noEmit` (clean) · `npm run test:projects` (129 pass).
+
+## 2026-07-14 — Project Management module: P6 Task 6.3 — G2 Jira Sync Engine
+
+Implements Jira data ingestion without starting G3 mapping/rollup.
+
+- **Sync service** — added `features/projects/services/jira/sync.ts` consuming Jira issue search, board/sprints, issue worklog, and issue changelog endpoints. It uses incremental JQL (`project = KEY AND updated >= -35m`), serialized 10 req/sec throttling, and exponential backoff for 429s.
+- **Persistence** — sync upserts `JiraIssue` and `JiraSprint`, replaces fetched issue `JiraWorklog`/`JiraTransition` rows to avoid duplicates, resolves assignee emails to platform `User.id`, and writes a `JiraSyncLog` for every connection run.
+- **Cron/manual trigger** — added `app/api/cron/jira-sync` protected by `CRON_SECRET`, plus `POST /api/projects/[id]/jira/sync` for project managers to run Sync Now.
+- **Graceful failure** — failures/partials update `JiraConnection.lastSyncStatus`; the existing Jira panel now shows failure/partial banners with latest safe error text while leaving Layer 1 project data untouched.
+- **Tests/docs:** added node:test coverage for incremental JQL, Jira status normalization, issue field mapping, sparse blocked issues, and assignee email resolution; G2 tracker row moved to 🟩 Done and cron summary updated to 3 of 6.
+- Tests run: `npx tsc --noEmit` (clean) · `npm run test:projects` (124 pass).
+
+## 2026-07-14 — Project Management module: P6 Task 6.2 — G1 Connect Jira
+
+Implements the Jira connection layer without starting the sync engine.
+
+- **Jira connection service** — added `features/projects/services/jira/connection.ts` with site URL/project-key normalization, safe connection serialization, `GET /rest/api/3/myself` validation, issue count lookup, sprint count lookup, and required 401/403/404/429 error mapping.
+- **Scoped APIs** — added `GET/POST /api/projects/[id]/jira` and `POST /api/projects/[id]/jira/test`. GET returns only masked metadata; POST validates credentials, encrypts the token with the 6.1 AES-256-GCM helper, sets `project.jiraLinked=true`, and links `jiraConnectionId` in one transaction.
+- **Settings UI** — added `JiraIntegrationPanel` under Project Settings → Integrations with react-hook-form fields, Test Connection, Save, success counts, masked saved-token state, and API-token help link.
+- **Tests/docs:** added node:test coverage for URL/key normalization, safe serialization with no encrypted token leakage, error mapping, and mocked Jira test calls; G1 tracker row moved to 🟩 Done.
+- Tests run: `npx tsc --noEmit` (clean) · `npm run test:projects` (120 pass).
+
+## 2026-07-14 — Project Management module: P6 Task 6.1 — Jira Token Crypto Utility
+
+Starts Epic G with the security prerequisite for Jira connections.
+
+- **AES-256-GCM helper** — added `lib/projects/jira-crypto.ts` using Node built-in `crypto` only, with versioned ciphertext format `v1:iv:authTag:ciphertext`, 12-byte random IVs, and authenticated data.
+- **Strict key handling** — token encryption reads `JIRA_TOKEN_ENCRYPTION_KEY` and requires a 32-byte base64/base64-prefixed/hex key; wrong-sized or missing keys fail closed.
+- **Write-only readiness** — helper returns only encrypted token material and decrypts only for server-side Jira calls in later G tasks; future APIs should never return token plaintext.
+- **Tests/docs:** added node:test coverage for round-trip encryption, no plaintext in ciphertext, non-deterministic ciphertext, tamper/wrong-key rejection, env key parsing, and invalid-key rejection; P6 moved to 🟨 In Progress with 6.1 marked 🟩 Done.
+- Tests run: `npx tsc --noEmit` (clean) · `npm run test:projects` (114 pass).
+
+## 2026-07-14 — Project Management module: P5 Task 5.3 — I3 Client Portal Dashboard
+
+Implements build spec §I3 on top of the I2 anonymized serializer and I1 portal auth.
+
+- **Dashboard bundle** — `/api/portal/projects/[id]` now returns serializer-backed project data, awaiting client actions, delay rows, client-visible RAID, and published report summaries without exposing raw Prisma rows.
+- **Portal dashboard UI** — `/portal/projects/[id]` now renders "Awaiting Your Action" first with live business-day counters, anonymized schedule bars, honest schedule-change attribution, published reports, and visible RAID.
+- **Client comments** — added portal-only activity comments API and `PortalCommentBox`; GET is SQL-filtered to `CLIENT_VISIBLE`, POST writes `isClientAuthor=true`, and PM notification emits after the comment is persisted.
+- **Report view/download** — added a scoped report detail route for approved/sent client report types, with JSON attachment download of the scrubbed report payload.
+- **Tests/docs:** added node:test coverage for portal dashboard helper behavior; I3 tracker row moved to 🟩 Done and P5 marked 🟩 Done.
+- Tests run: `npx tsc --noEmit` (clean) · `npm run test:projects` (109 pass).
+
+## 2026-07-14 — Project Management module: P5 Task 5.2 — I1 Client Portal Authentication
+
+Implements build spec §I1 after the I2 anonymized serializer prerequisite.
+
+- **Separate portal auth** — added `lib/portal-auth.ts` and `/api/portal/auth/[...nextauth]` with a distinct NextAuth credentials provider backed by `ClientPortalUser`, password hashes, portal-only session fields, and separate portal cookie names.
+- **Hard scoping** — added `withPortalAuth` / `withPortalProject` guards and `/api/portal/projects` routes that enforce `projectIds + portalEnabled` and serialize only through the I2 portal serializer.
+- **Dashboard block** — middleware now returns 403 for portal-only sessions attempting `/dashboard/*`, while internal sessions remain unaffected.
+- **Preview flow** — added `/portal`, `/portal/projects/[id]`, and `/portal/signin`; internal users see the required "Viewing as client - this is what they see." preview banner.
+- **Tests/docs:** added node:test coverage for projectIds scoping and dashboard-block behavior; I1 tracker row moved to 🟩 Done.
+- Tests run: `npx tsc --noEmit` (clean) · `npm run test:projects` (106 pass).
+
+## 2026-07-14 — Project Management module: P5 Task 5.1 — I2 Anonymized Serializer
+
+Implements the Phase 5 data-layer prerequisite from `PROJECT_MANAGEMENT_MODULE_TASKS.md`: I2 ships before portal auth/routes.
+
+- **Portal serializer** — added `features/projects/services/portal-serializer.ts` as the only approved future `/api/portal/*` data path, with client DTOs for projects, phases, milestones, activities, delays, RAID, comments, and attachments.
+- **Anonymization rules** — owners serialize as `Your Team` or `360Ground Team`; forbidden user/cost/Jira keys are stripped recursively; configured employee names are redacted from free-text strings; comments/attachments/RAID throw if not client-visible.
+- **SQL-level filters** — exported portal query helpers for `projectIds + portalEnabled`, `CLIENT_VISIBLE` comments/attachments, and `clientVisible=true` RAID rows.
+- **Tests/docs:** added node:test coverage for hard scoping filters, owner anonymization, no employee-name leaks, forbidden-key stripping, and client-visible enforcement; I2 tracker row moved to 🟩 Done with the code-review checklist item.
+- Tests run: `npx tsc --noEmit` (clean) · `npm run test:projects` (104 pass).
+
+## 2026-07-14 — Project Management module: P4 Task 4.6 — H6 Payment Milestones
+
+Implements build spec §H6 on top of activity approval and governance registers.
+
+- **Payment milestone APIs** — added `/api/projects/[id]/payment-milestones` list/create plus item PATCH/DELETE routes with report/overdue filtering, invoice status normalization, outstanding days, and post-write activity logging.
+- **Approval trigger** — activity `→APPROVED` now marks linked pending milestones `READY_TO_INVOICE` inside the same mutation transaction, then emits `PAYMENT_MILESTONE_READY` to finance/PM recipients after commit.
+- **Payment service** — new `lib/projects/payment-milestones.ts` owns ready-trigger detection, >30-day overdue logic, dashboard/report Prisma filters, serialization, and finance recipient resolution.
+- **Payment UI** — new `PaymentMilestonesRegister` panel captures contract clause, trigger activity, amount, planned invoice date, ready-to-invoice count, overdue CEO warning, and invoice/paid actions.
+- **Tests/docs:** added node:test coverage for approval trigger, outstanding days, overdue status, effective invoice status, and overdue query filtering; H6 tracker row moved to 🟩 Done and P4 marked 🟩 Done; `MASTER_REFERENCE.md` and `COMPONENT_CATALOG.md` updated.
+- Tests run: `npx tsc --noEmit` (clean) · `npm run test:projects` (97 pass).
+
+## 2026-07-14 — Project Management module: P4 Task 4.5 — H5 Correction of Errors
+
+Implements build spec §H5 on top of project governance registers.
+
+- **COE APIs** — added `/api/projects/[id]/coes` list/create plus item PATCH/DELETE routes with report/overdue filtering, deterministic `COE-###` codes, and post-write activity logging.
+- **COE service** — new `lib/projects/coe.ts` detects milestone slip >10 days and RED-project prompts, validates 5 complete Why/Answer pairs before `DONE`, computes root-cause Pareto counts, overdue flags, and Lessons Learned rows.
+- **COE UI** — new `CorrectionOfErrorsRegister` panel surfaces auto-prompts, CEO overdue warnings, 5-Whys entry, systemic fix/template feedback, root-cause counts, and Lessons Learned output.
+- **Tests/docs:** added node:test coverage for trigger detection, code generation, closure validation, and Pareto counts; H5 tracker row moved to 🟩 Done; `MASTER_REFERENCE.md` and `COMPONENT_CATALOG.md` updated.
+- Tests run: `npx tsc --noEmit` (clean) · `npm run test:projects` (92 pass).
+
+## 2026-07-14 — Project Management module: P4 Task 4.4 — H4 Client Obligations & SLA Tracking
+
+Implements build spec §H4 on top of the existing C3 approval clock.
+
+- **Client obligation APIs** — added `/api/projects/[id]/client-obligations` list/create plus item PATCH/DELETE routes with report mode for contractual/R6 obligations.
+- **Compliance service** — new `lib/projects/client-obligations.ts` computes compliance rate, Client Health score/tone, CEO warning state, and serializes obligation health flags.
+- **Approval-clock wiring** — `applyApprovalClock()` now recomputes APPROVAL obligation compliance inside the same transaction that records approval-wait DelayEvents and SLA breaches.
+- **Obligations UI** — new `ClientObligationsRegister` panel captures named responsible person/email, SLA business days, contractual flag, notes, breach count, compliance, Client Health score, and CEO warning below 60.
+- **Tests/docs:** added node:test coverage for compliance, health score/tone, and report filtering; H4 tracker row moved to 🟩 Done; `MASTER_REFERENCE.md` and `COMPONENT_CATALOG.md` updated.
+- Tests run: `npx tsc --noEmit` (clean) · `npm run test:projects` (87 pass).
+
+## 2026-07-14 — Project Management module: P4 Task 4.3 — H3 Stage Gates
+
+Implements build spec §H3 on top of the project detail page and activity status mutation path.
+
+- **Stage-gate APIs** — added `/api/projects/[id]/stage-gates` list/create plus item PATCH/DELETE routes with checklist parsing and status validation.
+- **Gate rules** — `PASSED` requires exit criteria; `WAIVED` requires `waiverReason` and logs `GATE_WAIVED`; report queries expose pending/passed/failed/waived gates.
+- **Soft block** — activity PATCH now blocks `→STARTED` when the previous phase has an unpassed gate. The view switcher and activity drawer prompt for an override reason and retry with `gateOverrideReason`, which is recorded in activity audit metadata.
+- **Stage Gate UI** — new `StageGateRegister` panel creates per-phase gates and manages entry/exit criteria, deliverables, approvals, pass/fail/waive status, and waiver reasons.
+- **Tests/docs:** added node:test coverage for checklist parsing, pass/waive validation, and report filtering; H3 tracker row moved to 🟩 Done; `MASTER_REFERENCE.md` and `COMPONENT_CATALOG.md` updated.
+- Tests run: `npx tsc --noEmit` (clean) · `npm run test:projects` (83 pass).
+
+## 2026-07-14 — Project Management module: P4 Task 4.2 — H2 Change Control Board
+
+Implements build spec §H2 on top of the project detail page.
+
+- **CCB APIs** — added `/api/projects/[id]/change-requests` list/create plus item PATCH/DELETE workflow routes.
+- **Workflow service** — new `lib/projects/change-requests.ts` owns CR codes, transition guards, pending-report filtering, scope-volatility totals, affected-activity schedule shifting, and approval side effects.
+- **Approval side effects** — approving a CR runs in one transaction: CR status/decision fields update, affected activities' `currentEnd` shifts by `scheduleImpactDays`, one `DelayEvent` is created with `reason=SCOPE_ADDITION` and `owner=CLIENT`, and project rollup recalculates.
+- **CCB UI** — new `ChangeControlBoard` panel creates CRs, selects affected activities, shows pending count/scope volatility, captures client sign-off, and drives review/approve/reject/implement actions.
+- **Tests/docs:** added node:test coverage for workflow transitions, pending report query, scope volatility, and schedule shifts; H2 tracker row moved to 🟩 Done; `MASTER_REFERENCE.md` and `COMPONENT_CATALOG.md` updated.
+- Tests run: `npx tsc --noEmit` (clean) · `npm run test:projects` (79 pass).
+
+## 2026-07-14 — Project Management module: P4 Task 4.1 — H1 RAID register
+
+Implements build spec §H1 on top of the project detail page.
+
+- **RAID APIs** — added list/create/update/delete routes under `/api/projects/[id]/raid`, plus `POST /api/projects/[id]/raid/[raidId]/delay` for overdue client dependencies.
+- **RAID service** — extended `lib/projects/raid.ts` with score, risk tone, days-open, ref-code, overdue-client-dependency, serializer, and query-level portal filter helpers.
+- **Governance UI** — new `RaidRegister` component provides Risks/Assumptions/Issues/Dependencies tabs, type-specific create fields, status/client-visible controls, and a 5×5 risk matrix with red/amber/green scoring.
+- **Confidence/delays** — open red risks trigger project-health recompute so B2 confidence is penalized immediately; overdue client dependencies can generate a `BLOCKED` DelayEvent with `CLIENT_DEPENDENCY_NOT_PROVIDED`.
+- **Tests/docs:** added node:test coverage for score bands, days-open, overdue dependency detection, and SQL-level `clientVisible` filtering; H1 tracker row moved to 🟩 Done; `MASTER_REFERENCE.md` and `COMPONENT_CATALOG.md` updated.
+- Tests run: `npx tsc --noEmit` (clean) · `npm run test:projects` (74 pass).
+
+## 2026-07-14 — Project Management module: P3 Task 3.7 — F2 activity comments with visibility
+
+Implements build spec §F2 on top of the F1 activity drawer.
+
+- **Comment APIs** — added `GET/POST /api/projects/[id]/activities/[activityId]/comments` plus `PATCH/DELETE` for individual comments, scoped through project read/write access and activity ownership.
+- **Visibility rule** — new `lib/projects/activity-comments.ts` centralizes comment/attachment Prisma `where` builders; portal reads inject `visibility: CLIENT_VISIBLE` before querying, not after serialization.
+- **Threaded UI** — `ActivityDetailPanel` now loads real threaded comments, posts through the existing TipTap `MentionEditor`, defaults to `INTERNAL`, supports replies, PM visibility toggles, deletes, and client-author badges.
+- **Mentions** — comment create/update extracts TipTap mention ids and text mentions, stores them on `ActivityComment.mentions`, and emits `USER_MENTIONED` after the DB write. Project mention deep links now honor `data.deepLink`.
+- **Tests/docs:** added node:test coverage for SQL-level visibility filters and mention-id extraction; F2 tracker row moved to 🟩 Done; `MASTER_REFERENCE.md` and `COMPONENT_CATALOG.md` updated.
+- Tests run: `npx tsc --noEmit` (clean) · `npm run test:projects` (69 pass).
+
+## 2026-07-14 — Project Management module: P3 Task 3.6 — F1 activity detail panel
+
+Implements build spec §F1 on top of the E1 view switcher.
+
+- **Activity drawer** — new `features/projects/components/activity/ActivityDetailPanel.tsx` uses `SideDrawer` and opens from Gantt bars, Table rows, and Board cards.
+- **Header actions** — Mark done, Outdent, Indent, Convert to Milestone, Color, Delete, and Close are wired to existing project mutations; saves show an undo toast.
+- **Editable fields** — title, description, assignee, dates, status, percent complete, owner party, effort/cost metrics, priority, and risk are editable in the drawer.
+- **Approval clock/C4** — `APPROVAL_REQUESTED` activities show live business-days waiting and SLA breach styling; baselined date edits open the slip reason/owner modal before saving.
+- **Subtasks/comments** — panel lists subtasks, can add a one-level subtask, and includes the comment-thread shell with INTERNAL/CLIENT_VISIBLE visibility choice for the F2 CRUD implementation.
+- **Backend** — activity PATCH now accepts validated `parentActivityId` updates for one-level indent/outdent and continues to run rollup inside the mutation transaction.
+- **Docs:** F1 tracker row moved to 🟩 Done; `MASTER_REFERENCE.md` and `COMPONENT_CATALOG.md` updated.
+- Tests run: `npx tsc --noEmit` (clean) · `npm run test:projects` (66 pass).
+
+## 2026-07-14 — Project Management module: P3 Task 3.5 — E1 view switcher
+
+Implements build spec §E1 on top of the D1–D4 Gantt surface.
+
+- **View layer** — new `ProjectViewSwitcher` replaces the always-visible Gantt/tree stack with six tabs: Gantt, Table, Board, Workload, Mindmap, and Overview.
+- **Persisted filters** — new Zustand store `lib/stores/project-view-store.ts` persists active view, search, and status filter across view switches.
+- **Table view** — `@tanstack/react-table` schedule table with sorting, inline status/% edits, row selection, and bulk status changes.
+- **Board view** — six status columns. Drag/drop calls the existing activity PATCH route, so moving to `APPROVAL_REQUESTED` starts the C3 approval clock and emits notifications post-commit through the already-verified route.
+- **Workload view** — new `GET /api/projects/workload` computes a people×weeks heatmap across all readable active projects; >100% allocation renders red.
+- **Mindmap/Overview** — ReactFlow radial Project→Phase→Milestone→Activity map plus C24-style Expected vs Actual completion ring, KPI cards, and risk/approval/slip registers.
+- **Docs:** E1 tracker row moved to 🟩 Done; `MASTER_REFERENCE.md` and `COMPONENT_CATALOG.md` updated.
+- Tests run: `npx tsc --noEmit` (clean) · `npm run test:projects` (66 pass).
+
+## 2026-07-14 — Project Management module: P3 Task 3.4 — D4 Gantt toolbar/export
+
+Implements build spec §D4 on the custom PM Gantt.
+
+- **Gantt toolbar** — added grouped Export, Baseline, Options, Columns, Segments, sort/scale/zoom, undo, critical path, duplicate, comments, minimap, legend, share, and J6 AI placeholder controls without replacing the D1–D3 virtualized scheduling surface.
+- **Options** — baseline ghosts, dependencies, progress fill, weekend shading, today marker, comments badges, and minimap can now be toggled. Column preferences persist and include Assignee, EH, Start, Due, Status, Priority, Risk, %, Owner Party, and Slip Days.
+- **Critical path** — reuses `lib/projects/scheduling.ts::criticalPath()` to highlight the current CPM path in red.
+- **Exports** — new `GET /api/projects/[id]/gantt/export?format=pdf|png|csv|xml` returns authenticated Gantt exports. PDF and PNG reuse the shared Puppeteer browser pool; CSV and MS Project XML are generated server-side from the project tree.
+- **Puppeteer helper** — `lib/letter-pdf-puppeteer.ts` now also exposes `renderHtmlToPng()` for trusted HTML exports.
+- **Docs:** D4 tracker row moved to 🟩 Done; `MASTER_REFERENCE.md` and `COMPONENT_CATALOG.md` updated.
+- Tests run: `npx tsc --noEmit` (clean) · `npm run test:projects` (66 pass).
+
+## 2026-07-13 — Project Management module: P3 Task 3.3 — D3 drag, resize, dependencies
+
+Implements build spec §D3 on top of the custom Gantt.
+
+- **New** `lib/projects/scheduling.ts` — pure scheduling helpers: `shiftSuccessors()` cascades transitive successor shifts, `wouldCreateDependencyCycle()`/`assertNoDependencyCycle()` prevent circular dependencies, `criticalPath()` computes a CPM-style longest dependency path, plus date/duration helpers.
+- **Tests** — new `lib/projects/scheduling.test.ts` with 6 node:test cases covering date shift, inclusive duration, direct FS successor shift, transitive A→B→C cascade, circular-dependency blocking, and critical path.
+- **Backend routes** — project detail now includes `dependencies`; new `GET/POST /api/projects/[id]/dependencies` and `DELETE /api/projects/[id]/dependencies/[dependencyId]`; new `PATCH /api/projects/[id]/activities/schedule` persists drag/resize changes and cascaded successor shifts in one transaction, runs C4 `recordSlipDelayEvent()` for baselined date changes, then `recalcProjectRollup()` in the same transaction.
+- **Gantt UI** — bars can be dragged horizontally or resized from either edge with a live date tooltip; baselined drops open the C4 reason/owner modal before persisting and cancel clears the preview; connector handles create dependencies with FS/SS/FF/SF selector; dependency arrows render and delete via confirm dialog.
+- **Docs:** D3 tracker row moved to 🟩 Done; `MASTER_REFERENCE.md` and `COMPONENT_CATALOG.md` updated.
+- Tests run: `npx tsc --noEmit` (clean) · `npm run test:projects` (66 pass).
+
+## 2026-07-13 — Project Management module: P3 Task 3.2 — D2 Gantt bars, baseline overlay, colors
+
+Implements build spec §D2 on top of the custom D1 Gantt, without starting D3 drag/dependencies.
+
+- **Changed** `features/projects/components/gantt/GanttChart.tsx` — enriched the virtualized row model with `baselineStart/baselineEnd`, `isMilestone`, and `waitingSince`; phase and milestone rows derive actual/baseline spans from child activity dates when available.
+- **Bars** — actual activity bars render with the existing exact `project-status-*` Tailwind tokens; phase rows render dark summary bars with bracket ends; milestone rows and activity rows with `isMilestone` render as diamonds.
+- **Baseline overlay** — when the project is baselined, the frozen baseline span renders as a `project-baseline` ghost at 40% opacity below the actual bar, so slips are visually apparent.
+- **Progress and signals** — actual bars include a darker progress fill sized to `percentComplete`; `APPROVAL_REQUESTED` bars show a clock badge with business-days-waiting via `businessDaysBetween()`; high-risk rows get the subtle danger-ring tint for D2's red signal.
+- **Docs:** D2 tracker row moved to 🟩 Done; `MASTER_REFERENCE.md` and `COMPONENT_CATALOG.md` Gantt notes updated.
+- Tests run: `npx tsc --noEmit` (clean) · `npm run test:projects` (60 pass).
+
+## 2026-07-13 — Project Management module: P2 verification, C5 PDF closeout, P3 Task 3.1 D1 Gantt layout
+
+Takeover pass for the Project Management module: independently verified the P2 gate, closed the two requested P2 gaps, then completed only P3 subtask 3.1 and stopped for review.
+
+- **P2 gate verified:** `npx tsc --noEmit`; `npm run test:projects` (60 pass); `scripts/verify-c1.ts`, `verify-c2.ts`, `verify-c4.ts`, `verify-c5.ts`, and `verify-approval-cron.ts` all pass. Confirmed Invariant #1 via route guards (`baseline*` raw PATCH payloads return 403 on project/phase/milestone/activity routes). Confirmed Invariant #2 in the activity route (`currentStart/currentEnd` move on a baselined project returns 403 without `slipReason`+`slipOwner`; gated path creates `DelayEvent`). Confirmed re-baseline preserves v1 + v2 snapshots; approval cron dedup stamps `Activity.approvalEscalationLevel` and resolution resets it to 0.
+- **C5 PDF export:** reused the existing Puppeteer pattern in `lib/letter-pdf-puppeteer.ts` by adding `renderHtmlToPdf()` on the shared warm browser pool. Added `lib/projects/delay-ledger-pdf.ts` (trusted HTML renderer with filtered rows + server totals) and `GET /api/projects/[id]/delays/pdf` (auth-scoped, Node runtime, no new PDF dep). `DelayLedgerTable.tsx` now has an `Export PDF` button beside CSV using the same active filters.
+- **Approval escalation unit test:** confirmed the requested node:test coverage already exists in `lib/projects/delay-ledger.test.ts` for level 0 below SLA, level 1 at SLA, level 2 at SLA+3, and level 3 at SLA+7; re-run green.
+- **P3 D1 Gantt layout:** installed the approved `@tanstack/react-virtual` dependency after checking the existing Gantt setup (only `/dashboard/plans` uses `dhtmlx-gantt`; no existing PM custom virtualized Gantt). Added `features/projects/components/gantt/GanttChart.tsx`: custom virtualized schedule surface with synced left/timeline rows, persisted resizable left pane, persisted configurable columns, row types, collapse/expand, search, sort, 5 timeline scales, zoom, today marker, two-row header, and minimap. Rendered it above the existing schedule tree without replacing completed P2 editing flows.
+- **Docs:** C5 tracker note updated to include PDF; D1 tracker row moved to 🟩 Done; P3 phase marked 🟨 In Progress; `MASTER_REFERENCE.md` updated for `@tanstack/react-virtual`, C5 PDF helpers, and the D1 Gantt component.
+- Tests run: `npx tsc --noEmit` (clean) · `npm run test:projects` (60 pass) · `npx tsx scripts/verify-c1.ts` · `npx tsx scripts/verify-c2.ts` · `npx tsx scripts/verify-c4.ts` · `npx tsx scripts/verify-c5.ts` · `npx tsx scripts/verify-approval-cron.ts`.
+
 ## 2026-07-13 — Project Management module: Task 2.5 — approval-clock cron (P2 complete ⭐)
 
 Finishes Epic C: the SLA escalation sweep for the Approval Clock (build spec §C3 "fire at SLA, SLA+3, SLA+7").

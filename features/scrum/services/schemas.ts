@@ -11,12 +11,28 @@ import { scrumLinkInputSchema } from './scrum-links'
 const richText = z.string().trim().min(10).max(10000)
 const optionalRichText = z.string().trim().max(10000).optional().nullable()
 
+const scrumItemSchema = z.object({
+  id: z.string().min(1),
+  text: z.string().min(1).max(1000),
+  todoId: z.string().min(1).optional(),
+  objectiveId: z.string().min(1).optional(),
+  keyResultId: z.string().min(1).optional(),
+  status: z.enum(['PENDING', 'DONE', 'CARRIED', 'NOT_DONE']).optional(),
+})
+
+const scrumContentJsonSchema = z.object({
+  yesterdayItems: z.array(scrumItemSchema).max(100).optional(),
+  todayItems: z.array(scrumItemSchema).max(100).optional(),
+  blockerItems: z.array(scrumItemSchema).max(100).optional(),
+  winItems: z.array(scrumItemSchema).max(100).optional(),
+})
+
 const scrumUpdateInputBaseSchema = z.object({
   userId: z.string().min(1).optional(),
   scrumDate: z.string().date().optional(),
-  yesterdayDone: richText,
+  yesterdayDone: richText.optional().nullable(),
   yesterdayStatusJson: z.unknown().optional().nullable(),
-  todayPlan: richText,
+  todayPlan: richText.optional().nullable(),
   blockers: optionalRichText,
   blockerCategory: z.enum(SCRUM_BLOCKER_CATEGORIES).optional().nullable(),
   wins: optionalRichText,
@@ -26,14 +42,21 @@ const scrumUpdateInputBaseSchema = z.object({
   proxyReason: z.enum(SCRUM_PROXY_REASONS).optional().nullable(),
   proxyReasonDetail: z.string().trim().max(500).optional().nullable(),
   links: z.array(scrumLinkInputSchema).max(30).optional(),
+  contentJson: scrumContentJsonSchema.optional().nullable(),
+  remarks: z.string().trim().max(20000).optional().nullable(),
 })
 
-export const scrumUpdateInputSchema = scrumUpdateInputBaseSchema.refine((value) => !value.blockers || !!value.blockerCategory, {
+function hasBlockerItems(value: any) {
+  const items = value.contentJson?.blockerItems
+  return Array.isArray(items) && items.length > 0
+}
+
+export const scrumUpdateInputSchema = scrumUpdateInputBaseSchema.refine((value) => !hasBlockerItems(value) || !!value.blockerCategory, {
   path: ['blockerCategory'],
   message: 'Blocker category is required when blockers are present',
 })
 
-export const scrumUpdatePatchSchema = scrumUpdateInputBaseSchema.partial().refine((value) => !value.blockers || !!value.blockerCategory, {
+export const scrumUpdatePatchSchema = scrumUpdateInputBaseSchema.partial().refine((value) => !hasBlockerItems(value) || !!value.blockerCategory, {
   path: ['blockerCategory'],
   message: 'Blocker category is required when blockers are present',
 })

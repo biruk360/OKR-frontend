@@ -19,28 +19,34 @@ export const GET = withAuth<{ id: string }>(async (_req, { session, params }) =>
     return exists ? apiForbidden() : apiNotFound('Project not found')
   }
 
-  const project = await prisma.project.findUnique({
-    where: { id: params.id },
-    include: {
-      members: true,
-      phases: {
-        orderBy: { position: 'asc' },
-        include: {
-          milestones: {
-            orderBy: { position: 'asc' },
-            include: {
-              activities: {
-                orderBy: { position: 'asc' },
-                include: { tags: true, _count: { select: { comments: true, subtasks: true } } },
+  const [project, dependencies] = await Promise.all([
+    prisma.project.findUnique({
+      where: { id: params.id },
+      include: {
+        members: true,
+        phases: {
+          orderBy: { position: 'asc' },
+          include: {
+            milestones: {
+              orderBy: { position: 'asc' },
+              include: {
+                activities: {
+                  orderBy: { position: 'asc' },
+                  include: { tags: true, _count: { select: { comments: true, subtasks: true } } },
+                },
               },
             },
           },
         },
       },
-    },
-  })
+    }),
+    prisma.activityDependency.findMany({
+      where: { predecessor: { milestone: { phase: { projectId: params.id } } } },
+      orderBy: { id: 'asc' },
+    }),
+  ])
 
-  return apiSuccess(project)
+  return apiSuccess(project ? { ...project, dependencies } : null)
 })
 
 const patchSchema = z.object({
@@ -56,6 +62,7 @@ const patchSchema = z.object({
   clientEmails: z.array(z.string().email()).optional(),
   plannedStart: z.string().optional(),
   plannedEnd: z.string().optional(),
+  objectiveId: z.string().nullable().optional(),
 })
 
 export const PATCH = withAuth<{ id: string }>(async (req, { session, params }) => {
@@ -71,6 +78,11 @@ export const PATCH = withAuth<{ id: string }>(async (req, { session, params }) =
   const data: any = { ...parsed.data }
   if (data.plannedStart) data.plannedStart = new Date(data.plannedStart)
   if (data.plannedEnd) data.plannedEnd = new Date(data.plannedEnd)
+
+  if (data.objectiveId !== undefined && data.objectiveId !== null) {
+    const objective = await prisma.objective.findUnique({ where: { id: data.objectiveId }, select: { id: true } })
+    if (!objective) return apiValidationError('Objective not found')
+  }
 
   const before = (await prisma.project.findUnique({ where: { id: params.id } })) as Record<string, any> | null
   const updated = await prisma.project.update({ where: { id: params.id }, data })

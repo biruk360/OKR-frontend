@@ -35,6 +35,8 @@ model User {
   // Relationships
   ownedObjectives             Objective[]              @relation("ObjectiveOwner")
   ownedKeyResults             KeyResult[]              @relation("KeyResultOwner")
+  objectivesClosed            Objective[]              @relation("ObjectiveClosedBy")
+  keyResultsClosed            KeyResult[]              @relation("KeyResultClosedBy")
   assignedTodos               Todo[]                   @relation("TodoAssignee")
   createdTodos                Todo[]                   @relation("TodoCreator")
   keyResultCheckIns           KeyResultCheckIn[]
@@ -193,6 +195,8 @@ model OrganizationSettings {
   /// Default AI provider when a /generate call doesn't specify one.
   /// One of "anthropic" | "openai" | "gemini".
   aiPreferredProvider     String   @default("anthropic")
+  /// OKR period-close reopen window for non-admin users (days after close). Default 14.
+  okrReopenWindowDays     Int      @default(14)
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
 
@@ -2913,6 +2917,8 @@ model ScrumUpdate {
   yesterdayStatusJson Json?
   todayPlan           String
   blockers            String?
+  remarks             String?
+  contentJson         Json?
   blockerCategory     String? // EXTERNAL_DEPENDENCY | CLIENT_APPROVAL | INTERNAL_DEPENDENCY | TECHNICAL | ENVIRONMENT_ACCESS | UNCLEAR_REQUIREMENTS | RESOURCE_CAPACITY | TOOLING | OTHER
   blockerStatus       String?   @default("OPEN") // OPEN | RECURRING | ESCALATED | RESOLVED
   blockerDaysOpen     Int       @default(0)

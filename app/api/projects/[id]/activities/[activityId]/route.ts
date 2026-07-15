@@ -6,8 +6,10 @@ import { getWritableProject } from '@/lib/projects/access'
 import { recalcProjectRollup, computeSlipDays } from '@/lib/projects/rollup'
 import { applyApprovalClock, recordSlipDelayEvent, type ApprovalClockResult } from '@/lib/projects/delay-ledger'
 import { hasBaselineFieldWrite } from '@/lib/projects/baseline'
+import { findBlockingStageGateForActivity } from '@/lib/projects/stage-gates'
+import { markPaymentMilestonesReady, resolveFinanceRecipients, shouldTriggerPaymentMilestone, type PaymentMilestoneReadyResult } from '@/lib/projects/payment-milestones'
 import { emit } from '@/lib/notifications'
-import { apiSuccess, apiForbidden, apiNotFound, apiBadRequest, apiValidationError, withAuth } from '@/lib/api'
+import { apiSuccess, apiForbidden, apiNotFound, apiBadRequest, apiConflict, apiValidationError, withAuth } from '@/lib/api'
 
 /**
  * PATCH  /api/projects/[id]/activities/[activityId] — update an activity + roll up (B1).
@@ -22,6 +24,7 @@ const patchSchema = z.object({
   title: z.string().trim().min(3).max(200).optional(),
   description: z.string().max(20000).nullable().optional(),
   assigneeId: z.string().nullable().optional(),
+  parentActivityId: z.string().nullable().optional(),
   ownerParty: z.enum(['360GROUND', 'CLIENT', 'SHARED']).optional(),
   currentStart: z.string().nullable().optional(),
   currentEnd: z.string().nullable().optional(),
@@ -36,10 +39,14 @@ const patchSchema = z.object({
   actualCost: z.number().min(0).nullable().optional(),
   isMilestone: z.boolean().optional(),
   color: z.string().nullable().optional(),
+  jiraIssueKeys: z.array(z.string().trim().min(1).max(120)).max(50).optional(),
+  jiraAutoRollup: z.boolean().optional(),
   // Slip attribution — required when moving dates on a baselined project (C4).
   slipReason: z.string().optional(),
   slipOwner: z.enum(['360GROUND', 'CLIENT', 'SHARED']).optional(),
   slipDetail: z.string().max(2000).optional(),
+  // H3 gate override — required when starting a phase whose previous phase gate is unpassed.
+  gateOverrideReason: z.string().trim().max(2000).optional(),
 })
 
 export const PATCH = withAuth<{ id: string; activityId: string }>(async (req: NextRequest, { session, params }) => {
@@ -77,10 +84,35 @@ export const PATCH = withAuth<{ id: string; activityId: string }>(async (req: Ne
     if (hasSubtasks > 0) return apiBadRequest('This activity has sub-activities; its % is derived and read-only')
   }
 
+  if (input.parentActivityId !== undefined && input.parentActivityId !== existing.parentActivityId) {
+    if (input.parentActivityId === params.activityId) return apiBadRequest('An activity cannot be its own parent')
+    if (input.parentActivityId) {
+      const parent = await prisma.activity.findFirst({
+        where: {
+          id: input.parentActivityId,
+          milestoneId: existing.milestoneId,
+          parentActivityId: null,
+        },
+        select: { id: true },
+      })
+      if (!parent) return apiBadRequest('Sub-activities can only be nested one level under a sibling activity')
+    }
+    if (existing.parentActivityId && input.parentActivityId) return apiBadRequest('Sub-activities cannot be nested under another sub-activity')
+  }
+
+  const stageGateBlock = input.status === 'STARTED' && existing.status !== 'STARTED'
+    ? await findBlockingStageGateForActivity(prisma, params.id, params.activityId)
+    : null
+  if (stageGateBlock && !input.gateOverrideReason?.trim()) {
+    return apiConflict(`${stageGateBlock.gateName} has not passed. Proceed anyway?`, stageGateBlock)
+  }
+
   const data: any = {}
-  for (const k of ['title', 'description', 'assigneeId', 'ownerParty', 'status', 'percentComplete', 'weight', 'priority', 'risk', 'estimatedHours', 'actualHours', 'estimatedCost', 'actualCost', 'isMilestone', 'color'] as const) {
+  for (const k of ['title', 'description', 'assigneeId', 'parentActivityId', 'ownerParty', 'status', 'percentComplete', 'weight', 'priority', 'risk', 'estimatedHours', 'actualHours', 'estimatedCost', 'actualCost', 'isMilestone', 'color', 'jiraIssueKeys', 'jiraAutoRollup'] as const) {
     if (input[k] !== undefined) data[k] = input[k]
   }
+  // G3: manual progress edits win over Jira auto-rollup.
+  if (input.percentComplete !== undefined) data.jiraAutoRollup = false
   if (input.currentStart !== undefined) data.currentStart = nextStart
   if (input.currentEnd !== undefined) data.currentEnd = nextEnd
   if (access.baselineCommittedAt && dateChanged) {
@@ -88,6 +120,7 @@ export const PATCH = withAuth<{ id: string; activityId: string }>(async (req: Ne
     data.slipOwner = input.slipOwner
   }
 
+  let paymentMilestonesReady: PaymentMilestoneReadyResult[] = []
   const clockResult = await prisma.$transaction(async (tx): Promise<ApprovalClockResult | null> => {
     await tx.activity.update({ where: { id: params.activityId }, data })
     // C3 Approval Clock: status transitions to/from APPROVAL_REQUESTED start/stop
@@ -112,6 +145,9 @@ export const PATCH = withAuth<{ id: string; activityId: string }>(async (req: Ne
         recordedById: session.user.id,
       })
     }
+    if (input.status !== undefined && shouldTriggerPaymentMilestone(existing.status, input.status)) {
+      paymentMilestonesReady = await markPaymentMilestonesReady(tx, { projectId: params.id, activityId: params.activityId })
+    }
     await recalcProjectRollup(tx, params.id)
     return result
   })
@@ -119,6 +155,28 @@ export const PATCH = withAuth<{ id: string; activityId: string }>(async (req: Ne
   // Post-commit side effects: approval-clock notifications (Standing Rule #1).
   for (const n of clockResult?.notifications ?? []) {
     await emit(n.eventKey, n.payload)
+  }
+  if (paymentMilestonesReady.length > 0) {
+    const project = await prisma.project.findUnique({ where: { id: params.id }, select: { name: true, projectManagerId: true } })
+    const recipients = await resolveFinanceRecipients(prisma, project?.projectManagerId)
+    for (const milestone of paymentMilestonesReady) {
+      await emit('PAYMENT_MILESTONE_READY', {
+        actorId: session.user.id,
+        entityType: 'PROJECT',
+        entityId: params.id,
+        entityTitle: project?.name ?? 'Project',
+        explicitRecipients: recipients,
+        data: {
+          paymentMilestoneId: milestone.id,
+          paymentMilestoneName: milestone.name,
+          activityId: params.activityId,
+          activityTitle: existing.title,
+          amount: milestone.amount,
+          currency: milestone.currency,
+          deepLink: `/dashboard/projects/${params.id}`,
+        },
+      })
+    }
   }
 
   const changes: ChangeMap = {}
@@ -143,7 +201,13 @@ export const PATCH = withAuth<{ id: string; activityId: string }>(async (req: Ne
     action,
     actorId: session.user.id,
     changes: Object.keys(changes).length ? changes : null,
-    metadata: { activityId: params.activityId },
+    metadata: {
+      activityId: params.activityId,
+      paymentMilestonesReady: paymentMilestonesReady.map((m) => ({ id: m.id, name: m.name, amount: m.amount, currency: m.currency })),
+      ...(stageGateBlock && input.gateOverrideReason?.trim()
+        ? { gateOverride: { ...stageGateBlock, reason: input.gateOverrideReason.trim() } }
+        : {}),
+    },
   })
 
   return apiSuccess({ id: params.activityId })

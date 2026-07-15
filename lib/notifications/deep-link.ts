@@ -116,6 +116,7 @@ function pickPath(eventKey: EventKey, entityType: EntityType | undefined, entity
 
   // ── Comments / mentions: link to the entity the comment lives on ──
   if (eventKey === 'USER_MENTIONED' || eventKey === 'COMMENT_ON_OWNED_ENTITY') {
+    if (data.deepLink) return String(data.deepLink)
     if (entityType === 'OBJECTIVE' && entityId) return `/dashboard/objectives/${entityId}`
     if (entityType === 'KEY_RESULT' && entityId) return `/dashboard/key-results/${entityId}`
     if (entityType === 'TODO' && entityId) return `/dashboard/todos?open=${entityId}`

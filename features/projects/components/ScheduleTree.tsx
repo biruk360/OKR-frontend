@@ -10,6 +10,7 @@ import {
   useAddPhase, useDeletePhase, useAddMilestone, useDeleteMilestone,
   useAddActivity, useUpdateActivity, useDeleteActivity,
 } from '../hooks/useProject'
+import { MilestoneKeyResultLinker } from './okr/MilestoneKeyResultLinker'
 import { ACTIVITY_STATUSES, ACTIVITY_STATUS_LABEL, SLIP_REASONS, SLIP_REASON_LABEL, SLIP_REASON_OWNER, type ActivityStatus, type OwnerParty, type SlipReason } from '../types'
 
 const OWNER_LABEL: Record<OwnerParty, string> = { '360GROUND': '360Ground', CLIENT: 'Client', SHARED: 'Shared' }
@@ -42,7 +43,7 @@ export function ScheduleTree({ project, canEdit }: { project: ProjectDetail; can
       )}
 
       {project.phases.map((phase) => (
-        <PhaseRow key={phase.id} projectId={project.id} phase={phase} canEdit={canEdit} baselined={!!project.baselineCommittedAt} />
+        <PhaseRow key={phase.id} projectId={project.id} objectiveId={project.objectiveId} phase={phase} canEdit={canEdit} baselined={!!project.baselineCommittedAt} />
       ))}
 
       {project.phases.length === 0 && (
@@ -71,7 +72,7 @@ export function ScheduleTree({ project, canEdit }: { project: ProjectDetail; can
   )
 }
 
-function PhaseRow({ projectId, phase, canEdit, baselined }: { projectId: string; phase: PhaseNode; canEdit: boolean; baselined: boolean }) {
+function PhaseRow({ projectId, objectiveId, phase, canEdit, baselined }: { projectId: string; objectiveId: string | null; phase: PhaseNode; canEdit: boolean; baselined: boolean }) {
   const [open, setOpen] = useState(true)
   const [adding, setAdding] = useState(false)
   const [mName, setMName] = useState('')
@@ -103,7 +104,7 @@ function PhaseRow({ projectId, phase, canEdit, baselined }: { projectId: string;
       {open && (
         <div className="divide-y divide-black/[0.04]">
           {phase.milestones.map((m) => (
-            <MilestoneRow key={m.id} projectId={projectId} milestone={m} canEdit={canEdit} baselined={baselined} />
+            <MilestoneRow key={m.id} projectId={projectId} objectiveId={objectiveId} milestone={m} canEdit={canEdit} baselined={baselined} />
           ))}
           {canEdit && (
             <div className="px-3 py-2">
@@ -134,7 +135,7 @@ function PhaseRow({ projectId, phase, canEdit, baselined }: { projectId: string;
   )
 }
 
-function MilestoneRow({ projectId, milestone, canEdit, baselined }: { projectId: string; milestone: MilestoneNode; canEdit: boolean; baselined: boolean }) {
+function MilestoneRow({ projectId, objectiveId, milestone, canEdit, baselined }: { projectId: string; objectiveId: string | null; milestone: MilestoneNode; canEdit: boolean; baselined: boolean }) {
   const [adding, setAdding] = useState(false)
   const [aTitle, setATitle] = useState('')
   const addActivity = useAddActivity(projectId)
@@ -148,6 +149,13 @@ function MilestoneRow({ projectId, milestone, canEdit, baselined }: { projectId:
         <span className="text-body font-medium text-ink-primary">{milestone.name}</span>
         <span className="text-body-sm text-ink-tertiary">· {milestone.weight}%</span>
         <span className="ml-auto text-body-sm tabular-nums text-ink-secondary">{milestone.percentComplete.toFixed(0)}%</span>
+        <MilestoneKeyResultLinker
+          projectId={projectId}
+          milestoneId={milestone.id}
+          objectiveId={objectiveId}
+          keyResultId={milestone.keyResultId}
+          canEdit={canEdit}
+        />
         {canEdit && (
           <button className="text-ink-tertiary hover:text-danger-500" onClick={() => setConfirmDel(true)} aria-label="Delete milestone">
             <Trash2 className="size-3.5" />

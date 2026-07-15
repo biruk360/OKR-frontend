@@ -23,6 +23,7 @@
 
 import type { Prisma } from '@prisma/client'
 import { businessDaysBetween } from './business-days'
+import { updateApprovalObligationCompliance } from './client-obligations'
 import type { EventPayload } from '@/lib/notifications/events'
 
 /**
@@ -305,6 +306,9 @@ export async function applyApprovalClock(
             },
           },
         })
+      }
+      if (obligation) {
+        await updateApprovalObligationCompliance(tx, projectId, obligation.id)
       }
     }
 

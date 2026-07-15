@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { INTERNAL_SESSION_COOKIES, PORTAL_SESSION_COOKIE, shouldBlockDashboardForPortalOnly } from '@/lib/portal-auth'
 
 /**
  * Phase 4 — mark deprecated SprintActivity routes. Sunset date is 2 weeks
@@ -9,6 +10,14 @@ const DEPRECATION_SUNSET = '2026-05-11'
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
+  if (shouldBlockDashboardForPortalOnly({
+    pathname,
+    hasPortalSessionCookie: req.cookies.has(PORTAL_SESSION_COOKIE),
+    hasInternalSessionCookie: INTERNAL_SESSION_COOKIES.some((name) => req.cookies.has(name)),
+  })) {
+    return new NextResponse('Client portal users cannot access the internal dashboard', { status: 403 })
+  }
+
   const isDeprecatedSprintActivity =
     /^\/api\/sprints\/[^/]+\/activities(\/|$)/.test(pathname)
 
@@ -26,5 +35,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/api/sprints/:path*'],
+  matcher: ['/api/sprints/:path*', '/dashboard/:path*'],
 }

@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { recordActivity } from '@/lib/activity-log'
 import { getWritableProject } from '@/lib/projects/access'
 import { recalcProjectRollup } from '@/lib/projects/rollup'
+import { recalcKrsAndAncestors } from '@/lib/projects/okr-bridge'
 import { hasBaselineFieldWrite } from '@/lib/projects/baseline'
 import { apiSuccess, apiForbidden, apiNotFound, apiValidationError, withAuth } from '@/lib/api'
 
@@ -21,7 +22,7 @@ const schema = z.object({
 export const PATCH = withAuth<{ id: string; milestoneId: string }>(async (req: NextRequest, { session, params }) => {
   const access = await getWritableProject(session, params.id)
   if (!access) return apiForbidden()
-  const milestone = await prisma.milestone.findFirst({ where: { id: params.milestoneId, phase: { projectId: params.id } }, select: { id: true } })
+  const milestone = await prisma.milestone.findFirst({ where: { id: params.milestoneId, phase: { projectId: params.id } }, select: { id: true, keyResultId: true } })
   if (!milestone) return apiNotFound('Milestone not found')
 
   const raw = await req.json().catch(() => null)
@@ -33,6 +34,13 @@ export const PATCH = withAuth<{ id: string; milestoneId: string }>(async (req: N
   await prisma.$transaction(async (tx) => {
     await tx.milestone.update({ where: { id: params.milestoneId }, data: parsed.data })
     await recalcProjectRollup(tx, params.id)
+
+    // K1: if the milestone was unlinked or moved to a different KR, recompute the old KR too.
+    const oldKrId = milestone.keyResultId
+    const newKrId = parsed.data.keyResultId
+    if (oldKrId && oldKrId !== newKrId) {
+      await recalcKrsAndAncestors(tx, [oldKrId])
+    }
   })
   await recordActivity({ entityType: 'PROJECT_MILESTONE', projectId: params.id, action: 'UPDATED', actorId: session.user.id, metadata: { milestoneId: params.milestoneId } })
   return apiSuccess({ id: params.milestoneId })

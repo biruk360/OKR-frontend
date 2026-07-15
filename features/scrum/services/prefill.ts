@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { previousScrumWorkingDay, scrumBusinessDaysBetween, toScrumDateKey } from './working-days'
 import { getScrumSettings } from './settings'
+import { normalizeContentJson, parseHtmlToItems, type ScrumContentJson } from './items'
 
 export interface ScrumPlanItem {
   id: string
@@ -24,6 +25,7 @@ export interface ScrumPrefill {
   yesterdayDone: string
   todayPlan: string
   planItems: ScrumPlanItem[]
+  contentJson: ScrumContentJson
   openBlocker: { text: string; category: string | null; daysOpen: number } | null
 }
 
@@ -46,6 +48,7 @@ export async function getScrumPrefill(userId: string, date = new Date()): Promis
       blockerStatus: true,
       blockerFirstRaisedAt: true,
       blockerDaysOpen: true,
+      contentJson: true,
       links: true,
     },
   })
@@ -56,10 +59,37 @@ export async function getScrumPrefill(userId: string, date = new Date()): Promis
       ? toScrumDateKey(previousWorkingDay, settings)
       : null
   const inheritedLinks = normalizeInheritedLinks(previousUpdate?.links ?? [])
-  const items = parsePlanItems(previousUpdate?.todayPlan ?? '').map((item) => ({
-    ...item,
-    inheritedLinks,
-  }))
+  const previousContent = normalizeContentJson(previousUpdate?.contentJson)
+  const yesterdayItems = previousContent.todayItems?.length
+    ? previousContent.todayItems
+    : parseHtmlToItems(previousUpdate?.todayPlan ?? '', 'PENDING')
+
+  // Fetch current todo statuses so items completed via My Tasks show as done.
+  const todoIds = yesterdayItems.map((item) => item.todoId).filter(Boolean) as string[]
+  const todoStatuses = todoIds.length
+    ? new Map(
+        (await prisma.todo.findMany({ where: { id: { in: todoIds } }, select: { id: true, status: true } })).map((t) => [
+          t.id,
+          t.status,
+        ]),
+      )
+    : new Map<string, string>()
+  const itemsWithState = yesterdayItems.map((item) => {
+    const status: ScrumPlanItem['state'] = item.status === 'DONE' || todoStatuses.get(item.todoId!) === 'COMPLETED'
+      ? 'DONE'
+      : item.status === 'NOT_DONE'
+        ? 'NOT_DONE'
+        : 'PENDING'
+    return {
+      id: item.id,
+      text: item.text,
+      state: status,
+      todoId: item.todoId,
+      objectiveId: item.objectiveId,
+      keyResultId: item.keyResultId,
+      inheritedLinks,
+    }
+  })
   const blockerDays = previousUpdate?.blockerFirstRaisedAt
     ? Math.max(1, scrumBusinessDaysBetween(previousUpdate.blockerFirstRaisedAt, date, settings))
     : previousUpdate?.blockerDaysOpen ?? 0
@@ -70,7 +100,20 @@ export async function getScrumPrefill(userId: string, date = new Date()): Promis
     previousUpdateId: previousUpdate?.id ?? null,
     yesterdayDone: previousUpdate?.todayPlan ?? '',
     todayPlan: '',
-    planItems: items,
+    planItems: itemsWithState,
+    contentJson: {
+      yesterdayItems: itemsWithState.map((item) => ({
+        id: item.id,
+        text: item.text,
+        todoId: item.todoId,
+        objectiveId: item.objectiveId,
+        keyResultId: item.keyResultId,
+        status: item.state,
+      })),
+      todayItems: [],
+      blockerItems: [],
+      winItems: [],
+    },
     openBlocker: previousUpdate?.blockers && previousUpdate.blockerStatus !== 'RESOLVED'
       ? {
           text: previousUpdate.blockers,

@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 
 export const AI_FEATURE_KEYS = {
   SPRINT_PLAN: 'SPRINT_PLAN',
+  PROJECT_AI_ASSISTANT: 'PROJECT_AI_ASSISTANT',
 } as const
 export type AiFeatureKey = (typeof AI_FEATURE_KEYS)[keyof typeof AI_FEATURE_KEYS]
 

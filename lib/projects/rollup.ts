@@ -15,6 +15,7 @@
 
 import type { Prisma } from '@prisma/client'
 import type { WeightedNode } from '@/features/projects/types'
+import { recalcKrsAndAncestors } from './okr-bridge'
 
 /** Clamp a number into [0, 1]. */
 export function clamp01(n: number): number {
@@ -117,6 +118,8 @@ export async function recalcProjectRollup(
     },
   })
 
+  const dirtyKeyResultIds = new Set<string>()
+
   for (const phase of phases) {
     for (const milestone of phase.milestones) {
       // Activity level: subtasks roll into their parent; top-level activities keep their own %.
@@ -153,6 +156,9 @@ export async function recalcProjectRollup(
         await tx.milestone.update({ where: { id: milestone.id }, data: { percentComplete: milestonePct } })
         milestone.percentComplete = milestonePct
       }
+      if (milestone.keyResultId) {
+        dirtyKeyResultIds.add(milestone.keyResultId)
+      }
     }
 
     const phasePct = weightedAverage(
@@ -176,6 +182,12 @@ export async function recalcProjectRollup(
     where: { id: projectId },
     data: { percentComplete, percentPlanned },
   })
+
+  // K1: propagate milestone progress into linked Key Results and up through
+  // ancestor objectives, all inside the same transaction.
+  if (dirtyKeyResultIds.size > 0) {
+    await recalcKrsAndAncestors(tx, dirtyKeyResultIds)
+  }
 
   return { percentComplete, percentPlanned }
 }

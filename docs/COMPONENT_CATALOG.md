@@ -409,3 +409,55 @@ export const GET = withAuth(async () => {
 |-----------|---------|
 | `components/plans/PlansList` | Tability-style list view + List/Gantt toggle. Server-rendered rows with aggregated KR/initiative/NCS metrics. |
 | `components/plans/PlansGantt` | DHTMLX-Gantt view of all accessible objectives + nested KRs. Columns: title, assignee (avatar+name), status/confidence pill, progress %. Zoom: week/month/quarter/year. Clicking a bar routes to the objective/KR detail page. Data from `GET /api/gantt`. |
+
+## Project Management
+
+| Component | Purpose |
+|-----------|---------|
+| `features/projects/components/activity/ActivityDetailPanel` | F1/F2 `SideDrawer` activity panel opened from Gantt/Table/Board, with editable fields, owner-party radio, approval-clock banner, subtasks, threaded TipTap comments, default-internal/client-visible controls, client-author badges, undo saves, and seven header actions. |
+| `features/projects/components/views/ProjectViewSwitcher` | E1 six-view project surface with persisted Zustand search/status/view state: Gantt, sortable/editable Table, drag/drop status Board, all-project Workload heatmap, ReactFlow Mindmap, and Overview ring/registers. |
+| `features/projects/components/gantt/GanttChart` | Custom PM-module Gantt: virtualized phase/milestone/activity/subactivity rows, synced task/timeline scrolling, persisted split width/columns, search, sort, five scales, zoom, today marker, minimap, status-colored bars, baseline ghost overlays, progress fill, milestone diamonds, phase summary bars, approval-wait badges, drag/resize with C4 reason gate, successor cascade, dependency draw/delete, D4 toolbar/export, options/columns persistence, critical path, undo, duplicate, comments badges. Uses `@tanstack/react-virtual`, not `dhtmlx-gantt`. |
+| `features/projects/components/DelayLedgerTable` | C5 Delay Ledger table with server-side totals, filters, inline recovery editing, CSV export, and PDF export through the shared Puppeteer renderer. |
+| `features/projects/components/charts/ChartWrapper` | J1 chart shell with AP tokens, responsive/dark frame, and PNG export for Recharts SVGs plus custom chart surfaces. |
+| `features/projects/components/charts/ProjectChartsLibrary` | J1 C1-C24 chart catalog rendered in the Overview tab, including C24 completion ring/KPI tiles and C18 ranked Pareto with cumulative line. |
+| `features/projects/components/reports/ClientReportsPanel` | J2 R2 client report workflow panel for generate/edit/review/approve/send/PDF with the PM approval hard gate. |
+| `features/projects/components/reports/PortfolioWbrPanel` | J3 portfolio WBR panel for generate/view/download with SPI, red item, and no-recovery-plan indicators. |
+| `features/projects/components/reports/PerformanceReportsPanel` | J4 Jira-gated R3/R4 performance report panel for cadence selection, generate, PM-editable insights, and PDF export. |
+| `features/projects/components/reports/ManagementReportsPanel` | J5 R6/R7/R9/R10 management report panel for monthly/quarterly generation, KPI review, PM summary edit/workflow controls, and PDF export. |
+| `features/projects/components/ai/AiAssistantPanel` | J6 constrained AI assistant modal launched from the Gantt toolbar. Intent selector, optional context, capped data-grounded output, grounded-in metadata, and PM-approval warning. Copy-to-clipboard only — no send/client/auto-send path. |
+| `features/projects/components/okr/ProjectObjectiveLinker` | K1 objective selector on project detail; links/unlinks `Project.objectiveId` via PATCH `/api/projects/[id]`. |
+| `features/projects/components/okr/MilestoneKeyResultLinker` | K1 KR selector on each milestone row; links/unlinks `Milestone.keyResultId` via PATCH `/api/projects/[id]/milestones/[milestoneId]`. |
+| `features/projects/components/okr/ObjectiveDeliveryPanel` | K1 delivery panel on objective detail showing linked projects with RAG, SPI, completion %, and slip days. |
+| `features/projects/components/portfolio/PortfolioDashboard` | K2 CEO portfolio dashboard: summary KPIs, project table, filters, escalations, and real-data charts. |
+| `features/projects/components/portfolio/PortfolioFilters` | K2 client/PM filters for the portfolio dashboard. |
+| `features/projects/components/portfolio/PortfolioReportPanel` | K3 cross-project performance report list/generate/download panel. |
+| `features/projects/components/charts/PortfolioChartsLibrary` | K2 portfolio chart catalog: C1 RAG wall, C6 delay by owner, C9 client health, C17 bubble, C18 Pareto, C20 bench forecast — all driven by real cross-project aggregation. |
+| `features/projects/components/registers/RaidRegister` | H1 RAID register with Risks/Assumptions/Issues/Dependencies tabs, type-specific create fields, 5×5 risk matrix, days-open display, client-visible controls, red overdue client dependency flag, and DelayEvent generation. |
+| `features/projects/components/registers/ChangeControlBoard` | H2 Change Control Board with CR create form, affected activity selection, workflow actions, rejection reason capture, client sign-off, pending report count, and approved scope-volatility total. |
+| `features/projects/components/registers/StageGateRegister` | H3 Stage Gate register with per-phase entry/exit/deliverable/approval checklists, pass/waive/fail controls, waiver reason capture, and reportable gate status display. |
+| `features/projects/components/registers/ClientObligationsRegister` | H4 Client Obligations register with named responsible people, SLA business days, contractual/R6 controls, compliance rate, breach count, client health score, and CEO warning below 60. |
+| `features/projects/components/registers/CorrectionOfErrorsRegister` | H5 COE register with milestone/RED prompts, 5-Whys entry, root-cause counts, overdue CEO warning, systemic fix, template feedback, and Lessons Learned output. |
+| `features/projects/components/registers/PaymentMilestonesRegister` | H6 Payment Milestones register with linked approval trigger, ready-to-invoice state, invoice/paid actions, outstanding days, and overdue CEO warning. |
+| `features/projects/components/integrations/JiraIntegrationPanel` | G1/G4/G5 Project Settings integration panel for Jira site URL, email, write-only token, project key, Test Connection, Save, masked-token display, sync controls, developer Jira evidence metrics, and Jira adoption score warnings. |
+| `features/projects/components/ScrumLogWidget` | G6 project-page quick-log widget for daily scrum date/time/duration/facilitator, In/Late/Out attendance, blockers/notes, R5 attendance report flags, and C16 people-by-date heatmap. |
+| `features/projects/services/portal-serializer` | I2 portal data serializer and SQL filter contract: scoped projects, client-visible comments/attachments/RAID, owner anonymization, forbidden user/cost/Jira key stripping, and employee-name redaction. |
+| `features/projects/services/portal-project-query` | Shared portal project Prisma include shape used by portal routes/pages without exporting non-handler values from Next route modules. |
+| `features/projects/services/portal-dashboard` | I3 pure portal dashboard helpers for awaiting-action business-day counters, anonymized activity flattening, and delay-row mapping. |
+| `lib/projects/jira-crypto` | P6 6.1 AES-256-GCM helper for write-only Jira API tokens, backed by `JIRA_TOKEN_ENCRYPTION_KEY`. |
+| `features/projects/services/jira/connection` | G1 Jira connection service for credential testing, issue/sprint counts, safe serialization, and Jira status error mapping. |
+| `features/projects/services/jira/sync` | G2 Jira sync service for incremental issue/sprint/worklog/changelog ingestion, throttling/backoff, email→User resolution, and per-run `JiraSyncLog` writes. |
+| `features/projects/services/jira/rollup` | G3 Jira mapping and auto-rollup service for Manual/Epic/Label/Component/Sprint mappings, preview filtering, and story-point weighted activity completion. |
+| `features/projects/services/jira/metrics` | G4 Jira developer metrics service for working-day idle days, per-issue estimate accuracy, median estimate bias, and Performance/R3 reuse. |
+| `features/projects/services/jira/adoption` | G5 Jira adoption service for assignee, estimate, recent-update, and story-point data-quality scoring per project/team. |
+| `features/projects/services/scrum-attendance` | G6 scrum attendance service for project scrum logs, attendance rates, late/absent counts, team rate, and <70% flags. |
+| `app/api/cron/jira-sync` | G2 `CRON_SECRET`-protected 30-minute Jira sync route for all active connections. |
+| `app/api/projects/[id]/jira/sync` | G2 manual Sync Now route for a project's linked Jira connection. |
+| `app/api/projects/[id]/jira/mapping-preview` | G3 scoped mapping preview route returning matched Jira issue counts, completion percent, weighting mode, and sample issue keys. |
+| `app/api/projects/[id]/jira/metrics` | G4 scoped metrics route returning Jira-linked status, working days, idle days, issue estimate accuracy, and per-developer estimator bias. |
+| `app/api/projects/[id]/jira/adoption` | G5 scoped adoption route returning project/team Jira data-quality scores and warning state. |
+| `app/api/projects/[id]/scrum-log` | G6 scoped scrum log route for listing attendance evidence and upserting a date's scrum log by `projectId+scrumDate`. |
+| `app/portal/signin` | I1 client portal sign-in surface wired to the separate `/api/portal/auth` NextAuth provider. |
+| `app/portal` | I1 portal shell with client-scoped project list and internal preview banner. |
+| `app/portal/projects/[id]` | I3 client dashboard with Awaiting Your Action first, anonymized Gantt bars, delay table, published reports, visible RAID, and internal preview banner. |
+| `app/portal/projects/[id]/PortalCommentBox` | I3 client-visible comment reader/writer for awaiting actions; posts through the portal API with `isClientAuthor=true`. |
+| `lib/portal-auth` | I1 portal auth config/helpers with distinct cookies, `ClientPortalUser` credentials, hard project scoping, and dashboard-block predicate. |

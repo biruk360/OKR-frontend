@@ -12,17 +12,11 @@ import {
   Clipboard,
   Clock,
   Filter,
-  Flame,
-  Link2,
-  MessageSquare,
-  Plus,
-  RefreshCcw,
   Save,
   Settings,
   Trophy,
   UserRound,
   Users,
-  X,
 } from 'lucide-react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
@@ -39,27 +33,21 @@ import {
   useScrumPrefill,
   useScrumSettings,
 } from '../hooks/queries'
+import { ScrumItemList } from './ScrumItemList'
+import { ScrumYesterdayPanel } from './ScrumYesterdayPanel'
+import { emptyContentJson, type ScrumContentJson } from '../services/items'
 
 type FormValues = {
   userId?: string
   scrumDate: string
-  yesterdayDone: string
-  todayPlan: string
-  blockers: string
+  contentJson: ScrumContentJson
   blockerCategory: string
-  wins: string
   mood: string
   projectId: string
   projectActivityId: string
   proxyReason: string
   proxyReasonDetail: string
-}
-
-type SelectedScrumLink = {
-  entityType: 'OBJECTIVE' | 'KEY_RESULT' | 'TODO'
-  id: string
-  title: string
-  context: 'TODAY' | 'BLOCKER' | 'WIN' | 'YESTERDAY'
+  remarks: string
 }
 
 const todayKey = () => new Date().toISOString().slice(0, 10)
@@ -69,9 +57,7 @@ export function ScrumHome() {
   const [date, setDate] = useState(todayKey())
   const [selectedUserId, setSelectedUserId] = useState('')
   const [proxyOpen, setProxyOpen] = useState(false)
-  const [prefillEdited, setPrefillEdited] = useState(false)
   const [filters, setFilters] = useState({ hasBlocker: false, hasWin: false, state: '' })
-  const [selectedLinks, setSelectedLinks] = useState<SelectedScrumLink[]>([])
   const settings = useScrumSettings()
   const prefill = useScrumPrefill(selectedUserId || undefined, date)
   const save = useSaveScrumUpdate()
@@ -97,20 +83,19 @@ export function ScrumHome() {
   const form = useForm<FormValues>({
     defaultValues: {
       scrumDate: date,
-      yesterdayDone: '',
-      todayPlan: '',
-      blockers: '',
+      contentJson: emptyContentJson(),
       blockerCategory: '',
-      wins: '',
       mood: '',
       projectId: '',
       projectActivityId: '',
       proxyReason: '',
       proxyReasonDetail: '',
+      remarks: '',
     },
   })
   const { control, register, handleSubmit, reset, watch, setValue, getValues, formState } = form
-  const blockers = watch('blockers')
+  const contentJson = watch('contentJson')
+  const blockerCategory = watch('blockerCategory')
   const isProxy = !!selectedUserId
 
   useEffect(() => {
@@ -119,10 +104,11 @@ export function ScrumHome() {
       ...getValues(),
       userId: selectedUserId || undefined,
       scrumDate: date,
-      yesterdayDone: prefill.data.yesterdayDone || '',
-      todayPlan: prefill.data.todayPlan || '',
+      contentJson: prefill.data.contentJson || emptyContentJson(),
+      blockerCategory: '',
+      mood: '',
+      remarks: '',
     })
-    setPrefillEdited(false)
   }, [prefill.data, date, selectedUserId])
 
   useEffect(() => {
@@ -135,31 +121,44 @@ export function ScrumHome() {
   }, [formState.isDirty, getValues])
 
   function submit(values: FormValues) {
+    const yesterdayItems = (values.contentJson.yesterdayItems ?? []).map((item) => {
+      if (item.status !== 'DONE' && item.status !== 'NOT_DONE') {
+        return { ...item, status: 'CARRIED' as const }
+      }
+      return item
+    })
+    const autoCarried = yesterdayItems
+      .filter((item) => item.status === 'CARRIED')
+      .map((item) => ({
+        id: `item-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        text: item.text,
+        todoId: item.todoId,
+        objectiveId: item.objectiveId,
+        keyResultId: item.keyResultId,
+        status: 'PENDING' as const,
+      }))
+    const contentJson: ScrumContentJson = {
+      ...values.contentJson,
+      yesterdayItems,
+      todayItems: [...(values.contentJson.todayItems ?? []), ...autoCarried],
+    }
+    if ((contentJson.todayItems?.length ?? 0) === 0) {
+      toast.error('Add at least one task for today')
+      return
+    }
     save.mutate({
       ...values,
       userId: selectedUserId || undefined,
-      blockers: values.blockers || null,
-      blockerCategory: values.blockers ? values.blockerCategory : null,
-      wins: values.wins || null,
+      contentJson,
+      blockerCategory: (contentJson.blockerItems?.length ?? 0) > 0 ? values.blockerCategory : '',
       mood: isProxy ? null : values.mood || null,
       projectId: values.projectId || null,
       projectActivityId: values.projectActivityId || null,
       proxyReason: isProxy ? values.proxyReason : null,
       proxyReasonDetail: isProxy ? values.proxyReasonDetail : null,
-      links: selectedLinks.map((link) => ({
-        context: link.context,
-        objectiveId: link.entityType === 'OBJECTIVE' ? link.id : null,
-        keyResultId: link.entityType === 'KEY_RESULT' ? link.id : null,
-        todoId: link.entityType === 'TODO' ? link.id : null,
-      })),
+      remarks: values.remarks || null,
+      links: [],
     })
-  }
-
-  function carryItem(item: { text: string; inheritedLinks?: Array<{ objectiveId: string | null; keyResultId: string | null; todoId: string | null; context: SelectedScrumLink['context']; progressNote?: string | null }> }) {
-    const current = getValues('todayPlan')
-    setValue('todayPlan', current ? `${current}<p>${item.text}</p>` : `<p>${item.text}</p>`, { shouldDirty: true })
-    if (!item.inheritedLinks?.length) return
-    setSelectedLinks((currentLinks) => mergeSelectedLinks(currentLinks, item.inheritedLinks!, item.text))
   }
 
   function monthStep(delta: number) {
@@ -169,6 +168,17 @@ export function ScrumHome() {
   }
 
   const counts = calendar.data?.counts ?? { updates: 0, blockers: 0, wins: 0, absences: 0 }
+  const memberMap = useMemo(() => {
+    const map = new Map<string, { name: string; avatar?: string; email?: string }>()
+    for (const m of calendar.data?.members ?? []) map.set(m.id, m)
+    return map
+  }, [calendar.data])
+  const linkableOptions = useMemo(() => {
+    const options: { id: string; title: string; type: 'OBJECTIVE' | 'KEY_RESULT'; subtitle?: string }[] = []
+    for (const obj of linkable.data?.objectives ?? []) options.push({ id: obj.id, title: obj.title, type: 'OBJECTIVE' })
+    for (const kr of linkable.data?.keyResults ?? []) options.push({ id: kr.id, title: kr.title, type: 'KEY_RESULT', subtitle: kr.objective?.title })
+    return options
+  }, [linkable.data])
 
   return (
     <div className="mx-auto max-w-content px-6 py-6">
@@ -212,56 +222,67 @@ export function ScrumHome() {
             </div>
           )}
 
-          <YesterdayPanel items={prefill.data?.planItems ?? []} openBlocker={prefill.data?.openBlocker} onCarry={carryItem} />
+          <Controller
+            control={control}
+            name="contentJson"
+            render={({ field }) => (
+              <div className="space-y-4">
+                <ScrumYesterdayPanel
+                  yesterdayItems={field.value.yesterdayItems ?? []}
+                  todayItems={field.value.todayItems ?? []}
+                  openBlocker={prefill.data?.openBlocker}
+                  onChangeYesterday={(items) => field.onChange({ ...field.value, yesterdayItems: items })}
+                  onChangeToday={(items) => field.onChange({ ...field.value, todayItems: items })}
+                />
 
-          <div>
-            <div className="mb-2 flex items-center justify-between">
-              <Label>What I did yesterday</Label>
-              <Button type="button" variant="ghost" size="sm" onClick={() => setValue('yesterdayDone', prefill.data?.yesterdayDone ?? '', { shouldDirty: true })}>
-                <RefreshCcw className="mr-2 size-4" />Restore
-              </Button>
-            </div>
-            <Controller
-              control={control}
-              name="yesterdayDone"
-              rules={{ validate: (value) => value.replace(/<[^>]+>/g, '').trim().length >= 10 || 'Minimum 10 characters' }}
-              render={({ field }) => (
-                <div className={cn(!prefillEdited && prefill.data?.yesterdayDone ? 'italic text-ink-secondary' : 'text-ink-primary')}>
-                  <RichTextEditor key={`yd-${prefill.data?.previousUpdateId ?? 'empty'}-${prefillEdited}`} value={field.value} onChange={(value) => { setPrefillEdited(true); field.onChange(value) }} minHeight={110} />
+                <ScrumItemList
+                  items={field.value.todayItems ?? []}
+                  onChange={(items) => field.onChange({ ...field.value, todayItems: items })}
+                  mode="today"
+                  label="What I'll do today"
+                  placeholder="Today's task"
+                  linkableOptions={linkableOptions}
+                  linkHeader="Link today's task with your OKR"
+                />
+
+                <div>
+                  <ScrumItemList
+                    items={field.value.blockerItems ?? []}
+                    onChange={(items) => field.onChange({ ...field.value, blockerItems: items })}
+                    mode="blocker"
+                    label="Blockers"
+                    placeholder="Blocker or impediment"
+                    linkableOptions={linkableOptions}
+                  />
+                  {(contentJson.blockerItems?.length ?? 0) > 0 && (
+                    <select className="mt-2 w-full rounded-md border border-border bg-card px-3 py-2 text-body-sm" {...register('blockerCategory', { required: true })}>
+                      <option value="">Category</option>
+                      {SCRUM_BLOCKER_CATEGORIES.map((category) => <option key={category} value={category}>{label(category)}</option>)}
+                    </select>
+                  )}
                 </div>
-              )}
-            />
-          </div>
+
+                {settings.data?.winsEnabled !== false && (
+                  <ScrumItemList
+                    items={field.value.winItems ?? []}
+                    onChange={(items) => field.onChange({ ...field.value, winItems: items })}
+                    mode="win"
+                    label="Wins"
+                    placeholder="Win or accomplishment"
+                  />
+                )}
+              </div>
+            )}
+          />
 
           <div>
-            <Label>What I will do today</Label>
+            <Label>Remarks / Notes</Label>
             <Controller
               control={control}
-              name="todayPlan"
-              rules={{ validate: (value) => value.replace(/<[^>]+>/g, '').trim().length >= 10 || 'Minimum 10 characters' }}
-              render={({ field }) => <RichTextEditor key={`tp-${date}-${selectedUserId}`} value={field.value} onChange={field.onChange} onSubmit={handleSubmit(submit)} minHeight={130} />}
+              name="remarks"
+              render={({ field }) => <RichTextEditor value={field.value} onChange={field.onChange} minHeight={100} />}
             />
           </div>
-
-          <LinkPicker data={linkable.data} selected={selectedLinks} onChange={setSelectedLinks} />
-
-          <div>
-            <Label>Blockers</Label>
-            <Controller control={control} name="blockers" render={({ field }) => <RichTextEditor value={field.value} onChange={field.onChange} minHeight={90} />} />
-            {blockers?.replace(/<[^>]+>/g, '').trim() && (
-              <select className="mt-2 w-full rounded-md border border-border bg-card px-3 py-2 text-body-sm" {...register('blockerCategory', { required: true })}>
-                <option value="">Category</option>
-                {SCRUM_BLOCKER_CATEGORIES.map((category) => <option key={category} value={category}>{label(category)}</option>)}
-              </select>
-            )}
-          </div>
-
-          {settings.data?.winsEnabled !== false && (
-            <div>
-              <Label>Wins</Label>
-              <Controller control={control} name="wins" render={({ field }) => <RichTextEditor value={field.value} onChange={field.onChange} minHeight={80} />} />
-            </div>
-          )}
 
           {!isProxy && settings.data?.moodEnabled !== false && (
             <div>
@@ -297,10 +318,10 @@ export function ScrumHome() {
               <TabsTrigger value="week">Week</TabsTrigger>
               <TabsTrigger value="analytics">Health</TabsTrigger>
             </TabsList>
-            <TabsContent value="month"><MonthView data={calendar.data} setSelectedUserId={setSelectedUserId} /></TabsContent>
-            <TabsContent value="day"><DayView data={calendar.data} /></TabsContent>
+            <TabsContent value="month"><MonthView data={calendar.data} setSelectedUserId={setSelectedUserId} memberMap={memberMap} /></TabsContent>
+            <TabsContent value="day"><DayView data={calendar.data} memberMap={memberMap} /></TabsContent>
             <TabsContent value="streak"><StreakView data={calendar.data} /></TabsContent>
-            <TabsContent value="week"><WeekView data={calendar.data} /></TabsContent>
+            <TabsContent value="week"><WeekView data={calendar.data} memberMap={memberMap} /></TabsContent>
             <TabsContent value="analytics"><AnalyticsView data={analytics.data} /></TabsContent>
           </Tabs>
         </div>
@@ -345,99 +366,7 @@ function Toolbar({ date, onToday, onPrev, onNext, filters, setFilters }: any) {
   )
 }
 
-function YesterdayPanel({ items, openBlocker, onCarry }: any) {
-  const [open, setOpen] = useState(true)
-  return (
-    <div className="rounded-card border border-border bg-surface-hover p-3">
-      <button type="button" className="flex w-full items-center justify-between text-left text-body-sm font-medium" onClick={() => setOpen(!open)}>
-        Yesterday's plan <span>{open ? <X className="size-4" /> : <Plus className="size-4" />}</span>
-      </button>
-      {open && (
-        <div className="mt-3 space-y-2">
-          {items.length === 0 ? <p className="text-body-sm text-ink-secondary">No prior plan.</p> : items.map((item: any) => (
-            <div key={item.id} className="flex items-center justify-between gap-2 rounded-md bg-surface-card px-3 py-2 text-body-sm">
-              <span className="truncate">{item.text}</span>
-              <Button type="button" variant="ghost" size="sm" onClick={() => onCarry(item)}>Carry</Button>
-            </div>
-          ))}
-          {openBlocker && <div className="rounded-md border border-danger-500/30 bg-danger-50 px-3 py-2 text-body-sm text-danger-700"><Flame className="mr-2 inline size-4" />{openBlocker.daysOpen}d open · {label(openBlocker.category ?? 'OTHER')}</div>}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function mergeSelectedLinks(
-  currentLinks: SelectedScrumLink[],
-  inheritedLinks: Array<{ objectiveId: string | null; keyResultId: string | null; todoId: string | null; context: SelectedScrumLink['context'] }>,
-  carriedText: string,
-): SelectedScrumLink[] {
-  const byKey = new Map(currentLinks.map((link) => [`${link.entityType}:${link.id}:${link.context}`, link]))
-  for (const link of inheritedLinks) {
-    const entityType = link.objectiveId ? 'OBJECTIVE' : link.keyResultId ? 'KEY_RESULT' : link.todoId ? 'TODO' : null
-    const id = link.objectiveId ?? link.keyResultId ?? link.todoId
-    if (!entityType || !id) continue
-    const selected = {
-      entityType,
-      id,
-      title: `Carried: ${carriedText.slice(0, 48)}`,
-      context: link.context,
-    } satisfies SelectedScrumLink
-    byKey.set(`${selected.entityType}:${selected.id}:${selected.context}`, selected)
-  }
-  return [...byKey.values()]
-}
-
-function LinkPicker({ data, selected, onChange }: { data: any; selected: SelectedScrumLink[]; onChange: (links: SelectedScrumLink[]) => void }) {
-  const items: SelectedScrumLink[] = [
-    ...(data?.todos ?? []).map((x: any) => ({ entityType: 'TODO' as const, id: x.id, title: x.title, context: 'TODAY' as const })),
-    ...(data?.keyResults ?? []).map((x: any) => ({ entityType: 'KEY_RESULT' as const, id: x.id, title: x.title, context: 'TODAY' as const })),
-    ...(data?.objectives ?? []).map((x: any) => ({ entityType: 'OBJECTIVE' as const, id: x.id, title: x.title, context: 'TODAY' as const })),
-  ].slice(0, 5)
-  if (items.length === 0) return null
-  const selectedIds = new Set(selected.map((item) => `${item.entityType}:${item.id}`))
-  function toggle(item: SelectedScrumLink) {
-    const key = `${item.entityType}:${item.id}`
-    onChange(selectedIds.has(key)
-      ? selected.filter((link) => `${link.entityType}:${link.id}` !== key)
-      : [...selected, item])
-  }
-  function updateContext(item: SelectedScrumLink, context: SelectedScrumLink['context']) {
-    onChange(selected.map((link) => link.entityType === item.entityType && link.id === item.id ? { ...link, context } : link))
-  }
-  return (
-    <div className="rounded-card border border-border p-3">
-      <div className="mb-2 flex items-center gap-2 text-body-sm font-medium"><Link2 className="size-4" />Link suggestions</div>
-      <div className="flex flex-wrap gap-2">
-        {items.map((item) => {
-          const key = `${item.entityType}:${item.id}`
-          const picked = selected.find((link) => `${link.entityType}:${link.id}` === key)
-          return (
-            <div key={key} className={cn('flex items-center gap-1 rounded-pill border px-2 py-1 text-body-sm', picked ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-border bg-surface-card text-ink-secondary')}>
-              <button type="button" onClick={() => toggle(item)} className="max-w-56 truncate">
-                {label(item.entityType)}: {item.title}
-              </button>
-              {picked && (
-                <select
-                  value={picked.context}
-                  onChange={(e) => updateContext(item, e.target.value as SelectedScrumLink['context'])}
-                  className="rounded-md border border-primary-200 bg-white px-1 py-0.5 text-[11px]"
-                >
-                  <option value="TODAY">Today</option>
-                  <option value="YESTERDAY">Yesterday</option>
-                  <option value="BLOCKER">Blocker</option>
-                  <option value="WIN">Win</option>
-                </select>
-              )}
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
-function MonthView({ data, setSelectedUserId }: any) {
+function MonthView({ data, setSelectedUserId, memberMap }: any) {
   if (!data) return <PanelSkeleton />
   return (
     <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
@@ -450,7 +379,7 @@ function MonthView({ data, setSelectedUserId }: any) {
                 key={`${day.date}-${dot.userId}`}
                 onClick={(e) => { e.stopPropagation(); setSelectedUserId(dot.userId) }}
                 className={cn('size-3 rounded-full', dotColor(dot.state))}
-                title={`${dot.userId} ${dot.state}`}
+                title={`${memberMap.get(dot.userId)?.name || memberMap.get(dot.userId)?.email || dot.userId} ${dot.state}`}
               />
             ))}
           </div>
@@ -465,7 +394,7 @@ function MonthView({ data, setSelectedUserId }: any) {
   )
 }
 
-function DayView({ data }: any) {
+function DayView({ data, memberMap }: any) {
   if (!data) return <PanelSkeleton />
   const updates = data.updates ?? []
   const blockers = updates.filter((u: any) => u.hasBlocker)
@@ -473,36 +402,44 @@ function DayView({ data }: any) {
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <Button type="button" variant="outline" size="sm" onClick={() => copyStandup(updates)}>
+        <Button type="button" variant="outline" size="sm" onClick={() => copyStandup(updates, memberMap)}>
           <Clipboard className="mr-2 size-4" />Copy for standup
         </Button>
       </div>
-      <UpdateSection title="Blockers first" icon={AlertCircle} updates={blockers} tone="danger" />
-      <UpdateSection title="Wins" icon={Trophy} updates={wins} tone="warning" />
-      <UpdateSection title="All updates" icon={Clipboard} updates={updates} tone="neutral" />
+      <UpdateSection title="Blockers first" icon={AlertCircle} updates={blockers} tone="danger" memberMap={memberMap} />
+      <UpdateSection title="Wins" icon={Trophy} updates={wins} tone="warning" memberMap={memberMap} />
+      <UpdateSection title="All updates" icon={Clipboard} updates={updates} tone="neutral" memberMap={memberMap} />
     </div>
   )
 }
 
-function UpdateSection({ title, icon: Icon, updates, tone }: any) {
+function UpdateSection({ title, icon: Icon, updates, tone, memberMap }: any) {
   return (
     <div className="rounded-card bg-surface-card p-4 shadow-card">
       <div className="mb-3 flex items-center gap-2 text-section-title"><Icon className="size-4" />{title} ({updates.length})</div>
-      {updates.length === 0 ? <EmptyState bare title="No rows" /> : <div className="space-y-2">{updates.map((update: any) => <UpdateCard key={update.id} update={update} tone={tone} />)}</div>}
+      {updates.length === 0 ? <EmptyState bare title="No rows" /> : <div className="space-y-2">{updates.map((update: any) => <UpdateCard key={update.id} update={update} tone={tone} memberMap={memberMap} />)}</div>}
     </div>
   )
 }
 
-function UpdateCard({ update, tone }: any) {
+function UpdateCard({ update, tone, memberMap }: any) {
+  const member = memberMap?.get(update.userId)
+  const name = member?.name || member?.email || update.userId
+  const avatar = member?.avatar
   return (
     <div className={cn('rounded-md border p-3', tone === 'danger' && 'border-danger-500/40 bg-danger-50', tone === 'warning' && 'border-warning-500/40 bg-warning-50')}>
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 text-body-sm font-medium"><UserRound className="size-4" />{update.userId}</div>
+        <div className="flex items-center gap-2 text-body-sm font-medium">
+          {avatar ? <img src={avatar} alt="" className="size-5 rounded-full" /> : <UserRound className="size-4" />}
+          {name}
+        </div>
         <div className="flex items-center gap-2 text-[11px] text-ink-secondary">{update.isProxyEntry && <span>Proxy</span>}{update.isLate && <span>Late</span>}{update.mood && <span>{label(update.mood)}</span>}</div>
       </div>
+      {update.yesterdayDone && <p className="mt-2 text-body-sm text-ink-secondary" dangerouslySetInnerHTML={{ __html: update.yesterdayDone }} />}
       {update.blockers && <p className="mt-2 text-body-sm text-danger-700" dangerouslySetInnerHTML={{ __html: update.blockers }} />}
       <p className="mt-2 text-body-sm" dangerouslySetInnerHTML={{ __html: update.todayPlan }} />
       {update.wins && <p className="mt-2 text-body-sm text-success-700" dangerouslySetInnerHTML={{ __html: update.wins }} />}
+      {update.remarks && <p className="mt-2 text-body-sm text-ink-secondary" dangerouslySetInnerHTML={{ __html: update.remarks }} />}
     </div>
   )
 }
@@ -529,9 +466,9 @@ function StreakView({ data }: any) {
   )
 }
 
-function WeekView({ data }: any) {
+function WeekView({ data, memberMap }: any) {
   if (!data) return <PanelSkeleton />
-  return <MonthView data={{ ...data, days: data.days.slice(-5) }} setSelectedUserId={() => {}} />
+  return <MonthView data={{ ...data, days: data.days.slice(-5) }} setSelectedUserId={() => {}} memberMap={memberMap} />
 }
 
 function AnalyticsView({ data }: any) {
@@ -561,8 +498,8 @@ function AnalyticsView({ data }: any) {
   )
 }
 
-async function copyStandup(updates: any[]) {
-  const text = buildStandupText(updates)
+async function copyStandup(updates: any[], memberMap?: Map<string, { name: string; avatar?: string; email?: string }>) {
+  const text = buildStandupText(updates, memberMap)
   try {
     await navigator.clipboard.writeText(text)
     toast.success('Standup summary copied')
@@ -571,10 +508,12 @@ async function copyStandup(updates: any[]) {
   }
 }
 
-function buildStandupText(updates: any[]) {
+function buildStandupText(updates: any[], memberMap?: Map<string, { name: string; avatar?: string; email?: string }>) {
   if (updates.length === 0) return 'Daily Scrum: no submitted updates.'
   return updates.map((update) => {
-    const header = `${update.userId}${update.isProxyEntry ? ' (proxy)' : ''}${update.isLate ? ' - late' : ''}`
+    const member = memberMap?.get(update.userId)
+    const userLabel = member?.name || member?.email || update.userId
+    const header = `${userLabel}${update.isProxyEntry ? ' (proxy)' : ''}${update.isLate ? ' - late' : ''}`
     const parts = [
       header,
       update.blockers ? `Blocker: ${stripHtml(update.blockers)}` : null,

@@ -43,7 +43,7 @@ export const scrumApi = {
   settings: () => request<any>('/api/scrum/settings'),
   saveSettings: (body: Record<string, unknown>) =>
     request<any>('/api/scrum/settings', { method: 'PATCH', body: JSON.stringify(body) }),
-  linkable: (userId?: string) => request<any>(`/api/scrum/linkable${qs({ userId })}`),
+  linkable: (userId?: string, ownerOnly?: boolean) => request<any>(`/api/scrum/linkable${qs({ userId, ownerOnly })}`),
   proxySubjects: () => request<any[]>('/api/scrum/proxy-subjects'),
   celebrate: (id: string) => request<any>(`/api/scrum/updates/${id}/celebrate`, { method: 'POST' }),
   blockerAction: (id: string, body: Record<string, unknown>) =>

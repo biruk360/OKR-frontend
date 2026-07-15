@@ -73,29 +73,30 @@ export interface RenderToPdfArgs {
   origin: string
 }
 
-/**
- * Render a letter to a PDF buffer. Uses the same HTML the iframe preview
- * shows, so the printed output is identical.
- */
-export async function renderLetterToPdf({
-  letter,
-  lang = 'en',
-  font,
-  origin,
-}: RenderToPdfArgs): Promise<{ pdf: Buffer; missing: string[] }> {
-  const { html, missing } = renderLetterHtml({ letter, lang, font, origin })
+export interface RenderHtmlToPdfArgs {
+  html: string
+  format?: 'A4' | 'Letter'
+  landscape?: boolean
+}
+
+export interface RenderHtmlToPngArgs {
+  html: string
+  width?: number
+  height?: number
+}
+
+/** Render arbitrary trusted HTML to PDF using the shared warm Puppeteer browser. */
+export async function renderHtmlToPdf({
+  html,
+  format = 'A4',
+  landscape = false,
+}: RenderHtmlToPdfArgs): Promise<Buffer> {
   const browser = await getBrowser()
   const page = await browser.newPage()
   try {
-    // setContent in Puppeteer v24 no longer accepts `networkidle0` —
-    // wait for fonts + images manually so the PDF doesn't render with the
-    // Times fallback.
     await page.setContent(html, { waitUntil: 'load', timeout: 15_000 })
     await page.evaluate(async () => {
-      // Wait for web fonts. Document.fonts.ready resolves when all loaded
-      // @font-face rules have downloaded.
       if (document.fonts && document.fonts.ready) await document.fonts.ready
-      // Wait for every <img> to finish (loaded or errored).
       const imgs = Array.from(document.querySelectorAll('img'))
       await Promise.all(
         imgs.map((img) =>
@@ -108,20 +109,66 @@ export async function renderLetterToPdf({
         )
       )
     })
-    // A4 was already declared via @page in the CSS; printBackground keeps
-    // the letterhead band's hairline borders and any tinted cells.
     const pdfBuf = (await page.pdf({
-      format: 'A4',
+      format,
+      landscape,
       printBackground: true,
       preferCSSPageSize: true,
-      // Margins are controlled by the .pad inset in our CSS — let the page
-      // hit edge-to-edge so the design matches the spec exactly.
       margin: { top: 0, right: 0, bottom: 0, left: 0 },
     })) as unknown as Buffer
     pagesRendered++
-    return { pdf: Buffer.from(pdfBuf), missing }
+    return Buffer.from(pdfBuf)
   } finally {
     await page.close().catch(() => {})
     await recycleIfNeeded()
   }
+}
+
+/** Render arbitrary trusted HTML to PNG using the shared warm Puppeteer browser. */
+export async function renderHtmlToPng({
+  html,
+  width = 1600,
+  height = 1000,
+}: RenderHtmlToPngArgs): Promise<Buffer> {
+  const browser = await getBrowser()
+  const page = await browser.newPage()
+  try {
+    await page.setViewport({ width, height, deviceScaleFactor: 1 })
+    await page.setContent(html, { waitUntil: 'load', timeout: 15_000 })
+    await page.evaluate(async () => {
+      if (document.fonts && document.fonts.ready) await document.fonts.ready
+      const imgs = Array.from(document.querySelectorAll('img'))
+      await Promise.all(
+        imgs.map((img) =>
+          (img as HTMLImageElement).complete
+            ? Promise.resolve()
+            : new Promise<void>((res) => {
+                img.addEventListener('load', () => res())
+                img.addEventListener('error', () => res())
+              })
+        )
+      )
+    })
+    const pngBuf = (await page.screenshot({ type: 'png', fullPage: true })) as unknown as Buffer
+    pagesRendered++
+    return Buffer.from(pngBuf)
+  } finally {
+    await page.close().catch(() => {})
+    await recycleIfNeeded()
+  }
+}
+
+/**
+ * Render a letter to a PDF buffer. Uses the same HTML the iframe preview
+ * shows, so the printed output is identical.
+ */
+export async function renderLetterToPdf({
+  letter,
+  lang = 'en',
+  font,
+  origin,
+}: RenderToPdfArgs): Promise<{ pdf: Buffer; missing: string[] }> {
+  const { html, missing } = renderLetterHtml({ letter, lang, font, origin })
+  const pdf = await renderHtmlToPdf({ html })
+  return { pdf, missing }
 }

@@ -6,16 +6,28 @@ import { apiForbidden } from '@/lib/api'
 import { canProxyFor, canViewScrumUser, resolveScrumSubjectContext } from './access'
 import { getScrumSettings } from './settings'
 import { dateFromDateKey, isLateSubmission, toScrumDateKey } from './working-days'
-import { replaceUpdateLinks, type ScrumLinkInput } from './scrum-links'
+import { replaceUpdateLinks, validateLinkOwnership, type ScrumLinkInput } from './scrum-links'
 import { serializeScrumUpdate, serializeScrumUpdates } from './scrum-serializer'
 import { decideBlockerLifecycle } from './blocker-lifecycle'
+import {
+  allItems,
+  buildYesterdayDoneHtml,
+  buildYesterdayStatusJson,
+  collectLinkedIds,
+  emptyContentJson,
+  normalizeContentJson,
+  parseHtmlToItems,
+  serializeItemsToHtml,
+  syncScrumTodos,
+  type ScrumContentJson,
+} from './items'
 
 export interface SaveScrumUpdateInput {
   userId?: string
   scrumDate?: string
-  yesterdayDone?: string
+  yesterdayDone?: string | null
   yesterdayStatusJson?: unknown
-  todayPlan?: string
+  todayPlan?: string | null
   blockers?: string | null
   blockerCategory?: string | null
   wins?: string | null
@@ -25,6 +37,8 @@ export interface SaveScrumUpdateInput {
   proxyReason?: string | null
   proxyReasonDetail?: string | null
   links?: ScrumLinkInput[]
+  contentJson?: ScrumContentJson | null
+  remarks?: string | null
 }
 
 export async function saveScrumUpdate(session: Session, input: SaveScrumUpdateInput, existingId?: string) {
@@ -43,10 +57,23 @@ export async function saveScrumUpdate(session: Session, input: SaveScrumUpdateIn
   const subject = await resolveScrumSubjectContext(subjectUserId)
   const submittedAt = new Date()
   const late = isLateSubmission(submittedAt, scrumDate, settings)
-  const hasBlocker = !!input.blockers?.trim()
-  const hasWin = !!input.wins?.trim()
 
-  const previous = await prisma.scrumUpdate.findFirst({
+  // Resolve structured content, falling back to legacy HTML fields.
+  let content = input.contentJson ? normalizeContentJson(input.contentJson) : emptyContentJson()
+  if (!input.contentJson) {
+    content.yesterdayItems = input.yesterdayDone ? parseHtmlToItems(input.yesterdayDone, 'DONE') : []
+    content.todayItems = input.todayPlan ? parseHtmlToItems(input.todayPlan, 'PENDING') : []
+    content.blockerItems = input.blockers ? parseHtmlToItems(input.blockers, 'PENDING') : []
+    content.winItems = input.wins ? parseHtmlToItems(input.wins, 'PENDING') : []
+  }
+
+  // Validate that every linked OKR/KR belongs to the subject user.
+  const itemLinks = allItems(content).map((item) => ({ objectiveId: item.objectiveId, keyResultId: item.keyResultId }))
+  const legacyLinks = (input.links ?? []).map((link) => ({ objectiveId: link.objectiveId, keyResultId: link.keyResultId }))
+  const ownership = await validateLinkOwnership(subjectUserId, [...itemLinks, ...legacyLinks])
+  if (!ownership.valid) return { error: ownership.reason }
+
+  const previousDayUpdate = await prisma.scrumUpdate.findFirst({
     where: { userId: subjectUserId, scrumDate: { lt: scrumDate } },
     orderBy: { scrumDate: 'desc' },
     select: {
@@ -56,46 +83,63 @@ export async function saveScrumUpdate(session: Session, input: SaveScrumUpdateIn
       blockerFirstRaisedAt: true,
     },
   })
+  const blockersHtml = serializeItemsToHtml(content.blockerItems)
   const blockerDecision = decideBlockerLifecycle({
-    previousText: previous?.blockers,
-    previousCategory: previous?.blockerCategory,
-    previousStatus: previous?.blockerStatus,
-    previousFirstRaisedAt: previous?.blockerFirstRaisedAt,
-    text: input.blockers,
+    previousText: previousDayUpdate?.blockers,
+    previousCategory: previousDayUpdate?.blockerCategory,
+    previousStatus: previousDayUpdate?.blockerStatus,
+    previousFirstRaisedAt: previousDayUpdate?.blockerFirstRaisedAt,
+    text: blockersHtml,
     category: input.blockerCategory,
     now: submittedAt,
     settings,
   })
 
-  const data: any = {
-    userId: subjectUserId,
-    submittedById: actorId,
-    managerId: subject.managerId,
-    teamId: subject.teamId,
-    projectId: input.projectId ?? null,
-    projectActivityId: input.projectActivityId ?? null,
-    scrumDate,
-    status: late ? 'LATE' : 'SUBMITTED',
-    yesterdayDone: input.yesterdayDone ?? '',
-    yesterdayStatusJson: input.yesterdayStatusJson ?? undefined,
-    todayPlan: input.todayPlan ?? '',
-    blockers: input.blockers?.trim() || null,
-    blockerCategory: hasBlocker ? input.blockerCategory : null,
-    blockerStatus: blockerDecision.status,
-    blockerDaysOpen: blockerDecision.daysOpen,
-    blockerFirstRaisedAt: blockerDecision.firstRaisedAt,
-    wins: input.wins?.trim() || null,
-    mood: isProxy || !settings.moodEnabled ? null : input.mood ?? null,
-    hasBlocker,
-    hasWin,
-    isLate: late,
-    submittedAt,
-    isProxyEntry: isProxy,
-    proxyReason: isProxy ? input.proxyReason : null,
-    proxyReasonDetail: isProxy ? input.proxyReasonDetail ?? null : null,
-  }
+  // Fetch the existing update for the same date so we can diff and sync Todos.
+  const existing = await prisma.scrumUpdate.findUnique({
+    where: { userId_scrumDate: { userId: subjectUserId, scrumDate } },
+    select: { id: true, contentJson: true },
+  })
+  const previousContent = normalizeContentJson(existing?.contentJson)
+  let hasBlockerForNotification = false
 
   const result = await prisma.$transaction(async (tx) => {
+    const syncedContent = await syncScrumTodos(previousContent, content, subjectUserId, actorId, scrumDate, tx)
+
+    const hasBlocker = (syncedContent.blockerItems?.length ?? 0) > 0
+    const hasWin = (syncedContent.winItems?.length ?? 0) > 0
+    hasBlockerForNotification = hasBlocker
+
+    const data: any = {
+      userId: subjectUserId,
+      submittedById: actorId,
+      managerId: subject.managerId,
+      teamId: subject.teamId,
+      projectId: input.projectId ?? null,
+      projectActivityId: input.projectActivityId ?? null,
+      scrumDate,
+      status: late ? 'LATE' : 'SUBMITTED',
+      yesterdayDone: buildYesterdayDoneHtml(syncedContent.yesterdayItems),
+      yesterdayStatusJson: buildYesterdayStatusJson(syncedContent.yesterdayItems),
+      todayPlan: serializeItemsToHtml(syncedContent.todayItems),
+      blockers: hasBlocker ? blockersHtml : null,
+      blockerCategory: hasBlocker ? input.blockerCategory : null,
+      blockerStatus: blockerDecision.status,
+      blockerDaysOpen: blockerDecision.daysOpen,
+      blockerFirstRaisedAt: blockerDecision.firstRaisedAt,
+      wins: serializeItemsToHtml(syncedContent.winItems) || null,
+      mood: isProxy || !settings.moodEnabled ? null : input.mood ?? null,
+      hasBlocker,
+      hasWin,
+      isLate: late,
+      submittedAt,
+      isProxyEntry: isProxy,
+      proxyReason: isProxy ? input.proxyReason : null,
+      proxyReasonDetail: isProxy ? input.proxyReasonDetail ?? null : null,
+      contentJson: syncedContent,
+      remarks: input.remarks?.trim() || null,
+    }
+
     const update = existingId
       ? await tx.scrumUpdate.update({ where: { id: existingId }, data: { ...data, amendedAt: new Date(), status: 'AMENDED' } })
       : await tx.scrumUpdate.upsert({
@@ -103,7 +147,16 @@ export async function saveScrumUpdate(session: Session, input: SaveScrumUpdateIn
           create: data,
           update: { ...data, amendedAt: new Date() },
         })
-    await replaceUpdateLinks(update.id, actorId, input.links ?? [], tx)
+    const linksFromWinItems = (syncedContent.winItems ?? [])
+      .filter((item) => item.objectiveId || item.keyResultId)
+      .map((item) => ({
+        context: 'WIN' as const,
+        objectiveId: item.objectiveId ?? null,
+        keyResultId: item.keyResultId ?? null,
+        todoId: null,
+        progressNote: null,
+      }))
+    await replaceUpdateLinks(update.id, actorId, [...(input.links ?? []), ...linksFromWinItems], tx)
     return tx.scrumUpdate.findUnique({
       where: { id: update.id },
       include: { links: true, comments: true, celebrations: true },
@@ -117,7 +170,7 @@ export async function saveScrumUpdate(session: Session, input: SaveScrumUpdateIn
     metadata: { updateId: result?.id, subjectUserId, scrumDate: scrumDateKey, isProxy },
   })
 
-  if (hasBlocker && subject.managerId) {
+  if (hasBlockerForNotification && subject.managerId) {
     await emit('SCRUM_BLOCKER_RAISED', {
       actorId,
       entityType: 'SCRUM_UPDATE',

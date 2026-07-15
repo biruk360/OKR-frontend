@@ -121,6 +121,54 @@ export type ProjectMemberRole = (typeof PROJECT_MEMBER_ROLES)[number]
 export const VISIBILITY = ['INTERNAL', 'CLIENT_VISIBLE'] as const
 export type Visibility = (typeof VISIBILITY)[number]
 
+// --- RAID register (Epic H1) ------------------------------------------------
+
+export const RAID_TYPES = ['RISK', 'ASSUMPTION', 'ISSUE', 'DEPENDENCY'] as const
+export type RaidType = (typeof RAID_TYPES)[number]
+
+export const RAID_STATUSES = ['OPEN', 'MITIGATING', 'CLOSED', 'REALISED'] as const
+export type RaidStatus = (typeof RAID_STATUSES)[number]
+
+export const RAID_SEVERITIES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] as const
+export type RaidSeverity = (typeof RAID_SEVERITIES)[number]
+
+export const RAID_DEPENDENCY_PARTIES = ['CLIENT', '360GROUND', 'THIRD_PARTY'] as const
+export type RaidDependencyParty = (typeof RAID_DEPENDENCY_PARTIES)[number]
+
+// --- Change Control Board (Epic H2) -----------------------------------------
+
+export const CHANGE_REQUEST_TYPES = ['SCOPE_ADD', 'REQUIREMENT_CHANGE', 'DESCOPE'] as const
+export type ChangeRequestType = (typeof CHANGE_REQUEST_TYPES)[number]
+
+export const CHANGE_REQUEST_STATUSES = ['SUBMITTED', 'UNDER_REVIEW', 'APPROVED', 'REJECTED', 'IMPLEMENTED'] as const
+export type ChangeRequestStatus = (typeof CHANGE_REQUEST_STATUSES)[number]
+
+// --- Stage Gates (Epic H3) --------------------------------------------------
+
+export const STAGE_GATE_STATUSES = ['NOT_REACHED', 'PENDING', 'PASSED', 'FAILED', 'WAIVED'] as const
+export type StageGateStatus = (typeof STAGE_GATE_STATUSES)[number]
+
+// --- Client Obligations (Epic H4) ------------------------------------------
+
+export const CLIENT_OBLIGATION_TYPES = ['APPROVAL', 'AVAILABILITY', 'DATA', 'ACCESS', 'DECISION', 'ENVIRONMENT'] as const
+export type ClientObligationType = (typeof CLIENT_OBLIGATION_TYPES)[number]
+
+// --- Correction of Errors (Epic H5) -----------------------------------------
+
+export const COE_ROOT_CAUSE_CLASSES = ['PLANNING', 'REQUIREMENTS', 'APPROVAL', 'IMPLEMENTATION', 'ESTIMATION', 'EXTERNAL'] as const
+export type CoeRootCauseClass = (typeof COE_ROOT_CAUSE_CLASSES)[number]
+
+export const COE_FIX_STATUSES = ['OPEN', 'IN_PROGRESS', 'DONE'] as const
+export type CoeFixStatus = (typeof COE_FIX_STATUSES)[number]
+
+// --- Payment Milestones (Epic H6) -------------------------------------------
+
+export const PAYMENT_INVOICE_STATUSES = ['PENDING', 'READY_TO_INVOICE', 'INVOICED', 'PAID', 'OVERDUE'] as const
+export type PaymentInvoiceStatus = (typeof PAYMENT_INVOICE_STATUSES)[number]
+
+export const PAYMENT_STATUSES = ['UNPAID', 'PARTIAL', 'PAID'] as const
+export type PaymentStatus = (typeof PAYMENT_STATUSES)[number]
+
 // --- Reports ----------------------------------------------------------------
 
 export const REPORT_TYPES = [

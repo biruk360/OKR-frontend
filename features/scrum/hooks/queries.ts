@@ -11,7 +11,7 @@ export const scrumKeys = {
   analytics: (params: Record<string, unknown>) => ['scrum', 'analytics', params] as const,
   wins: ['scrum', 'wins'] as const,
   settings: ['scrum', 'settings'] as const,
-  linkable: (userId?: string) => ['scrum', 'linkable', userId ?? 'me'] as const,
+  linkable: (userId?: string, ownerOnly = true) => ['scrum', 'linkable', userId ?? 'me', ownerOnly ? 'owned' : 'all'] as const,
   proxySubjects: ['scrum', 'proxy-subjects'] as const,
 }
 
@@ -35,8 +35,8 @@ export function useScrumWins() {
   return useQuery({ queryKey: scrumKeys.wins, queryFn: scrumApi.wins })
 }
 
-export function useLinkableEntities(userId?: string) {
-  return useQuery({ queryKey: scrumKeys.linkable(userId), queryFn: () => scrumApi.linkable(userId) })
+export function useLinkableEntities(userId?: string, ownerOnly = true) {
+  return useQuery({ queryKey: scrumKeys.linkable(userId, ownerOnly), queryFn: () => scrumApi.linkable(userId, ownerOnly) })
 }
 
 export function useProxySubjects() {

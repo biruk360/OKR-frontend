@@ -10,6 +10,14 @@
 | `/auth/signin` | `app/auth/signin/page.tsx` | Sign-in page |
 | `/auth/signup` | `app/auth/signup/page.tsx` | Sign-up page |
 
+## Client Portal Routes
+
+| Route | Page File | Description |
+|-------|-----------|-------------|
+| `/portal` | `app/portal/page.tsx` | Client portal project list / internal preview entry |
+| `/portal/signin` | `app/portal/signin/page.tsx` | Separate client portal sign-in |
+| `/portal/projects/[id]` | `app/portal/projects/[id]/page.tsx` | Client project dashboard with anonymized schedule, actions, comments, and reports |
+
 ## Dashboard Routes (Authenticated)
 
 ### Daily Trip Plan (DTP) — `features/daily-trip-plan`
@@ -61,6 +69,13 @@
 | `/dashboard/reports` | `app/dashboard/reports/page.tsx` | reports | Reports & analytics |
 | `/dashboard/initiative-report` | `app/dashboard/initiative-report/page.tsx` | reports | Daily initiative updates report |
 | `/dashboard/analytics` | `app/dashboard/analytics/page.tsx` | reports | Analytics dashboard |
+
+### Project Management
+| Route | Page File | Feature | Description |
+|-------|-----------|---------|-------------|
+| `/dashboard/projects` | `app/dashboard/projects/page.tsx` | projects | Project list and create-project wizard |
+| `/dashboard/projects/[id]` | `app/dashboard/projects/[id]/page.tsx` | projects | Project detail workspace with Gantt, registers, Delay Ledger, portal settings, Jira settings, scrum log, and J1 chart library in Overview |
+| `/dashboard/projects/portfolio` | `app/dashboard/projects/portfolio/page.tsx` | projects | Project portfolio view |
 
 ### Performance & Scorecard
 
@@ -127,6 +142,7 @@
 | GET/PUT/DELETE | `/api/objectives/[id]` | Read / Update / Delete |
 | GET | `/api/objectives/[id]/children` | Child objectives (hierarchy) |
 | GET/POST | `/api/objectives/[id]/labels` | Manage labels |
+| GET | `/api/objectives/[id]/delivery` | Linked projects with delivery health (RAG/SPI/slip) |
 | GET | `/api/objectives/[id]/activity` | Activity log |
 | POST | `/api/objectives/[id]/views` | Track views |
 | GET | `/api/objectives/[id]/key-result-permissions` | KR permission check |
@@ -246,6 +262,28 @@
 | POST | `/api/permissions/users/[id]/overrides` | Create a permission override; validates overrideType (grant/deny), reason (min 10 chars), future expiresAt; self-mod blocked (ADMIN only) |
 | DELETE | `/api/permissions/users/[id]/overrides/[overrideId]` | Delete an override; verifies it belongs to the target user; self-mod blocked (ADMIN only) |
 | GET | `/api/permissions/explain` | Explain why a user can/cannot perform an action on a doctype; traces overrides, role grants, and scope rules (ADMIN only; query params: userId, doctypeKey, action) |
+
+### Project Management
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET/POST | `/api/projects/[id]/reports` | List project reports / generate the R2 bi-monthly client report draft |
+| GET/PATCH | `/api/projects/[id]/reports/[reportId]` | Read report / edit summary and transition DRAFT→PM_REVIEW→APPROVED→SENT |
+| GET | `/api/projects/[id]/reports/[reportId]/pdf` | Download R2 report PDF |
+| GET/POST | `/api/projects/portfolio/wbr` | List/generate portfolio WBR packs |
+| GET | `/api/projects/portfolio/wbr/[reportId]/pdf` | Download WBR pack PDF |
+| GET | `/api/projects/portfolio/dashboard` | Portfolio dashboard aggregation (RAG/SPI/delays/escalations) |
+| GET/POST | `/api/projects/portfolio/report` | List/generate cross-project performance reports |
+| GET | `/api/projects/portfolio/report/[reportId]` | Read a portfolio report |
+| GET | `/api/projects/portfolio/report/[reportId]/pdf` | Download portfolio report PDF |
+| GET/POST | `/api/projects/[id]/performance-reports` | List/generate Jira-backed R3/R4 performance reports |
+| GET/PATCH | `/api/projects/[id]/performance-reports/[reportId]` | Read report / edit PM-reviewable AI insights |
+| GET | `/api/projects/[id]/performance-reports/[reportId]/pdf` | Download R3/R4 performance report PDF |
+| GET/POST | `/api/projects/[id]/management-reports` | List/generate R6/R7/R9/R10 monthly or quarterly management reports |
+| GET/PATCH | `/api/projects/[id]/management-reports/[reportId]` | Read report / edit summary and transition DRAFT→PM_REVIEW→APPROVED→SENT |
+| GET | `/api/projects/[id]/management-reports/[reportId]/pdf` | Download R6/R7/R9/R10 management report PDF |
+| POST | `/api/projects/[id]/ai-assistant` | Constrained AI assistant: generate capped, data-grounded executive summary, risk detection, delay pattern, or estimate suggestion |
+| POST | `/api/cron/client-report` | Bi-weekly R2 draft generation for active projects |
+| POST | `/api/cron/wbr-pack` | Weekly WBR pack generation for CEO and PMs |
 
 ### Reports & Background
 | Method | Route | Description |

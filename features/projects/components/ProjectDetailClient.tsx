@@ -11,8 +11,20 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { useProject, useCommitBaseline, useRebaseline, useRebaselineDiff } from '../hooks/useProject'
 import { useUsersForSelection } from '@/hooks/useUsersForSelection'
 import { RagBadge, ProjectStatusBadge } from './ProjectBadges'
-import { ScheduleTree } from './ScheduleTree'
 import { DelayLedgerTable } from './DelayLedgerTable'
+import { ProjectViewSwitcher } from './views/ProjectViewSwitcher'
+import { RaidRegister } from './registers/RaidRegister'
+import { ChangeControlBoard } from './registers/ChangeControlBoard'
+import { StageGateRegister } from './registers/StageGateRegister'
+import { ClientObligationsRegister } from './registers/ClientObligationsRegister'
+import { CorrectionOfErrorsRegister } from './registers/CorrectionOfErrorsRegister'
+import { PaymentMilestonesRegister } from './registers/PaymentMilestonesRegister'
+import { JiraIntegrationPanel } from './integrations/JiraIntegrationPanel'
+import { ScrumLogWidget } from './ScrumLogWidget'
+import { ClientReportsPanel } from './reports/ClientReportsPanel'
+import { PerformanceReportsPanel } from './reports/PerformanceReportsPanel'
+import { ManagementReportsPanel } from './reports/ManagementReportsPanel'
+import { ProjectObjectiveLinker } from './okr/ProjectObjectiveLinker'
 
 interface Props {
   projectId: string
@@ -79,6 +91,10 @@ export function ProjectDetailClient({ projectId, user }: Props) {
           </div>
         }
       />
+
+      <div className="mb-4">
+        <ProjectObjectiveLinker projectId={project.id} objectiveId={project.objectiveId} canEdit={canEdit} />
+      </div>
 
       {/* Baseline-not-committed banner (C1). */}
       {notBaselined && (
@@ -229,13 +245,92 @@ export function ProjectDetailClient({ projectId, user }: Props) {
         }
       />
 
-      <ScheduleTree project={project} canEdit={canEdit} />
+      <div className="mb-3 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <h2 className="text-section-title text-ink-primary">Project Views</h2>
+          <span className="rounded-pill bg-primary-50 px-2.5 py-1 text-body-sm text-primary-700">E1</span>
+        </div>
+        <span className="text-body-sm text-ink-tertiary">Gantt · Table · Board · Workload · Mindmap · Overview</span>
+      </div>
+      <div className="mb-8">
+        <ProjectViewSwitcher project={project} canEdit={canEdit} />
+      </div>
 
       <div className="mb-3 mt-8 flex items-center justify-between">
         <h2 className="text-section-title text-ink-primary">Delay Ledger</h2>
         <span className="text-body-sm text-ink-tertiary">Every delay, its owner, and why</span>
       </div>
       <DelayLedgerTable projectId={projectId} canEdit={canEdit} />
+
+      <div className="mb-3 mt-8 flex items-center justify-between">
+        <h2 className="text-section-title text-ink-primary">RAID Register</h2>
+        <span className="text-body-sm text-ink-tertiary">Risks, assumptions, issues, and dependencies</span>
+      </div>
+      <RaidRegister projectId={projectId} canEdit={canEdit} />
+
+      <div className="mb-3 mt-8 flex items-center justify-between">
+        <h2 className="text-section-title text-ink-primary">Change Control Board</h2>
+        <span className="text-body-sm text-ink-tertiary">Scope, requirement, and descope decisions</span>
+      </div>
+      <ChangeControlBoard project={project} canEdit={canEdit} />
+
+      <div className="mb-3 mt-8 flex items-center justify-between">
+        <h2 className="text-section-title text-ink-primary">Stage Gates</h2>
+        <span className="text-body-sm text-ink-tertiary">Phase entry, exit, deliverable, and approval gates</span>
+      </div>
+      <StageGateRegister project={project} canEdit={canEdit} />
+
+      <div className="mb-3 mt-8 flex items-center justify-between">
+        <h2 className="text-section-title text-ink-primary">Client Obligations</h2>
+        <span className="text-body-sm text-ink-tertiary">Named responsibilities, SLAs, and compliance</span>
+      </div>
+      <ClientObligationsRegister projectId={projectId} canEdit={canEdit} />
+
+      <div className="mb-3 mt-8 flex items-center justify-between">
+        <h2 className="text-section-title text-ink-primary">Correction of Errors</h2>
+        <span className="text-body-sm text-ink-tertiary">5-Whys, systemic fixes, and lessons learned</span>
+      </div>
+      <CorrectionOfErrorsRegister projectId={projectId} canEdit={canEdit} />
+
+      <div className="mb-3 mt-8 flex items-center justify-between">
+        <h2 className="text-section-title text-ink-primary">Payment Milestones</h2>
+        <span className="text-body-sm text-ink-tertiary">Deliverable approvals, invoicing, and overdue cash</span>
+      </div>
+      <PaymentMilestonesRegister project={project} canEdit={canEdit} />
+
+      <div className="mb-3 mt-8 flex items-center justify-between">
+        <h2 className="text-section-title text-ink-primary">Client Reports</h2>
+        <span className="text-body-sm text-ink-tertiary">R2 draft, approve, send, and portal visibility</span>
+      </div>
+      <ClientReportsPanel projectId={projectId} canEdit={canEdit} />
+
+      <div className="mb-3 mt-8 flex items-center justify-between">
+        <h2 className="text-section-title text-ink-primary">Management Reports</h2>
+        <span className="text-body-sm text-ink-tertiary">R6/R7/R9/R10 steering, COE, estimation, and capacity</span>
+      </div>
+      <ManagementReportsPanel projectId={projectId} canEdit={canEdit} />
+
+      {project.jiraLinked && (
+        <>
+          <div className="mb-3 mt-8 flex items-center justify-between">
+            <h2 className="text-section-title text-ink-primary">Performance Reports</h2>
+            <span className="text-body-sm text-ink-tertiary">R3/R4 Jira evidence, attendance, and PM-editable insights</span>
+          </div>
+          <PerformanceReportsPanel projectId={projectId} canEdit={canEdit} jiraLinked={project.jiraLinked} />
+        </>
+      )}
+
+      <div className="mb-3 mt-8 flex items-center justify-between">
+        <h2 className="text-section-title text-ink-primary">Daily Scrum</h2>
+        <span className="text-body-sm text-ink-tertiary">Attendance, blockers, and accountability</span>
+      </div>
+      <ScrumLogWidget projectId={projectId} canEdit={canEdit} />
+
+      <div className="mb-3 mt-8 flex items-center justify-between">
+        <h2 className="text-section-title text-ink-primary">Project Settings</h2>
+        <span className="text-body-sm text-ink-tertiary">Integrations</span>
+      </div>
+      <JiraIntegrationPanel projectId={projectId} canEdit={canEdit} />
     </div>
   )
 }

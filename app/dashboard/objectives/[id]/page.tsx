@@ -21,6 +21,7 @@ import ProgressConfidenceCard from '@/components/objective-detail/ProgressConfid
 import PerKrProgressCard from '@/components/objective-detail/PerKrProgressCard'
 import ActivityTabs from '@/components/objective-detail/ActivityTabs'
 import { ScrumActivityPanel } from '@/features/scrum'
+import { ObjectiveDeliveryPanel } from '@/features/projects'
 
 interface ObjectiveDetailPageProps {
   params: { id: string } | Promise<{ id: string }>
@@ -218,6 +219,8 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
             />
 
             <ScrumActivityPanel objectiveId={objective.id} compact />
+
+            <ObjectiveDeliveryPanel objectiveId={objective.id} />
 
             <ActivityTabs
               objectiveId={objective.id}

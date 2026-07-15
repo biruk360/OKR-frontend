@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from 'react'
 import { useReactTable, getCoreRowModel, flexRender, createColumnHelper } from '@tanstack/react-table'
-import { AlertTriangle, Download } from 'lucide-react'
+import { AlertTriangle, Download, FileText } from 'lucide-react'
+import toast from 'react-hot-toast'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { delaysToCsv } from '@/lib/projects/delay-ledger'
@@ -39,6 +40,7 @@ export function DelayLedgerTable({ projectId, canEdit }: { projectId: string; ca
   const [editPlan, setEditPlan] = useState('')
   const [editOwner, setEditOwner] = useState('')
   const [editDate, setEditDate] = useState('')
+  const [isExportingPdf, setIsExportingPdf] = useState(false)
 
   const columns = useMemo(
     () => [
@@ -154,6 +156,31 @@ export function DelayLedgerTable({ projectId, canEdit }: { projectId: string; ca
     URL.revokeObjectURL(url)
   }
 
+  const exportPdf = async () => {
+    try {
+      setIsExportingPdf(true)
+      const qs = new URLSearchParams(
+        Object.entries(filters).filter(([, v]) => !!v) as [string, string][]
+      ).toString()
+      const res = await fetch(`/api/projects/${projectId}/delays/pdf${qs ? `?${qs}` : ''}`)
+      if (!res.ok) {
+        const json = await res.json().catch(() => null)
+        throw new Error(json?.error || `PDF export failed (${res.status})`)
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'delay-ledger.pdf'
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'PDF export failed')
+    } finally {
+      setIsExportingPdf(false)
+    }
+  }
+
   return (
     <div className="rounded-card bg-surface-card p-4 shadow-card">
       {/* Header: server-computed totals (over the filtered set) + filters + export */}
@@ -173,6 +200,9 @@ export function DelayLedgerTable({ projectId, canEdit }: { projectId: string; ca
             onChange={(v) => setFilters((f) => ({ ...f, phase: v || undefined }))} />
           <button className="btn btn-outline btn-sm" onClick={exportCsv} disabled={rows.length === 0}>
             <Download className="mr-1 size-3.5" /> Export CSV
+          </button>
+          <button className="btn btn-outline btn-sm" onClick={exportPdf} disabled={isExportingPdf}>
+            <FileText className="mr-1 size-3.5" /> {isExportingPdf ? 'Exporting...' : 'Export PDF'}
           </button>
         </div>
       </div>

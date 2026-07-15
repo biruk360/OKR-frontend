@@ -37,37 +37,49 @@ export async function replaceUpdateLinks(updateId: string, createdById: string, 
   })))
 }
 
-export async function getLinkableEntities(subjectUserId: string) {
+export async function getLinkableEntities(subjectUserId: string, ownerOnly = false) {
   const memberships = await prisma.departmentMembership.findMany({
     where: { userId: subjectUserId, endedAt: null },
     select: { departmentId: true },
   })
   const deptIds = memberships.map((row) => row.departmentId)
 
+  const objectiveWhere: any = {
+    status: 'ACTIVE',
+    timeframe: { isActive: true },
+  }
+  if (ownerOnly) {
+    objectiveWhere.ownerId = subjectUserId
+  } else {
+    objectiveWhere.OR = [
+      { ownerId: subjectUserId },
+      { contributors: { some: { userId: subjectUserId } } },
+      deptIds.length ? { departmentId: { in: deptIds } } : { id: '___none___' },
+    ]
+  }
+
+  const keyResultWhere: any = {
+    status: 'ACTIVE',
+    objective: { status: 'ACTIVE', timeframe: { isActive: true } },
+  }
+  if (ownerOnly) {
+    keyResultWhere.ownerId = subjectUserId
+  } else {
+    keyResultWhere.OR = [
+      { ownerId: subjectUserId },
+      { objective: { contributors: { some: { userId: subjectUserId } } } },
+    ]
+  }
+
   const [objectives, keyResults, todos, suggested] = await Promise.all([
     prisma.objective.findMany({
-      where: {
-        status: 'ACTIVE',
-        timeframe: { isActive: true },
-        OR: [
-          { ownerId: subjectUserId },
-          { contributors: { some: { userId: subjectUserId } } },
-          deptIds.length ? { departmentId: { in: deptIds } } : { id: '___none___' },
-        ],
-      },
+      where: objectiveWhere,
       select: { id: true, title: true, progress: true, confidence: true },
       orderBy: { updatedAt: 'desc' },
       take: 30,
     }),
     prisma.keyResult.findMany({
-      where: {
-        status: 'ACTIVE',
-        objective: { status: 'ACTIVE', timeframe: { isActive: true } },
-        OR: [
-          { ownerId: subjectUserId },
-          { objective: { contributors: { some: { userId: subjectUserId } } } },
-        ],
-      },
+      where: keyResultWhere,
       select: { id: true, title: true, progress: true, confidence: true, objective: { select: { title: true } } },
       orderBy: { updatedAt: 'desc' },
       take: 30,
@@ -88,6 +100,37 @@ export async function getLinkableEntities(subjectUserId: string) {
   ])
 
   return { objectives, keyResults, todos, suggested }
+}
+
+export async function validateLinkOwnership(
+  subjectUserId: string,
+  links: Array<{ objectiveId?: string | null; keyResultId?: string | null }>,
+) {
+  const objectiveIds = new Set<string>()
+  const keyResultIds = new Set<string>()
+  for (const link of links) {
+    if (link.objectiveId) objectiveIds.add(link.objectiveId)
+    if (link.keyResultId) keyResultIds.add(link.keyResultId)
+  }
+  if (objectiveIds.size) {
+    const objectives = await prisma.objective.findMany({
+      where: { id: { in: [...objectiveIds] } },
+      select: { id: true, ownerId: true },
+    })
+    for (const obj of objectives) {
+      if (obj.ownerId !== subjectUserId) return { valid: false, reason: `Objective is not owned by the user` }
+    }
+  }
+  if (keyResultIds.size) {
+    const keyResults = await prisma.keyResult.findMany({
+      where: { id: { in: [...keyResultIds] } },
+      select: { id: true, ownerId: true },
+    })
+    for (const kr of keyResults) {
+      if (kr.ownerId !== subjectUserId) return { valid: false, reason: `Key result is not owned by the user` }
+    }
+  }
+  return { valid: true }
 }
 
 export async function getSuggestedLinks(subjectUserId: string) {

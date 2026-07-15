@@ -2,22 +2,15 @@ import { getServerSession, type NextAuthOptions, type Session } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
 import { prisma } from './prisma'
+import { INTERNAL_SESSION_COOKIES, PORTAL_SESSION_COOKIE, shouldBlockDashboardForPortalOnly } from './portal-auth-edge'
+
+export { INTERNAL_SESSION_COOKIES, PORTAL_SESSION_COOKIE, shouldBlockDashboardForPortalOnly }
 
 const portalAuthSecret =
   process.env.NEXTAUTH_SECRET ||
   (process.env.NODE_ENV !== 'production'
     ? 'local-dev-nextauth-secret-not-for-production'
     : undefined)
-
-export const PORTAL_SESSION_COOKIE = process.env.NODE_ENV === 'production'
-  ? '__Secure-portal-next-auth.session-token'
-  : 'portal-next-auth.session-token'
-
-export const INTERNAL_SESSION_COOKIES = [
-  process.env.NODE_ENV === 'production' ? '__Secure-next-auth.session-token' : 'next-auth.session-token',
-  'next-auth.session-token',
-  '__Secure-next-auth.session-token',
-]
 
 export interface PortalSession extends Session {
   user: Session['user'] & {
@@ -135,12 +128,4 @@ export async function getPortalSessionSafe(): Promise<PortalSession | null> {
 
 export function canPortalUserAccessProject(session: Pick<PortalSession, 'user'> | null | undefined, projectId: string): boolean {
   return !!session?.user.projectIds.includes(projectId)
-}
-
-export function shouldBlockDashboardForPortalOnly(input: {
-  pathname: string
-  hasPortalSessionCookie: boolean
-  hasInternalSessionCookie: boolean
-}): boolean {
-  return input.pathname.startsWith('/dashboard') && input.hasPortalSessionCookie && !input.hasInternalSessionCookie
 }

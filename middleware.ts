@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { INTERNAL_SESSION_COOKIES, PORTAL_SESSION_COOKIE, shouldBlockDashboardForPortalOnly } from '@/lib/portal-auth'
+import { INTERNAL_SESSION_COOKIES, PORTAL_SESSION_COOKIE, shouldBlockDashboardForPortalOnly } from '@/lib/portal-auth-edge'
 
 /**
  * Phase 4 — mark deprecated SprintActivity routes. Sunset date is 2 weeks

@@ -239,6 +239,7 @@ model Objective {
   timeframeId       String
   departmentId      String?
   parentObjectiveId String?
+  closedById        String?
   /// LOOSE = visual alignment only; STRICT_DEPENDENCY = progress can roll up from active child objectives
   alignmentType     String    @default("LOOSE")
   /// NONE | AVERAGE | SUM — used only when alignmentType is STRICT_DEPENDENCY and there are active children
@@ -259,6 +260,7 @@ model Objective {
   department       Department?            @relation(fields: [departmentId], references: [id])
   parentObjective  Objective?             @relation("ObjectiveHierarchy", fields: [parentObjectiveId], references: [id])
   childObjectives  Objective[]            @relation("ObjectiveHierarchy")
+  closedBy         User?                  @relation("ObjectiveClosedBy", fields: [closedById], references: [id])
   keyResults       KeyResult[]
   comments         Comment[]
   objectiveLabels  ObjectiveLabel[]
@@ -305,6 +307,7 @@ model KeyResult {
   isPrivate      Boolean   @default(false) // Visibility: false = Public, true = Private
   ownerId        String
   objectiveId    String
+  closedById     String?
   /// Mandatory check-in cadence: WEEKLY | BIWEEKLY | MONTHLY | QUARTERLY
   checkInCadence String    @default("WEEKLY")
   /// Raw weight used when this KR contributes to its parent objective's progress.
@@ -317,6 +320,7 @@ model KeyResult {
   // Relationships
   owner            User               @relation("KeyResultOwner", fields: [ownerId], references: [id])
   objective        Objective          @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
+  closedBy         User?              @relation("KeyResultClosedBy", fields: [closedById], references: [id])
   todos            Todo[] // Renamed conceptually to "Initiative" in the UI; table is `initiatives`
   comments         Comment[]
   checkIns         KeyResultCheckIn[]

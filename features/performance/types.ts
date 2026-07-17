@@ -8,6 +8,18 @@ export type PerformanceTemplateSummary = {
   _count: { tiers: number; evaluations: number }
 }
 
+export type CultureLibraryEntry = {
+  id: string
+  code: string
+  name: string
+  version: number
+  type: 'RUBRIC' | 'METRIC'
+  definitionJson: { title?: string; anchors?: Record<string, string | { en?: string; am?: string }> } | null
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
 export type PerformanceCriterion = {
   id: string
   type: 'RUBRIC' | 'METRIC'

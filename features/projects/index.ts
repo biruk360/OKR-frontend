@@ -42,6 +42,8 @@ export { PortfolioDashboard } from './components/portfolio/PortfolioDashboard'
 export { PortfolioFilters } from './components/portfolio/PortfolioFilters'
 export { PortfolioReportPanel } from './components/portfolio/PortfolioReportPanel'
 export { RagBadge, ProjectStatusBadge, ActivityStatusBadge } from './components/ProjectBadges'
+export { TemplateListClient } from './components/TemplateListClient'
+export { TemplateBuilderClient } from './components/TemplateBuilderClient'
 
 // Hooks.
 export * from './hooks/useProjects'

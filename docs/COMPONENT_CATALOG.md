@@ -42,7 +42,8 @@ Services exported from the same barrel: working-day utilities and `serializeScru
 |-----------|-------|---------|
 | `PerformanceHome` | — | Employee focus cards, weekly-step entry, sealed reviews, and finalized history |
 | `TemplatesWorkspace` | — | Template family/version list, create/publish/fork/archive actions, and role mappings |
-| `TemplateBuilder` | `templateId` | Draft tier/criterion editor, rubric anchors, metric rules, and culture block insertion |
+| `TemplateBuilder` | `templateId` | Draft tier/criterion editor, rubric anchors, metric rules, culture block insertion, and native drag-drop reordering for tiers/criteria |
+| `CultureLibraryManager` | — | Admin editor for reusable criterion-library entries (C1-C6 + custom); bilingual anchor editor; create/toggle-active |
 | `RoleMappingManager` | — | Maps normalized employee designations to scorecard families |
 | `MetricMappingManager` | `templateId`, `tiers` | Maps employee-owned Key Results to reusable metric criteria |
 | `CyclesWorkspace` | — | Review-cycle creation (with inline validation), open/close-cycle actions (close supports incomplete-evaluation override), and issues drill-down |
@@ -61,7 +62,7 @@ Services exported from the same barrel: working-day utilities and `serializeScru
 | `OkrAttainmentSection` | `attainment` | Employee-scoped OKR attainment list (objectives + KRs with progress bars) for the evaluation period |
 | `TemplateScoringSettings` | `templateId`, `editable`, `tiers`, `gatekeeperJson`, `bandsJson` | Gatekeeper + decision-bands editor with inline validation, saved via template PATCH |
 
-Hooks and API client are exported from the same barrel. Server-side scoring, policy, cycle-opening, consolidation, report, and finalization services live in `lib/performance/`.
+Hooks and API client are exported from the same barrel. Server-side scoring, policy, cycle-opening, consolidation, report, and finalization services live in `lib/performance/`. Shared anchor helpers (`anchorEn`, `anchorAm`, `buildAnchorValue`) live in `features/performance/components/anchor-helpers.ts`.
 
 ## Shared UI Primitives (`components/ui/`)
 
@@ -412,9 +413,13 @@ export const GET = withAuth(async () => {
 
 ## Project Management
 
-| Component | Purpose |
-|-----------|---------|
-| `features/projects/components/activity/ActivityDetailPanel` | F1/F2 `SideDrawer` activity panel opened from Gantt/Table/Board, with editable fields, owner-party radio, approval-clock banner, subtasks, threaded TipTap comments, default-internal/client-visible controls, client-author badges, undo saves, and seven header actions. |
+> Import from the barrel: `import { TemplateListClient, TemplateBuilderClient } from '@/features/projects'`
+
+| Component | Props | Purpose |
+|-----------|-------|---------|
+| `features/projects/components/TemplateListClient` | `{ user: { id, role } }` | A2 template directory: searchable card grid of system + custom templates, create/clone/delete modals, and navigation to the builder. |
+| `features/projects/components/TemplateBuilderClient` | `{ templateId?, userRole }` | A2 template editor: name/description, left phase→milestone→activity tree, right properties panel, native HTML5 drag-and-drop reorder, validation, save/create, and system-template clone. |
+| `features/projects/components/activity/ActivityDetailPanel` | — | F1/F2 `SideDrawer` activity panel opened from Gantt/Table/Board, with editable fields, owner-party radio, approval-clock banner, subtasks, threaded TipTap comments, default-internal/client-visible controls, client-author badges, undo saves, and seven header actions. |
 | `features/projects/components/views/ProjectViewSwitcher` | E1 six-view project surface with persisted Zustand search/status/view state: Gantt, sortable/editable Table, drag/drop status Board, all-project Workload heatmap, ReactFlow Mindmap, and Overview ring/registers. |
 | `features/projects/components/gantt/GanttChart` | Custom PM-module Gantt: virtualized phase/milestone/activity/subactivity rows, synced task/timeline scrolling, persisted split width/columns, search, sort, five scales, zoom, today marker, minimap, status-colored bars, baseline ghost overlays, progress fill, milestone diamonds, phase summary bars, approval-wait badges, drag/resize with C4 reason gate, successor cascade, dependency draw/delete, D4 toolbar/export, options/columns persistence, critical path, undo, duplicate, comments badges. Uses `@tanstack/react-virtual`, not `dhtmlx-gantt`. |
 | `features/projects/components/DelayLedgerTable` | C5 Delay Ledger table with server-side totals, filters, inline recovery editing, CSV export, and PDF export through the shared Puppeteer renderer. |

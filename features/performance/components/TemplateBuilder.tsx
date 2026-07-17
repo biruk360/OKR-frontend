@@ -1,21 +1,17 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { ArrowDown, ArrowUp, FileX2, Library, Plus, Save, Trash2 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { ArrowDown, ArrowUp, ExternalLink, FileX2, GripVertical, Library, Plus, Save, Trash2 } from 'lucide-react'
 import { Button, EmptyState, Input, Label, Textarea } from '@/components/ui'
 import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton'
 import { useInsertCultureBlock, usePerformanceTemplate, useSaveTemplateBuilder } from '../hooks/queries'
+import { anchorAm, anchorEn, buildAnchorValue, type AnchorValue } from './anchor-helpers'
 import { PerformanceStatusBadge } from './PerformanceStatusBadge'
 import { MetricMappingManager } from './MetricMappingManager'
 import { NativeSelect } from './NativeSelect'
 import { TemplateScoringSettings } from './TemplateScoringSettings'
 import { usePerformancePermissions } from '../hooks/usePerformancePermissions'
-
-/**
- * Anchor values match lib/performance RubricAnchors: a plain English string, or
- * a bilingual `{ en, am }` object when an Amharic translation is present.
- */
-type AnchorValue = string | { en?: string; am?: string }
 
 type BuilderCriterion = {
   type: 'RUBRIC' | 'METRIC'
@@ -56,27 +52,12 @@ const newRubric = (): BuilderCriterion => ({
   anchorJson: { '0': '', '4': '', '7': '', '10': '' },
 })
 
-/** English text of an anchor value (handles both legacy string and `{ en, am }` shapes). */
-function anchorEn(value: AnchorValue | undefined): string {
-  if (value && typeof value === 'object') return value.en ?? ''
-  return value ?? ''
-}
-
-/** Amharic text of an anchor value, if present. */
-function anchorAm(value: AnchorValue | undefined): string {
-  return value && typeof value === 'object' ? value.am ?? '' : ''
-}
-
-/** Persist as `{ en, am }` only when Amharic is present; plain string otherwise. */
-function buildAnchorValue(en: string, am: string): AnchorValue {
-  return am.trim() ? { en, am } : en
-}
-
 export function TemplateBuilder({ templateId }: { templateId: string }) {
   const query = usePerformanceTemplate(templateId)
   const save = useSaveTemplateBuilder(templateId)
   const culture = useInsertCultureBlock(templateId)
   const permissions = usePerformancePermissions()
+  const router = useRouter()
   const [tiers, setTiers] = useState<BuilderTier[]>([])
 
   useEffect(() => {
@@ -144,6 +125,41 @@ export function TemplateBuilder({ templateId }: { templateId: string }) {
     updateCriterion(tierIndex, criterionIndex, { scoringRuleJson: { ...rule, ...patch } as Record<string, unknown> })
   }
 
+  function onTierDragStart(event: React.DragEvent, fromIndex: number) {
+    event.dataTransfer.setData('application/json', JSON.stringify({ kind: 'tier', fromIndex }))
+    event.dataTransfer.effectAllowed = 'move'
+  }
+  function onTierDrop(event: React.DragEvent, toIndex: number) {
+    event.preventDefault()
+    const raw = event.dataTransfer.getData('application/json')
+    if (!raw) return
+    try {
+      const payload = JSON.parse(raw) as { kind: string; fromIndex: number }
+      if (payload.kind !== 'tier') return
+      if (payload.fromIndex === toIndex) return
+      setTiers((current) => moveItem(current, payload.fromIndex, toIndex))
+    } catch {}
+  }
+  function onCriterionDragStart(event: React.DragEvent, tierIndex: number, fromIndex: number) {
+    event.dataTransfer.setData('application/json', JSON.stringify({ kind: 'criterion', tierIndex, fromIndex }))
+    event.dataTransfer.effectAllowed = 'move'
+  }
+  function onCriterionDrop(event: React.DragEvent, tierIndex: number, toIndex: number) {
+    event.preventDefault()
+    const raw = event.dataTransfer.getData('application/json')
+    if (!raw) return
+    try {
+      const payload = JSON.parse(raw) as { kind: string; tierIndex: number; fromIndex: number }
+      if (payload.kind !== 'criterion' || payload.tierIndex !== tierIndex) return
+      if (payload.fromIndex === toIndex) return
+      setTiers((current) => current.map((tier, index) =>
+        index === tierIndex
+          ? { ...tier, criteria: moveItem(tier.criteria, payload.fromIndex, toIndex) }
+          : tier,
+      ))
+    } catch {}
+  }
+
   return (
     <div className="space-y-4">
       <div
@@ -161,9 +177,26 @@ export function TemplateBuilder({ templateId }: { templateId: string }) {
       </div>
 
       {tiers.map((tier, tierIndex) => (
-        <section key={tierIndex} className="rounded-[14px] border bg-card" style={{ borderColor: 'var(--ap-border)' }}>
+        <section
+          key={tierIndex}
+          className="rounded-[14px] border bg-card"
+          style={{ borderColor: 'var(--ap-border)' }}
+          onDragOver={(event) => { if (editable) event.preventDefault() }}
+          onDrop={(event) => onTierDrop(event, tierIndex)}
+        >
           <div className="space-y-2 px-4 pt-4 pb-3">
             <div className="flex flex-wrap items-end justify-between gap-3">
+              {editable && (
+                <span
+                  draggable
+                  onDragStart={(event) => onTierDragStart(event, tierIndex)}
+                  className="cursor-grab self-center text-muted-foreground"
+                  title="Drag to reorder tier"
+                  aria-label="Drag to reorder tier"
+                >
+                  <GripVertical className="size-5" />
+                </span>
+              )}
               <div className="grid flex-1 gap-3 sm:grid-cols-[1fr_10rem]">
                 <div><Label>Tier name</Label><Input value={tier.name} disabled={!editable} onChange={(event) => updateTier(tierIndex, { name: event.target.value })} /></div>
                 <div><Label>Tier max points</Label><Input type="number" value={tier.maxPoints} disabled={!editable} onChange={(event) => updateTier(tierIndex, { maxPoints: Number(event.target.value) })} /></div>
@@ -182,10 +215,28 @@ export function TemplateBuilder({ templateId }: { templateId: string }) {
           </div>
           <div className="space-y-4 px-4 pb-4">
             {tier.criteria.map((criterion, criterionIndex) => (
-              <div key={criterionIndex} className="rounded-lg border p-4" style={{ borderColor: 'var(--ap-border)' }}>
-                <div className="grid gap-3 sm:grid-cols-[8rem_1fr_7rem_auto]">
-                  <div>
-                    <Label>Type</Label>
+              <div
+                key={criterionIndex}
+                className="rounded-lg border p-4"
+                style={{ borderColor: 'var(--ap-border)' }}
+                onDragOver={(event) => { if (editable) event.preventDefault() }}
+                onDrop={(event) => onCriterionDrop(event, tierIndex, criterionIndex)}
+              >
+                <div className="flex items-start gap-2">
+                  {editable && (
+                    <span
+                      draggable
+                      onDragStart={(event) => onCriterionDragStart(event, tierIndex, criterionIndex)}
+                      className="mt-7 cursor-grab text-muted-foreground"
+                      title="Drag to reorder criterion"
+                      aria-label="Drag to reorder criterion"
+                    >
+                      <GripVertical className="size-4" />
+                    </span>
+                  )}
+                  <div className="grid flex-1 gap-3 sm:grid-cols-[8rem_1fr_7rem_auto]">
+                    <div>
+                      <Label>Type</Label>
                     <NativeSelect
                       value={criterion.type}
                       disabled={!editable}
@@ -209,6 +260,7 @@ export function TemplateBuilder({ templateId }: { templateId: string }) {
                       <Button variant="outline" size="sm" aria-label="Delete criterion" onClick={() => updateTier(tierIndex, { criteria: tier.criteria.filter((_, index) => index !== criterionIndex) })}><Trash2 className="size-4" /></Button>
                     </div>
                   )}
+                </div>
                 </div>
                 {criterion.type === 'RUBRIC' ? (
                   <div className="mt-4 grid gap-3 md:grid-cols-2">
@@ -332,7 +384,14 @@ export function TemplateBuilder({ templateId }: { templateId: string }) {
             {editable && (
               <div className="flex flex-wrap gap-2">
                 <Button variant="outline" onClick={() => updateTier(tierIndex, { criteria: [...tier.criteria, newRubric()] })}><Plus className="mr-2 size-4" /> Add criterion</Button>
-                {canInsertCulture && tier.id && <Button variant="outline" disabled={culture.isPending} onClick={() => culture.mutate(tier.id!)}><Library className="mr-2 size-4" /> Insert culture block</Button>}
+                {canInsertCulture && tier.id && (
+                  <>
+                    <Button variant="outline" disabled={culture.isPending} onClick={() => culture.mutate(tier.id!)}><Library className="mr-2 size-4" /> Insert culture block</Button>
+                    <Button variant="ghost" size="sm" onClick={() => router.push('/dashboard/performance/culture-library')}>
+                      <ExternalLink className="mr-2 size-4" /> Manage library
+                    </Button>
+                  </>
+                )}
               </div>
             )}
           </div>

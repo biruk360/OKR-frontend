@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { FolderKanban, Plus, Search, LayoutGrid } from 'lucide-react'
+import { FolderKanban, Plus, Search, LayoutGrid, BookOpen } from 'lucide-react'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { StatCard } from '@/components/ui/StatCard'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -47,6 +47,9 @@ export function ProjectsListClient({ user }: Props) {
           <div className="flex items-center gap-2">
             <Link href="/dashboard/projects/portfolio" className="btn btn-secondary">
               <LayoutGrid className="mr-1.5 size-4" /> Portfolio
+            </Link>
+            <Link href="/dashboard/projects/templates" className="btn btn-secondary">
+              <BookOpen className="mr-1.5 size-4" /> Templates
             </Link>
             {canCreate && (
               <button className="btn btn-primary" onClick={() => setWizardOpen(true)}>

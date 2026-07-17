@@ -1,5 +1,6 @@
 import type {
   CalibrationDetail,
+  CultureLibraryEntry,
   CycleIssueStatus,
   EvaluationDetail,
   EvaluationSummary,
@@ -45,6 +46,20 @@ export const performanceApi = {
     request<PerformanceTemplateDetail>(`/api/performance/templates/${id}/builder`, { method: 'PUT', body: JSON.stringify({ tiers }) }),
   insertCultureBlock: (id: string, tierId: string) =>
     request<{ inserted: number; template: PerformanceTemplateDetail }>(`/api/performance/templates/${id}/culture-block`, { method: 'POST', body: JSON.stringify({ tierId }) }),
+  listCultureLibrary: () => request<CultureLibraryEntry[]>('/api/performance/culture-library'),
+  createCultureLibraryEntry: (body: {
+    code: string
+    name: string
+    version?: number
+    type?: 'RUBRIC' | 'METRIC'
+    definitionJson?: Record<string, unknown>
+    isActive?: boolean
+  }) => request<CultureLibraryEntry>('/api/performance/culture-library', { method: 'POST', body: JSON.stringify(body) }),
+  updateCultureLibraryEntry: (id: string, body: {
+    name?: string
+    definitionJson?: Record<string, unknown>
+    isActive?: boolean
+  }) => request<CultureLibraryEntry>(`/api/performance/culture-library/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
   publishTemplate: (id: string) =>
     request<PerformanceTemplateDetail>(`/api/performance/templates/${id}/publish`, { method: 'POST' }),
   archiveTemplate: (id: string) =>

@@ -958,6 +958,79 @@ export function renderTemplate(eventKey: EventKey, data: Data): RenderedEmail {
         `,
       })
 
+    case 'PROJECT_DAILY_DIGEST': {
+      const projectCount = Number(data.projectCount ?? 0)
+      const overdueCount = Number(data.overdueCount ?? 0)
+      const blockedCount = Number(data.blockedCount ?? 0)
+      const waitingApprovalCount = Number(data.waitingApprovalCount ?? 0)
+      const projects = (data.projects as Array<{
+        code: string
+        name: string
+        ragStatus: string
+        overdue: number
+        blocked: number
+        waitingApproval: number
+        upcoming: number
+        highRisks: number
+        overduePayments: number
+        overdueCoes: number
+        failedGates: number
+        deepLink: string
+      }> | undefined) ?? []
+      const dayLabel = String(data.dayLabel ?? 'today')
+      const issueProjects = projects.filter(p =>
+        p.overdue > 0 || p.blocked > 0 || p.waitingApproval > 0 || p.upcoming > 0 ||
+        p.highRisks > 0 || p.overduePayments > 0 || p.overdueCoes > 0 || p.failedGates > 0
+      )
+      return compose({
+        subject: `Daily project digest — ${overdueCount + blockedCount + waitingApprovalCount} attention item${overdueCount + blockedCount + waitingApprovalCount === 1 ? '' : 's'}`,
+        recipientName: name,
+        text: [
+          `Hi ${name},`,
+          '',
+          `Daily project digest for ${dayLabel}.`,
+          `Projects: ${projectCount} · Overdue: ${overdueCount} · Blocked: ${blockedCount} · Waiting approval: ${waitingApprovalCount}`,
+          '',
+          ...issueProjects.flatMap(p => [
+            `${p.code} — ${p.name} (${p.ragStatus})`,
+            `  Overdue ${p.overdue} · Blocked ${p.blocked} · Waiting approval ${p.waitingApproval} · Upcoming ${p.upcoming}`,
+            `  Risks ${p.highRisks} · Overdue payments ${p.overduePayments} · COEs ${p.overdueCoes} · Failed gates ${p.failedGates}`,
+            `  Open: ${absoluteUrl(p.deepLink)}`,
+            '',
+          ]),
+          `Open all projects: ${absoluteUrl('/dashboard/projects')}`,
+        ].join('\n'),
+        html: `
+          ${heading({ eyebrow: 'Project delivery', title: 'Daily project digest', badgeText: dayLabel, badgeTone: 'primary' })}
+          ${lead(`Hi ${name}, here is the daily snapshot of the projects you manage.`)}\
+          ${kpiRow([
+            { label: 'Projects', value: String(projectCount), tone: 'neutral' },
+            { label: 'Overdue', value: String(overdueCount), tone: overdueCount > 0 ? 'danger' : 'neutral' },
+            { label: 'Blocked', value: String(blockedCount), tone: blockedCount > 0 ? 'warning' : 'neutral' },
+            { label: 'Waiting approval', value: String(waitingApprovalCount), tone: waitingApprovalCount > 0 ? 'warning' : 'neutral' },
+          ])}
+          ${issueProjects.length === 0 ? muted('No issues need attention today.') : issueProjects.map(p => {
+            const items: string[] = []
+            if (p.overdue > 0) items.push(`${p.overdue} overdue`)
+            if (p.blocked > 0) items.push(`${p.blocked} blocked`)
+            if (p.waitingApproval > 0) items.push(`${p.waitingApproval} waiting approval`)
+            if (p.upcoming > 0) items.push(`${p.upcoming} upcoming`)
+            if (p.highRisks > 0) items.push(`${p.highRisks} high risk`)
+            if (p.overduePayments > 0) items.push(`${p.overduePayments} overdue payment`)
+            if (p.overdueCoes > 0) items.push(`${p.overdueCoes} overdue COE`)
+            if (p.failedGates > 0) items.push(`${p.failedGates} failed gate`)
+            const badgeTone = p.ragStatus === 'RED' ? 'danger' : p.ragStatus === 'AMBER' ? 'warning' : 'success'
+            return `<div style="margin:10px 0;padding:12px;border:1px solid ${TOKENS.border};border-radius:10px;background:#FAFAFC;">
+              <div style="font-size:14px;font-weight:600;color:${TOKENS.ink};">${escapeHtml(p.code)} · ${escapeHtml(p.name)}</div>
+              <div style="margin-top:4px;font-size:12px;color:${TOKENS.inkSecondary};">${badge(p.ragStatus, badgeTone)} ${items.join(' · ') || 'No issues'}</div>
+            </div>`
+          }).join('')}
+          ${button('Open projects', '/dashboard/projects')}
+          ${actionRow([{ label: 'Notification settings', href: '/dashboard/settings/notifications' }])}
+        `,
+      })
+    }
+
     default:
       return compose({
         subject: `Notification`,

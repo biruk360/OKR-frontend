@@ -20,6 +20,7 @@ export type ActivityEntityType =
   | 'PROJECT_RAID_ITEM'
   | 'PROJECT_STAGE_GATE'
   | 'PROJECT_REPORT'
+  | 'PROJECT_TEMPLATE'
   // Daily Scrum module entity types.
   | 'SCRUM_UPDATE'
   | 'SCRUM_ABSENCE'
@@ -97,6 +98,7 @@ export type ActivityAction =
   | 'REBASELINED'
   | 'SLIP_RECORDED'
   | 'APPROVAL_REQUESTED'
+  | 'CLONED'
   | 'APPROVAL_RESOLVED'
   | 'GATE_PASSED'
   | 'GATE_WAIVED'

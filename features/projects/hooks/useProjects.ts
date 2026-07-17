@@ -49,9 +49,50 @@ export interface ProjectTemplateSummary {
   description: string | null
   isSystem: boolean
   version: number
-  phaseCount: number
-  milestoneCount: number
-  activityCount: number
+  phases: number
+  milestones: number
+  activities: number
+}
+
+export interface ProjectTemplateDetail {
+  id: string
+  name: string
+  description: string | null
+  isSystem: boolean
+  version: number
+  structureJson: {
+    phases: Array<{
+      name: string
+      weight: number
+      milestones: Array<{
+        name: string
+        weight?: number
+        isKeyMilestone: boolean
+        activities: Array<{
+          title: string
+          ownerParty: '360GROUND' | 'CLIENT' | 'SHARED'
+          weight?: number
+          isApproval: boolean
+        }>
+      }>
+    }>
+  }
+}
+
+export interface CreateTemplatePayload {
+  name: string
+  description?: string | null
+  structureJson?: ProjectTemplateDetail['structureJson']
+}
+
+export interface UpdateTemplatePayload {
+  name?: string
+  description?: string | null
+  structureJson?: ProjectTemplateDetail['structureJson']
+}
+
+export interface CloneTemplatePayload {
+  name?: string
 }
 
 export interface CreateProjectPayload {
@@ -74,6 +115,7 @@ export const projectKeys = {
   all: ['projects'] as const,
   list: (params?: Record<string, string>) => ['projects', 'list', params ?? {}] as const,
   templates: ['projects', 'templates'] as const,
+  template: (id: string) => ['projects', 'templates', id] as const,
   detail: (id: string) => ['projects', 'detail', id] as const,
 }
 
@@ -101,6 +143,15 @@ export function useProjectTemplates() {
   })
 }
 
+export function useProjectTemplate(id: string | null) {
+  return useQuery({
+    queryKey: projectKeys.template(id ?? ''),
+    queryFn: () => fetchJson<ProjectTemplateDetail>(`/api/projects/templates/${id}`),
+    enabled: !!id,
+    staleTime: 60_000,
+  })
+}
+
 // --- mutations ---------------------------------------------------------------
 
 export function useCreateProject() {
@@ -115,6 +166,73 @@ export function useCreateProject() {
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: projectKeys.all })
       toast.success(`Project ${data.code} created`)
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+}
+
+export function useCreateProjectTemplate() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: CreateTemplatePayload) =>
+      fetchJson<{ id: string }>('/api/projects/templates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: projectKeys.templates })
+      toast.success('Template created')
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+}
+
+export function useUpdateProjectTemplate(id: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: UpdateTemplatePayload) =>
+      fetchJson<{ id: string }>(`/api/projects/templates/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: projectKeys.template(id) })
+      qc.invalidateQueries({ queryKey: projectKeys.templates })
+      toast.success('Template saved')
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+}
+
+export function useDeleteProjectTemplate() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) =>
+      fetchJson<{ id: string }>(`/api/projects/templates/${id}`, {
+        method: 'DELETE',
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: projectKeys.templates })
+      toast.success('Template deleted')
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+}
+
+export function useCloneProjectTemplate(id: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: CloneTemplatePayload) =>
+      fetchJson<{ id: string }>(`/api/projects/templates/${id}/clone`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: projectKeys.templates })
+      toast.success('Template cloned')
     },
     onError: (e: Error) => toast.error(e.message),
   })

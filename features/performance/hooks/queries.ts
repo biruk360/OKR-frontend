@@ -17,6 +17,7 @@ const KEYS = {
   me: ['performance', 'me'] as const,
   templates: ['performance', 'templates'] as const,
   template: (id: string) => ['performance', 'template', id] as const,
+  cultureLibrary: ['performance', 'culture-library'] as const,
   cycles: ['performance', 'cycles'] as const,
   cycle: (id: string) => ['performance', 'cycle', id] as const,
   calibration: (id: string) => ['performance', 'calibration', id] as const,
@@ -126,6 +127,35 @@ export function useInsertCultureBlock(id: string) {
       client.invalidateQueries({ queryKey: KEYS.template(id) })
       client.invalidateQueries({ queryKey: KEYS.templates })
       toast.success(result.inserted > 0 ? `Inserted ${result.inserted} culture criteria` : 'Culture block already present')
+    },
+    onError: (error: Error) => toast.error(error.message),
+  })
+}
+
+export function useCultureLibrary() {
+  return useQuery({ queryKey: KEYS.cultureLibrary, queryFn: performanceApi.listCultureLibrary })
+}
+
+export function useCreateCultureLibraryEntry() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: performanceApi.createCultureLibraryEntry,
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: KEYS.cultureLibrary })
+      toast.success('Library entry created')
+    },
+    onError: (error: Error) => toast.error(error.message),
+  })
+}
+
+export function useUpdateCultureLibraryEntry() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: Parameters<typeof performanceApi.updateCultureLibraryEntry>[1] }) =>
+      performanceApi.updateCultureLibraryEntry(id, body),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: KEYS.cultureLibrary })
+      toast.success('Library entry updated')
     },
     onError: (error: Error) => toast.error(error.message),
   })

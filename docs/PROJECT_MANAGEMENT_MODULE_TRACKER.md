@@ -18,13 +18,13 @@ Update the **Status** and **Files** columns as each feature ships. Status values
 | **0** | Groundwork | Tracker · CLAUDE.md guardrails · Prisma schema (30 models, pushed) · types/barrel · core algorithms (business-days/rollup/confidence/evm + 34 tests) · permissions (15 DocTypes, 60 rows) · notifications (PROJECT + 22 events) | ✅ Verified |
 | **P1** | A, B | A1, A2, B1, B2 | ✅ Verified |
 | **P2** ⭐ | C | C1, C2, C3, C4, C5 | ✅ Verified |
-| **P3** | D, E, F | D1–D4, E1, F1, F2 | 🟨 In Progress |
+| **P3** | D, E, F | D1–D4, E1, F1, F2 | ✅ Verified |
 | **P4** | H | H1–H6 | 🟩 Done |
 | **P5** | I | I1, I2, I3 | 🟩 Done |
 | **P6** | G | G1–G6 | 🟩 Done |
 | **P7** | J | J1–J6 | ✅ Verified |
 | **P8** | K | K1, K2, K3 | ✅ Verified |
-| — | Cross-cutting | Permissions (§5.1) · Notifications (§5.2) · Cron (§5.3) | ⬜ Not Started |
+| — | Cross-cutting | Permissions (§5.1) · Notifications (§5.2) · Cron (§5.3) | ✅ Verified |
 
 **Legend for DoD checkboxes below:** each feature carries the spec's DoD list. Global DoD (API envelope,
 permissions, audit, shared types, react-hook-form, Modal/ConfirmDialog/EmptyState, `cn()` tokens,
@@ -43,14 +43,14 @@ barrel export, unit tests, docs) applies to **all** and is not repeated per row.
 - **Files:** `app/api/projects/route.ts`, `lib/projects/service.ts`, `features/projects/components/CreateProjectWizard.tsx`, `features/projects/components/ProjectsListClient.tsx`, `features/projects/hooks/useProjects.ts`, `app/dashboard/projects/page.tsx`
 - **Notes:** wizard uses react-hook-form (holds all 3 steps' state in one mounted form — satisfies "no raw useState for form state"); step index is UI state. Wizard renders in a Modal (spec suggested full-page; Modal chosen for reuse + consistency).
 
-## A2 — Project Templates (Seeded Lifecycle) — 🟩 Done (builder UI + clone pending)
+## A2 — Project Templates (Seeded Lifecycle) — ✅ Verified
 - **User story:** Start from a predefined delivery lifecycle so methodology is a reusable asset.
 - **Requirements:** Seed 3 system templates (`isSystem=true`, non-deletable): "Standard Software Delivery" (7 phases per spec table; **every `*_Approval` activity `ownerParty=CLIENT`**), "Consulting/Advisory" (no Jira/dev), "Government Tender" (compliance gates). Template builder at `/dashboard/projects/templates` (Admin/PM): drag-drop tree (Phase→Milestone→Activity) + properties panel. **Copy-on-instantiate** (not live reference). Clone system → editable copy `isSystem=false`.
 - **Acceptance criteria:** fresh install → 3 system templates; instantiate "Standard" → 7 phases + all milestones/activities w/ correct weight/position + `ownerParty=CLIENT` on approvals; clone → editable copy; edit template → existing projects unaffected.
-- **UI/UX:** left tree + right properties; drag reorders persist `position`.
-- **DoD:** seed script (3 templates) · copy-not-reference instantiation · `ownerParty=CLIENT` verified on every approval · drag-drop persists position · cloning works.
-- **Files:** `lib/projects/templates.ts` (3 structures + `instantiateTemplateStructure`), `prisma/seed-project-templates.ts`, `app/api/projects/templates/route.ts`
-- **Status note:** seed + instantiation + copy-on-create + ownerParty=CLIENT **verified** (E2E: 7 phases/9 milestones/24 activities/4 approvals). Drag-drop **builder UI** + clone endpoint remain (🟨) — the standard picker in the wizard works today.
+- **UI/UX:** template list at `/dashboard/projects/templates`; builder at `/dashboard/projects/templates/new` and `/dashboard/projects/templates/[id]`; left tree + right properties; native HTML5 drag-and-drop reorders phases, milestones, and activities.
+- **DoD:** seed script (3 templates) · copy-not-reference instantiation · `ownerParty=CLIENT` verified on every approval · drag-drop persists order · cloning works · builder UI + create/clone/delete flows · ActivityLog entries.
+- **Files:** `lib/projects/templates.ts` (3 structures + `instantiateTemplateStructure` + builder helpers), `prisma/seed-project-templates.ts`, `scripts/seed-project-permissions.ts`, `app/api/projects/templates/route.ts`, `app/api/projects/templates/[id]/route.ts`, `app/api/projects/templates/[id]/clone/route.ts`, `features/projects/hooks/useProjects.ts`, `features/projects/components/TemplateListClient.tsx`, `features/projects/components/TemplateBuilderClient.tsx`, `app/dashboard/projects/templates/page.tsx`, `app/dashboard/projects/templates/new/page.tsx`, `app/dashboard/projects/templates/[id]/page.tsx`
+- **Status note:** seed + instantiation + copy-on-create + ownerParty=CLIENT + builder UI + clone endpoint **verified**. System templates are read-only; custom templates can be created, edited, cloned, and deleted.
 
 ---
 
@@ -386,10 +386,10 @@ barrel export, unit tests, docs) applies to **all** and is not repeated per row.
 15 new DocTypes (project, phase, milestone, activity, delay_event, change_request, raid_item, stage_gate, client_obligation, correction_of_error, payment_milestone, jira_connection, scrum_log, project_report, client_portal_user) w/ sensitive-field levels + default role matrix (ADMIN/EXECUTIVE/DEPARTMENT_LEAD/EMPLOYEE) + record scoping (own projects). Registered via existing permission seed pattern.
 
 ## Notifications (§5.2) — 🟩 Done (events registered)
-New `PROJECT` category + 22 event keys (PROJECT_CREATED, PROJECT_BASELINE_COMMITTED, PROJECT_REBASELINED, PROJECT_RAG_CHANGED, PROJECT_WENT_RED, CLIENT_APPROVAL_PENDING⭐, CLIENT_APPROVAL_SLA_BREACH⭐, ACTIVITY_BLOCKED, ACTIVITY_OVERDUE, BASELINE_SLIPPED, STAGE_GATE_PENDING, STAGE_GATE_BYPASSED, CHANGE_REQUEST_SUBMITTED, CHANGE_REQUEST_APPROVED, RAID_HIGH_RISK_ADDED, CLIENT_REPORT_READY, CLIENT_COMMENT_POSTED, JIRA_SYNC_FAILED, PAYMENT_MILESTONE_READY, COE_REQUIRED, WBR_PACK_READY, SCRUM_NOT_LOGGED). Added to `lib/notifications/events.ts`.
+New `PROJECT` category + 23 event keys (PROJECT_CREATED, PROJECT_BASELINE_COMMITTED, PROJECT_REBASELINED, PROJECT_RAG_CHANGED, PROJECT_WENT_RED, CLIENT_APPROVAL_PENDING⭐, CLIENT_APPROVAL_SLA_BREACH⭐, ACTIVITY_BLOCKED, ACTIVITY_OVERDUE, BASELINE_SLIPPED, STAGE_GATE_PENDING, STAGE_GATE_BYPASSED, CHANGE_REQUEST_SUBMITTED, CHANGE_REQUEST_APPROVED, RAID_HIGH_RISK_ADDED, CLIENT_REPORT_READY, CLIENT_COMMENT_POSTED, JIRA_SYNC_FAILED, PAYMENT_MILESTONE_READY, COE_REQUIRED, WBR_PACK_READY, PROJECT_DAILY_DIGEST, SCRUM_NOT_LOGGED). Added to `lib/notifications/events.ts`.
 
-## Cron (§5.3) — 🟨 In Progress (5 of 6)
-✅ `project-health` (daily 02:00), ✅ `approval-clock` (daily 08:00), ✅ `jira-sync` (30m), ✅ `client-report` (bi-weekly Mon 06:00), and ✅ `wbr-pack` (weekly Mon 06:00) shipped. Remaining: project-digest.
+## Cron (§5.3) — ✅ Verified (6 of 6)
+✅ `project-health` (daily 02:00), ✅ `approval-clock` (daily 08:00), ✅ `jira-sync` (30m), ✅ `client-report` (bi-weekly Mon 06:00), ✅ `wbr-pack` (weekly Mon 06:00), and ✅ `project-digest` (daily 07:00) shipped. All routes secured by Bearer `CRON_SECRET`.
 6 routes (Bearer `CRON_SECRET`): jira-sync (30m), project-health (daily 02:00), approval-clock (daily 08:00), client-report (bi-weekly Mon 06:00), wbr-pack (weekly Mon 06:00), project-digest (daily 07:00).
 
 ---

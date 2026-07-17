@@ -86,6 +86,7 @@
 | `/dashboard/performance/evaluations/[id]/score` | `app/dashboard/performance/evaluations/[id]/score/page.tsx` | performance | Scoring, calibration, and report workspace |
 | `/dashboard/performance/templates` | `app/dashboard/performance/templates/page.tsx` | performance | Scorecard template/version management |
 | `/dashboard/performance/templates/[id]` | `app/dashboard/performance/templates/[id]/page.tsx` | performance | Template builder and metric mappings |
+| `/dashboard/performance/culture-library` | `app/dashboard/performance/culture-library/page.tsx` | performance | Culture-library admin editor (C1-C6 criteria) |
 | `/dashboard/performance/cycles` | `app/dashboard/performance/cycles/page.tsx` | performance | Review-cycle management |
 | `/dashboard/performance/actions` | `app/dashboard/performance/actions/page.tsx` | performance | Development/reward action queue |
 | `/dashboard/performance/settings` | `app/dashboard/performance/settings/page.tsx` | performance | Performance module settings (admin) |

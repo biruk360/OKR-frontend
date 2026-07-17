@@ -37,6 +37,7 @@ const DOCTYPES: DocType[] = [
   { key: 'jira_connection', displayName: 'Jira Connection' },
   { key: 'scrum_log', displayName: 'Scrum Log' },
   { key: 'project_report', displayName: 'Project Report', isSubmittable: true },
+  { key: 'project_template', displayName: 'Project Template' },
   { key: 'client_portal_user', displayName: 'Client Portal User' },
 ]
 
@@ -190,6 +191,13 @@ const MATRIX: MatrixRow[] = [
     EXECUTIVE: p({ canRead: true, canExport: true }),
     DEPARTMENT_LEAD: p({ canRead: true, canWrite: true, canCreate: true, canSubmit: true, applyScoping: true }),
     EMPLOYEE: p({ canRead: true, applyScoping: true }),
+  },
+  {
+    doctypeKey: 'project_template',
+    ADMIN: ALL,
+    EXECUTIVE: p({ canRead: true, canExport: true, canPrint: true }),
+    DEPARTMENT_LEAD: p({ canRead: true, canWrite: true, canCreate: true, canDelete: true }),
+    EMPLOYEE: p({ canRead: true }),
   },
   {
     doctypeKey: 'client_portal_user',

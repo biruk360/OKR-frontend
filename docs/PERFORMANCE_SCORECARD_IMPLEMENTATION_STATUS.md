@@ -1,7 +1,7 @@
 # Performance & Scorecard Implementation Status
 
 **Started:** 2026-06-07  
-**Last updated:** 2026-06-07  
+**Last updated:** 2026-07-15
 **Implementation reference:** `docs/PERFORMANCE_SCORECARD_IMPLEMENTATION_PROPOSAL.md`
 
 ## Overall Status
@@ -10,7 +10,7 @@
 |---|---|---|
 | Phase 0 | Resolve design conflicts and source-data gaps | PARTIAL — Excel source workbooks remain absent |
 | Phase 1 | Schema, policy, scoring, state machine, feature shell | DONE |
-| Phase 2 | Template management | PARTIAL — no drag-drop builder; culture library is inserted lazily |
+| Phase 2 | Template management | DONE — builder, drag-drop, culture-library seed, and admin library editor implemented |
 | Phase 3 | Cycles and evaluator panels | DONE |
 | Phase 4 | Scoring, metrics, consolidation, calibration | PARTIAL — functional keyboard grid, not AG Grid; no manual actual-resolution workflow |
 | Phase 5 | Reports, sharing, acknowledgement, finalization | PARTIAL — report workflow works; radar/trend/OKR-attainment visualization remains |
@@ -42,10 +42,10 @@
 | Epic | Requirement | Status | Notes |
 |---|---|---|---|
 | A | A1 Create Template | DONE | Draft families, defaults, API, and UI |
-| A | A2 Build Tiers & Criteria | PARTIAL | Ordered builder works; drag-drop is not implemented |
+| A | A2 Build Tiers & Criteria | DONE | Ordered builder works; native HTML5 drag-and-drop reorder for tiers and criteria implemented |
 | A | A3 Rubric Anchors | DONE | Required 0/4/7/10 anchors and publish validation |
 | A | A4 Metric / OKR Link | DONE | Search/filter mapping UI, multiple employee KRs, structured rules |
-| A | A5 Culture Block | PARTIAL | C1-C6 library and one-click copy work; install-time seed/admin library editor remain |
+| A | A5 Culture Block | DONE | C1-C6 library seeded via `db:seed:culture-library`; admin editor at `/dashboard/performance/culture-library`; one-click insert from builder |
 | A | A6 Versioning | DONE | Published versions immutable; fork creates a new draft |
 | A | A7 Publish / Archive | DONE | Publish validation and archive transitions |
 | A | A8 Excel Seed | BLOCKED | Referenced Excel workbooks are not in the repository |

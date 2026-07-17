@@ -16,4 +16,7 @@ Add these to the deploy user's crontab on the VPS. Last reviewed: 2026-04-27.
 ## Project module: health recompute (daily 02:00)
 0 2 * * * curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" https://YOUR_HOST/api/cron/project-health > /var/log/project-health.log 2>&1
 
+## Project module: PM digest (daily 07:00)
+0 7 * * * curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" https://YOUR_HOST/api/cron/project-digest > /var/log/project-digest.log 2>&1
+
 A one-time bootstrap is provided at `scripts/install-crontab.sh` (idempotent — safe to re-run; not invoked from `deploy.sh`).

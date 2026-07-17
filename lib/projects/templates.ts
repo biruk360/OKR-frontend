@@ -12,8 +12,11 @@
  * Build spec: docs/project_management_module_BUILD_SPEC.md §A2.
  */
 
-import type { Prisma } from '@prisma/client'
+import type { Prisma, ProjectTemplate } from '@prisma/client'
 import type { OwnerParty } from '@/features/projects/types'
+import { z } from 'zod'
+import { prisma } from '@/lib/prisma'
+import { recordActivity } from '@/lib/activity-log'
 
 // --- structureJson shape -----------------------------------------------------
 
@@ -309,4 +312,135 @@ export async function instantiateTemplateStructure(
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100
+}
+
+// --- Validation & builder helpers --------------------------------------------
+
+const ownerPartySchema = z.enum(['360GROUND', 'CLIENT', 'SHARED'])
+
+export const templateActivitySchema = z.object({
+  title: z.string().trim().min(1).max(200),
+  ownerParty: ownerPartySchema.optional(),
+  weight: z.number().min(0).optional(),
+  isApproval: z.boolean().optional(),
+})
+
+export const templateMilestoneSchema = z.object({
+  name: z.string().trim().min(1).max(200),
+  weight: z.number().min(0).optional(),
+  isKeyMilestone: z.boolean().optional(),
+  activities: z.array(templateActivitySchema).default([]),
+})
+
+export const templatePhaseSchema = z.object({
+  name: z.string().trim().min(1).max(200),
+  weight: z.number().min(0),
+  milestones: z.array(templateMilestoneSchema).default([]),
+})
+
+export const templateStructureSchema = z.object({
+  phases: z.array(templatePhaseSchema).default([]),
+})
+
+export type ValidatedTemplateStructure = z.infer<typeof templateStructureSchema>
+
+/** Trim strings and fill sensible defaults so the builder always works with a stable shape. */
+export function normalizeTemplateStructure(structure: unknown): TemplateStructure {
+  const src = (structure ?? {}) as TemplateStructure
+  const phases = Array.isArray(src.phases) ? src.phases : []
+  return {
+    phases: phases.map((phase) => ({
+      name: String(phase.name ?? '').trim(),
+      weight: Number(phase.weight ?? 0),
+      milestones: (phase.milestones ?? []).map((milestone) => ({
+        name: String(milestone.name ?? '').trim(),
+        weight: milestone.weight == null ? undefined : Number(milestone.weight),
+        isKeyMilestone: Boolean(milestone.isKeyMilestone),
+        activities: (milestone.activities ?? []).map((activity) => ({
+          title: String(activity.title ?? '').trim(),
+          ownerParty: (activity.ownerParty ?? '360GROUND') as OwnerParty,
+          weight: activity.weight == null ? undefined : Number(activity.weight),
+          isApproval: Boolean(activity.isApproval),
+        })),
+      })),
+    })),
+  }
+}
+
+/** Deep-copy a template's structure for cloning, stripping any system slug. */
+export function cloneTemplateStructure(
+  source: Pick<ProjectTemplate, 'name' | 'description' | 'structureJson'>,
+  newName?: string,
+): {
+  name: string
+  description: string | null
+  isSystem: false
+  version: number
+  structureJson: TemplateStructure
+} {
+  const raw = JSON.parse(JSON.stringify(source.structureJson ?? { phases: [] })) as any
+  if (raw && typeof raw === 'object') {
+    delete raw.slug
+  }
+  return {
+    name: newName?.trim() || `Copy of ${source.name}`,
+    description: source.description ?? null,
+    isSystem: false,
+    version: 1,
+    structureJson: normalizeTemplateStructure(raw),
+  }
+}
+
+/** Clone any template into an editable copy and record the activity. */
+export async function createTemplateClone(
+  sourceId: string,
+  opts: { newName?: string; createdById: string },
+): Promise<{ id: string; name: string; description: string | null; isSystem: boolean; version: number }> {
+  const source = await prisma.projectTemplate.findUnique({
+    where: { id: sourceId },
+    select: { id: true, name: true, description: true, structureJson: true },
+  })
+  if (!source) throw new Error('Template not found')
+
+  const payload = cloneTemplateStructure(source, opts.newName)
+  const created = await prisma.projectTemplate.create({
+    data: {
+      name: payload.name,
+      description: payload.description,
+      isSystem: payload.isSystem,
+      version: payload.version,
+      structureJson: payload.structureJson as unknown as Prisma.InputJsonValue,
+      createdById: opts.createdById,
+    },
+    select: { id: true, name: true, description: true, isSystem: true, version: true },
+  })
+
+  await recordActivity({
+    entityType: 'PROJECT_TEMPLATE',
+    action: 'CREATED',
+    actorId: opts.createdById,
+    metadata: { templateId: created.id, source: 'clone', clonedFromId: source.id },
+  })
+
+  return created
+}
+
+/** Count phases, milestones, and activities in a template structure. */
+export function countTemplateNodes(structure: TemplateStructure): {
+  phases: number
+  milestones: number
+  activities: number
+} {
+  const phases = structure.phases.length
+  const milestones = structure.phases.reduce((s, p) => s + p.milestones.length, 0)
+  const activities = structure.phases.reduce(
+    (s, p) => s + p.milestones.reduce((ms, m) => ms + m.activities.length, 0),
+    0,
+  )
+  return { phases, milestones, activities }
+}
+
+/** Empty starter structure for a brand-new custom template. */
+export function emptyTemplateStructure(): TemplateStructure {
+  return { phases: [{ name: 'New Phase', weight: 100, milestones: [] }] }
 }

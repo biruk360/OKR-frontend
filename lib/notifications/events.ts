@@ -109,6 +109,7 @@ export type EventKey =
   | 'PAYMENT_MILESTONE_READY'
   | 'COE_REQUIRED'
   | 'WBR_PACK_READY'
+  | 'PROJECT_DAILY_DIGEST'
   | 'SCRUM_NOT_LOGGED'
   // Daily Scrum module
   | 'SCRUM_REMINDER'
@@ -227,6 +228,7 @@ export const EVENT_META: Record<EventKey, EventMeta> = {
   PAYMENT_MILESTONE_READY: { key: 'PAYMENT_MILESTONE_READY', category: 'PROJECT', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Payment milestone ready to invoice' },
   COE_REQUIRED: { key: 'COE_REQUIRED', category: 'PROJECT', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Correction of Errors required' },
   WBR_PACK_READY: { key: 'WBR_PACK_READY', category: 'PROJECT', defaultCadence: 'WEEKLY', redactable: false, label: 'Weekly Business Review pack ready' },
+  PROJECT_DAILY_DIGEST: { key: 'PROJECT_DAILY_DIGEST', category: 'PROJECT', defaultCadence: 'DAILY', redactable: false, label: 'Daily project digest' },
   SCRUM_NOT_LOGGED: { key: 'SCRUM_NOT_LOGGED', category: 'PROJECT', defaultCadence: 'DAILY', redactable: false, label: 'Daily scrum not logged' },
 
   // Daily Scrum module.

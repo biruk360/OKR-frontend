@@ -194,7 +194,7 @@ export function CreateProjectWizard({ open, onClose, currentUserId }: Props) {
                     {t.isSystem && <span className="rounded-pill bg-surface-muted px-2 py-0.5 text-[11px] text-ink-secondary">System</span>}
                   </div>
                   {t.description && <div className="text-body-sm text-ink-secondary">{t.description}</div>}
-                  <div className="mt-1 text-body-sm text-ink-tertiary">{t.phaseCount} phases · {t.milestoneCount} milestones · {t.activityCount} activities</div>
+                  <div className="mt-1 text-body-sm text-ink-tertiary">{t.phases} phases · {t.milestones} milestones · {t.activities} activities</div>
                 </div>
               </label>
             ))}

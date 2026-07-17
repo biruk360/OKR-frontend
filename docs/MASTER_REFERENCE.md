@@ -294,7 +294,7 @@ Implementation reference: `docs/PERFORMANCE_SCORECARD_IMPLEMENTATION_PROPOSAL.md
 
 | Module | Status | Paths |
 |--------|--------|-------|
-| Scorecard templates, versions, role mappings, metric mappings, culture block | IN PROGRESS | `features/performance/`, `app/api/performance/templates/`, `app/api/performance/*-mappings/` |
+| Scorecard templates, versions, role mappings, metric mappings, culture block | DONE | `features/performance/`, `app/api/performance/templates/`, `app/api/performance/*-mappings/`, `prisma/seed-culture-library.ts` |
 | Review cycles, evaluator panels, and issue generation | DONE | `app/api/performance/cycles/`, `lib/performance/cycle-opening.ts` |
 | Scoring, OKR metric actuals, consolidation, calibration | IN PROGRESS | `ScoringWorkspace`, `lib/performance/consolidation.ts`, `/api/performance/okr-actual/` |
 | Sealed reports, acknowledgement, dispute, finalization | IN PROGRESS | `PerformanceReport`, evaluation workflow APIs |
@@ -392,9 +392,21 @@ Implementation reference: `docs/PERFORMANCE_SCORECARD_IMPLEMENTATION_PROPOSAL.md
 | `/dashboard/performance/evaluations/[id]/score` | `app/dashboard/performance/evaluations/[id]/score/page.tsx` | Scoring, calibration, and report workspace |
 | `/dashboard/performance/templates` | `app/dashboard/performance/templates/page.tsx` | Scorecard template management |
 | `/dashboard/performance/templates/[id]` | `app/dashboard/performance/templates/[id]/page.tsx` | Template builder and metric mappings |
+| `/dashboard/performance/culture-library` | `app/dashboard/performance/culture-library/page.tsx` | Culture-library admin editor (C1-C6 criteria) |
 | `/dashboard/performance/cycles` | `app/dashboard/performance/cycles/page.tsx` | Review-cycle management |
 | `/dashboard/performance/actions` | `app/dashboard/performance/actions/page.tsx` | Development/reward action queue |
 | `/dashboard/performance/settings` | `app/dashboard/performance/settings/page.tsx` | Performance module settings (admin: thresholds, attribution, nudge day, reward rules) |
+
+### 5.4B Dashboard — Project Management
+
+| Route | File | Description |
+|-------|------|-------------|
+| `/dashboard/projects` | `app/dashboard/projects/page.tsx` | Project list |
+| `/dashboard/projects/portfolio` | `app/dashboard/projects/portfolio/page.tsx` | Portfolio dashboard |
+| `/dashboard/projects/[id]` | `app/dashboard/projects/[id]/page.tsx` | Project detail |
+| `/dashboard/projects/templates` | `app/dashboard/projects/templates/page.tsx` | Project template directory |
+| `/dashboard/projects/templates/new` | `app/dashboard/projects/templates/new/page.tsx` | New template builder |
+| `/dashboard/projects/templates/[id]` | `app/dashboard/projects/templates/[id]/page.tsx` | Edit template builder |
 
 ### 5.5 Dashboard — Communication
 
@@ -845,6 +857,9 @@ Auth: routes use `withAuth(handler)` or `withRole(roles, handler)` from `lib/api
 
 | Method | Route | Auth | Description |
 |--------|-------|------|-------------|
+| GET/POST | `/api/projects/templates` | Auth / ADMIN+EXECUTIVE+DEPARTMENT_LEAD create | List project templates; create a new custom template |
+| GET/PATCH/DELETE | `/api/projects/templates/[id]` | Auth / ADMIN+EXECUTIVE+DEPARTMENT_LEAD write | Template detail, update, and delete (system templates are read-only) |
+| POST | `/api/projects/templates/[id]/clone` | ADMIN+EXECUTIVE+DEPARTMENT_LEAD | Clone any template into an editable `isSystem=false` copy |
 | PATCH | `/api/projects/[id]/activities/schedule` | Project write | Persist Gantt drag/resize schedule changes, including cascaded successor shifts and C4 slip attribution on baselined projects |
 | GET/POST | `/api/projects/[id]/dependencies` | Project read/write | List or create activity dependencies with cycle checks |
 | DELETE | `/api/projects/[id]/dependencies/[dependencyId]` | Project write | Delete an activity dependency |
@@ -897,6 +912,8 @@ All cron routes: `POST /api/cron/*` — require Bearer `CRON_SECRET` header.
 | GET/PATCH | `/api/performance/templates/[id]` | Auth/Admin write | Template detail and configuration |
 | PUT | `/api/performance/templates/[id]/builder` | Admin | Replace draft tiers and criteria |
 | POST | `/api/performance/templates/[id]/{publish,fork,archive,culture-block}` | Admin | Template lifecycle and culture insertion |
+| GET/POST | `/api/performance/culture-library` | Admin | List/create reusable criterion-library entries |
+| PUT/PATCH | `/api/performance/culture-library/[id]` | Admin | Update/toggle-active a library entry |
 | GET/PUT/DELETE | `/api/performance/template-mappings`, `/api/performance/metric-mappings` | Admin | Role and employee metric mappings |
 | GET/POST | `/api/performance/cycles` | Auth/Admin create | List/create cycles |
 | GET/POST | `/api/performance/cycles/[id]`, `/api/performance/cycles/[id]/{open,close}` | Scoped/Admin | Cycle detail and lifecycle |
@@ -1072,6 +1089,7 @@ Import: `import { ScrumHome, serializeScrumUpdate } from '@/features/scrum'`
 |-----------|---------|
 | `PerformanceHome` | Employee focus, weekly step, and review history |
 | `TemplatesWorkspace`, `TemplateBuilder` | Template/version management and builder |
+| `CultureLibraryManager` | Admin editor for reusable criterion-library entries |
 | `RoleMappingManager`, `MetricMappingManager` | Template resolution and employee KR source mapping |
 | `CyclesWorkspace`, `CycleIssuesModal`, `EvaluatorQueue` | Cycle administration (create with validation, open, close with incomplete-evaluation override), per-cycle issue resolve/waive, and evaluator work queue |
 | `ScoringWorkspace`, `PanelManager`, `CalibrationPanel` | Scoring, live metric actuals, evaluator panel management, consolidation retry, and side-by-side calibration |
@@ -1102,6 +1120,8 @@ Import: `import { ScrumHome, serializeScrumUpdate } from '@/features/scrum'`
 | Component | Notes |
 |-----------|-------|
 | `ProjectDetailClient` | Project detail shell with baseline/re-baseline controls, E1 project view switcher, Delay Ledger, H1 RAID Register, H2 Change Control Board, H3 Stage Gates, H4 Client Obligations, H5 Correction of Errors, and H6 Payment Milestones |
+| `TemplateListClient` | A2 project template directory: searchable card grid, create/clone/delete modals, and navigation to the builder |
+| `TemplateBuilderClient` | A2 template builder: name/description editor, left phase→milestone→activity tree, right properties panel, native HTML5 drag-and-drop reorder, validation, save/create, and system-template clone |
 | `DelayLedgerTable` | C5 filtered delay ledger with server totals, inline recovery editing, CSV export, and PDF export |
 | `GanttChart` | P3 custom React Gantt using `@tanstack/react-virtual`: split task/timeline panes, virtual rows, persisted columns/width, search, sort, scales, zoom, today marker, minimap, status-colored bars, baseline ghost overlays, progress fill, milestone diamonds, phase summary bars, approval-wait badges, drag/resize, dependencies, D4 toolbar/export, column/options persistence, critical path, undo, duplicate |
 | `ProjectViewSwitcher` | E1 six-view project surface: Gantt, sortable/editable Table, drag/drop status Board, cross-project Workload heatmap, ReactFlow Mindmap, and Overview ring/registers with persisted Zustand filters |
@@ -1322,7 +1342,11 @@ All cron routes secured by Bearer `CRON_SECRET`.
 | Prune activity | `POST /api/cron/prune-activity` | Monthly | Remove old activity log rows |
 | Sprint migration check | `POST /api/cron/sprint-migration-check` | One-time | Legacy sprint migration status |
 | Project health | `POST /api/cron/project-health` | Daily 02:00 | Recompute confidence/RAG/SPI/CPI for all active projects |
-| Approval clock | `POST /api/cron/approval-clock` | Daily | Fire `CLIENT_APPROVAL_SLA_BREACH` escalations at SLA / SLA+3 / SLA+7 business days (deduped per wait) |
+| Approval clock | `POST /api/cron/approval-clock` | Daily 08:00 | Fire `CLIENT_APPROVAL_SLA_BREACH` escalations at SLA / SLA+3 / SLA+7 business days (deduped per wait) |
+| Project digest | `POST /api/cron/project-digest` | Daily 07:00 | Overdue/blocked/waiting-approval digest emailed to each project manager |
+| Jira sync | `POST /api/cron/jira-sync` | Every 30 min | Pull issues/worklogs/changelogs/sprints for all active Jira connections |
+| Client report | `POST /api/cron/client-report` | Bi-weekly Mon 06:00 | Generate bi-monthly client report drafts for active projects |
+| WBR pack | `POST /api/cron/wbr-pack` | Weekly Mon 06:00 | Generate Weekly Business Review pack |
 
 ---
 

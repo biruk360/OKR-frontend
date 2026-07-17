@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 import { DEMO_SEED_PASSWORD } from '../lib/demo-seed-info'
+import { seedCultureLibrary } from './seed-culture-library'
 
 const prisma = new PrismaClient()
 
@@ -342,6 +343,9 @@ async function main() {
   }
 
   console.log('✅ Todos created')
+
+  const cultureSeeded = await seedCultureLibrary()
+  console.log(`✅ ${cultureSeeded} culture-library entries seeded`)
 
   console.log('🎉 Database seeding completed successfully!')
   console.log('')

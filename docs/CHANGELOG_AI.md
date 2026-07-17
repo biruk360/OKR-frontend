@@ -2,6 +2,16 @@
 
 > **Purpose:** Log of all changes made by AI assistants. Every AI session that modifies code MUST append an entry here.
 
+## 2026-07-15 — Project Management module: Cross-cutting Cron — project-digest
+
+Completes the PM module cron table (6 of 6) with the daily 07:00 project digest.
+
+- **`lib/projects/project-digest.ts`** — added pure `aggregatePmDigest()` plus `buildPmDigest()` and `runProjectDigest()`. Aggregates per-project-manager: overdue activities, blocked activities, waiting approvals, upcoming due dates, failed stage gates, overdue payment milestones, open high-risk RAID items, and overdue COEs. Emits one `PROJECT_DAILY_DIGEST` notification per PM with `explicitRecipients`.
+- **`app/api/cron/project-digest/route.ts`** — added cron route protected by `CRON_SECRET` (same pattern as other PM crons); returns `{ success, generated, skipped }`.
+- **Notification plumbing** — added `PROJECT_DAILY_DIGEST` to `lib/notifications/events.ts` (category `PROJECT`, cadence `DAILY`) and a matching rich email template in `lib/email/templates/index.ts` with KPI row and per-project issue summary.
+- **Tests/docs** — added `lib/projects/project-digest.test.ts` covering empty input, overdue/blocked/waiting/upcoming activities, failed gates, overdue payments, high-risk RAID, overdue COEs, RAG tallies, and project grouping. Updated `docs/PROJECT_MANAGEMENT_MODULE_TRACKER.md` (Cron ✅ Verified 6/6), `docs/CRON.md` (07:00 entry), `docs/MASTER_REFERENCE.md` (cron table), and `docs/FEATURE_STATUS.md`.
+- Tests run: `npx tsc --noEmit` (clean) · `npm run test:projects` (191 pass) · `git diff --check` (clean).
+
 ## 2026-07-15 — Project Management module: P8 — OKR Integration & Portfolio Intelligence
 
 Implements Epic K: milestone→Key Result progress linkage, CEO portfolio dashboard, and cross-project performance reports.
@@ -2013,3 +2023,35 @@ Migrated 13 remaining modals to use `Modal` / `ConfirmDialog` / `useReferenceDat
 - **Created** Code conventions and rules for new code — `docs/CONVENTIONS.md`
 - **Tests:** not run (docs-only change, no code modified)
 - **Docs updated:** All docs created fresh
+
+## 2026-07-15 — Project Management module: A2 — Project Template Builder UI + Clone Endpoint
+
+Completes the A2 project templates feature with a full builder UI, CRUD/clone API, and permission wiring.
+
+- **Backend** — added `templateActivitySchema`, `templateMilestoneSchema`, `templatePhaseSchema`, `templateStructureSchema`, `normalizeTemplateStructure`, `cloneTemplateStructure`, `countTemplateNodes`, `emptyTemplateStructure`, and `createTemplateClone` to `lib/projects/templates.ts`. Added `GET/POST /api/projects/templates`, `GET/PATCH/DELETE /api/projects/templates/[id]`, and `POST /api/projects/templates/[id]/clone`. System templates are blocked from edit/delete; cloning any template produces an editable `isSystem=false` copy. `recordActivity` calls use `PROJECT_TEMPLATE` / `CREATED|UPDATED|DELETED` with `templateId` in metadata.
+- **Permissions** — added `project_template` DocType and a matrix row to `scripts/seed-project-permissions.ts` so `ADMIN`/`EXECUTIVE`/`DEPARTMENT_LEAD` can manage templates.
+- **Hooks** — extended `features/projects/hooks/useProjects.ts` with `useProjectTemplates`, `useProjectTemplate(id)`, `useCreateProjectTemplate`, `useUpdateProjectTemplate`, `useDeleteProjectTemplate`, and `useCloneProjectTemplate`, plus client-facing template types.
+- **UI** — built `TemplateListClient` (card grid, search, create/clone/delete modals) and `TemplateBuilderClient` (name/description editor, left phase/milestone/activity tree, right properties panel, native HTML5 drag-and-drop reorder). Added pages at `/dashboard/projects/templates`, `/dashboard/projects/templates/new`, and `/dashboard/projects/templates/[id]`. System templates open read-only with a Clone button.
+- **Docs** — updated `docs/PROJECT_MANAGEMENT_MODULE_TRACKER.md`: A2 marked ✅ Verified and file list expanded.
+- Tests run: `npx tsc --noEmit` (clean) · `npm run test:projects` (197 pass) · `git diff --check` (clean).
+
+## 2026-07-15 — Performance module: Template builder drag-and-drop
+
+Adds native HTML5 drag-and-drop reorder to the scorecard template builder.
+
+- **UI** — added `GripVertical` drag handles to tier headers and criterion cards in `features/performance/components/TemplateBuilder.tsx`. Tier handles reorder the full tier list; criterion handles reorder criteria within the same tier. Existing up/down arrow buttons remain as fallback.
+- **State** — reordering updates the local `tiers` array via the existing `moveItem` helper; the next `Save builder` click persists the new order through the existing `useSaveTemplateBuilder` mutation.
+- **Docs** — updated `docs/PERFORMANCE_SCORECARD_IMPLEMENTATION_STATUS.md` (A2 → DONE, Phase 2 note refined) and `docs/FEATURE_STATUS.md` (template management note updated).
+- Tests run: `npx tsc --noEmit` (clean) · `git diff --check` (clean).
+
+## 2026-07-15 — Performance module: Culture Library seed + admin editor
+
+Completes A5 Culture Block by adding install-time seeding and an admin editor for reusable criterion-library entries.
+
+- **Seed** — added `prisma/seed-culture-library.ts` (idempotent upsert of C1-C6 into `CriterionLibraryEntry`), `package.json` script `db:seed:culture-library`, and integration into `prisma/seed.ts` for fresh demo databases.
+- **API** — added `GET/POST /api/performance/culture-library` and `PUT/PATCH /api/performance/culture-library/[id]` with `isPerformanceAdmin`/`criterion_library_entry` permission checks.
+- **UI** — added `CultureLibraryManager` component and `/dashboard/performance/culture-library` page; bilingual (EN/AM) anchor editor for 0/4/7/10 rubric anchors; create new entries and toggle active state; "Manage library" link from `TemplateBuilder`.
+- **Permissions** — added feature keys `page.performance.culture-library`, `button.performance.culture-library.create`, `button.performance.culture-library.edit` to `scripts/seed-permissions.ts`; `criterion_library_entry` ADMIN matrix already grants full access.
+- **Shared helpers** — extracted `anchorEn`, `anchorAm`, `buildAnchorValue`, and `AnchorValue` type into `features/performance/components/anchor-helpers.ts` and updated `TemplateBuilder` to import them.
+- **Docs** — updated `PERFORMANCE_SCORECARD_IMPLEMENTATION_STATUS.md` (A5 → DONE, Phase 2 → DONE), `FEATURE_STATUS.md`, `SITEMAP.md`, `COMPONENT_CATALOG.md`, `MASTER_REFERENCE.md`.
+- Tests run: `npx tsc --noEmit` (clean) · `npm run test:projects` (197/0) · `git diff --check` (clean).

@@ -26,6 +26,7 @@ import {
   ShieldCheck,
   ClipboardCheck,
   Award,
+  Library,
 } from 'lucide-react'
 
 export interface NavItem {
@@ -120,6 +121,7 @@ export const navigationGroups: NavGroup[] = [
       { name: 'Evaluation Queue', href: '/dashboard/performance/evaluations', icon: ClipboardCheck, featureKey: 'page.performance.evaluations' },
       { name: 'Review Cycles', href: '/dashboard/performance/cycles', icon: Calendar, featureKey: 'page.performance.cycles' },
       { name: 'Scorecard Templates', href: '/dashboard/performance/templates', icon: ClipboardList, featureKey: 'page.performance.templates' },
+      { name: 'Culture Library', href: '/dashboard/performance/culture-library', icon: Library, featureKey: 'page.performance.culture-library' },
       { name: 'Development Actions', href: '/dashboard/performance/actions', icon: Award, featureKey: 'page.performance.actions' },
       { name: 'Performance Settings', href: '/dashboard/performance/settings', icon: Settings, featureKey: 'page.settings.performance' },
     ],

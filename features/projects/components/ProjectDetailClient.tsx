@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, AlertTriangle, Gauge, TrendingUp, CalendarClock } from 'lucide-react'
+import { ArrowLeft, AlertTriangle, Gauge, TrendingUp, CalendarClock, Upload } from 'lucide-react'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { StatCard } from '@/components/ui/StatCard'
 import { Skeleton } from '@/components/ui/Skeleton'
@@ -25,6 +25,7 @@ import { ClientReportsPanel } from './reports/ClientReportsPanel'
 import { PerformanceReportsPanel } from './reports/PerformanceReportsPanel'
 import { ManagementReportsPanel } from './reports/ManagementReportsPanel'
 import { ProjectObjectiveLinker } from './okr/ProjectObjectiveLinker'
+import { ScheduleImportModal } from './ScheduleImportModal'
 
 interface Props {
   projectId: string
@@ -38,6 +39,7 @@ export function ProjectDetailClient({ projectId, user }: Props) {
   const commitBaseline = useCommitBaseline(projectId)
   const [commitOpen, setCommitOpen] = useState(false)
   const [baselineNotes, setBaselineNotes] = useState('')
+  const [importOpen, setImportOpen] = useState(false)
 
   // Re-baseline (C2) state.
   const rebaseline = useRebaseline(projectId)
@@ -170,6 +172,11 @@ export function ProjectDetailClient({ projectId, user }: Props) {
         </div>
         <div className="flex items-center gap-3">
           <span className="text-body-sm text-ink-tertiary">Phase → Milestone → Activity</span>
+          {notBaselined && canEdit && (
+            <button onClick={() => setImportOpen(true)} className="btn btn-outline">
+              <Upload className="size-4" /> Import Schedule
+            </button>
+          )}
           {!notBaselined && canEdit && (
             <button onClick={() => setRebaseOpen(true)} className="btn btn-outline">
               Re-Baseline
@@ -177,6 +184,13 @@ export function ProjectDetailClient({ projectId, user }: Props) {
           )}
         </div>
       </div>
+
+      <ScheduleImportModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        projectId={project.id}
+        hasSchedule={activityCount > 0}
+      />
 
       {/* Re-baseline modal (C2): diff preview + reason (≥20) + approver. */}
       <ConfirmDialog

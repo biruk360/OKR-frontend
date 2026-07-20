@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { Copy, Target, TrendingUp } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { Modal } from '@/components/ui'
+import { Button, Modal } from '@/components/ui'
 
 interface CloneKeyResultModalProps {
   isOpen: boolean
@@ -21,6 +21,8 @@ interface KeyResultFormData {
   startValue: number
   targetValue: number
   unit: string
+  useCarriedBaseline: boolean
+  includeIncompleteTodos: boolean
 }
 
 export default function CloneKeyResultModal({
@@ -40,6 +42,8 @@ export default function CloneKeyResultModal({
       startValue: 0,
       targetValue: 100,
       unit: '%',
+      useCarriedBaseline: true,
+      includeIncompleteTodos: false,
     },
   })
 
@@ -52,9 +56,11 @@ export default function CloneKeyResultModal({
         title: `Copy of ${keyResult.title}`,
         description: keyResult.description || '',
         ownerId: keyResult.ownerId || '',
-        startValue: keyResult.startValue || 0,
+        startValue: keyResult.finalValue ?? keyResult.currentValue ?? keyResult.startValue ?? 0,
         targetValue: keyResult.targetValue || 100,
         unit: keyResult.unit || '%',
+        useCarriedBaseline: true,
+        includeIncompleteTodos: false,
       })
     }
   }, [isOpen, keyResult, reset])
@@ -77,7 +83,7 @@ export default function CloneKeyResultModal({
       const result = await response.json()
 
       if (response.ok) {
-        toast.success('Key Result cloned successfully.')
+        toast.success('Key Result rolled forward with its period history linked.')
         onClose()
         if (onSuccess) onSuccess()
         else window.location.reload()
@@ -94,20 +100,20 @@ export default function CloneKeyResultModal({
   if (!keyResult) return null
 
   return (
-    <Modal open={isOpen} onClose={onClose} title="Clone Key Result" icon={Copy} iconClassName="text-blue-600" size="sm">
+    <Modal open={isOpen} onClose={onClose} title="Roll Forward Key Result" icon={Copy} iconClassName="text-primary" size="sm">
       <form onSubmit={handleSubmit(onSubmit)}>
         <div className="mb-4">
           <label htmlFor="title" className="block text-sm font-medium text-muted-foreground mb-2">
-            Title <span className="text-red-500">*</span>
+            Title <span className="text-destructive">*</span>
           </label>
           <input
             type="text"
             id="title"
             {...register('title', { required: 'Title is required' })}
-            className="w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-blue-500"
+            className="w-full rounded-md border border-border bg-background px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
             placeholder="Enter key result title"
           />
-          {errors.title && <p className="mt-1 text-sm text-red-600">{errors.title.message}</p>}
+          {errors.title && <p className="mt-1 text-sm text-destructive">{errors.title.message}</p>}
         </div>
 
         <div className="mb-4">
@@ -118,19 +124,19 @@ export default function CloneKeyResultModal({
             id="description"
             {...register('description')}
             rows={3}
-            className="w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-blue-500"
+            className="w-full rounded-md border border-border bg-background px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
             placeholder="Enter key result description (optional)"
           />
         </div>
 
         <div className="mb-4">
           <label htmlFor="owner" className="block text-sm font-medium text-muted-foreground mb-2">
-            Owner <span className="text-red-500">*</span>
+            Owner <span className="text-destructive">*</span>
           </label>
           <select
             id="owner"
             {...register('ownerId', { required: 'Owner is required' })}
-            className="w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-blue-500"
+            className="w-full rounded-md border border-border bg-background px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
           >
             <option value="">Select an owner</option>
             {users.map((user) => (
@@ -139,7 +145,7 @@ export default function CloneKeyResultModal({
               </option>
             ))}
           </select>
-          {errors.ownerId && <p className="mt-1 text-sm text-red-600">{errors.ownerId.message}</p>}
+          {errors.ownerId && <p className="mt-1 text-sm text-destructive">{errors.ownerId.message}</p>}
         </div>
 
         <div className="grid grid-cols-2 gap-4 mb-4">
@@ -154,15 +160,15 @@ export default function CloneKeyResultModal({
                 required: 'Start value is required',
                 min: { value: 0, message: 'Start value must be 0 or greater' },
               })}
-              className="w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-blue-500"
+              className="w-full rounded-md border border-border bg-background px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
               placeholder="0"
             />
-            {errors.startValue && <p className="mt-1 text-sm text-red-600">{errors.startValue.message}</p>}
+            {errors.startValue && <p className="mt-1 text-sm text-destructive">{errors.startValue.message}</p>}
           </div>
 
           <div>
             <label htmlFor="targetValue" className="block text-sm font-medium text-muted-foreground mb-2">
-              Target Value <span className="text-red-500">*</span>
+              Target Value <span className="text-destructive">*</span>
             </label>
             <input
               type="number"
@@ -171,12 +177,28 @@ export default function CloneKeyResultModal({
                 required: 'Target value is required',
                 min: { value: 0.01, message: 'Target value must be greater than 0' },
               })}
-              className="w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-blue-500"
+              className="w-full rounded-md border border-border bg-background px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
               placeholder="100"
             />
-            {errors.targetValue && <p className="mt-1 text-sm text-red-600">{errors.targetValue.message}</p>}
+            {errors.targetValue && <p className="mt-1 text-sm text-destructive">{errors.targetValue.message}</p>}
           </div>
         </div>
+
+        <label className="mb-4 flex items-start gap-3 rounded-lg border border-border bg-muted/40 p-3">
+          <input type="checkbox" {...register('useCarriedBaseline')} className="mt-0.5 size-4 rounded border-border accent-primary" />
+          <span>
+            <span className="block text-sm font-medium text-foreground">Use previous final value as baseline</span>
+            <span className="mt-1 block text-xs text-muted-foreground">The new period starts at this banked value with 0% new progress.</span>
+          </span>
+        </label>
+
+        <label className="mb-4 flex items-start gap-3 rounded-lg border border-border p-3">
+          <input type="checkbox" {...register('includeIncompleteTodos')} className="mt-0.5 size-4 rounded border-border accent-primary" />
+          <span>
+            <span className="block text-sm font-medium text-foreground">Carry incomplete initiatives</span>
+            <span className="mt-1 block text-xs text-muted-foreground">Completed and cancelled work stays in the previous period.</span>
+          </span>
+        </label>
 
         <div className="mb-6">
           <label htmlFor="unit" className="block text-sm font-medium text-muted-foreground mb-2">
@@ -185,7 +207,7 @@ export default function CloneKeyResultModal({
           <select
             id="unit"
             {...register('unit')}
-            className="w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-blue-500"
+            className="w-full rounded-md border border-border bg-background px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
           >
             <option value="%">% (percent)</option>
             <option value="pcs">pcs (pieces)</option>
@@ -197,31 +219,29 @@ export default function CloneKeyResultModal({
         </div>
 
         {startValue >= targetValue && startValue > 0 && targetValue > 0 && (
-          <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-3">
+          <div className="mb-4 rounded-lg border border-destructive/20 bg-destructive/5 p-3">
             <div className="flex items-center">
-              <TrendingUp className="h-4 w-4 text-red-600 mr-2" />
-              <p className="text-sm text-red-700">Target Value must be greater than Start Value.</p>
+              <TrendingUp className="mr-2 size-4 text-destructive" />
+              <p className="text-sm text-destructive">Target Value must be greater than Start Value.</p>
             </div>
           </div>
         )}
 
-        <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
+        <div className="mb-4 rounded-lg border border-primary/20 bg-primary/5 p-3">
           <div className="flex items-center">
-            <Target className="h-4 w-4 text-blue-600 mr-2" />
-            <p className="text-sm text-blue-700">
-              Cloned key result will start with progress at {startValue} {watch('unit')} (start value).
-              To-dos and initiatives will not be cloned.
+            <Target className="mr-2 size-4 text-primary" />
+            <p className="text-sm text-primary">
+              Rolled-forward progress resets to 0% from a carried baseline of {startValue} {watch('unit')}.
             </p>
           </div>
         </div>
 
         <div className="flex items-center justify-end space-x-3">
-          <button type="button" onClick={onClose} className="btn-outline" disabled={isLoading}>
+          <Button type="button" variant="outline" onClick={onClose} disabled={isLoading}>
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             type="submit"
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring disabled:opacity-50"
             disabled={isLoading || (startValue >= targetValue && startValue > 0 && targetValue > 0)}
           >
             {isLoading ? (
@@ -232,7 +252,7 @@ export default function CloneKeyResultModal({
             ) : (
               'Clone Key Result'
             )}
-          </button>
+          </Button>
         </div>
       </form>
     </Modal>

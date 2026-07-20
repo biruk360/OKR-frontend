@@ -161,12 +161,17 @@ export async function recalcNodeAndAncestors(tx: DbLike, startObjectiveId: strin
   let cur: string | null = startObjectiveId
   while (cur !== null) {
     const id: string = cur
-    await recalcObjectiveStoredProgress(tx, id)
-    const nextParent = await tx.objective.findUnique({
+    const node = await tx.objective.findUnique({
       where: { id },
-      select: { parentObjectiveId: true },
+      select: { parentObjectiveId: true, isLocked: true },
     })
-    cur = nextParent?.parentObjectiveId ?? null
+    // A CLOSED (locked) objective's progress is frozen — never recompute it.
+    // We still walk to ancestors: a locked child's frozen `progress` rolls up
+    // into any unlocked parent as-is.
+    if (!node?.isLocked) {
+      await recalcObjectiveStoredProgress(tx, id)
+    }
+    cur = node?.parentObjectiveId ?? null
   }
 }
 

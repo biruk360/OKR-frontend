@@ -23,6 +23,7 @@
 
 ### Phase 1 — Schema + migration + backfill
 - Add all fields/models from spec §3: `Objective` + `KeyResult` closure/lock/reopen/lineage columns, `carriedStartValue` on KR, new models `OkrRetrospective` and `OkrReopenLog`, and the named back-relations on `User` (`ObjectiveClosedBy`, `KeyResultClosedBy`).
+- **Verified pre-existing:** `OrganizationSettings.okrReopenWindowDays Int @default(14)` **already exists** in the schema (unused). Do NOT re-add it — wire Phase 5 to read it. None of the closure/lineage fields or the two new models exist yet; everything else in §3 is net-new.
 - Update `scripts/preflight.sql` for the new columns (CI runs it; deploy uses `prisma db push`).
 - Backfill script (`scripts/`): every existing `Objective` with `goalStatus='CLOSED'` → set `closureStatus='CLOSED'`, `closedAt=updatedAt`, `isLocked=true`, `lockedAt=updatedAt`.
 - **DoD:** `npx prisma validate` clean; `npx prisma generate` clean; backfill script idempotent (safe to re-run).
@@ -30,7 +31,11 @@
 
 ### Phase 2 — Lock guard (ship before any close logic)
 - Create `lib/okr/lock-guard.ts` exporting `assertNotLocked(entityType: 'objective'|'keyresult'|'checkin', id: string)`. For `checkin`, resolve up to parent KR → parent Objective; if any ancestor `isLocked`, throw. Throw the standard envelope error with HTTP **423**, `{ code: 'OKR_LOCKED', reopenUrl }`.
-- Call it at the **top** of every existing mutating OKR route: `PUT/DELETE /api/objectives/[id]`, `PUT/DELETE /api/keyresults/[id]`, check-in create, weights, contributors, archive, `complete`, and any bulk endpoint (bulk skips locked and reports them).
+- Call it at the **top** of every mutating OKR route. **Verified route inventory (classify each):**
+  - **BLOCK when locked:** `PUT`+`DELETE /api/objectives/[id]`; `objectives/[id]/archive`, `/unarchive`, `/complete`, `/weights` (PATCH), `/labels` (POST+DELETE), `/request-checkin`; `PUT`+`DELETE /api/keyresults/[id]`; `keyresults/[id]/check-ins` (POST), `/archive`, `/unarchive`, `/complete`, `/request-checkin`, `/todos` (POST — no new work under a frozen KR). Owner/contributor changes flow through the objective `PUT`, so they're covered there.
+  - **EXEMPT (allowed on a closed OKR):** `objectives|keyresults/[id]/comments` (discussion is not editing), `/clone` (reads the source, doesn't mutate it), `/views` (per-user view tracking), and all reads/activity endpoints.
+  - Note both `objectives/[id]/complete` **and** `keyresults/[id]/complete` exist — cover both.
+  - Any bulk endpoint skips locked entities and reports them.
 - Make `recalcNodeAndAncestors` skip `isLocked` objectives.
 - **DoD + Verify:** ⭐ add an automated test that, for a closed Objective and a closed KR, hits **every** mutating endpoint and asserts **423** on each. This test is the gate for the whole feature — it must stay green.
 

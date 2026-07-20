@@ -110,6 +110,11 @@ export type ActivityAction =
   | 'AMENDED'
   | 'ESCALATED'
   | 'RESOLVED'
+  // OKR period-close lifecycle actions.
+  | 'CLOSURE_INITIATED'
+  | 'CLOSED'
+  | 'REOPENED'
+  | 'ROLLED_FORWARD'
 
 export interface FieldChange {
   from: unknown

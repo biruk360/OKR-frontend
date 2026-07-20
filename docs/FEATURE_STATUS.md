@@ -44,6 +44,9 @@
 | Progress Calculation | DONE | `lib/objectiveProgress.ts` | `recalcNodeAndAncestors()` | Supports LOOSE + STRICT_DEPENDENCY |
 | Confidence Snapshots | DONE | `lib/confidence-calc.ts` | Auto-computed on check-in + bi-weekly cron. Score = time-elapsed vs progress gap (40%) + velocity (25%) + initiative completion (15%) + staleness (20%). Objective goalStatus = worst-of children. | `app/api/cron/confidence-calc/`, `app/api/cron/auto-confidence/` |
 | Alignment Map | DONE | `app/dashboard/alignment-map/` | OKR alignment visualization | |
+| Period close, retrospective, reopen, and lock | DONE | `app/api/objectives/[id]/close/`, `app/api/keyresults/[id]/close/`, `components/shared/OkrCloseModal.tsx` | Server-side 423 lock, evidence-backed retrospective, reopen scars | Verified on localhost |
+| Roll-forward and lineage | DONE | Existing `/clone` routes/modals, `components/shared/RolledFromBanner.tsx` | Carried baseline, single successor, predecessor/successor history | Verified Q1→Q2 |
+| End-of-period report | DONE | `/dashboard/okrs-all/period-report/[timeframeId]`, `/api/reports/period-close/[timeframeId]` | Scoped charts, lessons, ledger, close queue, PDF | Verified API/page/PDF |
 
 ## Work Management
 

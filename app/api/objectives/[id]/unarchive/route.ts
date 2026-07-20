@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { canEditObjective } from '@/lib/permissions'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
+import { objectiveLockResponse } from '@/lib/okr/lock-guard'
 import { recordActivity } from '@/lib/activity-log'
 import { recalcNodeAndAncestors } from '@/lib/objectiveProgress'
 import {
@@ -17,6 +18,9 @@ export const POST = withAuth<RouteIdParams>(async (_request, { session, params }
 
   const existing = await prisma.objective.findUnique({ where: { id } })
   if (!existing) return apiNotFound('Objective not found')
+
+  const locked = await objectiveLockResponse(id)
+  if (locked) return locked
   if (existing.status !== 'ARCHIVED') {
     return apiBadRequest('Objective is not archived')
   }

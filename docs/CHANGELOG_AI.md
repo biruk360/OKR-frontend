@@ -2,6 +2,37 @@
 
 > **Purpose:** Log of all changes made by AI assistants. Every AI session that modifies code MUST append an entry here.
 
+## 2026-07-20 — OKR Period Close / Retrospective / Roll-Forward — Phases 3–7
+
+Completed the seven-phase OKR period-close feature on `feature/okr-period-close` without committing, pushing, or touching production.
+
+- **Close lifecycle:** added Objective/KR initiate, retrospective, evidence, commit, and reopen routes; legacy Complete now enters the mandatory close flow. Closing freezes snapshots, `CLOSED` enforces server-side HTTP 423, and reopening requires a 20-character reason, respects `OrganizationSettings.okrReopenWindowDays`, restores the frozen snapshot, and leaves an append-only scar.
+- **Transactions and audit:** lifecycle changes and `recalcNodeAndAncestors()` run together in Prisma transactions; all mutations record activity. Re-close timestamps open reopen logs.
+- **Shared UI:** added the three-step `OkrCloseModal`, `OkrReopenDialog`, and feature wrappers/action-menu wiring. Locked records hide mutation actions while remaining readable/commentable/cloneable.
+- **Roll-forward:** extended the existing Objective/KR clone routes and modals with next-period defaults, single-successor protection, lineage, optional incomplete-initiative carry, and the critical carried baseline (`startValue=currentValue=previous finalValue`, new-period progress 0). Added `RolledFromBanner` with forward links and previous-period performance.
+- **Period report:** added scoped on-demand report/API/PDF with close progress, outcomes, grade histogram/delta, blocker Pareto, lessons, roll-forward status, still-open checklist, ledger, and sequenced “close all my open OKRs.” Department leads are membership-scoped; Admin/Executive are org-wide. Weekly digest now includes ended-period close reminders.
+- **Local verification:** lifecycle lock/reopen/re-close and scars verified through authenticated localhost APIs; Q1→Q2 KR baseline verified at 78→100 with 0% new progress; lineage page rendered; Q1 report returned mixed open/closed aggregates; department scoping returned Marketing only; Puppeteer produced a 137,963-byte PDF.
+- Final gates: `npm run test:okr` (9 passed) · `npx tsc --noEmit` (clean) · `git diff --check` (clean) · `npm run build` (pass, including Next build type/lint stage). Standalone `npm run lint` is not configured and opens Next.js's first-run ESLint prompt.
+
+## 2026-07-20 — OKR Period Close / Retrospective / Roll-Forward — Phase 2 (lock guard)
+
+Completed and verified the transitive server-side lock foundation before starting the close workflow.
+
+- **`lib/okr/lock-guard.ts`** — added objective and Key Result lock resolution, including inheritance from a locked parent Objective, with the standard HTTP 423 `OKR_LOCKED` response and reopen URL.
+- **OKR mutation routes** — wired the guard into all Objective and Key Result mutation endpoints while keeping comments, clone, view tracking, and reads exempt.
+- **`lib/objectiveProgress.ts`** — prevents recalculation from changing frozen locked Objectives while preserving ancestor traversal.
+- **`lib/api/apiResponse.ts`, `lib/api/index.ts`** — added and exported the standard `apiLocked()` response helper.
+- **`lib/okr/lock-guard.test.ts`, `package.json`** — added lock response and route-wiring coverage plus the `npm run test:okr` command.
+- Tests run: `npx tsx --test lib/okr/*.test.ts` (3 passed) · `npx tsc --noEmit` (clean).
+
+## 2026-07-19 — OKR Period Close / Retrospective / Roll-Forward — Phase 1 (schema)
+
+Foundation for the OKR period-close lifecycle (spec: `docs/okr_period_close_and_rollover_requirements.md`; build plan: `docs/okr_period_close_IMPLEMENTATION_INSTRUCTIONS.md`). Branch `feature/okr-period-close`.
+
+- **`prisma/schema.prisma`** — added period-close lifecycle to `Objective` and `KeyResult`: `closureStatus` (OPEN|CLOSING|CLOSED, authoritative), `closedAt`, `outcome`, `finalGrade`, `finalProgress`/`finalValue`(KR), `gradeDelta`, `finalConfidence`, `initialConfidence`, `preCloseGoalStatus`/`preCloseConfidence`, `closureNote`, `isLocked`/`lockedAt`, `reopenCount`/`lastReopenedAt`/`lastReopenedById`; lineage `rolledFromId`/`lineageRootId`/`lineageDepth` with self-relations `rolledFrom`/`rolledTo`; KR `carriedStartValue`. Added new models `OkrRetrospective` (mandatory reflection, 1:1 with an objective or KR) and `OkrReopenLog` (append-only reopen scar). Reused pre-existing `closedBy`/`closedById` relations and `OrganizationSettings.okrReopenWindowDays`.
+- **`scripts/preflight.sql`** — appended idempotent backfill: legacy `goalStatus='CLOSED'` objectives → `closureStatus='CLOSED'`, `isLocked=true`, `closedAt/lockedAt=updatedAt`, seeded `finalProgress`/`outcome`.
+- Tests run: `prisma validate` (valid) · `prisma db push` to local dev DB (in sync) · `prisma generate` (clean) · backfill applied to local DB (0 legacy rows; new columns queryable via client). Full `tsc` deferred to Phase 2 (no TS written yet).
+
 ## 2026-07-15 — Project Management module: Cross-cutting Cron — project-digest
 
 Completes the PM module cron table (6 of 6) with the daily 07:00 project digest.

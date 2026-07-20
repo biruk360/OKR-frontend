@@ -103,3 +103,8 @@ export function apiValidationError(message: string, details?: unknown) {
 export function apiConflict(message: string, details?: unknown) {
   return apiError(message, { status: 409, code: 'CONFLICT', details })
 }
+
+/** 423 Locked — the entity is closed/frozen and cannot be mutated until reopened. */
+export function apiLocked(message: string, details?: unknown) {
+  return apiError(message, { status: 423, code: 'OKR_LOCKED', details })
+}

@@ -2,6 +2,16 @@
 
 > **Purpose:** Inventory of all reusable components. AI and developers check this before creating anything new. Updated after every component change.
 
+## OKR Period Close (`components/shared`, `components/period-close-report`)
+
+| Component | Props | Purpose |
+|-----------|-------|---------|
+| `OkrCloseModal` | `open`, `onClose`, `entityType`, `entity`, `onInitiated?`, `onCommitted?`, `achievedShortcut?` | Shared three-step grade → retrospective → confirm-and-lock flow for Objectives and KRs. |
+| `OkrReopenDialog` | `open`, `onClose`, `entity`, `entityType`, `onReopened?` | Reason-required reopen confirmation with permanent-scar and rolled-copy warnings; Objective KRs are opt-in. |
+| `OkrLockBanner` | `entityType`, `reopenCount?`, `closedAt?` | Read-only closed-state banner explaining frozen fields and permanent reopen scars. |
+| `RolledFromBanner` | `entityType`, `previous?`, `next?`, `lineageDepth?` | Immediate predecessor/successor provenance plus previous-period grade, progress, confidence, check-ins, note, and retrospective panel. |
+| `PeriodCloseReportClient` | `report` | Period close KPIs, charts, lessons, ledger, PDF action, and sequenced personal close flow. |
+
 ## Daily Trip Plan (`features/daily-trip-plan`)
 
 > Import from the barrel: `import { PlanEditor, CoordinatorConsole, MovementSheetView, RunSheetView, PoolConsole, TravelSettingsForm, TravelHome, dtpApi } from '@/features/daily-trip-plan'`

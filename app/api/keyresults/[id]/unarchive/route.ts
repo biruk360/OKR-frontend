@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { canEditKeyResultWithObjectiveContext } from '@/lib/permissions'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
+import { keyResultLockResponse } from '@/lib/okr/lock-guard'
 import { recalcNodeAndAncestors } from '@/lib/objectiveProgress'
 import { recordActivity } from '@/lib/activity-log'
 import {
@@ -25,6 +26,10 @@ export const POST = withAuth<RouteIdParams>(async (_request, { session, params }
   })
 
   if (!existingKeyResult) return apiNotFound('Key result not found')
+
+  const locked = await keyResultLockResponse(keyResultId)
+  if (locked) return locked
+
   if (existingKeyResult.status !== 'ARCHIVED') {
     return apiBadRequest('Key result is not archived')
   }

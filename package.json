@@ -11,6 +11,7 @@
     "lint": "next lint",
     "test:projects": "tsx --test lib/projects/*.test.ts",
     "test:scrum": "tsx --test features/scrum/services/*.test.ts",
+    "test:okr": "tsx --test lib/okr/*.test.ts",
     "postinstall": "prisma generate",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",

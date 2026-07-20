@@ -569,3 +569,17 @@ BEGIN
   END LOOP;
 END $$;
 -- DROP TABLE IF EXISTS sprint_activity_migration; -- only after confirming no rollback needed
+
+-- ─── OKR period-close backfill (idempotent) ──────────────────────────────────
+-- Objectives previously "closed" via the legacy /complete route (goalStatus='CLOSED')
+-- predate the closureStatus/isLocked lifecycle. Bring them into the locked state so
+-- they behave consistently. Safe to re-run: only touches rows still at OPEN.
+UPDATE "public"."objectives"
+SET "closureStatus" = 'CLOSED',
+    "isLocked"      = true,
+    "closedAt"      = COALESCE("closedAt", "updatedAt"),
+    "lockedAt"      = COALESCE("lockedAt", "updatedAt"),
+    "finalProgress" = COALESCE("finalProgress", "progress"),
+    "outcome"       = COALESCE("outcome", CASE WHEN "progress" >= 100 THEN 'ACHIEVED' ELSE 'PARTIAL' END)
+WHERE "goalStatus" = 'CLOSED'
+  AND "closureStatus" = 'OPEN';

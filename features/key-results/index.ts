@@ -9,6 +9,7 @@ export { default as ArchiveKeyResultButton } from './components/ArchiveKeyResult
 export { default as ArchiveKeyResultModal } from './components/ArchiveKeyResultModal'
 export { default as CloneKeyResultButton } from './components/CloneKeyResultButton'
 export { default as CloneKeyResultModal } from './components/CloneKeyResultModal'
+export { default as CloseKeyResultModal } from './components/CloseKeyResultModal'
 export { default as CreateCheckInButton } from './components/CreateCheckInButton'
 export { default as CreateCheckInModal } from './components/CreateCheckInModal'
 export { default as DeleteKeyResultButton } from './components/DeleteKeyResultButton'

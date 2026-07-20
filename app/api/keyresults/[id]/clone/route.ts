@@ -21,24 +21,30 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
   const { id: keyResultId } = await resolveParams(params)
   if (!keyResultId) return apiBadRequest('Invalid key result id')
 
-  const { title, description, ownerId, startValue, targetValue, unit, objectiveId } = await request.json()
+  const { title, description, ownerId, startValue, targetValue, unit, objectiveId, useCarriedBaseline = true, includeIncompleteTodos } = await request.json()
 
   if (!title || !ownerId || targetValue === undefined || targetValue === null || targetValue === '' || !objectiveId) {
     return apiBadRequest('Title, owner, target value, and objective are required')
   }
-
-  const bounds = parseStartAndTarget(startValue, targetValue)
-  if (!bounds.ok) return apiBadRequest(bounds.message)
 
   const originalKeyResult = await prisma.keyResult.findUnique({
     where: { id: keyResultId },
     include: {
       objective: { include: { owner: { select: { id: true, name: true } } } },
       owner: { select: { id: true, name: true } },
+      todos: { where: { status: { notIn: ['COMPLETED', 'CANCELLED'] } } },
+      rolledTo: { select: { id: true }, take: 1 },
     },
   })
 
   if (!originalKeyResult) return apiNotFound('Original key result not found')
+  if (originalKeyResult.rolledTo.length > 0) {
+    return apiConflict('This Key Result has already been rolled forward. Open its successor instead.')
+  }
+
+  const carriedStartValue = originalKeyResult.finalValue ?? originalKeyResult.currentValue
+  const bounds = parseStartAndTarget(useCarriedBaseline ? carriedStartValue : startValue, targetValue)
+  if (!bounds.ok) return apiBadRequest(bounds.message)
 
   const canClone =
     session.user.role === 'ADMIN' ||
@@ -70,14 +76,31 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
         startValue: bounds.start,
         targetValue: bounds.target,
         currentValue: bounds.start,
+        progress: 0,
+        confidence: 'ON_TRACK',
+        carriedStartValue,
         unit: unit || '%',
         objectiveId,
         status: 'ACTIVE',
+        checkInCadence: originalKeyResult.checkInCadence,
+        rolledFromId: originalKeyResult.id,
+        lineageRootId: originalKeyResult.lineageRootId || originalKeyResult.id,
+        lineageDepth: originalKeyResult.lineageDepth + 1,
       },
       include: {
         owner: { select: { id: true, name: true, avatar: true } },
       },
     })
+
+    if (includeIncompleteTodos && originalKeyResult.todos.length > 0) {
+      await tx.todo.createMany({
+        data: originalKeyResult.todos.map((todo) => ({
+          title: todo.title, description: todo.description, status: 'PENDING', priority: todo.priority,
+          startDate: null, dueDate: null, assigneeId: todo.assigneeId, creatorId: session.user.id,
+          keyResultId: clonedKeyResult.id, objectiveId, progressValue: todo.progressValue, taskType: todo.taskType,
+        })),
+      })
+    }
 
     await recalcNodeAndAncestors(tx, objectiveId)
     return clonedKeyResult
@@ -90,6 +113,11 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
     action: 'CREATED',
     actorId: session.user.id,
     metadata: { clonedFromId: keyResultId, source: 'clone' },
+  })
+  await recordActivity({
+    entityType: 'KEY_RESULT', keyResultId, objectiveId: originalKeyResult.objectiveId,
+    action: 'ROLLED_FORWARD', actorId: session.user.id,
+    metadata: { rolledToId: result.id, targetObjectiveId: objectiveId, carriedStartValue },
   })
 
   return apiSuccess(result, { status: 201, message: 'Key Result cloned successfully.' })

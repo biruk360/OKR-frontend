@@ -8,6 +8,7 @@ export {
   apiBadRequest,
   apiValidationError,
   apiConflict,
+  apiLocked,
 } from './apiResponse'
 export type {
   SuccessEnvelope,

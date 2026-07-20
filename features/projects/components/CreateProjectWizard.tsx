@@ -1,13 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { Controller, useForm } from 'react-hook-form'
 import { useRouter } from 'next/navigation'
 import { FolderPlus, Check, LayoutTemplate } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { cn } from '@/lib/utils'
 import { useUsersForSelection } from '@/hooks/useUsersForSelection'
 import { useDepartments } from '@/hooks/useDepartments'
+import CustomerLookup from '@/features/letters/components/CustomerLookup'
 import { useCreateProject, useProjectTemplates, type CreateProjectPayload } from '../hooks/useProjects'
 
 interface Props {
@@ -35,12 +36,14 @@ const STEPS = ['Basics', 'Schedule', 'Template'] as const
 export function CreateProjectWizard({ open, onClose, currentUserId }: Props) {
   const router = useRouter()
   const [step, setStep] = useState(0)
+  const [odooPartnerId, setOdooPartnerId] = useState<string | null>(null)
   const { users } = useUsersForSelection({ enabled: open })
   const { departments } = useDepartments({ enabled: open })
   const { data: templates } = useProjectTemplates()
   const createProject = useCreateProject()
 
   const {
+    control,
     register,
     handleSubmit,
     watch,
@@ -56,7 +59,7 @@ export function CreateProjectWizard({ open, onClose, currentUserId }: Props) {
     },
   })
 
-  const close = () => { reset(); setStep(0); onClose() }
+  const close = () => { reset(); setOdooPartnerId(null); setStep(0); onClose() }
 
   const next = async () => {
     const fields: (keyof FormValues)[] = step === 0
@@ -125,8 +128,24 @@ export function CreateProjectWizard({ open, onClose, currentUserId }: Props) {
                 <input className="input" placeholder="PRJ-2026-###" {...register('code')} />
               </Field>
               <Field label="Client Name" required error={errors.clientName?.message}>
-                <input className="input" placeholder="Client / organization"
-                  {...register('clientName', { required: 'Client is required', minLength: { value: 2, message: 'At least 2 characters' } })} />
+                <Controller
+                  name="clientName"
+                  control={control}
+                  rules={{
+                    required: 'Client is required',
+                    minLength: { value: 2, message: 'At least 2 characters' },
+                    validate: () => odooPartnerId !== null || 'Select a client from the Odoo results',
+                  }}
+                  render={({ field }) => (
+                    <CustomerLookup
+                      value={{ odooPartnerId, customerName: field.value }}
+                      onChange={(customer) => {
+                        setOdooPartnerId(customer.odooPartnerId)
+                        field.onChange(customer.customerName)
+                      }}
+                    />
+                  )}
+                />
               </Field>
             </div>
             <Field label="Description">

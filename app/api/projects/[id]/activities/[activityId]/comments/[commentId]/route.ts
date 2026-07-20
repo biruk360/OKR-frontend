@@ -68,7 +68,7 @@ export const PATCH = withAuth<{ id: string; activityId: string; commentId: strin
         snippet: stripHtml(data.content ?? '').slice(0, 140),
         activityId: params.activityId,
         commentId: params.commentId,
-        deepLink: `/dashboard/projects/${params.id}?activity=${params.activityId}`,
+        deepLink: `/projects/${params.id}?activity=${params.activityId}`,
       },
     })
   }

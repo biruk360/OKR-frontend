@@ -247,7 +247,7 @@ export async function applyApprovalClock(
             activityId: activity.id,
             activityTitle: ctx?.title,
             phase: phaseName,
-            deepLink: `/dashboard/projects/${projectId}`,
+            deepLink: `/projects/${projectId}`,
           },
         },
       })
@@ -302,7 +302,7 @@ export async function applyApprovalClock(
               daysWaited: decision.daysWaited,
               daysOverSla: decision.daysOverSla,
               slaBusinessDays: obligation.slaBusinessDays,
-              deepLink: `/dashboard/projects/${projectId}`,
+              deepLink: `/projects/${projectId}`,
             },
           },
         })

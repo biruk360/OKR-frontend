@@ -86,7 +86,7 @@ export const PATCH = withAuth<{ id: string; raidId: string }>(async (req: NextRe
         entityId: params.id,
         entityTitle: project.name,
         explicitRecipients: [project.projectManagerId],
-        data: { raidItemId: updated.id, refCode: updated.refCode, score: updated.score, deepLink: `/dashboard/projects/${params.id}` },
+        data: { raidItemId: updated.id, refCode: updated.refCode, score: updated.score, deepLink: `/projects/${params.id}` },
       })
     }
   }

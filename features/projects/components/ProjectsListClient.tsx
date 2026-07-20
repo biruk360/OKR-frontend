@@ -101,7 +101,7 @@ export function ProjectsListClient({ user }: Props) {
           {projects.map((p) => (
             <Link
               key={p.id}
-              href={`/dashboard/projects/${p.id}`}
+              href={`/projects/${p.id}`}
               className="grid grid-cols-1 items-center gap-2 border-b border-black/[0.04] px-4 py-3 transition-colors last:border-0 hover:bg-surface-hover sm:grid-cols-12 sm:gap-4"
             >
               <div className="col-span-4 min-w-0">

@@ -88,7 +88,7 @@ export const POST = withAuth<{ id: string; activityId: string }>(async (req: Nex
         snippet: stripHtml(input.content).slice(0, 140),
         activityId: params.activityId,
         commentId: comment.id,
-        deepLink: `/dashboard/projects/${params.id}?activity=${params.activityId}`,
+        deepLink: `/projects/${params.id}?activity=${params.activityId}`,
       },
     })
   }

@@ -42,7 +42,7 @@ export const POST = withAuth<{ id: string }>(async (req: NextRequest, { session,
       entityId: params.id,
       entityTitle: result.projectName,
       explicitRecipients: [result.notifyProjectManagerId],
-      data: { reportId: result.report.id, deepLink: `/dashboard/projects/${params.id}` },
+      data: { reportId: result.report.id, deepLink: `/projects/${params.id}` },
     })
   }
   return apiSuccess(result.report, { status: result.created ? 201 : 200 })

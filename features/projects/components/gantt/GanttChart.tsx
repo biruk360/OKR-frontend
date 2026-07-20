@@ -3,6 +3,23 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import {
   CalendarDays,
   ChevronDown,
   ChevronRight,
@@ -15,6 +32,7 @@ import {
   FileText,
   Flag,
   GitBranch,
+  GripVertical,
   Image as ImageIcon,
   List,
   ListTree,
@@ -29,6 +47,7 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { Modal } from '@/components/ui/Modal'
 import { businessDaysBetween } from '@/lib/projects/business-days'
 import { criticalPath } from '@/lib/projects/scheduling'
 import { cn } from '@/lib/utils'
@@ -46,10 +65,13 @@ import {
 } from '../../types'
 import {
   useAddActivity,
+  useAddMilestone,
+  useAddPhase,
   useCommitBaseline,
   useCreateActivityDependency,
   useDeleteActivityDependency,
   useRebaseline,
+  useReorderSchedule,
   useShiftActivitySchedule,
   type ActivityDependencyNode,
   type ActivityNode,
@@ -162,9 +184,12 @@ const COLUMN_LABEL: Record<OptionalColumn, string> = {
   slipDays: 'Slip Days',
 }
 
-export function GanttChart({ project, onActivityOpen }: { project: ProjectDetail; onActivityOpen?: (activityId: string) => void }) {
+export function GanttChart({ project, canEdit, onActivityOpen }: { project: ProjectDetail; canEdit: boolean; onActivityOpen?: (activityId: string) => void }) {
   const parentRef = useRef<HTMLDivElement | null>(null)
   const addActivity = useAddActivity(project.id)
+  const addPhase = useAddPhase(project.id)
+  const addMilestone = useAddMilestone(project.id)
+  const reorderSchedule = useReorderSchedule(project.id)
   const commitBaseline = useCommitBaseline(project.id)
   const rebaseline = useRebaseline(project.id)
   const shiftSchedule = useShiftActivitySchedule(project.id)
@@ -192,6 +217,15 @@ export function GanttChart({ project, onActivityOpen }: { project: ProjectDetail
   const [slipDetail, setSlipDetail] = useState('')
   const [linkingFrom, setLinkingFrom] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<ActivityDependencyNode | null>(null)
+  const [createKind, setCreateKind] = useState<'task' | 'section' | null>(null)
+  const [newItemName, setNewItemName] = useState('')
+  const [newTaskPhaseId, setNewTaskPhaseId] = useState(project.phases[0]?.id ?? '')
+  const [newTaskMilestoneId, setNewTaskMilestoneId] = useState(project.phases[0]?.milestones[0]?.id ?? '')
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  )
 
   useEffect(() => {
     const savedWidth = Number(localStorage.getItem(LEFT_WIDTH_KEY))
@@ -270,6 +304,7 @@ export function GanttChart({ project, onActivityOpen }: { project: ProjectDetail
   const columnTemplate = buildColumnTemplate(visibleColumns)
   const previewByActivity = dragPreview ? new Map([[dragPreview.activityId, { start: dragPreview.currentStart, end: dragPreview.currentEnd }]]) : new Map()
   const baselineVersions = Array.from({ length: Math.max(1, project.baselineVersion || 1) }, (_, i) => i + 1)
+  const reorderEnabled = canEdit && sort === 'position' && segment === 'phase' && query.trim() === ''
 
   const resizeStart = (clientX: number) => {
     const startX = clientX
@@ -333,6 +368,67 @@ export function GanttChart({ project, onActivityOpen }: { project: ProjectDetail
       risk: selectedRow.risk ?? null,
       estimatedHours: selectedRow.estimatedHours ?? null,
       isMilestone: selectedRow.isMilestone,
+    })
+  }
+
+  const openTaskCreator = (row?: GanttRow) => {
+    let phaseId = project.phases[0]?.id ?? ''
+    let milestoneId = project.phases[0]?.milestones[0]?.id ?? ''
+    if (row?.type === 'phase') {
+      phaseId = entityId(row)
+      milestoneId = project.phases.find((phase) => phase.id === phaseId)?.milestones[0]?.id ?? ''
+    } else if (row?.milestoneId) {
+      milestoneId = row.milestoneId
+      phaseId = project.phases.find((phase) => phase.milestones.some((milestone) => milestone.id === milestoneId))?.id ?? phaseId
+    }
+    setNewTaskPhaseId(phaseId)
+    setNewTaskMilestoneId(milestoneId)
+    setNewItemName('')
+    setCreateKind('task')
+  }
+
+  const closeCreator = () => {
+    setCreateKind(null)
+    setNewItemName('')
+  }
+
+  const createScheduleItem = async () => {
+    const name = newItemName.trim()
+    if (!name) return
+    if (createKind === 'section') {
+      await addPhase.mutateAsync({ name })
+      closeCreator()
+      return
+    }
+    if (createKind === 'task' && newTaskPhaseId) {
+      let milestoneId = newTaskMilestoneId
+      if (!milestoneId) {
+        const milestone = await addMilestone.mutateAsync({ phaseId: newTaskPhaseId, name: 'General' }) as { id: string }
+        milestoneId = milestone.id
+      }
+      await addActivity.mutateAsync({ milestoneId, title: name })
+      closeCreator()
+    }
+  }
+
+  const handleReorder = (event: DragEndEvent) => {
+    const activeId = String(event.active.id)
+    const overId = event.over ? String(event.over.id) : null
+    if (!reorderEnabled || !overId || activeId === overId) return
+    const activeRow = allRows.find((row) => row.id === activeId)
+    const overRow = allRows.find((row) => row.id === overId)
+    if (!activeRow || !overRow || activeRow.type !== overRow.type || activeRow.parentId !== overRow.parentId) return
+    const siblings = allRows.filter((row) => row.type === activeRow.type && row.parentId === activeRow.parentId)
+    const from = siblings.findIndex((row) => row.id === activeId)
+    const to = siblings.findIndex((row) => row.id === overId)
+    if (from < 0 || to < 0) return
+    const orderedRows = arrayMove(siblings, from, to)
+    const kind = activeRow.type === 'phase' ? 'phase' : activeRow.type === 'milestone' ? 'milestone' : 'activity'
+    reorderSchedule.mutate({
+      kind,
+      parentId: kind === 'phase' ? project.id : kind === 'milestone' ? stripRowPrefix(activeRow.parentId!) : activeRow.milestoneId!,
+      parentActivityId: kind === 'activity' ? activeRow.parentActivityId : undefined,
+      orderedIds: orderedRows.map(entityId),
     })
   }
 
@@ -460,6 +556,16 @@ export function GanttChart({ project, onActivityOpen }: { project: ProjectDetail
         <button className="btn btn-outline btn-sm" onClick={() => setAllCollapsed(true)} title="Collapse all">
           <List className="mr-1 size-3.5" /> Collapse
         </button>
+        {canEdit && (
+          <>
+            <button className="btn btn-primary btn-sm" onClick={() => openTaskCreator()}>
+              <Plus className="mr-1 size-3.5" /> New task
+            </button>
+            <button className="btn btn-outline btn-sm" onClick={() => { setNewItemName(''); setCreateKind('section') }}>
+              <Plus className="mr-1 size-3.5" /> New section
+            </button>
+          </>
+        )}
 
         <details className="relative">
           <summary className="btn btn-outline btn-sm cursor-pointer list-none">
@@ -588,6 +694,7 @@ export function GanttChart({ project, onActivityOpen }: { project: ProjectDetail
           <Plus className="size-3.5" />
         </button>
         <div className="ml-auto flex items-center gap-2 text-[11px] text-ink-tertiary">
+          {canEdit && !reorderEnabled && <span title="Clear search and use Group: Phase / Sort: Schedule to reorder">Reordering paused by the current view</span>}
           {selectedRow ? <span>Selected: {selectedRow.title}</span> : <span>Select a bar to duplicate</span>}
         </div>
       </div>
@@ -672,61 +779,72 @@ export function GanttChart({ project, onActivityOpen }: { project: ProjectDetail
               No schedule rows match the current search.
             </div>
           ) : (
-            <div className="relative" style={{ height: virtualizer.getTotalSize() }}>
-              {toolbarPrefs.showDependencies && (
-                <GanttDependencyLayer
-                  dependencies={project.dependencies}
-                  rows={visibleRows}
-                  units={units}
-                  height={virtualizer.getTotalSize()}
-                  onDelete={setDeleteTarget}
-                />
-              )}
-              {virtualItems.map((item) => {
-                const row = visibleRows[item.index]
-                const preview = row.activityId ? previewByActivity.get(row.activityId) : undefined
-                const isCritical = !!row.activityId && criticalActivityIds.has(row.activityId)
-                return (
-                  <div
-                    key={row.id}
-                    className={cn('absolute left-0 grid border-b border-black/[0.04]', selectedActivityId && row.activityId === selectedActivityId && 'bg-primary-50/50')}
-                    style={{
-                      transform: `translateY(${item.start}px)`,
-                      gridTemplateColumns: `${leftWidth}px ${timelineWidth}px`,
-                      height: ROW_HEIGHT,
-                    }}
-                  >
-                    <GanttTaskListRow
-                      row={row}
-                      collapsed={collapsed.has(row.id)}
-                      columns={visibleColumns}
-                      columnTemplate={columnTemplate}
-                      onToggle={() => setCollapsed((current) => toggleSetValue(current, row.id))}
-                    />
-                    <GanttTimelineRow
-                      row={row}
-                      preview={preview}
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleReorder}>
+              <SortableContext items={visibleRows.map((row) => row.id)} strategy={verticalListSortingStrategy}>
+                <div className="relative" style={{ height: virtualizer.getTotalSize() }}>
+                  {toolbarPrefs.showDependencies && (
+                    <GanttDependencyLayer
+                      dependencies={project.dependencies}
+                      rows={visibleRows}
                       units={units}
-                      todayX={todayX}
-                      baselined={!!project.baselineCommittedAt && toolbarPrefs.showBaselines}
-                      showProgress={toolbarPrefs.showProgress}
-                      showWeekends={toolbarPrefs.showWeekends}
-                      showComments={toolbarPrefs.showComments}
-                      isCritical={isCritical}
-                      isSelected={!!row.activityId && row.activityId === selectedActivityId}
-                      linkingFrom={linkingFrom}
-                      onStartDrag={startBarDrag}
-                      onSelect={(activityId) => {
-                        setSelectedActivityId(activityId)
-                        onActivityOpen?.(activityId)
-                      }}
-                      onBeginDependency={beginDependency}
-                      onCompleteDependency={completeDependency}
+                      height={virtualizer.getTotalSize()}
+                      onDelete={setDeleteTarget}
                     />
-                  </div>
-                )
-              })}
-            </div>
+                  )}
+                  {virtualItems.map((item) => {
+                    const row = visibleRows[item.index]
+                    const preview = row.activityId ? previewByActivity.get(row.activityId) : undefined
+                    const isCritical = !!row.activityId && criticalActivityIds.has(row.activityId)
+                    return (
+                      <GanttSortableRow
+                        key={row.id}
+                        id={row.id}
+                        top={item.start}
+                        disabled={!reorderEnabled || reorderSchedule.isPending}
+                        className={cn(selectedActivityId && row.activityId === selectedActivityId && 'bg-primary-50/50')}
+                        gridTemplateColumns={`${leftWidth}px ${timelineWidth}px`}
+                      >
+                        {(dragHandleProps) => (
+                          <>
+                            <GanttTaskListRow
+                              row={row}
+                              collapsed={collapsed.has(row.id)}
+                              columns={visibleColumns}
+                              columnTemplate={columnTemplate}
+                              canEdit={canEdit}
+                              reorderEnabled={reorderEnabled && !reorderSchedule.isPending}
+                              dragHandleProps={dragHandleProps}
+                              onToggle={() => setCollapsed((current) => toggleSetValue(current, row.id))}
+                              onAddTask={() => openTaskCreator(row)}
+                            />
+                            <GanttTimelineRow
+                              row={row}
+                              preview={preview}
+                              units={units}
+                              todayX={todayX}
+                              baselined={!!project.baselineCommittedAt && toolbarPrefs.showBaselines}
+                              showProgress={toolbarPrefs.showProgress}
+                              showWeekends={toolbarPrefs.showWeekends}
+                              showComments={toolbarPrefs.showComments}
+                              isCritical={isCritical}
+                              isSelected={!!row.activityId && row.activityId === selectedActivityId}
+                              linkingFrom={linkingFrom}
+                              onStartDrag={startBarDrag}
+                              onSelect={(activityId) => {
+                                setSelectedActivityId(activityId)
+                                onActivityOpen?.(activityId)
+                              }}
+                              onBeginDependency={beginDependency}
+                              onCompleteDependency={completeDependency}
+                            />
+                          </>
+                        )}
+                      </GanttSortableRow>
+                    )
+                  })}
+                </div>
+              </SortableContext>
+            </DndContext>
           )}
         </div>
       </div>
@@ -810,6 +928,70 @@ export function GanttChart({ project, onActivityOpen }: { project: ProjectDetail
         confirmLabel="Delete"
         isLoading={deleteDependency.isPending}
       />
+      <Modal
+        open={createKind !== null}
+        onClose={closeCreator}
+        title={createKind === 'section' ? 'New section' : 'New task'}
+        icon={Plus}
+        size="sm"
+        closeOnBackdrop={!addPhase.isPending && !addMilestone.isPending && !addActivity.isPending}
+      >
+        <form className="space-y-4" onSubmit={(event) => { event.preventDefault(); void createScheduleItem() }}>
+          {createKind === 'task' && (
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block">
+                <span className="text-body-sm font-medium text-ink-primary">Section</span>
+                <select
+                  className="input mt-1 w-full"
+                  value={newTaskPhaseId}
+                  onChange={(event) => {
+                    const phaseId = event.target.value
+                    const phase = project.phases.find((item) => item.id === phaseId)
+                    setNewTaskPhaseId(phaseId)
+                    setNewTaskMilestoneId(phase?.milestones[0]?.id ?? '')
+                  }}
+                  required
+                >
+                  {project.phases.map((phase) => <option key={phase.id} value={phase.id}>{phase.name}</option>)}
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-body-sm font-medium text-ink-primary">Subsection</span>
+                <select className="input mt-1 w-full" value={newTaskMilestoneId} onChange={(event) => setNewTaskMilestoneId(event.target.value)}>
+                  {project.phases.find((phase) => phase.id === newTaskPhaseId)?.milestones.length ? (
+                    project.phases.find((phase) => phase.id === newTaskPhaseId)!.milestones.map((milestone) => <option key={milestone.id} value={milestone.id}>{milestone.name}</option>)
+                  ) : (
+                    <option value="">General (created automatically)</option>
+                  )}
+                </select>
+              </label>
+            </div>
+          )}
+          <label className="block">
+            <span className="text-body-sm font-medium text-ink-primary">{createKind === 'section' ? 'Section name' : 'Task name'}</span>
+            <input
+              autoFocus
+              className="input mt-1 w-full"
+              value={newItemName}
+              onChange={(event) => setNewItemName(event.target.value)}
+              placeholder={createKind === 'section' ? 'e.g. Solution Delivery' : 'e.g. Review solution design'}
+              minLength={createKind === 'section' ? 2 : 3}
+              maxLength={200}
+              required
+            />
+          </label>
+          <div className="flex justify-end gap-2 border-t border-black/[0.06] pt-4">
+            <button type="button" className="btn btn-ghost" onClick={closeCreator}>Cancel</button>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={!newItemName.trim() || (createKind === 'task' && !newTaskPhaseId) || addPhase.isPending || addMilestone.isPending || addActivity.isPending}
+            >
+              {addPhase.isPending || addMilestone.isPending || addActivity.isPending ? 'Creating…' : createKind === 'section' ? 'Create section' : 'Create task'}
+            </button>
+          </div>
+        </form>
+      </Modal>
       <AiAssistantPanel
         projectId={project.id}
         open={showAiAssistant}
@@ -819,22 +1001,83 @@ export function GanttChart({ project, onActivityOpen }: { project: ProjectDetail
   )
 }
 
+function GanttSortableRow({
+  id,
+  top,
+  disabled,
+  className,
+  gridTemplateColumns,
+  children,
+}: {
+  id: string
+  top: number
+  disabled: boolean
+  className?: string
+  gridTemplateColumns: string
+  children: (dragHandleProps: React.ButtonHTMLAttributes<HTMLButtonElement>) => React.ReactNode
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id, disabled })
+  const dragHandleProps = { ...attributes, ...listeners } as React.ButtonHTMLAttributes<HTMLButtonElement>
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn('absolute left-0 grid border-b border-black/[0.05] bg-surface-card', isDragging && 'z-30 opacity-80 shadow-popover', className)}
+      style={{
+        top,
+        transform: CSS.Transform.toString(transform),
+        transition,
+        gridTemplateColumns,
+        height: ROW_HEIGHT,
+      }}
+    >
+      {children(dragHandleProps)}
+    </div>
+  )
+}
+
 function GanttTaskListRow({
   row,
   collapsed,
   columns,
   columnTemplate,
+  canEdit,
+  reorderEnabled,
+  dragHandleProps,
   onToggle,
+  onAddTask,
 }: {
   row: GanttRow
   collapsed: boolean
   columns: OptionalColumn[]
   columnTemplate: string
+  canEdit: boolean
+  reorderEnabled: boolean
+  dragHandleProps: React.ButtonHTMLAttributes<HTMLButtonElement>
   onToggle: () => void
+  onAddTask: () => void
 }) {
   return (
-    <div className="grid items-center border-r border-black/[0.08] text-body-sm" style={{ gridTemplateColumns: columnTemplate }}>
+    <div
+      className={cn(
+        'grid items-center border-r border-black/[0.08] text-body-sm',
+        row.type === 'phase' && 'border-y border-black/[0.08] bg-surface-muted/70',
+        row.type === 'milestone' && 'bg-primary-50/35'
+      )}
+      style={{ gridTemplateColumns: columnTemplate }}
+    >
       <div className="flex min-w-0 items-center gap-1 px-3" style={{ paddingLeft: 12 + row.depth * 18 }}>
+        {canEdit && (
+          <button
+            type="button"
+            className={cn('rounded p-0.5 text-ink-tertiary hover:bg-surface-hover hover:text-ink-primary', !reorderEnabled && 'cursor-not-allowed opacity-35')}
+            disabled={!reorderEnabled}
+            title={reorderEnabled ? `Drag to reorder ${row.title}` : 'Use the natural schedule view to reorder'}
+            aria-label={`Drag to reorder ${row.title}`}
+            {...dragHandleProps}
+          >
+            <GripVertical className="size-3.5" />
+          </button>
+        )}
         {row.hasChildren ? (
           <button className="rounded p-0.5 hover:bg-surface-hover" onClick={onToggle} aria-label={collapsed ? 'Expand row' : 'Collapse row'}>
             {collapsed ? <ChevronRight className="size-3.5" /> : <ChevronDown className="size-3.5" />}
@@ -845,6 +1088,11 @@ function GanttTaskListRow({
         <span className={row.type === 'phase' ? 'truncate font-semibold text-ink-primary' : row.type === 'milestone' ? 'truncate font-medium text-ink-primary' : 'truncate text-ink-secondary'}>
           {row.title}
         </span>
+        {canEdit && (row.type === 'phase' || row.type === 'milestone') && (
+          <button type="button" className="ml-auto rounded p-1 text-primary-600 hover:bg-primary-100" onClick={onAddTask} title={`Add task to ${row.title}`} aria-label={`Add task to ${row.title}`}>
+            <Plus className="size-3.5" />
+          </button>
+        )}
       </div>
       {columns.map((col) => <div key={col} className="truncate px-2 text-[12px] text-ink-secondary">{renderColumn(row, col)}</div>)}
     </div>
@@ -1198,6 +1446,14 @@ function pushActivityRows(rows: GanttRow[], activity: ActivityNode, all: Activit
     hasChildren: children.length > 0,
   })
   for (const child of children) pushActivityRows(rows, child, all, activityId, depth + 1, sort, segment)
+}
+
+function stripRowPrefix(rowId: string): string {
+  return rowId.slice(rowId.indexOf(':') + 1)
+}
+
+function entityId(row: GanttRow): string {
+  return row.activityId ?? row.milestoneId ?? stripRowPrefix(row.id)
 }
 
 function filterVisibleRows(rows: GanttRow[], collapsed: Set<string>, query: string): GanttRow[] {

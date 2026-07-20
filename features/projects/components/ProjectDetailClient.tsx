@@ -94,10 +94,6 @@ export function ProjectDetailClient({ projectId, user }: Props) {
         }
       />
 
-      <div className="mb-4">
-        <ProjectObjectiveLinker projectId={project.id} objectiveId={project.objectiveId} canEdit={canEdit} />
-      </div>
-
       {/* Baseline-not-committed banner (C1). */}
       {notBaselined && (
         <div className="mb-6 flex items-center gap-3 rounded-card border border-warning-500/30 bg-warning-50 px-4 py-3">
@@ -150,16 +146,6 @@ export function ProjectDetailClient({ projectId, user }: Props) {
           </label>
         }
       />
-
-      <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <StatCard label="Complete" value={`${project.percentComplete.toFixed(0)}%`} iconText={`Planned ${project.percentPlanned.toFixed(0)}%`}
-          tone={behind > 5 ? 'yellow' : 'blue'} />
-        <StatCard label="Confidence" value={project.confidence} icon={Gauge}
-          tone={project.confidence >= 75 ? 'green' : project.confidence >= 50 ? 'yellow' : 'red'} />
-        <StatCard label="SPI" value={project.spi != null ? project.spi.toFixed(2) : '—'} icon={TrendingUp}
-          tone={project.spi == null ? 'gray' : project.spi >= 0.95 ? 'green' : project.spi >= 0.85 ? 'yellow' : 'red'} />
-        <StatCard label="Timeline" value={fmtRange(project.plannedStart, project.plannedEnd)} icon={CalendarClock} tone="gray" />
-      </div>
 
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -268,6 +254,20 @@ export function ProjectDetailClient({ projectId, user }: Props) {
       </div>
       <div className="mb-8">
         <ProjectViewSwitcher project={project} canEdit={canEdit} />
+      </div>
+
+      <div className="mb-4">
+        <ProjectObjectiveLinker projectId={project.id} objectiveId={project.objectiveId} canEdit={canEdit} />
+      </div>
+
+      <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <StatCard label="Complete" value={`${project.percentComplete.toFixed(0)}%`} iconText={`Planned ${project.percentPlanned.toFixed(0)}%`}
+          tone={behind > 5 ? 'yellow' : 'blue'} />
+        <StatCard label="Confidence" value={project.confidence} icon={Gauge}
+          tone={project.confidence >= 75 ? 'green' : project.confidence >= 50 ? 'yellow' : 'red'} />
+        <StatCard label="SPI" value={project.spi != null ? project.spi.toFixed(2) : '—'} icon={TrendingUp}
+          tone={project.spi == null ? 'gray' : project.spi >= 0.95 ? 'green' : project.spi >= 0.85 ? 'yellow' : 'red'} />
+        <StatCard label="Timeline" value={fmtRange(project.plannedStart, project.plannedEnd)} icon={CalendarClock} tone="gray" />
       </div>
 
       <div className="mb-3 mt-8 flex items-center justify-between">

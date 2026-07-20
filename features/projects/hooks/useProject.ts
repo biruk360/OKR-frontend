@@ -855,6 +855,15 @@ export function useDeleteActivity(id: string) {
   return useProjectMutation(id, ({ activityId }: { activityId: string }) => fetchJson(`/api/projects/${id}/activities/${activityId}`, { method: 'DELETE' }), 'Activity deleted')
 }
 
+export function useReorderSchedule(id: string) {
+  return useProjectMutation(id, (body: {
+    kind: 'phase' | 'milestone' | 'activity'
+    parentId: string
+    parentActivityId?: string | null
+    orderedIds: string[]
+  }) => fetchJson(`/api/projects/${id}/schedule/reorder`, jsonInit('PATCH', body)))
+}
+
 export function useCreateActivityDependency(id: string) {
   return useProjectMutation(id, (body: { predecessorId: string; successorId: string; type?: DependencyType; lagDays?: number }) =>
     fetchJson(`/api/projects/${id}/dependencies`, jsonInit('POST', body)), 'Dependency added')

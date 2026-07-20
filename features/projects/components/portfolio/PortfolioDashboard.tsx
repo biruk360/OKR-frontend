@@ -85,7 +85,7 @@ export function PortfolioDashboard() {
                   {data.projects.map((p) => (
                     <tr key={p.id} className="border-b border-surface-border/50">
                       <td className="py-2 pr-4">
-                        <Link href={`/dashboard/projects/${p.id}`} className="text-primary-600 hover:underline">
+                        <Link href={`/projects/${p.id}`} className="text-primary-600 hover:underline">
                           {p.code}
                         </Link>
                       </td>
@@ -149,4 +149,3 @@ function EscalationsPanel({ escalations }: { escalations: string[] }) {
     </div>
   )
 }
-

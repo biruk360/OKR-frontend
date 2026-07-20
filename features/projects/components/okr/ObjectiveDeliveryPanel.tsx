@@ -58,7 +58,7 @@ export function ObjectiveDeliveryPanel({ objectiveId }: Props) {
             return (
               <Link
                 key={p.id}
-                href={`/dashboard/projects/${p.id}`}
+                href={`/projects/${p.id}`}
                 className="flex items-center justify-between rounded-lg border border-surface-border bg-surface-elevated p-3 transition-colors hover:border-primary-300"
               >
                 <div className="min-w-0">

@@ -111,7 +111,7 @@ export const PATCH = withAuth<{ id: string; crId: string }>(async (req: NextRequ
         entityId: params.id,
         entityTitle: project.name,
         explicitRecipients: [project.projectManagerId],
-        data: { crCode: updated.crCode, scheduleImpactDays: updated.scheduleImpactDays, deepLink: `/dashboard/projects/${params.id}` },
+        data: { crCode: updated.crCode, scheduleImpactDays: updated.scheduleImpactDays, deepLink: `/projects/${params.id}` },
       })
     }
     await recomputeProjectHealth(params.id)

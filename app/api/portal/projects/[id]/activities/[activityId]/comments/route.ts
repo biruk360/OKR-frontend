@@ -63,7 +63,7 @@ export const POST = withPortalProject<{ id: string; activityId: string }>(async 
       data: {
         activityId: params.activityId,
         commentId: comment.id,
-        deepLink: `/dashboard/projects/${params.id}?activity=${params.activityId}`,
+        deepLink: `/projects/${params.id}?activity=${params.activityId}`,
       },
     })
   }

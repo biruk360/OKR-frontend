@@ -107,7 +107,7 @@ export const POST = withAuth<{ id: string }>(async (req: NextRequest, { session,
       entityId: params.id,
       entityTitle: project.name,
       explicitRecipients: [project.projectManagerId],
-      data: { raidItemId: created.id, refCode: created.refCode, score: created.score, deepLink: `/dashboard/projects/${params.id}` },
+      data: { raidItemId: created.id, refCode: created.refCode, score: created.score, deepLink: `/projects/${params.id}` },
     })
   }
   await recomputeProjectHealth(params.id)

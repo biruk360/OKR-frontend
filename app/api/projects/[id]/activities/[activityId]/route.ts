@@ -22,6 +22,7 @@ import { apiSuccess, apiForbidden, apiNotFound, apiBadRequest, apiConflict, apiV
 
 const patchSchema = z.object({
   title: z.string().trim().min(3).max(200).optional(),
+  milestoneId: z.string().min(1).optional(),
   description: z.string().max(20000).nullable().optional(),
   assigneeId: z.string().nullable().optional(),
   parentActivityId: z.string().nullable().optional(),
@@ -33,6 +34,7 @@ const patchSchema = z.object({
   weight: z.number().min(0).optional(),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']).nullable().optional(),
   risk: z.enum(['LOW', 'MEDIUM', 'HIGH']).nullable().optional(),
+  isBlocked: z.boolean().optional(),
   estimatedHours: z.number().min(0).nullable().optional(),
   actualHours: z.number().min(0).nullable().optional(),
   estimatedCost: z.number().min(0).nullable().optional(),
@@ -64,6 +66,14 @@ export const PATCH = withAuth<{ id: string; activityId: string }>(async (req: Ne
   const parsed = patchSchema.safeParse(raw)
   if (!parsed.success) return apiValidationError('Invalid activity payload', parsed.error.flatten())
   const input = parsed.data
+
+  if (input.milestoneId && input.milestoneId !== existing.milestoneId) {
+    const target = await prisma.milestone.findFirst({
+      where: { id: input.milestoneId, phase: { projectId: params.id } },
+      select: { id: true },
+    })
+    if (!target) return apiBadRequest('Target section does not belong to this project')
+  }
 
   const nextStart = input.currentStart !== undefined ? (input.currentStart ? new Date(input.currentStart) : null) : existing.currentStart
   const nextEnd = input.currentEnd !== undefined ? (input.currentEnd ? new Date(input.currentEnd) : null) : existing.currentEnd
@@ -108,8 +118,17 @@ export const PATCH = withAuth<{ id: string; activityId: string }>(async (req: Ne
   }
 
   const data: any = {}
-  for (const k of ['title', 'description', 'assigneeId', 'parentActivityId', 'ownerParty', 'status', 'percentComplete', 'weight', 'priority', 'risk', 'estimatedHours', 'actualHours', 'estimatedCost', 'actualCost', 'isMilestone', 'color', 'jiraIssueKeys', 'jiraAutoRollup'] as const) {
+  for (const k of ['title', 'description', 'assigneeId', 'parentActivityId', 'ownerParty', 'status', 'percentComplete', 'weight', 'priority', 'risk', 'estimatedHours', 'actualHours', 'estimatedCost', 'actualCost', 'isMilestone', 'color', 'jiraIssueKeys', 'jiraAutoRollup', 'isBlocked'] as const) {
     if (input[k] !== undefined) data[k] = input[k]
+  }
+  if (input.milestoneId && input.milestoneId !== existing.milestoneId) {
+    const maxPosition = await prisma.activity.aggregate({ where: { milestoneId: input.milestoneId, parentActivityId: null }, _max: { position: true } })
+    data.milestoneId = input.milestoneId
+    data.parentActivityId = null
+    data.position = (maxPosition._max.position ?? -1) + 1
+  }
+  if (input.isBlocked !== undefined && input.isBlocked !== existing.isBlocked) {
+    data.blockedSince = input.isBlocked ? (existing.blockedSince ?? new Date()) : null
   }
   // G3: manual progress edits win over Jira auto-rollup.
   if (input.percentComplete !== undefined) data.jiraAutoRollup = false
@@ -173,7 +192,7 @@ export const PATCH = withAuth<{ id: string; activityId: string }>(async (req: Ne
           activityTitle: existing.title,
           amount: milestone.amount,
           currency: milestone.currency,
-          deepLink: `/dashboard/projects/${params.id}`,
+          deepLink: `/projects/${params.id}`,
         },
       })
     }

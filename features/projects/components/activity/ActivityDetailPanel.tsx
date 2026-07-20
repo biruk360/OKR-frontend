@@ -1,14 +1,18 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import DOMPurify from 'dompurify'
 import toast from 'react-hot-toast'
 import {
+  AlertTriangle,
+  CalendarDays,
   Check,
   ChevronLeft,
   ChevronRight,
   Diamond,
+  Link2,
   MessageSquare,
+  Paperclip,
   Palette,
   Plus,
   Reply,
@@ -32,18 +36,24 @@ import {
   SLIP_REASON_LABEL,
   SLIP_REASON_OWNER,
   type ActivityStatus,
+  type DependencyType,
   type OwnerParty,
   type SlipReason,
   type Visibility,
 } from '../../types'
 import {
   useActivityComments,
+  useActivityAttachments,
   useAddActivityComment,
   useDeleteActivityComment,
   useAddActivity,
   useDeleteActivity,
+  useDeleteActivityAttachment,
+  useDeleteActivityDependency,
   useUpdateActivityComment,
   useUpdateActivity,
+  useUploadActivityAttachment,
+  useCreateActivityDependency,
   useJiraMappingPreview,
   type ActivityCommentNode,
   type ActivityNode,
@@ -74,7 +84,10 @@ export function ActivityDetailPanel({ project, activityId, canEdit, onClose }: P
   const updateActivity = useUpdateActivity(project.id)
   const deleteActivity = useDeleteActivity(project.id)
   const addActivity = useAddActivity(project.id)
+  const createDependency = useCreateActivityDependency(project.id)
+  const deleteDependency = useDeleteActivityDependency(project.id)
   const { users } = useUsersForSelection({ enabled: !!activityId })
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [subtaskTitle, setSubtaskTitle] = useState('')
   const [commentHtml, setCommentHtml] = useState('')
@@ -89,18 +102,34 @@ export function ActivityDetailPanel({ project, activityId, canEdit, onClose }: P
   const [jiraMappingType, setJiraMappingType] = useState<JiraMappingType>('MANUAL')
   const [jiraMappingValues, setJiraMappingValues] = useState('')
   const [jiraAutoRollup, setJiraAutoRollup] = useState(false)
+  const [predecessorId, setPredecessorId] = useState('')
+  const [dependencyType, setDependencyType] = useState<DependencyType>('FS')
   const ctx = useMemo(() => activityId ? findActivityContext(project, activityId) : null, [project, activityId])
   const activity = ctx?.activity ?? null
   const jiraPreview = useJiraMappingPreview(project.id, jiraMappingType, jiraMappingValues, Boolean(project.jiraLinked && activity))
   const activityComments = useActivityComments(project.id, activity?.id)
+  const activityAttachments = useActivityAttachments(project.id, activity?.id)
   const addComment = useAddActivityComment(project.id, activity?.id ?? '')
   const updateComment = useUpdateActivityComment(project.id, activity?.id ?? '')
   const deleteComment = useDeleteActivityComment(project.id, activity?.id ?? '')
+  const uploadAttachment = useUploadActivityAttachment(project.id, activity?.id ?? '')
+  const deleteAttachment = useDeleteActivityAttachment(project.id, activity?.id ?? '')
+  const activityOptions = useMemo(() => project.phases.flatMap((phase) => phase.milestones.flatMap((milestone) => milestone.activities.map((item) => ({
+    id: item.id,
+    title: item.title,
+    phase: phase.name,
+  })))), [project.phases])
+  const activityTitleById = useMemo(() => new Map(activityOptions.map((item) => [item.id, item.title])), [activityOptions])
+  const incomingDependencies = useMemo(() => activity ? project.dependencies.filter((item) => item.successorId === activity.id) : [], [activity, project.dependencies])
+  const outgoingDependencies = useMemo(() => activity ? project.dependencies.filter((item) => item.predecessorId === activity.id) : [], [activity, project.dependencies])
+  const availablePredecessors = useMemo(() => activityOptions.filter((item) => item.id !== activity?.id && !incomingDependencies.some((dependency) => dependency.predecessorId === item.id)), [activity?.id, activityOptions, incomingDependencies])
 
   useEffect(() => {
     setCommentHtml('')
     setCommentVisibility('INTERNAL')
     setReplyTo(null)
+    setPredecessorId('')
+    setDependencyType('FS')
     if (activity) {
       const mapping = parseClientJiraMapping(activity.jiraIssueKeys)
       setJiraMappingType(mapping.type)
@@ -192,7 +221,7 @@ export function ActivityDetailPanel({ project, activityId, canEdit, onClose }: P
   }
 
   return (
-    <SideDrawer open={!!activity} onClose={onClose} title={activity?.title ?? 'Activity'} width="lg">
+    <SideDrawer open={!!activity} onClose={onClose} title={activity?.title ?? 'Activity'} width="xl">
       {activity && ctx && (
         <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-2 border-b border-black/[0.08] pb-3">
@@ -279,7 +308,7 @@ export function ActivityDetailPanel({ project, activityId, canEdit, onClose }: P
           </label>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block">
+            <label className="rounded-card border border-black/[0.08] bg-surface-card p-3">
               <span className="text-body-sm text-ink-secondary">Assignee</span>
               <select
                 className="input mt-1 w-full"
@@ -291,9 +320,12 @@ export function ActivityDetailPanel({ project, activityId, canEdit, onClose }: P
                 {users.map((user) => <option key={user.id} value={user.id}>{user.name ?? user.email}</option>)}
               </select>
             </label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-card border border-black/[0.08] bg-surface-card p-3">
+              <div className="mb-2 flex items-center gap-2 text-body-sm text-ink-secondary"><CalendarDays className="size-4 text-primary-500" /> Dates</div>
+              <div className="grid grid-cols-2 gap-2">
               <DateField label="Start" value={activity.currentStart} disabled={!canEdit} onSave={(currentStart) => saveDatePatch({ currentStart }, { currentStart: activity.currentStart })} />
               <DateField label="Due" value={activity.currentEnd} disabled={!canEdit} onSave={(currentEnd) => saveDatePatch({ currentEnd }, { currentEnd: activity.currentEnd })} />
+              </div>
             </div>
           </div>
 
@@ -312,6 +344,18 @@ export function ActivityDetailPanel({ project, activityId, canEdit, onClose }: P
                 </label>
               ))}
             </div>
+            <button
+              type="button"
+              className={cn(
+                'mt-3 flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-body-sm transition',
+                activity.isBlocked ? 'border-danger-500/30 bg-danger-50 text-danger-700' : 'border-black/[0.08] bg-surface-muted/40 text-ink-secondary'
+              )}
+              disabled={!canEdit || updateActivity.isPending}
+              onClick={() => void savePatch({ isBlocked: !activity.isBlocked }, { isBlocked: activity.isBlocked })}
+            >
+              <span className="inline-flex items-center gap-2"><AlertTriangle className="size-4" /> {activity.isBlocked ? 'This activity is blocked' : 'No active blocker'}</span>
+              <span className="font-medium">{activity.isBlocked ? 'Clear blocker' : 'Mark blocked'}</span>
+            </button>
           </div>
 
           <div>
@@ -402,6 +446,53 @@ export function ActivityDetailPanel({ project, activityId, canEdit, onClose }: P
             <SelectMetric label="Risk" value={activity.risk ?? ''} values={RISK_LEVELS} disabled={!canEdit} onSave={(risk) => savePatch({ risk: risk || null }, { risk: activity.risk })} />
           </div>
 
+          <div className="rounded-card border border-black/[0.08] p-3">
+            <div className="mb-3 flex items-center gap-2 text-body font-medium text-ink-primary">
+              <Link2 className="size-4 text-primary-500" /> Dependencies
+              <span className="ml-auto text-body-sm font-normal text-ink-tertiary">{incomingDependencies.length + outgoingDependencies.length}</span>
+            </div>
+            <div className="space-y-2">
+              {incomingDependencies.map((dependency) => (
+                <div key={dependency.id} className="flex items-center gap-2 rounded-md bg-surface-muted/50 px-3 py-2 text-body-sm">
+                  <span className="rounded bg-primary-50 px-1.5 py-0.5 text-[11px] font-medium text-primary-700">Predecessor</span>
+                  <span className="min-w-0 flex-1 truncate text-ink-primary">{activityTitleById.get(dependency.predecessorId) ?? 'Activity'}</span>
+                  <span className="text-[11px] text-ink-tertiary">{dependency.type}{dependency.lagDays ? ` ${dependency.lagDays > 0 ? '+' : ''}${dependency.lagDays}d` : ''}</span>
+                  {canEdit && <button className="rounded p-1 text-ink-tertiary hover:bg-danger-50 hover:text-danger-600" onClick={() => deleteDependency.mutate({ dependencyId: dependency.id })} aria-label="Remove dependency"><X className="size-3.5" /></button>}
+                </div>
+              ))}
+              {outgoingDependencies.map((dependency) => (
+                <div key={dependency.id} className="flex items-center gap-2 rounded-md bg-surface-muted/50 px-3 py-2 text-body-sm">
+                  <span className="rounded bg-success-50 px-1.5 py-0.5 text-[11px] font-medium text-success-700">Successor</span>
+                  <span className="min-w-0 flex-1 truncate text-ink-primary">{activityTitleById.get(dependency.successorId) ?? 'Activity'}</span>
+                  <span className="text-[11px] text-ink-tertiary">{dependency.type}{dependency.lagDays ? ` ${dependency.lagDays > 0 ? '+' : ''}${dependency.lagDays}d` : ''}</span>
+                  {canEdit && <button className="rounded p-1 text-ink-tertiary hover:bg-danger-50 hover:text-danger-600" onClick={() => deleteDependency.mutate({ dependencyId: dependency.id })} aria-label="Remove dependency"><X className="size-3.5" /></button>}
+                </div>
+              ))}
+              {incomingDependencies.length + outgoingDependencies.length === 0 && <div className="text-body-sm text-ink-tertiary">No dependencies linked.</div>}
+            </div>
+            {canEdit && (
+              <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_90px_auto]">
+                <select className="input h-9" value={predecessorId} onChange={(event) => setPredecessorId(event.target.value)}>
+                  <option value="">Select predecessor...</option>
+                  {availablePredecessors.map((item) => <option key={item.id} value={item.id}>{item.phase} · {item.title}</option>)}
+                </select>
+                <select className="input h-9" value={dependencyType} onChange={(event) => setDependencyType(event.target.value as DependencyType)}>
+                  {(['FS', 'SS', 'FF', 'SF'] as const).map((type) => <option key={type} value={type}>{type}</option>)}
+                </select>
+                <button
+                  className="btn btn-outline btn-sm"
+                  disabled={!predecessorId || createDependency.isPending}
+                  onClick={async () => {
+                    await createDependency.mutateAsync({ predecessorId, successorId: activity.id, type: dependencyType })
+                    setPredecessorId('')
+                  }}
+                >
+                  <Plus className="mr-1 size-3.5" /> Link
+                </button>
+              </div>
+            )}
+          </div>
+
           {activity.status === 'APPROVAL_REQUESTED' && activity.waitingSince && (
             <div className={cn('rounded-card border px-3 py-2', daysOverSla > 0 ? 'border-danger-500/30 bg-danger-50 text-danger-700' : 'border-warning-500/30 bg-warning-50 text-warning-700')}>
               <div className="text-body-sm font-semibold">Awaiting client approval - {waitingDays} business days</div>
@@ -431,6 +522,39 @@ export function ActivityDetailPanel({ project, activityId, canEdit, onClose }: P
                   <Plus className="mr-1 size-3.5" /> Add
                 </button>
               </div>
+            )}
+          </div>
+
+          <div className="rounded-card border border-black/[0.08] p-3">
+            <div className="mb-3 flex items-center gap-2 text-body font-medium text-ink-primary">
+              <Paperclip className="size-4 text-primary-500" /> Files
+              <span className="ml-auto text-body-sm font-normal text-ink-tertiary">{activityAttachments.data?.length ?? 0}</span>
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="sr-only"
+              onChange={async (event) => {
+                const file = event.target.files?.[0]
+                if (file) await uploadAttachment.mutateAsync(file)
+                event.target.value = ''
+              }}
+            />
+            <div className="space-y-2">
+              {activityAttachments.isLoading ? <div className="text-body-sm text-ink-tertiary">Loading files...</div> : activityAttachments.data?.map((attachment) => (
+                <div key={attachment.id} className="flex items-center gap-2 rounded-md bg-surface-muted/50 px-3 py-2 text-body-sm">
+                  <Paperclip className="size-3.5 text-ink-tertiary" />
+                  <a className="min-w-0 flex-1 truncate font-medium text-primary-700 hover:underline" href={attachment.storagePath} target="_blank" rel="noreferrer">{attachment.fileName}</a>
+                  <span className="text-[11px] text-ink-tertiary">{formatBytes(attachment.fileSize)}</span>
+                  {canEdit && <button className="rounded p-1 text-ink-tertiary hover:bg-danger-50 hover:text-danger-600" onClick={() => deleteAttachment.mutate({ attachmentId: attachment.id })} aria-label={`Delete ${attachment.fileName}`}><Trash2 className="size-3.5" /></button>}
+                </div>
+              ))}
+              {!activityAttachments.isLoading && !activityAttachments.data?.length && <div className="text-body-sm text-ink-tertiary">No files attached.</div>}
+            </div>
+            {canEdit && (
+              <button className="btn btn-outline btn-sm mt-3" disabled={uploadAttachment.isPending} onClick={() => fileInputRef.current?.click()}>
+                <Plus className="mr-1 size-3.5" /> {uploadAttachment.isPending ? 'Uploading...' : 'Add file'}
+              </button>
             )}
           </div>
 
@@ -784,4 +908,10 @@ function stripHtml(value: string): string {
 
 function formatDateTime(value: string): string {
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
+}
+
+function formatBytes(value: number): string {
+  if (value < 1024) return `${value} B`
+  if (value < 1024 * 1024) return `${Math.round(value / 1024)} KB`
+  return `${(value / (1024 * 1024)).toFixed(1)} MB`
 }

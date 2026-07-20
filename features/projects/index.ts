@@ -13,6 +13,7 @@ export * from './types'
 // Components (exported as phases land).
 export { ProjectsListClient } from './components/ProjectsListClient'
 export { ProjectDetailClient } from './components/ProjectDetailClient'
+export { ProjectWorkspaceClient } from './components/ProjectWorkspaceClient'
 export { CreateProjectWizard } from './components/CreateProjectWizard'
 export { ScheduleTree } from './components/ScheduleTree'
 export { DelayLedgerTable } from './components/DelayLedgerTable'

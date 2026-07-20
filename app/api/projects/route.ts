@@ -134,7 +134,7 @@ export const POST = withRole(['ADMIN', 'EXECUTIVE', 'DEPARTMENT_LEAD'], async (r
     entityType: 'PROJECT',
     entityId: created.id,
     entityTitle: input.name,
-    data: { actorName: session.user.name, code: created.code, deepLink: `/dashboard/projects/${created.id}` },
+    data: { actorName: session.user.name, code: created.code, deepLink: `/projects/${created.id}` },
   })
 
   return apiSuccess({ id: created.id, code: created.code }, { status: 201 })

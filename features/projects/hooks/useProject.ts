@@ -32,6 +32,8 @@ export interface ActivityNode {
   weight: number
   priority: string | null
   risk: string | null
+  isBlocked: boolean
+  blockedSince: string | null
   estimatedHours: number | null
   actualHours: number | null
   estimatedCost: number | null
@@ -130,6 +132,18 @@ export interface ActivityCommentNode {
     avatar: string | null
   }
   replies: ActivityCommentNode[]
+}
+
+export interface ActivityAttachmentNode {
+  id: string
+  activityId: string
+  fileName: string
+  fileSize: number
+  mimeType: string
+  storagePath: string
+  uploadedById: string
+  visibility: Visibility
+  createdAt: string
 }
 
 export interface ProjectWorkloadCell {
@@ -787,6 +801,44 @@ export function useUpdateActivityComment(projectId: string, activityId: string) 
 export function useDeleteActivityComment(projectId: string, activityId: string) {
   return useActivityCommentMutation(projectId, activityId, ({ commentId }: { commentId: string }) =>
     fetchJson<ActivityCommentNode[]>(`/api/projects/${projectId}/activities/${activityId}/comments/${commentId}`, { method: 'DELETE' }))
+}
+
+export const projectAttachmentKeys = {
+  list: (projectId: string, activityId: string | null | undefined) => [...projectKeys.detail(projectId), 'activity-attachments', activityId] as const,
+}
+
+export function useActivityAttachments(projectId: string, activityId: string | null | undefined) {
+  return useQuery({
+    queryKey: projectAttachmentKeys.list(projectId, activityId),
+    queryFn: () => fetchJson<ActivityAttachmentNode[]>(`/api/projects/${projectId}/activities/${activityId}/attachments`),
+    enabled: !!projectId && !!activityId,
+    staleTime: 10_000,
+  })
+}
+
+function useActivityAttachmentMutation<TVars>(projectId: string, activityId: string, fn: (vars: TVars) => Promise<ActivityAttachmentNode[]>, successMsg: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: (attachments) => {
+      qc.setQueryData(projectAttachmentKeys.list(projectId, activityId), attachments)
+      toast.success(successMsg)
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+}
+
+export function useUploadActivityAttachment(projectId: string, activityId: string) {
+  return useActivityAttachmentMutation(projectId, activityId, (file: File) => {
+    const body = new FormData()
+    body.append('file', file)
+    return fetchJson<ActivityAttachmentNode[]>(`/api/projects/${projectId}/activities/${activityId}/attachments`, { method: 'POST', body })
+  }, 'File attached')
+}
+
+export function useDeleteActivityAttachment(projectId: string, activityId: string) {
+  return useActivityAttachmentMutation(projectId, activityId, ({ attachmentId }: { attachmentId: string }) =>
+    fetchJson<ActivityAttachmentNode[]>(`/api/projects/${projectId}/activities/${activityId}/attachments/${attachmentId}`, { method: 'DELETE' }), 'Attachment deleted')
 }
 
 // --- mutations (invalidate the project detail on success) --------------------

@@ -175,7 +175,7 @@ export function aggregatePmDigest(input: AggregateDigestInput): PmDigest {
 
     rows.push({
       ...project,
-      deepLink: `/dashboard/projects/${project.id}`,
+      deepLink: `/projects/${project.id}`,
       ...counts,
     })
   }

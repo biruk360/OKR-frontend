@@ -55,7 +55,7 @@ export const POST = withAuth<{ id: string }>(async (req: NextRequest, { session,
     actorId: session.user.id,
     entityType: 'PROJECT',
     entityId: params.id,
-    data: { version: 1, activityCount: result.activityCount, deepLink: `/dashboard/projects/${params.id}` },
+    data: { version: 1, activityCount: result.activityCount, deepLink: `/projects/${params.id}` },
   })
 
   return apiSuccess({

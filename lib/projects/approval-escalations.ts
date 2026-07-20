@@ -82,7 +82,7 @@ export async function runApprovalEscalations(now: Date = new Date()): Promise<Ap
         daysWaited,
         daysOverSla: daysWaited - sla,
         slaBusinessDays: sla,
-        deepLink: `/dashboard/projects/${projectId}`,
+        deepLink: `/projects/${projectId}`,
       },
     })
   }

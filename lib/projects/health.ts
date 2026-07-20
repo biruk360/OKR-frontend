@@ -92,12 +92,12 @@ export async function recomputeProjectHealth(projectId: string, now: Date = new 
   if (ragStatus !== project.ragStatus) {
     await emit('PROJECT_RAG_CHANGED', {
       entityType: 'PROJECT', entityId: projectId, entityTitle: project.name,
-      data: { from: project.ragStatus, to: ragStatus, deepLink: `/dashboard/projects/${projectId}` },
+      data: { from: project.ragStatus, to: ragStatus, deepLink: `/projects/${projectId}` },
     })
     if (ragStatus === 'RED') {
       await emit('PROJECT_WENT_RED', {
         entityType: 'PROJECT', entityId: projectId, entityTitle: project.name,
-        data: { confidence: Math.round(confidence), deepLink: `/dashboard/projects/${projectId}` },
+        data: { confidence: Math.round(confidence), deepLink: `/projects/${projectId}` },
       })
     }
   }

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
+import toast from 'react-hot-toast'
 import {
   DndContext,
   KeyboardSensor,
@@ -350,8 +351,21 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
   }
 
   const copyShareLink = async () => {
-    const url = `${window.location.origin}/dashboard/projects/${project.id}`
+    const url = `${window.location.origin}/projects/${project.id}`
     await navigator.clipboard?.writeText(url)
+    toast.success('Workspace link copied')
+  }
+
+  const publishSnapshot = async () => {
+    const response = await fetch(`/api/projects/${project.id}/snapshots`, { method: 'POST' })
+    const result = await response.json().catch(() => ({}))
+    if (!response.ok || result.success === false) {
+      toast.error(result.error || 'Unable to publish snapshot')
+      return
+    }
+    const url = `${window.location.origin}/projects/snapshots/${result.data.id}`
+    await navigator.clipboard?.writeText(url)
+    toast.success('Read-only snapshot published and link copied')
   }
 
   const duplicateSelected = () => {
@@ -585,8 +599,12 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
               <GitBranch className="size-3.5" /> MS Project XML
             </button>
             <button className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-body-sm hover:bg-surface-hover" onClick={() => void copyShareLink()}>
-              <Share2 className="size-3.5" /> Share link
+              <Share2 className="size-3.5" /> Copy workspace link
             </button>
+            {canEdit && <button className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-body-sm hover:bg-surface-hover" onClick={() => void publishSnapshot()}>
+              <Share2 className="size-3.5" /> Publish public snapshot
+            </button>
+            }
           </div>
         </details>
 
@@ -816,6 +834,10 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
                               dragHandleProps={dragHandleProps}
                               onToggle={() => setCollapsed((current) => toggleSetValue(current, row.id))}
                               onAddTask={() => openTaskCreator(row)}
+                              onOpenActivity={(activityId) => {
+                                setSelectedActivityId(activityId)
+                                onActivityOpen?.(activityId)
+                              }}
                             />
                             <GanttTimelineRow
                               row={row}
@@ -1045,6 +1067,7 @@ function GanttTaskListRow({
   dragHandleProps,
   onToggle,
   onAddTask,
+  onOpenActivity,
 }: {
   row: GanttRow
   collapsed: boolean
@@ -1055,6 +1078,7 @@ function GanttTaskListRow({
   dragHandleProps: React.ButtonHTMLAttributes<HTMLButtonElement>
   onToggle: () => void
   onAddTask: () => void
+  onOpenActivity: (activityId: string) => void
 }) {
   return (
     <div
@@ -1085,9 +1109,20 @@ function GanttTaskListRow({
         ) : (
           <span className="w-4" />
         )}
-        <span className={row.type === 'phase' ? 'truncate font-semibold text-ink-primary' : row.type === 'milestone' ? 'truncate font-medium text-ink-primary' : 'truncate text-ink-secondary'}>
-          {row.title}
-        </span>
+        {row.activityId ? (
+          <button
+            type="button"
+            className="min-w-0 truncate rounded px-1 py-0.5 text-left text-ink-secondary hover:bg-primary-50 hover:text-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
+            onClick={() => onOpenActivity(row.activityId!)}
+            title={`Open ${row.title}`}
+          >
+            {row.title}
+          </button>
+        ) : (
+          <span className={row.type === 'phase' ? 'truncate font-semibold text-ink-primary' : 'truncate font-medium text-ink-primary'}>
+            {row.title}
+          </span>
+        )}
         {canEdit && (row.type === 'phase' || row.type === 'milestone') && (
           <button type="button" className="ml-auto rounded p-1 text-primary-600 hover:bg-primary-100" onClick={onAddTask} title={`Add task to ${row.title}`} aria-label={`Add task to ${row.title}`}>
             <Plus className="size-3.5" />

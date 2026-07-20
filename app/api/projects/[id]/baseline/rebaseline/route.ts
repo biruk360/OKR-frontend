@@ -93,7 +93,7 @@ export const POST = withAuth<{ id: string }>(async (req: NextRequest, { session,
       reason: parsed.data.reason,
       approverId,
       changeCount: result.changes.length,
-      deepLink: `/dashboard/projects/${params.id}`,
+      deepLink: `/projects/${params.id}`,
     },
   })
 

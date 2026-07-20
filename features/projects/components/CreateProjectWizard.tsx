@@ -93,7 +93,7 @@ export function CreateProjectWizard({ open, onClose, currentUserId }: Props) {
     }
     const res = await createProject.mutateAsync(payload)
     close()
-    router.push(`/dashboard/projects/${res.id}`)
+    router.push(`/projects/${res.id}`)
   })
 
   const startVal = watch('plannedStart')

@@ -54,6 +54,7 @@ const patchSchema = z.object({
   description: z.string().trim().max(2000).nullable().optional(),
   clientName: z.string().trim().min(2).max(100).optional(),
   status: z.enum(['PLANNING', 'ACTIVE', 'ON_HOLD', 'COMPLETED', 'CANCELLED']).optional(),
+  ragStatus: z.enum(['GREEN', 'AMBER', 'RED']).optional(),
   projectManagerId: z.string().optional(),
   departmentId: z.string().nullable().optional(),
   contractValue: z.number().min(0).nullable().optional(),

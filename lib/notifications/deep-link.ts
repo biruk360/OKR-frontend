@@ -98,7 +98,7 @@ function pickPath(eventKey: EventKey, entityType: EntityType | undefined, entity
       eventKey === 'RAID_HIGH_RISK_ADDED' || eventKey === 'JIRA_SYNC_FAILED' || eventKey === 'PAYMENT_MILESTONE_READY' ||
       eventKey === 'COE_REQUIRED' || eventKey === 'SCRUM_NOT_LOGGED') {
     if (data.deepLink) return String(data.deepLink)
-    if (entityType === 'PROJECT' && entityId) return `/dashboard/projects/${entityId}`
+    if (entityType === 'PROJECT' && entityId) return `/projects/${entityId}`
     return '/dashboard/projects'
   }
 

@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
       entityId: notification.projectId,
       entityTitle: notification.projectName,
       explicitRecipients: [notification.projectManagerId],
-      data: { reportId: notification.reportId, deepLink: `/dashboard/projects/${notification.projectId}` },
+      data: { reportId: notification.reportId, deepLink: `/projects/${notification.projectId}` },
     })
   }
   return NextResponse.json({ success: true, ...result })

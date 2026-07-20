@@ -574,6 +574,18 @@ END $$;
 -- Objectives previously "closed" via the legacy /complete route (goalStatus='CLOSED')
 -- predate the closureStatus/isLocked lifecycle. Bring them into the locked state so
 -- they behave consistently. Safe to re-run: only touches rows still at OPEN.
+--
+-- This preflight runs before `prisma db push`, so create the subset of lifecycle
+-- columns needed by the backfill first. Prisma will add the remaining lifecycle
+-- fields, relations, indexes, and tables immediately after this script completes.
+ALTER TABLE "public"."objectives"
+  ADD COLUMN IF NOT EXISTS "closureStatus" TEXT NOT NULL DEFAULT 'OPEN',
+  ADD COLUMN IF NOT EXISTS "closedAt" TIMESTAMP(3),
+  ADD COLUMN IF NOT EXISTS "outcome" TEXT,
+  ADD COLUMN IF NOT EXISTS "finalProgress" DOUBLE PRECISION,
+  ADD COLUMN IF NOT EXISTS "isLocked" BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS "lockedAt" TIMESTAMP(3);
+
 UPDATE "public"."objectives"
 SET "closureStatus" = 'CLOSED',
     "isLocked"      = true,

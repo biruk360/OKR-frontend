@@ -10,6 +10,7 @@ import {
 } from '@/lib/permissions'
 import { recalcNodeAndAncestors, wouldCreateAlignmentCycle } from '@/lib/objectiveProgress'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
+import { objectiveLockResponse } from '@/lib/okr/lock-guard'
 import { recordActivity, recordUpdateIfChanged } from '@/lib/activity-log'
 import { normalizeCadence } from '@/lib/check-in-cadence'
 import {
@@ -176,6 +177,9 @@ export const PUT = withAuth<RouteIdParams>(async (request: NextRequest, { sessio
   const existingObjective = await prisma.objective.findUnique({ where: { id } })
   if (!existingObjective) return apiNotFound('Objective not found')
 
+  const locked = await objectiveLockResponse(id)
+  if (locked) return locked
+
   const hasEditPermission = await canEditObjective(
     session.user.role as any,
     session.user.id,
@@ -326,6 +330,9 @@ export const DELETE = withAuth<RouteIdParams>(async (_request, { session, params
 
   const existingObjective = await prisma.objective.findUnique({ where: { id } })
   if (!existingObjective) return apiNotFound('Objective not found')
+
+  const locked = await objectiveLockResponse(id)
+  if (locked) return locked
 
   const canDelete =
     session.user.role === 'ADMIN' ||

@@ -61,6 +61,7 @@
 | `/dashboard/objectives/[id]` | `app/dashboard/objectives/[id]/page.tsx` | objectives | Objective detail view |
 | `/dashboard/objectives/cmnt25rlr000yhl7oktasxeml/design` | `app/dashboard/objectives/cmnt25rlr000yhl7oktasxeml/design/page.tsx` | objectives | Static design prototype page |
 | `/dashboard/key-results/[id]` | `app/dashboard/key-results/[id]/page.tsx` | key-results | Key result detail view |
+| `/dashboard/okrs-all/period-report/[timeframeId]` | `app/dashboard/okrs-all/period-report/[timeframeId]/page.tsx` | reports | Department/org-scoped end-of-period close report, close queue, and PDF export |
 
 ### Tracking & Analytics
 | Route | Page File | Feature | Description |

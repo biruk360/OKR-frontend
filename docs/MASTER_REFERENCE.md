@@ -4,7 +4,7 @@
 > It is generated from a full traversal of all code, schemas, routes, components, and docs.
 > **Keep it up-to-date:** after every feature addition or significant change, update the relevant section(s) here, then update `docs/CHANGELOG_AI.md`.
 >
-> Last updated: 2026-07-15
+> Last updated: 2026-07-20
 
 ---
 
@@ -195,6 +195,9 @@ OKR-frontend/
 | Confidence Snapshots | DONE | `lib/confidence-calc.ts`, `/api/cron/confidence-calc/` |
 | Favorites / Starred | DONE | `/api/favorites/` |
 | Watchers | DONE | `/api/watchers/` |
+| Period Close & Retrospective | DONE | `lib/okr/`, close/retrospective/reopen routes, shared close/reopen UI |
+| Roll-forward & Lineage | DONE | Existing clone routes/modals, `RolledFromBanner` |
+| End-of-period Report | DONE | `/dashboard/okrs-all/period-report/[timeframeId]`, `/api/reports/period-close/[timeframeId]` |
 
 ### 4.2 Work Management
 
@@ -229,6 +232,7 @@ OKR-frontend/
 | Activity Feed | DONE | `app/dashboard/activity/` |
 | Archived Objectives | DONE | `app/dashboard/archived-objectives/` |
 | OKR Alignment Map | DONE | `app/dashboard/alignment-map/` |
+| Period Close Report | DONE | `app/dashboard/okrs-all/period-report/[timeframeId]/` |
 
 ### 4.4 Letter Management
 
@@ -639,6 +643,10 @@ Auth: routes use `withAuth(handler)` or `withRole(roles, handler)` from `lib/api
 | GET/PUT | `/api/objectives/[id]/weights` | Auth | KR/child weights |
 | GET/POST | `/api/objectives/[id]/comments` | Auth | Comments |
 | POST | `/api/objectives/[id]/request-checkin` | Auth | Request check-in from owner |
+| POST | `/api/objectives/[id]/close/initiate` | Owner/editor | Snapshot grade/outcome and enter CLOSING |
+| GET/PUT | `/api/objectives/[id]/retrospective` | Owner/editor | Read evidence / save close reflection |
+| POST | `/api/objectives/[id]/close/commit` | Owner/editor | Freeze retrospective, close, and lock |
+| POST | `/api/objectives/[id]/reopen` | Window/role scoped | Reopen with permanent reason scar |
 | GET | `/api/objectives/alignment-search` | Auth | Search alignment candidates |
 
 ### 7.3 Key Results
@@ -659,6 +667,17 @@ Auth: routes use `withAuth(handler)` or `withRole(roles, handler)` from `lib/api
 | POST | `/api/keyresults/[id]/views` | Auth | Track view |
 | GET/POST | `/api/keyresults/[id]/comments` | Auth | Comments |
 | POST | `/api/keyresults/[id]/request-checkin` | Auth | Request check-in |
+| POST | `/api/keyresults/[id]/close/initiate` | Owner/editor | Snapshot grade/outcome and enter CLOSING |
+| GET/PUT | `/api/keyresults/[id]/retrospective` | Owner/editor | Read evidence / save close reflection |
+| POST | `/api/keyresults/[id]/close/commit` | Owner/editor | Freeze retrospective, close, and lock |
+| POST | `/api/keyresults/[id]/reopen` | Window/role scoped | Reopen with permanent reason scar |
+
+### 7.3a Period Close Reports
+
+| Method | Route | Auth | Description |
+|--------|-------|------|-------------|
+| GET | `/api/reports/period-close/[timeframeId]` | Admin/Executive/Department Lead | On-demand scoped close report |
+| GET | `/api/reports/period-close/[timeframeId]/pdf` | Same | Shareable Puppeteer PDF export |
 
 ### 7.4 Todos / Initiatives
 

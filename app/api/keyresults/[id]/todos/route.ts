@@ -6,6 +6,7 @@ import {
   type UserRole,
 } from '@/lib/permissions'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
+import { keyResultLockResponse } from '@/lib/okr/lock-guard'
 import { recordActivity } from '@/lib/activity-log'
 import {
   apiSuccess,
@@ -76,6 +77,9 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
   })
 
   if (!keyResult) return apiNotFound('Key result not found')
+
+  const locked = await keyResultLockResponse(keyResultId)
+  if (locked) return locked
 
   const canAdd = await canEditKeyResultWithObjectiveContext(
     session.user.role as UserRole,

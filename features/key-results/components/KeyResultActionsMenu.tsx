@@ -14,10 +14,14 @@ import {
   Download,
   MoveRight,
   Trash2,
+  LockKeyhole,
+  RotateCcw,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { ActionsMenu, ConfirmDialog } from '@/components/ui'
 import type { ActionsMenuItem } from '@/components/ui'
+import CloseKeyResultModal from './CloseKeyResultModal'
+import OkrReopenDialog from '@/components/shared/OkrReopenDialog'
 
 function useWatcher(entityType: string, entityId: string) {
   const [watching, setWatching] = useState(false)
@@ -94,13 +98,15 @@ export default function KeyResultActionsMenu({
   extrasOnly = false,
 }: KeyResultActionsMenuProps) {
   const router = useRouter()
-  const [completeOpen, setCompleteOpen] = useState(false)
   const [archiveOpen, setArchiveOpen] = useState(false)
-  const [isCompleting, setIsCompleting] = useState(false)
+  const [closeOpen, setCloseOpen] = useState(false)
+  const [reopenOpen, setReopenOpen] = useState(false)
+  const [achievedShortcut, setAchievedShortcut] = useState(false)
   const [isArchiving, setIsArchiving] = useState(false)
   const { watching, loading: watchLoading, toggle: toggleWatch } = useWatcher('KEY_RESULT', keyResult.id)
 
   const isArchived = keyResult.status === 'ARCHIVED'
+  const isClosed = keyResult.closureStatus === 'CLOSED'
 
   async function callEndpoint(
     path: string,
@@ -172,14 +178,14 @@ export default function KeyResultActionsMenu({
       label: 'Check-in',
       icon: History,
       onSelect: () => onCheckIn?.(),
-      hidden: extrasOnly || isArchived || !onCheckIn,
+      hidden: extrasOnly || isArchived || isClosed || !onCheckIn,
     },
     {
       key: 'edit',
       label: 'Edit',
       icon: Pencil,
       onSelect: () => onEdit?.(),
-      hidden: extrasOnly || isArchived || !onEdit || !canEdit,
+      hidden: extrasOnly || isArchived || isClosed || !onEdit || !canEdit,
     },
     {
       key: 'clone',
@@ -194,14 +200,28 @@ export default function KeyResultActionsMenu({
       icon: MoveRight,
       disabled: true,
       onSelect: () => {},
-      hidden: isArchived,
+      hidden: isArchived || isClosed,
+    },
+    {
+      key: 'reopen',
+      label: keyResult.reopenCount ? `Reopen (${keyResult.reopenCount} prior)` : 'Reopen key result',
+      icon: RotateCcw,
+      onSelect: () => setReopenOpen(true),
+      hidden: !isClosed || !canEdit,
+    },
+    {
+      key: 'close',
+      label: keyResult.closureStatus === 'CLOSING' ? 'Continue closing' : 'Close key result',
+      icon: LockKeyhole,
+      onSelect: () => { setAchievedShortcut(false); setCloseOpen(true) },
+      hidden: isArchived || keyResult.closureStatus === 'CLOSED' || !canEdit,
     },
     {
       key: 'complete',
       label: 'Mark as completed',
       icon: CheckCircle2,
-      onSelect: () => setCompleteOpen(true),
-      hidden: isArchived,
+      onSelect: () => { setAchievedShortcut(true); setCloseOpen(true) },
+      hidden: isArchived || keyResult.closureStatus !== 'OPEN' || !canEdit,
     },
     {
       key: 'request-checkin',
@@ -213,7 +233,7 @@ export default function KeyResultActionsMenu({
           () => {},
           'Check-in requested from the owner.',
         ),
-      hidden: isArchived,
+      hidden: isArchived || isClosed,
     },
     {
       key: 'watch',
@@ -256,7 +276,7 @@ export default function KeyResultActionsMenu({
           setArchiveOpen(true)
         }
       },
-      hidden: extrasOnly,
+      hidden: extrasOnly || isClosed,
     },
     {
       key: 'delete',
@@ -264,7 +284,7 @@ export default function KeyResultActionsMenu({
       icon: Trash2,
       destructive: true,
       onSelect: () => onDelete?.(),
-      hidden: extrasOnly || !onDelete || !canDelete,
+      hidden: extrasOnly || isClosed || !onDelete || !canDelete,
     },
   ]
 
@@ -272,23 +292,20 @@ export default function KeyResultActionsMenu({
     <>
       <ActionsMenu items={items} label="Key result actions" />
 
-      <ConfirmDialog
-        open={completeOpen}
-        onClose={() => setCompleteOpen(false)}
-        onConfirm={async () => {
-          await callEndpoint(
-            `/api/keyresults/${keyResult.id}/complete`,
-            setIsCompleting,
-            'Key result marked complete.',
-          )
-          setCompleteOpen(false)
-        }}
-        title="Mark key result complete?"
-        message="This will set the current value to the target and progress to 100%."
-        variant="info"
-        confirmLabel="Mark complete"
-        loadingLabel="Completing..."
-        isLoading={isCompleting}
+      <CloseKeyResultModal
+        open={closeOpen}
+        onClose={() => setCloseOpen(false)}
+        keyResult={keyResult}
+        achievedShortcut={achievedShortcut}
+        onInitiated={() => { onChanged?.(); router.refresh() }}
+      />
+
+      <OkrReopenDialog
+        open={reopenOpen}
+        onClose={() => setReopenOpen(false)}
+        entity={keyResult}
+        entityType="keyResult"
+        onReopened={() => { onChanged?.(); router.refresh() }}
       />
 
       <ConfirmDialog

@@ -7,6 +7,7 @@ import {
 import { parseProgressInput } from '@/lib/keyResultNumbers'
 import { recalcNodeAndAncestors } from '@/lib/objectiveProgress'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
+import { keyResultLockResponse } from '@/lib/okr/lock-guard'
 import { recordActivity } from '@/lib/activity-log'
 import { emit } from '@/lib/notifications'
 import {
@@ -107,6 +108,10 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
   })
 
   if (!existingKeyResult) return apiNotFound('Key result not found')
+
+  const locked = await keyResultLockResponse(id)
+  if (locked) return locked
+
   if (existingKeyResult.status !== 'ACTIVE') {
     return apiBadRequest('Check-ins can only be recorded on active key results')
   }

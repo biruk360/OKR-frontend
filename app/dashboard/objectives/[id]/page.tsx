@@ -22,6 +22,8 @@ import PerKrProgressCard from '@/components/objective-detail/PerKrProgressCard'
 import ActivityTabs from '@/components/objective-detail/ActivityTabs'
 import { ScrumActivityPanel } from '@/features/scrum'
 import { ObjectiveDeliveryPanel } from '@/features/projects'
+import RolledFromBanner from '@/components/shared/RolledFromBanner'
+import OkrLockBanner from '@/components/shared/OkrLockBanner'
 
 interface ObjectiveDetailPageProps {
   params: { id: string } | Promise<{ id: string }>
@@ -60,6 +62,13 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
         orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
       },
       _count: { select: { keyResults: true, childObjectives: true } },
+      rolledFrom: {
+        select: { id: true, title: true, finalGrade: true, finalProgress: true, finalConfidence: true, closureNote: true, timeframe: true, retrospective: true },
+      },
+      rolledTo: {
+        select: { id: true, title: true, timeframe: true },
+        take: 1,
+      },
     },
   })
 
@@ -155,12 +164,15 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
             {objective.status !== 'ARCHIVED' && (
               <>
                 <CloneObjectiveButton objective={objective} timeframes={timeframes} className="px-3 py-2" />
-                <EditObjectiveButton objective={objective} className="px-3 py-2" />
+                {!objective.isLocked && <EditObjectiveButton objective={objective} className="px-3 py-2" />}
               </>
             )}
             <ObjectiveActionsMenu objective={objective} />
           </div>
         </div>
+
+        <RolledFromBanner entityType="objective" previous={objective.rolledFrom} next={objective.rolledTo[0]} lineageDepth={objective.lineageDepth} />
+        {objective.isLocked && <OkrLockBanner entityType="Objective" reopenCount={objective.reopenCount} closedAt={objective.closedAt} />}
 
         {/* ═══ MAIN 2-COLUMN GRID ═══ */}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">

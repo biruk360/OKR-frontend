@@ -240,6 +240,28 @@ model Objective {
   departmentId      String?
   parentObjectiveId String?
   closedById        String?
+  /// ─── Period-close lifecycle (see docs/okr_period_close_and_rollover_requirements.md) ───
+  /// Authoritative close state: OPEN | CLOSING | CLOSED. `isLocked` mirrors CLOSED.
+  closureStatus     String    @default("OPEN")
+  closedAt          DateTime?
+  /// ACHIEVED | PARTIAL | MISSED | ABANDONED
+  outcome           String?
+  finalGrade        Float?    // 0.0–1.0 (Google scale)
+  finalProgress     Float?    // frozen computed progress at close
+  gradeDelta        Float?    // finalGrade − finalProgress/100
+  finalConfidence   String?   // ON_TRACK | AT_RISK | OFF_TRACK at close
+  initialConfidence String?   // at first check-in
+  preCloseGoalStatus String?  // restore on reopen
+  closureNote       String?   // ≤500 chars
+  isLocked          Boolean   @default(false)
+  lockedAt          DateTime?
+  reopenCount       Int       @default(0)
+  lastReopenedAt    DateTime?
+  lastReopenedById  String?
+  /// ─── Lineage / roll-forward ───
+  rolledFromId      String?
+  lineageRootId     String?   // the original (period 1)
+  lineageDepth      Int       @default(0)
   /// LOOSE = visual alignment only; STRICT_DEPENDENCY = progress can roll up from active child objectives
   alignmentType     String    @default("LOOSE")
   /// NONE | AVERAGE | SUM — used only when alignmentType is STRICT_DEPENDENCY and there are active children
@@ -261,6 +283,9 @@ model Objective {
   parentObjective  Objective?             @relation("ObjectiveHierarchy", fields: [parentObjectiveId], references: [id])
   childObjectives  Objective[]            @relation("ObjectiveHierarchy")
   closedBy         User?                  @relation("ObjectiveClosedBy", fields: [closedById], references: [id])
+  rolledFrom       Objective?             @relation("ObjectiveLineage", fields: [rolledFromId], references: [id])
+  rolledTo         Objective[]            @relation("ObjectiveLineage")
+  retrospective    OkrRetrospective?      @relation("ObjectiveRetro")
   keyResults       KeyResult[]
   comments         Comment[]
   objectiveLabels  ObjectiveLabel[]
@@ -274,6 +299,9 @@ model Objective {
 
   @@index([departmentId])
   @@index([ownerId])
+  @@index([closureStatus])
+  @@index([rolledFromId])
+  @@index([lineageRootId])
   @@map("objectives")
 }
 
@@ -308,6 +336,29 @@ model KeyResult {
   ownerId        String
   objectiveId    String
   closedById     String?
+  /// ─── Period-close lifecycle ───
+  closureStatus     String    @default("OPEN") // OPEN | CLOSING | CLOSED
+  closedAt          DateTime?
+  outcome           String?   // ACHIEVED | PARTIAL | MISSED | ABANDONED
+  finalGrade        Float?    // 0.0–1.0
+  finalValue        Float?    // frozen currentValue at close
+  finalProgress     Float?    // frozen computed progress at close
+  gradeDelta        Float?
+  finalConfidence   String?
+  initialConfidence String?
+  preCloseConfidence String?  // restore on reopen
+  closureNote       String?
+  isLocked          Boolean   @default(false)
+  lockedAt          DateTime?
+  reopenCount       Int       @default(0)
+  lastReopenedAt    DateTime?
+  lastReopenedById  String?
+  /// ─── Lineage / roll-forward ───
+  rolledFromId      String?
+  lineageRootId     String?
+  lineageDepth      Int       @default(0)
+  /// ⭐ Previous period's finalValue; becomes this KR's startValue when cloned forward.
+  carriedStartValue Float?
   /// Mandatory check-in cadence: WEEKLY | BIWEEKLY | MONTHLY | QUARTERLY
   checkInCadence String    @default("WEEKLY")
   /// Raw weight used when this KR contributes to its parent objective's progress.
@@ -331,8 +382,62 @@ model KeyResult {
   performanceMetricSources  EvaluationMetricSource[]
   milestones       Milestone[] // Project Management module — milestones driving this KR (K1)
   scrumLinks       ScrumUpdateLink[]
+  rolledFrom       KeyResult?         @relation("KeyResultLineage", fields: [rolledFromId], references: [id])
+  rolledTo         KeyResult[]        @relation("KeyResultLineage")
+  retrospective    OkrRetrospective?  @relation("KeyResultRetro")
 
+  @@index([closureStatus])
+  @@index([rolledFromId])
+  @@index([lineageRootId])
   @@map("key_results")
+}
+
+/// Closure retrospective — the mandatory reflection captured before an Objective or
+/// Key Result is locked. Exactly one of objectiveId / keyResultId is set.
+/// See docs/okr_period_close_and_rollover_requirements.md §3.3.
+model OkrRetrospective {
+  id                String   @id @default(cuid())
+  objectiveId       String?  @unique
+  keyResultId       String?  @unique
+  entityType        String   // OBJECTIVE | KEY_RESULT
+  whatWasAchieved   String   // rich text (TipTap HTML) — REQUIRED
+  whatWentWell      String?
+  whatBlockedUs     String?
+  whatWeLearned     String   // REQUIRED — the point of closing
+  /// NONE|UNCLEAR_GOAL|INSUFFICIENT_RESOURCE|EXTERNAL_DEPENDENCY|SHIFTING_PRIORITY|
+  /// TECHNICAL|CAPACITY|POOR_ESTIMATION|CLIENT_DELAY|SCOPE_CREEP|OTHER
+  primaryBlocker    String?
+  wouldSetAgain     Boolean?
+  wasAmbitious      Boolean?
+  /// ROLL_FORWARD|ROLL_FORWARD_MODIFIED|ABANDON|COMPLETE_NO_ROLLOVER|SPLIT
+  recommendedAction String
+  gradeRationale    String?  // filled when human grade diverges >0.15 from computed progress
+  autoStatsJson     Json     // evidence snapshot frozen at close (see spec §6.2)
+  authorId          String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  objective         Objective? @relation("ObjectiveRetro", fields: [objectiveId], references: [id], onDelete: Cascade)
+  keyResult         KeyResult? @relation("KeyResultRetro", fields: [keyResultId], references: [id], onDelete: Cascade)
+
+  @@index([entityType])
+  @@map("okr_retrospectives")
+}
+
+/// Append-only log of every reopen of a closed OKR. The count is also denormalized
+/// onto Objective/KeyResult.reopenCount for the permanent "scar" display.
+model OkrReopenLog {
+  id           String    @id @default(cuid())
+  entityType   String    // OBJECTIVE | KEY_RESULT
+  entityId     String
+  reason       String    // REQUIRED, min 20 chars (validated server-side)
+  reopenedById String
+  reopenedAt   DateTime  @default(now())
+  reclosedAt   DateTime?
+  changesJson  Json?
+
+  @@index([entityType, entityId])
+  @@map("okr_reopen_logs")
 }
 
 model KeyResultCheckIn {

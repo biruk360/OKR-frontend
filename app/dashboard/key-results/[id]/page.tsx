@@ -10,6 +10,8 @@ import {
 import { KeyResultDetailClient } from '@/features/key-results'
 import { ScrumActivityPanel } from '@/features/scrum'
 import type { BreadcrumbNode } from '@/components/shared/OkrBreadcrumb'
+import RolledFromBanner from '@/components/shared/RolledFromBanner'
+import OkrLockBanner from '@/components/shared/OkrLockBanner'
 
 interface PageProps {
   params: { id: string } | Promise<{ id: string }>
@@ -55,6 +57,16 @@ export default async function KeyResultDetailPage({ params }: PageProps) {
       _count: {
         select: { todos: true },
       },
+      rolledFrom: {
+        select: {
+          id: true, title: true, finalGrade: true, finalProgress: true, finalConfidence: true,
+          closureNote: true, unit: true,
+          objective: { select: { timeframe: true } },
+          retrospective: true,
+          checkIns: { orderBy: { asOfDate: 'asc' }, include: { createdBy: { select: { id: true, name: true, avatar: true } } } },
+        },
+      },
+      rolledTo: { select: { id: true, title: true, objective: { select: { timeframe: true } } }, take: 1 },
     },
   })
 
@@ -119,6 +131,14 @@ export default async function KeyResultDetailPage({ params }: PageProps) {
     createdAt: keyResult.createdAt,
     updatedAt: keyResult.updatedAt,
     archivedAt: keyResult.archivedAt,
+    closureStatus: keyResult.closureStatus,
+    isLocked: keyResult.isLocked,
+    outcome: keyResult.outcome,
+    finalGrade: keyResult.finalGrade,
+    finalValue: keyResult.finalValue,
+    finalProgress: keyResult.finalProgress,
+    reopenCount: keyResult.reopenCount,
+    rolledTo: keyResult.rolledTo,
     owner: krOwnerFull ?? keyResult.owner,
   }
 
@@ -208,6 +228,15 @@ export default async function KeyResultDetailPage({ params }: PageProps) {
 
   return (
     <div className="space-y-4">
+      <div className="mx-auto max-w-6xl px-4 pt-4">
+        <RolledFromBanner
+          entityType="key-result"
+          previous={keyResult.rolledFrom ? { ...keyResult.rolledFrom, timeframe: keyResult.rolledFrom.objective.timeframe } : null}
+          next={keyResult.rolledTo[0] ? { ...keyResult.rolledTo[0], timeframe: keyResult.rolledTo[0].objective.timeframe } : null}
+          lineageDepth={keyResult.lineageDepth}
+        />
+        {keyResult.isLocked && <div className="mt-4"><OkrLockBanner entityType="Key Result" reopenCount={keyResult.reopenCount} closedAt={keyResult.closedAt} /></div>}
+      </div>
       <KeyResultDetailClient
         keyResult={krForClient}
         objective={{

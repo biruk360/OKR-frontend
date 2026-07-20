@@ -25,6 +25,9 @@ interface DigestObjective {
   cadence: CheckInCadence
   lastUpdate: Date
   timeframeName: string
+  timeframeId: string
+  timeframeEnd: Date
+  closureStatus: string
   keyResults: DigestKeyResult[]
 }
 
@@ -39,6 +42,7 @@ interface DigestKeyResult {
   targetValue: number
   unit: string
   objectiveId: string
+  closureStatus: string
 }
 
 interface DigestInitiative {
@@ -64,6 +68,7 @@ interface DigestData {
   dueThisWeek: DigestInitiative[]
   daysLeftInCycle: number | null
   cycleName: string | null
+  periodCloseReminder: { timeframeId: string; timeframeName: string; endDate: Date; openCount: number } | null
 }
 
 /** Build the digest payload for a single user — comprehensive week-in-review. */
@@ -83,6 +88,7 @@ export async function buildUserDigest(userId: string): Promise<DigestData | null
             checkInCadence: true, updatedAt: true,
             currentValue: true, targetValue: true, unit: true,
             objectiveId: true,
+            closureStatus: true,
           },
           orderBy: [{ confidence: 'asc' }, { progress: 'asc' }],
         },
@@ -112,6 +118,9 @@ export async function buildUserDigest(userId: string): Promise<DigestData | null
     cadence: (o.checkInCadence as CheckInCadence) || 'WEEKLY',
     lastUpdate: o.updatedAt,
     timeframeName: o.timeframe.name,
+    timeframeId: o.timeframeId,
+    timeframeEnd: o.timeframe.endDate,
+    closureStatus: o.closureStatus,
     keyResults: o.keyResults.map((kr) => ({
       id: kr.id,
       title: kr.title,
@@ -123,6 +132,7 @@ export async function buildUserDigest(userId: string): Promise<DigestData | null
       targetValue: kr.targetValue,
       unit: kr.unit,
       objectiveId: kr.objectiveId,
+      closureStatus: kr.closureStatus,
     })),
   }))
 
@@ -173,6 +183,15 @@ export async function buildUserDigest(userId: string): Promise<DigestData | null
     ? Math.max(0, Math.ceil((earliestEnd.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)))
     : null
   const cycleName = digestObjectives[0]?.timeframeName ?? null
+  const endedPeriods = new Map<string, { timeframeId: string; timeframeName: string; endDate: Date; openCount: number }>()
+  for (const objective of digestObjectives) {
+    if (objective.timeframeEnd > now) continue
+    const current = endedPeriods.get(objective.timeframeId) || { timeframeId: objective.timeframeId, timeframeName: objective.timeframeName, endDate: objective.timeframeEnd, openCount: 0 }
+    if (objective.closureStatus !== 'CLOSED') current.openCount++
+    current.openCount += objective.keyResults.filter((kr) => kr.closureStatus !== 'CLOSED').length
+    endedPeriods.set(objective.timeframeId, current)
+  }
+  const periodCloseReminder = [...endedPeriods.values()].filter((item) => item.openCount > 0).sort((a, b) => a.endDate.getTime() - b.endDate.getTime())[0] || null
 
   return {
     objectives: digestObjectives,
@@ -182,6 +201,7 @@ export async function buildUserDigest(userId: string): Promise<DigestData | null
     onTrackCount, atRiskCount, offTrackCount,
     overdueCheckIns, overdueTodos, dueThisWeek,
     daysLeftInCycle, cycleName,
+    periodCloseReminder,
   }
 }
 
@@ -203,6 +223,7 @@ function renderDigestText(name: string, d: DigestData): string {
   if (d.daysLeftInCycle !== null && d.cycleName) {
     lines.push(`${d.cycleName}: ${d.daysLeftInCycle} days remaining`)
   }
+  if (d.periodCloseReminder) lines.push(`${d.periodCloseReminder.openCount} OKR(s) still open in ${d.periodCloseReminder.timeframeName} — close the period: ${absoluteUrl(`/dashboard/okrs-all/period-report/${d.periodCloseReminder.timeframeId}`)}`)
   lines.push('')
 
   if (d.overdueCheckIns.length > 0 || d.overdueTodos.length > 0 || d.atRiskCount > 0 || d.offTrackCount > 0) {
@@ -307,6 +328,7 @@ function renderAttentionBox(d: DigestData): string {
   if (d.overdueCheckIns.length > 0) items.push(`<strong style="color:${C.danger};">${d.overdueCheckIns.length}</strong> check-in${d.overdueCheckIns.length === 1 ? '' : 's'} overdue`)
   if (d.overdueTodos.length > 0) items.push(`<strong style="color:${C.danger};">${d.overdueTodos.length}</strong> initiative${d.overdueTodos.length === 1 ? '' : 's'} past due`)
   if (d.dueThisWeek.length > 0) items.push(`<strong style="color:${C.warning};">${d.dueThisWeek.length}</strong> initiative${d.dueThisWeek.length === 1 ? '' : 's'} due this week`)
+  if (d.periodCloseReminder) items.push(`<strong style="color:${C.warning};">${d.periodCloseReminder.openCount}</strong> OKR${d.periodCloseReminder.openCount === 1 ? '' : 's'} still open in <a href="${absoluteUrl(`/dashboard/okrs-all/period-report/${d.periodCloseReminder.timeframeId}`)}" style="color:${C.primary};">${d.periodCloseReminder.timeframeName}</a>`)
 
   if (items.length === 0) {
     return `<div style="background:${C.successBg};border:1px solid ${C.success};border-radius:8px;padding:14px 16px;margin:16px 0;">

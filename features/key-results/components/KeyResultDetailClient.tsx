@@ -104,7 +104,7 @@ export default function KeyResultDetailClient({
 
   const pct = safePct(kr.targetValue > 0 ? (kr.currentValue / kr.targetValue) * 100 : kr.progress)
   const progressRounded = Math.round(pct)
-  const showCheckIn = canEdit && kr.status === 'ACTIVE' && !isRedacted
+  const showCheckIn = canEdit && kr.status === 'ACTIVE' && !kr.isLocked && !isRedacted
 
   // Timeframe-derived metrics for the hero row (mirrors ObjectiveHero).
   let daysLeft = 0
@@ -252,7 +252,7 @@ export default function KeyResultDetailClient({
                   Check in
                 </button>
               )}
-              {canEdit && !isRedacted && (
+              {canEdit && !kr.isLocked && !isRedacted && (
                 <EditKeyResultButton keyResult={kr} users={users} canEdit={canEdit} onUpdated={afterMutation} />
               )}
               <button

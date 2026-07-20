@@ -310,7 +310,7 @@ On `closureStatus → CLOSED`: `isLocked=true`, `lockedAt` set. Immutable: **all
 
 ## 9. EPIC F — Complete vs Close (reconcile existing `/complete`)
 
-The existing `POST /api/objectives/[id]/complete` (force 100%, `goalStatus='CLOSED'`) becomes a **shortcut into the close path**: it pre-fills the close flow with all KRs at target, `outcome=ACHIEVED`, grade 1.0 — but the retrospective is still required and the record still goes through `CLOSING → CLOSED`. Existing `goalStatus='CLOSED'` rows get `closureStatus='CLOSED'`, `closedAt=updatedAt`, `isLocked=true` backfilled by a one-off script so they lock consistently.
+Both `POST /api/objectives/[id]/complete` **and** `POST /api/keyresults/[id]/complete` exist today (force 100%, `goalStatus='CLOSED'` on the objective). Each becomes a **shortcut into the close path**: it pre-fills the close flow with all KRs at target, `outcome=ACHIEVED`, grade 1.0 — but the retrospective is still required and the record still goes through `CLOSING → CLOSED`. Existing `goalStatus='CLOSED'` rows get `closureStatus='CLOSED'`, `closedAt=updatedAt`, `isLocked=true` backfilled by a one-off script so they lock consistently.
 
 ---
 

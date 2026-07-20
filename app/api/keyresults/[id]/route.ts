@@ -8,6 +8,7 @@ import {
 import { parseStartAndTarget } from '@/lib/keyResultNumbers'
 import { recalcNodeAndAncestors } from '@/lib/objectiveProgress'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
+import { keyResultLockResponse } from '@/lib/okr/lock-guard'
 import { recordActivity, recordUpdateIfChanged } from '@/lib/activity-log'
 import { normalizeCadence } from '@/lib/check-in-cadence'
 import {
@@ -108,6 +109,9 @@ export const PUT = withAuth<RouteIdParams>(async (request: NextRequest, { sessio
 
   if (!existingKeyResult) return apiNotFound('Key result not found')
 
+  const locked = await keyResultLockResponse(keyResultId)
+  if (locked) return locked
+
   const canEdit = await canEditKeyResultWithObjectiveContext(
     session.user.role as any,
     session.user.id,
@@ -177,6 +181,9 @@ export const DELETE = withAuth<RouteIdParams>(async (_request, { session, params
   })
 
   if (!existingKeyResult) return apiNotFound('Key result not found')
+
+  const locked = await keyResultLockResponse(keyResultId)
+  if (locked) return locked
 
   // Only objective owner or admin can delete — KR owners cannot.
   const canDelete =

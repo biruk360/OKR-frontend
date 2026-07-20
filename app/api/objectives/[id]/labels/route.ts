@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
+import { objectiveLockResponse } from '@/lib/okr/lock-guard'
 import {
   apiSuccess,
   apiBadRequest,
@@ -20,6 +21,9 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
 
   const objective = await prisma.objective.findUnique({ where: { id: objectiveId } })
   if (!objective) return apiNotFound('Objective not found')
+
+  const locked = await objectiveLockResponse(objectiveId)
+  if (locked) return locked
 
   const label = await prisma.label.findUnique({ where: { id: labelId } })
   if (!label) return apiNotFound('Label not found')
@@ -52,6 +56,9 @@ export const DELETE = withAuth<RouteIdParams>(async (request: NextRequest, { ses
   const { searchParams } = new URL(request.url)
   const labelId = searchParams.get('labelId')
   if (!labelId) return apiBadRequest('Label ID is required')
+
+  const locked = await objectiveLockResponse(objectiveId)
+  if (locked) return locked
 
   const label = await prisma.label.findUnique({ where: { id: labelId }, select: { id: true, name: true } })
   await prisma.objectiveLabel.delete({

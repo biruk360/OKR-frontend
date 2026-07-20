@@ -11,6 +11,7 @@ export { default as AlignsToParentBadge } from './components/AlignsToParentBadge
 export { default as ArchiveObjectiveButton } from './components/ArchiveObjectiveButton'
 export { default as CloneObjectiveButton } from './components/CloneObjectiveButton'
 export { default as CloneObjectiveModal } from './components/CloneObjectiveModal'
+export { default as CloseObjectiveModal } from './components/CloseObjectiveModal'
 export { default as CreateCompanyObjectiveButton } from './components/CreateCompanyObjectiveButton'
 export { default as CreateDepartmentObjectiveButton } from './components/CreateDepartmentObjectiveButton'
 export { default as CreateIndividualObjectiveButton } from './components/CreateIndividualObjectiveButton'

@@ -3,9 +3,10 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
-import { Copy, Check } from 'lucide-react'
+import { Copy, Check, ArrowRight } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { Modal } from '@/components/ui'
+import { Button, Modal } from '@/components/ui'
+import { useTimeframes } from '@/hooks'
 
 interface CloneObjectiveModalProps {
   isOpen: boolean
@@ -18,17 +19,23 @@ interface CloneFormData {
   title: string
   timeframeId: string
   includeKeyResults: boolean
+  includeIncompleteTodos: boolean
+  keyResultOverrides: Record<string, { targetValue: number; startValue: number; useCarriedBaseline: boolean }>
 }
 
 export default function CloneObjectiveModal({ isOpen, onClose, objective, timeframes }: CloneObjectiveModalProps) {
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
+  const { timeframes: fetchedTimeframes } = useTimeframes({ enabled: isOpen })
+  const availableTimeframes = fetchedTimeframes.length > 0 ? fetchedTimeframes : timeframes
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<CloneFormData>({
     defaultValues: {
       title: `Copy of ${objective?.title || ''}`,
       timeframeId: '',
       includeKeyResults: true,
+      includeIncompleteTodos: false,
+      keyResultOverrides: {},
     },
   })
 
@@ -36,11 +43,19 @@ export default function CloneObjectiveModal({ isOpen, onClose, objective, timefr
 
   useEffect(() => {
     if (isOpen && objective) {
-      setValue('title', `Copy of ${objective.title}`)
+      const nextTimeframe = [...availableTimeframes]
+        .filter((candidate) => candidate.type === objective.timeframe?.type && new Date(candidate.startDate) > new Date(objective.timeframe?.endDate || 0))
+        .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())[0]
+      setValue('title', objective.title)
       setValue('includeKeyResults', true)
-      setValue('timeframeId', '')
+      setValue('includeIncompleteTodos', false)
+      setValue('timeframeId', nextTimeframe?.id || '')
+      setValue('keyResultOverrides', Object.fromEntries((objective.keyResults || []).map((kr: any) => {
+        const carried = kr.finalValue ?? kr.currentValue ?? kr.startValue ?? 0
+        return [kr.id, { targetValue: kr.targetValue, startValue: carried, useCarriedBaseline: true }]
+      })))
     }
-  }, [isOpen, objective, setValue])
+  }, [isOpen, objective, availableTimeframes, setValue])
 
   const onSubmit = async (data: CloneFormData) => {
     setIsLoading(true)
@@ -53,13 +68,15 @@ export default function CloneObjectiveModal({ isOpen, onClose, objective, timefr
           title: data.title,
           timeframeId: data.timeframeId,
           includeKeyResults: data.includeKeyResults,
+          includeIncompleteTodos: data.includeIncompleteTodos,
+          keyResultOverrides: data.keyResultOverrides,
         }),
       })
 
       const result = await response.json()
 
       if (response.ok) {
-        toast.success('Objective cloned successfully.')
+        toast.success('Objective rolled forward with its period history linked.')
         onClose()
         router.push(`/dashboard/objectives/${result.data.id}`)
       } else {
@@ -75,7 +92,7 @@ export default function CloneObjectiveModal({ isOpen, onClose, objective, timefr
   if (!objective) return null
 
   return (
-    <Modal open={isOpen} onClose={onClose} title="Clone Objective" icon={Copy} iconClassName="text-blue-600" size="sm">
+    <Modal open={isOpen} onClose={onClose} title="Roll Forward Objective" icon={Copy} iconClassName="text-primary" size="lg">
       <form onSubmit={handleSubmit(onSubmit)}>
         <div className="mb-6">
           <label htmlFor="title" className="block text-sm font-medium text-muted-foreground mb-2">
@@ -85,23 +102,23 @@ export default function CloneObjectiveModal({ isOpen, onClose, objective, timefr
             type="text"
             id="title"
             {...register('title', { required: 'Title is required' })}
-            className="w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-blue-500"
+            className="w-full rounded-md border border-border bg-background px-3 py-2 text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
             placeholder="Enter objective title"
           />
-          {errors.title && <p className="mt-1 text-sm text-red-600">{errors.title.message}</p>}
+          {errors.title && <p className="mt-1 text-sm text-destructive">{errors.title.message}</p>}
         </div>
 
         <div className="mb-6">
           <label htmlFor="timeframe" className="block text-sm font-medium text-muted-foreground mb-2">
-            Timeframe <span className="text-red-500">*</span>
+            Timeframe <span className="text-destructive">*</span>
           </label>
           <select
             id="timeframe"
             {...register('timeframeId', { required: 'Timeframe is required' })}
-            className="w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-blue-500"
+            className="w-full rounded-md border border-border bg-background px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
           >
             <option value="">Select a timeframe</option>
-            {timeframes.map((timeframe) => {
+            {availableTimeframes.map((timeframe) => {
               const typeLabel =
                 timeframe.type === 'MONTHLY' ? 'Monthly' :
                 timeframe.type === 'QUARTERLY' ? 'Quarterly' :
@@ -114,7 +131,7 @@ export default function CloneObjectiveModal({ isOpen, onClose, objective, timefr
               )
             })}
           </select>
-          {errors.timeframeId && <p className="mt-1 text-sm text-red-600">{errors.timeframeId.message}</p>}
+          {errors.timeframeId && <p className="mt-1 text-sm text-destructive">{errors.timeframeId.message}</p>}
         </div>
 
         <div className="mb-6">
@@ -123,7 +140,7 @@ export default function CloneObjectiveModal({ isOpen, onClose, objective, timefr
               type="checkbox"
               id="includeKeyResults"
               {...register('includeKeyResults')}
-              className="h-4 w-4 text-blue-600 focus:ring-ring border-border rounded"
+              className="size-4 rounded border-border accent-primary focus:ring-ring"
             />
             <label htmlFor="includeKeyResults" className="ml-2 block text-sm text-muted-foreground">
               Include Key Results
@@ -136,27 +153,50 @@ export default function CloneObjectiveModal({ isOpen, onClose, objective, timefr
           </p>
         </div>
 
-        {includeKeyResults && objective._count?.keyResults > 0 && (
-          <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h4 className="text-sm font-medium text-blue-800 mb-2">Key Results to Clone:</h4>
-            <ul className="text-sm text-blue-700 space-y-1">
+        {includeKeyResults && objective.keyResults?.length > 0 && (
+          <div className="mb-6 rounded-lg border border-border bg-muted/40 p-4">
+            <h4 className="mb-3 text-sm font-medium text-foreground">Carried Key Result baselines</h4>
+            <div className="space-y-4">
               {objective.keyResults?.map((kr: any) => (
-                <li key={kr.id} className="flex items-center">
-                  <Check className="h-3 w-3 mr-2" />
-                  {kr.title} (Progress will be reset to 0)
-                </li>
+                <div key={kr.id} className="rounded-md border border-border bg-background p-3">
+                  <div className="mb-3 flex items-center gap-2 text-sm font-medium">
+                    <Check className="size-4 text-primary" /> {kr.title}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-muted-foreground">Carried start</label>
+                      <input type="number" step="any" {...register(`keyResultOverrides.${kr.id}.startValue`, { valueAsNumber: true })} className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground">New target</label>
+                      <input type="number" step="any" {...register(`keyResultOverrides.${kr.id}.targetValue`, { valueAsNumber: true })} className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" />
+                    </div>
+                  </div>
+                  <label className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+                    <input type="checkbox" {...register(`keyResultOverrides.${kr.id}.useCarriedBaseline`)} className="size-4 rounded border-border accent-primary" />
+                    Use previous final value as the carried baseline
+                  </label>
+                </div>
               ))}
-            </ul>
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground">Each new Key Result starts at its carried value with 0% new-period progress. Check-ins and retrospectives are not copied.</p>
           </div>
         )}
 
+        <label className="mb-6 flex items-start gap-3 rounded-lg border border-border p-3">
+          <input type="checkbox" {...register('includeIncompleteTodos')} className="mt-0.5 size-4 rounded border-border accent-primary" />
+          <span>
+            <span className="block text-sm font-medium text-foreground">Carry incomplete linked initiatives</span>
+            <span className="mt-1 block text-xs text-muted-foreground">Creates fresh pending copies; completed and cancelled work stays in the previous period.</span>
+          </span>
+        </label>
+
         <div className="flex items-center justify-end space-x-3">
-          <button type="button" onClick={onClose} className="btn-outline" disabled={isLoading}>
+          <Button type="button" variant="outline" onClick={onClose} disabled={isLoading}>
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             type="submit"
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring disabled:opacity-50"
             disabled={isLoading}
           >
             {isLoading ? (
@@ -165,9 +205,9 @@ export default function CloneObjectiveModal({ isOpen, onClose, objective, timefr
                 Cloning...
               </div>
             ) : (
-              'Create Clone'
+              <span className="flex items-center gap-2">Roll forward <ArrowRight className="size-4" /></span>
             )}
-          </button>
+          </Button>
         </div>
       </form>
     </Modal>

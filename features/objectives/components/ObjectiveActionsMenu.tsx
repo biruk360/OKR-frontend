@@ -14,11 +14,15 @@ import {
   MoveRight,
   Scale,
   Trash2,
+  LockKeyhole,
+  RotateCcw,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { ActionsMenu, ConfirmDialog } from '@/components/ui'
 import type { ActionsMenuItem } from '@/components/ui'
 import EditWeightsModal from './EditWeightsModal'
+import CloseObjectiveModal from './CloseObjectiveModal'
+import OkrReopenDialog from '@/components/shared/OkrReopenDialog'
 
 function useWatcher(entityType: string, entityId: string) {
   const [watching, setWatching] = useState(false)
@@ -86,14 +90,16 @@ export default function ObjectiveActionsMenu({
   onDelete,
 }: ObjectiveActionsMenuProps) {
   const router = useRouter()
-  const [completeOpen, setCompleteOpen] = useState(false)
   const [archiveOpen, setArchiveOpen] = useState(false)
   const [weightsOpen, setWeightsOpen] = useState(false)
-  const [isCompleting, setIsCompleting] = useState(false)
+  const [closeOpen, setCloseOpen] = useState(false)
+  const [reopenOpen, setReopenOpen] = useState(false)
+  const [achievedShortcut, setAchievedShortcut] = useState(false)
   const [isArchiving, setIsArchiving] = useState(false)
   const { watching, loading: watchLoading, toggle: toggleWatch } = useWatcher('OBJECTIVE', objective.id)
 
   const isArchived = objective.status === 'ARCHIVED'
+  const isClosed = objective.closureStatus === 'CLOSED'
 
   async function callEndpoint(
     path: string,
@@ -180,7 +186,7 @@ export default function ObjectiveActionsMenu({
       label: 'Edit',
       icon: Pencil,
       onSelect: () => onEdit?.(),
-      hidden: isArchived || !onEdit,
+      hidden: isArchived || isClosed || !onEdit,
     },
     {
       key: 'move',
@@ -188,14 +194,28 @@ export default function ObjectiveActionsMenu({
       icon: MoveRight,
       disabled: true,
       onSelect: () => {},
-      hidden: isArchived,
+      hidden: isArchived || isClosed,
+    },
+    {
+      key: 'reopen',
+      label: objective.reopenCount ? `Reopen (${objective.reopenCount} prior)` : 'Reopen objective',
+      icon: RotateCcw,
+      onSelect: () => setReopenOpen(true),
+      hidden: !isClosed,
+    },
+    {
+      key: 'close',
+      label: objective.closureStatus === 'CLOSING' ? 'Continue closing' : 'Close objective',
+      icon: LockKeyhole,
+      onSelect: () => { setAchievedShortcut(false); setCloseOpen(true) },
+      hidden: isArchived || objective.closureStatus === 'CLOSED',
     },
     {
       key: 'complete',
       label: 'Mark as completed',
       icon: CheckCircle2,
-      onSelect: () => setCompleteOpen(true),
-      hidden: isArchived,
+      onSelect: () => { setAchievedShortcut(true); setCloseOpen(true) },
+      hidden: isArchived || objective.closureStatus !== 'OPEN',
     },
     {
       key: 'request-checkin',
@@ -207,14 +227,14 @@ export default function ObjectiveActionsMenu({
           () => {},
           'Check-in requested from the owner.',
         ),
-      hidden: isArchived,
+      hidden: isArchived || isClosed,
     },
     {
       key: 'weights',
       label: 'Edit weights',
       icon: Scale,
       onSelect: () => setWeightsOpen(true),
-      hidden: isArchived,
+      hidden: isArchived || isClosed,
     },
     {
       key: 'watch',
@@ -253,6 +273,7 @@ export default function ObjectiveActionsMenu({
           setArchiveOpen(true)
         }
       },
+      hidden: isClosed,
     },
     {
       key: 'delete',
@@ -260,7 +281,7 @@ export default function ObjectiveActionsMenu({
       icon: Trash2,
       destructive: true,
       onSelect: () => onDelete?.(),
-      hidden: !onDelete,
+      hidden: isClosed || !onDelete,
     },
   ]
 
@@ -268,24 +289,20 @@ export default function ObjectiveActionsMenu({
     <>
       <ActionsMenu items={items} label="Objective actions" />
 
-      <ConfirmDialog
-        open={completeOpen}
-        onClose={() => setCompleteOpen(false)}
-        onConfirm={async () => {
-          await callEndpoint(
-            `/api/objectives/${objective.id}/complete`,
-            setIsCompleting,
-            'Objective marked complete.',
-          )
-          setCompleteOpen(false)
-        }}
-        title="Mark objective complete?"
-        message="This will set progress to 100% and close the objective."
-        description="All active key results will be marked 100% complete. You can still edit the objective afterwards."
-        variant="info"
-        confirmLabel="Mark complete"
-        loadingLabel="Completing..."
-        isLoading={isCompleting}
+      <CloseObjectiveModal
+        open={closeOpen}
+        onClose={() => setCloseOpen(false)}
+        objective={objective}
+        achievedShortcut={achievedShortcut}
+        onInitiated={() => router.refresh()}
+      />
+
+      <OkrReopenDialog
+        open={reopenOpen}
+        onClose={() => setReopenOpen(false)}
+        entity={objective}
+        entityType="objective"
+        onReopened={() => router.refresh()}
       />
 
       <EditWeightsModal

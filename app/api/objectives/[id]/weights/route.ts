@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { canEditObjective } from '@/lib/permissions'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
+import { objectiveLockResponse } from '@/lib/okr/lock-guard'
 import { recordActivity } from '@/lib/activity-log'
 import {
   recalcNodeAndAncestors,
@@ -61,6 +62,9 @@ export const PATCH = withAuth<RouteIdParams>(async (req, { session, params }) =>
 
   const existing = await prisma.objective.findUnique({ where: { id } })
   if (!existing) return apiNotFound('Objective not found')
+
+  const locked = await objectiveLockResponse(id)
+  if (locked) return locked
 
   const allowed = await canEditObjective(session.user.role as any, session.user.id, {
     level: existing.level,

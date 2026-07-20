@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
+import { keyResultLockResponse } from '@/lib/okr/lock-guard'
 import { recordActivity } from '@/lib/activity-log'
 import {
   apiSuccess,
@@ -28,6 +29,9 @@ export const POST = withAuth<RouteIdParams>(async (_request, { session, params }
     },
   })
   if (!kr) return apiNotFound('Key result not found')
+
+  const locked = await keyResultLockResponse(keyResultId)
+  if (locked) return locked
 
   // Dedupe: don't create a duplicate unread request within the last 24h from same user.
   const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000)

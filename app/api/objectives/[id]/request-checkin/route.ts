@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
+import { objectiveLockResponse } from '@/lib/okr/lock-guard'
 import { recordActivity } from '@/lib/activity-log'
 import {
   apiSuccess,
@@ -26,6 +27,9 @@ export const POST = withAuth<RouteIdParams>(async (_request, { session, params }
     },
   })
   if (!obj) return apiNotFound('Objective not found')
+
+  const locked = await objectiveLockResponse(id)
+  if (locked) return locked
 
   const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000)
   const existing = await prisma.notification.findFirst({

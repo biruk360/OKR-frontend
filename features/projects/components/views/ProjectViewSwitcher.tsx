@@ -145,7 +145,7 @@ export function ProjectViewSwitcher({ project, canEdit }: Props) {
         </div>
       </div>
 
-      {activeView === 'gantt' && <GanttChart project={project} onActivityOpen={setSelectedActivityId} />}
+      {activeView === 'gantt' && <GanttChart project={project} canEdit={canEdit} onActivityOpen={setSelectedActivityId} />}
       {activeView === 'table' && (
         <ProjectTableView
           rows={filteredRows}

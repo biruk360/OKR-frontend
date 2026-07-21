@@ -1,5 +1,4 @@
 import { PrismaClient } from '@prisma/client'
-import { isSelectableSystemUserEmail } from '../lib/users/selectable-system-users'
 
 const prisma = new PrismaClient()
 
@@ -481,7 +480,7 @@ async function main() {
   })
   if (allUsers.length === 0) throw new Error('Need at least one active user to own the sample project.')
 
-  const users = allUsers.filter((user) => isSelectableSystemUserEmail(user.email)).slice(0, 8)
+  const users = allUsers.slice(0, 8)
   const pm = allUsers.find((user) => user.role === 'ADMIN') ?? allUsers[0]
   const assignee = (index: number) => users.length ? users[index % users.length].id : null
   const existing = await prisma.project.findUnique({

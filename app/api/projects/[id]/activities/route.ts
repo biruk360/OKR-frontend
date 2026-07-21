@@ -4,7 +4,6 @@ import { prisma } from '@/lib/prisma'
 import { recordActivity } from '@/lib/activity-log'
 import { getWritableProject } from '@/lib/projects/access'
 import { recalcProjectRollup } from '@/lib/projects/rollup'
-import { selectableSystemUserEmailWhere } from '@/lib/users/selectable-system-users'
 import { apiSuccess, apiForbidden, apiBadRequest, apiValidationError, withAuth } from '@/lib/api'
 
 /** POST /api/projects/[id]/activities — create an activity under a milestone (B1). */
@@ -35,7 +34,7 @@ export const POST = withAuth<{ id: string }>(async (req: NextRequest, { session,
   const input = parsed.data
 
   if (input.assigneeId) {
-    const assignee = await prisma.user.findFirst({ where: { id: input.assigneeId, isActive: true, ...selectableSystemUserEmailWhere() }, select: { id: true } })
+    const assignee = await prisma.user.findFirst({ where: { id: input.assigneeId, isActive: true }, select: { id: true } })
     if (!assignee) return apiBadRequest('Assignee must be an active 360Ground user')
   }
 

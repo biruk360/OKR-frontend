@@ -9,6 +9,7 @@ function normalizeBasePath() {
 
 const nextConfig = {
   basePath: normalizeBasePath(),
+  distDir: process.env.NODE_ENV === 'development' ? '.next-dev' : '.next',
   images: {
     domains: ['localhost'],
     remotePatterns: [

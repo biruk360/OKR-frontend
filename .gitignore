@@ -5,6 +5,7 @@ node_modules
 
 # Next.js
 .next/
+.next-dev/
 out/
 
 # env / secrets (use env.example only in repo)

@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "dev:turbo": "next dev --turbo",
-    "clean": "rm -rf .next",
+    "clean": "rm -rf .next .next-dev",
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",

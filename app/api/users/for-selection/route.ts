@@ -1,10 +1,9 @@
 import { prisma } from '@/lib/prisma'
 import { apiSuccess, withAuth } from '@/lib/api'
-import { selectableSystemUserEmailWhere } from '@/lib/users/selectable-system-users'
 
 export const GET = withAuth(async () => {
   const users = await prisma.user.findMany({
-    where: { isActive: true, ...selectableSystemUserEmailWhere() },
+    where: { isActive: true },
     select: {
       id: true,
       name: true,

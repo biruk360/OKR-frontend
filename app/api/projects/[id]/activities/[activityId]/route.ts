@@ -9,7 +9,6 @@ import { hasBaselineFieldWrite } from '@/lib/projects/baseline'
 import { findBlockingStageGateForActivity } from '@/lib/projects/stage-gates'
 import { markPaymentMilestonesReady, resolveFinanceRecipients, shouldTriggerPaymentMilestone, type PaymentMilestoneReadyResult } from '@/lib/projects/payment-milestones'
 import { emit } from '@/lib/notifications'
-import { selectableSystemUserEmailWhere } from '@/lib/users/selectable-system-users'
 import { apiSuccess, apiForbidden, apiNotFound, apiBadRequest, apiConflict, apiValidationError, withAuth } from '@/lib/api'
 
 /**
@@ -69,7 +68,7 @@ export const PATCH = withAuth<{ id: string; activityId: string }>(async (req: Ne
   const input = parsed.data
 
   if (input.assigneeId) {
-    const assignee = await prisma.user.findFirst({ where: { id: input.assigneeId, isActive: true, ...selectableSystemUserEmailWhere() }, select: { id: true } })
+    const assignee = await prisma.user.findFirst({ where: { id: input.assigneeId, isActive: true }, select: { id: true } })
     if (!assignee) return apiBadRequest('Assignee must be an active 360Ground user')
   }
 

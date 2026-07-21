@@ -5,6 +5,7 @@ import { CheckCircle2, FileText, Plus, Trash2, XCircle } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { cn } from '@/lib/utils'
+import { ProjectDatePicker } from '../ProjectDatePicker'
 import { CHANGE_REQUEST_TYPES } from '../../types'
 import {
   useAddChangeRequest,
@@ -82,7 +83,7 @@ export function ChangeControlBoard({ project, canEdit }: { project: ProjectDetai
           <div className="mt-2 grid gap-2 lg:grid-cols-4">
             <input className="input" type="number" min={0} value={draft.scheduleImpactDays} onChange={(e) => setDraft((d) => ({ ...d, scheduleImpactDays: e.target.value }))} placeholder="Schedule impact days" />
             <input className="input" type="number" min={0} value={draft.costImpact} onChange={(e) => setDraft((d) => ({ ...d, costImpact: e.target.value }))} placeholder="Cost impact" />
-            <input className="input" type="date" value={draft.requestDate} onChange={(e) => setDraft((d) => ({ ...d, requestDate: e.target.value }))} />
+            <ProjectDatePicker value={draft.requestDate} onChange={(requestDate) => setDraft((d) => ({ ...d, requestDate }))} ariaLabel="Change request date" allowClear={false} />
             <label className="flex items-center gap-2 rounded-md border border-black/[0.08] px-2 text-body-sm">
               <input type="checkbox" checked={draft.clientSignOff} onChange={(e) => setDraft((d) => ({ ...d, clientSignOff: e.target.checked }))} />
               Client sign-off captured

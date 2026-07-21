@@ -124,8 +124,8 @@ export function ProjectViewSwitcher({ project, canEdit }: Props) {
   }
 
   return (
-    <section className="min-h-0 flex-1 bg-[#f7f8fa]">
-      <div className="flex min-h-12 flex-wrap items-end justify-between gap-3 border-b border-black/[0.08] bg-white px-4">
+    <section className="min-h-0 flex-1 bg-surface-app">
+      <div className="flex min-h-10 flex-wrap items-end justify-between gap-2 border-b border-black/[0.08] bg-white px-3">
         <div className="flex self-stretch">
           {VIEW_CONFIG.map(({ key, label, Icon }) => (
             <div key={key} className="relative flex items-center">
@@ -133,7 +133,7 @@ export function ProjectViewSwitcher({ project, canEdit }: Props) {
                 type="button"
                 onClick={() => setActiveView(key)}
                 className={cn(
-                  'inline-flex h-full items-center gap-1.5 px-3 py-3 text-[13px] font-medium transition',
+                  'inline-flex h-full items-center gap-1 px-2 py-2 text-[12px] font-medium transition',
                   activeView === key ? 'text-ink-primary' : 'text-ink-tertiary hover:text-ink-primary'
                 )}
               >
@@ -152,7 +152,7 @@ export function ProjectViewSwitcher({ project, canEdit }: Props) {
             </div>
           ))}
         </div>
-        <div className="flex flex-wrap items-center gap-2 py-2">
+        {activeView !== 'gantt' && <div className="flex flex-wrap items-center gap-2 py-2">
           <div className="flex items-center gap-1 rounded-md border border-black/[0.08] bg-surface-card px-2 py-1">
             <Search className="size-3.5 text-ink-tertiary" />
             <input
@@ -170,10 +170,10 @@ export function ProjectViewSwitcher({ project, canEdit }: Props) {
             <option value="">All statuses</option>
             {ACTIVITY_STATUSES.map((s) => <option key={s} value={s}>{ACTIVITY_STATUS_LABEL[s]}</option>)}
           </select>
-        </div>
+        </div>}
       </div>
 
-      <div className="p-3">
+      <div className={activeView === 'gantt' ? 'p-1.5' : 'p-3'}>
       {activeView === 'gantt' && <GanttChart project={project} canEdit={canEdit} onActivityOpen={setSelectedActivityId} />}
       {activeView === 'table' && (
         <ProjectTableView
@@ -272,7 +272,7 @@ function ProjectTableView({
         </div>
       </div>
       <div className="overflow-auto">
-        <table className="w-full min-w-[1500px] table-fixed text-left text-[12px]">
+        <table className="w-full min-w-[1580px] table-fixed text-left text-[12px]">
           <thead className="sticky top-0 z-10 border-b border-black/[0.08] bg-surface-muted/80 uppercase tracking-[0.04em] text-ink-tertiary backdrop-blur">
             <tr>
               <th className="w-[360px] px-3 py-2 font-medium">Activity</th>
@@ -283,8 +283,9 @@ function ProjectTableView({
               <th className="w-[90px] px-2 py-2 text-right font-medium">Est. cost</th>
               <th className="w-[90px] px-2 py-2 text-right font-medium">Act. cost</th>
               <th className="w-[105px] px-2 py-2 font-medium">Start</th>
-              <th className="w-[76px] px-2 py-2 text-right font-medium">Days</th>
+              <th className="w-[76px] px-2 py-2 text-right font-medium">CD</th>
               <th className="w-[105px] px-2 py-2 font-medium">Due</th>
+              <th className="w-[76px] px-2 py-2 text-right font-medium">Slip</th>
               <th className="w-[90px] px-2 py-2 font-medium">Priority</th>
               <th className="w-[80px] px-2 py-2 font-medium">Risk</th>
               <th className="w-[145px] px-2 py-2 font-medium">Status</th>
@@ -299,7 +300,7 @@ function ProjectTableView({
               return (
                 <Fragment key={phase.id}>
                   <tr className="border-y border-black/[0.08] bg-surface-muted/70">
-                    <td colSpan={14} className="px-3 py-2">
+                    <td colSpan={15} className="px-3 py-2">
                       <button className="flex w-full items-center gap-2 text-left" onClick={() => setCollapsed((current) => toggleSet(current, `phase:${phase.id}`))}>
                         {phaseCollapsed ? <ChevronRight className="size-4" /> : <ChevronDown className="size-4" />}
                         <span className="font-semibold text-ink-primary">{phase.name}</span>
@@ -315,7 +316,7 @@ function ProjectTableView({
                     return (
                       <Fragment key={milestone.id}>
                         <tr className="border-b border-black/[0.06] bg-primary-50/35">
-                          <td colSpan={14} className="px-5 py-2">
+                          <td colSpan={15} className="px-5 py-2">
                             <button className="flex w-full items-center gap-2 text-left" onClick={() => setCollapsed((current) => toggleSet(current, `milestone:${milestone.id}`))}>
                               {milestoneCollapsed ? <ChevronRight className="size-3.5" /> : <ChevronDown className="size-3.5" />}
                               <span className="font-medium text-ink-primary">{milestone.name}</span>
@@ -329,6 +330,7 @@ function ProjectTableView({
                             key={activity.id}
                             activity={activity}
                             depth={depth}
+                            clientName={project.clientName}
                             assigneeName={activity.assigneeId ? userNames.get(activity.assigneeId) ?? 'Assigned' : 'Unassigned'}
                             selected={selected.has(activity.id)}
                             canEdit={canEdit}
@@ -341,7 +343,7 @@ function ProjectTableView({
                         ))}
                         {!milestoneCollapsed && canEdit && (
                           <tr className="border-b border-black/[0.04]">
-                            <td colSpan={14} className="px-8 py-2">
+                            <td colSpan={15} className="px-8 py-2">
                               <button className="inline-flex items-center gap-1 text-[12px] font-medium text-primary-700 hover:underline" onClick={() => void addTaskToMilestone(milestone.id)}>
                                 <Plus className="size-3.5" /> Add task
                               </button>
@@ -371,6 +373,7 @@ function ProjectTableView({
 function TableActivityRow({
   activity,
   depth,
+  clientName,
   assigneeName,
   selected,
   canEdit,
@@ -382,6 +385,7 @@ function TableActivityRow({
 }: {
   activity: ActivityNode
   depth: number
+  clientName: string
   assigneeName: string
   selected: boolean
   canEdit: boolean
@@ -400,7 +404,7 @@ function TableActivityRow({
         </div>
       </td>
       <td className="truncate px-2 py-1.5">{assigneeName}</td>
-      <td className="px-2 py-1.5">{activity.ownerParty === '360GROUND' ? '360Ground' : labelizeTable(activity.ownerParty)}</td>
+      <td className="truncate px-2 py-1.5" title={activity.ownerParty === 'CLIENT' ? clientName : undefined}>{activity.ownerParty === 'CLIENT' ? clientName : activity.ownerParty === '360GROUND' ? '360Ground' : labelizeTable(activity.ownerParty)}</td>
       <td className="px-2 py-1.5 text-right">{numberCell(activity.estimatedHours)}</td>
       <td className="px-2 py-1.5 text-right">{numberCell(activity.actualHours)}</td>
       <td className="px-2 py-1.5 text-right">{numberCell(activity.estimatedCost)}</td>
@@ -408,6 +412,7 @@ function TableActivityRow({
       <td className="px-2 py-1.5">{fmtDate(activity.currentStart)}</td>
       <td className="px-2 py-1.5 text-right">{activityDurationDays(activity)}d</td>
       <td className="px-2 py-1.5">{fmtDate(activity.currentEnd)}</td>
+      <td className="px-2 py-1.5 text-right">{activity.slipDays}d</td>
       <td className="px-2 py-1.5">{activity.priority ? labelizeTable(activity.priority) : '-'}</td>
       <td className="px-2 py-1.5">{activity.risk ? labelizeTable(activity.risk) : '-'}</td>
       <td className="px-2 py-1.5">

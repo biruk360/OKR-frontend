@@ -138,7 +138,7 @@ function serializeAuthor(
   if (portal) {
     return isClientAuthor
       ? { id: null, name: 'Client', email: null, avatar: null }
-      : { id: null, name: '360Ground Team', email: null, avatar: null }
+      : { id: null, name: '360Ground', email: null, avatar: null }
   }
 
   if (isClientAuthor) {

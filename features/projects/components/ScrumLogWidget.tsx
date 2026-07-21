@@ -1,12 +1,13 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { Controller, useForm } from 'react-hook-form'
 import { AlertTriangle, CalendarCheck, Clock } from 'lucide-react'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { cn } from '@/lib/utils'
 import { useSaveScrumLog, useScrumLog, type ScrumAttendancePerson } from '../hooks/useProject'
+import { ProjectDatePicker } from './ProjectDatePicker'
 
 interface ScrumLogWidgetProps {
   projectId: string
@@ -40,7 +41,7 @@ export function ScrumLogWidget({ projectId, canEdit }: ScrumLogWidgetProps) {
       notes: '',
     },
   })
-  const { register, handleSubmit, reset, watch } = form
+  const { control, register, handleSubmit, reset, watch } = form
   const selectedDate = watch('scrumDate')
   const people = query.data?.people ?? []
   const selectedLog = useMemo(
@@ -110,7 +111,12 @@ export function ScrumLogWidget({ projectId, canEdit }: ScrumLogWidgetProps) {
         <div className="grid gap-3 sm:grid-cols-2">
           <label>
             <span className="text-body-sm font-medium text-ink-secondary">Date</span>
-            <input className="input mt-1" type="date" disabled={!canEdit} {...register('scrumDate', { required: true })} />
+            <Controller
+              name="scrumDate"
+              control={control}
+              rules={{ required: true }}
+              render={({ field }) => <ProjectDatePicker value={field.value} onChange={field.onChange} ariaLabel="Scrum date" disabled={!canEdit} allowClear={false} className="mt-1" />}
+            />
           </label>
           <label>
             <span className="text-body-sm font-medium text-ink-secondary">Time held</span>

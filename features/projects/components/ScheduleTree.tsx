@@ -11,11 +11,12 @@ import {
   useAddActivity, useUpdateActivity, useDeleteActivity,
 } from '../hooks/useProject'
 import { MilestoneKeyResultLinker } from './okr/MilestoneKeyResultLinker'
+import { ProjectDatePicker } from './ProjectDatePicker'
 import { ACTIVITY_STATUSES, ACTIVITY_STATUS_LABEL, SLIP_REASONS, SLIP_REASON_LABEL, SLIP_REASON_OWNER, type ActivityStatus, type OwnerParty, type SlipReason } from '../types'
 
 const OWNER_LABEL: Record<OwnerParty, string> = { '360GROUND': '360Ground', CLIENT: 'Client', SHARED: 'Shared' }
 
-/** yyyy-MM-dd for <input type="date"> from an ISO string (or '' when unset). */
+/** yyyy-MM-dd from an ISO string (or '' when unset). */
 const dateInputValue = (iso: string | null): string => (iso ? iso.slice(0, 10) : '')
 const MS_DAY = 86_400_000
 
@@ -228,20 +229,22 @@ function ActivityRow({ projectId, activity, subtasks, canEdit, baselined }: { pr
 
         {canEdit ? (
           <div className="flex items-center gap-1">
-            <input
-              type="date"
-              className="w-32 rounded-md border border-black/[0.08] bg-surface-card px-1.5 py-0.5 text-body-sm"
+            <ProjectDatePicker
+              className="h-8 w-32"
+              showIcon={false}
+              displayFormat="dd/MM/yy"
               value={dateInputValue(activity.currentStart)}
-              onChange={(e) => onDateChange('currentStart', e.target.value)}
-              title="Start date"
+              onChange={(value) => onDateChange('currentStart', value)}
+              ariaLabel={`Start date for ${activity.title}`}
             />
             <span className="text-body-sm text-ink-tertiary">–</span>
-            <input
-              type="date"
-              className="w-32 rounded-md border border-black/[0.08] bg-surface-card px-1.5 py-0.5 text-body-sm"
+            <ProjectDatePicker
+              className="h-8 w-32"
+              showIcon={false}
+              displayFormat="dd/MM/yy"
               value={dateInputValue(activity.currentEnd)}
-              onChange={(e) => onDateChange('currentEnd', e.target.value)}
-              title="End date"
+              onChange={(value) => onDateChange('currentEnd', value)}
+              ariaLabel={`End date for ${activity.title}`}
             />
           </div>
         ) : (

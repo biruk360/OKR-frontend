@@ -7,6 +7,7 @@ import toast from 'react-hot-toast'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { delaysToCsv } from '@/lib/projects/delay-ledger'
+import { ProjectDatePicker } from './ProjectDatePicker'
 import { SLIP_REASON_LABEL, type SlipReason } from '../types'
 import {
   useDelayLedger, useUpdateDelayRecovery,
@@ -89,7 +90,7 @@ export function DelayLedgerTable({ projectId, canEdit }: { projectId: string; ca
                 <input className="input w-40" placeholder="Recovery plan" value={editPlan} onChange={(e) => setEditPlan(e.target.value)} />
                 <div className="flex gap-1">
                   <input className="input w-24" placeholder="Owner" value={editOwner} onChange={(e) => setEditOwner(e.target.value)} />
-                  <input type="date" className="input" value={editDate} onChange={(e) => setEditDate(e.target.value)} />
+                  <ProjectDatePicker value={editDate} onChange={setEditDate} ariaLabel="Recovery date" className="w-36" displayFormat="dd/MM/yy" />
                 </div>
                 <div className="flex gap-1">
                   <button

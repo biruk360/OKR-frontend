@@ -68,8 +68,9 @@ export function MentionEditor({ value, onChange, placeholder, users = [], onSubm
   const commandRef = useRef<((item: SuggestionItem) => void) | null>(null)
 
   const editor = useEditor({
+    immediatelyRender: false,
     extensions: [
-      StarterKit,
+      StarterKit.configure({ link: false }),
       Link.configure({ openOnClick: false }),
       Placeholder.configure({ placeholder: placeholder ?? 'Write something…' }),
       Mention.configure({

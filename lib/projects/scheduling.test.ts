@@ -5,6 +5,7 @@ import {
   assertNoDependencyCycle,
   criticalPath,
   shiftSuccessors,
+  shiftSuccessorsFromChange,
   taskDurationDays,
   wouldCreateDependencyCycle,
   type ScheduleDependency,
@@ -30,9 +31,9 @@ test('taskDurationDays: inclusive duration, undated fallback = 1', () => {
   assert.equal(taskDurationDays({ id: 'x', currentStart: null, currentEnd: null }), 1)
 })
 
-test('shiftSuccessors: shifts direct FS successor by the same delta', () => {
+test('shiftSuccessors: aligns direct FS successor after predecessor finish', () => {
   const shifts = shiftSuccessors(tasks, [{ predecessorId: 'A', successorId: 'B', type: 'FS' }], 'A', 5)
-  assert.deepEqual(shifts, [{ activityId: 'B', currentStart: d('2026-08-15'), currentEnd: d('2026-08-19') }])
+  assert.deepEqual(shifts, [{ activityId: 'B', currentStart: d('2026-08-13'), currentEnd: d('2026-08-17') }])
 })
 
 test('shiftSuccessors: cascades transitively through a dependency chain', () => {
@@ -42,8 +43,31 @@ test('shiftSuccessors: cascades transitively through a dependency chain', () => 
   ]
   const shifts = shiftSuccessors(tasks, deps, 'A', 3)
   assert.deepEqual(shifts.map((s) => s.activityId), ['B', 'C'])
-  assert.equal(shifts[0].currentStart?.toISOString(), '2026-08-13T00:00:00.000Z')
-  assert.equal(shifts[1].currentEnd?.toISOString(), '2026-08-24T00:00:00.000Z')
+  assert.equal(shifts[0].currentStart?.toISOString(), '2026-08-11T00:00:00.000Z')
+  assert.equal(shifts[1].currentEnd?.toISOString(), '2026-08-20T00:00:00.000Z')
+})
+
+test('shiftSuccessorsFromChange: respects SS, FF, SF and lag constraints', () => {
+  const ss = shiftSuccessorsFromChange(tasks, [{ predecessorId: 'A', successorId: 'B', type: 'SS', lagDays: 2 }], {
+    activityId: 'A',
+    currentStart: d('2026-08-06'),
+    currentEnd: d('2026-08-10'),
+  })
+  assert.deepEqual(ss, [{ activityId: 'B', currentStart: d('2026-08-08'), currentEnd: d('2026-08-12') }])
+
+  const ff = shiftSuccessorsFromChange(tasks, [{ predecessorId: 'A', successorId: 'B', type: 'FF', lagDays: 1 }], {
+    activityId: 'A',
+    currentStart: d('2026-08-06'),
+    currentEnd: d('2026-08-10'),
+  })
+  assert.deepEqual(ff, [{ activityId: 'B', currentStart: d('2026-08-07'), currentEnd: d('2026-08-11') }])
+
+  const sf = shiftSuccessorsFromChange(tasks, [{ predecessorId: 'A', successorId: 'B', type: 'SF' }], {
+    activityId: 'A',
+    currentStart: d('2026-08-06'),
+    currentEnd: d('2026-08-10'),
+  })
+  assert.deepEqual(sf, [{ activityId: 'B', currentStart: d('2026-08-02'), currentEnd: d('2026-08-06') }])
 })
 
 test('cycle detection blocks circular dependencies', () => {

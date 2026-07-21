@@ -10,6 +10,7 @@ import { useUsersForSelection } from '@/hooks/useUsersForSelection'
 import { useDepartments } from '@/hooks/useDepartments'
 import CustomerLookup from '@/features/letters/components/CustomerLookup'
 import { useCreateProject, useProjectTemplates, type CreateProjectPayload } from '../hooks/useProjects'
+import { ProjectDatePicker } from './ProjectDatePicker'
 
 interface Props {
   open: boolean
@@ -181,10 +182,20 @@ export function CreateProjectWizard({ open, onClose, currentUserId }: Props) {
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <Field label="Planned Start" required error={errors.plannedStart?.message}>
-                <input type="date" className="input" {...register('plannedStart', { required: 'Start date is required' })} />
+                <Controller
+                  name="plannedStart"
+                  control={control}
+                  rules={{ required: 'Start date is required' }}
+                  render={({ field }) => <ProjectDatePicker value={field.value} onChange={field.onChange} ariaLabel="Planned start date" allowClear={false} />}
+                />
               </Field>
               <Field label="Planned End" required error={errors.plannedEnd?.message}>
-                <input type="date" className="input" {...register('plannedEnd', { required: 'End date is required' })} />
+                <Controller
+                  name="plannedEnd"
+                  control={control}
+                  rules={{ required: 'End date is required' }}
+                  render={({ field }) => <ProjectDatePicker value={field.value} onChange={field.onChange} ariaLabel="Planned end date" allowClear={false} />}
+                />
               </Field>
             </div>
             {endBeforeStart && <p className="text-body-sm text-danger-600">End date must be after start date.</p>}

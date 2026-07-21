@@ -9,6 +9,7 @@ import { hasBaselineFieldWrite } from '@/lib/projects/baseline'
 import { findBlockingStageGateForActivity } from '@/lib/projects/stage-gates'
 import { markPaymentMilestonesReady, resolveFinanceRecipients, shouldTriggerPaymentMilestone, type PaymentMilestoneReadyResult } from '@/lib/projects/payment-milestones'
 import { emit } from '@/lib/notifications'
+import { selectableSystemUserEmailWhere } from '@/lib/users/selectable-system-users'
 import { apiSuccess, apiForbidden, apiNotFound, apiBadRequest, apiConflict, apiValidationError, withAuth } from '@/lib/api'
 
 /**
@@ -67,6 +68,11 @@ export const PATCH = withAuth<{ id: string; activityId: string }>(async (req: Ne
   if (!parsed.success) return apiValidationError('Invalid activity payload', parsed.error.flatten())
   const input = parsed.data
 
+  if (input.assigneeId) {
+    const assignee = await prisma.user.findFirst({ where: { id: input.assigneeId, isActive: true, ...selectableSystemUserEmailWhere() }, select: { id: true } })
+    if (!assignee) return apiBadRequest('Assignee must be an active 360Ground user')
+  }
+
   if (input.milestoneId && input.milestoneId !== existing.milestoneId) {
     const target = await prisma.milestone.findFirst({
       where: { id: input.milestoneId, phase: { projectId: params.id } },
@@ -121,6 +127,8 @@ export const PATCH = withAuth<{ id: string; activityId: string }>(async (req: Ne
   for (const k of ['title', 'description', 'assigneeId', 'parentActivityId', 'ownerParty', 'status', 'percentComplete', 'weight', 'priority', 'risk', 'estimatedHours', 'actualHours', 'estimatedCost', 'actualCost', 'isMilestone', 'color', 'jiraIssueKeys', 'jiraAutoRollup', 'isBlocked'] as const) {
     if (input[k] !== undefined) data[k] = input[k]
   }
+  if (input.ownerParty === 'CLIENT') data.assigneeId = null
+  if (input.assigneeId && input.ownerParty === undefined && existing.ownerParty === 'CLIENT') data.ownerParty = '360GROUND'
   if (input.milestoneId && input.milestoneId !== existing.milestoneId) {
     const maxPosition = await prisma.activity.aggregate({ where: { milestoneId: input.milestoneId, parentActivityId: null }, _max: { position: true } })
     data.milestoneId = input.milestoneId

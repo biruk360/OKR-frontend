@@ -1,11 +1,10 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import {
   AlertTriangle,
   ArrowLeft,
-  CalendarDays,
   Check,
   ChevronDown,
   FolderKanban,
@@ -26,6 +25,7 @@ import { useProject, useUpdateProject } from '../hooks/useProject'
 import { ProjectViewSwitcher } from './views/ProjectViewSwitcher'
 import { ProjectDeliveryControlCenter } from './ProjectDeliveryControlCenter'
 import { ScheduleImportModal } from './ScheduleImportModal'
+import { ProjectDatePicker } from './ProjectDatePicker'
 
 interface Props {
   projectId: string
@@ -57,12 +57,6 @@ export function ProjectWorkspaceClient({ projectId, user }: Props) {
     setReferenceDate(stored || new Date().toISOString().slice(0, 10))
   }, [projectId])
 
-  const people = useMemo(() => {
-    if (!project) return []
-    const memberIds = new Set([project.projectManagerId, ...project.members.map((member) => member.userId)])
-    return users.filter((candidate) => memberIds.has(candidate.id))
-  }, [project, users])
-
   if (isLoading) return <WorkspaceLoading />
   if (isError || !project) {
     return <div className="flex min-h-screen items-center justify-center bg-[#f7f8fa]"><EmptyState icon={AlertTriangle} title="Project unavailable" description="It may have been archived or you do not have access." /></div>
@@ -80,10 +74,10 @@ export function ProjectWorkspaceClient({ projectId, user }: Props) {
   }
 
   return (
-    <div className="flex h-screen min-h-[620px] overflow-hidden bg-white text-ink-primary">
-      <aside className={cn('flex shrink-0 flex-col border-r border-black/[0.08] bg-white transition-[width] duration-150', railExpanded ? 'w-48' : 'w-[58px]')}>
-        <button type="button" className="flex h-[58px] items-center gap-3 border-b border-black/[0.08] px-3" onClick={() => setRailExpanded((value) => !value)} aria-label="Toggle project rail">
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-[#080c42] text-white"><Menu className="size-4" /></span>
+    <div className="flex h-screen min-h-[560px] overflow-hidden bg-white text-ink-primary">
+      <aside className={cn('flex shrink-0 flex-col border-r border-black/[0.08] bg-white transition-[width] duration-150', railExpanded ? 'w-44' : 'w-12')}>
+        <button type="button" className="flex h-12 items-center gap-2 border-b border-black/[0.08] px-2" onClick={() => setRailExpanded((value) => !value)} aria-label="Toggle project rail">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-[#080c42] text-white"><Menu className="size-4" /></span>
           {railExpanded && <span className="truncate text-[13px] font-semibold">Project tools</span>}
         </button>
         <RailLink href="/dashboard/projects" label="All projects" expanded={railExpanded} icon={FolderKanban} />
@@ -95,12 +89,12 @@ export function ProjectWorkspaceClient({ projectId, user }: Props) {
       </aside>
 
       <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="flex min-h-[58px] shrink-0 items-center gap-3 border-b border-black/[0.08] bg-white px-4">
-          <div className="min-w-0 max-w-[330px]">
+        <header className="flex h-12 shrink-0 items-center gap-2 border-b border-black/[0.08] bg-white px-3">
+          <div className="min-w-0 max-w-[300px]">
             {editingName ? (
               <input
                 autoFocus
-                className="h-8 w-full rounded border border-primary-400 px-2 text-[17px] font-semibold outline-none ring-2 ring-primary-100"
+                className="h-7 w-full rounded border border-primary-400 px-2 text-[15px] font-semibold outline-none ring-2 ring-primary-100"
                 value={draftName}
                 onChange={(event) => setDraftName(event.target.value)}
                 onBlur={() => void saveName()}
@@ -117,14 +111,14 @@ export function ProjectWorkspaceClient({ projectId, user }: Props) {
                 onClick={() => { setDraftName(project.name); setEditingName(true) }}
                 title={canEdit ? 'Rename project' : project.name}
               >
-                <span className="truncate text-[17px] font-semibold">{project.name}</span>
+                <span className="truncate text-[15px] font-semibold">{project.name}</span>
                 {canEdit && <ChevronDown className="size-3.5 shrink-0 text-ink-tertiary" />}
               </button>
             )}
-            <div className="truncate text-[10px] text-ink-tertiary">{project.code} · {project.clientName}</div>
+            <div className="truncate text-[9px] text-ink-tertiary">{project.code} · {project.clientName}</div>
           </div>
 
-          <button type="button" className="rounded-md p-2 text-ink-secondary hover:bg-surface-hover" onClick={() => setControlsOpen(true)} aria-label="Project settings"><Settings className="size-4" /></button>
+          <button type="button" className="rounded p-1.5 text-ink-secondary hover:bg-surface-hover" onClick={() => setControlsOpen(true)} aria-label="Project settings"><Settings className="size-3.5" /></button>
           <select
             value={project.ragStatus}
             disabled={!canEdit || updateProject.isPending}
@@ -134,20 +128,18 @@ export function ProjectWorkspaceClient({ projectId, user }: Props) {
           >
             <option value="GREEN">On Time</option><option value="AMBER">At Risk</option><option value="RED">Behind</option>
           </select>
-          <label className="flex h-8 items-center gap-1.5 rounded-md border border-black/[0.1] bg-white px-2 text-[12px] text-ink-secondary">
-            <CalendarDays className="size-3.5" />
-            <input
-              type="date"
-              value={referenceDate}
-              onChange={(event) => { setReferenceDate(event.target.value); window.localStorage.setItem(`project.reference-date.${projectId}`, event.target.value) }}
-              className="w-[104px] bg-transparent outline-none"
-              aria-label="Reference date"
-            />
-          </label>
+          <ProjectDatePicker
+            value={referenceDate}
+            onChange={(value) => { setReferenceDate(value); window.localStorage.setItem(`project.reference-date.${projectId}`, value) }}
+            ariaLabel="Reference date"
+            allowClear={false}
+            displayFormat="dd/MM/yyyy"
+            className="h-8 w-[138px]"
+          />
 
           <select value={assignee} onChange={(event) => setAssignee(event.target.value)} className="h-8 max-w-[150px] rounded-md border border-black/[0.1] bg-white px-2 text-[12px] text-ink-secondary outline-none" aria-label="Filter by assignee">
             <option value="">All assignees</option><option value="UNASSIGNED">Unassigned</option>
-            {people.map((person) => <option key={person.id} value={person.id}>{person.name ?? person.email}</option>)}
+            {users.map((person) => <option key={person.id} value={person.id}>{person.name ?? person.email}</option>)}
           </select>
           <select value={priority} onChange={(event) => setPriority(event.target.value)} className="h-8 rounded-md border border-black/[0.1] bg-white px-2 text-[12px] text-ink-secondary outline-none" aria-label="Filter by priority">
             <option value="">Priority</option><option value="LOW">Low</option><option value="MEDIUM">Medium</option><option value="HIGH">High</option><option value="CRITICAL">Critical</option>

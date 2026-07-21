@@ -7,6 +7,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { useUsersForSelection } from '@/hooks/useUsersForSelection'
 import { cn } from '@/lib/utils'
+import { ProjectDatePicker } from '../ProjectDatePicker'
 import { COE_ROOT_CAUSE_CLASSES } from '../../types'
 import {
   useAddCorrectionOfError,
@@ -93,7 +94,7 @@ export function CorrectionOfErrorsRegister({ projectId, canEdit }: { projectId: 
               <option value="">Fix owner</option>
               {ownerOptions.map((owner) => <option key={owner.id} value={owner.id}>{owner.label}</option>)}
             </select>
-            <input className="input" type="date" value={draft.fixDueDate} onChange={(e) => setDraft((d) => ({ ...d, fixDueDate: e.target.value }))} />
+            <ProjectDatePicker value={draft.fixDueDate} onChange={(fixDueDate) => setDraft((d) => ({ ...d, fixDueDate }))} ariaLabel="Fix due date" allowClear={false} />
             <label className="flex items-center gap-2 rounded-md border border-black/[0.08] px-2 text-body-sm">
               <input type="checkbox" checked={draft.fedIntoTemplate} onChange={(e) => setDraft((d) => ({ ...d, fedIntoTemplate: e.target.checked }))} />
               Feed into template

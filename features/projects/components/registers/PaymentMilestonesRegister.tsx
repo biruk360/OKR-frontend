@@ -5,6 +5,7 @@ import { AlertTriangle, Banknote, CheckCircle2, FileText, Plus, Trash2 } from 'l
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { cn } from '@/lib/utils'
+import { ProjectDatePicker } from '../ProjectDatePicker'
 import type { ActivityNode, PaymentMilestoneNode, ProjectDetail } from '../../hooks/useProject'
 import {
   useAddPaymentMilestone,
@@ -70,7 +71,7 @@ export function PaymentMilestonesRegister({ project, canEdit }: { project: Proje
             <input className="input lg:col-span-2" value={draft.name} onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))} placeholder="Milestone name" />
             <input className="input" type="number" min={0} value={draft.amount} onChange={(e) => setDraft((d) => ({ ...d, amount: e.target.value }))} placeholder="Amount" />
             <input className="input" value={draft.currency} maxLength={3} onChange={(e) => setDraft((d) => ({ ...d, currency: e.target.value.toUpperCase() }))} placeholder="ETB" />
-            <input className="input" type="date" value={draft.plannedInvoiceDate} onChange={(e) => setDraft((d) => ({ ...d, plannedInvoiceDate: e.target.value }))} />
+            <ProjectDatePicker value={draft.plannedInvoiceDate} onChange={(plannedInvoiceDate) => setDraft((d) => ({ ...d, plannedInvoiceDate }))} ariaLabel="Planned invoice date" />
           </div>
           <div className="mt-2 grid gap-2 lg:grid-cols-3">
             <select className="input lg:col-span-2" value={draft.triggerActivityId} onChange={(e) => setDraft((d) => ({ ...d, triggerActivityId: e.target.value }))}>

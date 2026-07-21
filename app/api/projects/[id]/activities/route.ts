@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { recordActivity } from '@/lib/activity-log'
 import { getWritableProject } from '@/lib/projects/access'
 import { recalcProjectRollup } from '@/lib/projects/rollup'
+import { selectableSystemUserEmailWhere } from '@/lib/users/selectable-system-users'
 import { apiSuccess, apiForbidden, apiBadRequest, apiValidationError, withAuth } from '@/lib/api'
 
 /** POST /api/projects/[id]/activities — create an activity under a milestone (B1). */
@@ -33,6 +34,11 @@ export const POST = withAuth<{ id: string }>(async (req: NextRequest, { session,
   if (!parsed.success) return apiValidationError('Invalid activity payload', parsed.error.flatten())
   const input = parsed.data
 
+  if (input.assigneeId) {
+    const assignee = await prisma.user.findFirst({ where: { id: input.assigneeId, isActive: true, ...selectableSystemUserEmailWhere() }, select: { id: true } })
+    if (!assignee) return apiBadRequest('Assignee must be an active 360Ground user')
+  }
+
   // Milestone must belong to this project.
   const milestone = await prisma.milestone.findFirst({
     where: { id: input.milestoneId, phase: { projectId: params.id } },
@@ -57,7 +63,7 @@ export const POST = withAuth<{ id: string }>(async (req: NextRequest, { session,
         position: (maxPos._max.position ?? -1) + 1,
         title: input.title,
         description: input.description ?? null,
-        assigneeId: input.assigneeId ?? null,
+        assigneeId: input.ownerParty === 'CLIENT' ? null : input.assigneeId ?? null,
         ownerParty: input.ownerParty ?? '360GROUND',
         currentStart: start,
         currentEnd: end,

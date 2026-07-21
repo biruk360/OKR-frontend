@@ -6,6 +6,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { cn } from '@/lib/utils'
 import { useUsersForSelection } from '@/hooks/useUsersForSelection'
+import { ProjectDatePicker } from '../ProjectDatePicker'
 import {
   RAID_DEPENDENCY_PARTIES,
   RAID_SEVERITIES,
@@ -213,7 +214,7 @@ function TypeFields({ type, draft, setDraft }: { type: RaidType; draft: RaidDraf
           <option value="">Depends on...</option>
           {RAID_DEPENDENCY_PARTIES.map((p) => <option key={p} value={p}>{p === '360GROUND' ? '360Ground' : labelize(p)}</option>)}
         </select>
-        <input type="date" className="input" value={draft.neededByDate} onChange={(e) => setDraft((d) => ({ ...d, neededByDate: e.target.value }))} />
+        <ProjectDatePicker value={draft.neededByDate} onChange={(neededByDate) => setDraft((d) => ({ ...d, neededByDate }))} ariaLabel="Dependency needed by date" />
       </div>
     )
   }

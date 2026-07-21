@@ -58,7 +58,7 @@ const project: ClientProject = {
         {
           id: 'a2',
           title: 'Internal build',
-          owner: '360Ground Team',
+          owner: '360Ground',
           baselineStart: null,
           baselineEnd: null,
           currentStart: null,

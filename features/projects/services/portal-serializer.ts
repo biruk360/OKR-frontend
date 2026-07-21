@@ -1,6 +1,6 @@
 import type { Prisma } from '@prisma/client'
 
-export type ClientOwnerLabel = 'Your Team' | '360Ground Team'
+export type ClientOwnerLabel = 'Your Team' | '360Ground'
 
 export interface ClientProject {
   id: string
@@ -112,7 +112,7 @@ export interface ClientActivityComment {
   visibility: 'CLIENT_VISIBLE'
   isClientAuthor: boolean
   createdAt: string
-  author: { name: 'Client' | '360Ground Team' }
+  author: { name: 'Client' | '360Ground' }
   replies: ClientActivityComment[]
 }
 
@@ -197,7 +197,7 @@ export function portalReportWhere(projectId: string): Prisma.ProjectReportWhereI
 }
 
 export function ownerLabelForClient(ownerParty: string | null | undefined): ClientOwnerLabel {
-  return ownerParty === 'CLIENT' ? 'Your Team' : '360Ground Team'
+  return ownerParty === 'CLIENT' ? 'Your Team' : '360Ground'
 }
 
 export function serializeProjectForClient<T extends {
@@ -435,7 +435,7 @@ export function serializeCommentForClient(comment: ClientCommentSource, opts: Po
     visibility: 'CLIENT_VISIBLE',
     isClientAuthor: comment.isClientAuthor,
     createdAt: typeof comment.createdAt === 'string' ? comment.createdAt : comment.createdAt.toISOString(),
-    author: { name: comment.isClientAuthor ? 'Client' : '360Ground Team' },
+    author: { name: comment.isClientAuthor ? 'Client' : '360Ground' },
     replies: (comment.replies ?? []).map((reply) => serializeCommentForClient(reply, opts)),
   }, opts) as ClientActivityComment
 }
@@ -508,7 +508,7 @@ export function redactForbiddenNames(value: string, names: readonly string[]): s
   for (const name of names) {
     const trimmed = name.trim()
     if (!trimmed) continue
-    text = text.replace(new RegExp(escapeRegExp(trimmed), 'gi'), '360Ground Team')
+    text = text.replace(new RegExp(escapeRegExp(trimmed), 'gi'), '360Ground')
   }
   return text
 }

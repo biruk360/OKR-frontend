@@ -45,15 +45,15 @@ test('serializeActivityForClient: owner is anonymized and internal fields are ab
     waitingSince: null,
   }, { forbiddenEmployeeNames: employeeNames })
 
-  assert.equal(payload.owner, '360Ground Team')
-  assert.equal(payload.title, 'API integration owned by 360Ground Team')
+  assert.equal(payload.owner, '360Ground')
+  assert.equal(payload.title, 'API integration owned by 360Ground')
   assertNoForbiddenPortalData(payload, employeeNames)
 })
 
 test('serializeActivityForClient: CLIENT ownerParty appears as Your Team', () => {
   assert.equal(ownerLabelForClient('CLIENT'), 'Your Team')
-  assert.equal(ownerLabelForClient('SHARED'), '360Ground Team')
-  assert.equal(ownerLabelForClient('360GROUND'), '360Ground Team')
+  assert.equal(ownerLabelForClient('SHARED'), '360Ground')
+  assert.equal(ownerLabelForClient('360GROUND'), '360Ground')
 })
 
 test('serializeProjectForClient: nested schedule excludes user/cost/Jira fields and redacts user names', () => {
@@ -112,7 +112,7 @@ test('serializeProjectForClient: nested schedule excludes user/cost/Jira fields 
     }],
   }, { forbiddenEmployeeNames: employeeNames })
 
-  assert.equal(project.description, 'Delivery managed by 360Ground Team')
+  assert.equal(project.description, 'Delivery managed by 360Ground')
   assert.equal(project.phases[0].milestones[0].activities[0].owner, 'Your Team')
   assertNoForbiddenPortalData(project, employeeNames)
 })
@@ -141,7 +141,7 @@ test('serializeCommentForClient: only CLIENT_VISIBLE comments serialize and auth
     }],
   }, { forbiddenEmployeeNames: employeeNames })
 
-  assert.equal(payload.author.name, '360Ground Team')
+  assert.equal(payload.author.name, '360Ground')
   assert.equal(payload.replies[0].author.name, 'Client')
   assertNoForbiddenPortalData(payload, employeeNames)
   assert.throws(() => serializeCommentForClient({
@@ -197,7 +197,7 @@ test('scrubPortalPayload: strips forbidden user/cost/Jira keys recursively', () 
   }, { forbiddenEmployeeNames: employeeNames })
 
   assert.deepEqual(scrubbed, {
-    nested: [{ text: '360Ground Team and 360Ground Team' }],
+    nested: [{ text: '360Ground and 360Ground' }],
   })
   assertNoForbiddenPortalData(scrubbed, employeeNames)
 })

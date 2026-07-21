@@ -19,6 +19,12 @@ export interface ScheduleShift {
   currentEnd: Date | null
 }
 
+interface ScheduleShiftSeed {
+  activityId: string
+  currentStart: Date | null
+  currentEnd: Date | null
+}
+
 export interface CriticalPathResult {
   taskIds: string[]
   durationDays: number
@@ -80,30 +86,87 @@ export function shiftSuccessors(
   deltaDays: number
 ): ScheduleShift[] {
   if (deltaDays === 0) return []
+  const task = tasks.find((item) => item.id === changedTaskId)
+  if (!task) return []
+  return shiftSuccessorsFromChange(tasks, dependencies, {
+    activityId: changedTaskId,
+    currentStart: addCalendarDays(task.currentStart, deltaDays),
+    currentEnd: addCalendarDays(task.currentEnd, deltaDays),
+  })
+}
+
+export function shiftSuccessorsFromChange(
+  tasks: readonly ScheduleTask[],
+  dependencies: readonly ScheduleDependency[],
+  changed: ScheduleShiftSeed
+): ScheduleShift[] {
   assertNoDependencyCycle(dependencies)
 
   const byId = new Map(tasks.map((t) => [t.id, t]))
-  const graph = adjacency(dependencies)
+  const byPredecessor = new Map<string, ScheduleDependency[]>()
+  for (const dependency of dependencies) {
+    if (!byPredecessor.has(dependency.predecessorId)) byPredecessor.set(dependency.predecessorId, [])
+    byPredecessor.get(dependency.predecessorId)!.push(dependency)
+  }
+  const scheduled = new Map<string, ScheduleTask>(tasks.map((task) => [task.id, task]))
+  scheduled.set(changed.activityId, {
+    id: changed.activityId,
+    currentStart: changed.currentStart,
+    currentEnd: changed.currentEnd,
+  })
   const out: ScheduleShift[] = []
-  const queued = [...(graph.get(changedTaskId) ?? [])]
+  const queued = [...(byPredecessor.get(changed.activityId) ?? [])]
   const seen = new Set<string>()
 
   while (queued.length) {
-    const id = queued.shift()!
-    if (seen.has(id)) continue
-    seen.add(id)
-    const task = byId.get(id)
-    if (task) {
+    const dependency = queued.shift()!
+    const id = dependency.successorId
+    const predecessor = scheduled.get(dependency.predecessorId)
+    const successor = scheduled.get(id) ?? byId.get(id)
+    if (!predecessor || !successor) continue
+    const next = alignSuccessorToDependency(predecessor, successor, dependency)
+    if (next && !sameDates(successor, next)) {
+      scheduled.set(id, { id, currentStart: next.currentStart, currentEnd: next.currentEnd })
       out.push({
         activityId: id,
-        currentStart: addCalendarDays(task.currentStart, deltaDays),
-        currentEnd: addCalendarDays(task.currentEnd, deltaDays),
+        currentStart: next.currentStart,
+        currentEnd: next.currentEnd,
       })
+      seen.delete(id)
     }
-    queued.push(...(graph.get(id) ?? []))
+    if (seen.has(id)) continue
+    seen.add(id)
+    queued.push(...(byPredecessor.get(id) ?? []))
   }
 
   return out
+}
+
+function alignSuccessorToDependency(
+  predecessor: ScheduleTask,
+  successor: ScheduleTask,
+  dependency: ScheduleDependency
+): { currentStart: Date | null; currentEnd: Date | null } | null {
+  const lagDays = dependency.lagDays ?? 0
+  const duration = taskDurationDays(successor)
+  if (dependency.type === 'SS') {
+    const currentStart = addCalendarDays(predecessor.currentStart, lagDays)
+    return { currentStart, currentEnd: currentStart ? addCalendarDays(currentStart, duration - 1) : successor.currentEnd }
+  }
+  if (dependency.type === 'FF') {
+    const currentEnd = addCalendarDays(predecessor.currentEnd, lagDays)
+    return { currentStart: currentEnd ? addCalendarDays(currentEnd, -(duration - 1)) : successor.currentStart, currentEnd }
+  }
+  if (dependency.type === 'SF') {
+    const currentEnd = addCalendarDays(predecessor.currentStart, lagDays)
+    return { currentStart: currentEnd ? addCalendarDays(currentEnd, -(duration - 1)) : successor.currentStart, currentEnd }
+  }
+  const currentStart = addCalendarDays(predecessor.currentEnd, lagDays + 1)
+  return { currentStart, currentEnd: currentStart ? addCalendarDays(currentStart, duration - 1) : successor.currentEnd }
+}
+
+function sameDates(a: Pick<ScheduleTask, 'currentStart' | 'currentEnd'>, b: Pick<ScheduleTask, 'currentStart' | 'currentEnd'>): boolean {
+  return +(a.currentStart ?? 0) === +(b.currentStart ?? 0) && +(a.currentEnd ?? 0) === +(b.currentEnd ?? 0)
 }
 
 /**

@@ -11,6 +11,7 @@ import {
   projectPlannedPercent,
   clamp01,
   effectiveActivityProgress,
+  rollupActivityStatus,
 } from './rollup'
 
 test('weightedAverage: build spec example — weights 2/1 at 100%/0% = 66.7%', () => {
@@ -107,4 +108,20 @@ test('effectiveActivityProgress: invalid values are safely clamped', () => {
   assert.equal(effectiveActivityProgress('STARTED', -5), 0)
   assert.equal(effectiveActivityProgress('STARTED', 120), 100)
   assert.equal(effectiveActivityProgress('STARTED', Number.NaN), 0)
+})
+
+test('rollupActivityStatus: a section starts when any child activity starts', () => {
+  assert.equal(rollupActivityStatus(['NOT_STARTED', 'STARTED', 'NOT_STARTED']), 'STARTED')
+  assert.equal(rollupActivityStatus(['FINISHED', 'NOT_STARTED']), 'STARTED')
+})
+
+test('rollupActivityStatus: terminal child states roll up consistently', () => {
+  assert.equal(rollupActivityStatus(['APPROVED', 'APPROVED']), 'APPROVED')
+  assert.equal(rollupActivityStatus(['FINISHED', 'APPROVED']), 'FINISHED')
+  assert.equal(rollupActivityStatus(['APPROVAL_REQUESTED', 'FINISHED']), 'APPROVAL_REQUESTED')
+  assert.equal(rollupActivityStatus(['STARTED', 'REJECTED']), 'REJECTED')
+})
+
+test('rollupActivityStatus: empty sections retain their stored status', () => {
+  assert.equal(rollupActivityStatus([], 'STARTED'), 'STARTED')
 })

@@ -14,7 +14,7 @@
  */
 
 import type { Prisma } from '@prisma/client'
-import type { WeightedNode } from '@/features/projects/types'
+import type { ActivityStatus, WeightedNode } from '@/features/projects/types'
 import { recalcKrsAndAncestors } from './okr-bridge'
 
 /** Clamp a number into [0, 1]. */
@@ -51,6 +51,27 @@ export function round1(n: number): number {
 export function effectiveActivityProgress(status: string, percentComplete: number): number {
   if (status === 'FINISHED' || status === 'APPROVED') return 100
   return round1(Math.max(0, Math.min(100, Number.isFinite(percentComplete) ? percentComplete : 0)))
+}
+
+/**
+ * Derive a parent schedule status from its children. A partially executed section is
+ * active even when its numeric progress is still 0, while terminal and approval
+ * states are retained only when every child has reached the corresponding stage.
+ */
+export function rollupActivityStatus(
+  statuses: readonly ActivityStatus[],
+  fallback: ActivityStatus = 'NOT_STARTED'
+): ActivityStatus {
+  if (statuses.length === 0) return fallback
+  if (statuses.every((status) => status === 'NOT_STARTED')) return 'NOT_STARTED'
+  if (statuses.every((status) => status === 'APPROVED')) return 'APPROVED'
+  if (statuses.every((status) => status === 'FINISHED' || status === 'APPROVED')) return 'FINISHED'
+  if (statuses.some((status) => status === 'REJECTED')) return 'REJECTED'
+  if (
+    statuses.some((status) => status === 'APPROVAL_REQUESTED') &&
+    statuses.every((status) => status === 'APPROVAL_REQUESTED' || status === 'FINISHED' || status === 'APPROVED')
+  ) return 'APPROVAL_REQUESTED'
+  return 'STARTED'
 }
 
 /** True if a parent's children weights do not sum to ~100 (non-blocking warning). */
@@ -143,6 +164,28 @@ export async function recalcProjectRollup(
 
       const topLevel = milestone.activities.filter((a) => !a.parentActivityId)
 
+      const statusByActivityId = new Map<string, ActivityStatus>()
+      const resolveActivityStatus = (activity: (typeof milestone.activities)[number]): ActivityStatus => {
+        const cached = statusByActivityId.get(activity.id)
+        if (cached) return cached
+        const children = byParent.get(activity.id) ?? []
+        const status = rollupActivityStatus(
+          children.map(resolveActivityStatus),
+          activity.status as ActivityStatus
+        )
+        statusByActivityId.set(activity.id, status)
+        return status
+      }
+      for (const activity of milestone.activities) resolveActivityStatus(activity)
+
+      for (const activity of milestone.activities) {
+        const status = statusByActivityId.get(activity.id)!
+        if (status !== activity.status) {
+          await tx.activity.update({ where: { id: activity.id }, data: { status } })
+          activity.status = status
+        }
+      }
+
       // Normalize every leaf before rolling it upward. This also repairs legacy
       // records where a task was marked finished but its numeric progress stayed 0.
       for (const a of milestone.activities) {
@@ -176,6 +219,14 @@ export async function recalcProjectRollup(
         await tx.milestone.update({ where: { id: milestone.id }, data: { percentComplete: milestonePct } })
         milestone.percentComplete = milestonePct
       }
+      const milestoneStatus = rollupActivityStatus(
+        topLevel.map((activity) => statusByActivityId.get(activity.id) ?? activity.status as ActivityStatus),
+        milestone.status as ActivityStatus
+      )
+      if (milestoneStatus !== milestone.status) {
+        await tx.milestone.update({ where: { id: milestone.id }, data: { status: milestoneStatus } })
+        milestone.status = milestoneStatus
+      }
       if (milestone.keyResultId) {
         dirtyKeyResultIds.add(milestone.keyResultId)
       }
@@ -187,6 +238,14 @@ export async function recalcProjectRollup(
     if (phasePct !== phase.percentComplete) {
       await tx.phase.update({ where: { id: phase.id }, data: { percentComplete: phasePct } })
       phase.percentComplete = phasePct
+    }
+    const phaseStatus = rollupActivityStatus(
+      phase.milestones.map((milestone) => milestone.status as ActivityStatus),
+      phase.status as ActivityStatus
+    )
+    if (phaseStatus !== phase.status) {
+      await tx.phase.update({ where: { id: phase.id }, data: { status: phaseStatus } })
+      phase.status = phaseStatus
     }
   }
 

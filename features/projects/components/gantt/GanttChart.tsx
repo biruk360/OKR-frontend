@@ -52,6 +52,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Modal } from '@/components/ui/Modal'
 import { useUsersForSelection, type UserForSelection } from '@/hooks/useUsersForSelection'
 import { businessDaysBetween } from '@/lib/projects/business-days'
+import { rollupActivityStatus } from '@/lib/projects/rollup'
 import { AUTO_SECTION_ID, defaultTaskPlacement, ensureTaskPlacement } from '@/lib/projects/schedule-creation'
 import { compareScheduleItems, isOverdueActivity, type ScheduleSortMode } from '@/lib/projects/schedule-view'
 import { criticalPath, shiftSuccessorsFromChange } from '@/lib/projects/scheduling'
@@ -2010,6 +2011,9 @@ export function buildRows(project: ProjectDetail, sort: GanttSort, segment: Gant
   for (const phase of phases) {
     const phaseId = `phase:${phase.id}`
     const phaseActivities = phase.milestones.flatMap((m) => m.activities)
+    const phaseLeafStatuses = phaseActivities
+      .filter((activity) => !phaseActivities.some((candidate) => candidate.parentActivityId === activity.id))
+      .map((activity) => activity.status)
     const phaseCurrent = activitySpan(phaseActivities, 'current') ?? { start: parseDate(phase.currentStart), end: parseDate(phase.currentEnd) }
     const phaseBaseline = activitySpan(phaseActivities, 'baseline') ?? { start: parseDate(phase.baselineStart), end: parseDate(phase.baselineEnd) }
     rows.push({
@@ -2022,7 +2026,7 @@ export function buildRows(project: ProjectDetail, sort: GanttSort, segment: Gant
       depth: 0,
       title: phase.name,
       position: phase.position,
-      status: phase.status,
+      status: rollupActivityStatus(phaseLeafStatuses, phase.status as ActivityStatus),
       assigneeId: null,
       percentComplete: phase.percentComplete,
       estimatedHours: null,
@@ -2046,6 +2050,9 @@ export function buildRows(project: ProjectDetail, sort: GanttSort, segment: Gant
     for (const milestone of milestones) {
       const milestoneId = `milestone:${milestone.id}`
       const topActivities = milestone.activities.filter((a) => !a.parentActivityId)
+      const milestoneLeafStatuses = milestone.activities
+        .filter((activity) => !milestone.activities.some((candidate) => candidate.parentActivityId === activity.id))
+        .map((activity) => activity.status)
       const milestoneCurrent = activitySpan(milestone.activities, 'current') ?? { start: parseDate(milestone.currentDate), end: parseDate(milestone.currentDate) }
       const milestoneBaseline = activitySpan(milestone.activities, 'baseline') ?? { start: parseDate(milestone.baselineDate), end: parseDate(milestone.baselineDate) }
       rows.push({
@@ -2058,7 +2065,7 @@ export function buildRows(project: ProjectDetail, sort: GanttSort, segment: Gant
         depth: 1,
         title: milestone.name,
         position: milestone.position,
-        status: milestone.status,
+        status: rollupActivityStatus(milestoneLeafStatuses, milestone.status as ActivityStatus),
         assigneeId: null,
         percentComplete: milestone.percentComplete,
         estimatedHours: null,

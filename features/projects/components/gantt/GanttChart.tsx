@@ -53,6 +53,7 @@ import { Modal } from '@/components/ui/Modal'
 import { useUsersForSelection, type UserForSelection } from '@/hooks/useUsersForSelection'
 import { businessDaysBetween } from '@/lib/projects/business-days'
 import { AUTO_SECTION_ID, defaultTaskPlacement, ensureTaskPlacement } from '@/lib/projects/schedule-creation'
+import { compareScheduleItems, isOverdueActivity, type ScheduleSortMode } from '@/lib/projects/schedule-view'
 import { criticalPath, shiftSuccessorsFromChange } from '@/lib/projects/scheduling'
 import { useProjectViewStore } from '@/lib/stores/project-view-store'
 import { cn } from '@/lib/utils'
@@ -89,10 +90,10 @@ import { AiAssistantPanel } from '../ai/AiAssistantPanel'
 import { ProjectDatePicker } from '../ProjectDatePicker'
 
 type GanttScale = 'days' | 'weeks' | 'months' | 'quarters' | 'years'
-export type GanttSort = 'position' | 'name' | 'date' | 'status' | 'priority'
+export type GanttSort = ScheduleSortMode
 export type GanttSegment = 'phase' | 'assignee' | 'status' | 'owner'
 export type OptionalColumn = 'owner' | 'assignee' | 'subtasks' | 'tags' | 'start' | 'workingDays' | 'due' | 'calendarDays' | 'priority' | 'risk' | 'status' | 'percent' | 'estimatedHours' | 'actualHours' | 'estimatedCost' | 'actualCost' | 'slipDays'
-type GanttRowType = 'phase' | 'milestone' | 'activity' | 'subactivity'
+type GanttRowType = 'phase' | 'milestone' | 'activity' | 'subactivity' | 'actions'
 type ExportFormat = 'pdf' | 'png' | 'csv' | 'xml'
 
 export interface GanttRow {
@@ -190,6 +191,7 @@ export const TASK_COLUMN_WIDTH_KEY = 'projects.gantt.taskColumnWidth.v1'
 const COLLAPSE_KEY = 'projects.gantt.collapsed'
 const PREFS_KEY = 'projects.gantt.toolbarPrefs.v2'
 const SEGMENT_KEY = 'projects.gantt.segment'
+const SORT_KEY_PREFIX = 'projects.gantt.sortMode'
 const GANTT_COLUMNS: OptionalColumn[] = ['assignee', 'start', 'due', 'status', 'percent']
 const DEFAULT_PREFS: GanttToolbarPrefs = {
   showBaselines: true,
@@ -242,7 +244,7 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
   const [widthPrefsHydrated, setWidthPrefsHydrated] = useState(false)
   const [scale, setScale] = useState<GanttScale>('weeks')
   const [zoom, setZoom] = useState(1)
-  const [sort, setSort] = useState<GanttSort>('position')
+  const [sort, setSort] = useState<GanttSort>('manual')
   const [segment, setSegment] = useState<GanttSegment>('phase')
   const query = useProjectViewStore((state) => state.search)
   const setQuery = useProjectViewStore((state) => state.setSearch)
@@ -292,8 +294,10 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
     if (savedPrefs) setToolbarPrefs({ ...DEFAULT_PREFS, ...JSON.parse(savedPrefs) })
     const savedSegment = localStorage.getItem(SEGMENT_KEY) as GanttSegment | null
     if (savedSegment && ['phase', 'assignee', 'status', 'owner'].includes(savedSegment)) setSegment(savedSegment)
+    const savedSort = localStorage.getItem(`${SORT_KEY_PREFIX}.${project.id}`) as GanttSort | null
+    if (savedSort === 'manual' || savedSort === 'automatic') setSort(savedSort)
     setWidthPrefsHydrated(true)
-  }, [])
+  }, [project.id])
 
   useEffect(() => {
     setBaselineVersion(project.baselineVersion || 1)
@@ -320,6 +324,10 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
   useEffect(() => {
     localStorage.setItem(SEGMENT_KEY, segment)
   }, [segment])
+
+  useEffect(() => {
+    localStorage.setItem(`${SORT_KEY_PREFIX}.${project.id}`, sort)
+  }, [project.id, sort])
 
   const allRows = useMemo(() => buildRows(project, sort, segment), [project, sort, segment])
   const filters = useMemo<GanttFilters>(() => ({
@@ -370,7 +378,7 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
       ])
     : new Map()
   const baselineVersions = Array.from({ length: Math.max(1, project.baselineVersion || 1) }, (_, i) => i + 1)
-  const reorderEnabled = canEdit && sort === 'position' && segment === 'phase' && query.trim() === ''
+  const reorderEnabled = canEdit && segment === 'phase' && query.trim() === ''
 
   const resizeStart = (clientX: number) => {
     const startX = clientX
@@ -577,20 +585,63 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
     }
   }
 
-  const handleReorder = (event: DragEndEvent) => {
+  const createInlineTask = async (row: GanttRow, title: string) => {
+    if (!row.milestoneId) throw new Error('This section needs a subsection before tasks can be added.')
+    await addActivity.mutateAsync({ milestoneId: row.milestoneId, title, ownerParty: '360GROUND', weight: 1 })
+  }
+
+  const createInlineSection = async (name: string) => {
+    const phase = await addPhase.mutateAsync({ name, weight: 1 }) as { id: string }
+    await addMilestone.mutateAsync({ phaseId: phase.id, name: 'General', weight: 1 })
+  }
+
+  const handleReorder = async (event: DragEndEvent) => {
     const activeId = String(event.active.id)
     const overId = event.over ? String(event.over.id) : null
     if (!reorderEnabled || !overId || activeId === overId) return
     const activeRow = allRows.find((row) => row.id === activeId)
-    const overRow = allRows.find((row) => row.id === overId)
-    if (!activeRow || !overRow || activeRow.type !== overRow.type || activeRow.parentId !== overRow.parentId) return
+    let overRow = allRows.find((row) => row.id === overId)
+    if (!activeRow || !overRow || activeRow.type === 'actions') return
+
+    const byId = new Map(allRows.map((row) => [row.id, row]))
+    const ancestorOfType = (row: GanttRow, type: GanttRowType): GanttRow | undefined => {
+      let current: GanttRow | undefined = row
+      while (current && current.type !== type) current = current.parentId ? byId.get(current.parentId) : undefined
+      return current
+    }
+
+    if (activeRow.type === 'phase') {
+      const target = ancestorOfType(overRow, 'phase')
+      if (!target) return
+      overRow = target
+    }
+    if (activeRow.type === 'milestone') {
+      const target = ancestorOfType(overRow, 'milestone')
+      if (!target) return
+      overRow = target
+    }
+
+    if ((activeRow.type === 'activity' || activeRow.type === 'subactivity') && activeRow.activityId) {
+      const targetPhase = ancestorOfType(overRow, 'phase')
+      const targetMilestoneId = overRow.milestoneId
+        ?? (targetPhase ? project.phases.find((phase) => `phase:${phase.id}` === targetPhase.id)?.milestones[0]?.id : undefined)
+      if (targetMilestoneId && targetMilestoneId !== activeRow.milestoneId) {
+        setSort('manual')
+        await updateActivity.mutateAsync({ activityId: activeRow.activityId, milestoneId: targetMilestoneId })
+        return
+      }
+      if (overRow.type === 'subactivity' && overRow.parentId) overRow = byId.get(overRow.parentId) ?? overRow
+    }
+
+    if (!overRow || activeRow.type !== overRow.type || activeRow.parentId !== overRow.parentId) return
     const siblings = allRows.filter((row) => row.type === activeRow.type && row.parentId === activeRow.parentId)
     const from = siblings.findIndex((row) => row.id === activeId)
-    const to = siblings.findIndex((row) => row.id === overId)
+    const to = siblings.findIndex((row) => row.id === overRow.id)
     if (from < 0 || to < 0) return
     const orderedRows = arrayMove(siblings, from, to)
     const kind = activeRow.type === 'phase' ? 'phase' : activeRow.type === 'milestone' ? 'milestone' : 'activity'
-    reorderSchedule.mutate({
+    setSort('manual')
+    await reorderSchedule.mutateAsync({
       kind,
       parentId: kind === 'phase' ? project.id : kind === 'milestone' ? stripRowPrefix(activeRow.parentId!) : activeRow.milestoneId!,
       parentActivityId: kind === 'activity' ? activeRow.parentActivityId : undefined,
@@ -833,11 +884,8 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
             <option value="owner">Owner Party</option>
           </select>
           <select aria-label="Sort schedule by" className="h-9 rounded-md border border-black/[0.12] bg-white px-2 text-body-sm text-ink-primary" value={sort} onChange={(e) => setSort(e.target.value as GanttSort)}>
-            <option value="position">Schedule</option>
-            <option value="date">Date</option>
-            <option value="name">Name</option>
-            <option value="status">Status</option>
-            <option value="priority">Priority</option>
+            <option value="manual">Sort: Manual</option>
+            <option value="automatic">Sort: Automatic (section, date)</option>
           </select>
           <select aria-label="Timeline scale" className="h-9 rounded-md border border-black/[0.12] bg-white px-2 text-body-sm text-ink-primary" value={scale} onChange={(e) => setScale(e.target.value as GanttScale)}>
             <option value="days">Days</option>
@@ -913,7 +961,7 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
         className="relative isolate h-[calc(100vh-205px)] min-h-[420px] overflow-auto bg-white"
         onScroll={(e) => setScrollLeft((e.currentTarget as HTMLDivElement).scrollLeft)}
       >
-        <div style={{ width: leftWidth + timelineWidth, minWidth: '100%' }}>
+        <div className="relative" style={{ width: leftWidth + timelineWidth, minWidth: '100%' }}>
           <div
             className="sticky top-0 z-20 grid border-b border-black/[0.12] bg-white"
             style={{ gridTemplateColumns: `${leftWidth}px ${timelineWidth}px`, height: HEADER_HEIGHT }}
@@ -953,6 +1001,14 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
             </div>
           </div>
 
+          {todayX != null && visibleRows.length > 0 && (
+            <div
+              className="pointer-events-none absolute z-20 border-l-2 border-danger-500"
+              style={{ left: leftWidth + todayX, top: HEADER_HEIGHT, height: virtualizer.getTotalSize() }}
+              aria-hidden="true"
+            />
+          )}
+
           {visibleRows.length === 0 ? (
             <div className="flex h-72 items-center justify-center text-body-sm text-ink-secondary">
               No schedule rows match the current search.
@@ -981,7 +1037,7 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
                         key={row.id}
                         id={row.id}
                         top={item.start}
-                        disabled={!reorderEnabled || reorderSchedule.isPending}
+                        disabled={!reorderEnabled || reorderSchedule.isPending || row.type === 'actions'}
                         className={cn(selectedActivityId && row.activityId === selectedActivityId && 'bg-primary-500/[0.08]')}
                         gridTemplateColumns={`${leftWidth}px ${timelineWidth}px`}
                       >
@@ -1000,6 +1056,8 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
                               dragHandleProps={dragHandleProps}
                               onToggle={() => setCollapsed((current) => toggleSetValue(current, row.id))}
                               onAddTask={() => openTaskCreator(row)}
+                              onCreateTask={(title) => createInlineTask(row, title)}
+                              onCreateSection={createInlineSection}
                               onOpenActivity={(activityId) => {
                                 setSelectedActivityId(activityId)
                                 onActivityOpen?.(activityId)
@@ -1280,6 +1338,8 @@ export function ScheduleGridRow({
   dragHandleProps,
   onToggle,
   onAddTask,
+  onCreateTask,
+  onCreateSection,
   onOpenActivity,
   onRenameActivity,
   onUpdateActivity,
@@ -1299,6 +1359,8 @@ export function ScheduleGridRow({
   dragHandleProps: React.ButtonHTMLAttributes<HTMLButtonElement>
   onToggle: () => void
   onAddTask: () => void
+  onCreateTask?: (title: string) => Promise<void>
+  onCreateSection?: (name: string) => Promise<void>
   onOpenActivity: (activityId: string) => void
   onRenameActivity: (activityId: string, title: string) => Promise<void>
   onUpdateActivity: (row: GanttRow, patch: Record<string, unknown>) => Promise<void>
@@ -1308,6 +1370,25 @@ export function ScheduleGridRow({
 }) {
   const [editingTitle, setEditingTitle] = useState(false)
   const [draftTitle, setDraftTitle] = useState(row.title)
+  const [createMode, setCreateMode] = useState<'task' | 'section' | null>(null)
+  const [createDraft, setCreateDraft] = useState('')
+  const [creating, setCreating] = useState(false)
+
+  const submitInlineCreate = async () => {
+    const value = createDraft.trim()
+    if (!value || !createMode) return
+    setCreating(true)
+    try {
+      if (createMode === 'task') await onCreateTask?.(value)
+      else await onCreateSection?.(value)
+      setCreateDraft('')
+      setCreateMode(null)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Unable to create schedule item')
+    } finally {
+      setCreating(false)
+    }
+  }
 
   const commitTitle = async () => {
     const title = draftTitle.trim()
@@ -1323,6 +1404,42 @@ export function ScheduleGridRow({
       toast.error(error instanceof Error ? error.message : 'Unable to rename task')
     }
   }
+
+  if (row.type === 'actions') {
+    return (
+      <div className="z-30 grid h-full items-center border-r border-black/[0.14] bg-white text-[11px]" style={{ gridTemplateColumns: columnTemplate }}>
+        <div className={cn('flex h-full min-w-0 items-center gap-1 px-2', stickyTaskColumn && 'sticky left-0 z-20 bg-white shadow-[2px_0_0_rgba(0,0,0,0.06)]')} style={{ paddingLeft: 36 }}>
+          {createMode ? (
+            <form className="flex min-w-0 flex-1 items-center gap-1" onSubmit={(event) => { event.preventDefault(); void submitInlineCreate() }}>
+              <input
+                autoFocus
+                value={createDraft}
+                onChange={(event) => setCreateDraft(event.target.value)}
+                placeholder={createMode === 'task' ? 'Create a new task...' : 'Create a new section...'}
+                minLength={createMode === 'task' ? 3 : 2}
+                maxLength={200}
+                className="h-7 min-w-0 flex-1 border-b border-primary-400 bg-transparent px-1 text-[11px] outline-none"
+              />
+              <button type="submit" className="h-6 rounded bg-primary-500 px-2 font-medium text-white disabled:opacity-50" disabled={creating || !createDraft.trim()}>Add</button>
+              <button type="button" className="h-6 rounded px-1.5 text-ink-secondary hover:bg-surface-hover" onClick={() => { setCreateMode(null); setCreateDraft('') }} disabled={creating}>Cancel</button>
+            </form>
+          ) : (
+            <>
+              <button type="button" className="inline-flex h-6 items-center gap-1 rounded bg-primary-500 px-2 font-medium text-white hover:bg-primary-700" onClick={() => setCreateMode('task')} disabled={!canEdit || !row.milestoneId}>
+                <Plus className="size-3" /> Add task
+              </button>
+              <button type="button" className="inline-flex h-6 items-center gap-1 rounded border border-primary-400 px-2 font-medium text-primary-700 hover:bg-primary-50" onClick={() => setCreateMode('section')} disabled={!canEdit}>
+                <Plus className="size-3" /> Add section
+              </button>
+            </>
+          )}
+        </div>
+        {columns.map((column) => <div key={column} />)}
+      </div>
+    )
+  }
+
+  const overdue = isOverdueRow(row)
 
   return (
     <div
@@ -1389,6 +1506,7 @@ export function ScheduleGridRow({
             {row.title}
           </span>
         )}
+        {overdue && <span className="shrink-0 rounded bg-danger-50 px-1 py-0.5 text-[9px] font-semibold uppercase text-danger-700">Overdue</span>}
         {canEdit && row.activityId && !editingTitle && (
           <button
             type="button"
@@ -1447,6 +1565,7 @@ function GanttGridCell({
   onUpdateDate: (row: GanttRow, field: 'start' | 'due', value: string) => void
 }) {
   const editable = canEdit && !!row.activityId
+  const overdue = isOverdueRow(row)
   const controlClass = 'h-6 w-full min-w-0 rounded border border-transparent bg-transparent px-1 text-[10px] text-ink-primary outline-none hover:border-black/[0.12] hover:bg-white focus:border-primary-400 focus:bg-white'
   const [percentDraft, setPercentDraft] = useState(String(Math.round(row.percentComplete)))
 
@@ -1523,7 +1642,7 @@ function GanttGridCell({
           displayFormat="dd/MM/yy"
           showIcon={false}
           align="center"
-          className="h-7 border-transparent bg-transparent px-1 text-[10px] hover:border-black/[0.1]"
+          className={cn('h-7 border-transparent bg-transparent px-1 text-[10px] hover:border-black/[0.1]', column === 'due' && overdue && 'font-semibold text-danger-700')}
         />
       </div>
     )
@@ -1543,12 +1662,27 @@ function GanttGridCell({
     return (
       <div className="px-1">
         <select
-          className={cn(controlClass, column === 'risk' && row.risk === 'HIGH' && 'font-semibold text-danger-700', column === 'priority' && row.priority === 'CRITICAL' && 'font-semibold text-danger-700')}
+          className={cn(
+            controlClass,
+            column === 'risk' && row.risk === 'HIGH' && 'font-semibold text-danger-700',
+            column === 'priority' && row.priority === 'CRITICAL' && 'font-semibold text-danger-700',
+            column === 'status' && statusClass(row),
+            column === 'status' && statusTextClass(row.status as ActivityStatus),
+            column === 'status' && overdue && 'ring-1 ring-danger-500'
+          )}
           value={value}
           aria-label={`${COLUMN_LABEL[column]} for ${row.title}`}
           onChange={(event) => void onUpdateActivity(row, { [column]: event.target.value || null })}
         >
-          {values.map(([optionValue, label]) => <option key={optionValue} value={optionValue}>{label}</option>)}
+          {values.map(([optionValue, label]) => (
+            <option
+              key={optionValue}
+              value={optionValue}
+              className={column === 'status' && optionValue ? cn(`bg-${ACTIVITY_STATUS_TOKEN[optionValue as ActivityStatus]}`, statusTextClass(optionValue as ActivityStatus)) : undefined}
+            >
+              {label}
+            </option>
+          ))}
         </select>
       </div>
     )
@@ -1620,6 +1754,7 @@ function GanttTimelineRow({
   const baseline = baselined ? spanToRect(row.baselineStart, row.baselineEnd, units) : null
   const isMilestone = row.type === 'milestone' || row.isMilestone
   const canInteract = !!row.activityId && row.type !== 'phase' && row.type !== 'milestone'
+  const overdue = isOverdueRow(row)
   const showLabelInside = !!actual && !isMilestone && row.type !== 'phase' && actual.width >= 150
 
   return (
@@ -1671,12 +1806,13 @@ function GanttTimelineRow({
               : 'top-[7px] h-4 overflow-hidden rounded-sm border border-black/20 shadow-sm',
             canInteract && 'cursor-grab active:cursor-grabbing',
             row.type !== 'phase' && statusClass(row),
+            overdue && 'border-danger-500 bg-danger-100 ring-1 ring-danger-500/30',
             row.risk === 'HIGH' && 'ring-2 ring-danger-500/30',
             isCritical && 'ring-2 ring-danger-500',
             isSelected && 'outline outline-2 outline-primary-500'
           )}
           style={{ left: actual.left, width: actual.width }}
-          title={`${row.title} · ${renderColumn(row, 'status')} · ${Math.round(row.percentComplete)}%`}
+          title={`${row.title} · ${renderColumn(row, 'status')} · ${Math.round(row.percentComplete)}%${overdue ? ' · Overdue' : ''}`}
           onMouseDown={(event) => onStartDrag(row, 'move', event)}
           onClick={() => row.activityId && onSelect(row.activityId)}
           onMouseUp={(event) => row.activityId && completeIfLinking(linkingFrom, row.activityId, event, onCompleteDependency)}
@@ -1716,17 +1852,17 @@ function GanttTimelineRow({
         <>
           <button
             className={cn(
-              'absolute top-[9px] z-20 size-2.5 rounded-full border border-primary-500 bg-surface-card opacity-0 shadow-sm transition-opacity focus:opacity-100 group-hover/timeline:opacity-100',
+              'absolute top-[7px] z-20 size-3.5 rounded-full border-2 border-primary-500 bg-white opacity-0 shadow-sm transition-opacity focus:opacity-100 group-hover/timeline:opacity-100',
               (isSelected || linkingFrom === row.activityId) && 'opacity-100',
               linkingFrom === row.activityId && 'bg-primary-500'
             )}
-            style={{ left: actual.left - 16 }}
+            style={{ left: actual.left - 18 }}
             title="Start dependency"
             onMouseDown={(event) => onBeginDependency(row.activityId!, event)}
           />
           <button
             className={cn(
-              'absolute top-[9px] z-20 size-2.5 rounded-full border border-primary-500 bg-surface-card opacity-0 shadow-sm transition-opacity focus:opacity-100 group-hover/timeline:opacity-100',
+              'absolute top-[7px] z-20 size-3.5 rounded-full border-2 border-primary-500 bg-white opacity-0 shadow-sm transition-opacity focus:opacity-100 group-hover/timeline:opacity-100',
               (isSelected || linkingFrom) && 'opacity-100',
               linkingFrom && linkingFrom !== row.activityId && 'ring-2 ring-primary-500/30'
             )}
@@ -1748,6 +1884,11 @@ function GanttTimelineRow({
           title="Business days waiting for client approval"
         >
           <Clock className="size-3" /> {businessDaysBetween(row.waitingSince, new Date())}d
+        </span>
+      )}
+      {actual && overdue && (
+        <span className="absolute top-[3px] z-20 rounded bg-danger-500 px-1 py-0.5 text-[9px] font-semibold text-white shadow-sm" style={{ left: actual.left + Math.max(8, actual.width - 4) }}>
+          Overdue
         </span>
       )}
       {actual && showComments && row.commentsCount > 0 && (
@@ -1805,17 +1946,23 @@ function GanttDependencyLayer({
         const path = dependencyPath(dependency.type, points)
         const selected = selectedActivityId === dependency.predecessorId || selectedActivityId === dependency.successorId
         return (
-          <g key={dependency.id} className="pointer-events-auto cursor-pointer" onClick={() => onDelete(dependency)}>
+          <g key={dependency.id} className="group/dependency pointer-events-auto cursor-pointer" onClick={() => onDelete(dependency)}>
             <title>{`${pred.row.title} to ${succ.row.title} (${dependency.type})`}</title>
             <path d={path} fill="none" stroke="transparent" strokeWidth="10" />
             <path
               d={path}
               fill="none"
-              className={selected ? 'stroke-primary-500' : 'stroke-ink-tertiary'}
-              strokeWidth={selected ? 2 : 1.25}
-              opacity={selected ? 1 : 0.75}
+              className={selected ? 'stroke-primary-500' : 'stroke-ink-secondary group-hover/dependency:stroke-primary-500'}
+              strokeWidth={selected ? 2.4 : 1.5}
+              opacity={selected ? 1 : 0.82}
               markerEnd={selected ? 'url(#gantt-arrow-selected)' : 'url(#gantt-arrow)'}
             />
+            <circle cx={points.startX} cy={points.startY} r={selected ? 3.5 : 2.5} className={selected ? 'fill-primary-500' : 'fill-ink-secondary group-hover/dependency:fill-primary-500'} />
+            {selected && (
+              <text x={(points.startX + points.endX) / 2 + 4} y={(points.startY + points.endY) / 2 - 4} className="fill-primary-700 text-[9px] font-semibold">
+                {dependency.type}
+              </text>
+            )}
           </g>
         )
       })}
@@ -1935,6 +2082,31 @@ export function buildRows(project: ProjectDetail, sort: GanttSort, segment: Gant
         pushActivityRows(rows, activity, milestone.activities, milestoneId, 2, sort, segment)
       }
     }
+    rows.push({
+      id: `actions:${phase.id}`,
+      activityId: null,
+      milestoneId: phase.milestones[0]?.id ?? null,
+      parentActivityId: null,
+      parentId: phaseId,
+      type: 'actions',
+      depth: 1,
+      title: `Add to ${phase.name}`,
+      position: Number.MAX_SAFE_INTEGER,
+      status: '',
+      assigneeId: null,
+      percentComplete: 0,
+      tags: [],
+      subtasksCount: 0,
+      slipDays: 0,
+      commentsCount: 0,
+      start: null,
+      end: null,
+      baselineStart: null,
+      baselineEnd: null,
+      isMilestone: false,
+      waitingSince: null,
+      hasChildren: false,
+    })
   }
   return rows
 }
@@ -2116,6 +2288,14 @@ function statusClass(row: GanttRow): string {
   return `bg-${token}`
 }
 
+function statusTextClass(status: ActivityStatus): string {
+  return status === 'FINISHED' ? 'text-white' : status === 'REJECTED' ? 'text-ink-primary' : 'text-ink-primary'
+}
+
+function isOverdueRow(row: GanttRow, now = new Date()): boolean {
+  return !!row.activityId && isOverdueActivity(row.status, row.end, now)
+}
+
 function activitySpan(activities: ActivityNode[], kind: 'current' | 'baseline'): { start: Date | null; end: Date | null } | null {
   const starts: Date[] = []
   const ends: Date[] = []
@@ -2264,18 +2444,19 @@ function calendarDaysBetween(start: Date | null, end: Date | null): number | '-'
   return Math.floor((endUtc - startUtc) / 86_400_000) + 1
 }
 
-function comparePhase(sort: GanttSort) {
-  return (a: PhaseNode, b: PhaseNode) => compareValues(sort, a, b, a.name, b.name, a.currentStart ?? null, b.currentStart ?? null, a.status, b.status)
+function comparePhase(_sort: GanttSort) {
+  return (a: PhaseNode, b: PhaseNode) => a.position - b.position
 }
 
-function compareMilestone(sort: GanttSort) {
-  return (a: MilestoneNode, b: MilestoneNode) => compareValues(sort, a, b, a.name, b.name, a.currentDate ?? null, b.currentDate ?? null, a.status, b.status)
+function compareMilestone(_sort: GanttSort) {
+  return (a: MilestoneNode, b: MilestoneNode) => a.position - b.position
 }
 
 function compareActivity(sort: GanttSort, segment: GanttSegment) {
   return (a: ActivityNode, b: ActivityNode) => {
     const segmentCompare = segmentValue(a, segment).localeCompare(segmentValue(b, segment))
-    return segmentCompare || compareValues(sort, a, b, a.title, b.title, a.currentStart, b.currentStart, a.status, b.status, a.priority, b.priority)
+    if (segmentCompare) return segmentCompare
+    return compareScheduleItems(sort, a, b)
   }
 }
 
@@ -2284,26 +2465,6 @@ function segmentValue(activity: ActivityNode, segment: GanttSegment): string {
   if (segment === 'status') return activity.status
   if (segment === 'owner') return activity.ownerParty
   return ''
-}
-
-function compareValues(
-  sort: GanttSort,
-  a: { position: number },
-  b: { position: number },
-  nameA: string,
-  nameB: string,
-  dateA: string | null,
-  dateB: string | null,
-  statusA: string,
-  statusB: string,
-  priorityA?: string | null,
-  priorityB?: string | null
-) {
-  if (sort === 'name') return nameA.localeCompare(nameB) || a.position - b.position
-  if (sort === 'date') return +(parseDate(dateA) ?? new Date(8640000000000000)) - +(parseDate(dateB) ?? new Date(8640000000000000)) || a.position - b.position
-  if (sort === 'status') return statusA.localeCompare(statusB) || a.position - b.position
-  if (sort === 'priority') return (priorityA ?? '').localeCompare(priorityB ?? '') || a.position - b.position
-  return a.position - b.position
 }
 
 function toggleSetValue(current: Set<string>, value: string): Set<string> {

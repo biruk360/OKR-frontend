@@ -2,7 +2,18 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import ReactFlow, { Background, Controls, ReactFlowProvider, type Edge, type Node } from 'reactflow'
+import ReactFlow, {
+  Background,
+  Controls,
+  MarkerType,
+  MiniMap,
+  Panel,
+  ReactFlowProvider,
+  useEdgesState,
+  useNodesState,
+  type Edge,
+  type Node,
+} from 'reactflow'
 import 'reactflow/dist/style.css'
 import {
   BarChart3,
@@ -195,12 +206,12 @@ export function ProjectViewSwitcher({ project, canEdit }: Props) {
             />
           </div>
           <select
-            className="rounded-md border border-black/[0.08] bg-surface-card px-2 py-1 text-body-sm"
+            className={cn('rounded-md border border-black/[0.08] px-2 py-1 text-body-sm', status ? statusBg(status as ActivityStatus) : 'bg-surface-card')}
             value={status}
             onChange={(e) => setStatus(e.target.value)}
           >
             <option value="">All statuses</option>
-            {ACTIVITY_STATUSES.map((s) => <option key={s} value={s}>{ACTIVITY_STATUS_LABEL[s]}</option>)}
+            {ACTIVITY_STATUSES.map((s) => <option key={s} value={s} className={statusBg(s)}>{ACTIVITY_STATUS_LABEL[s]}</option>)}
           </select>
         </div>}
       </div>
@@ -257,7 +268,7 @@ function ProjectTableView({
   const { users } = useUsersForSelection()
   const visibleIds = useMemo(() => new Set(rows.map((row) => row.id)), [rows])
   const userNames = useMemo(() => new Map(users.map((user) => [user.id, user.name ?? user.email])), [users])
-  const allScheduleRows = useMemo(() => buildRows(project, 'position', 'phase'), [project])
+  const allScheduleRows = useMemo(() => buildRows(project, 'manual', 'phase'), [project])
   const scheduleRows = useMemo(() => visibleScheduleRows(allScheduleRows, visibleIds, collapsed), [allScheduleRows, collapsed, visibleIds])
   const columnTemplate = buildColumnTemplate(TABLE_COLUMNS, taskColumnWidth)
 
@@ -278,12 +289,20 @@ function ProjectTableView({
   const addTaskToMilestone = async (milestoneId: string) => {
     const title = window.prompt('Task name')?.trim()
     if (!title) return
+    await createTaskInMilestone(milestoneId, title)
+  }
+
+  const createTaskInMilestone = async (milestoneId: string, title: string) => {
     await addActivity.mutateAsync({ milestoneId, title, ownerParty: '360GROUND', weight: 1 })
   }
 
   const addSection = async () => {
     const name = window.prompt('Section name')?.trim()
     if (!name) return
+    await createSection(name)
+  }
+
+  const createSection = async (name: string) => {
     const phase = await addPhase.mutateAsync({ name, weight: 1 }) as { id: string }
     await addMilestone.mutateAsync({ phaseId: phase.id, name: 'General', weight: 1 })
   }
@@ -352,6 +371,11 @@ function ProjectTableView({
                 dragHandleProps={{}}
                 onToggle={() => setCollapsed((current) => toggleSet(current, row.id))}
                 onAddTask={() => openTaskCreator(row)}
+                onCreateTask={async (title) => {
+                  if (!row.milestoneId) throw new Error('This section needs a subsection before tasks can be added.')
+                  await createTaskInMilestone(row.milestoneId, title)
+                }}
+                onCreateSection={createSection}
                 onOpenActivity={onOpen}
                 onRenameActivity={async (activityId, title) => { await updateActivity.mutateAsync({ activityId, title }) }}
                 onUpdateActivity={updateGridActivity}
@@ -490,6 +514,7 @@ function ProjectWorkloadView({ project, rows }: { project: ProjectDetail; rows: 
       name: id === 'UNASSIGNED' ? 'Unassigned' : userNames.get(id) ?? 'Project member',
       tasks: tasks.filter((task) => task.currentStart && task.currentEnd),
       hours: tasks.reduce((sum, task) => sum + (task.estimatedHours ?? 0), 0),
+      ownerParties: [...new Set(tasks.map((task) => task.ownerParty))],
     }))
   }, [rows, userNames])
   if (isLoading) return <div className="rounded-card border border-black/[0.08] bg-surface-card p-6 text-body-sm text-ink-secondary">Loading workload...</div>
@@ -503,8 +528,9 @@ function ProjectWorkloadView({ project, rows }: { project: ProjectDetail; rows: 
       </div>
       <div className="overflow-auto">
         <div className="min-w-[1180px]">
-          <div className="grid border-b border-black/[0.08]" style={{ gridTemplateColumns: '250px minmax(900px,1fr)' }}>
+          <div className="grid border-b border-black/[0.08]" style={{ gridTemplateColumns: '230px 140px minmax(900px,1fr)' }}>
             <div className="bg-white px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-ink-tertiary">Project members</div>
+            <div className="border-l border-black/[0.06] bg-white px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-ink-tertiary">Owner party</div>
             <div className="grid bg-surface-muted/40" style={{ gridTemplateColumns: 'repeat(8,1fr)' }}>
               {Array.from({ length: 8 }, (_, index) => {
                 const date = addCalendarDays(start, index * 7)
@@ -516,16 +542,21 @@ function ProjectWorkloadView({ project, rows }: { project: ProjectDetail; rows: 
             const capacity = data.people.find((person) => person.userId === (member.id === 'UNASSIGNED' ? null : member.id))
             const height = Math.max(72, member.tasks.length * 26 + 18)
             return (
-              <div key={member.id} className="grid border-b border-black/[0.05]" style={{ gridTemplateColumns: '250px minmax(900px,1fr)' }}>
+              <div key={member.id} className="grid border-b border-black/[0.05]" style={{ gridTemplateColumns: '230px 140px minmax(900px,1fr)' }}>
                 <div className="bg-white px-3 py-3" style={{ height }}>
                   <div className="flex items-center gap-2"><span className="flex size-8 items-center justify-center rounded-full bg-primary-50 text-[11px] font-semibold text-primary-700">{member.name.slice(0, 2).toUpperCase()}</span><div><div className="text-body-sm font-medium text-ink-primary">{member.name}</div><div className="text-[11px] text-ink-tertiary">{member.hours}h estimated · {capacity?.maxAllocationPct ?? 0}% max allocation</div></div></div>
+                </div>
+                <div className="flex flex-wrap content-start gap-1 border-l border-black/[0.06] bg-white px-2 py-3" style={{ height }}>
+                  {member.ownerParties.length === 0
+                    ? <span className="text-[11px] text-ink-tertiary">-</span>
+                    : member.ownerParties.map((party) => <span key={party} className={cn('h-5 rounded px-1.5 text-[10px] font-medium leading-5', ownerPartyTone(party))}>{ownerPartyLabel(party, project.clientName)}</span>)}
                 </div>
                 <div className="relative bg-[repeating-linear-gradient(to_right,transparent_0,transparent_calc(12.5%-1px),rgba(0,0,0,0.055)_calc(12.5%-1px),rgba(0,0,0,0.055)_12.5%)]" style={{ height }}>
                   {member.tasks.map((task, taskIndex) => {
                     const leftDays = differenceInCalendarDays(new Date(task.currentStart!), start)
                     const duration = Math.max(1, differenceInCalendarDays(new Date(task.currentEnd!), new Date(task.currentStart!)) + 1)
                     if (leftDays >= days || leftDays + duration < 0) return null
-                    return <div key={task.id} title={task.title} className="absolute h-5 truncate rounded border border-primary-500 bg-sky-200 px-1.5 text-[10px] leading-5 text-primary-900" style={{ top: 10 + taskIndex * 26, left: `${Math.max(0, leftDays) / days * 100}%`, width: `${Math.min(duration, days - Math.max(0, leftDays)) / days * 100}%` }}>{task.title}</div>
+                    return <div key={task.id} title={`${task.title} · ${ownerPartyLabel(task.ownerParty, project.clientName)}`} className={cn('absolute h-5 truncate rounded border px-1.5 text-[10px] leading-5', ownerPartyBarTone(task.ownerParty))} style={{ top: 10 + taskIndex * 26, left: `${Math.max(0, leftDays) / days * 100}%`, width: `${Math.min(duration, days - Math.max(0, leftDays)) / days * 100}%` }}>{task.title}</div>
                   })}
                 </div>
               </div>
@@ -538,13 +569,41 @@ function ProjectWorkloadView({ project, rows }: { project: ProjectDetail; rows: 
 }
 
 function ProjectMindmapView({ project, rows, onOpen }: { project: ProjectDetail; rows: ProjectActivityRow[]; onOpen: (activityId: string) => void }) {
-  const { nodes, edges } = useMemo(() => buildMindmap(project, rows), [project, rows])
+  const graph = useMemo(() => buildMindmap(project, rows), [project, rows])
+  const [nodes, setNodes, onNodesChange] = useNodesState(graph.nodes)
+  const [edges, setEdges, onEdgesChange] = useEdgesState(graph.edges)
+
+  useEffect(() => {
+    setNodes(graph.nodes)
+    setEdges(graph.edges)
+  }, [graph, setEdges, setNodes])
+
   return (
-    <div className="h-[640px] overflow-hidden rounded-card border border-black/[0.08] bg-surface-card shadow-card">
+    <div className="h-[calc(100vh-165px)] min-h-[520px] overflow-hidden border border-black/[0.08] bg-[#f4f4f5]">
       <ReactFlowProvider>
-        <ReactFlow nodes={nodes} edges={edges} fitView minZoom={0.3} maxZoom={1.5} onNodeDoubleClick={(_event, node) => { if (node.id.startsWith('activity:')) onOpen(node.id.slice('activity:'.length)) }}>
-          <Background />
-          <Controls />
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          fitView
+          fitViewOptions={{ padding: 0.18, maxZoom: 1.1 }}
+          minZoom={0.12}
+          maxZoom={1.8}
+          panOnScroll
+          selectionOnDrag
+          panOnDrag={false}
+          multiSelectionKeyCode="Meta"
+          proOptions={{ hideAttribution: true }}
+          defaultEdgeOptions={{ type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14 }, style: { stroke: '#9ca3af', strokeWidth: 1.4 } }}
+          onNodeDoubleClick={(_event, node) => { if (node.id.startsWith('activity:')) onOpen(node.id.slice('activity:'.length)) }}
+        >
+          <Background color="#d4d4d8" gap={20} size={1} />
+          <Controls className="!shadow-md" />
+          <MiniMap pannable zoomable nodeColor={(node) => node.id.startsWith('activity:') ? '#93c5fd' : node.id.startsWith('phase:') ? '#2563eb' : '#64748b'} />
+          <Panel position="top-left" className="rounded-md border border-black/[0.08] bg-white/95 px-2 py-1 text-[11px] text-ink-secondary shadow-sm">
+            Drag nodes to organize · double-click a task to open
+          </Panel>
         </ReactFlow>
       </ReactFlowProvider>
     </div>
@@ -684,23 +743,40 @@ function buildMindmap(project: ProjectDetail, rows: ProjectActivityRow[]): { nod
   project.phases.forEach((phase, phaseIndex) => {
     const phaseAngle = (Math.PI * 2 * phaseIndex) / Math.max(1, project.phases.length)
     const phaseId = `phase:${phase.id}`
-    nodes.push({ id: phaseId, data: { label: phase.name }, position: polar(phaseRadius, phaseAngle), className: 'rounded-md border border-black/[0.08] bg-white px-3 py-2 text-ink-primary' })
-    edges.push({ id: `${project.id}-${phaseId}`, source: project.id, target: phaseId })
+    nodes.push({ id: phaseId, data: { label: phase.name }, position: polar(phaseRadius, phaseAngle), className: 'rounded-md border border-primary-500 bg-white px-3 py-2 font-medium text-ink-primary shadow-sm' })
+    edges.push({ id: `${project.id}-${phaseId}`, source: project.id, target: phaseId, type: 'smoothstep' })
     phase.milestones.forEach((milestone, milestoneIndex) => {
       const milestoneAngle = phaseAngle - 0.35 + (0.7 * milestoneIndex) / Math.max(1, phase.milestones.length - 1)
       const milestoneId = `milestone:${milestone.id}`
-      nodes.push({ id: milestoneId, data: { label: milestone.name }, position: polar(milestoneRadius, milestoneAngle), className: 'rounded-md border border-black/[0.08] bg-surface-muted px-3 py-2 text-ink-primary' })
-      edges.push({ id: `${phaseId}-${milestoneId}`, source: phaseId, target: milestoneId })
+      nodes.push({ id: milestoneId, data: { label: milestone.name }, position: polar(milestoneRadius, milestoneAngle), className: 'rounded-md border border-black/[0.12] bg-surface-muted px-3 py-2 text-ink-primary shadow-sm' })
+      edges.push({ id: `${phaseId}-${milestoneId}`, source: phaseId, target: milestoneId, type: 'smoothstep' })
       const activities = milestone.activities.filter((activity) => visibleActivityIds.has(activity.id)).slice(0, 16)
       activities.forEach((activity, activityIndex) => {
         const spread = 0.42
         const angle = milestoneAngle - spread / 2 + (spread * activityIndex) / Math.max(1, activities.length - 1)
         const id = `activity:${activity.id}`
-        nodes.push({ id, data: { label: activity.title }, position: polar(activityRadius, angle), className: 'rounded-md border border-black/[0.08] bg-surface-card px-2 py-1 text-[11px] text-ink-secondary' })
-        edges.push({ id: `${milestoneId}-${id}`, source: milestoneId, target: id })
+        nodes.push({ id, data: { label: activity.title }, position: polar(activityRadius, angle), className: cn('rounded-md border px-2 py-1 text-[11px] font-medium shadow-sm', statusBg(activity.status), activity.status === 'FINISHED' ? 'text-white' : 'text-ink-primary') })
+        edges.push({ id: `${milestoneId}-${id}`, source: milestoneId, target: id, type: 'smoothstep' })
       })
     })
   })
+  const nodeIds = new Set(nodes.map((node) => node.id))
+  for (const dependency of project.dependencies) {
+    const source = `activity:${dependency.predecessorId}`
+    const target = `activity:${dependency.successorId}`
+    if (!nodeIds.has(source) || !nodeIds.has(target)) continue
+    edges.push({
+      id: `dependency:${dependency.id}`,
+      source,
+      target,
+      type: 'smoothstep',
+      label: dependency.type,
+      animated: true,
+      markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14, color: '#007AFF' },
+      style: { stroke: '#007AFF', strokeWidth: 1.8, strokeDasharray: '5 4' },
+      labelStyle: { fontSize: 9, fill: '#0051D5', fontWeight: 600 },
+    })
+  }
   return { nodes, edges }
 }
 
@@ -755,6 +831,24 @@ function statusBg(status: ActivityStatus): string {
   return `bg-${ACTIVITY_STATUS_TOKEN[status]}`
 }
 
+function ownerPartyLabel(party: string, clientName: string): string {
+  if (party === 'CLIENT') return clientName
+  if (party === 'SHARED') return 'Shared'
+  return '360Ground'
+}
+
+function ownerPartyTone(party: string): string {
+  if (party === 'CLIENT') return 'bg-warning-50 text-warning-800'
+  if (party === 'SHARED') return 'bg-[#f1ecff] text-[#5b3fa8]'
+  return 'bg-primary-50 text-primary-700'
+}
+
+function ownerPartyBarTone(party: string): string {
+  if (party === 'CLIENT') return 'border-warning-500 bg-warning-100 text-warning-900'
+  if (party === 'SHARED') return 'border-[#8b6dcc] bg-[#e5dcfa] text-[#442d7c]'
+  return 'border-primary-500 bg-sky-200 text-primary-900'
+}
+
 function toggleSet(current: Set<string>, id: string) {
   const next = new Set(current)
   if (next.has(id)) next.delete(id)
@@ -773,6 +867,10 @@ function visibleScheduleRows(allRows: GanttRow[], visibleActivityIds: Set<string
       included.add(current.id)
       current = current.parentId ? byId.get(current.parentId) : undefined
     }
+  }
+
+  for (const row of allRows) {
+    if (row.type === 'actions' && row.parentId && included.has(row.parentId)) included.add(row.id)
   }
 
   return allRows.filter((row) => {

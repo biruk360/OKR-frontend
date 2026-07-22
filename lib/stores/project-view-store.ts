@@ -4,6 +4,7 @@ import { persist } from 'zustand/middleware'
 export type ProjectScheduleView = 'gantt' | 'table' | 'board' | 'workload' | 'mindmap' | 'overview'
 
 interface ProjectViewState {
+  projectId: string | null
   activeView: ProjectScheduleView
   favoriteViews: ProjectScheduleView[]
   search: string
@@ -11,6 +12,7 @@ interface ProjectViewState {
   assignee: string
   priority: string
   risk: string
+  enterProject: (projectId: string) => void
   setActiveView: (view: ProjectScheduleView) => void
   toggleFavorite: (view: ProjectScheduleView) => void
   setSearch: (search: string) => void
@@ -24,6 +26,7 @@ interface ProjectViewState {
 export const useProjectViewStore = create<ProjectViewState>()(
   persist(
     (set) => ({
+      projectId: null,
       activeView: 'gantt',
       favoriteViews: ['gantt'],
       search: '',
@@ -31,6 +34,9 @@ export const useProjectViewStore = create<ProjectViewState>()(
       assignee: '',
       priority: '',
       risk: '',
+      enterProject: (projectId) => set((state) => state.projectId === projectId
+        ? state
+        : { projectId, search: '', status: '', assignee: '', priority: '', risk: '' }),
       setActiveView: (activeView) => set({ activeView }),
       toggleFavorite: (view) => set((state) => ({
         favoriteViews: state.favoriteViews.includes(view)
@@ -44,6 +50,6 @@ export const useProjectViewStore = create<ProjectViewState>()(
       setRisk: (risk) => set({ risk }),
       clearFilters: () => set({ search: '', status: '', assignee: '', priority: '', risk: '' }),
     }),
-    { name: 'projects.schedule-view', version: 2 }
+    { name: 'projects.schedule-view', version: 3 }
   )
 )

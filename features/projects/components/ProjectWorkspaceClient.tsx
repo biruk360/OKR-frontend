@@ -46,10 +46,15 @@ export function ProjectWorkspaceClient({ projectId, user }: Props) {
   const assignee = useProjectViewStore((state) => state.assignee)
   const priority = useProjectViewStore((state) => state.priority)
   const risk = useProjectViewStore((state) => state.risk)
+  const enterProject = useProjectViewStore((state) => state.enterProject)
   const setAssignee = useProjectViewStore((state) => state.setAssignee)
   const setPriority = useProjectViewStore((state) => state.setPriority)
   const setRisk = useProjectViewStore((state) => state.setRisk)
   const { users } = useUsersForSelection()
+
+  useEffect(() => {
+    enterProject(projectId)
+  }, [enterProject, projectId])
 
   useEffect(() => {
     const storageKey = `project.reference-date.${projectId}`

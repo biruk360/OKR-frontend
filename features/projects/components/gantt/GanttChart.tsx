@@ -1888,11 +1888,6 @@ function GanttTimelineRow({
           <Clock className="size-3" /> {businessDaysBetween(row.waitingSince, new Date())}d
         </span>
       )}
-      {actual && overdue && (
-        <span className="absolute top-[3px] z-20 rounded bg-danger-500 px-1 py-0.5 text-[9px] font-semibold text-white shadow-sm" style={{ left: actual.left + Math.max(8, actual.width - 4) }}>
-          Overdue
-        </span>
-      )}
       {actual && showComments && row.commentsCount > 0 && (
         <span
           className="absolute top-[17px] inline-flex items-center gap-1 rounded bg-surface-card px-1 py-0.5 text-[9px] font-medium text-ink-secondary shadow-sm ring-1 ring-black/[0.08]"

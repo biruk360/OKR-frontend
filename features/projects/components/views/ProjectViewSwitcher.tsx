@@ -515,6 +515,10 @@ function ProjectWorkloadView({ project, rows }: { project: ProjectDetail; rows: 
       tasks: tasks.filter((task) => task.currentStart && task.currentEnd),
       hours: tasks.reduce((sum, task) => sum + (task.estimatedHours ?? 0), 0),
       ownerParties: [...new Set(tasks.map((task) => task.ownerParty))],
+      ownerPartyCounts: tasks.reduce<Record<string, number>>((counts, task) => {
+        counts[task.ownerParty] = (counts[task.ownerParty] ?? 0) + 1
+        return counts
+      }, {}),
     }))
   }, [rows, userNames])
   if (isLoading) return <div className="rounded-card border border-black/[0.08] bg-surface-card p-6 text-body-sm text-ink-secondary">Loading workload...</div>
@@ -549,14 +553,14 @@ function ProjectWorkloadView({ project, rows }: { project: ProjectDetail; rows: 
                 <div className="flex flex-wrap content-start gap-1 border-l border-black/[0.06] bg-white px-2 py-3" style={{ height }}>
                   {member.ownerParties.length === 0
                     ? <span className="text-[11px] text-ink-tertiary">-</span>
-                    : member.ownerParties.map((party) => <span key={party} className={cn('h-5 rounded px-1.5 text-[10px] font-medium leading-5', ownerPartyTone(party))}>{ownerPartyLabel(party, project.clientName)}</span>)}
+                    : member.ownerParties.map((party) => <span key={party} className={cn('h-5 rounded px-1.5 text-[10px] font-medium leading-5', ownerPartyTone(party))}>{ownerPartyLabel(party, project.clientName)} · {member.ownerPartyCounts[party]}</span>)}
                 </div>
                 <div className="relative bg-[repeating-linear-gradient(to_right,transparent_0,transparent_calc(12.5%-1px),rgba(0,0,0,0.055)_calc(12.5%-1px),rgba(0,0,0,0.055)_12.5%)]" style={{ height }}>
                   {member.tasks.map((task, taskIndex) => {
                     const leftDays = differenceInCalendarDays(new Date(task.currentStart!), start)
                     const duration = Math.max(1, differenceInCalendarDays(new Date(task.currentEnd!), new Date(task.currentStart!)) + 1)
                     if (leftDays >= days || leftDays + duration < 0) return null
-                    return <div key={task.id} title={`${task.title} · ${ownerPartyLabel(task.ownerParty, project.clientName)}`} className={cn('absolute h-5 truncate rounded border px-1.5 text-[10px] leading-5', ownerPartyBarTone(task.ownerParty))} style={{ top: 10 + taskIndex * 26, left: `${Math.max(0, leftDays) / days * 100}%`, width: `${Math.min(duration, days - Math.max(0, leftDays)) / days * 100}%` }}>{task.title}</div>
+                    return <div key={task.id} title={`${task.title} · ${ownerPartyLabel(task.ownerParty, project.clientName)}`} className={cn('absolute flex h-5 min-w-0 items-center gap-1 overflow-hidden rounded border px-1.5 text-[10px] leading-5', ownerPartyBarTone(task.ownerParty))} style={{ top: 10 + taskIndex * 26, left: `${Math.max(0, leftDays) / days * 100}%`, width: `${Math.min(duration, days - Math.max(0, leftDays)) / days * 100}%` }}><span className="shrink-0 rounded bg-white/70 px-1 font-semibold">{ownerPartyShortLabel(task.ownerParty, project.clientName)}</span><span className="truncate">{task.title}</span></div>
                   })}
                 </div>
               </div>
@@ -745,6 +749,12 @@ function statusBg(status: ActivityStatus): string {
 
 function ownerPartyLabel(party: string, clientName: string): string {
   if (party === 'CLIENT') return clientName
+  if (party === 'SHARED') return 'Shared'
+  return '360Ground'
+}
+
+function ownerPartyShortLabel(party: string, clientName: string): string {
+  if (party === 'CLIENT') return clientName.length > 14 ? 'Client' : clientName
   if (party === 'SHARED') return 'Shared'
   return '360Ground'
 }

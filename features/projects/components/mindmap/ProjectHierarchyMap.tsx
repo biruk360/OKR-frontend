@@ -14,7 +14,8 @@ import ReactFlow, {
   type ReactFlowInstance,
 } from 'reactflow'
 import 'reactflow/dist/style.css'
-import { ChevronsDownUp, ChevronsUpDown, Maximize2 } from 'lucide-react'
+import { ChevronsDownUp, ChevronsUpDown, GitBranch, Maximize2, RotateCcw } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import type { ActivityNode, ProjectDetail } from '../../hooks/useProject'
 import { ProjectMapNode, type ProjectMapNodeData, type ProjectMapNodeKind } from './ProjectMapNode'
 
@@ -22,6 +23,9 @@ const nodeTypes = { projectMapNode: ProjectMapNode }
 const LEVEL_Y = [32, 210, 392, 574, 742]
 const NODE_GAP = 34
 const MIN_SPAN: Record<ProjectMapNodeKind, number> = { project: 320, phase: 320, milestone: 300, activity: 280 }
+const POSITION_KEY_PREFIX = 'projects.mindmap.positions.v1'
+
+type SavedPositions = Record<string, { x: number; y: number }>
 
 interface ProjectHierarchyMapProps {
   project: ProjectDetail
@@ -51,7 +55,18 @@ function ProjectHierarchyMapInner({ project, visibleActivityIds, isFiltered, onO
     ...project.phases.map((phase) => `phase:${phase.id}`),
   ]), [project.id, project.phases])
   const [expanded, setExpanded] = useState<Set<string>>(defaultExpanded)
+  const [savedPositions, setSavedPositions] = useState<SavedPositions>({})
+  const [showDependencies, setShowDependencies] = useState(true)
   const flowRef = useRef<ReactFlowInstance | null>(null)
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(`${POSITION_KEY_PREFIX}.${project.id}`)
+      setSavedPositions(saved ? JSON.parse(saved) as SavedPositions : {})
+    } catch {
+      setSavedPositions({})
+    }
+  }, [project.id])
 
   useEffect(() => {
     setExpanded(isFiltered ? expandedPathsForFilter(project, new Set(visibleActivityIds)) : defaultExpanded)
@@ -67,7 +82,11 @@ function ProjectHierarchyMapInner({ project, visibleActivityIds, isFiltered, onO
   }, [])
 
   const tree = useMemo(() => buildProjectTree(project, visibleIds, isFiltered), [isFiltered, project, visibleIds])
-  const graph = useMemo(() => layoutTree(tree, expanded, toggle, project.dependencies), [expanded, project.dependencies, toggle, tree])
+  const autoGraph = useMemo(() => layoutTree(tree, expanded, toggle, project.dependencies), [expanded, project.dependencies, toggle, tree])
+  const graph = useMemo(() => ({
+    nodes: autoGraph.nodes.map((node) => ({ ...node, position: savedPositions[node.id] ?? node.position })),
+    edges: showDependencies ? autoGraph.edges : autoGraph.edges.filter((edge) => !edge.id.startsWith('dependency:')),
+  }), [autoGraph, savedPositions, showDependencies])
   const [nodes, setNodes, onNodesChange] = useNodesState<ProjectMapNodeData>(graph.nodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(graph.edges)
 
@@ -80,6 +99,21 @@ function ProjectHierarchyMapInner({ project, visibleActivityIds, isFiltered, onO
     requestAnimationFrame(() => flowRef.current?.fitView({ padding: 0.16, maxZoom: 1.05, duration: 250 }))
   }, [])
 
+  const saveNodePosition = useCallback((node: Node<ProjectMapNodeData>) => {
+    setSavedPositions((current) => {
+      const next = { ...current, [node.id]: node.position }
+      window.localStorage.setItem(`${POSITION_KEY_PREFIX}.${project.id}`, JSON.stringify(next))
+      return next
+    })
+  }, [project.id])
+
+  const resetLayout = useCallback(() => {
+    window.localStorage.removeItem(`${POSITION_KEY_PREFIX}.${project.id}`)
+    setSavedPositions({})
+    setNodes(autoGraph.nodes)
+    fit()
+  }, [autoGraph.nodes, fit, project.id, setNodes])
+
   return (
     <div className="h-[calc(100vh-165px)] min-h-[520px] w-full bg-[#f4f4f5]">
       <ReactFlow
@@ -88,6 +122,7 @@ function ProjectHierarchyMapInner({ project, visibleActivityIds, isFiltered, onO
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
+        onNodeDragStop={(_event, node) => saveNodePosition(node)}
         nodeTypes={nodeTypes}
         onInit={(instance) => { flowRef.current = instance }}
         onNodeDoubleClick={(_event, node) => {
@@ -98,8 +133,8 @@ function ProjectHierarchyMapInner({ project, visibleActivityIds, isFiltered, onO
         minZoom={0.08}
         maxZoom={1.75}
         panOnScroll
-        selectionOnDrag
-        panOnDrag={false}
+        selectionOnDrag={false}
+        panOnDrag
         multiSelectionKeyCode="Meta"
         nodesDraggable
         proOptions={{ hideAttribution: true }}
@@ -116,9 +151,20 @@ function ProjectHierarchyMapInner({ project, visibleActivityIds, isFiltered, onO
           <button type="button" onClick={fit} className="flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Fit project map">
             <Maximize2 className="size-3.5" />
           </button>
+          <button type="button" onClick={resetLayout} className="flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Reset project map layout" title="Reset saved layout">
+            <RotateCcw className="size-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowDependencies((current) => !current)}
+            className={cn('inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-[11px] font-medium', showDependencies ? 'bg-blue-50 text-blue-700' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}
+            aria-pressed={showDependencies}
+          >
+            <GitBranch className="size-3.5" /> Dependencies
+          </button>
         </Panel>
         <Panel position="top-right" className="rounded-md border border-border bg-card/95 px-2 py-1 text-[10px] text-muted-foreground shadow-sm">
-          Expand branches · drag cards · double-click a task
+          Drag cards to save their position · double-click a task to open
         </Panel>
       </ReactFlow>
     </div>

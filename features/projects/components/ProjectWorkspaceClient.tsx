@@ -8,6 +8,7 @@ import {
   Check,
   ChevronDown,
   FolderKanban,
+  LayoutDashboard,
   Menu,
   Settings,
   ShieldAlert,
@@ -85,6 +86,7 @@ export function ProjectWorkspaceClient({ projectId, user }: Props) {
           <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-[#080c42] text-white"><Menu className="size-4" /></span>
           {railExpanded && <span className="truncate text-[13px] font-semibold">Project tools</span>}
         </button>
+        <RailLink href="/dashboard" label="Dashboard" expanded={railExpanded} icon={LayoutDashboard} />
         <RailLink href="/dashboard/projects" label="All projects" expanded={railExpanded} icon={FolderKanban} />
         <RailButton label="Delivery controls" expanded={railExpanded} icon={ShieldAlert} onClick={() => setControlsOpen(true)} />
         <RailButton label="Project team" expanded={railExpanded} icon={Users} onClick={() => setControlsOpen(true)} />

@@ -626,6 +626,7 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
       const targetMilestoneId = overRow.milestoneId
         ?? (targetPhase ? project.phases.find((phase) => `phase:${phase.id}` === targetPhase.id)?.milestones[0]?.id : undefined)
       if (targetMilestoneId && targetMilestoneId !== activeRow.milestoneId) {
+        if (sort === 'automatic') toast.success('Switched to manual order')
         setSort('manual')
         await updateActivity.mutateAsync({ activityId: activeRow.activityId, milestoneId: targetMilestoneId })
         return
@@ -640,6 +641,7 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
     if (from < 0 || to < 0) return
     const orderedRows = arrayMove(siblings, from, to)
     const kind = activeRow.type === 'phase' ? 'phase' : activeRow.type === 'milestone' ? 'milestone' : 'activity'
+    if (sort === 'automatic') toast.success('Switched to manual order')
     setSort('manual')
     await reorderSchedule.mutateAsync({
       kind,
@@ -884,8 +886,8 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
             <option value="owner">Owner Party</option>
           </select>
           <select aria-label="Sort schedule by" className="h-9 rounded-md border border-black/[0.12] bg-white px-2 text-body-sm text-ink-primary" value={sort} onChange={(e) => setSort(e.target.value as GanttSort)}>
-            <option value="manual">Sort: Manual</option>
-            <option value="automatic">Sort: Automatic (section, date)</option>
+            <option value="manual">Sort: Manual order</option>
+            <option value="automatic">Sort: Section, then start date</option>
           </select>
           <select aria-label="Timeline scale" className="h-9 rounded-md border border-black/[0.12] bg-white px-2 text-body-sm text-ink-primary" value={scale} onChange={(e) => setScale(e.target.value as GanttScale)}>
             <option value="days">Days</option>
@@ -1949,12 +1951,15 @@ function GanttDependencyLayer({
           <g key={dependency.id} className="group/dependency pointer-events-auto cursor-pointer" onClick={() => onDelete(dependency)}>
             <title>{`${pred.row.title} to ${succ.row.title} (${dependency.type})`}</title>
             <path d={path} fill="none" stroke="transparent" strokeWidth="10" />
+            <path d={path} fill="none" stroke="white" strokeWidth={selected ? 5 : 4} strokeLinecap="round" strokeLinejoin="round" opacity="0.92" />
             <path
               d={path}
               fill="none"
               className={selected ? 'stroke-primary-500' : 'stroke-ink-secondary group-hover/dependency:stroke-primary-500'}
               strokeWidth={selected ? 2.4 : 1.5}
               opacity={selected ? 1 : 0.82}
+              strokeLinecap="round"
+              strokeLinejoin="round"
               markerEnd={selected ? 'url(#gantt-arrow-selected)' : 'url(#gantt-arrow)'}
             />
             <circle cx={points.startX} cy={points.startY} r={selected ? 3.5 : 2.5} className={selected ? 'fill-primary-500' : 'fill-ink-secondary group-hover/dependency:fill-primary-500'} />

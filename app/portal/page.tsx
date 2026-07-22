@@ -5,6 +5,7 @@ import { getServerSessionSafe } from '@/lib/auth'
 import { getPortalSessionSafe } from '@/lib/portal-auth'
 import { prisma } from '@/lib/prisma'
 import { portalProjectWhere } from '@/features/projects/services/portal-serializer'
+import { ProjectProgress } from '@/features/projects/components/ProjectProgress'
 
 export default async function PortalPage() {
   const [portalSession, internalSession] = await Promise.all([
@@ -74,7 +75,7 @@ function ProjectList({ projects }: { projects: { id: string; code: string; name:
               <div className="text-body font-semibold text-ink-primary">{project.name}</div>
             </div>
             <div className="text-right">
-              <div className="text-body-sm font-medium text-ink-primary">{Math.round(project.percentComplete)}%</div>
+              <ProjectProgress actual={project.percentComplete} variant="value" showPlanned={false} className="text-body-sm font-medium text-ink-primary" />
               <div className="text-[12px] text-ink-tertiary">{project.ragStatus}</div>
             </div>
           </div>

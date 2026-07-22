@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import type { ReactNode } from 'react'
 import { notFound, redirect } from 'next/navigation'
 import { Download, Eye, FileText } from 'lucide-react'
 import { getServerSessionSafe } from '@/lib/auth'
@@ -23,6 +24,7 @@ import {
 } from '@/features/projects/services/portal-dashboard'
 import { projectPortalInclude } from '@/features/projects/services/portal-project-query'
 import PortalCommentBox from './PortalCommentBox'
+import { ProjectProgress } from '@/features/projects/components/ProjectProgress'
 
 export default async function PortalProjectPage({ params }: { params: { id: string } }) {
   const [portalSession, internalSession] = await Promise.all([
@@ -87,7 +89,7 @@ export default async function PortalProjectPage({ params }: { params: { id: stri
           <div className="text-body-sm text-ink-tertiary">{projectDto.code} · {projectDto.clientName}</div>
           <h1 className="mt-1 text-page-title text-ink-primary">{projectDto.name}</h1>
           <div className="mt-6 grid gap-4 sm:grid-cols-4">
-            <Stat label="Complete" value={`${Math.round(projectDto.percentComplete)}%`} />
+            <Stat label="Complete" value={<ProjectProgress actual={projectDto.percentComplete} planned={projectDto.percentPlanned} variant="value" />} />
             <Stat label="Expected" value={`${Math.round(projectDto.percentPlanned)}%`} />
             <Stat label="RAG" value={projectDto.ragStatus} />
             <Stat label="Baseline" value={`v${projectDto.baselineVersion}`} />
@@ -286,7 +288,7 @@ function GanttRow({
   )
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="rounded-card border border-black/[0.08] p-4">
       <div className="text-body-sm text-ink-tertiary">{label}</div>

@@ -10,6 +10,7 @@ import {
   phasePlannedPercent,
   projectPlannedPercent,
   clamp01,
+  effectiveActivityProgress,
 } from './rollup'
 
 test('weightedAverage: build spec example — weights 2/1 at 100%/0% = 66.7%', () => {
@@ -89,4 +90,21 @@ test('clamp01', () => {
   assert.equal(clamp01(-1), 0)
   assert.equal(clamp01(2), 1)
   assert.equal(clamp01(0.5), 0.5)
+})
+
+test('effectiveActivityProgress: terminal statuses are always complete', () => {
+  assert.equal(effectiveActivityProgress('FINISHED', 0), 100)
+  assert.equal(effectiveActivityProgress('APPROVED', 35), 100)
+})
+
+test('effectiveActivityProgress: active work uses the entered percentage', () => {
+  assert.equal(effectiveActivityProgress('STARTED', 42.34), 42.3)
+  assert.equal(effectiveActivityProgress('APPROVAL_REQUESTED', 85), 85)
+  assert.equal(effectiveActivityProgress('NOT_STARTED', 0), 0)
+})
+
+test('effectiveActivityProgress: invalid values are safely clamped', () => {
+  assert.equal(effectiveActivityProgress('STARTED', -5), 0)
+  assert.equal(effectiveActivityProgress('STARTED', 120), 100)
+  assert.equal(effectiveActivityProgress('STARTED', Number.NaN), 0)
 })

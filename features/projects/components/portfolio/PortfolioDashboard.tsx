@@ -10,6 +10,7 @@ import { PortfolioFilters } from './PortfolioFilters'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { RagBadge } from '../ProjectBadges'
+import { ProjectProgress } from '../ProjectProgress'
 import type { PortfolioDashboardFilters } from '@/lib/projects/portfolio-dashboard'
 
 export function PortfolioDashboard() {
@@ -92,7 +93,9 @@ export function PortfolioDashboard() {
                       <td className="py-2 pr-4">{p.name}</td>
                       <td className="py-2 pr-4">{p.clientName}</td>
                       <td className="py-2 pr-4">{p.projectManagerName ?? '—'}</td>
-                      <td className="py-2 pr-4">{p.percentComplete.toFixed(0)}%</td>
+                      <td className="min-w-24 py-2 pr-4">
+                        <ProjectProgress actual={p.percentComplete} planned={p.percentPlanned} />
+                      </td>
                       <td className="py-2 pr-4">{p.spi != null ? p.spi.toFixed(2) : '—'}</td>
                       <td className="py-2">
                         <RagBadge rag={p.ragStatus} />

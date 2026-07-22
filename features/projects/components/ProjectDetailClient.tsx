@@ -26,6 +26,7 @@ import { PerformanceReportsPanel } from './reports/PerformanceReportsPanel'
 import { ManagementReportsPanel } from './reports/ManagementReportsPanel'
 import { ProjectObjectiveLinker } from './okr/ProjectObjectiveLinker'
 import { ScheduleImportModal } from './ScheduleImportModal'
+import { ProjectProgress } from './ProjectProgress'
 
 interface Props {
   projectId: string
@@ -261,7 +262,7 @@ export function ProjectDetailClient({ projectId, user }: Props) {
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <StatCard label="Complete" value={`${project.percentComplete.toFixed(0)}%`} iconText={`Planned ${project.percentPlanned.toFixed(0)}%`}
+        <StatCard label="Complete" value={<ProjectProgress actual={project.percentComplete} planned={project.percentPlanned} variant="value" />} iconText="%"
           tone={behind > 5 ? 'yellow' : 'blue'} />
         <StatCard label="Confidence" value={project.confidence} icon={Gauge}
           tone={project.confidence >= 75 ? 'green' : project.confidence >= 50 ? 'yellow' : 'red'} />

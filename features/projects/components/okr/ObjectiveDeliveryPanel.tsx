@@ -6,6 +6,7 @@ import { useObjectiveDelivery } from '../../hooks/useObjectives'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { RagBadge } from '../ProjectBadges'
+import { ProjectProgress } from '../ProjectProgress'
 
 interface Props {
   objectiveId: string
@@ -70,9 +71,7 @@ export function ObjectiveDeliveryPanel({ objectiveId }: Props) {
                   </div>
                 </div>
                 <div className="flex items-center gap-3 text-body-sm text-ink-secondary">
-                  <span className={behind > 5 ? 'text-warning-600' : ''}>
-                    {p.percentComplete.toFixed(0)}% / {p.percentPlanned.toFixed(0)}%
-                  </span>
+                  <ProjectProgress actual={p.percentComplete} planned={p.percentPlanned} variant="value" className={behind > 5 ? 'text-warning-600' : ''} />
                   <span>SPI {p.spi != null ? p.spi.toFixed(2) : '—'}</span>
                   <RagBadge rag={p.ragStatus} />
                 </div>

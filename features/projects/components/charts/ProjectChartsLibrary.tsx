@@ -26,6 +26,7 @@ import {
 import { cn } from '@/lib/utils'
 import type { ActivityNode, ProjectDetail } from '../../hooks/useProject'
 import { ChartWrapper, HeatmapGrid, chartColors, chartTooltip } from './ChartWrapper'
+import { ProjectProgress } from '../ProjectProgress'
 
 interface ProjectChartsLibraryProps {
   project: ProjectDetail
@@ -297,11 +298,7 @@ function C24({ data }: { data: ChartData }) {
         <div className="rounded-md border border-border p-4">
           <div className="text-body-xs font-semibold uppercase text-ink-secondary">Project Completion</div>
           <div className="mt-5 flex justify-center">
-            <div className="relative flex size-40 items-center justify-center rounded-full" style={{ background: `conic-gradient(${chartColors.blue} ${data.project.percentComplete * 3.6}deg, var(--ap-bg-sunken) 0)` }}>
-              <div className="flex size-28 flex-col items-center justify-center rounded-full bg-surface-card">
-                <span className="text-[30px] font-semibold text-ink-primary">{data.project.percentComplete.toFixed(1)}%</span>
-              </div>
-            </div>
+            <ProjectProgress actual={data.project.percentComplete} planned={data.project.percentPlanned} variant="ring" showPlanned={false} />
           </div>
           <div className="mt-4 text-center text-body-sm font-medium text-warning-700">{data.project.ragStatus === 'GREEN' ? 'ON TRACK' : 'AT RISK'}</div>
           <div className="mt-1 text-center text-body-xs text-ink-tertiary">{delta >= 0 ? '▲' : '▼'} {Math.abs(delta)}% {delta >= 0 ? 'ahead' : 'behind'}</div>

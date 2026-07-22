@@ -32,6 +32,7 @@ import {
 import { useUsersForSelection } from '@/hooks/useUsersForSelection'
 import { useProjectViewStore, type ProjectScheduleView } from '@/lib/stores/project-view-store'
 import { cn } from '@/lib/utils'
+import { ProjectProgress } from '../ProjectProgress'
 import {
   ACTIVITY_STATUS_LABEL,
   ACTIVITY_STATUS_TOKEN,
@@ -632,15 +633,7 @@ function ProjectOverviewView({ project, rows, allRows }: { project: ProjectDetai
       <div className="rounded-card border border-black/[0.08] bg-surface-card p-5 shadow-card">
         <div className="text-body font-medium text-ink-primary">C24 Completion</div>
         <div className="mt-4 flex justify-center">
-          <div
-            className="relative flex size-56 items-center justify-center rounded-full"
-            style={{ background: `conic-gradient(#007AFF ${project.percentComplete * 3.6}deg, #E5E5EA 0)` }}
-          >
-            <div className="flex size-36 flex-col items-center justify-center rounded-full bg-surface-card shadow-card">
-              <span className="text-[34px] font-semibold text-ink-primary">{Math.round(project.percentComplete)}%</span>
-              <span className="text-body-sm text-ink-tertiary">Actual</span>
-            </div>
-          </div>
+          <ProjectProgress actual={project.percentComplete} planned={project.percentPlanned} variant="ring" showPlanned={false} />
         </div>
         <div className="mt-4 grid grid-cols-2 gap-2">
           <Metric label="Expected" value={`${Math.round(project.percentPlanned)}%`} />

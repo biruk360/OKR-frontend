@@ -24,6 +24,7 @@
     "db:seed:dtp": "tsx prisma/seed-dtp.ts",
     "db:seed:project-permissions": "tsx scripts/seed-project-permissions.ts",
     "db:seed:project-templates": "tsx prisma/seed-project-templates.ts",
+    "db:recalc-project-progress": "tsx scripts/recalculate-project-progress.ts",
     "db:seed:scrum-permissions": "tsx scripts/seed-scrum-permissions.ts",
     "db:seed:scrum-settings": "tsx scripts/seed-scrum-settings.ts",
     "db:migrate:biruk": "tsx prisma/migrate-consolidate-biruk.ts",

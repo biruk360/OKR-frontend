@@ -44,6 +44,15 @@ export function round1(n: number): number {
   return Math.round(n * 10) / 10
 }
 
+/**
+ * Canonical progress for a leaf activity. Completion statuses are authoritative;
+ * all other statuses retain the user-entered percentage.
+ */
+export function effectiveActivityProgress(status: string, percentComplete: number): number {
+  if (status === 'FINISHED' || status === 'APPROVED') return 100
+  return round1(Math.max(0, Math.min(100, Number.isFinite(percentComplete) ? percentComplete : 0)))
+}
+
 /** True if a parent's children weights do not sum to ~100 (non-blocking warning). */
 export function weightsMismatch(weights: readonly number[]): boolean {
   if (weights.length === 0) return false
@@ -133,6 +142,17 @@ export async function recalcProjectRollup(
       }
 
       const topLevel = milestone.activities.filter((a) => !a.parentActivityId)
+
+      // Normalize every leaf before rolling it upward. This also repairs legacy
+      // records where a task was marked finished but its numeric progress stayed 0.
+      for (const a of milestone.activities) {
+        if (byParent.has(a.id)) continue
+        const pc = effectiveActivityProgress(a.status, a.percentComplete)
+        if (pc !== a.percentComplete) {
+          await tx.activity.update({ where: { id: a.id }, data: { percentComplete: pc } })
+          a.percentComplete = pc
+        }
+      }
 
       for (const a of topLevel) {
         const subtasks = byParent.get(a.id)

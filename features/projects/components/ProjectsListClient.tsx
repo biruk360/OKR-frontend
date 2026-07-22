@@ -7,11 +7,11 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import { StatCard } from '@/components/ui/StatCard'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Skeleton } from '@/components/ui/Skeleton'
-import { cn } from '@/lib/utils'
 import { useDebounce } from '@/hooks/useDebounce'
 import { useProjectsList } from '../hooks/useProjects'
 import { CreateProjectWizard } from './CreateProjectWizard'
 import { RagBadge, ProjectStatusBadge } from './ProjectBadges'
+import { ProjectProgress } from './ProjectProgress'
 
 interface Props {
   user: { id: string; role: string }
@@ -112,7 +112,7 @@ export function ProjectsListClient({ user }: Props) {
               <div className="col-span-1"><ProjectStatusBadge status={p.status} /></div>
               <div className="col-span-1"><RagBadge rag={p.ragStatus} /></div>
               <div className="col-span-3">
-                <ProgressVsPlanned complete={p.percentComplete} planned={p.percentPlanned} />
+                <ProjectProgress actual={p.percentComplete} planned={p.percentPlanned} />
               </div>
               <div className="col-span-1 text-right text-body font-semibold tabular-nums text-ink-primary">{p.confidence}</div>
             </Link>
@@ -121,20 +121,6 @@ export function ProjectsListClient({ user }: Props) {
       )}
 
       <CreateProjectWizard open={wizardOpen} onClose={() => setWizardOpen(false)} currentUserId={user.id} />
-    </div>
-  )
-}
-
-/** Actual vs planned bar — planned shown as a marker so behind-schedule is visible. */
-function ProgressVsPlanned({ complete, planned }: { complete: number; planned: number }) {
-  const behind = planned - complete > 5
-  return (
-    <div>
-      <div className="relative h-1.5 w-full rounded-full bg-surface-muted">
-        <div className={cn('h-1.5 rounded-full', behind ? 'bg-warning-500' : 'bg-primary-500')} style={{ width: `${Math.min(100, complete)}%` }} />
-        <div className="absolute top-[-2px] h-2.5 w-px bg-ink-secondary" style={{ left: `${Math.min(100, planned)}%` }} title={`Planned ${planned}%`} />
-      </div>
-      <div className="mt-1 text-body-sm text-ink-tertiary tabular-nums">{complete.toFixed(0)}% · planned {planned.toFixed(0)}%</div>
     </div>
   )
 }

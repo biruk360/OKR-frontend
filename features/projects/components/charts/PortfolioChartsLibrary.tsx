@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
+import type { ReactNode } from 'react'
 import {
   Area,
   AreaChart,
@@ -20,6 +21,7 @@ import {
   ZAxis,
 } from 'recharts'
 import { cn } from '@/lib/utils'
+import { ProjectProgress } from '../ProjectProgress'
 import type { PortfolioDashboardData, PortfolioProjectRow } from '@/lib/projects/portfolio-dashboard'
 import { ChartWrapper, chartColors, chartTooltip } from './ChartWrapper'
 
@@ -71,12 +73,10 @@ function PortfolioRagWall({ projects, totalSlipDays }: { projects: PortfolioProj
             <div className="truncate text-body-xs text-ink-secondary">{p.name}</div>
             <div className="mt-3 grid grid-cols-3 gap-2 text-body-xs">
               <Metric label="RAG" value={p.ragStatus} />
-              <Metric label="Complete" value={`${Math.round(p.percentComplete)}%`} />
+              <Metric label="Complete" value={<ProjectProgress actual={p.percentComplete} planned={p.percentPlanned} variant="value" showPlanned={false} />} />
               <Metric label="Slip" value={`${p.totalSlipDays}d`} />
             </div>
-            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-surface-muted">
-              <div className="h-full rounded-full bg-primary-500" style={{ width: `${Math.min(100, p.percentComplete)}%` }} />
-            </div>
+            <ProjectProgress className="mt-3" actual={p.percentComplete} planned={p.percentPlanned} />
           </div>
         ))}
       </div>
@@ -175,7 +175,7 @@ function PortfolioBenchForecast({ data }: { data: PortfolioDashboardData['capaci
   )
 }
 
-function Metric({ label, value }: { label: string; value: string | number }) {
+function Metric({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div>
       <div className="text-ink-tertiary">{label}</div>

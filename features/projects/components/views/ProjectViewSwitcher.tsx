@@ -3,10 +3,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import {
+  AlertTriangle,
   BarChart3,
   CalendarDays,
+  CheckCircle2,
+  Clock3,
   Columns,
-  GitFork,
   LayoutDashboard,
   MoreHorizontal,
   Network,
@@ -68,6 +70,7 @@ interface ProjectActivityRow {
   ownerParty: string
   priority: string | null
   risk: string | null
+  isBlocked: boolean
   percentComplete: number
   estimatedHours: number | null
   currentStart: string | null
@@ -571,7 +574,10 @@ function ProjectOverviewView({ project, rows, allRows }: { project: ProjectDetai
   const highRisk = allRows.filter((row) => row.risk === 'HIGH').length
   const waiting = allRows.filter((row) => row.status === 'APPROVAL_REQUESTED').length
   const slipping = allRows.filter((row) => row.slipDays > 0).length
+  const blocked = allRows.filter((row) => row.isBlocked).length
+  const active = allRows.filter((row) => row.status === 'STARTED' || row.status === 'APPROVAL_REQUESTED').length
   const done = allRows.filter((row) => row.status === 'FINISHED' || row.status === 'APPROVED').length
+  const variance = project.percentComplete - project.percentPlanned
   const resourceRows = useMemo(() => {
     const grouped = new Map<string, ProjectActivityRow[]>()
     for (const row of allRows) {
@@ -582,44 +588,49 @@ function ProjectOverviewView({ project, rows, allRows }: { project: ProjectDetai
   }, [allRows, userNames])
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
-      <div className="lg:col-span-2"><OverviewTimeline project={project} /></div>
-      <div className="rounded-card border border-black/[0.08] bg-surface-card p-5 shadow-card">
-        <div className="text-body font-medium text-ink-primary">C24 Completion</div>
-        <div className="mt-4 flex justify-center">
-          <ProjectProgress actual={project.percentComplete} planned={project.percentPlanned} variant="ring" showPlanned={false} />
+    <div className="space-y-3">
+      <OverviewTimeline project={project} />
+
+      <section className="overflow-hidden rounded-lg border border-black/[0.08] bg-surface-card shadow-sm">
+        <div className="grid grid-cols-2 divide-y divide-black/[0.06] sm:grid-cols-3 lg:grid-cols-[minmax(260px,1.35fr)_repeat(6,minmax(105px,1fr))] lg:divide-x lg:divide-y-0">
+          <div className="col-span-2 p-3 sm:col-span-3 lg:col-span-1">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-body-sm font-semibold text-ink-primary">Overall project completion</div>
+                <div className="mt-0.5 text-[11px] text-ink-tertiary">Weighted from activity completion through sections and phases</div>
+              </div>
+              <ProjectProgress actual={project.percentComplete} planned={project.percentPlanned} variant="value" className="shrink-0 font-semibold" />
+            </div>
+            <ProjectProgress actual={project.percentComplete} planned={project.percentPlanned} className="mt-2" />
+          </div>
+          <OverviewMetric icon={BarChart3} label="Activities shown" value={rows.length} helper={`of ${allRows.length} total`} />
+          <OverviewMetric icon={CheckCircle2} label="Completed activities" value={done} helper={`${allRows.length ? Math.round(done / allRows.length * 100) : 0}% of total`} />
+          <OverviewMetric icon={Clock3} label="Active activities" value={active} helper="started or awaiting approval" />
+          <OverviewMetric icon={AlertTriangle} label="High-risk activities" value={highRisk} tone={highRisk ? 'warning' : 'normal'} />
+          <OverviewMetric icon={AlertTriangle} label="Baseline-delayed activities" value={slipping} tone={slipping ? 'danger' : 'normal'} />
+          <OverviewMetric icon={Clock3} label="Schedule variance" value={`${variance > 0 ? '+' : ''}${Math.round(variance)}%`} helper="actual minus planned" tone={variance < -5 ? 'warning' : 'normal'} />
         </div>
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <Metric label="Expected" value={`${Math.round(project.percentPlanned)}%`} />
-          <Metric label="Variance" value={`${Math.round(project.percentComplete - project.percentPlanned)}%`} />
+        <div className="grid border-t border-black/[0.06] md:grid-cols-3 md:divide-x md:divide-black/[0.06]">
+          <Register title="High-risk activities" rows={allRows.filter((row) => row.risk === 'HIGH').slice(0, 5)} empty="No high-risk activities." />
+          <Register title="Activities awaiting approval" rows={allRows.filter((row) => row.status === 'APPROVAL_REQUESTED').slice(0, 5)} empty="No activities are awaiting approval." />
+          <Register title="Activities delayed from baseline" rows={allRows.filter((row) => row.slipDays > 0).sort((a, b) => b.slipDays - a.slipDays).slice(0, 5)} empty="No baseline schedule delays are recorded." />
         </div>
-      </div>
-      <div className="space-y-4">
-        <div className="grid gap-3 sm:grid-cols-4">
-          <MetricCard icon={BarChart3} label="Visible" value={rows.length} />
-          <MetricCard icon={CalendarDays} label="Done" value={`${done}/${allRows.length}`} />
-          <MetricCard icon={GitFork} label="Waiting" value={waiting} tone={waiting ? 'warning' : 'normal'} />
-          <MetricCard icon={Users} label="Slipping" value={slipping} tone={slipping ? 'danger' : 'normal'} />
-        </div>
-        <div className="grid gap-4 md:grid-cols-3">
-          <Register title="High Risk" rows={allRows.filter((row) => row.risk === 'HIGH').slice(0, 6)} empty="No high-risk activities." />
-          <Register title="Approval Queue" rows={allRows.filter((row) => row.status === 'APPROVAL_REQUESTED').slice(0, 6)} empty="No approvals waiting." />
-          <Register title="Slip Register" rows={allRows.filter((row) => row.slipDays > 0).sort((a, b) => b.slipDays - a.slipDays).slice(0, 6)} empty="No slipped activities." />
-        </div>
-        <div className="text-body-sm text-ink-tertiary">{highRisk} high-risk · {waiting} approvals · {slipping} slipped activities</div>
-      </div>
-      <div className="lg:col-span-2">
-        <div className="mb-3 mt-4 flex items-center justify-between">
-          <h3 className="text-section-title text-ink-primary">Charts Library</h3>
-          <span className="text-body-sm text-ink-tertiary">C1-C24 · PNG export</span>
+        {(waiting > 0 || blocked > 0) && <div className="border-t border-black/[0.06] px-3 py-1.5 text-[11px] text-ink-tertiary">{waiting} awaiting approval · {blocked} blocked</div>}
+      </section>
+
+      <div>
+        <div className="mb-2 flex items-center justify-between">
+          <h3 className="text-body-sm font-semibold text-ink-primary">Project reports</h3>
+          <span className="text-[11px] text-ink-tertiary">Calculated from current project records</span>
         </div>
         <ProjectChartsLibrary project={project} />
       </div>
-      <div className="overflow-hidden rounded-card border border-black/[0.08] bg-white shadow-card lg:col-span-2">
-        <div className="border-b border-black/[0.08] px-4 py-3"><h3 className="text-section-title text-ink-primary">Users and resources on this project</h3></div>
+
+      <div className="overflow-hidden rounded-lg border border-black/[0.08] bg-white shadow-sm">
+        <div className="border-b border-black/[0.08] px-3 py-2"><h3 className="text-body-sm font-semibold text-ink-primary">Project resource activity</h3></div>
         <table className="w-full text-left text-body-sm">
-          <thead className="bg-surface-muted/50 text-[11px] uppercase tracking-wide text-ink-tertiary"><tr><th className="px-4 py-2">User / resource</th><th className="px-4 py-2 text-right">Total tasks</th><th className="px-4 py-2 text-right">Estimated hours</th><th className="px-4 py-2 text-right">Completed</th><th className="px-4 py-2">Status</th></tr></thead>
-          <tbody>{resourceRows.map((resource) => { const completed = resource.tasks.filter((task) => task.status === 'FINISHED' || task.status === 'APPROVED').length; return <tr key={resource.id} className="border-t border-black/[0.05]"><td className="px-4 py-2 font-medium text-ink-primary">{resource.name}</td><td className="px-4 py-2 text-right">{resource.tasks.length}</td><td className="px-4 py-2 text-right">{resource.hours}</td><td className="px-4 py-2 text-right">{completed}</td><td className="px-4 py-2"><span className={cn('rounded-pill px-2 py-0.5 text-[11px]', completed === resource.tasks.length && resource.tasks.length ? 'bg-success-50 text-success-700' : 'bg-primary-50 text-primary-700')}>{completed === resource.tasks.length && resource.tasks.length ? 'Complete' : 'In progress'}</span></td></tr> })}</tbody>
+          <thead className="bg-surface-muted/50 text-[10px] uppercase tracking-wide text-ink-tertiary"><tr><th className="px-3 py-1.5">User or resource</th><th className="px-3 py-1.5 text-right">Assigned activities</th><th className="px-3 py-1.5 text-right">Estimated hours</th><th className="px-3 py-1.5 text-right">Completed activities</th><th className="px-3 py-1.5">Delivery status</th></tr></thead>
+          <tbody>{resourceRows.map((resource) => { const completed = resource.tasks.filter((task) => task.status === 'FINISHED' || task.status === 'APPROVED').length; return <tr key={resource.id} className="border-t border-black/[0.05]"><td className="px-3 py-1.5 font-medium text-ink-primary">{resource.name}</td><td className="px-3 py-1.5 text-right tabular-nums">{resource.tasks.length}</td><td className="px-3 py-1.5 text-right tabular-nums">{resource.hours}</td><td className="px-3 py-1.5 text-right tabular-nums">{completed}</td><td className="px-3 py-1.5"><span className={cn('rounded-full px-2 py-0.5 text-[10px]', completed === resource.tasks.length && resource.tasks.length ? 'bg-success-50 text-success-700' : 'bg-primary-50 text-primary-700')}>{completed === resource.tasks.length && resource.tasks.length ? 'Complete' : 'In progress'}</span></td></tr> })}</tbody>
         </table>
       </div>
     </div>
@@ -627,22 +638,35 @@ function ProjectOverviewView({ project, rows, allRows }: { project: ProjectDetai
 }
 
 function OverviewTimeline({ project }: { project: ProjectDetail }) {
-  const start = new Date(project.plannedStart)
-  const end = new Date(project.plannedEnd)
-  const totalDays = Math.max(1, differenceInCalendarDays(end, start) + 1)
+  const phaseRows = project.phases.map((phase) => {
+    const activities = phase.milestones.flatMap((milestone) => milestone.activities).filter((activity) => activity.currentStart && activity.currentEnd)
+    const start = activities.length ? new Date(Math.min(...activities.map((activity) => new Date(activity.currentStart!).getTime()))) : null
+    const end = activities.length ? new Date(Math.max(...activities.map((activity) => new Date(activity.currentEnd!).getTime()))) : null
+    return { id: phase.id, name: phase.name, start, end }
+  }).filter((phase): phase is { id: string; name: string; start: Date; end: Date } => Boolean(phase.start && phase.end))
+  const rangeStart = new Date(Math.min(new Date(project.plannedStart).getTime(), ...phaseRows.map((phase) => phase.start.getTime())))
+  const rangeEnd = new Date(Math.max(new Date(project.plannedEnd).getTime(), ...phaseRows.map((phase) => phase.end.getTime())))
+  const totalDays = Math.max(1, differenceInCalendarDays(rangeEnd, rangeStart) + 1)
+  const todayOffset = differenceInCalendarDays(new Date(), rangeStart) / totalDays * 100
   return (
-    <div className="overflow-hidden rounded-card border border-black/[0.08] bg-white shadow-card">
-      <div className="flex items-center justify-between border-b border-black/[0.08] px-4 py-3"><h3 className="text-section-title text-ink-primary">Timeline</h3><span className="text-[11px] text-ink-tertiary">Auto scale · {fmtDate(project.plannedStart)} – {fmtDate(project.plannedEnd)}</span></div>
-      <div className="relative min-h-[190px] overflow-hidden bg-[repeating-linear-gradient(to_right,transparent_0,transparent_calc(12.5%-1px),rgba(0,0,0,0.055)_calc(12.5%-1px),rgba(0,0,0,0.055)_12.5%)] p-5">
-        {project.phases.map((phase, index) => {
-          const activities = phase.milestones.flatMap((milestone) => milestone.activities).filter((activity) => activity.currentStart && activity.currentEnd)
-          const phaseStart = activities.length ? new Date(Math.min(...activities.map((activity) => new Date(activity.currentStart!).getTime()))) : null
-          const phaseEnd = activities.length ? new Date(Math.max(...activities.map((activity) => new Date(activity.currentEnd!).getTime()))) : null
-          if (!phaseStart || !phaseEnd) return null
-          const left = Math.max(0, differenceInCalendarDays(phaseStart, start)) / totalDays * 100
-          const width = Math.max(1.5, (differenceInCalendarDays(phaseEnd, phaseStart) + 1) / totalDays * 100)
-          return <div key={phase.id} className="absolute h-9 truncate rounded bg-sky-500 px-3 text-[11px] font-medium leading-9 text-white shadow-sm" style={{ top: 28 + index * 42, left: `${left}%`, width: `${Math.min(100 - left, width)}%` }} title={phase.name}>{phase.name}</div>
+    <div className="overflow-hidden rounded-lg border border-black/[0.08] bg-white shadow-sm">
+      <div className="flex items-center justify-between border-b border-black/[0.08] px-3 py-2"><h3 className="text-body-sm font-semibold text-ink-primary">Current phase schedule</h3><span className="text-[11px] text-ink-tertiary">{fmtDate(rangeStart.toISOString())} – {fmtDate(rangeEnd.toISOString())}</span></div>
+      <div className="overflow-x-auto p-3">
+        <div className="min-w-[680px] space-y-1.5">
+        {phaseRows.map((phase) => {
+          const left = Math.max(0, differenceInCalendarDays(phase.start, rangeStart)) / totalDays * 100
+          const width = Math.max(1.5, (differenceInCalendarDays(phase.end, phase.start) + 1) / totalDays * 100)
+          return <div key={phase.id} className="grid grid-cols-[minmax(150px,220px)_1fr_110px] items-center gap-3">
+            <div className="truncate text-[11px] font-medium text-ink-secondary" title={phase.name}>{phase.name}</div>
+            <div className="relative h-5 overflow-hidden rounded bg-surface-muted">
+              {todayOffset >= 0 && todayOffset <= 100 && <span className="absolute inset-y-0 z-10 w-px bg-danger-500" style={{ left: `${todayOffset}%` }} title="Today" />}
+              <div className="absolute inset-y-1 rounded bg-primary-500" style={{ left: `${left}%`, width: `${Math.min(100 - left, width)}%` }} />
+            </div>
+            <div className="text-right text-[10px] tabular-nums text-ink-tertiary">{fmtDate(phase.start.toISOString())} – {fmtDate(phase.end.toISOString())}</div>
+          </div>
         })}
+        {phaseRows.length === 0 && <div className="py-4 text-center text-body-sm text-ink-tertiary">No scheduled phase activities.</div>}
+        </div>
       </div>
     </div>
   )
@@ -671,6 +695,7 @@ function pushActivity(rows: ProjectActivityRow[], activity: ActivityNode, phase:
     ownerParty: activity.ownerParty,
     priority: activity.priority,
     risk: activity.risk,
+    isBlocked: activity.isBlocked,
     percentComplete: activity.percentComplete,
     estimatedHours: activity.estimatedHours,
     currentStart: activity.currentStart,
@@ -684,37 +709,28 @@ function StatusPill({ status }: { status: ActivityStatus }) {
   return <span className={cn('rounded-pill px-2 py-0.5 text-[11px] font-medium', statusBg(status), 'text-ink-primary')}>{ACTIVITY_STATUS_LABEL[status]}</span>
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+function OverviewMetric({ icon: Icon, label, value, helper, tone = 'normal' }: { icon: typeof BarChart3; label: string; value: string | number; helper?: string; tone?: 'normal' | 'warning' | 'danger' }) {
   return (
-    <div className="rounded-md bg-surface-muted/60 px-3 py-2">
-      <div className="text-[11px] text-ink-tertiary">{label}</div>
-      <div className="text-body font-semibold text-ink-primary">{value}</div>
-    </div>
-  )
-}
-
-function MetricCard({ icon: Icon, label, value, tone = 'normal' }: { icon: typeof BarChart3; label: string; value: string | number; tone?: 'normal' | 'warning' | 'danger' }) {
-  return (
-    <div className={cn('rounded-card border border-black/[0.08] bg-surface-card p-4 shadow-card', tone === 'warning' && 'border-warning-500/30 bg-warning-50', tone === 'danger' && 'border-danger-500/30 bg-danger-50')}>
-      <Icon className="mb-2 size-4 text-ink-tertiary" />
-      <div className="text-[11px] text-ink-tertiary">{label}</div>
-      <div className="text-section-title text-ink-primary">{value}</div>
+    <div className={cn('min-w-0 p-3', tone === 'warning' && 'bg-warning-50', tone === 'danger' && 'bg-danger-50')}>
+      <div className="flex items-center gap-1.5 text-[10px] font-medium text-ink-tertiary"><Icon className="size-3.5" /> <span className="truncate">{label}</span></div>
+      <div className="mt-1 text-lg font-semibold tabular-nums text-ink-primary">{value}</div>
+      {helper && <div className="truncate text-[10px] text-ink-tertiary">{helper}</div>}
     </div>
   )
 }
 
 function Register({ title, rows, empty }: { title: string; rows: ProjectActivityRow[]; empty: string }) {
   return (
-    <div className="rounded-card border border-black/[0.08] bg-surface-card p-3 shadow-card">
-      <div className="mb-2 text-body font-medium text-ink-primary">{title}</div>
+    <div className="min-w-0 p-3">
+      <div className="mb-1.5 text-[11px] font-semibold text-ink-primary">{title}</div>
       {rows.length === 0 ? (
-        <div className="text-body-sm text-ink-tertiary">{empty}</div>
+        <div className="py-1 text-[11px] text-ink-tertiary">{empty}</div>
       ) : (
-        <div className="space-y-2">
+        <div className="divide-y divide-black/[0.05]">
           {rows.map((row) => (
-            <div key={row.id} className="rounded-md bg-surface-muted/50 px-2 py-1.5">
-              <div className="truncate text-body-sm font-medium text-ink-primary">{row.title}</div>
-              <div className="text-[11px] text-ink-tertiary">{row.phase} · {ACTIVITY_STATUS_LABEL[row.status]}</div>
+            <div key={row.id} className="flex items-center justify-between gap-3 py-1.5">
+              <div className="min-w-0"><div className="truncate text-[11px] font-medium text-ink-primary">{row.title}</div><div className="truncate text-[10px] text-ink-tertiary">{row.phase}</div></div>
+              <span className="shrink-0 text-[10px] text-ink-tertiary">{row.slipDays > 0 ? `${row.slipDays} days` : ACTIVITY_STATUS_LABEL[row.status]}</span>
             </div>
           ))}
         </div>

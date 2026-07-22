@@ -11,29 +11,30 @@ interface ChartWrapperProps {
   children: ReactNode
 }
 
-export function ChartWrapper({ id, title, description, height = 260, children }: ChartWrapperProps) {
+export function ChartWrapper({ id, title, description, height = 220, children }: ChartWrapperProps) {
   const autoId = useId().replace(/:/g, '')
   const domId = `project-chart-${id}-${autoId}`
 
   return (
     <section
       id={domId}
-      className="rounded-card border bg-surface-card p-4 shadow-card"
+      className="rounded-lg border bg-surface-card p-3 shadow-sm"
       style={{ borderColor: 'var(--ap-border)' }}
       data-chart-id={id}
     >
-      <div className="mb-3 flex items-start justify-between gap-3">
+      <div className="mb-2 flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-body font-semibold text-ink-primary">{id} · {title}</div>
+          <div className="text-body-sm font-semibold text-ink-primary">{title}</div>
           {description && <div className="mt-0.5 text-body-xs text-ink-tertiary">{description}</div>}
         </div>
         <button
           type="button"
           onClick={() => exportChartPng(domId, `${id.toLowerCase()}-${slug(title)}.png`)}
-          className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border px-2 py-1 text-body-xs text-ink-secondary hover:bg-surface-hover"
+          className="inline-flex size-7 shrink-0 items-center justify-center rounded-md border border-border text-ink-secondary hover:bg-surface-hover"
           title="Export PNG"
+          aria-label={`Export ${title} as PNG`}
         >
-          <Download className="size-3.5" /> PNG
+          <Download className="size-3.5" />
         </button>
       </div>
       <div style={{ height }} className="min-w-0">

@@ -123,6 +123,15 @@ export function ProjectWorkspaceClient({ projectId, user }: Props) {
             <div className="truncate text-[9px] text-ink-tertiary">{project.code} · {project.clientName}</div>
           </div>
 
+          <Link
+            href="/dashboard/projects"
+            className="order-first inline-flex h-8 shrink-0 items-center gap-1 rounded-md border border-black/[0.1] px-2 text-[12px] font-medium text-ink-secondary hover:bg-surface-hover hover:text-ink-primary"
+            aria-label="Back to all projects"
+            title="Back to all projects"
+          >
+            <ArrowLeft className="size-3.5" />
+            <span className="hidden lg:inline">Projects</span>
+          </Link>
           <button type="button" className="rounded p-1.5 text-ink-secondary hover:bg-surface-hover" onClick={() => setControlsOpen(true)} aria-label="Project settings"><Settings className="size-3.5" /></button>
           <select
             value={project.ragStatus}

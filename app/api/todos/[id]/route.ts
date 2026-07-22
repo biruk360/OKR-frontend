@@ -8,6 +8,7 @@ import { recordActivity } from '@/lib/activity-log'
 import { emit, resolveTodoStakeholders } from '@/lib/notifications'
 import { broadcastSprintEvent } from '@/lib/pusher'
 import { recalcKrFromInitiatives, recalcNodeAndAncestors } from '@/lib/objectiveProgress'
+import { hasTodoParticipantWriteAccess } from '@/lib/todos/access'
 import {
   apiSuccess,
   apiBadRequest,
@@ -114,7 +115,8 @@ export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { sess
 
   if (!existingTodo) return apiNotFound('To-do not found')
 
-  // Permission: creator/assignee can always edit. KR/objective managers can also edit linked todos.
+  // Permission: creators, assignees, and explicit task members can always edit.
+  // KR/objective managers can also edit linked todos.
   const kr = existingTodo.keyResult
   let canManageKr = false
   if (kr) {
@@ -129,25 +131,31 @@ export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { sess
       }
     )
   }
+  const intrinsicHasAccess = hasTodoParticipantWriteAccess(session.user.id, {
+    assigneeId: existingTodo.assigneeId,
+    creatorId: existingTodo.creatorId,
+    memberIds: existingTodo.members.map((member) => member.userId),
+  })
   const legacyHasAccess =
-    session.user.id === existingTodo.assigneeId ||
-    session.user.id === existingTodo.creatorId ||
+    intrinsicHasAccess ||
     canManageKr ||
     (['ADMIN', 'EXECUTIVE', 'DEPARTMENT_LEAD'] as string[]).includes(session.user.role)
 
   let hasAccess = legacyHasAccess
   try {
-    hasAccess = await resolveDocTypePermission(session.user.id, 'todo', 'write')
-    if (hasAccess) {
+    let rbacHasAccess = await resolveDocTypePermission(session.user.id, 'todo', 'write')
+    if (rbacHasAccess) {
       const scopeFilter = await buildScopeFilter(session.user.id, 'todo', 'write')
       if (scopeFilter) {
         const scopedTodo = await prisma.todo.findFirst({
           where: { id: todoId, AND: [scopeFilter] },
           select: { id: true },
         })
-        hasAccess = scopedTodo !== null
+        rbacHasAccess = scopedTodo !== null
       }
     }
+    // DB permissions can expand access, but must not revoke participant access.
+    hasAccess = legacyHasAccess || rbacHasAccess
   } catch {
     // Keep legacy access only while a deployment is still applying RBAC tables.
   }

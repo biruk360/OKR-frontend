@@ -1,14 +1,12 @@
 'use client'
 
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import ReactFlow, { Background, Controls, ReactFlowProvider, type Edge, type Node } from 'reactflow'
 import 'reactflow/dist/style.css'
 import {
   BarChart3,
   CalendarDays,
-  ChevronDown,
-  ChevronRight,
   Columns,
   GitFork,
   LayoutDashboard,
@@ -38,7 +36,20 @@ import {
   type ActivityNode,
   type ProjectDetail,
 } from '../../hooks/useProject'
-import { GanttChart } from '../gantt/GanttChart'
+import {
+  DEFAULT_TASK_COLUMN_WIDTH,
+  GanttChart,
+  MAX_TASK_COLUMN_WIDTH,
+  MIN_TASK_COLUMN_WIDTH,
+  SCHEDULE_ROW_HEIGHT,
+  ScheduleGridHeader,
+  ScheduleGridRow,
+  TASK_COLUMN_WIDTH_KEY,
+  buildColumnTemplate,
+  buildRows,
+  type GanttRow,
+  type OptionalColumn,
+} from '../gantt/GanttChart'
 import { ActivityDetailPanel } from '../activity/ActivityDetailPanel'
 import { ProjectChartsLibrary } from '../charts/ProjectChartsLibrary'
 
@@ -73,6 +84,27 @@ const VIEW_CONFIG: Array<{ key: ProjectScheduleView; label: string; Icon: typeof
   { key: 'mindmap', label: 'Mindmap', Icon: Network },
   { key: 'overview', label: 'Overview', Icon: LayoutDashboard },
 ]
+
+const TABLE_COLUMNS: OptionalColumn[] = [
+  'subtasks',
+  'assignee',
+  'owner',
+  'tags',
+  'estimatedHours',
+  'actualHours',
+  'estimatedCost',
+  'actualCost',
+  'start',
+  'workingDays',
+  'calendarDays',
+  'due',
+  'priority',
+  'risk',
+  'slipDays',
+  'status',
+  'percent',
+]
+const TABLE_GRID_WIDTH = 1840
 
 export function ProjectViewSwitcher({ project, canEdit }: Props) {
   const router = useRouter()
@@ -173,17 +205,15 @@ export function ProjectViewSwitcher({ project, canEdit }: Props) {
         </div>}
       </div>
 
-      <div className={activeView === 'gantt' ? 'p-1.5' : 'p-3'}>
+      <div className={activeView === 'gantt' || activeView === 'table' ? 'p-1.5' : 'p-3'}>
       {activeView === 'gantt' && <GanttChart project={project} canEdit={canEdit} onActivityOpen={setSelectedActivityId} />}
       {activeView === 'table' && (
         <ProjectTableView
           project={project}
           rows={filteredRows}
           canEdit={canEdit}
-          isSaving={updateActivity.isPending}
           onOpen={setSelectedActivityId}
           onStatusChange={changeActivityStatus}
-          onPercentChange={(activityId, percentComplete) => updateActivity.mutate({ activityId, percentComplete })}
         />
       )}
       {activeView === 'board' && (
@@ -208,28 +238,42 @@ function ProjectTableView({
   project,
   rows,
   canEdit,
-  isSaving,
   onOpen,
   onStatusChange,
-  onPercentChange,
 }: {
   project: ProjectDetail
   rows: ProjectActivityRow[]
   canEdit: boolean
-  isSaving: boolean
   onOpen: (activityId: string) => void
   onStatusChange: (activityId: string, status: ActivityStatus) => void
-  onPercentChange: (activityId: string, percentComplete: number) => void
 }) {
-  const [selected, setSelected] = useState<Set<string>>(new Set())
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const [taskColumnWidth, setTaskColumnWidth] = useState(DEFAULT_TASK_COLUMN_WIDTH)
+  const [widthHydrated, setWidthHydrated] = useState(false)
   const addActivity = useAddActivity(project.id)
   const addPhase = useAddPhase(project.id)
   const addMilestone = useAddMilestone(project.id)
+  const updateActivity = useUpdateActivity(project.id)
   const { users } = useUsersForSelection()
   const visibleIds = useMemo(() => new Set(rows.map((row) => row.id)), [rows])
   const userNames = useMemo(() => new Map(users.map((user) => [user.id, user.name ?? user.email])), [users])
-  const selectedIds = [...selected].filter((id) => rows.some((row) => row.id === id))
+  const allScheduleRows = useMemo(() => buildRows(project, 'position', 'phase'), [project])
+  const scheduleRows = useMemo(() => visibleScheduleRows(allScheduleRows, visibleIds, collapsed), [allScheduleRows, collapsed, visibleIds])
+  const columnTemplate = buildColumnTemplate(TABLE_COLUMNS, taskColumnWidth)
+
+  useEffect(() => {
+    const savedValue = localStorage.getItem(TASK_COLUMN_WIDTH_KEY)
+    const savedWidth = savedValue === null ? null : Number(savedValue)
+    if (savedWidth !== null && Number.isFinite(savedWidth)) {
+      setTaskColumnWidth(Math.min(MAX_TASK_COLUMN_WIDTH, Math.max(MIN_TASK_COLUMN_WIDTH, savedWidth)))
+    }
+    setWidthHydrated(true)
+  }, [])
+
+  useEffect(() => {
+    if (!widthHydrated) return
+    localStorage.setItem(TASK_COLUMN_WIDTH_KEY, String(taskColumnWidth))
+  }, [taskColumnWidth, widthHydrated])
 
   const addTaskToMilestone = async (milestoneId: string) => {
     const title = window.prompt('Task name')?.trim()
@@ -244,197 +288,87 @@ function ProjectTableView({
     await addMilestone.mutateAsync({ phaseId: phase.id, name: 'General', weight: 1 })
   }
 
-  return (
-    <div className="w-full rounded-card border border-black/[0.08] bg-surface-card shadow-card">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-black/[0.08] px-3 py-2">
-        <div>
-          <div className="text-body font-medium text-ink-primary">Schedule table</div>
-          <div className="text-[12px] text-ink-tertiary">{rows.length} visible activities · timeline hidden</div>
-        </div>
-        <div className="flex items-center gap-2">
-          <select
-            className="rounded-md border border-black/[0.08] bg-surface-card px-2 py-1 text-body-sm"
-            disabled={!canEdit || selectedIds.length === 0 || isSaving}
-            defaultValue=""
-            onChange={(e) => {
-              const next = e.target.value as ActivityStatus
-              if (!next) return
-              selectedIds.forEach((id) => onStatusChange(id, next))
-              e.currentTarget.value = ''
-            }}
-          >
-            <option value="">Bulk status</option>
-            {ACTIVITY_STATUSES.map((status) => <option key={status} value={status}>{ACTIVITY_STATUS_LABEL[status]}</option>)}
-          </select>
-          <button className="btn btn-outline btn-sm" onClick={() => setSelected(new Set())} disabled={selectedIds.length === 0}>
-            Clear
-          </button>
-        </div>
-      </div>
-      <div className="overflow-auto">
-        <table className="w-full min-w-[1580px] table-fixed text-left text-[12px]">
-          <thead className="sticky top-0 z-10 border-b border-black/[0.08] bg-surface-muted/80 uppercase tracking-[0.04em] text-ink-tertiary backdrop-blur">
-            <tr>
-              <th className="w-[360px] px-3 py-2 font-medium">Activity</th>
-              <th className="w-[150px] px-2 py-2 font-medium">Assignee</th>
-              <th className="w-[105px] px-2 py-2 font-medium">Owner</th>
-              <th className="w-[74px] px-2 py-2 text-right font-medium">Est. h</th>
-              <th className="w-[74px] px-2 py-2 text-right font-medium">Act. h</th>
-              <th className="w-[90px] px-2 py-2 text-right font-medium">Est. cost</th>
-              <th className="w-[90px] px-2 py-2 text-right font-medium">Act. cost</th>
-              <th className="w-[105px] px-2 py-2 font-medium">Start</th>
-              <th className="w-[76px] px-2 py-2 text-right font-medium">CD</th>
-              <th className="w-[105px] px-2 py-2 font-medium">Due</th>
-              <th className="w-[76px] px-2 py-2 text-right font-medium">Slip</th>
-              <th className="w-[90px] px-2 py-2 font-medium">Priority</th>
-              <th className="w-[80px] px-2 py-2 font-medium">Risk</th>
-              <th className="w-[145px] px-2 py-2 font-medium">Status</th>
-              <th className="w-[76px] px-2 py-2 text-right font-medium">%</th>
-            </tr>
-          </thead>
-          <tbody>
-            {project.phases.map((phase) => {
-              const phaseActivities = phase.milestones.flatMap((milestone) => milestone.activities)
-              if (!phaseActivities.some((activity) => visibleIds.has(activity.id))) return null
-              const phaseCollapsed = collapsed.has(`phase:${phase.id}`)
-              return (
-                <Fragment key={phase.id}>
-                  <tr className="border-y border-black/[0.08] bg-surface-muted/70">
-                    <td colSpan={15} className="px-3 py-2">
-                      <button className="flex w-full items-center gap-2 text-left" onClick={() => setCollapsed((current) => toggleSet(current, `phase:${phase.id}`))}>
-                        {phaseCollapsed ? <ChevronRight className="size-4" /> : <ChevronDown className="size-4" />}
-                        <span className="font-semibold text-ink-primary">{phase.name}</span>
-                        <span className="text-[11px] text-ink-tertiary">{phaseActivities.filter((activity) => visibleIds.has(activity.id)).length} activities</span>
-                        <span className="ml-auto font-medium text-ink-secondary">{Math.round(phase.percentComplete)}%</span>
-                      </button>
-                    </td>
-                  </tr>
-                  {!phaseCollapsed && phase.milestones.map((milestone) => {
-                    const ordered = orderTableActivities(milestone.activities).filter((item) => visibleIds.has(item.activity.id))
-                    if (ordered.length === 0) return null
-                    const milestoneCollapsed = collapsed.has(`milestone:${milestone.id}`)
-                    return (
-                      <Fragment key={milestone.id}>
-                        <tr className="border-b border-black/[0.06] bg-primary-50/35">
-                          <td colSpan={15} className="px-5 py-2">
-                            <button className="flex w-full items-center gap-2 text-left" onClick={() => setCollapsed((current) => toggleSet(current, `milestone:${milestone.id}`))}>
-                              {milestoneCollapsed ? <ChevronRight className="size-3.5" /> : <ChevronDown className="size-3.5" />}
-                              <span className="font-medium text-ink-primary">{milestone.name}</span>
-                              <span className="text-[11px] text-ink-tertiary">{ordered.length}</span>
-                              <span className="ml-auto text-[11px] font-medium text-ink-secondary">{Math.round(milestone.percentComplete)}%</span>
-                            </button>
-                          </td>
-                        </tr>
-                        {!milestoneCollapsed && ordered.map(({ activity, depth }) => (
-                          <TableActivityRow
-                            key={activity.id}
-                            activity={activity}
-                            depth={depth}
-                            clientName={project.clientName}
-                            assigneeName={activity.assigneeId ? userNames.get(activity.assigneeId) ?? 'Assigned' : 'Unassigned'}
-                            selected={selected.has(activity.id)}
-                            canEdit={canEdit}
-                            isSaving={isSaving}
-                            onSelect={() => setSelected((current) => toggleSet(current, activity.id))}
-                            onOpen={() => onOpen(activity.id)}
-                            onStatusChange={(status) => onStatusChange(activity.id, status)}
-                            onPercentChange={(percent) => onPercentChange(activity.id, percent)}
-                          />
-                        ))}
-                        {!milestoneCollapsed && canEdit && (
-                          <tr className="border-b border-black/[0.04]">
-                            <td colSpan={15} className="px-8 py-2">
-                              <button className="inline-flex items-center gap-1 text-[12px] font-medium text-primary-700 hover:underline" onClick={() => void addTaskToMilestone(milestone.id)}>
-                                <Plus className="size-3.5" /> Add task
-                              </button>
-                            </td>
-                          </tr>
-                        )}
-                      </Fragment>
-                    )
-                  })}
-                </Fragment>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
-      {canEdit && (
-        <div className="border-t border-black/[0.08] px-3 py-2">
-          <button className="btn btn-outline btn-sm" disabled={addPhase.isPending || addMilestone.isPending} onClick={() => void addSection()}>
-            <Plus className="mr-1 size-3.5" /> Add section
-          </button>
-        </div>
-      )}
-    </div>
-  )
-}
+  const resizeTaskColumnStart = (clientX: number) => {
+    const startX = clientX
+    const startWidth = taskColumnWidth
+    const onMove = (event: MouseEvent) => {
+      setTaskColumnWidth(Math.min(MAX_TASK_COLUMN_WIDTH, Math.max(MIN_TASK_COLUMN_WIDTH, startWidth + event.clientX - startX)))
+    }
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }
 
-function TableActivityRow({
-  activity,
-  depth,
-  clientName,
-  assigneeName,
-  selected,
-  canEdit,
-  isSaving,
-  onSelect,
-  onOpen,
-  onStatusChange,
-  onPercentChange,
-}: {
-  activity: ActivityNode
-  depth: number
-  clientName: string
-  assigneeName: string
-  selected: boolean
-  canEdit: boolean
-  isSaving: boolean
-  onSelect: () => void
-  onOpen: () => void
-  onStatusChange: (status: ActivityStatus) => void
-  onPercentChange: (percent: number) => void
-}) {
+  const updateGridActivity = async (row: GanttRow, patch: Record<string, unknown>) => {
+    if (!row.activityId) return
+    if (typeof patch.status === 'string') {
+      await onStatusChange(row.activityId, patch.status as ActivityStatus)
+      return
+    }
+    await updateActivity.mutateAsync({ activityId: row.activityId, ...patch })
+  }
+
+  const updateGridDate = (row: GanttRow, field: 'start' | 'due', value: string) => {
+    if (!row.activityId || !value) return
+    const date = new Date(`${value}T00:00:00`)
+    const currentStart = field === 'start' ? date : (row.start ?? date)
+    const currentEnd = field === 'due' ? date : (row.end ?? date)
+    if (currentEnd < currentStart) return
+    updateActivity.mutate({ activityId: row.activityId, currentStart: currentStart.toISOString(), currentEnd: currentEnd.toISOString() })
+  }
+
+  const openTaskCreator = (row: GanttRow) => {
+    if (row.type === 'phase') {
+      const phase = project.phases.find((item) => `phase:${item.id}` === row.id)
+      const milestoneId = phase?.milestones[0]?.id
+      if (milestoneId) void addTaskToMilestone(milestoneId)
+      return
+    }
+    if (row.milestoneId) void addTaskToMilestone(row.milestoneId)
+  }
+
   return (
-    <tr className="border-b border-black/[0.04] text-ink-secondary hover:bg-surface-hover">
-      <td className="px-3 py-1.5">
-        <div className="flex min-w-0 items-center gap-2" style={{ paddingLeft: depth * 24 }}>
-          <input type="checkbox" checked={selected} onChange={onSelect} aria-label={`Select ${activity.title}`} />
-          <button className="min-w-0 truncate text-left font-medium text-ink-primary hover:text-primary-700 hover:underline" onClick={onOpen}>{activity.title}</button>
+    <div className="w-full overflow-hidden border border-black/[0.08] bg-white">
+      <div className="overflow-auto" style={{ maxHeight: 'calc(100vh - 178px)' }}>
+        <div style={{ width: TABLE_GRID_WIDTH, minWidth: '100%' }}>
+          <div className="sticky top-0 z-40 h-10 border-b border-black/[0.12] bg-white">
+            <ScheduleGridHeader columns={TABLE_COLUMNS} columnTemplate={columnTemplate} onResizeTaskColumnStart={resizeTaskColumnStart} stickyTaskColumn />
+          </div>
+          {scheduleRows.map((row) => (
+            <div key={row.id} style={{ height: SCHEDULE_ROW_HEIGHT }}>
+              <ScheduleGridRow
+                row={row}
+                collapsed={collapsed.has(row.id)}
+                columns={TABLE_COLUMNS}
+                columnTemplate={columnTemplate}
+                users={users}
+                userNames={userNames}
+                clientName={project.clientName}
+                canEdit={canEdit}
+                reorderEnabled={false}
+                dragHandleProps={{}}
+                onToggle={() => setCollapsed((current) => toggleSet(current, row.id))}
+                onAddTask={() => openTaskCreator(row)}
+                onOpenActivity={onOpen}
+                onRenameActivity={async (activityId, title) => { await updateActivity.mutateAsync({ activityId, title }) }}
+                onUpdateActivity={updateGridActivity}
+                onUpdateDate={updateGridDate}
+                stickyPane={false}
+                stickyTaskColumn
+              />
+            </div>
+          ))}
+          {scheduleRows.length === 0 && <div className="flex h-48 items-center justify-center text-body-sm text-ink-secondary">No schedule rows match the current filters.</div>}
         </div>
-      </td>
-      <td className="truncate px-2 py-1.5">{assigneeName}</td>
-      <td className="truncate px-2 py-1.5" title={activity.ownerParty === 'CLIENT' ? clientName : undefined}>{activity.ownerParty === 'CLIENT' ? clientName : activity.ownerParty === '360GROUND' ? '360Ground' : labelizeTable(activity.ownerParty)}</td>
-      <td className="px-2 py-1.5 text-right">{numberCell(activity.estimatedHours)}</td>
-      <td className="px-2 py-1.5 text-right">{numberCell(activity.actualHours)}</td>
-      <td className="px-2 py-1.5 text-right">{numberCell(activity.estimatedCost)}</td>
-      <td className="px-2 py-1.5 text-right">{numberCell(activity.actualCost)}</td>
-      <td className="px-2 py-1.5">{fmtDate(activity.currentStart)}</td>
-      <td className="px-2 py-1.5 text-right">{activityDurationDays(activity)}d</td>
-      <td className="px-2 py-1.5">{fmtDate(activity.currentEnd)}</td>
-      <td className="px-2 py-1.5 text-right">{activity.slipDays}d</td>
-      <td className="px-2 py-1.5">{activity.priority ? labelizeTable(activity.priority) : '-'}</td>
-      <td className="px-2 py-1.5">{activity.risk ? labelizeTable(activity.risk) : '-'}</td>
-      <td className="px-2 py-1.5">
-        {canEdit ? (
-          <select className="w-full rounded border border-black/[0.08] bg-surface-card px-2 py-1 text-[12px]" value={activity.status} disabled={isSaving} onChange={(event) => onStatusChange(event.target.value as ActivityStatus)}>
-            {ACTIVITY_STATUSES.map((status) => <option key={status} value={status}>{ACTIVITY_STATUS_LABEL[status]}</option>)}
-          </select>
-        ) : <StatusPill status={activity.status} />}
-      </td>
-      <td className="px-2 py-1.5 text-right">
-        {canEdit ? (
-          <input
-            type="number"
-            min={0}
-            max={100}
-            defaultValue={Math.round(activity.percentComplete)}
-            className="w-14 rounded border border-black/[0.08] bg-surface-card px-1.5 py-1 text-right text-[12px]"
-            onBlur={(event) => onPercentChange(Math.max(0, Math.min(100, Number(event.target.value) || 0)))}
-          />
-        ) : `${Math.round(activity.percentComplete)}%`}
-      </td>
-    </tr>
+      </div>
+      <div className="flex h-9 items-center justify-between border-t border-black/[0.08] bg-white px-2 text-[11px] text-ink-tertiary">
+        <span>{scheduleRows.length} visible rows · timeline hidden</span>
+        {canEdit && <button className="inline-flex items-center gap-1 font-medium text-primary-700 hover:underline" disabled={addPhase.isPending || addMilestone.isPending} onClick={() => void addSection()}><Plus className="size-3.5" /> Add section</button>}
+      </div>
+    </div>
   )
 }
 
@@ -828,44 +762,28 @@ function toggleSet(current: Set<string>, id: string) {
   return next
 }
 
-function orderTableActivities(activities: ActivityNode[]): Array<{ activity: ActivityNode; depth: number }> {
-  const sorted = [...activities].sort((a, b) => a.position - b.position)
-  const children = new Map<string, ActivityNode[]>()
-  for (const activity of sorted) {
-    if (!activity.parentActivityId) continue
-    const list = children.get(activity.parentActivityId) ?? []
-    list.push(activity)
-    children.set(activity.parentActivityId, list)
-  }
-  const result: Array<{ activity: ActivityNode; depth: number }> = []
+function visibleScheduleRows(allRows: GanttRow[], visibleActivityIds: Set<string>, collapsed: Set<string>): GanttRow[] {
+  const byId = new Map(allRows.map((row) => [row.id, row]))
   const included = new Set<string>()
-  for (const activity of sorted.filter((item) => !item.parentActivityId)) {
-    result.push({ activity, depth: 0 })
-    included.add(activity.id)
-    for (const child of children.get(activity.id) ?? []) {
-      result.push({ activity: child, depth: 1 })
-      included.add(child.id)
+
+  for (const row of allRows) {
+    if (!row.activityId || !visibleActivityIds.has(row.activityId)) continue
+    let current: GanttRow | undefined = row
+    while (current) {
+      included.add(current.id)
+      current = current.parentId ? byId.get(current.parentId) : undefined
     }
   }
-  for (const activity of sorted) {
-    if (!included.has(activity.id)) result.push({ activity, depth: activity.parentActivityId ? 1 : 0 })
-  }
-  return result
-}
 
-function activityDurationDays(activity: ActivityNode): number {
-  if (!activity.currentStart || !activity.currentEnd) return 0
-  const start = new Date(activity.currentStart)
-  const end = new Date(activity.currentEnd)
-  return Math.max(1, Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1)
-}
-
-function numberCell(value: number | null): string {
-  return value == null ? '-' : new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(value)
-}
-
-function labelizeTable(value: string): string {
-  return value.replace(/_/g, ' ').toLowerCase().replace(/^\w/, (letter) => letter.toUpperCase())
+  return allRows.filter((row) => {
+    if (!included.has(row.id)) return false
+    let parentId = row.parentId
+    while (parentId) {
+      if (collapsed.has(parentId)) return false
+      parentId = byId.get(parentId)?.parentId ?? null
+    }
+    return true
+  })
 }
 
 function fmtDate(value: string | null): string {

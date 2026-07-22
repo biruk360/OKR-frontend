@@ -2,19 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import ReactFlow, {
-  Background,
-  Controls,
-  MarkerType,
-  MiniMap,
-  Panel,
-  ReactFlowProvider,
-  useEdgesState,
-  useNodesState,
-  type Edge,
-  type Node,
-} from 'reactflow'
-import 'reactflow/dist/style.css'
 import {
   BarChart3,
   CalendarDays,
@@ -64,6 +51,7 @@ import {
 } from '../gantt/GanttChart'
 import { ActivityDetailPanel } from '../activity/ActivityDetailPanel'
 import { ProjectChartsLibrary } from '../charts/ProjectChartsLibrary'
+import { ProjectHierarchyMap } from '../mindmap/ProjectHierarchyMap'
 
 interface Props {
   project: ProjectDetail
@@ -154,6 +142,7 @@ export function ProjectViewSwitcher({ project, canEdit }: Props) {
       return matchesSearch && matchesStatus && matchesAssignee && matchesPriority && matchesRisk
     })
   }, [rows, search, status, assignee, priority, risk])
+  const filteredActivityIds = useMemo(() => filteredRows.map((row) => row.id), [filteredRows])
 
   const changeActivityStatus = async (activityId: string, nextStatus: ActivityStatus) => {
     try {
@@ -238,7 +227,14 @@ export function ProjectViewSwitcher({ project, canEdit }: Props) {
         />
       )}
       {activeView === 'workload' && <ProjectWorkloadView project={project} rows={filteredRows} />}
-      {activeView === 'mindmap' && <ProjectMindmapView project={project} rows={filteredRows} onOpen={setSelectedActivityId} />}
+      {activeView === 'mindmap' && (
+        <ProjectHierarchyMap
+          project={project}
+          visibleActivityIds={filteredActivityIds}
+          isFiltered={filteredRows.length !== rows.length}
+          onOpenActivity={setSelectedActivityId}
+        />
+      )}
       {activeView === 'overview' && <ProjectOverviewView project={project} rows={filteredRows} allRows={rows} />}
       </div>
       <ActivityDetailPanel project={project} activityId={selectedActivityId} canEdit={canEdit} onClose={() => { setSelectedActivityId(null); if (searchParams.has('activity')) router.replace(pathname, { scroll: false }) }} />
@@ -569,48 +565,6 @@ function ProjectWorkloadView({ project, rows }: { project: ProjectDetail; rows: 
   )
 }
 
-function ProjectMindmapView({ project, rows, onOpen }: { project: ProjectDetail; rows: ProjectActivityRow[]; onOpen: (activityId: string) => void }) {
-  const graph = useMemo(() => buildMindmap(project, rows), [project, rows])
-  const [nodes, setNodes, onNodesChange] = useNodesState(graph.nodes)
-  const [edges, setEdges, onEdgesChange] = useEdgesState(graph.edges)
-
-  useEffect(() => {
-    setNodes(graph.nodes)
-    setEdges(graph.edges)
-  }, [graph, setEdges, setNodes])
-
-  return (
-    <div className="h-[calc(100vh-165px)] min-h-[520px] overflow-hidden border border-black/[0.08] bg-[#f4f4f5]">
-      <ReactFlowProvider>
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          fitView
-          fitViewOptions={{ padding: 0.18, maxZoom: 1.1 }}
-          minZoom={0.12}
-          maxZoom={1.8}
-          panOnScroll
-          selectionOnDrag
-          panOnDrag={false}
-          multiSelectionKeyCode="Meta"
-          proOptions={{ hideAttribution: true }}
-          defaultEdgeOptions={{ type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14 }, style: { stroke: '#9ca3af', strokeWidth: 1.4 } }}
-          onNodeDoubleClick={(_event, node) => { if (node.id.startsWith('activity:')) onOpen(node.id.slice('activity:'.length)) }}
-        >
-          <Background color="#d4d4d8" gap={20} size={1} />
-          <Controls className="!shadow-md" />
-          <MiniMap pannable zoomable nodeColor={(node) => node.id.startsWith('activity:') ? '#93c5fd' : node.id.startsWith('phase:') ? '#2563eb' : '#64748b'} />
-          <Panel position="top-left" className="rounded-md border border-black/[0.08] bg-white/95 px-2 py-1 text-[11px] text-ink-secondary shadow-sm">
-            Drag nodes to organize · double-click a task to open
-          </Panel>
-        </ReactFlow>
-      </ReactFlowProvider>
-    </div>
-  )
-}
-
 function ProjectOverviewView({ project, rows, allRows }: { project: ProjectDetail; rows: ProjectActivityRow[]; allRows: ProjectActivityRow[] }) {
   const { users } = useUsersForSelection()
   const userNames = useMemo(() => new Map(users.map((user) => [user.id, user.name ?? user.email])), [users])
@@ -724,57 +678,6 @@ function pushActivity(rows: ProjectActivityRow[], activity: ActivityNode, phase:
     slipDays: activity.slipDays,
     commentsCount: activity._count.comments,
   })
-}
-
-function buildMindmap(project: ProjectDetail, rows: ProjectActivityRow[]): { nodes: Node[]; edges: Edge[] } {
-  const nodes: Node[] = [{ id: project.id, data: { label: project.name }, position: { x: 0, y: 0 }, className: 'rounded-md border border-primary-500 bg-primary-50 px-3 py-2 text-ink-primary' }]
-  const edges: Edge[] = []
-  const phaseRadius = 240
-  const milestoneRadius = 420
-  const activityRadius = 620
-  const visibleActivityIds = new Set(rows.map((row) => row.id))
-  project.phases.forEach((phase, phaseIndex) => {
-    const phaseAngle = (Math.PI * 2 * phaseIndex) / Math.max(1, project.phases.length)
-    const phaseId = `phase:${phase.id}`
-    nodes.push({ id: phaseId, data: { label: phase.name }, position: polar(phaseRadius, phaseAngle), className: 'rounded-md border border-primary-500 bg-white px-3 py-2 font-medium text-ink-primary shadow-sm' })
-    edges.push({ id: `${project.id}-${phaseId}`, source: project.id, target: phaseId, type: 'smoothstep' })
-    phase.milestones.forEach((milestone, milestoneIndex) => {
-      const milestoneAngle = phaseAngle - 0.35 + (0.7 * milestoneIndex) / Math.max(1, phase.milestones.length - 1)
-      const milestoneId = `milestone:${milestone.id}`
-      nodes.push({ id: milestoneId, data: { label: milestone.name }, position: polar(milestoneRadius, milestoneAngle), className: 'rounded-md border border-black/[0.12] bg-surface-muted px-3 py-2 text-ink-primary shadow-sm' })
-      edges.push({ id: `${phaseId}-${milestoneId}`, source: phaseId, target: milestoneId, type: 'smoothstep' })
-      const activities = milestone.activities.filter((activity) => visibleActivityIds.has(activity.id)).slice(0, 16)
-      activities.forEach((activity, activityIndex) => {
-        const spread = 0.42
-        const angle = milestoneAngle - spread / 2 + (spread * activityIndex) / Math.max(1, activities.length - 1)
-        const id = `activity:${activity.id}`
-        nodes.push({ id, data: { label: activity.title }, position: polar(activityRadius, angle), className: cn('rounded-md border px-2 py-1 text-[11px] font-medium shadow-sm', statusBg(activity.status), activity.status === 'FINISHED' ? 'text-white' : 'text-ink-primary') })
-        edges.push({ id: `${milestoneId}-${id}`, source: milestoneId, target: id, type: 'smoothstep' })
-      })
-    })
-  })
-  const nodeIds = new Set(nodes.map((node) => node.id))
-  for (const dependency of project.dependencies) {
-    const source = `activity:${dependency.predecessorId}`
-    const target = `activity:${dependency.successorId}`
-    if (!nodeIds.has(source) || !nodeIds.has(target)) continue
-    edges.push({
-      id: `dependency:${dependency.id}`,
-      source,
-      target,
-      type: 'smoothstep',
-      label: dependency.type,
-      animated: true,
-      markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14, color: '#007AFF' },
-      style: { stroke: '#007AFF', strokeWidth: 1.8, strokeDasharray: '5 4' },
-      labelStyle: { fontSize: 9, fill: '#0051D5', fontWeight: 600 },
-    })
-  }
-  return { nodes, edges }
-}
-
-function polar(radius: number, angle: number) {
-  return { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius }
 }
 
 function StatusPill({ status }: { status: ActivityStatus }) {

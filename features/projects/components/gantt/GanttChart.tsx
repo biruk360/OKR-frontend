@@ -89,13 +89,13 @@ import { AiAssistantPanel } from '../ai/AiAssistantPanel'
 import { ProjectDatePicker } from '../ProjectDatePicker'
 
 type GanttScale = 'days' | 'weeks' | 'months' | 'quarters' | 'years'
-type GanttSort = 'position' | 'name' | 'date' | 'status' | 'priority'
-type GanttSegment = 'phase' | 'assignee' | 'status' | 'owner'
-type OptionalColumn = 'owner' | 'assignee' | 'start' | 'due' | 'calendarDays' | 'priority' | 'risk' | 'status' | 'percent' | 'estimatedHours' | 'slipDays'
+export type GanttSort = 'position' | 'name' | 'date' | 'status' | 'priority'
+export type GanttSegment = 'phase' | 'assignee' | 'status' | 'owner'
+export type OptionalColumn = 'owner' | 'assignee' | 'subtasks' | 'tags' | 'start' | 'workingDays' | 'due' | 'calendarDays' | 'priority' | 'risk' | 'status' | 'percent' | 'estimatedHours' | 'actualHours' | 'estimatedCost' | 'actualCost' | 'slipDays'
 type GanttRowType = 'phase' | 'milestone' | 'activity' | 'subactivity'
 type ExportFormat = 'pdf' | 'png' | 'csv' | 'xml'
 
-interface GanttRow {
+export interface GanttRow {
   id: string
   activityId: string | null
   milestoneId: string | null
@@ -112,6 +112,11 @@ interface GanttRow {
   priority?: string | null
   risk?: string | null
   estimatedHours?: number | null
+  actualHours?: number | null
+  estimatedCost?: number | null
+  actualCost?: number | null
+  tags: string[]
+  subtasksCount: number
   slipDays: number
   commentsCount: number
   start: Date | null
@@ -169,14 +174,19 @@ interface TimelineUnit {
   width: number
 }
 
-const ROW_HEIGHT = 32
+export const SCHEDULE_ROW_HEIGHT = 32
+const ROW_HEIGHT = SCHEDULE_ROW_HEIGHT
 const HEADER_HEIGHT = 48
 const MIN_LEFT_WIDTH = 520
-const DEFAULT_LEFT_WIDTH = 620
+const DEFAULT_LEFT_WIDTH = 680
 const MAX_LEFT_WIDTH = 900
+export const MIN_TASK_COLUMN_WIDTH = 210
+export const DEFAULT_TASK_COLUMN_WIDTH = 260
+export const MAX_TASK_COLUMN_WIDTH = 420
 const MIN_ZOOM = 0.45
 const MAX_ZOOM = 1.8
 const LEFT_WIDTH_KEY = 'projects.gantt.leftWidth.v4'
+export const TASK_COLUMN_WIDTH_KEY = 'projects.gantt.taskColumnWidth.v1'
 const COLLAPSE_KEY = 'projects.gantt.collapsed'
 const PREFS_KEY = 'projects.gantt.toolbarPrefs.v2'
 const SEGMENT_KEY = 'projects.gantt.segment'
@@ -193,10 +203,16 @@ const DEFAULT_PREFS: GanttToolbarPrefs = {
   showLegend: false,
 }
 const BASE_UNIT_WIDTH: Record<GanttScale, number> = { days: 34, weeks: 58, months: 78, quarters: 110, years: 148 }
-const COLUMN_LABEL: Record<OptionalColumn, string> = {
+export const COLUMN_LABEL: Record<OptionalColumn, string> = {
   assignee: 'Assignee',
+  subtasks: 'Sub',
+  tags: 'Tags',
   estimatedHours: 'EH',
+  actualHours: 'AH',
+  estimatedCost: 'EC',
+  actualCost: 'AC',
   start: 'Start',
+  workingDays: 'WD',
   due: 'Due',
   calendarDays: 'CD',
   status: 'Status',
@@ -222,6 +238,8 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
   const { users } = useUsersForSelection()
   const userNames = useMemo(() => new Map(users.map((user) => [user.id, user.name ?? user.email])), [users])
   const [leftWidth, setLeftWidth] = useState(DEFAULT_LEFT_WIDTH)
+  const [taskColumnWidth, setTaskColumnWidth] = useState(DEFAULT_TASK_COLUMN_WIDTH)
+  const [widthPrefsHydrated, setWidthPrefsHydrated] = useState(false)
   const [scale, setScale] = useState<GanttScale>('weeks')
   const [zoom, setZoom] = useState(1)
   const [sort, setSort] = useState<GanttSort>('position')
@@ -260,14 +278,21 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
   )
 
   useEffect(() => {
-    const savedWidth = Number(localStorage.getItem(LEFT_WIDTH_KEY))
-    if (Number.isFinite(savedWidth) && savedWidth <= MAX_LEFT_WIDTH) setLeftWidth(Math.max(MIN_LEFT_WIDTH, savedWidth))
+    const savedWidthValue = localStorage.getItem(LEFT_WIDTH_KEY)
+    const savedWidth = savedWidthValue === null ? null : Number(savedWidthValue)
+    if (savedWidth !== null && Number.isFinite(savedWidth) && savedWidth <= MAX_LEFT_WIDTH) setLeftWidth(Math.max(MIN_LEFT_WIDTH, savedWidth))
+    const savedTaskColumnWidthValue = localStorage.getItem(TASK_COLUMN_WIDTH_KEY)
+    const savedTaskColumnWidth = savedTaskColumnWidthValue === null ? null : Number(savedTaskColumnWidthValue)
+    if (savedTaskColumnWidth !== null && Number.isFinite(savedTaskColumnWidth)) {
+      setTaskColumnWidth(Math.min(MAX_TASK_COLUMN_WIDTH, Math.max(MIN_TASK_COLUMN_WIDTH, savedTaskColumnWidth)))
+    }
     const savedCollapsed = localStorage.getItem(COLLAPSE_KEY)
     if (savedCollapsed) setCollapsed(new Set(savedCollapsed.split(',').filter(Boolean)))
     const savedPrefs = localStorage.getItem(PREFS_KEY)
     if (savedPrefs) setToolbarPrefs({ ...DEFAULT_PREFS, ...JSON.parse(savedPrefs) })
     const savedSegment = localStorage.getItem(SEGMENT_KEY) as GanttSegment | null
     if (savedSegment && ['phase', 'assignee', 'status', 'owner'].includes(savedSegment)) setSegment(savedSegment)
+    setWidthPrefsHydrated(true)
   }, [])
 
   useEffect(() => {
@@ -275,8 +300,14 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
   }, [project.baselineVersion])
 
   useEffect(() => {
+    if (!widthPrefsHydrated) return
     localStorage.setItem(LEFT_WIDTH_KEY, String(leftWidth))
-  }, [leftWidth])
+  }, [leftWidth, widthPrefsHydrated])
+
+  useEffect(() => {
+    if (!widthPrefsHydrated) return
+    localStorage.setItem(TASK_COLUMN_WIDTH_KEY, String(taskColumnWidth))
+  }, [taskColumnWidth, widthPrefsHydrated])
 
   useEffect(() => {
     localStorage.setItem(COLLAPSE_KEY, [...collapsed].join(','))
@@ -331,7 +362,7 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
   const virtualItems = virtualizer.getVirtualItems()
   const todayX = toolbarPrefs.showToday ? dateToX(new Date(), units) : null
   const groups = groupTimelineUnits(units)
-  const columnTemplate = buildColumnTemplate(visibleColumns)
+  const columnTemplate = buildColumnTemplate(visibleColumns, taskColumnWidth)
   const previewByActivity = dragPreview
     ? new Map([
         [dragPreview.activityId, { start: dragPreview.currentStart, end: dragPreview.currentEnd }],
@@ -346,6 +377,26 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
     const startWidth = leftWidth
     const onMove = (event: MouseEvent) => {
       setLeftWidth(Math.min(MAX_LEFT_WIDTH, Math.max(MIN_LEFT_WIDTH, startWidth + event.clientX - startX)))
+    }
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }
+
+  const resizeTaskColumnStart = (clientX: number) => {
+    const startX = clientX
+    const startTaskWidth = taskColumnWidth
+    const startLeftWidth = leftWidth
+    const onMove = (event: MouseEvent) => {
+      const requestedDelta = event.clientX - startX
+      const minDelta = Math.max(MIN_TASK_COLUMN_WIDTH - startTaskWidth, MIN_LEFT_WIDTH - startLeftWidth)
+      const maxDelta = Math.min(MAX_TASK_COLUMN_WIDTH - startTaskWidth, MAX_LEFT_WIDTH - startLeftWidth)
+      const delta = Math.min(maxDelta, Math.max(minDelta, requestedDelta))
+      setTaskColumnWidth(startTaskWidth + delta)
+      setLeftWidth(startLeftWidth + delta)
     }
     const onUp = () => {
       window.removeEventListener('mousemove', onMove)
@@ -868,10 +919,7 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
             style={{ gridTemplateColumns: `${leftWidth}px ${timelineWidth}px`, height: HEADER_HEIGHT }}
           >
             <div className="z-40 border-r border-black/[0.14] bg-white shadow-[2px_0_0_rgba(0,0,0,0.04)] md:sticky md:left-0">
-              <div className="grid h-full items-center overflow-hidden text-[10px] font-semibold uppercase text-ink-secondary" style={{ gridTemplateColumns: columnTemplate }}>
-                <div className="px-2">Section / Task</div>
-                {visibleColumns.map((col) => <div key={col} className="px-2">{COLUMN_LABEL[col]}</div>)}
-              </div>
+              <ScheduleGridHeader columns={visibleColumns} columnTemplate={columnTemplate} onResizeTaskColumnStart={resizeTaskColumnStart} />
               <button
                 className="absolute right-[-4px] top-0 h-full w-2 cursor-col-resize bg-transparent hover:bg-primary-100"
                 aria-label="Resize task list"
@@ -939,7 +987,7 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
                       >
                         {(dragHandleProps) => (
                           <>
-                            <GanttTaskListRow
+                            <ScheduleGridRow
                               row={row}
                               collapsed={collapsed.has(row.id)}
                               columns={visibleColumns}
@@ -1188,7 +1236,38 @@ function GanttSortableRow({
   )
 }
 
-function GanttTaskListRow({
+export function ScheduleGridHeader({
+  columns,
+  columnTemplate,
+  onResizeTaskColumnStart,
+  stickyTaskColumn = false,
+}: {
+  columns: OptionalColumn[]
+  columnTemplate: string
+  onResizeTaskColumnStart: (clientX: number) => void
+  stickyTaskColumn?: boolean
+}) {
+  return (
+    <div className={cn('grid h-full items-center text-[10px] font-semibold uppercase text-ink-secondary', stickyTaskColumn ? 'overflow-visible' : 'overflow-hidden')} style={{ gridTemplateColumns: columnTemplate }}>
+      <div className={cn('relative flex h-full items-center px-2', stickyTaskColumn && 'sticky left-0 z-20 bg-white shadow-[2px_0_0_rgba(0,0,0,0.06)]')}>
+        <span>Section / Task</span>
+        <button
+          type="button"
+          className="absolute right-[-4px] top-0 z-10 h-full w-2 cursor-col-resize bg-transparent hover:bg-primary-100 focus:bg-primary-100 focus:outline-none"
+          aria-label="Resize section and task column"
+          title="Drag to resize section and task column"
+          onMouseDown={(event) => {
+            event.preventDefault()
+            onResizeTaskColumnStart(event.clientX)
+          }}
+        />
+      </div>
+      {columns.map((column) => <div key={column} className="truncate px-2" title={COLUMN_LABEL[column]}>{COLUMN_LABEL[column]}</div>)}
+    </div>
+  )
+}
+
+export function ScheduleGridRow({
   row,
   collapsed,
   columns,
@@ -1205,6 +1284,8 @@ function GanttTaskListRow({
   onRenameActivity,
   onUpdateActivity,
   onUpdateDate,
+  stickyPane = true,
+  stickyTaskColumn = false,
 }: {
   row: GanttRow
   collapsed: boolean
@@ -1222,6 +1303,8 @@ function GanttTaskListRow({
   onRenameActivity: (activityId: string, title: string) => Promise<void>
   onUpdateActivity: (row: GanttRow, patch: Record<string, unknown>) => Promise<void>
   onUpdateDate: (row: GanttRow, field: 'start' | 'due', value: string) => void
+  stickyPane?: boolean
+  stickyTaskColumn?: boolean
 }) {
   const [editingTitle, setEditingTitle] = useState(false)
   const [draftTitle, setDraftTitle] = useState(row.title)
@@ -1244,13 +1327,18 @@ function GanttTaskListRow({
   return (
     <div
       className={cn(
-        'z-30 grid items-center overflow-hidden border-r border-black/[0.14] bg-white text-[11px] shadow-[2px_0_0_rgba(0,0,0,0.04)] md:sticky md:left-0',
+        'z-30 grid h-full items-center border-r border-black/[0.14] bg-white text-[11px]',
+        stickyTaskColumn ? 'overflow-visible' : 'overflow-hidden',
+        stickyPane && 'shadow-[2px_0_0_rgba(0,0,0,0.04)] md:sticky md:left-0',
         row.type === 'phase' && 'border-y border-black/[0.12] bg-[#eef0f3]',
         row.type === 'milestone' && 'bg-[#eef5ff]'
       )}
       style={{ gridTemplateColumns: columnTemplate }}
     >
-      <div className="group/task flex min-w-0 items-center gap-0.5 px-2" style={{ paddingLeft: 8 + row.depth * 14 }}>
+      <div
+        className={cn('group/task flex h-full min-w-0 items-center gap-0.5 px-2', stickyTaskColumn && 'sticky left-0 z-20 shadow-[2px_0_0_rgba(0,0,0,0.06)]')}
+        style={{ paddingLeft: 8 + row.depth * 14, backgroundColor: stickyTaskColumn ? 'inherit' : undefined }}
+      >
         {canEdit && (
           <button
             type="button"
@@ -1769,7 +1857,7 @@ function ToolbarCheck({ label, checked, onChange }: { label: string; checked: bo
   )
 }
 
-function buildRows(project: ProjectDetail, sort: GanttSort, segment: GanttSegment): GanttRow[] {
+export function buildRows(project: ProjectDetail, sort: GanttSort, segment: GanttSegment): GanttRow[] {
   const rows: GanttRow[] = []
   const phases = [...project.phases].sort(comparePhase(sort))
   for (const phase of phases) {
@@ -1791,6 +1879,11 @@ function buildRows(project: ProjectDetail, sort: GanttSort, segment: GanttSegmen
       assigneeId: null,
       percentComplete: phase.percentComplete,
       estimatedHours: null,
+      actualHours: null,
+      estimatedCost: null,
+      actualCost: null,
+      tags: [],
+      subtasksCount: phaseActivities.length,
       slipDays: 0,
       commentsCount: 0,
       start: phaseCurrent.start,
@@ -1822,6 +1915,11 @@ function buildRows(project: ProjectDetail, sort: GanttSort, segment: GanttSegmen
         assigneeId: null,
         percentComplete: milestone.percentComplete,
         estimatedHours: null,
+        actualHours: null,
+        estimatedCost: null,
+        actualCost: null,
+        tags: [],
+        subtasksCount: milestone.activities.length,
         slipDays: 0,
         commentsCount: 0,
         start: milestoneCurrent.start,
@@ -1861,6 +1959,11 @@ function pushActivityRows(rows: GanttRow[], activity: ActivityNode, all: Activit
     priority: activity.priority,
     risk: activity.risk,
     estimatedHours: activity.estimatedHours,
+    actualHours: activity.actualHours,
+    estimatedCost: activity.estimatedCost,
+    actualCost: activity.actualCost,
+    tags: activity.tags.map((tag) => tag.label),
+    subtasksCount: activity._count.subtasks,
     slipDays: activity.slipDays,
     commentsCount: activity._count.comments,
     start: parseDate(activity.currentStart),
@@ -2104,12 +2207,18 @@ function dependencyPath(
   return `M ${startX} ${startY} H ${laneX} V ${endY} H ${endX}`
 }
 
-function buildColumnTemplate(columns: OptionalColumn[]): string {
+export function buildColumnTemplate(columns: OptionalColumn[], taskColumnWidth: number): string {
   const weights: Record<OptionalColumn, number> = {
     owner: 1.1,
     assignee: 1.25,
+    subtasks: 0.45,
+    tags: 1.1,
     estimatedHours: 0.7,
+    actualHours: 0.7,
+    estimatedCost: 0.8,
+    actualCost: 0.8,
     start: 0.88,
+    workingDays: 0.5,
     due: 0.88,
     calendarDays: 0.45,
     status: 1.15,
@@ -2118,13 +2227,19 @@ function buildColumnTemplate(columns: OptionalColumn[]): string {
     percent: 0.6,
     slipDays: 0.85,
   }
-  return `minmax(175px, 2.25fr) ${columns.map((column) => `minmax(0, ${weights[column]}fr)`).join(' ')}`
+  return `${taskColumnWidth}px ${columns.map((column) => `minmax(0, ${weights[column]}fr)`).join(' ')}`
 }
 
 function renderColumn(row: GanttRow, col: OptionalColumn): string {
   if (col === 'assignee') return row.assigneeId ? shortId(row.assigneeId) : '-'
+  if (col === 'subtasks') return row.subtasksCount ? String(row.subtasksCount) : '-'
+  if (col === 'tags') return row.tags.length ? row.tags.join(', ') : '-'
   if (col === 'estimatedHours') return row.estimatedHours == null ? '-' : String(row.estimatedHours)
+  if (col === 'actualHours') return row.actualHours == null ? '-' : String(row.actualHours)
+  if (col === 'estimatedCost') return row.estimatedCost == null ? '-' : String(row.estimatedCost)
+  if (col === 'actualCost') return row.actualCost == null ? '-' : String(row.actualCost)
   if (col === 'start') return fmtDate(row.start)
+  if (col === 'workingDays') return row.start && row.end ? String(businessDaysBetween(row.start, row.end)) : '-'
   if (col === 'due') return fmtDate(row.end)
   if (col === 'calendarDays') return String(calendarDaysBetween(row.start, row.end))
   if (col === 'status') return ACTIVITY_STATUS_LABEL[row.status as ActivityStatus] ?? labelize(row.status)

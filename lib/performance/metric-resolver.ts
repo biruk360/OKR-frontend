@@ -19,17 +19,55 @@ export class MetricActualUnavailableError extends Error {
 export type ResolvedMetricActual = {
   actual: number
   sources: Array<{
-    sourceType: 'KEY_RESULT' | 'SCRUM'
+    sourceType: 'KEY_RESULT' | 'SCRUM' | 'MANUAL'
     keyResultId?: string
     scrumMetricKey?: string
     title: string
     value: number
     asOfDate: string | null
     fallbackToCurrentValue: boolean
+    note?: string | null
+    enteredById?: string
   }>
 }
 
+/**
+ * Resolve a metric criterion's actual. Automatic sources win; when automatic
+ * resolution fails (archived/missing source) a manually entered actual —
+ * recorded by a lead/admin — is used as the fallback so consolidation can
+ * proceed. Only when no manual fallback exists is MetricActualUnavailableError
+ * propagated.
+ */
 export async function resolveMetricActual(
+  db: DbClient,
+  evaluationId: string,
+  criterionId: string,
+  aggregation: string | null,
+): Promise<ResolvedMetricActual> {
+  try {
+    return await resolveMetricActualAuto(db, evaluationId, criterionId, aggregation)
+  } catch (error) {
+    if (!(error instanceof MetricActualUnavailableError)) throw error
+    const manual = await db.evaluationMetricManualActual.findUnique({
+      where: { evaluationId_criterionId: { evaluationId, criterionId } },
+    })
+    if (!manual) throw error
+    return {
+      actual: manual.actual,
+      sources: [{
+        sourceType: 'MANUAL',
+        title: 'Manual entry',
+        value: manual.actual,
+        asOfDate: manual.enteredAt.toISOString(),
+        fallbackToCurrentValue: false,
+        note: manual.note,
+        enteredById: manual.enteredById,
+      }],
+    }
+  }
+}
+
+async function resolveMetricActualAuto(
   db: DbClient,
   evaluationId: string,
   criterionId: string,

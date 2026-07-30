@@ -205,15 +205,19 @@ export type MetricActual = {
   unit: string | null
   score: number | null
   sources: Array<{
-    sourceType: 'KEY_RESULT' | 'SCRUM'
+    sourceType: 'KEY_RESULT' | 'SCRUM' | 'MANUAL'
     keyResultId?: string
     scrumMetricKey?: string
     title: string
     value: number
     asOfDate: string | null
     fallbackToCurrentValue: boolean
+    note?: string | null
+    enteredById?: string
   }>
   unavailable: boolean
+  manual?: boolean
+  note?: string
   reason?: string
 }
 

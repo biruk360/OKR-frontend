@@ -87,6 +87,7 @@ model User {
   performanceEvaluatorAssignments EvaluatorAssignment[]        @relation("PerformanceEvaluator")
   performanceEvaluatorScores      EvaluatorScore[]             @relation("PerformanceScoreEvaluator")
   performanceImprovementFocuses   ImprovementFocus[]           @relation("PerformanceFocusEmployee")
+  performanceManualMetricActuals  EvaluationMetricManualActual[] @relation("PerformanceManualActualEnteredBy")
 
   @@map("users")
 }
@@ -2000,6 +2001,7 @@ model ScorecardCriterion {
   libraryEntry  CriterionLibraryEntry? @relation(fields: [libraryEntryId], references: [id], onDelete: SetNull)
   metricMappings MetricSourceMapping[]
   metricSources  EvaluationMetricSource[]
+  manualActuals  EvaluationMetricManualActual[]
   evaluatorScores EvaluatorScore[]
   results         CriterionResult[]
   improvementFocuses ImprovementFocus[]
@@ -2164,6 +2166,7 @@ model Evaluation {
   template     ScorecardTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
   employee     User              @relation("PerformanceEvaluationEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
   metricSources EvaluationMetricSource[]
+  manualActuals EvaluationMetricManualActual[]
   assignments   EvaluatorAssignment[]
   scores        EvaluatorScore[]
   results       CriterionResult[]
@@ -2199,6 +2202,25 @@ model EvaluationMetricSource {
   @@unique([evaluationId, criterionId, keyResultId], map: "perf_eval_metric_source_kr_unique")
   @@unique([evaluationId, criterionId, scrumMetricKey], map: "perf_eval_metric_source_scrum_unique")
   @@map("performance_evaluation_metric_sources")
+}
+
+/// Manually entered metric actual for one evaluation and criterion. Used as a
+/// fallback when automatic source resolution fails (archived/missing KR).
+model EvaluationMetricManualActual {
+  id           String   @id @default(cuid())
+  evaluationId String
+  criterionId  String
+  actual       Float
+  note         String?
+  enteredById  String
+  enteredAt    DateTime @default(now())
+
+  evaluation Evaluation         @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  criterion  ScorecardCriterion @relation(fields: [criterionId], references: [id], onDelete: Restrict)
+  enteredBy  User               @relation("PerformanceManualActualEnteredBy", fields: [enteredById], references: [id], onDelete: Restrict)
+
+  @@unique([evaluationId, criterionId], map: "perf_eval_metric_manual_actual_unique")
+  @@map("performance_evaluation_metric_manual_actuals")
 }
 
 model EvaluatorAssignment {

@@ -95,6 +95,16 @@ export const performanceApi = {
   getEvaluation: (id: string) => request<EvaluationDetail>(`/api/performance/evaluations/${id}`),
   getMetricActual: (evaluationId: string, criterionId: string) =>
     request<MetricActual>(`/api/performance/okr-actual/${criterionId}?evaluationId=${encodeURIComponent(evaluationId)}`),
+  saveManualActual: (evaluationId: string, criterionId: string, actual: number, note?: string) =>
+    request<unknown>(`/api/performance/evaluations/${evaluationId}/manual-actual`, {
+      method: 'PUT',
+      body: JSON.stringify(note ? { criterionId, actual, note } : { criterionId, actual }),
+    }),
+  removeManualActual: (evaluationId: string, criterionId: string) =>
+    request<unknown>(`/api/performance/evaluations/${evaluationId}/manual-actual`, {
+      method: 'DELETE',
+      body: JSON.stringify({ criterionId }),
+    }),
   saveScores: (id: string, scores: Array<{ criterionId: string; score: number; remark?: string }>) =>
     request<{ saved: number }>(`/api/performance/evaluations/${id}/scores`, { method: 'PUT', body: JSON.stringify({ scores }) }),
   submitEvaluation: (id: string) =>

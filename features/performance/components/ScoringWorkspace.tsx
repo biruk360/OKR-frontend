@@ -4,13 +4,14 @@ import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useQueries } from '@tanstack/react-query'
-import { AlertTriangle, CheckCircle2, ExternalLink, FileX2, Info, LockKeyhole, RefreshCw, Save, SearchX, UserX } from 'lucide-react'
-import { Alert, AlertDescription, AlertTitle, Button, ConfirmDialog, EmptyState, Input, Label, Textarea, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui'
+import { AlertTriangle, CheckCircle2, ExternalLink, FileX2, Info, LockKeyhole, PenLine, RefreshCw, Save, SearchX, UserX } from 'lucide-react'
+import { Alert, AlertDescription, AlertTitle, Badge, Button, ConfirmDialog, EmptyState, Input, Label, Textarea, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui'
 import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton'
 import { performanceApi } from '../services/api'
 import { useEvaluation, useMetricActual, useRetryConsolidation, useSaveScores, useSubmitEvaluation } from '../hooks/queries'
 import { useExcuseEvaluation } from '../hooks/ui-extras'
 import { humanizeEnum, PerformanceStatusBadge } from './PerformanceStatusBadge'
+import { ManualActualModal } from './ManualActualModal'
 import { PerformanceReport } from './PerformanceReport'
 import { CalibrationPanel } from './CalibrationPanel'
 import { EvaluationActivityPanel } from './EvaluationActivityPanel'
@@ -23,8 +24,14 @@ type DraftScore = { score: string; remark: string }
 /** Debounced autosave fires this long after the last keystroke (blur-save remains the fast path). */
 const AUTOSAVE_DELAY_MS = 3000
 
-function MetricActualCell({ evaluationId, criterionId }: { evaluationId: string; criterionId: string }) {
+function MetricActualCell({ evaluationId, criterionId, criterionTitle, canEnterManual }: {
+  evaluationId: string
+  criterionId: string
+  criterionTitle: string
+  canEnterManual: boolean
+}) {
   const query = useMetricActual(evaluationId, criterionId)
+  const [manualOpen, setManualOpen] = useState(false)
   if (query.isLoading) {
     return (
       <div className="space-y-2 md:col-span-3">
@@ -40,25 +47,83 @@ function MetricActualCell({ evaluationId, criterionId }: { evaluationId: string;
         <AlertTitle>Actual unavailable</AlertTitle>
         <AlertDescription className="text-xs text-warning-800/80">
           {query.data?.reason ?? query.error?.message ?? 'Metric source could not be resolved.'}
+          {canEnterManual && (
+            <Button size="sm" variant="outline" className="mt-2" onClick={() => setManualOpen(true)}>
+              <PenLine className="mr-1 size-3.5" /> Enter actual
+            </Button>
+          )}
         </AlertDescription>
+        {canEnterManual && (
+          <ManualActualModal
+            open={manualOpen}
+            onClose={() => setManualOpen(false)}
+            evaluationId={evaluationId}
+            criterionId={criterionId}
+            criterionTitle={criterionTitle}
+          />
+        )}
       </Alert>
     )
   }
   return (
     <div className="grid gap-3 rounded-md bg-muted/50 p-3 text-sm sm:grid-cols-[repeat(3,minmax(0,1fr))] md:col-span-3">
-      <div><p className="text-xs text-muted-foreground">Actual</p><p className="font-semibold tabular-nums">{query.data.actual} {query.data.unit}</p></div>
+      <div>
+        <p className="text-xs text-muted-foreground">Actual</p>
+        <p className="flex items-center gap-1.5 font-semibold tabular-nums">
+          {query.data.actual} {query.data.unit}
+          {query.data.manual && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="secondary" className="cursor-default">Manual</Badge>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p className="text-xs">{query.data.note || 'Manually entered fallback actual.'}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          {query.data.manual && canEnterManual && (
+            <button
+              type="button"
+              aria-label="Edit manual actual"
+              className="text-muted-foreground hover:text-foreground"
+              onClick={() => setManualOpen(true)}
+            >
+              <PenLine className="size-3.5" />
+            </button>
+          )}
+        </p>
+      </div>
       <div><p className="text-xs text-muted-foreground">Target</p><p className="font-semibold tabular-nums">{query.data.target} {query.data.unit}</p></div>
       <div><p className="text-xs text-muted-foreground">Computed score</p><p className="font-semibold tabular-nums">{query.data.score?.toFixed(2)}</p></div>
       <div className="sm:col-span-3">
         <p className="text-xs text-muted-foreground">Sources</p>
         <div className="mt-1 flex flex-wrap gap-2">
           {query.data.sources.map((source) => (
-            <Link key={source.keyResultId} href={`/dashboard/key-results/${source.keyResultId}`} className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
-              {source.title}: {source.value} <ExternalLink className="size-3" />
-            </Link>
+            source.sourceType === 'MANUAL' || !source.keyResultId ? (
+              <span key={source.sourceType === 'MANUAL' ? 'manual' : source.title} className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                {source.title}: {source.value}
+              </span>
+            ) : (
+              <Link key={source.keyResultId} href={`/dashboard/key-results/${source.keyResultId}`} className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                {source.title}: {source.value} <ExternalLink className="size-3" />
+              </Link>
+            )
           ))}
         </div>
       </div>
+      {canEnterManual && (
+        <ManualActualModal
+          open={manualOpen}
+          onClose={() => setManualOpen(false)}
+          evaluationId={evaluationId}
+          criterionId={criterionId}
+          criterionTitle={criterionTitle}
+          existingActual={query.data.manual ? query.data.actual : null}
+          existingNote={query.data.manual ? query.data.note : undefined}
+        />
+      )}
     </div>
   )
 }
@@ -115,6 +180,8 @@ export function ScoringWorkspace({ evaluationId }: { evaluationId: string }) {
   const canRetryConsolidation = permissions.canFeature('module.performance')
     && permissions.canDo('evaluation', 'canRead')
     && permissions.canDo('criterion_result', 'canWrite')
+  // Same gate as consolidation retry (server: canTriggerConsolidation) — lead or admin.
+  const canEnterManual = canRetryConsolidation
   const excuse = useExcuseEvaluation(evaluationId)
   const canExcuse = permissions.canFeature('module.performance') && permissions.canDo('evaluation', 'canSubmit')
   const [excuseOpen, setExcuseOpen] = useState(false)
@@ -325,7 +392,7 @@ export function ScoringWorkspace({ evaluationId }: { evaluationId: string }) {
                     </div>
                     <p className="text-xs text-muted-foreground">{humanizeEnum(criterion.type)} · max {criterion.maxPoints}</p>
                   </div>
-                  {auto ? <MetricActualCell evaluationId={evaluationId} criterionId={criterion.id} /> : (
+                  {auto ? <MetricActualCell evaluationId={evaluationId} criterionId={criterion.id} criterionTitle={criterion.title} canEnterManual={canEnterManual} /> : (
                     <>
                       <div>
                         <Input

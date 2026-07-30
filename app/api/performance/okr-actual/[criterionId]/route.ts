@@ -35,6 +35,7 @@ export const GET = withAuth<CriterionParams>(async (request: NextRequest, { sess
 
   try {
     const resolved = await resolveMetricActual(prisma, evaluationId, criterionId, criterion.krAggregation)
+    const manualSource = resolved.sources.find((source) => source.sourceType === 'MANUAL')
     return apiSuccess({
       criterionId,
       title: criterion.title,
@@ -44,6 +45,8 @@ export const GET = withAuth<CriterionParams>(async (request: NextRequest, { sess
       score: scoreMetric(resolved.actual, criterion.target, rule),
       sources: resolved.sources,
       unavailable: false,
+      manual: !!manualSource,
+      note: manualSource?.note ?? undefined,
     })
   } catch (error) {
     return apiSuccess({
@@ -55,6 +58,7 @@ export const GET = withAuth<CriterionParams>(async (request: NextRequest, { sess
       score: null,
       sources: [],
       unavailable: true,
+      manual: false,
       reason: error instanceof Error ? error.message : 'Metric actual unavailable',
     })
   }

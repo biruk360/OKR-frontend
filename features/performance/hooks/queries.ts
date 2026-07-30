@@ -286,6 +286,33 @@ export function useMetricActual(evaluationId: string, criterionId: string, enabl
   })
 }
 
+export function useSaveManualActual(evaluationId: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ criterionId, actual, note }: { criterionId: string; actual: number; note?: string }) =>
+      performanceApi.saveManualActual(evaluationId, criterionId, actual, note),
+    onSuccess: (_result, variables) => {
+      client.invalidateQueries({ queryKey: KEYS.metricActual(evaluationId, variables.criterionId) })
+      client.invalidateQueries({ queryKey: KEYS.evaluation(evaluationId) })
+      toast.success('Manual actual saved')
+    },
+    onError: (error: Error) => toast.error(error.message),
+  })
+}
+
+export function useRemoveManualActual(evaluationId: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (criterionId: string) => performanceApi.removeManualActual(evaluationId, criterionId),
+    onSuccess: (_result, criterionId) => {
+      client.invalidateQueries({ queryKey: KEYS.metricActual(evaluationId, criterionId) })
+      client.invalidateQueries({ queryKey: KEYS.evaluation(evaluationId) })
+      toast.success('Manual actual removed')
+    },
+    onError: (error: Error) => toast.error(error.message),
+  })
+}
+
 export function useSaveScores(id: string) {
   const client = useQueryClient()
   return useMutation({

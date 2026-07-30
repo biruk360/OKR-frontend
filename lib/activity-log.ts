@@ -92,6 +92,8 @@ export type ActivityAction =
   | 'ACTION_REJECTED'
   | 'ACTION_EXECUTED'
   | 'EVALUATION_EXCUSED'
+  | 'MANUAL_ACTUAL_ENTERED'
+  | 'MANUAL_ACTUAL_REMOVED'
   | 'SETTINGS_UPDATED'
   // Project Management module actions.
   | 'BASELINE_COMMITTED'

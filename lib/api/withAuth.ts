@@ -1,6 +1,6 @@
 import type { NextRequest, NextResponse } from 'next/server'
 import type { Session } from 'next-auth'
-import { getServerSessionSafe } from '@/lib/auth'
+import { getServerSessionSafe, getBearerSession } from '@/lib/auth'
 import { UserRole } from '@/types'
 import { apiForbidden, apiUnauthorized } from './apiResponse'
 import { handleApiError } from './handleError'
@@ -41,7 +41,8 @@ type Handler<P, R extends NextResponse = NextResponse> = (
 export function withAuth<P = Record<string, string | string[]>>(handler: Handler<P>) {
   return async (req: NextRequest, routeCtx?: RouteCtx<P>) => {
     try {
-      const session = await getServerSessionSafe()
+      // Bearer token first (desktop companion app), then cookie session.
+      const session = (await getBearerSession(req)) ?? (await getServerSessionSafe())
       if (!session) return apiUnauthorized()
       const params = (routeCtx?.params ?? ({} as P)) as P
       return await handler(req, { session, params })

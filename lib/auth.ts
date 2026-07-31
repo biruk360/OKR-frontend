@@ -1,5 +1,7 @@
 import { getServerSession, NextAuthOptions } from 'next-auth'
 import type { Session } from 'next-auth'
+import { decode } from 'next-auth/jwt'
+import type { NextRequest } from 'next/server'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import { prisma } from './prisma'
 import bcrypt from 'bcryptjs'
@@ -9,7 +11,7 @@ import { UserRole } from '@/types'
  * JWT signing secret. In production you must set NEXTAUTH_SECRET (e.g. openssl rand -base64 32).
  * A dev-only fallback avoids opaque 500s when .env.local is missing locally.
  */
-const nextAuthSecret =
+export const nextAuthSecret =
   process.env.NEXTAUTH_SECRET ||
   (process.env.NODE_ENV !== 'production'
     ? 'local-dev-nextauth-secret-not-for-production'
@@ -102,6 +104,34 @@ export async function getServerSessionSafe(): Promise<Session | null> {
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error)
     console.error('[auth] getServerSession failed:', msg)
+    return null
+  }
+}
+
+/**
+ * Resolve a session from an `Authorization: Bearer <jwt>` header.
+ * Used by the desktop companion app, which cannot rely on cookies.
+ * The token is a NextAuth-compatible JWT issued by POST /api/auth/login.
+ */
+export async function getBearerSession(req: NextRequest): Promise<Session | null> {
+  const header = req.headers.get('authorization')
+  if (!header || !header.startsWith('Bearer ')) return null
+  const token = header.slice('Bearer '.length).trim()
+  if (!token || !nextAuthSecret) return null
+  try {
+    const decoded = await decode({ token, secret: nextAuthSecret })
+    if (!decoded?.sub) return null
+    return {
+      user: {
+        id: decoded.sub,
+        email: (decoded.email as string) ?? '',
+        name: (decoded.name as string) ?? '',
+        role: decoded.role as UserRole,
+        avatar: (decoded.avatar as string | null) ?? null,
+      },
+      expires: new Date(((decoded.exp as number) ?? 0) * 1000).toISOString(),
+    } as Session
+  } catch {
     return null
   }
 }

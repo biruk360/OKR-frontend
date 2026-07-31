@@ -8,6 +8,7 @@ import {
   apiSuccess,
   apiPaginated,
   apiBadRequest,
+  apiConflict,
   apiForbidden,
   withAuth,
 } from '@/lib/api'
@@ -31,14 +32,18 @@ export const GET = withAuth(async (request: NextRequest, { session }) => {
   const search = searchParams.get('search')
   const mine = searchParams.get('mine') === 'true'
   const includeArchived = searchParams.get('includeArchived') === 'true'
+  // Delta-sync support (desktop companion app): rows changed after the cursor.
+  const updatedSince = searchParams.get('updatedSince')
+  const sinceDate = updatedSince ? new Date(updatedSince) : null
+  const syncPull = sinceDate !== null && !isNaN(sinceDate.getTime())
   const page = Math.max(1, parseInt(searchParams.get('page') || '1'))
-  const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '20')))
+  const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || (syncPull ? '100' : '20'))))
 
   const where: any = {}
   if (mine) where.preparedById = session.user.id
   if (status && LETTER_STATUSES.includes(status as LetterStatus)) {
     where.status = status
-  } else if (!includeArchived && !status) {
+  } else if (!includeArchived && !status && !syncPull) {
     where.status = { not: 'ARCHIVED' }
   }
   if (letterTypeId) where.letterTypeId = letterTypeId
@@ -49,6 +54,9 @@ export const GET = withAuth(async (request: NextRequest, { session }) => {
       { subject: { contains: search, mode: 'insensitive' } },
       { customerName: { contains: search, mode: 'insensitive' } },
     ]
+  }
+  if (syncPull) {
+    where.AND = [...(where.AND || []), { updatedAt: { gt: sinceDate } }]
   }
 
   const scopeFilter = await buildScopeFilter(session.user.id, 'letter')
@@ -78,7 +86,7 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
     return apiForbidden('You are not permitted to create letters')
   }
 
-  const body = (await request.json()) as CreateLetterForm & { letterTypeId?: string }
+  const body = (await request.json()) as CreateLetterForm & { letterTypeId?: string; id?: string }
   const subject = (body.subject || '').trim()
   if (subject.length < 3 || subject.length > 255) {
     return apiBadRequest('Subject must be 3–255 characters')
@@ -111,8 +119,20 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
 
   const referenceNumber = await allocateLetterReference(typeDef.code, date)
 
+  // Offline-first clients (desktop app) generate the id locally before syncing.
+  let clientId: string | undefined
+  if (typeof body.id === 'string' && body.id.trim()) {
+    clientId = body.id.trim()
+    const existing = await prisma.letter.findUnique({
+      where: { id: clientId },
+      select: { id: true },
+    })
+    if (existing) return apiConflict('A letter with this id already exists')
+  }
+
   const letter = await prisma.letter.create({
     data: {
+      ...(clientId ? { id: clientId } : {}),
       referenceNumber,
       subject,
       // Keep the legacy column populated with one of the built-in literals

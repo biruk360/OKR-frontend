@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { apiSuccess, apiBadRequest, apiForbidden, withAuth } from '@/lib/api'
+import { apiSuccess, apiBadRequest, apiConflict, apiForbidden, withAuth } from '@/lib/api'
 import { canFeature } from '@/lib/rbac'
 import { canCreateSprint, type UserRole } from '@/lib/permissions'
 import { recordActivity } from '@/lib/activity-log'
@@ -24,13 +24,18 @@ export const GET = withAuth(async (request: NextRequest, { session }) => {
   const state = searchParams.get('state')
   const departmentId = searchParams.get('departmentId')
   const participantId = searchParams.get('participantId')
+  // Delta-sync support (desktop companion app): rows changed after the cursor.
+  const updatedSince = searchParams.get('updatedSince')
+  const sinceDate = updatedSince ? new Date(updatedSince) : null
+  const syncPull = sinceDate !== null && !isNaN(sinceDate.getTime())
 
   const where: any = {}
   if (state) where.state = state
   else if (status) where.status = status
-  else where.status = 'ACTIVE'
+  else if (!syncPull) where.status = 'ACTIVE'
   if (departmentId) where.departmentId = departmentId
   if (participantId) where.participants = { some: { userId: participantId } }
+  if (syncPull) where.updatedAt = { gt: sinceDate }
 
   const scopeFilter = await buildScopeFilter(session.user.id, 'sprint')
 
@@ -74,6 +79,17 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
     return apiBadRequest('Sprint name is required')
   }
 
+  // Offline-first clients (desktop app) generate the id locally before syncing.
+  let clientId: string | undefined
+  if (typeof body.id === 'string' && body.id.trim()) {
+    clientId = body.id.trim()
+    const existing = await prisma.sprint.findUnique({
+      where: { id: clientId },
+      select: { id: true },
+    })
+    if (existing) return apiConflict('A sprint with this id already exists')
+  }
+
   const role = session.user.role as UserRole
   const allowed = await canCreateSprint(role, session.user.id, departmentId ?? null)
   if (!allowed) return apiForbidden('Insufficient permissions to create sprint in this scope')
@@ -86,6 +102,7 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
 
   const sprint = await prisma.sprint.create({
     data: {
+      ...(clientId ? { id: clientId } : {}),
       name: name.trim(),
       description: description?.trim() || null,
       ownerId: session.user.id,

@@ -8,6 +8,7 @@ import { buildScopeFilter } from '@/lib/apply-scope'
 import {
   apiSuccess,
   apiBadRequest,
+  apiConflict,
   apiForbidden,
   withAuth,
 } from '@/lib/api'
@@ -63,6 +64,15 @@ export const GET = withAuth(async (request: NextRequest, { session }) => {
     where.AND = [...(where.AND || []), { title: { contains: q, mode: 'insensitive' as const } }]
   }
 
+  // Delta-sync support (desktop companion app): only rows changed after the cursor.
+  const updatedSince = searchParams.get('updatedSince')
+  if (updatedSince) {
+    const since = new Date(updatedSince)
+    if (!isNaN(since.getTime())) {
+      where.AND = [...(where.AND || []), { updatedAt: { gt: since } }]
+    }
+  }
+
   // Apply record-scope filter (RBAC row-level scoping via RecordScopeRule).
   // buildScopeFilter returns null when no rules are configured → no change to where.
   const scopeFilter = await buildScopeFilter(session.user.id, 'todo')
@@ -114,6 +124,18 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
 
   const title = (body.title || '').trim()
   if (!title) return apiBadRequest('Title is required')
+
+  // Offline-first clients (desktop app) generate the id locally before syncing.
+  // Honor it so the local row and server row stay the same record.
+  let clientId: string | undefined
+  if (typeof body.id === 'string' && body.id.trim()) {
+    clientId = body.id.trim()
+    const existing = await prisma.todo.findUnique({
+      where: { id: clientId },
+      select: { id: true },
+    })
+    if (existing) return apiConflict('A todo with this id already exists')
+  }
 
   const description = typeof body.description === 'string' ? body.description.trim() || null : null
   const dueDate = body.dueDate ? new Date(body.dueDate) : null
@@ -195,6 +217,7 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
 
   const todo = await prisma.todo.create({
     data: {
+      ...(clientId ? { id: clientId } : {}),
       title,
       description,
       startDate,

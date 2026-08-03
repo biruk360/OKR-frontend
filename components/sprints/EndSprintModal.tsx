@@ -75,9 +75,11 @@ export default function EndSprintModal({ open, onClose, sprintId, onClosed }: Pr
   const [newStart, setNewStart] = useState<string | null>(null)
   const [newEnd, setNewEnd] = useState<string | null>(null)
   const [reflection, setReflection] = useState('')
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
+    setLoadError(null)
     try {
       const res = await fetch(`/api/sprints/${sprintId}/end`)
       const json = await res.json()
@@ -97,8 +99,9 @@ export default function EndSprintModal({ open, onClose, sprintId, onClosed }: Pr
       setNewEnd(toIso(end))
       setReflection('')
     } catch (err: any) {
-      toast.error(err.message || 'Could not load sprint close preview')
-      onClose()
+      // Show the failure inline (with retry) instead of silently closing —
+      // an auto-closing modal looks like the close option doesn't exist.
+      setLoadError(err.message || 'Could not load sprint close preview')
     } finally {
       setLoading(false)
     }
@@ -206,7 +209,19 @@ export default function EndSprintModal({ open, onClose, sprintId, onClosed }: Pr
         </>
       }
     >
-      {loading || !preflight ? (
+      {loadError ? (
+        <div className="py-8 text-center">
+          <p className="text-[13px]" style={{ color: 'var(--ap-danger-fg)' }}>{loadError}</p>
+          <button
+            type="button"
+            onClick={load}
+            className="mt-3 rounded-[10px] px-3 py-1.5 text-[13px] font-medium"
+            style={{ background: 'rgba(120,120,128,0.12)', color: 'var(--ap-accent)' }}
+          >
+            Try again
+          </button>
+        </div>
+      ) : loading || !preflight ? (
         <div className="py-10 text-center text-[13px]" style={{ color: 'var(--ap-fg-subtle)' }}>Loading…</div>
       ) : (
         <div className="space-y-4 text-[13px]">

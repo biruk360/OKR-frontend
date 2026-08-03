@@ -455,10 +455,16 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
               <button
                 type="button"
                 onClick={() => setShowEnd(true)}
-                className="rounded-[10px] border px-3 py-1 text-[12px] font-semibold hover:bg-muted"
-                style={{ borderColor: 'var(--ap-border)' }}
+                className="rounded-[10px] px-3 py-1 text-[12px] font-semibold transition-colors"
+                style={{
+                  border: '0.5px solid var(--ap-accent)',
+                  color: 'var(--ap-accent)',
+                  background: 'var(--ap-accent-soft)',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'var(--ap-accent)', e.currentTarget.style.color = '#fff')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'var(--ap-accent-soft)', e.currentTarget.style.color = 'var(--ap-accent)')}
               >
-                End sprint
+                Complete sprint
               </button>
             )}
             {isClosed && (

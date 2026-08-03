@@ -1,245 +1,426 @@
 'use client'
 
 /**
- * EndSprintModal — Sprints v2 §4.9 sprint end flow.
+ * EndSprintModal v2 (FR-01 / UX-02) — close a sprint with deliberate
+ * incomplete-task dispositions, benchmarked against Jira's Complete Sprint dialog.
  *
- * Summary stats + radio-controlled "what to do with incomplete tasks":
- *   - Move to next sprint  (requires sprint picker)
- *   - Move to backlog
- *   - Cancel them
- *   - Decide per task      (inline list with three-way picker)
- * Optional reflection note. Submits to POST /api/sprints/[id]/end.
+ * Self-sufficient: fetches the preflight (counts, incomplete todos with carryover
+ * lineage, destination sprints) from GET /api/sprints/[id]/end on open.
+ *
+ * Disposition model: per-task actions default to "next". When every row shares
+ * one action the API receives the bulk mode; otherwise `per-task`. Destination is
+ * an existing PLANNING/ACTIVE sprint or a new sprint created inline
+ * (AppleDateRangePicker — never a native date input).
  */
 
-import { useEffect, useState } from 'react'
-import toast from 'react-hot-toast'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import toast from 'react-hot-toast'
+import { AlertTriangle } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
-import AddToSprintDropdown from './AddToSprintDropdown'
+import { Button } from '@/components/ui/button'
+import { AppleDateRangePicker, toIso } from '@/components/ui/date-picker'
 
-interface IncompleteTodo {
+type PerAction = 'next' | 'backlog' | 'cancel'
+
+interface PreflightTodo {
   id: string
   title: string
   status: string
+  carryoverCount: number
+  assignee: { id: string; name: string | null; avatar: string | null } | null
+}
+
+interface Preflight {
+  sprint: {
+    id: string
+    name: string
+    startDate: string | null
+    endDate: string | null
+    goal: string | null
+    goalLabel: string | null
+    goalTarget: number | null
+    goalCurrent: number | null
+    goalUnit: string | null
+  }
+  counts: { total: number; completed: number; incomplete: number }
+  incompleteTodos: PreflightTodo[]
+  destinations: { id: string; name: string; state: string; startDate: string | null; endDate: string | null }[]
 }
 
 interface Props {
   open: boolean
   onClose: () => void
   sprintId: string
-  sprintName: string
-  completedCount: number
-  incompleteTodos: IncompleteTodo[]
-  goalLabel?: string | null
-  goalCurrent?: number | null
-  goalTarget?: number | null
-  goalUnit?: string | null
+  /** Called after a successful close so the board/list can refresh. */
+  onClosed?: (reportUrl: string) => void
 }
 
-type Handling = 'next' | 'backlog' | 'cancel' | 'per-task'
-type PerAction = 'next' | 'backlog' | 'cancel'
+const ACTION_LABEL: Record<PerAction, string> = { next: 'Next sprint', backlog: 'Backlog', cancel: 'Cancel' }
 
-export default function EndSprintModal({
-  open, onClose, sprintId, sprintName,
-  completedCount, incompleteTodos,
-  goalLabel, goalCurrent, goalTarget, goalUnit,
-}: Props) {
+function fmtDate(iso: string | null): string {
+  if (!iso) return ''
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+export default function EndSprintModal({ open, onClose, sprintId, onClosed }: Props) {
   const router = useRouter()
-  const [handling, setHandling] = useState<Handling>('next')
-  const [nextSprintId, setNextSprintId] = useState<string | null>(null)
-  const [perTaskActions, setPerTaskActions] = useState<Record<string, PerAction>>({})
-  const [perTaskNextSprintId, setPerTaskNextSprintId] = useState<string | null>(null)
-  const [reflection, setReflection] = useState('')
+  const [preflight, setPreflight] = useState<Preflight | null>(null)
+  const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
-  useEffect(() => {
-    if (open) {
-      setHandling('next')
-      setNextSprintId(null)
-      setPerTaskActions({})
-      setReflection('')
-    }
-  }, [open])
+  const [actions, setActions] = useState<Record<string, PerAction>>({})
+  const [destination, setDestination] = useState<string>('new') // 'new' | sprintId
+  const [newName, setNewName] = useState('')
+  const [newStart, setNewStart] = useState<string | null>(null)
+  const [newEnd, setNewEnd] = useState<string | null>(null)
+  const [reflection, setReflection] = useState('')
 
-  const goalPercent = goalTarget && goalTarget > 0
-    ? Math.min(100, Math.round(((goalCurrent ?? 0) / goalTarget) * 100))
-    : null
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/sprints/${sprintId}/end`)
+      const json = await res.json()
+      if (!res.ok || !json.success) throw new Error(json.error || 'Failed to load')
+      const pf: Preflight = json.data
+      setPreflight(pf)
+      const defaults: Record<string, PerAction> = {}
+      for (const t of pf.incompleteTodos) defaults[t.id] = 'next'
+      setActions(defaults)
+      setDestination(pf.destinations.length > 0 ? pf.destinations[0].id : 'new')
+      const match = pf.sprint.name.match(/^(.*?)(\d+)$/)
+      setNewName(match ? `${match[1]}${Number(match[2]) + 1}` : `${pf.sprint.name} (next)`)
+      const start = new Date()
+      const end = new Date()
+      end.setDate(end.getDate() + 13)
+      setNewStart(toIso(start))
+      setNewEnd(toIso(end))
+      setReflection('')
+    } catch (err: any) {
+      toast.error(err.message || 'Could not load sprint close preview')
+      onClose()
+    } finally {
+      setLoading(false)
+    }
+  }, [sprintId, onClose])
+
+  useEffect(() => {
+    if (open) load()
+  }, [open, load])
+
+  const counts = preflight?.counts ?? { total: 0, completed: 0, incomplete: 0 }
+  const pct = counts.total > 0 ? Math.round((counts.completed / counts.total) * 100) : 0
+
+  const summary = useMemo(() => {
+    const s = { next: 0, backlog: 0, cancel: 0 }
+    for (const t of preflight?.incompleteTodos ?? []) s[actions[t.id] ?? 'next']++
+    return s
+  }, [actions, preflight])
+
+  const needsDestination = summary.next > 0
+  const destinationValid = !needsDestination || (destination === 'new'
+    ? newName.trim().length > 0 && !!newStart && !!newEnd
+    : !!destination)
+  const allHaveAction = (preflight?.incompleteTodos ?? []).every(t => actions[t.id])
+  const canSubmit = !!preflight && !submitting && allHaveAction && destinationValid
+
+  const ctaDetail = [
+    summary.next > 0 && `${summary.next} → next`,
+    summary.backlog > 0 && `${summary.backlog} → backlog`,
+    summary.cancel > 0 && `${summary.cancel} cancel`,
+  ].filter(Boolean).join(', ')
+
+  const setAll = (a: PerAction) => {
+    const next: Record<string, PerAction> = {}
+    for (const t of preflight?.incompleteTodos ?? []) next[t.id] = a
+    setActions(next)
+  }
 
   async function submit() {
-    if ((handling === 'next') && !nextSprintId && incompleteTodos.length > 0) {
-      toast.error('Please pick a sprint to move incomplete tasks to.')
-      return
-    }
-    if (handling === 'per-task') {
-      const missing = incompleteTodos.filter((t) => !perTaskActions[t.id])
-      if (missing.length > 0) {
-        toast.error('Pick an action for every incomplete task.')
-        return
-      }
-      const needsNext = Object.values(perTaskActions).some((a) => a === 'next')
-      if (needsNext && !perTaskNextSprintId) {
-        toast.error('Pick a sprint for tasks moving to "next".')
-        return
-      }
-    }
-
+    if (!preflight || !canSubmit) return
     setSubmitting(true)
     try {
-      const body: any = {
-        incompleteHandling: handling,
-        reflectionNote: reflection.trim() || undefined,
+      const todos = preflight.incompleteTodos
+      const distinct = new Set(todos.map(t => actions[t.id]))
+      const body: any = { reflectionNote: reflection.trim() || null }
+
+      if (todos.length === 0) {
+        body.incompleteHandling = 'backlog' // no-op mode; nothing to disposition
+      } else if (distinct.size === 1) {
+        body.incompleteHandling = [...distinct][0]
+      } else {
+        body.incompleteHandling = 'per-task'
+        body.perTaskActions = todos.map(t => ({ todoId: t.id, action: actions[t.id] }))
       }
-      if (handling === 'next') body.nextSprintId = nextSprintId
-      if (handling === 'per-task') {
-        body.nextSprintId = perTaskNextSprintId
-        body.perTaskActions = Object.entries(perTaskActions).map(([todoId, action]) => ({ todoId, action }))
+
+      if (needsDestination) {
+        if (destination === 'new') {
+          body.createNextSprint = { name: newName.trim(), startDate: newStart, endDate: newEnd }
+        } else {
+          body.nextSprintId = destination
+        }
       }
+
       const res = await fetch(`/api/sprints/${sprintId}/end`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
-      const data = await res.json()
-      if (!res.ok || !data.success) throw new Error(data.error || 'Failed to end sprint')
-      toast.success(`Sprint "${sprintName}" closed.`)
+      const json = await res.json()
+      if (!res.ok || !json.success) throw new Error(json.error || 'Failed to complete sprint')
+
+      const s = json.data.summary
+      toast.success(
+        `Sprint completed — ${s.completedCount} done` +
+        (s.movedToNext ? ` · ${s.movedToNext} carried` : '') +
+        (s.movedToBacklog ? ` · ${s.movedToBacklog} backlogged` : '') +
+        (s.cancelled ? ` · ${s.cancelled} cancelled` : ''),
+      )
+      const reportUrl = `/dashboard/sprints/${sprintId}/report`
       onClose()
-      router.push('/dashboard/sprints')
+      onClosed?.(reportUrl)
       router.refresh()
     } catch (err: any) {
-      toast.error(err.message || 'Failed to end sprint')
+      toast.error(err.message || 'Failed to complete sprint')
     } finally {
       setSubmitting(false)
     }
   }
 
-  const incompleteCount = incompleteTodos.length
+  const goalPct = preflight?.sprint.goalTarget
+    ? Math.round(((preflight.sprint.goalCurrent ?? 0) / preflight.sprint.goalTarget) * 100)
+    : null
 
   return (
-    <Modal open={open} onClose={onClose} title={`End sprint — ${sprintName}`}>
-      <div className="space-y-4 text-[13px]">
-        <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-[10px] border p-3" style={{ borderColor: 'var(--ap-border)' }}>
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Completed</p>
-            <p className="mt-1 text-[20px] font-semibold tabular-nums" style={{ color: 'var(--ap-green)' }}>
-              {completedCount}
-            </p>
-          </div>
-          <div className="rounded-[10px] border p-3" style={{ borderColor: 'var(--ap-border)' }}>
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Incomplete</p>
-            <p className="mt-1 text-[20px] font-semibold tabular-nums" style={{ color: 'var(--ap-orange)' }}>
-              {incompleteCount}
-            </p>
-          </div>
-        </div>
-
-        {goalTarget && goalTarget > 0 && (
-          <div className="rounded-[10px] border p-3" style={{ borderColor: 'var(--ap-border)' }}>
-            <p className="text-[11px] font-semibold text-muted-foreground">{goalLabel ?? 'Goal'}</p>
-            <p className="mt-1 text-[14px] font-semibold tabular-nums">
-              {goalUnit ? `${goalUnit} ` : ''}{(goalCurrent ?? 0).toLocaleString()} of {goalTarget.toLocaleString()} {goalUnit ? '' : ''} ({goalPercent}%)
-            </p>
-          </div>
-        )}
-
-        {incompleteCount > 0 && (
-          <div>
-            <p className="mb-2 text-[12px] font-semibold">What should we do with the {incompleteCount} incomplete task{incompleteCount === 1 ? '' : 's'}?</p>
-            <div className="space-y-2">
-              {([
-                ['next', 'Move to next sprint'],
-                ['backlog', 'Move to backlog'],
-                ['cancel', 'Cancel them'],
-                ['per-task', 'Decide per task'],
-              ] as const).map(([key, label]) => (
-                <label key={key} className="flex items-start gap-2">
-                  <input
-                    type="radio"
-                    name="handling"
-                    checked={handling === key}
-                    onChange={() => setHandling(key)}
-                    className="mt-0.5"
-                  />
-                  <span className="text-[12px]">{label}</span>
-                </label>
-              ))}
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Complete sprint"
+      size="lg"
+      footer={
+        <>
+          <Button variant="outline" size="sm" onClick={onClose} disabled={submitting}>Cancel</Button>
+          <Button size="sm" onClick={submit} disabled={!canSubmit}>
+            {submitting ? 'Completing…' : `Complete sprint${ctaDetail ? ` · ${ctaDetail}` : ''}`}
+          </Button>
+        </>
+      }
+    >
+      {loading || !preflight ? (
+        <div className="py-10 text-center text-[13px]" style={{ color: 'var(--ap-fg-subtle)' }}>Loading…</div>
+      ) : (
+        <div className="space-y-4 text-[13px]">
+          {/* Summary card (UX-02) */}
+          <div
+            className="rounded-[14px] p-4"
+            style={{ background: 'var(--ap-bg-sunken)', border: '0.5px solid var(--ap-border)' }}
+          >
+            <div className="flex items-baseline justify-between gap-3">
+              <div>
+                <div className="text-[15px] font-semibold" style={{ letterSpacing: '-0.01em' }}>
+                  {preflight.sprint.name}
+                </div>
+                <div className="mt-0.5 text-[11px]" style={{ color: 'var(--ap-fg-subtle)' }}>
+                  {fmtDate(preflight.sprint.startDate)} → {fmtDate(preflight.sprint.endDate)}
+                </div>
+              </div>
+              <div className="text-right">
+                <span className="text-[20px] font-semibold tabular-nums" style={{ letterSpacing: '-0.02em' }}>{pct}%</span>
+                <span className="ml-1 text-[11px]" style={{ color: 'var(--ap-fg-subtle)' }}>done</span>
+              </div>
             </div>
-
-            {handling === 'next' && (
-              <div className="mt-2 pl-6">
-                <AddToSprintDropdown
-                  value={nextSprintId}
-                  onChange={setNextSprintId}
-                  excludeSprintId={sprintId}
-                  placeholder="Pick a sprint…"
-                />
-              </div>
-            )}
-
-            {handling === 'per-task' && (
-              <div className="mt-2 max-h-[260px] overflow-y-auto rounded-[10px] border p-2" style={{ borderColor: 'var(--ap-border)' }}>
-                {incompleteTodos.map((t) => (
-                  <div key={t.id} className="flex items-center gap-2 py-1">
-                    <span className="flex-1 truncate text-[12px]">{t.title}</span>
-                    <select
-                      value={perTaskActions[t.id] ?? ''}
-                      onChange={(e) => setPerTaskActions((s) => ({ ...s, [t.id]: e.target.value as PerAction }))}
-                      className="rounded-[8px] border bg-card px-2 py-1 text-[11px]"
-                      style={{ borderColor: 'var(--ap-border)' }}
-                    >
-                      <option value="">—</option>
-                      <option value="next">Next sprint</option>
-                      <option value="backlog">Backlog</option>
-                      <option value="cancel">Cancel</option>
-                    </select>
-                  </div>
-                ))}
-                {Object.values(perTaskActions).some((a) => a === 'next') && (
-                  <div className="mt-2">
-                    <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Sprint for "Next sprint" tasks</p>
-                    <AddToSprintDropdown
-                      value={perTaskNextSprintId}
-                      onChange={setPerTaskNextSprintId}
-                      excludeSprintId={sprintId}
-                    />
-                  </div>
-                )}
-              </div>
-            )}
+            <div className="mt-3 h-[8px] overflow-hidden rounded-full" style={{ background: 'var(--ap-kr-bar-bg)' }}>
+              <div
+                className="h-full rounded-full transition-[width] duration-[400ms]"
+                style={{ width: `${pct}%`, background: 'var(--ap-green)', transitionTimingFunction: 'cubic-bezier(.2,.8,.2,1)' }}
+              />
+            </div>
+            <div className="mt-2 flex gap-4 text-[11px]" style={{ color: 'var(--ap-fg-muted)' }}>
+              <span><strong className="tabular-nums">{counts.completed}</strong> completed</span>
+              <span><strong className="tabular-nums">{counts.incomplete}</strong> incomplete</span>
+              {goalPct !== null && (
+                <span>
+                  Goal: <strong className="tabular-nums">{preflight.sprint.goalCurrent ?? 0}/{preflight.sprint.goalTarget}</strong>
+                  {' '}{preflight.sprint.goalLabel ?? ''} ({goalPct}%)
+                </span>
+              )}
+            </div>
           </div>
-        )}
 
-        <div>
-          <label className="text-[12px] font-semibold">Sprint reflection (optional)</label>
-          <textarea
-            value={reflection}
-            onChange={(e) => setReflection(e.target.value)}
-            rows={3}
-            placeholder="What went well? What didn't?"
-            className="mt-1 w-full rounded-[10px] border bg-card p-2 text-[12px] outline-none"
-            style={{ borderColor: 'var(--ap-border)' }}
-          />
-        </div>
+          {counts.incomplete === 0 ? (
+            <p className="text-[13px]" style={{ color: 'var(--ap-fg-muted)' }}>
+              Everything is done — nothing to disposition. One click and this sprint is complete. 🎉
+            </p>
+          ) : (
+            <>
+              {/* Incomplete tasks */}
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.6px]" style={{ color: 'var(--ap-fg-subtle)' }}>
+                    Incomplete tasks ({counts.incomplete})
+                  </span>
+                  <div className="flex gap-1">
+                    {(['next', 'backlog', 'cancel'] as PerAction[]).map(a => (
+                      <button
+                        key={a}
+                        type="button"
+                        onClick={() => setAll(a)}
+                        className="rounded-[7px] px-2 py-0.5 text-[11px] font-medium transition-colors"
+                        style={{
+                          background: 'rgba(120,120,128,0.12)',
+                          color: 'var(--ap-fg-muted)',
+                        }}
+                      >
+                        All → {ACTION_LABEL[a]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="max-h-[260px] space-y-1 overflow-y-auto pr-1">
+                  {preflight.incompleteTodos.map(t => (
+                    <div
+                      key={t.id}
+                      className="flex items-center gap-2 rounded-[10px] px-2 py-1.5 transition-colors"
+                      style={{ border: '0.5px solid transparent' }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'var(--ap-bg-hover)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      {t.carryoverCount >= 2 && (
+                        <span
+                          className="shrink-0 rounded-[6px] px-1.5 py-px text-[10px] font-semibold"
+                          style={{ background: 'var(--ap-warn-bg)', color: 'var(--ap-warn-fg)' }}
+                          title={`Carried ${t.carryoverCount} times — consider splitting or descoping`}
+                        >
+                          ↪ ×{t.carryoverCount}
+                        </span>
+                      )}
+                      <span className="min-w-0 flex-1 truncate text-[13px]">{t.title}</span>
+                      <span
+                        className="shrink-0 rounded-[6px] px-1.5 py-px font-mono text-[10px] font-semibold"
+                        style={{ background: 'var(--ap-none-bg)', color: 'var(--ap-none-fg)' }}
+                      >
+                        {t.status.replace('_', ' ')}
+                      </span>
+                      <div className="flex shrink-0 gap-0.5 rounded-[9px] p-[2px]" style={{ background: 'rgba(120,120,128,0.16)' }}>
+                        {(['next', 'backlog', 'cancel'] as PerAction[]).map(a => {
+                          const active = (actions[t.id] ?? 'next') === a
+                          return (
+                            <button
+                              key={a}
+                              type="button"
+                              onClick={() => setActions(prev => ({ ...prev, [t.id]: a }))}
+                              className="rounded-[7px] px-2 py-0.5 text-[11px] transition-all"
+                              style={{
+                                fontWeight: active ? 600 : 500,
+                                background: active ? 'var(--ap-bg-raised)' : 'transparent',
+                                color: active ? 'var(--ap-fg)' : 'var(--ap-fg-muted)',
+                                boxShadow: active ? '0 3px 8px rgba(0,0,0,0.08), 0 0 0 0.5px rgba(0,0,0,0.04)' : 'none',
+                              }}
+                            >
+                              {a === 'next' ? 'Next' : a === 'backlog' ? 'Backlog' : 'Cancel'}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
 
-        <div className="flex items-center justify-end gap-2 pt-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-[10px] border px-3 py-1.5 text-[12px] hover:bg-muted"
-            style={{ borderColor: 'var(--ap-border)' }}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            disabled={submitting}
-            onClick={submit}
-            className="rounded-[10px] px-3 py-1.5 text-[12px] font-semibold text-white disabled:opacity-50"
-            style={{ background: 'var(--ap-accent)' }}
-          >
-            {submitting ? 'Ending…' : 'End sprint'}
-          </button>
+              {/* Destination */}
+              {needsDestination && (
+                <div>
+                  <span className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.6px]" style={{ color: 'var(--ap-fg-subtle)' }}>
+                    Move {summary.next} task{summary.next === 1 ? '' : 's'} to
+                  </span>
+                  <div className="space-y-1.5">
+                    {preflight.destinations.map(d => (
+                      <label
+                        key={d.id}
+                        className="flex cursor-pointer items-center gap-2.5 rounded-[10px] px-3 py-2 transition-colors"
+                        style={{
+                          border: `0.5px solid ${destination === d.id ? 'var(--ap-accent)' : 'var(--ap-border)'}`,
+                          background: destination === d.id ? 'var(--ap-accent-soft)' : 'transparent',
+                        }}
+                      >
+                        <input type="radio" name="dest" checked={destination === d.id} onChange={() => setDestination(d.id)} className="accent-[#007AFF]" />
+                        <span className="flex-1 text-[13px] font-medium">{d.name}</span>
+                        <span className="text-[11px]" style={{ color: 'var(--ap-fg-subtle)' }}>
+                          {fmtDate(d.startDate)} → {fmtDate(d.endDate)} · {d.state.toLowerCase()}
+                        </span>
+                      </label>
+                    ))}
+                    <label
+                      className="block cursor-pointer rounded-[10px] px-3 py-2 transition-colors"
+                      style={{
+                        border: `0.5px solid ${destination === 'new' ? 'var(--ap-accent)' : 'var(--ap-border)'}`,
+                        background: destination === 'new' ? 'var(--ap-accent-soft)' : 'transparent',
+                      }}
+                    >
+                      <span className="flex items-center gap-2.5">
+                        <input type="radio" name="dest" checked={destination === 'new'} onChange={() => setDestination('new')} className="accent-[#007AFF]" />
+                        <span className="text-[13px] font-medium">+ New sprint</span>
+                      </span>
+                      {destination === 'new' && (
+                        <span className="mt-2.5 block space-y-2" onClick={e => e.preventDefault()}>
+                          <input
+                            value={newName}
+                            onChange={e => setNewName(e.target.value)}
+                            placeholder="Sprint name"
+                            className="w-full rounded-[10px] px-2.5 py-1.5 text-[13px]"
+                            style={{
+                              background: 'rgba(120,120,128,0.10)',
+                              border: '0.5px solid var(--ap-border)',
+                              color: 'var(--ap-fg)',
+                              outline: 'none',
+                            }}
+                          />
+                          <AppleDateRangePicker
+                            start={newStart}
+                            end={newEnd}
+                            onChange={(s, e) => { setNewStart(s); setNewEnd(e) }}
+                            minDate={toIso(new Date())}
+                          />
+                        </span>
+                      )}
+                    </label>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Reflection */}
+          <div>
+            <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.6px]" style={{ color: 'var(--ap-fg-subtle)' }}>
+              Reflection (optional)
+            </span>
+            <textarea
+              value={reflection}
+              onChange={e => setReflection(e.target.value)}
+              rows={3}
+              placeholder="What went well? What didn't? — shown on the sprint report"
+              className="w-full resize-none rounded-[10px] px-2.5 py-2 text-[13px]"
+              style={{
+                background: 'rgba(120,120,128,0.10)',
+                border: '0.5px solid var(--ap-border)',
+                color: 'var(--ap-fg)',
+                outline: 'none',
+              }}
+            />
+          </div>
+
+          {summary.next > 0 && (preflight.incompleteTodos.some(t => t.carryoverCount >= 2 && actions[t.id] === 'next')) && (
+            <div
+              className="flex items-start gap-2 rounded-[10px] px-3 py-2 text-[12px]"
+              style={{ background: 'var(--ap-warn-bg)', color: 'var(--ap-warn-fg)' }}
+            >
+              <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+              <span>Some tasks have been carried 2+ times already. Carrying them again may hide a sizing or scoping problem — consider backlog or cancel instead.</span>
+            </div>
+          )}
         </div>
-      </div>
+      )}
     </Modal>
   )
 }

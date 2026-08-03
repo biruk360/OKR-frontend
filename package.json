@@ -13,6 +13,7 @@
     "test:scrum": "tsx --test features/scrum/services/*.test.ts",
     "test:okr": "tsx --test lib/okr/*.test.ts",
     "test:performance": "tsx --test lib/performance/*.test.ts",
+    "test:sprints": "tsx --test lib/sprints/*.test.ts",
     "postinstall": "prisma generate",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",

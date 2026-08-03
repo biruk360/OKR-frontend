@@ -59,7 +59,9 @@ export type EventKey =
   | 'SPRINT_STARTING_TOMORROW'
   | 'SPRINT_ENDING_SOON'
   | 'SPRINT_ENDED_BY_USER'
+  | 'SPRINT_REOPENED'
   | 'INITIATIVE_CARRIED_OVER'
+  | 'INITIATIVE_CANCELLED_AT_CLOSE'
   // Timeframe
   | 'TIMEFRAME_OPENED'
   | 'TIMEFRAME_ENDING_7D'
@@ -179,7 +181,9 @@ export const EVENT_META: Record<EventKey, EventMeta> = {
   SPRINT_STARTING_TOMORROW: { key: 'SPRINT_STARTING_TOMORROW', category: 'TODO', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Sprint starting tomorrow' },
   SPRINT_ENDING_SOON: { key: 'SPRINT_ENDING_SOON', category: 'TODO', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Sprint ending soon' },
   SPRINT_ENDED_BY_USER: { key: 'SPRINT_ENDED_BY_USER', category: 'TODO', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Sprint ended' },
+  SPRINT_REOPENED: { key: 'SPRINT_REOPENED', category: 'TODO', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Sprint reopened' },
   INITIATIVE_CARRIED_OVER: { key: 'INITIATIVE_CARRIED_OVER', category: 'TODO', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Initiative carried over to next sprint' },
+  INITIATIVE_CANCELLED_AT_CLOSE: { key: 'INITIATIVE_CANCELLED_AT_CLOSE', category: 'TODO', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Initiative cancelled when sprint closed' },
 
   TIMEFRAME_OPENED: { key: 'TIMEFRAME_OPENED', category: 'TIMEFRAME', defaultCadence: 'IMMEDIATE', redactable: false, label: 'New timeframe opened' },
   TIMEFRAME_ENDING_7D: { key: 'TIMEFRAME_ENDING_7D', category: 'TIMEFRAME', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Timeframe ending in 7 days' },

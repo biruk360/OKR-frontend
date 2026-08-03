@@ -1,8 +1,9 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { withAuth } from '@/lib/api/withAuth'
-import { apiSuccess, apiBadRequest, apiNotFound, handleApiError } from '@/lib/api'
+import { apiSuccess, apiBadRequest, apiNotFound, apiForbidden, apiError, handleApiError } from '@/lib/api'
 import { resolveParams } from '@/lib/resolve-route-params'
+import { canEditSprint, type UserRole } from '@/lib/permissions'
 
 type Params = { id: string }
 
@@ -16,14 +17,30 @@ type Params = { id: string }
  *
  * Only the ids explicitly listed are updated. Cards absent from the payload
  * keep their existing positions.
+ *
+ * BR-06: rejects on closed sprints (409 SPRINT_CLOSED) and requires edit rights.
  */
-export const POST = withAuth<Params>(async (req: NextRequest, { params }) => {
+export const POST = withAuth<Params>(async (req: NextRequest, { session, params }) => {
   try {
     const { id: sprintId } = await resolveParams(params)
     if (!sprintId) return apiBadRequest('Invalid sprint id')
 
-    const sprint = await prisma.sprint.findUnique({ where: { id: sprintId }, select: { id: true } })
+    const sprint = await prisma.sprint.findUnique({
+      where: { id: sprintId },
+      include: { participants: { select: { userId: true } } },
+    })
     if (!sprint) return apiNotFound('Sprint not found')
+
+    if (sprint.state === 'COMPLETED' || sprint.state === 'CANCELLED') {
+      return apiError('This sprint is closed and read-only', { status: 409, code: 'SPRINT_CLOSED' })
+    }
+
+    const allowed = await canEditSprint(session.user.role as UserRole, session.user.id, {
+      ownerId: sprint.ownerId,
+      departmentId: sprint.departmentId,
+      participants: sprint.participants,
+    })
+    if (!allowed) return apiForbidden('Insufficient permissions to reorder this board')
 
     const body = await req.json()
     const columnOrders: Record<string, string[]> = body?.columnOrders ?? {}

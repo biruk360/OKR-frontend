@@ -9,6 +9,7 @@ import {
   apiSuccess,
   apiBadRequest,
   apiConflict,
+  apiError,
   apiForbidden,
   withAuth,
 } from '@/lib/api'
@@ -214,6 +215,18 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
 
   const sprintId: string | null = typeof body.sprintId === 'string' ? body.sprintId : null
   const taskType: string | null = typeof body.taskType === 'string' ? body.taskType : null
+
+  // BR-06 — closed sprints are read-only; no new tasks may be added to them.
+  if (sprintId) {
+    const targetSprint = await prisma.sprint.findUnique({
+      where: { id: sprintId },
+      select: { state: true },
+    })
+    if (!targetSprint) return apiBadRequest('Invalid sprintId')
+    if (targetSprint.state === 'COMPLETED' || targetSprint.state === 'CANCELLED') {
+      return apiError('This sprint is closed and read-only', { status: 409, code: 'SPRINT_CLOSED' })
+    }
+  }
 
   const todo = await prisma.todo.create({
     data: {

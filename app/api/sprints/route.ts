@@ -44,6 +44,8 @@ export const GET = withAuth(async (request: NextRequest, { session }) => {
     include: {
       owner: { select: { id: true, name: true, avatar: true } },
       participants: { include: { user: { select: { id: true, name: true, avatar: true } } } },
+      endedBy: { select: { id: true, name: true, avatar: true } },
+      completionSummary: true,
       _count: { select: { columns: true, todos: true } },
     },
     orderBy: { createdAt: 'desc' },

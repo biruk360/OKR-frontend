@@ -544,6 +544,30 @@ export function renderTemplate(eventKey: EventKey, data: Data): RenderedEmail {
         `,
       })
 
+    case 'SPRINT_REOPENED':
+      return compose({
+        subject: `Sprint reopened: ${data.sprintName ?? ''}`,
+        recipientName: name,
+        text: `Hi ${name},\n\n${actorName} reopened the sprint "${data.sprintName ?? ''}". It is active again. Open: ${absoluteUrl(deepLink)}`,
+        html: `
+          ${heading({ eyebrow: 'Sprint reopened', title: String(data.sprintName ?? 'Sprint'), badgeText: 'Active again', badgeTone: 'primary' })}
+          ${lead(`${actorName} reopened this sprint. The board is live again — tasks previously moved out stay where they are unless brought back.`)}
+          ${button('Open sprint', deepLink)}
+        `,
+      })
+
+    case 'INITIATIVE_CANCELLED_AT_CLOSE':
+      return compose({
+        subject: `Cancelled at sprint close: ${entityTitle}`,
+        recipientName: name,
+        text: `Hi ${name},\n\n"${entityTitle}" was cancelled when ${actorName} closed the sprint "${data.sprintName ?? ''}". Review: ${absoluteUrl(deepLink)}`,
+        html: `
+          ${heading({ eyebrow: 'Sprint closed', title: entityTitle, badgeText: 'Cancelled', badgeTone: 'warning' })}
+          ${lead(`${actorName} cancelled this initiative while closing ${String(data.sprintName ?? 'the sprint')}. See the sprint report for the full outcome.`)}
+          ${button('View sprint report', deepLink)}
+        `,
+      })
+
     // ─── Timeframe ────────────────────────────────────────────────────────
     case 'TIMEFRAME_OPENED':
       return compose({

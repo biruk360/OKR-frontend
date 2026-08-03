@@ -30,13 +30,23 @@ interface Sprint {
   state: 'PLANNING' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED'
   startDate: string | null
   endDate: string | null
+  endedAt?: string | null
   goal: string | null
   goalLabel: string | null
   goalTarget: number | null
   goalCurrent: number | null
   goalUnit: string | null
   owner: { id: string; name: string; avatar: string | null }
+  endedBy?: { id: string; name: string; avatar: string | null } | null
   participants: { user: { id: string; name: string; avatar: string | null } }[]
+  completionSummary?: {
+    completedCount: number
+    incompleteCount: number
+    movedToNext: number
+    movedToBacklog: number
+    cancelledCount: number
+    nextSprintId: string | null
+  } | null
   _count: { todos: number; activities: number }
 }
 
@@ -74,7 +84,11 @@ function ProgressBar({ percent, color }: { percent: number; color?: string }) {
 function SprintCard({ s, greyscale }: { s: Sprint; greyscale?: boolean }) {
   // Aggregates from raw counts; precise per-status from /board if needed.
   const taskTotal = s._count?.todos ?? 0
-  // We don't have done count here; show plain total in this view.
+  const summary = s.completionSummary ?? null
+  // FR-03 — completed sprints show the honest completion ratio from the summary.
+  const isClosed = s.state === 'COMPLETED' || s.state === 'CANCELLED'
+  const closedTotal = summary ? summary.completedCount + summary.incompleteCount : 0
+  const closedPct = summary && closedTotal > 0 ? Math.round((summary.completedCount / closedTotal) * 100) : null
   const goalPercent = s.goalTarget && s.goalTarget > 0
     ? Math.min(100, Math.round(((s.goalCurrent ?? 0) / s.goalTarget) * 100))
     : null
@@ -82,7 +96,7 @@ function SprintCard({ s, greyscale }: { s: Sprint; greyscale?: boolean }) {
 
   return (
     <Link
-      href={`/dashboard/sprints/${s.id}`}
+      href={isClosed && summary ? `/dashboard/sprints/${s.id}/report` : `/dashboard/sprints/${s.id}`}
       className={cn(
         'ap-hover-lift block rounded-[14px] border bg-card p-4 transition-all hover:shadow-md',
         greyscale && 'opacity-80 grayscale',
@@ -105,6 +119,12 @@ function SprintCard({ s, greyscale }: { s: Sprint; greyscale?: boolean }) {
           </span>
         )}
         {days !== null && s.state === 'ACTIVE' && <span>{days}d left</span>}
+        {isClosed && s.endedAt && (
+          <span>
+            Ended {new Date(s.endedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            {s.endedBy?.name && <> · by {s.endedBy.name}</>}
+          </span>
+        )}
       </div>
 
       {(s.state === 'ACTIVE' || s.state === 'COMPLETED') && (
@@ -112,9 +132,16 @@ function SprintCard({ s, greyscale }: { s: Sprint; greyscale?: boolean }) {
           <div>
             <div className="flex items-center justify-between text-[10px] text-muted-foreground">
               <span>Tasks</span>
-              <span className="tabular-nums">{taskTotal}</span>
+              <span className="tabular-nums">
+                {summary ? `${summary.completedCount}/${closedTotal} · ${closedPct ?? 0}%` : taskTotal}
+              </span>
             </div>
-            <div className="mt-1"><ProgressBar percent={taskTotal === 0 ? 0 : 100} color="var(--ap-green)" /></div>
+            <div className="mt-1">
+              <ProgressBar
+                percent={summary ? (closedPct ?? 0) : (taskTotal === 0 ? 0 : 100)}
+                color="var(--ap-green)"
+              />
+            </div>
           </div>
           {goalPercent !== null && (
             <div>
@@ -128,6 +155,27 @@ function SprintCard({ s, greyscale }: { s: Sprint; greyscale?: boolean }) {
         </div>
       )}
 
+      {/* Outcome chips (FR-03) */}
+      {summary && (summary.movedToNext > 0 || summary.movedToBacklog > 0 || summary.cancelledCount > 0) && (
+        <div className="mt-2.5 flex flex-wrap gap-1.5">
+          {summary.movedToNext > 0 && (
+            <span className="rounded-[6px] px-1.5 py-px text-[10px] font-semibold" style={{ background: 'var(--ap-accent-soft)', color: 'var(--ap-accent)' }}>
+              {summary.movedToNext} carried
+            </span>
+          )}
+          {summary.movedToBacklog > 0 && (
+            <span className="rounded-[6px] px-1.5 py-px text-[10px] font-semibold" style={{ background: 'var(--ap-none-bg)', color: 'var(--ap-none-fg)' }}>
+              {summary.movedToBacklog} backlog
+            </span>
+          )}
+          {summary.cancelledCount > 0 && (
+            <span className="rounded-[6px] px-1.5 py-px text-[10px] font-semibold" style={{ background: 'var(--ap-danger-bg)', color: 'var(--ap-danger-fg)' }}>
+              {summary.cancelledCount} cancelled
+            </span>
+          )}
+        </div>
+      )}
+
       <div className="mt-3 flex items-center justify-between">
         <div className="flex -space-x-1">
           {s.participants.slice(0, 4).map((p) => <Avatar key={p.user.id} name={p.user.name} avatar={p.user.avatar} size={20} />)}
@@ -137,7 +185,9 @@ function SprintCard({ s, greyscale }: { s: Sprint; greyscale?: boolean }) {
             </span>
           )}
         </div>
-        <span className="text-[11px] font-semibold" style={{ color: 'var(--ap-accent)' }}>Open Board →</span>
+        <span className="text-[11px] font-semibold" style={{ color: 'var(--ap-accent)' }}>
+          {isClosed && summary ? 'View Report →' : 'Open Board →'}
+        </span>
       </div>
     </Link>
   )

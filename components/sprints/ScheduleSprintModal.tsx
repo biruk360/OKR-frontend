@@ -11,6 +11,7 @@ import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/button'
+import { AppleDateRangePicker } from '@/components/ui/date-picker'
 
 interface Props {
   open: boolean
@@ -100,27 +101,18 @@ export default function ScheduleSprintModal({
             ? 'Set the dates for this sprint and start it. The sprint will move to Active.'
             : 'Update the start and end dates for this sprint.'}
         </p>
-        <div className="grid grid-cols-2 gap-3">
-          <label className="block">
-            <span className="block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Start date</span>
-            <input
-              type="date"
-              value={start}
-              onChange={(e) => setStart(e.target.value)}
-              className="mt-1 w-full rounded-[10px] border bg-card px-2 py-1.5 text-[13px]"
-              style={{ borderColor: 'var(--ap-border)' }}
+        <div>
+          <span className="block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Sprint dates</span>
+          <div className="mt-1.5">
+            <AppleDateRangePicker
+              start={start || null}
+              end={end || null}
+              onChange={(s, e) => { setStart(s ?? ''); setEnd(e ?? '') }}
             />
-          </label>
-          <label className="block">
-            <span className="block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">End date</span>
-            <input
-              type="date"
-              value={end}
-              onChange={(e) => setEnd(e.target.value)}
-              className="mt-1 w-full rounded-[10px] border bg-card px-2 py-1.5 text-[13px]"
-              style={{ borderColor: 'var(--ap-border)' }}
-            />
-          </label>
+          </div>
+          <p className="mt-1.5 text-[11px] text-muted-foreground">
+            Pick a range or use a preset — the duration is shown live.
+          </p>
         </div>
         {invalid && start && end && (
           <p className="text-[12px] text-[var(--ap-danger)]">End date must be on or after start date.</p>

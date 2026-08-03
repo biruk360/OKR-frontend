@@ -196,7 +196,9 @@ async function resolveRecipients(eventKey: EventKey, p: EventPayload): Promise<M
     case 'SPRINT_STARTING_TOMORROW':
     case 'SPRINT_ENDING_SOON':
     case 'SPRINT_ENDED_BY_USER':
+    case 'SPRINT_REOPENED':
     case 'INITIATIVE_CARRIED_OVER':
+    case 'INITIATIVE_CANCELLED_AT_CLOSE':
     case 'TODO_DUE_TODAY':
       // Recipients passed via explicitRecipients (sprint participants / assignees).
       break

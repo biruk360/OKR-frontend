@@ -7,7 +7,7 @@
  * provided by the user). Uses Apple Pro design tokens — never raw hex.
  */
 
-import { Eye, Calendar, MessageSquare, CheckSquare2, Target, AlertCircle } from 'lucide-react'
+import { Eye, Calendar, MessageSquare, CheckSquare2, Target, AlertCircle, RotateCcw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { UserAvatarStack } from '@/components/shared/UserAvatar'
 import { userColor } from '@/lib/user-color'
@@ -32,6 +32,8 @@ export interface TrelloTodo {
   checklists?: { items?: { completed: boolean }[] }[]
   todoComments?: { id: string }[]
   watchers?: { userId: string }[]
+  /** BR-03 carryover lineage — how many sprints this card has been carried into. */
+  carryoverCount?: number
 }
 
 interface Props {
@@ -40,6 +42,8 @@ interface Props {
   onDragStart: (e: React.DragEvent) => void
   onDragEnd?: (e: React.DragEvent) => void
   isDragging?: boolean
+  /** FR-04 — closed sprints render read-only: no drag affordance. */
+  readOnly?: boolean
 }
 
 /** Number of priority dots rendered along the top strip. */
@@ -94,7 +98,7 @@ function MemberStack({ members }: { members: CardUser[] }) {
   )
 }
 
-export default function TaskCardTrello({ todo, onClick, onDragStart, onDragEnd, isDragging }: Props) {
+export default function TaskCardTrello({ todo, onClick, onDragStart, onDragEnd, isDragging, readOnly }: Props) {
   const start = todo.startDate ? new Date(todo.startDate) : null
   const end = todo.dueDate ? new Date(todo.dueDate) : null
   const tone = pickDateChipTone({ start, end, status: todo.status })
@@ -132,9 +136,9 @@ export default function TaskCardTrello({ todo, onClick, onDragStart, onDragEnd, 
     <div
       role="button"
       tabIndex={0}
-      draggable
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
+      draggable={!readOnly}
+      onDragStart={readOnly ? undefined : onDragStart}
+      onDragEnd={readOnly ? undefined : onDragEnd}
       onClick={onClick}
       onKeyDown={(e) => { if (e.key === 'Enter') onClick() }}
       className="group cursor-pointer overflow-hidden rounded-[8px] border bg-card shadow-sm transition hover:shadow-card"
@@ -170,9 +174,28 @@ export default function TaskCardTrello({ todo, onClick, onDragStart, onDragEnd, 
       )}
 
       <div className="px-2.5 pb-2.5 pt-1.5">
-        <p className="line-clamp-2 text-[13px] font-medium leading-snug text-foreground">
-          {todo.title}
-        </p>
+        <div className="flex items-start gap-1.5">
+          <p className="line-clamp-2 min-w-0 flex-1 text-[13px] font-medium leading-snug text-foreground">
+            {todo.title}
+          </p>
+          {/* Carryover badge (FR-05 / UX-06) — amber at 2+ carries */}
+          {(todo.carryoverCount ?? 0) > 0 && (
+            <span
+              className="mt-0.5 inline-flex shrink-0 items-center gap-0.5 rounded-[6px] px-1.5 py-px text-[10px] font-semibold"
+              style={{
+                background: (todo.carryoverCount ?? 0) >= 2 ? 'var(--ap-warn-bg)' : 'var(--ap-none-bg)',
+                color: (todo.carryoverCount ?? 0) >= 2 ? 'var(--ap-warn-fg)' : 'var(--ap-none-fg)',
+              }}
+              title={
+                (todo.carryoverCount ?? 0) >= 2
+                  ? `Carried ${todo.carryoverCount} times — consider splitting or descoping`
+                  : 'Carried over from a previous sprint'
+              }
+            >
+              <RotateCcw className="h-[9px] w-[9px]" /> ×{todo.carryoverCount}
+            </span>
+          )}
+        </div>
 
         {/* OKR pill */}
         {todo.keyResult && (

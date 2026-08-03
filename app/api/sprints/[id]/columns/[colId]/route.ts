@@ -7,12 +7,16 @@ import {
   apiConflict,
   withAuth,
 } from '@/lib/api'
+import { sprintClosedGuard } from '@/lib/sprints/guards'
 
 type ColParams = { id: string; colId: string } | Promise<{ id: string; colId: string }>
 
 export const PATCH = withAuth<ColParams>(async (request: NextRequest, { params }) => {
   const { id: sprintId, colId } = await resolveParams(params)
   if (!sprintId || !colId) return apiBadRequest('Invalid id')
+
+  const closed = await sprintClosedGuard(sprintId)
+  if (closed) return closed
 
   const body = await request.json()
   const data: any = {}
@@ -37,6 +41,9 @@ export const PATCH = withAuth<ColParams>(async (request: NextRequest, { params }
 export const DELETE = withAuth<ColParams>(async (_request, { params }) => {
   const { id: sprintId, colId } = await resolveParams(params)
   if (!sprintId || !colId) return apiBadRequest('Invalid id')
+
+  const closed = await sprintClosedGuard(sprintId)
+  if (closed) return closed
 
   // Block deleting the last column — every sprint needs at least one place to put cards.
   const remaining = await prisma.sprintColumn.count({ where: { sprintId } })

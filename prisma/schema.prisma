@@ -64,6 +64,7 @@ model User {
   reportedRisks               Risk[]                   @relation("RiskReporter")
   sprintParticipations        SprintParticipant[]      @relation("SprintParticipantUser")
   sprintsEnded                Sprint[]                 @relation("SprintEndedBy")
+  sprintSummariesReopened     SprintCompletionSummary[] @relation("SprintSummaryReopenedBy")
   ceoOf                       OrganizationSettings?    @relation("OrgSettingsCeo")
   // Daily Trip Plan back-relations (see prisma/schema.prisma DTP block at the bottom).
   dtpRequestedPlans           DailyTripPlan[]          @relation("DtpRequester")
@@ -1015,11 +1016,42 @@ model Sprint {
   todos        Todo[]
   activityLogs ActivityLog[]
   aiPlans      AiSprintPlan[]
+  completionSummary SprintCompletionSummary?
 
   @@index([ownerId, status])
   @@index([state, endDate])
   @@index([departmentId])
   @@map("sprints")
+}
+
+/// Sprint close artifact (BR-05) — one row per closed sprint. Survives sprint
+/// deletion (SetNull) so reports/history outlive the sprint itself.
+/// Re-close after reopen overwrites the row; prior closes remain in the activity log.
+model SprintCompletionSummary {
+  id              String    @id @default(cuid())
+  sprintId        String?   @unique
+  completedCount  Int
+  incompleteCount Int
+  movedToNext     Int       @default(0)
+  movedToBacklog  Int       @default(0)
+  cancelledCount  Int       @default(0)
+  nextSprintId    String?
+  /// JSON array: [{ todoId, title, fromStatus, action, toSprintId }].
+  /// Legacy backfilled rows use "backfilled": true with an empty array.
+  dispositions    String
+  goalLabel       String?
+  goalTarget      Float?
+  goalCurrent     Float?
+  goalUnit        String?
+  reflectionNote  String?
+  reopenedAt      DateTime?
+  reopenedById    String?
+  createdAt       DateTime  @default(now())
+
+  sprint     Sprint? @relation(fields: [sprintId], references: [id], onDelete: SetNull)
+  reopenedBy User?   @relation("SprintSummaryReopenedBy", fields: [reopenedById], references: [id], onDelete: SetNull)
+
+  @@map("sprint_completion_summaries")
 }
 
 /// Sprint v2 — explicit sprint membership. MEMBER for participants, OWNER mirrors creator.

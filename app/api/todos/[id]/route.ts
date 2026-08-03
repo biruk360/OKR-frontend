@@ -12,6 +12,7 @@ import { hasTodoParticipantWriteAccess } from '@/lib/todos/access'
 import {
   apiSuccess,
   apiBadRequest,
+  apiError,
   apiForbidden,
   apiNotFound,
   withAuth,
@@ -200,6 +201,36 @@ export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { sess
   if (objectiveId !== undefined && objectiveId !== null && objectiveId !== existingTodo.objectiveId) {
     const obj = await prisma.objective.findUnique({ where: { id: objectiveId }, select: { id: true } })
     if (!obj) return apiBadRequest('Objective not found')
+  }
+
+  // BR-06 — closed sprints are read-only. Status/position changes on a task that
+  // belongs to a closed sprint are rejected, as is moving a task INTO a closed
+  // sprint. Removing the task from the closed sprint (sprintId → null/other) is
+  // always allowed — it restores data the user owns.
+  {
+    const currentSprintId = (existingTodo as any).sprintId as string | null
+    const movingOut = sprintId !== undefined && sprintId !== currentSprintId
+    const touchesLockedFields =
+      (status !== undefined && status !== existingTodo.status) ||
+      typeof sprintPosition === 'number'
+    const sprintIdsToCheck = Array.from(
+      new Set(
+        [
+          currentSprintId && !movingOut ? currentSprintId : null,
+          sprintId ?? null,
+        ].filter(Boolean) as string[],
+      ),
+    )
+    if (sprintIdsToCheck.length > 0 && (touchesLockedFields || (sprintId !== undefined && sprintId !== null))) {
+      const states = await prisma.sprint.findMany({
+        where: { id: { in: sprintIdsToCheck } },
+        select: { id: true, state: true },
+      })
+      const closed = states.find(s => s.state === 'COMPLETED' || s.state === 'CANCELLED')
+      if (closed) {
+        return apiError('This sprint is closed and read-only', { status: 409, code: 'SPRINT_CLOSED' })
+      }
+    }
   }
 
   const updatedTodo = await prisma.$transaction(async (tx) => {

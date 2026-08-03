@@ -14,7 +14,7 @@ import toast from 'react-hot-toast'
 import { useRouter } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  ArrowLeft, Plus, MoreHorizontal, Calendar, Filter,
+  ArrowLeft, Plus, MoreHorizontal, Calendar, Filter, CheckCircle2,
 } from 'lucide-react'
 import { TodoCardModal } from '@/components/todos/TodoCardModal'
 import StatusPill from '@/components/shared/StatusPill'
@@ -22,6 +22,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import EndSprintModal from '@/components/sprints/EndSprintModal'
 import ScheduleSprintModal from '@/components/sprints/ScheduleSprintModal'
 import LinkToOkrPopover, { type OkrLinkValue } from '@/components/sprints/LinkToOkrPopover'
+import { AppleDatePicker } from '@/components/ui/date-picker'
 import { useIsMobile } from '@/hooks'
 import { cn } from '@/lib/utils'
 import type { TodoStatus } from '@/types'
@@ -75,6 +76,7 @@ interface BoardSprint {
   status: string
   startDate: string | null
   endDate: string | null
+  endedAt?: string | null
   goal: string | null
   goalLabel: string | null
   goalTarget: number | null
@@ -222,9 +224,13 @@ function AddTaskInline({
               style={{ borderColor: 'var(--ap-border)' }}>
               {['LOW', 'MEDIUM', 'HIGH', 'URGENT'].map((p) => <option key={p} value={p}>{p}</option>)}
             </select>
-            <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)}
-              className="rounded-[8px] border bg-card px-2 py-1 text-[11px]"
-              style={{ borderColor: 'var(--ap-border)' }} />
+            <div className="flex-1">
+              <AppleDatePicker
+                value={dueDate || null}
+                onChange={(iso) => setDueDate(iso ?? '')}
+                placeholder="Due date"
+              />
+            </div>
           </div>
           <LinkToOkrPopover value={okr} onChange={setOkr} />
         </div>
@@ -396,10 +402,8 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
   const { sprint, aggregates, participants } = data
   const daysLeft = sprint.endDate ? Math.max(0, Math.ceil((new Date(sprint.endDate).getTime() - Date.now()) / 86400000)) : null
 
-  const incompleteTodos = data.columns
-    .filter((c) => c.status !== 'COMPLETED')
-    .flatMap((c) => c.todos.map((t) => ({ id: t.id, title: t.title, status: t.status })))
-  const completedCount = data.columns.find((c) => c.status === 'COMPLETED')?.todos.length ?? 0
+  // FR-04 — closed sprints render read-only (banner, no drag, no quick-add).
+  const isClosed = sprint.state === 'COMPLETED' || sprint.state === 'CANCELLED'
 
   const bgKey = (sprint.background as SprintBackgroundKey | null) ?? 'none'
   const dark = isDarkBackground(bgKey)
@@ -457,16 +461,46 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
                 End sprint
               </button>
             )}
-            <SprintBackgroundPicker
-              sprintId={sprintId}
-              current={(sprint.background as SprintBackgroundKey | null) ?? 'none'}
-              onChanged={() => invalidate()}
-            />
+            {isClosed && (
+              <Link
+                href={`/dashboard/sprints/${sprintId}/report`}
+                className="rounded-[10px] px-3 py-1 text-[12px] font-semibold"
+                style={{ background: 'var(--ap-accent)', color: '#fff' }}
+              >
+                View sprint report
+              </Link>
+            )}
+            {!isClosed && (
+              <SprintBackgroundPicker
+                sprintId={sprintId}
+                current={(sprint.background as SprintBackgroundKey | null) ?? 'none'}
+                onChanged={() => invalidate()}
+              />
+            )}
             <button type="button" className="rounded-[10px] border p-1 hover:bg-muted" style={{ borderColor: 'var(--ap-border)' }}>
               <MoreHorizontal className="h-4 w-4" />
             </button>
           </div>
         </div>
+
+        {/* Read-only banner (FR-04 / UX-05) */}
+        {isClosed && (
+          <div
+            className="mt-3 flex items-center gap-2 rounded-[10px] px-3 py-2 text-[12px]"
+            style={{
+              background: 'var(--ap-bg-sunken)',
+              border: '0.5px solid var(--ap-border)',
+              color: 'var(--ap-fg-muted)',
+            }}
+          >
+            <CheckCircle2 className="h-3.5 w-3.5" style={{ color: 'var(--ap-green)' }} />
+            <span>
+              Sprint {sprint.state === 'COMPLETED' ? 'completed' : 'cancelled'}
+              {sprint.endedAt && <> on {new Date(sprint.endedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</>}
+              {' '}· read-only
+            </span>
+          </div>
+        )}
 
         <div className="mt-2 flex items-center gap-3 text-[11px] text-muted-foreground">
           {sprint.startDate && sprint.endDate && (
@@ -574,7 +608,10 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
       </div>
 
       {view === 'board' ? (
-        <div className="flex gap-3 overflow-x-auto pb-2">
+        <div
+          className="flex gap-3 overflow-x-auto pb-2"
+          style={isClosed ? { filter: 'saturate(0.6)' } : undefined}
+        >
           {localColumns.map((col) => {
             const isEmpty = col.todos.length === 0
             return (
@@ -582,6 +619,7 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
                 key={col.id}
                 onDragOver={(e) => {
                   e.preventDefault()
+                  if (isClosed) return
                   // Find insertion point by scanning card rects
                   const cardEls = Array.from(
                     e.currentTarget.querySelectorAll<HTMLElement>('[data-sprint-card]')
@@ -597,10 +635,12 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
                   updateIndicator(col.id, afterIndex)
                 }}
                 onDragLeave={(e) => {
+                  if (isClosed) return
                   if (!e.currentTarget.contains(e.relatedTarget as Node)) clearIndicator()
                 }}
                 onDrop={(e) => {
                   e.preventDefault()
+                  if (isClosed) return
                   if (!draggedId) return
                   const ind = indicatorRef.current
                   clearIndicator()
@@ -661,7 +701,7 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
                 {/* Drop indicator before first card */}
                 <KanbanDropLine active={!!indicator && indicator.colId === col.id && indicator.afterIndex === -1} />
 
-                {isEmpty && indicator?.colId === col.id ? (
+                {isEmpty && indicator?.colId === col.id && !isClosed ? (
                   <div className="flex min-h-[60px] items-center justify-center rounded-lg border-2 border-dashed border-primary/40 bg-primary/5 text-[11px] text-primary">
                     Drop here
                   </div>
@@ -671,8 +711,10 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
                       <TaskCardTrello
                         todo={t as unknown as TrelloTodo}
                         isDragging={draggedId === t.id}
+                        readOnly={isClosed}
                         onClick={() => setOpenTodoId(t.id)}
                         onDragStart={(e) => {
+                          if (isClosed) return
                           e.dataTransfer.effectAllowed = 'move'
                           e.dataTransfer.setData('todoId', t.id)
                           setDraggedId(t.id)
@@ -682,12 +724,14 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
                           setDraggedId(null)
                         }}
                       />
-                      <KanbanDropLine active={!!indicator && indicator.colId === col.id && indicator.afterIndex === cardIdx} />
+                      {!isClosed && (
+                        <KanbanDropLine active={!!indicator && indicator.colId === col.id && indicator.afterIndex === cardIdx} />
+                      )}
                     </div>
                   ))
                 )}
 
-                {col.id === 'PENDING' && (
+                {col.id === 'PENDING' && !isClosed && (
                   <div className="mt-2">
                     <AddTaskInline
                       sprintId={sprintId}
@@ -748,13 +792,7 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
         open={showEnd}
         onClose={() => setShowEnd(false)}
         sprintId={sprintId}
-        sprintName={sprint.name}
-        completedCount={completedCount}
-        incompleteTodos={incompleteTodos}
-        goalLabel={sprint.goalLabel}
-        goalCurrent={sprint.goalCurrent}
-        goalTarget={sprint.goalTarget}
-        goalUnit={sprint.goalUnit}
+        onClosed={() => invalidate()}
       />
 
       {/* Switch boards modal */}

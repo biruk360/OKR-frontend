@@ -4,6 +4,7 @@ import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import {
   apiSuccess,
   apiBadRequest,
+  apiError,
   apiForbidden,
   apiNotFound,
   withAuth,
@@ -12,6 +13,7 @@ import { canEditSprint, canDeleteSprint, type UserRole } from '@/lib/permissions
 import { recordActivity } from '@/lib/activity-log'
 import { broadcastSprintEvent } from '@/lib/pusher'
 import { isSprintBackgroundKey } from '@/lib/sprint-backgrounds'
+import { executeSprintClose, CloseError } from '@/lib/sprints/close-sprint'
 
 /** Full sprint with columns (board fetch). */
 export const GET = withAuth<RouteIdParams>(async (_request, { params }) => {
@@ -32,9 +34,12 @@ export const GET = withAuth<RouteIdParams>(async (_request, { params }) => {
 })
 
 const VALID_STATES = new Set(['PLANNING', 'ACTIVE', 'COMPLETED', 'CANCELLED'])
+// BR-01: COMPLETED is only reachable via POST /api/sprints/[id]/end so that
+// incomplete todos are always dispositioned. CANCELLED is allowed here but must
+// carry a disposition payload when incomplete todos exist (handled below).
 const ALLOWED_TRANSITIONS: Record<string, string[]> = {
   PLANNING: ['ACTIVE', 'CANCELLED'],
-  ACTIVE: ['COMPLETED', 'CANCELLED'],
+  ACTIVE: ['CANCELLED'],
   COMPLETED: [],
   CANCELLED: [],
 }
@@ -83,6 +88,52 @@ export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { sess
   let nextState = existing.state
   if (typeof body.state === 'string') {
     if (!VALID_STATES.has(body.state)) return apiBadRequest('Invalid state value')
+
+    // BR-01 — completing a sprint must go through the end endpoint so incomplete
+    // todos are dispositioned; a bare state flip strands them.
+    if (body.state === 'COMPLETED' && body.state !== existing.state) {
+      return apiError('Complete sprints via POST /api/sprints/[id]/end so incomplete tasks are handled.', {
+        status: 400,
+        code: 'USE_END_ENDPOINT',
+      })
+    }
+
+    // BR-01 — cancelling with incomplete todos requires the same disposition
+    // engine as ending (a cancelled sprint with stranded tasks is the same bug).
+    if (body.state === 'CANCELLED' && body.state !== existing.state) {
+      const incompleteCount = await prisma.todo.count({
+        where: { sprintId: id, status: { notIn: ['COMPLETED', 'CANCELLED'] } },
+      })
+      if (incompleteCount > 0) {
+        if (typeof body.incompleteHandling !== 'string') {
+          return apiBadRequest('incompleteHandling is required when cancelling a sprint with incomplete tasks')
+        }
+        try {
+          const closeResult = await executeSprintClose({
+            sprintId: id,
+            actorId: session.user.id,
+            targetState: 'CANCELLED',
+            payload: {
+              incompleteHandling: body.incompleteHandling,
+              perTaskActions: body.perTaskActions,
+              nextSprintId: body.nextSprintId ?? null,
+              createNextSprint: body.createNextSprint ?? null,
+              reflectionNote: typeof body.reflectionNote === 'string' ? body.reflectionNote : null,
+            },
+          })
+          return apiSuccess({
+            sprintId: closeResult.sprintId,
+            summary: closeResult.summary,
+            dispositions: closeResult.dispositions,
+            warnings: closeResult.warnings,
+          })
+        } catch (err) {
+          if (err instanceof CloseError) return apiError(err.message, { status: err.status, code: err.code })
+          throw err
+        }
+      }
+    }
+
     if (body.state !== existing.state) {
       const allowedNext = ALLOWED_TRANSITIONS[existing.state] || []
       if (!allowedNext.includes(body.state)) {
@@ -91,10 +142,6 @@ export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { sess
       data.state = body.state
       nextState = body.state
       stateChanged = true
-      if (body.state === 'COMPLETED') {
-        data.endedAt = new Date()
-        data.endedById = session.user.id
-      }
     }
   }
 
@@ -126,7 +173,6 @@ export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { sess
   if (stateChanged) {
     const action =
       nextState === 'ACTIVE' ? 'SPRINT_STARTED'
-      : nextState === 'COMPLETED' ? 'SPRINT_ENDED'
       : nextState === 'CANCELLED' ? 'SPRINT_CANCELLED'
       : 'SPRINT_GOAL_UPDATED'
     await recordActivity({

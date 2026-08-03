@@ -12,8 +12,11 @@ import { canCreateSprint, type UserRole } from '@/lib/permissions'
 import { recordActivity } from '@/lib/activity-log'
 
 /**
- * POST /api/sprints/[id]/clone — Create a new Sprint copying goal/dept/participants.
+ * POST /api/sprints/[id]/clone — Create a new Sprint copying goal/dept/participants/columns.
  * Body: { name, startDate, endDate, includeIncompleteTodos? }
+ *
+ * BR-11: cloning a closed (COMPLETED/CANCELLED) sprint never copies tasks —
+ * its tasks were already dispositioned at close.
  */
 export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { session, params }) => {
   const { id } = await resolveParams(params)
@@ -28,9 +31,17 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
 
   const source = await prisma.sprint.findUnique({
     where: { id },
-    include: { participants: { select: { userId: true, role: true } } },
+    include: {
+      participants: { select: { userId: true, role: true } },
+      columns: { select: { name: true, statusKey: true, position: true, color: true } },
+    },
   })
   if (!source) return apiNotFound('Source sprint not found')
+
+  const sourceClosed = source.state === 'COMPLETED' || source.state === 'CANCELLED'
+  if (sourceClosed && includeIncompleteTodos) {
+    return apiBadRequest('Cannot copy tasks from a closed sprint — its tasks were already dispositioned')
+  }
 
   const role = session.user.role as UserRole
   const allowedCreate = await canCreateSprint(role, session.user.id, source.departmentId)
@@ -51,6 +62,11 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
       goalCurrent: 0,
       goalUnit: source.goalUnit,
       departmentId: source.departmentId,
+      columns: {
+        create: source.columns.map(c => ({
+          name: c.name, statusKey: c.statusKey, position: c.position, color: c.color,
+        })),
+      },
       ...(source.participants.length > 0 && {
         participants: {
           createMany: {
@@ -63,7 +79,7 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
     include: { participants: true },
   })
 
-  if (includeIncompleteTodos) {
+  if (includeIncompleteTodos && !sourceClosed) {
     const incomplete = await prisma.todo.findMany({
       where: { sprintId: id, status: { notIn: ['COMPLETED', 'CANCELLED'] } },
     })

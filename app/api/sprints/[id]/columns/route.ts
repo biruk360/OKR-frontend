@@ -7,10 +7,14 @@ import {
   apiConflict,
   withAuth,
 } from '@/lib/api'
+import { sprintClosedGuard } from '@/lib/sprints/guards'
 
 export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { params }) => {
   const { id: sprintId } = await resolveParams(params)
   if (!sprintId) return apiBadRequest('Invalid sprint id')
+
+  const closed = await sprintClosedGuard(sprintId)
+  if (closed) return closed
 
   const body = await request.json()
   const name = (body.name || '').trim()

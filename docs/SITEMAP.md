@@ -74,7 +74,7 @@
 ### Project Management
 | Route | Page File | Feature | Description |
 |-------|-----------|---------|-------------|
-| `/dashboard/projects` | `app/dashboard/projects/page.tsx` | projects | Project list and create-project wizard |
+| `/dashboard/projects` | `app/dashboard/projects/page.tsx` | projects | Project list plus authorized Manual/Import/AI creation-method entry and resumable private draft shell; `?creationDraft=<id>` resumes a saved draft |
 | `/dashboard/projects/[id]` | `app/dashboard/projects/[id]/page.tsx` | projects | Project detail workspace with Gantt, registers, Delay Ledger, portal settings, Jira settings, scrum log, and J1 chart library in Overview |
 | `/dashboard/projects/portfolio` | `app/dashboard/projects/portfolio/page.tsx` | projects | Project portfolio view |
 
@@ -131,7 +131,7 @@
 | `/dashboard/settings/timeframes` | `app/dashboard/settings/timeframes/page.tsx` | settings | Timeframe management |
 | `/dashboard/settings/okr-rules` | `app/dashboard/settings/okr-rules/page.tsx` | settings | OKR rules config |
 | `/dashboard/settings/branding` | `app/dashboard/settings/branding/page.tsx` | settings | Branding config |
-| `/dashboard/settings/integrations` | `app/dashboard/settings/integrations/page.tsx` | settings | Integrations config |
+| `/dashboard/settings/integrations` | `app/dashboard/settings/integrations/page.tsx` | settings | Integrations config; Administrator-only OpenAI project-creation key/model/caps/testing panel with independent master toggle |
 | `/dashboard/settings/audit-logs` | `app/dashboard/settings/audit-logs/page.tsx` | settings | Audit log viewer |
 | `/dashboard/settings/letter-permissions` | `app/dashboard/settings/letter-permissions/page.tsx` | settings | Letter role matrix + user overrides + letter types (ADMIN only) |
 
@@ -201,6 +201,7 @@
 | GET | `/api/users/me/direct-reports` | Manager's direct reports |
 | GET | `/api/users/me/departments` | User's departments |
 | POST | `/api/users/[id]/reset-password` | Admin password reset |
+| PATCH | `/api/users/[id]/project-manager-capability` | Admin-only audited grant/revoke of project-creation capability |
 | POST | `/api/auth/change-password` | Authenticated user changes own password (requires `currentPassword` + `newPassword`) |
 | GET/POST | `/api/departments` | List / Create |
 | GET/PUT/DELETE | `/api/departments/[id]` | Read / Update / Delete |
@@ -215,6 +216,8 @@
 | GET/PUT | `/api/settings/okr-rules` | OKR rules config |
 | GET/PUT | `/api/settings/branding` | Branding config |
 | GET/PUT | `/api/settings/integrations` | Integrations config |
+| GET/PUT/DELETE | `/api/settings/integrations/ai` | Administrator-only masked OpenAI project-creation credential, model, caps, and independently audited feature-flag administration |
+| POST | `/api/settings/integrations/ai/test` | Administrator-only live OpenAI credential test with safe distinct outcomes |
 | GET/PUT | `/api/settings/letter-permissions/roles` | Letter role × permission matrix (ADMIN) |
 | GET/POST | `/api/settings/letter-permissions/users` | Per-user letter permission overrides (ADMIN) |
 | GET/DELETE | `/api/settings/letter-permissions/users/[userId]` | Per-user override detail + delete (ADMIN) |
@@ -268,6 +271,15 @@
 ### Project Management
 | Method | Route | Description |
 |--------|-------|-------------|
+| POST | `/api/projects/creation-drafts` | Create an authorized, creator-owned manual/import/AI draft with version-1 normalized project metadata |
+| GET/PATCH/DELETE | `/api/projects/creation-drafts/[id]` | Load, strict-schema/version-save editable seven-panel review data, or discard a private creation draft and its retained source; Administrators may inspect but only the creator may mutate |
+| POST | `/api/projects/creation-drafts/[id]/commit` | Owner-only, versioned, commit-time-reauthorized atomic and idempotent conversion of a ready normalized draft into one Planning/unbaselined project and full schedule, with required audits and no external notification |
+| POST | `/api/projects/creation-drafts/[id]/upload` | Owner-only CSV/XLS/XLSX/DOCX safety scan and private generated-name retention; spreadsheets continue through deterministic inspection/validation, while DOCX preserves ordered heading/paragraph/table source references under untrusted-data framing. Unsafe, encrypted, macro-enabled, suspicious archives, malware, and unavailable scanning fail closed before parsing/extraction |
+| POST | `/api/projects/creation-drafts/[id]/analyze` | Owner-only re-scan and approval of an edited deterministic mapping; revalidates the same hashed source, active assignees, schedule, and dependency graph, then replaces the private retained source and saves normalized data/report plus safe audit metadata |
+| POST | `/api/projects/creation-drafts/[id]/mapping-proposal` | Owner-only, versioned, rate-limited optional OpenAI column proposal over the integrity-checked retained spreadsheet; returns strict editable original/proposed/reason/confidence evidence without updating the draft or applying values |
+| GET | `/api/projects/creation-templates?format=csv\|xlsx` | Authorized project-less schedule template download; shared generator also serves the existing project-scoped template endpoint |
+| GET | `/api/projects/[id]/schedule-import/template?format=csv\|xlsx` | Authorized project-scoped download of the shared 24-column schedule template |
+| POST | `/api/projects/[id]/schedule-import` | Existing validated append/replace schedule import; accepts the backward-compatible 24-column contract and preserves optional deliverable, estimate, and source-note values |
 | GET/POST | `/api/projects/[id]/reports` | List project reports / generate the R2 bi-monthly client report draft |
 | GET/PATCH | `/api/projects/[id]/reports/[reportId]` | Read report / edit summary and transition DRAFT→PM_REVIEW→APPROVED→SENT |
 | GET | `/api/projects/[id]/reports/[reportId]/pdf` | Download R2 report PDF |

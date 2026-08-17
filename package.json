@@ -10,6 +10,7 @@
     "start": "next start",
     "lint": "next lint",
     "test:projects": "tsx --test lib/projects/*.test.ts",
+    "test:project-creation": "tsx --test lib/projects/project-creation*.test.ts",
     "test:scrum": "tsx --test features/scrum/services/*.test.ts",
     "test:okr": "tsx --test lib/okr/*.test.ts",
     "test:performance": "tsx --test lib/performance/*.test.ts",

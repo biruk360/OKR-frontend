@@ -2,13 +2,13 @@ import { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { recordActivity } from '@/lib/activity-log'
-import { emit } from '@/lib/notifications'
-import { createProjectWithTemplate } from '@/lib/projects/service'
-import { apiSuccess, apiPaginated, apiBadRequest, apiValidationError, withAuth, withRole } from '@/lib/api'
+import { canCreateProject } from '@/lib/permissions'
+import { createProjectWithTemplate, ProjectTemplateSelectionError } from '@/lib/projects/service'
+import { apiSuccess, apiPaginated, apiBadRequest, apiValidationError, apiForbidden, withAuth } from '@/lib/api'
 
 /**
  * GET /api/projects — list projects visible to the requester (role-scoped).
- * POST /api/projects — create a project (A1). PM/Executive/Admin only.
+ * POST /api/projects — create a project (A1). Uses the shared project-creation rule.
  */
 
 export const GET = withAuth(async (request: NextRequest, { session }) => {
@@ -79,7 +79,14 @@ const createSchema = z.object({
   templateId: z.string().optional().nullable(),
 })
 
-export const POST = withRole(['ADMIN', 'EXECUTIVE', 'DEPARTMENT_LEAD'], async (request: NextRequest, { session }) => {
+export const POST = withAuth(async (request: NextRequest, { session }) => {
+  if (!canCreateProject({
+    role: session.user.role,
+    isProjectManager: session.user.isProjectManager,
+  })) {
+    return apiForbidden('Insufficient permissions')
+  }
+
   const json = await request.json().catch(() => null)
   const parsed = createSchema.safeParse(json)
   if (!parsed.success) return apiValidationError('Invalid project payload', parsed.error.flatten())
@@ -118,6 +125,7 @@ export const POST = withRole(['ADMIN', 'EXECUTIVE', 'DEPARTMENT_LEAD'], async (r
     })
   } catch (e: any) {
     if (e?.code === 'P2002') return apiBadRequest('Project code must be unique')
+    if (e instanceof ProjectTemplateSelectionError) return apiBadRequest(e.message)
     throw e
   }
 
@@ -127,14 +135,6 @@ export const POST = withRole(['ADMIN', 'EXECUTIVE', 'DEPARTMENT_LEAD'], async (r
     action: 'CREATED',
     actorId: session.user.id,
     metadata: { code: created.code, name: input.name, clientName: input.clientName, templateId: input.templateId ?? null },
-  })
-
-  await emit('PROJECT_CREATED', {
-    actorId: session.user.id,
-    entityType: 'PROJECT',
-    entityId: created.id,
-    entityTitle: input.name,
-    data: { actorName: session.user.name, code: created.code, deepLink: `/projects/${created.id}` },
   })
 
   return apiSuccess({ id: created.id, code: created.code }, { status: 201 })

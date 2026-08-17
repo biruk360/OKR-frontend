@@ -12,7 +12,7 @@
  */
 
 import type { Prisma, PrismaClient } from '@prisma/client'
-import { instantiateTemplateStructure, type TemplateStructure } from './templates'
+import { instantiateTemplateStructure, templateStructureSchema } from './templates'
 
 const CODE_PREFIX = 'PRJ'
 
@@ -43,6 +43,7 @@ export interface CreateProjectInput {
   name: string
   code?: string // optional override; must stay unique
   clientName: string
+  clientId?: string | null
   description?: string | null
   projectManagerId: string
   departmentId?: string | null
@@ -54,6 +55,15 @@ export interface CreateProjectInput {
   createdById: string
 }
 
+export class ProjectTemplateSelectionError extends Error {
+  readonly code = 'PROJECT_TEMPLATE_SELECTION_INVALID'
+
+  constructor(message = 'The selected project template is no longer available') {
+    super(message)
+    this.name = 'ProjectTemplateSelectionError'
+  }
+}
+
 /**
  * Create a project (in PLANNING, unbaselined), add the PM as a ProjectMember(PM), and —
  * if a template is chosen — instantiate its full phase/milestone/activity tree. All in
@@ -61,11 +71,26 @@ export interface CreateProjectInput {
  * Returns the created project id and its code.
  */
 export async function createProjectWithTemplate(
-  prisma: PrismaClient,
-  input: CreateProjectInput
+  prisma: PrismaClient | Prisma.TransactionClient,
+  input: CreateProjectInput,
+  options: { withinTransaction?: boolean } = {},
 ): Promise<{ id: string; code: string }> {
-  return prisma.$transaction(async (tx) => {
+  const create = async (tx: Prisma.TransactionClient) => {
     const code = input.code?.trim() || (await generateProjectCode(tx, input.plannedStart.getUTCFullYear()))
+
+    let templateStructure: ReturnType<typeof templateStructureSchema.parse> | null = null
+    if (input.templateId) {
+      const template = await tx.projectTemplate.findUnique({
+        where: { id: input.templateId },
+        select: { structureJson: true },
+      })
+      if (!template) throw new ProjectTemplateSelectionError()
+      const parsed = templateStructureSchema.safeParse(template.structureJson)
+      if (!parsed.success) {
+        throw new ProjectTemplateSelectionError('The selected project template is invalid')
+      }
+      templateStructure = parsed.data
+    }
 
     const project = await tx.project.create({
       data: {
@@ -73,6 +98,7 @@ export async function createProjectWithTemplate(
         name: input.name,
         description: input.description ?? null,
         clientName: input.clientName,
+        clientId: input.clientId ?? null,
         projectManagerId: input.projectManagerId,
         departmentId: input.departmentId ?? null,
         templateId: input.templateId ?? null,
@@ -92,19 +118,15 @@ export async function createProjectWithTemplate(
     })
 
     // Template instantiation (copy, not reference).
-    if (input.templateId) {
-      const template = await tx.projectTemplate.findUnique({
-        where: { id: input.templateId },
-        select: { structureJson: true },
-      })
-      if (template?.structureJson) {
-        const structure = template.structureJson as unknown as TemplateStructure
-        if (Array.isArray(structure.phases)) {
-          await instantiateTemplateStructure(tx, project.id, structure)
-        }
-      }
+    if (templateStructure) {
+      await instantiateTemplateStructure(tx, project.id, templateStructure)
     }
 
     return project
-  })
+  }
+
+  if (options.withinTransaction) {
+    return create(prisma as Prisma.TransactionClient)
+  }
+  return (prisma as PrismaClient).$transaction(create)
 }

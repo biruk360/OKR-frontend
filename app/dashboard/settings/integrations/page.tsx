@@ -16,8 +16,7 @@ export default async function IntegrationsSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <IntegrationsManagement />
+      <IntegrationsManagement showAiProviderSettings={session.user.role === 'ADMIN'} />
     </div>
   )
 }
-

@@ -71,6 +71,7 @@ export async function POST(request: NextRequest) {
     email: user.email,
     name: user.name,
     role: user.role as UserRole,
+    isProjectManager: user.isProjectManager,
     avatar: user.avatar,
   }
 
@@ -88,6 +89,7 @@ export async function POST(request: NextRequest) {
       email: user.email,
       name: user.name,
       role: user.role,
+      isProjectManager: user.isProjectManager,
       avatar: user.avatar,
       designation: user.designation,
       isActive: user.isActive,

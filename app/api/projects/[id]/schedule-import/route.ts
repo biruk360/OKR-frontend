@@ -79,14 +79,17 @@ export const POST = withAuth<{ id: string }>(async (req: NextRequest, { session,
       }
       const milestoneKey = `${row.phase}\u0000${row.milestone}`
       if (!milestoneIds.has(milestoneKey)) {
+        const milestoneRows = parsed.rows.filter((candidate) => candidate.phase === row.phase && candidate.milestone === row.milestone)
+        const namedDeliverable = milestoneRows.find((candidate) => candidate.deliverableName)?.deliverableName
         const milestone = await tx.milestone.create({
-          data: { phaseId: phaseIds.get(row.phase)!, name: row.milestone, weight: row.milestoneWeight, isKeyMilestone: row.keyMilestone, position: [...milestoneIds.keys()].filter((key) => key.startsWith(`${row.phase}\u0000`)).length },
+          data: { phaseId: phaseIds.get(row.phase)!, name: namedDeliverable ?? row.milestone, weight: row.milestoneWeight, isKeyMilestone: milestoneRows.some((candidate) => candidate.keyMilestone || Boolean(candidate.deliverableName)), position: [...milestoneIds.keys()].filter((key) => key.startsWith(`${row.phase}\u0000`)).length },
           select: { id: true },
         })
         milestoneIds.set(milestoneKey, milestone.id)
       }
       const blockerNote = row.blockerDetails ? `Blocker: ${row.blockerDetails}` : null
-      const description = [row.description, blockerNote].filter(Boolean).join('\n\n') || null
+      const assumptionsNote = row.assumptionsOrSourceNotes ? `Assumptions / source notes: ${row.assumptionsOrSourceNotes}` : null
+      const description = [row.description, blockerNote, assumptionsNote].filter(Boolean).join('\n\n') || null
       const activity = await tx.activity.create({
         data: {
           milestoneId: milestoneIds.get(milestoneKey)!,
@@ -98,6 +101,7 @@ export const POST = withAuth<{ id: string }>(async (req: NextRequest, { session,
           currentStart: row.startDate,
           currentEnd: row.endDate,
           weight: row.activityWeight,
+          estimatedHours: row.estimatedHours,
           priority: row.priority,
           risk: row.risk,
           isBlocked: row.isBlocked,

@@ -26,6 +26,7 @@ model User {
   nameAmharic            String?   // Full name in Amharic — used on Amharic letterhead
   designationAmharic     String?   // Job title in Amharic — used on Amharic letterhead
   isActive               Boolean   @default(true)
+  isProjectManager       Boolean   @default(false)
   activationToken        String?
   activationTokenExpires DateTime?
   lastLoginAt            DateTime?
@@ -194,9 +195,14 @@ model OrganizationSettings {
   /// Master switch for the AI Sprint Planning feature (see docs/AI_SPRINT_PLANNING.md).
   /// When false, /api/sprints/ai/* routes return 404 and the "AI Plan" button is hidden.
   aiSprintPlanningEnabled Boolean  @default(false)
+  /// Independent master switch for AI-assisted project creation.
+  /// Future /api/projects/creation-* AI routes must refuse while false.
+  aiProjectCreationEnabled Boolean @default(false)
   /// Default AI provider when a /generate call doesn't specify one.
   /// One of "anthropic" | "openai" | "gemini".
   aiPreferredProvider     String   @default("anthropic")
+  /// Server-allowlisted OpenAI model used by Project Creation AI.
+  aiProjectCreationModel  String?
   /// OKR period-close reopen window for non-admin users (days after close). Default 14.
   okrReopenWindowDays     Int      @default(14)
   createdAt               DateTime @default(now())
@@ -901,7 +907,7 @@ model ObjectiveLabel {
 /// `changes` is a JSON string: `{ field: { from: any, to: any }, ... }`.
 model ActivityLog {
   id          String   @id @default(cuid())
-  entityType  String // OBJECTIVE | KEY_RESULT | TODO | SPRINT | LETTER | EVALUATION | REVIEW_CYCLE | DEVELOPMENT_ACTION | PERFORMANCE_SETTINGS
+  entityType  String // OBJECTIVE | KEY_RESULT | TODO | SPRINT | LETTER | EVALUATION | REVIEW_CYCLE | DEVELOPMENT_ACTION | PERFORMANCE_SETTINGS | USER | AI_CREDENTIAL | PROJECT_CREATION_DRAFT
   objectiveId String?
   keyResultId String?
   todoId      String?
@@ -943,6 +949,35 @@ model ActivityLog {
   @@index([projectId, createdAt])
   @@index([entityType, createdAt])
   @@map("activity_logs")
+}
+
+/// Persistent, creator-private workspace shared by every project-creation method.
+/// JSON fields remain provider-neutral; Story 1.2 adds their normalized schema.
+model ProjectCreationDraft {
+  id                 String   @id @default(cuid())
+  ownerUserId        String
+  sourceMethod       String   // MANUAL | FILE_IMPORT | AI_GUIDED | AI_TOR
+  status             String   @default("DRAFT") // DRAFT | PROCESSING | READY | COMMITTING | COMMITTED | FAILED | EXPIRED
+  version            Int      @default(1)
+  projectJson        Json
+  scheduleJson       Json?
+  validationJson     Json?
+  sourceFileName     String?
+  sourceMimeType     String?
+  sourceSize         Int?
+  sourceHash         String?
+  sourceRef          String?
+  aiProvider         String?
+  aiModelId          String?
+  aiPromptVersion    String?
+  committedProjectId String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  committedAt        DateTime?
+  expiresAt          DateTime?
+
+  @@index([ownerUserId, status])
+  @@map("project_creation_drafts")
 }
 
 /// View tracking — capped to one row per (user, objective, day) by unique constraint
@@ -1228,6 +1263,23 @@ model AiGenerationLog {
   @@index([status, createdAt])
   @@index([provider, createdAt])
   @@map("ai_generation_logs")
+}
+
+/// Server-side AI provider credentials administered in application settings.
+/// The full key is stored only as an AES-256-GCM envelope; APIs may expose
+/// lastFour for masking but must never return encryptedKey or plaintext.
+model AiProviderCredential {
+  id             String    @id @default(cuid())
+  provider       String    @unique // "openai"
+  label          String?
+  encryptedKey   String
+  lastFour       String
+  createdById    String
+  lastVerifiedAt DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@map("ai_provider_credentials")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

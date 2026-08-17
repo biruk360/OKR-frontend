@@ -25,6 +25,7 @@ export default async function UsersSettingsPage() {
       role: true,
       designation: true,
       isActive: true,
+      isProjectManager: true,
       createdAt: true,
       lastLoginAt: true
     },
@@ -33,8 +34,11 @@ export default async function UsersSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <UserManagement initialUsers={users} currentUserId={session.user.id} />
+      <UserManagement
+        initialUsers={users}
+        currentUserId={session.user.id}
+        currentUserRole={session.user.role}
+      />
     </div>
   )
 }
-

@@ -63,6 +63,7 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           name: user.name,
           role: user.role as UserRole,
+          isProjectManager: user.isProjectManager,
           avatar: user.avatar
         }
       }
@@ -76,6 +77,7 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.role = user.role
+        token.isProjectManager = user.isProjectManager
         token.avatar = user.avatar
       }
       return token
@@ -84,6 +86,7 @@ export const authOptions: NextAuthOptions = {
       if (token) {
         session.user.id = token.sub!
         session.user.role = token.role as UserRole
+        session.user.isProjectManager = token.isProjectManager === true
         session.user.avatar = token.avatar as string
       }
       return session
@@ -100,7 +103,20 @@ export const authOptions: NextAuthOptions = {
  */
 export async function getServerSessionSafe(): Promise<Session | null> {
   try {
-    return await getServerSession(authOptions)
+    const session = await getServerSession(authOptions)
+    if (!session?.user.id) return session
+
+    // Capabilities can be granted or revoked while a JWT session is active.
+    // Resolve the current database values on every authenticated server request
+    // so reload is sufficient and stale tokens cannot retain revoked access.
+    const currentUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, isActive: true, isProjectManager: true },
+    })
+    if (!currentUser?.isActive) return null
+    session.user.role = currentUser.role as UserRole
+    session.user.isProjectManager = currentUser.isProjectManager
+    return session
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error)
     console.error('[auth] getServerSession failed:', msg)
@@ -121,12 +137,18 @@ export async function getBearerSession(req: NextRequest): Promise<Session | null
   try {
     const decoded = await decode({ token, secret: nextAuthSecret })
     if (!decoded?.sub) return null
+    const currentUser = await prisma.user.findUnique({
+      where: { id: decoded.sub },
+      select: { role: true, isActive: true, isProjectManager: true },
+    })
+    if (!currentUser?.isActive) return null
     return {
       user: {
         id: decoded.sub,
         email: (decoded.email as string) ?? '',
         name: (decoded.name as string) ?? '',
-        role: decoded.role as UserRole,
+        role: currentUser.role as UserRole,
+        isProjectManager: currentUser.isProjectManager,
         avatar: (decoded.avatar as string | null) ?? null,
       },
       expires: new Date(((decoded.exp as number) ?? 0) * 1000).toISOString(),

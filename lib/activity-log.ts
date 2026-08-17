@@ -10,6 +10,9 @@ export type ActivityEntityType =
   | 'REVIEW_CYCLE'
   | 'DEVELOPMENT_ACTION'
   | 'PERFORMANCE_SETTINGS'
+  | 'USER'
+  | 'AI_CREDENTIAL'
+  | 'PROJECT_CREATION_DRAFT'
   // Project Management module entity types.
   | 'PROJECT'
   | 'PROJECT_PHASE'
@@ -96,6 +99,16 @@ export type ActivityAction =
   | 'MANUAL_ACTUAL_ENTERED'
   | 'MANUAL_ACTUAL_REMOVED'
   | 'SETTINGS_UPDATED'
+  | 'PROJECT_MANAGER_CAPABILITY_GRANTED'
+  | 'PROJECT_MANAGER_CAPABILITY_REVOKED'
+  | 'KEY_ROTATED'
+  | 'KEY_TESTED'
+  | 'DRAFT_COMMITTED'
+  | 'AI_MAPPING_REQUESTED'
+  | 'AI_MAPPING_PROPOSED'
+  | 'AI_MAPPING_FAILED'
+  | 'AI_CLEANUP_ACCEPTED'
+  | 'AI_CLEANUP_REJECTED'
   // Project Management module actions.
   | 'BASELINE_COMMITTED'
   | 'REBASELINED'
@@ -141,13 +154,30 @@ interface RecordParams {
   metadata?: Record<string, unknown> | null
 }
 
+interface ActivityLogWriter {
+  activityLog: {
+    create(args: unknown): Promise<unknown>
+  }
+}
+
+interface RecordActivityOptions {
+  /** Use the caller's transaction so the mutation and audit entry commit together. */
+  client?: ActivityLogWriter
+  /** Re-throw write failures when the audit record is required for the mutation. */
+  required?: boolean
+}
+
 /**
- * Append an activity log entry. Failures are swallowed and logged so logging never breaks
- * the calling mutation — the audit trail is best-effort.
+ * Append an activity log entry. Existing callers remain best-effort by default.
+ * Security-sensitive mutations may provide their transaction client with
+ * `required: true` so an audit failure rolls the transaction back.
  */
-export async function recordActivity(params: RecordParams): Promise<void> {
+export async function recordActivity(
+  params: RecordParams,
+  options: RecordActivityOptions = {},
+): Promise<void> {
   try {
-    await prisma.activityLog.create({
+    await (options.client ?? prisma).activityLog.create({
       data: {
         entityType: params.entityType,
         objectiveId: params.objectiveId ?? null,
@@ -166,6 +196,7 @@ export async function recordActivity(params: RecordParams): Promise<void> {
     })
   } catch (err) {
     console.error('[activity-log] failed to record', { params, err })
+    if (options.required) throw err
   }
 }
 

@@ -1,30 +1,129 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { FolderKanban, Plus, Search, LayoutGrid, BookOpen } from 'lucide-react'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { StatCard } from '@/components/ui/StatCard'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { Modal } from '@/components/ui/Modal'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { useDebounce } from '@/hooks/useDebounce'
-import { useProjectsList } from '../hooks/useProjects'
+import {
+  useCreateProjectCreationDraft,
+  useDiscardProjectCreationDraft,
+  useProjectCreationDraft,
+  useProjectsList,
+  useUpdateProjectCreationDraft,
+  type ProjectCreationDraftNode,
+} from '../hooks/useProjects'
+import type { ProjectCreationSourceMethod } from '@/lib/projects/creation-draft'
+import type { CommitProjectCreationDraftResult } from '@/lib/projects/creation-commit-shared'
+import { NewProjectEntry } from './creation/NewProjectEntry'
+import { CreationDraftShell } from './creation/CreationDraftShell'
+import { ImportUploadStep } from './creation/ImportUploadStep'
 import { CreateProjectWizard } from './CreateProjectWizard'
+import { projectCreationMethodLabel } from './creation/methods'
 import { RagBadge, ProjectStatusBadge } from './ProjectBadges'
 import { ProjectProgress } from './ProjectProgress'
 
 interface Props {
-  user: { id: string; role: string }
+  canCreateProject: boolean
+  aiFeatureEnabled: boolean
+  aiAvailable: boolean
+  currentUserId: string
+  initialDraftId?: string | null
 }
 
-const CAN_CREATE = ['ADMIN', 'EXECUTIVE', 'DEPARTMENT_LEAD']
-
-export function ProjectsListClient({ user }: Props) {
-  const [wizardOpen, setWizardOpen] = useState(false)
+export function ProjectsListClient({
+  canCreateProject,
+  aiFeatureEnabled,
+  aiAvailable,
+  currentUserId,
+  initialDraftId = null,
+}: Props) {
+  const router = useRouter()
+  const [creationOpen, setCreationOpen] = useState(false)
+  const [creationScreen, setCreationScreen] = useState<'entry' | 'draft'>('entry')
+  const [activeDraft, setActiveDraft] = useState<ProjectCreationDraftNode | null>(null)
+  const [resumeDraftId, setResumeDraftId] = useState(initialDraftId)
+  const [pendingMethod, setPendingMethod] = useState<ProjectCreationSourceMethod | null>(null)
+  const [switchConfirmOpen, setSwitchConfirmOpen] = useState(false)
+  const [manualProgressStep, setManualProgressStep] = useState<1 | 2 | 3>(1)
+  const [importProgressStep, setImportProgressStep] = useState<1 | 2 | 3>(1)
   const [search, setSearch] = useState('')
   const debounced = useDebounce(search, 300)
   const { data, isLoading } = useProjectsList({ search: debounced, limit: 50 })
+  const savedDraft = useProjectCreationDraft(resumeDraftId, canCreateProject)
+  const createDraft = useCreateProjectCreationDraft()
+  const updateDraft = useUpdateProjectCreationDraft(activeDraft?.id ?? '')
+  const discardDraft = useDiscardProjectCreationDraft()
   const projects = data?.data ?? []
+
+  useEffect(() => {
+    if (savedDraft.data) setActiveDraft(savedDraft.data)
+  }, [savedDraft.data])
+
+  const rememberDraft = (id: string | null) => {
+    setResumeDraftId(id)
+    const url = new URL(window.location.href)
+    if (id) url.searchParams.set('creationDraft', id)
+    else url.searchParams.delete('creationDraft')
+    window.history.replaceState(window.history.state, '', url)
+  }
+
+  const openCreation = () => {
+    setCreationScreen(activeDraft || resumeDraftId ? 'draft' : 'entry')
+    setCreationOpen(true)
+  }
+
+  const selectMethod = async (sourceMethod: ProjectCreationSourceMethod) => {
+    if (activeDraft) {
+      if (activeDraft.sourceMethod === sourceMethod) {
+        setCreationScreen('draft')
+        return
+      }
+      setPendingMethod(sourceMethod)
+      setSwitchConfirmOpen(true)
+      return
+    }
+    const draft = await createDraft.mutateAsync({ sourceMethod })
+    setActiveDraft(draft)
+    rememberDraft(draft.id)
+    setCreationScreen('draft')
+  }
+
+  const confirmMethodSwitch = async () => {
+    if (!activeDraft || !pendingMethod) return
+    const updated = await updateDraft.mutateAsync({
+      version: activeDraft.version,
+      sourceMethod: pendingMethod,
+      discardMethodData: true,
+    })
+    setActiveDraft(updated)
+    setPendingMethod(null)
+    setSwitchConfirmOpen(false)
+    setCreationScreen('draft')
+  }
+
+  const discardActiveDraft = async () => {
+    if (!activeDraft) return
+    await discardDraft.mutateAsync({ id: activeDraft.id, version: activeDraft.version })
+    setActiveDraft(null)
+    rememberDraft(null)
+    setCreationOpen(false)
+    setCreationScreen('entry')
+  }
+
+  const completeDraftProject = async (project: CommitProjectCreationDraftResult) => {
+    setActiveDraft(null)
+    rememberDraft(null)
+    setCreationOpen(false)
+    setCreationScreen('entry')
+    router.push(`/projects/${project.id}?created=1&warnings=${project.acknowledgedWarnings}`)
+  }
 
   const counts = useMemo(() => {
     const c = { total: projects.length, green: 0, amber: 0, red: 0 }
@@ -35,8 +134,6 @@ export function ProjectsListClient({ user }: Props) {
     }
     return c
   }, [projects])
-
-  const canCreate = CAN_CREATE.includes(user.role)
 
   return (
     <div className="mx-auto max-w-content px-6 py-6">
@@ -51,8 +148,8 @@ export function ProjectsListClient({ user }: Props) {
             <Link href="/dashboard/projects/templates" className="btn btn-secondary">
               <BookOpen className="mr-1.5 size-4" /> Templates
             </Link>
-            {canCreate && (
-              <button className="btn btn-primary" onClick={() => setWizardOpen(true)}>
+            {canCreateProject && (
+              <button className="btn btn-primary" onClick={openCreation}>
                 <Plus className="mr-1.5 size-4" /> New Project
               </button>
             )}
@@ -85,8 +182,8 @@ export function ProjectsListClient({ user }: Props) {
         <EmptyState
           icon={FolderKanban}
           title="No projects yet"
-          description={canCreate ? 'Create your first project to start tracking delivery.' : 'No projects are visible to you yet.'}
-          action={canCreate ? { label: 'New Project', onClick: () => setWizardOpen(true) } : undefined}
+          description={canCreateProject ? 'Create your first project to start tracking delivery.' : 'No projects are visible to you yet.'}
+          action={canCreateProject ? { label: 'New Project', onClick: openCreation } : undefined}
         />
       ) : (
         <div className="overflow-hidden rounded-card bg-surface-card shadow-card">
@@ -120,7 +217,88 @@ export function ProjectsListClient({ user }: Props) {
         </div>
       )}
 
-      <CreateProjectWizard open={wizardOpen} onClose={() => setWizardOpen(false)} currentUserId={user.id} />
+      <Modal
+        open={creationOpen}
+        onClose={() => setCreationOpen(false)}
+        title="New Project"
+        size="2xl"
+        scrollBehavior="internal"
+        closeOnBackdrop={!createDraft.isPending && !updateDraft.isPending}
+        closeOnEsc={!createDraft.isPending && !updateDraft.isPending}
+      >
+        {creationScreen === 'entry' ? (
+          <NewProjectEntry
+            aiFeatureEnabled={aiFeatureEnabled}
+            aiAvailable={aiAvailable}
+            currentDraftMethod={activeDraft?.sourceMethod}
+            isStarting={createDraft.isPending || updateDraft.isPending}
+            onSelect={selectMethod}
+            onResume={activeDraft ? () => setCreationScreen('draft') : undefined}
+          />
+        ) : activeDraft ? (
+          <CreationDraftShell
+            draft={activeDraft}
+            onBack={() => setCreationScreen('entry')}
+            onSaveExit={() => setCreationOpen(false)}
+            onDiscard={discardActiveDraft}
+            isDiscarding={discardDraft.isPending}
+            progressStep={activeDraft.sourceMethod === 'MANUAL'
+              ? manualProgressStep
+              : activeDraft.sourceMethod === 'FILE_IMPORT'
+              ? importProgressStep
+              : 1}
+          >
+            {activeDraft.sourceMethod === 'MANUAL' ? (
+              <CreateProjectWizard
+                draft={activeDraft}
+                currentUserId={currentUserId}
+                onDraftUpdated={setActiveDraft}
+                onCreated={completeDraftProject}
+                onSaveExit={() => setCreationOpen(false)}
+                onProgressChange={setManualProgressStep}
+              />
+            ) : activeDraft.sourceMethod === 'FILE_IMPORT' ? (
+              <ImportUploadStep
+                draft={activeDraft}
+                onDraftUpdated={setActiveDraft}
+                onProgressChange={setImportProgressStep}
+                onSaveExit={() => setCreationOpen(false)}
+                onCommitted={completeDraftProject}
+              />
+            ) : undefined}
+          </CreationDraftShell>
+        ) : savedDraft.isLoading ? (
+          <div className="space-y-3" aria-label="Loading saved project draft">
+            <Skeleton className="h-24 rounded-card" />
+            <Skeleton className="h-52 rounded-card" />
+          </div>
+        ) : (
+          <NewProjectEntry
+            aiFeatureEnabled={aiFeatureEnabled}
+            aiAvailable={aiAvailable}
+            isStarting={createDraft.isPending}
+            onSelect={selectMethod}
+          />
+        )}
+      </Modal>
+
+      <ConfirmDialog
+        open={switchConfirmOpen}
+        onClose={() => {
+          setSwitchConfirmOpen(false)
+          setPendingMethod(null)
+        }}
+        onConfirm={confirmMethodSwitch}
+        title="Switch creation method?"
+        message={pendingMethod
+          ? `Switch to ${projectCreationMethodLabel(pendingMethod).toLowerCase()}?`
+          : 'Switch creation method?'}
+        description="Common project details will be preserved. Method-specific schedule, source, and validation work will be discarded only after you confirm."
+        confirmLabel="Switch method"
+        isLoading={updateDraft.isPending}
+        loadingLabel="Switching"
+        variant="warning"
+      />
     </div>
   )
 }

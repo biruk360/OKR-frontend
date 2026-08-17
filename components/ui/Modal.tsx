@@ -68,7 +68,11 @@ export function Modal({
       <DialogContent
         className={cn(
           sizeClasses[size],
-          internal && 'max-h-[90vh] flex flex-col',
+          // `!flex` is deliberate: DialogContent hardcodes `grid`, and since Tailwind
+          // emits `.grid` after `.flex` at equal specificity, a plain `flex` here loses.
+          // Without the override the column layout never applies, the body never
+          // shrinks, and a tall modal overflows the viewport instead of scrolling.
+          internal && 'max-h-[90vh] !flex flex-col',
           className,
         )}
         onPointerDownOutside={(e) => { if (!closeOnBackdrop) e.preventDefault() }}
@@ -90,12 +94,19 @@ export function Modal({
           </DialogHeader>
         )}
 
-        <div className={cn(internal && 'flex-1 overflow-y-auto')}>
+        {/* `min-h-0` is required: a flex item defaults to min-height:auto, which
+            refuses to shrink below its content and defeats overflow-y-auto. */}
+        <div className={cn(internal && 'min-h-0 flex-1 overflow-y-auto')}>
           {children}
         </div>
 
         {footer && (
-          <DialogFooter className="flex items-center justify-end gap-3">
+          <DialogFooter
+            className={cn(
+              'flex items-center justify-end gap-3',
+              internal && 'flex-shrink-0',
+            )}
+          >
             {footer}
           </DialogFooter>
         )}

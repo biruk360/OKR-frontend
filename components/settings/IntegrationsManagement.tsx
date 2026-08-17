@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Save, Mail, MessageSquare, Key } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
+import AiProviderSettingsPanel from './AiProviderSettingsPanel'
 
 interface FormData {
   emailApiKey?: string
@@ -11,7 +12,7 @@ interface FormData {
   slackApiKey?: string
 }
 
-export default function IntegrationsManagement() {
+export default function IntegrationsManagement({ showAiProviderSettings = false }: { showAiProviderSettings?: boolean }) {
   const [isLoading, setIsLoading] = useState(false)
   const { register, handleSubmit, reset } = useForm<FormData>()
 
@@ -54,9 +55,11 @@ export default function IntegrationsManagement() {
       <div>
         <h1 className="text-2xl font-bold text-foreground">Integrations & API Keys</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Configure email and Slack integrations for reminders and notifications.
+          Configure approved external services and server-side credentials.
         </p>
       </div>
+
+      {showAiProviderSettings && <AiProviderSettingsPanel />}
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         {/* Email Integration */}
@@ -134,4 +137,3 @@ export default function IntegrationsManagement() {
     </div>
   )
 }
-

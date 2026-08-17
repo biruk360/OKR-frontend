@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import {
   AlertTriangle,
   ArrowLeft,
@@ -15,6 +16,7 @@ import {
   Upload,
   UserPlus,
   Users,
+  X,
 } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Skeleton } from '@/components/ui/Skeleton'
@@ -38,6 +40,9 @@ const CAN_EDIT_ROLES = ['ADMIN', 'EXECUTIVE', 'DEPARTMENT_LEAD']
 export function ProjectWorkspaceClient({ projectId, user }: Props) {
   const { data: project, isLoading, isError } = useProject(projectId)
   const updateProject = useUpdateProject(projectId)
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const [controlsOpen, setControlsOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [editingName, setEditingName] = useState(false)
@@ -48,6 +53,7 @@ export function ProjectWorkspaceClient({ projectId, user }: Props) {
   const priority = useProjectViewStore((state) => state.priority)
   const risk = useProjectViewStore((state) => state.risk)
   const enterProject = useProjectViewStore((state) => state.enterProject)
+  const setActiveView = useProjectViewStore((state) => state.setActiveView)
   const setAssignee = useProjectViewStore((state) => state.setAssignee)
   const setPriority = useProjectViewStore((state) => state.setPriority)
   const setRisk = useProjectViewStore((state) => state.setRisk)
@@ -56,6 +62,11 @@ export function ProjectWorkspaceClient({ projectId, user }: Props) {
   useEffect(() => {
     enterProject(projectId)
   }, [enterProject, projectId])
+
+  const createdFromDraft = searchParams.get('created') === '1'
+  useEffect(() => {
+    if (createdFromDraft) setActiveView('gantt')
+  }, [createdFromDraft, setActiveView])
 
   useEffect(() => {
     const storageKey = `project.reference-date.${projectId}`
@@ -70,6 +81,9 @@ export function ProjectWorkspaceClient({ projectId, user }: Props) {
 
   const canEdit = CAN_EDIT_ROLES.includes(user.role) || project.projectManagerId === user.id
   const activityCount = project.phases.reduce((count, phase) => count + phase.milestones.reduce((sum, milestone) => sum + milestone.activities.length, 0), 0)
+  const milestoneCount = project.phases.reduce((count, phase) => count + phase.milestones.length, 0)
+  const deliverableCount = project.phases.reduce((count, phase) => count + phase.milestones.filter((milestone) => milestone.isKeyMilestone).length, 0)
+  const acknowledgedWarnings = Math.max(0, Number.parseInt(searchParams.get('warnings') ?? '0', 10) || 0)
   const health = project.ragStatus === 'RED' ? 'Behind' : project.ragStatus === 'AMBER' ? 'At Risk' : 'On Time'
 
   const saveName = async () => {
@@ -175,6 +189,28 @@ export function ProjectWorkspaceClient({ projectId, user }: Props) {
           <div className="flex shrink-0 items-center gap-2 border-b border-warning-500/20 bg-warning-50 px-4 py-1.5 text-[12px] text-warning-800">
             <AlertTriangle className="size-3.5" /> Baseline is not committed. Delay tracking begins after the first schedule baseline is frozen.
           </div>
+        )}
+
+        {createdFromDraft && (
+          <section className="shrink-0 border-b border-success-500/20 bg-success-50 px-4 py-3" aria-label="Project creation summary">
+            <div className="flex items-start gap-3">
+              <Check className="mt-0.5 size-4 shrink-0 text-success-700" />
+              <div className="min-w-0 flex-1">
+                <p className="text-body-sm font-semibold text-success-800">Project created in Planning with the Gantt schedule open.</p>
+                <p className="mt-0.5 text-body-sm text-success-700">
+                  {project.phases.length} phases · {milestoneCount} milestones · {activityCount} activities · {deliverableCount} deliverables · {project.dependencies.length} dependency links · {acknowledgedWarnings} acknowledged unresolved warnings
+                </p>
+                <p className="mt-0.5 text-body-sm text-success-700">The project remains unbaselined. No assignee, client, portal, or external notification was sent.</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button type="button" className="btn btn-outline btn-sm" onClick={() => setActiveView('gantt')}>Review schedule</button>
+                  <button type="button" className="btn btn-outline btn-sm" onClick={() => setControlsOpen(true)}>Configure project team</button>
+                  <button type="button" className="btn btn-outline btn-sm" onClick={() => setControlsOpen(true)}>Configure client obligations</button>
+                  <button type="button" className="btn btn-outline btn-sm" onClick={() => setActiveView('gantt')}>Commit baseline when ready</button>
+                </div>
+              </div>
+              <button type="button" aria-label="Dismiss creation summary" className="rounded-lg p-1 text-success-700 hover:bg-success-100" onClick={() => router.replace(pathname, { scroll: false })}><X className="size-4" /></button>
+            </div>
+          </section>
         )}
 
         <div className="min-h-0 flex-1 overflow-auto">

@@ -48,6 +48,7 @@ export const portalAuthOptions: NextAuthOptions = {
           email: client.email,
           name: client.name,
           role: 'EMPLOYEE',
+          isProjectManager: false,
           avatar: null,
           userType: 'CLIENT_PORTAL',
           clientName: client.clientName,
@@ -92,6 +93,7 @@ export const portalAuthOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.role = 'EMPLOYEE'
+        token.isProjectManager = false
         token.avatar = null
         token.userType = 'CLIENT_PORTAL'
         token.clientName = (user as any).clientName
@@ -102,6 +104,7 @@ export const portalAuthOptions: NextAuthOptions = {
     async session({ session, token }) {
       session.user.id = token.sub!
       session.user.role = 'EMPLOYEE'
+      session.user.isProjectManager = false
       session.user.avatar = null
       session.user.userType = 'CLIENT_PORTAL'
       session.user.clientName = String(token.clientName ?? '')

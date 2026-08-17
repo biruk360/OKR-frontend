@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 export const AI_FEATURE_KEYS = {
   SPRINT_PLAN: 'SPRINT_PLAN',
   PROJECT_AI_ASSISTANT: 'PROJECT_AI_ASSISTANT',
+  PROJECT_CREATION_AI: 'PROJECT_CREATION_AI',
 } as const
 export type AiFeatureKey = (typeof AI_FEATURE_KEYS)[keyof typeof AI_FEATURE_KEYS]
 
@@ -28,6 +29,52 @@ export const AI_MODELS: Record<AiProviderId, { planner: string; summary: string 
 }
 
 export const DAILY_GENERATION_CAP = Number(process.env.AI_DAILY_GENERATION_CAP) || 50
+
+/** Project Creation AI is OpenAI-only and may select only from this server list. */
+export const PROJECT_CREATION_AI_MODEL_ALLOWLIST = [
+  'gpt-5.5',
+  'gpt-5.5-pro',
+  'gpt-5.5-mini',
+] as const
+export type ProjectCreationAiModel = (typeof PROJECT_CREATION_AI_MODEL_ALLOWLIST)[number]
+export const PROJECT_CREATION_AI_DEFAULT_MODEL: ProjectCreationAiModel = 'gpt-5.5'
+export const PROJECT_CREATION_AI_DEFAULT_DAILY_CAP = DAILY_GENERATION_CAP
+export const PROJECT_CREATION_AI_DEFAULT_USER_COOLDOWN_MINUTES = 30
+export const PROJECT_CREATION_AI_DISABLED_MESSAGE = 'AI-assisted project creation is not enabled for this organization'
+
+interface ProjectCreationAiFlagReader {
+  organizationSettings: {
+    findUnique(args: unknown): Promise<{ aiProjectCreationEnabled: boolean } | null>
+  }
+}
+
+export class ProjectCreationAiDisabledError extends Error {
+  readonly code = 'PROJECT_CREATION_AI_DISABLED'
+  readonly status = 404
+
+  constructor() {
+    super(PROJECT_CREATION_AI_DISABLED_MESSAGE)
+    this.name = 'ProjectCreationAiDisabledError'
+  }
+}
+
+/** Independent project-creation flag; never derives from sprint-planning AI. */
+export async function isProjectCreationAiEnabled(
+  database: ProjectCreationAiFlagReader = prisma as unknown as ProjectCreationAiFlagReader,
+): Promise<boolean> {
+  const row = await database.organizationSettings.findUnique({
+    where: { id: 'singleton' },
+    select: { aiProjectCreationEnabled: true },
+  })
+  return row?.aiProjectCreationEnabled === true
+}
+
+/** Reusable first-line guard for every future project-creation AI endpoint. */
+export async function requireProjectCreationAiEnabled(
+  database: ProjectCreationAiFlagReader = prisma as unknown as ProjectCreationAiFlagReader,
+): Promise<void> {
+  if (!await isProjectCreationAiEnabled(database)) throw new ProjectCreationAiDisabledError()
+}
 
 /**
  * Resolve the org-wide AI Sprint Planning feature flag and preferred provider.

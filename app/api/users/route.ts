@@ -16,6 +16,7 @@ export const GET = withRoleOrFeature(['ADMIN'], 'page.settings.users', async (_r
       nameAmharic: true,
       designationAmharic: true,
       isActive: true,
+      isProjectManager: true,
       createdAt: true,
       lastLoginAt: true,
     },
@@ -68,6 +69,7 @@ export const POST = withRoleOrFeature(['ADMIN'], 'page.settings.users', async (r
       role: true,
       designation: true,
       isActive: true,
+      isProjectManager: true,
       createdAt: true,
     },
   })

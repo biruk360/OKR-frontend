@@ -21,6 +21,7 @@ const PRICING_USD_PER_MTOK: Record<string, { input: number; cachedInput: number;
   // public rate card; the values below approximate the 5.x family ratio.
   'gpt-5.5': { input: 6, cachedInput: 0.75, output: 18 },
   'gpt-5.5-pro': { input: 18, cachedInput: 2.25, output: 60 },
+  'gpt-5.5-mini': { input: 1.5, cachedInput: 0.2, output: 6 },
   // Gemini
   'gemini-2.5-pro': { input: 1.25, cachedInput: 0.31, output: 10 },
   'gemini-2.5-flash': { input: 0.075, cachedInput: 0.019, output: 0.3 },

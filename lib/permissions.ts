@@ -13,6 +13,25 @@ import { prisma } from './prisma'
 export type UserRole = 'ADMIN' | 'EXECUTIVE' | 'DEPARTMENT_LEAD' | 'EMPLOYEE'
 export type ObjectiveLevel = 'COMPANY' | 'DEPARTMENT' | 'INDIVIDUAL'
 
+export interface ProjectCreationPrincipal {
+  role: UserRole
+  isProjectManager?: boolean | null
+}
+
+/**
+ * Single authorization rule for creating projects.
+ *
+ * The explicit Project Manager capability is wired to persisted user/session data
+ * in P0 Story 0.2. Keeping the optional flag in this contract now ensures the UI
+ * and API do not need a second authorization rule when that capability lands.
+ */
+export function canCreateProject(user: ProjectCreationPrincipal): boolean {
+  return user.role === 'ADMIN'
+    || user.role === 'EXECUTIVE'
+    || user.role === 'DEPARTMENT_LEAD'
+    || user.isProjectManager === true
+}
+
 /**
  * Check if user can create objectives at a specific level
  */
@@ -578,4 +597,3 @@ export function canEditLetter(
   if (letter.preparedById !== userId) return false
   return letter.status === 'DRAFT'
 }
-

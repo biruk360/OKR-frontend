@@ -221,7 +221,7 @@ export function ProjectsListClient({
         open={creationOpen}
         onClose={() => setCreationOpen(false)}
         title="New Project"
-        size="2xl"
+        size="xl"
         scrollBehavior="internal"
         closeOnBackdrop={!createDraft.isPending && !updateDraft.isPending}
         closeOnEsc={!createDraft.isPending && !updateDraft.isPending}

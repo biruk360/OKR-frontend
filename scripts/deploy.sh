@@ -72,6 +72,7 @@ npx prisma generate
 # Idempotently create missing roles, DocTypes, permission rows, features, and
 # scope rules. Existing administrator configuration is preserved by the seed.
 npx tsx scripts/seed-permissions.ts
+npm run db:seed:project-templates
 
 # --- 4. Build + restart -------------------------------------------------------
 # Clean stale .next to prevent "ENOENT build-manifest.json" errors when

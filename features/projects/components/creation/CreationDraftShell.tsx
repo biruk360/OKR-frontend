@@ -78,28 +78,31 @@ export function CreationDraftShell({
         </Button>
       </div>
 
-      <ol aria-label="Project creation progress" className="grid grid-cols-4 gap-2">
-        {STEPS.map((step, index) => {
-          const complete = index < progressStep
-          const current = index === progressStep
-          return (
-            <li key={step} className="min-w-0">
-              <div className={cn('h-1 rounded-pill', complete || current ? 'bg-primary' : 'bg-surface-muted')} />
-              <div className="mt-2 flex items-center gap-1.5">
+      <div>
+        <p className="mb-2 text-overline text-ink-secondary">Project creation</p>
+        <ol aria-label="Project creation progress" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {STEPS.map((step, index) => {
+            const complete = index < progressStep
+            const current = index === progressStep
+            return (
+              <li key={step} className={cn(
+                'flex min-w-0 items-center gap-2 rounded-lg border px-3 py-2.5',
+                current ? 'border-primary bg-primary/5' : 'border-border bg-surface-card',
+              )}>
                 <span className={cn(
-                  'flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold',
-                  complete || current ? 'bg-primary text-primary-foreground' : 'bg-surface-muted text-ink-tertiary',
+                  'flex size-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold',
+                  complete || current ? 'bg-primary text-primary-foreground' : 'bg-surface-muted text-ink-secondary',
                 )}>
                   {complete ? <Check className="size-3" /> : index + 1}
                 </span>
-                <span className={cn('truncate text-body-sm', current ? 'font-semibold text-ink-primary' : 'text-ink-tertiary')}>
+                <span className={cn('truncate text-body-sm', current ? 'font-semibold text-ink-primary' : complete ? 'text-ink-secondary' : 'text-ink-tertiary')}>
                   {step}
                 </span>
-              </div>
-            </li>
-          )
-        })}
-      </ol>
+              </li>
+            )
+          })}
+        </ol>
+      </div>
 
       {children ?? <div className="rounded-card border border-border bg-surface-card p-6 shadow-card">
         <div className="flex items-start gap-4">

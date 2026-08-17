@@ -37,6 +37,7 @@ import {
   useCloneProjectTemplate,
   type ProjectTemplateDetail,
 } from '../hooks/useProjects'
+import { PROJECT_TYPES, PROJECT_TYPE_LABEL, type ProjectType } from '../types'
 
 type OwnerParty = '360GROUND' | 'CLIENT' | 'SHARED'
 
@@ -83,6 +84,7 @@ export function TemplateBuilderClient({ templateId, userRole }: Props) {
 
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const [projectType, setProjectType] = useState<ProjectType | ''>('WEBSITE')
   const [phases, setPhases] = useState<PhaseNode[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
@@ -96,6 +98,7 @@ export function TemplateBuilderClient({ templateId, userRole }: Props) {
     const loaded = toNodes(data.structureJson)
     setName(data.name)
     setDescription(data.description ?? '')
+    setProjectType(data.projectType ?? '')
     setPhases(loaded)
     const allIds = collectIds(loaded)
     setExpanded(new Set(allIds))
@@ -115,12 +118,14 @@ export function TemplateBuilderClient({ templateId, userRole }: Props) {
 
   const handleSave = async () => {
     const validation = validate(phases, name)
+    if (!projectType) validation.push('Project type is required')
     setErrors(validation)
-    if (validation.length > 0) return
+    if (validation.length > 0 || !projectType) return
 
     const payload = {
       name: name.trim(),
       description: description.trim() || null,
+      projectType,
       structureJson: fromNodes(phases),
     }
 
@@ -281,7 +286,7 @@ export function TemplateBuilderClient({ templateId, userRole }: Props) {
               </Button>
             )}
             {!readOnly && (
-              <Button onClick={handleSave} disabled={isSaving || !name.trim()}>
+              <Button onClick={handleSave} disabled={isSaving || !name.trim() || !projectType}>
                 <Save className="mr-1.5 size-4" />
                 {isSaving ? 'Saving…' : 'Save template'}
               </Button>
@@ -320,6 +325,20 @@ export function TemplateBuilderClient({ templateId, userRole }: Props) {
                     placeholder="Template name"
                     className="mt-1"
                   />
+                </div>
+                <div>
+                  <Label htmlFor="tpl-project-type">Project type</Label>
+                  <select
+                    id="tpl-project-type"
+                    className="input mt-1"
+                    value={projectType}
+                    onChange={(event) => setProjectType(event.target.value as ProjectType)}
+                    disabled={readOnly}
+                  >
+                    {!projectType && <option value="">General / all project types</option>}
+                    {PROJECT_TYPES.map((type) => <option key={type} value={type}>{PROJECT_TYPE_LABEL[type]}</option>)}
+                  </select>
+                  <p className="mt-1 text-xs text-muted-foreground">Projects with this type will see this template as a recommended schedule.</p>
                 </div>
                 <div>
                   <Label htmlFor="tpl-desc">Description</Label>

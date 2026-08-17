@@ -53,6 +53,7 @@ import {
 } from '../../hooks/useProjects'
 import type { CommitProjectCreationDraftResult } from '@/lib/projects/creation-commit-shared'
 import { CommitConfirmDialog } from './CommitConfirmDialog'
+import { PROJECT_TYPES, PROJECT_TYPE_LABEL } from '../../types'
 import { ChangeListPanel } from './ChangeListPanel'
 
 type PanelId = 'project' | 'schedule' | 'deliverables' | 'dependencies' | 'assumptions' | 'validation' | 'sources'
@@ -457,8 +458,8 @@ function ProjectPanel({ control, register, values, setValue, users, departments 
         <Field label="Client">
           <Controller name="project.clientName" control={control} render={({ field }) => <CustomerLookup value={{ odooPartnerId: project.clientId, customerName: field.value ?? '' }} onChange={(customer) => { setValue('project.clientId', customer.odooPartnerId, { shouldDirty: true }); field.onChange(customer.customerName || null) }} />} />
         </Field>
-        <Field label="Project type"><input className="input" {...register('project.projectType', { setValueAs: emptyToNull })} /></Field>
-        <Field label="Other project type"><input className="input" {...register('project.projectTypeOther', { setValueAs: emptyToNull })} /></Field>
+        <Field label="Project type"><Controller name="project.projectType" control={control} render={({ field }) => <select className="input" value={field.value ?? ''} onChange={(event) => field.onChange(emptyToNull(event.target.value))}><option value="">Choose a project type</option>{field.value && !PROJECT_TYPES.some((type) => type === field.value) && <option value={field.value}>{field.value}</option>}{PROJECT_TYPES.map((type) => <option key={type} value={type}>{PROJECT_TYPE_LABEL[type]}</option>)}</select>} /></Field>
+        <Field label="Project type notes"><input className="input" placeholder="Optional subtype or delivery notes" {...register('project.projectTypeOther', { setValueAs: emptyToNull })} /></Field>
         <Field label="Project manager"><Controller name="project.projectManagerId" control={control} render={({ field }) => <select className="input" value={field.value ?? ''} onChange={(event) => field.onChange(emptyToNull(event.target.value))}><option value="">Choose a project manager</option>{field.value && !users.some((user) => user.id === field.value) && <option value={field.value}>Saved project manager</option>}{users.map((user) => <option key={user.id} value={user.id}>{user.name ?? user.email}</option>)}</select>} /></Field>
         <Field label="Department"><Controller name="project.departmentId" control={control} render={({ field }) => <select className="input" value={field.value ?? ''} onChange={(event) => field.onChange(emptyToNull(event.target.value))}><option value="">None</option>{field.value && !departments.some((department) => department.id === field.value) && <option value={field.value}>Saved department</option>}{departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}</select>} /></Field>
         <Field label="Contract value"><NullableNumber value={project.contractValue} onChange={(value) => setValue('project.contractValue', value, { shouldDirty: true })} /></Field>

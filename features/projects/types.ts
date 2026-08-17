@@ -19,6 +19,28 @@ export type RagStatus = (typeof RAG_STATUSES)[number]
 export const CURRENCIES = ['ETB', 'USD', 'EUR'] as const
 export type Currency = (typeof CURRENCIES)[number]
 
+/** Delivery categories used to match new projects with reusable schedules. */
+export const PROJECT_TYPES = [
+  'WEBSITE',
+  'WEB_PORTAL',
+  'DATA_PLATFORM',
+  'MOBILE_APP',
+  'BANKING_APP',
+  'ICT_EQUIPMENT_SUPPLY',
+  'IMPORT',
+] as const
+export type ProjectType = (typeof PROJECT_TYPES)[number]
+
+export const PROJECT_TYPE_LABEL: Record<ProjectType, string> = {
+  WEBSITE: 'Website',
+  WEB_PORTAL: 'Web Portal',
+  DATA_PLATFORM: 'Data Platform',
+  MOBILE_APP: 'Mobile App',
+  BANKING_APP: 'Banking App',
+  ICT_EQUIPMENT_SUPPLY: 'ICT Equipment Supply',
+  IMPORT: 'Import',
+}
+
 // --- Ownership / attribution ------------------------------------------------
 
 export const OWNER_PARTIES = ['360GROUND', 'CLIENT', 'SHARED'] as const

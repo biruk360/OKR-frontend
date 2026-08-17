@@ -2,6 +2,13 @@
 
 > **Purpose:** Log of all changes made by AI assistants. Every AI session that modifies code MUST append an entry here.
 
+## 2026-08-17 — Project creation modal repair and project-type template linking
+
+- **Responsive creation UI** — reduced New Project from the full-width `2xl` dialog to `xl`, replaced the visually colliding stacked progress bars with clearly labelled responsive Project creation and Manual setup step cards, and preserved internal scrolling and draft controls.
+- **Type-first schedule selection** — Manual creation now requires Website, Web Portal, Data Platform, Mobile App, Banking App, ICT Equipment Supply, or Import before review. The template step filters linked templates, labels exact matches as recommended, keeps Start blank, previews the selected schedule, and links directly to template management.
+- **Linked template library** — added a nullable `ProjectTemplate.projectType`, API/list/builder/create/clone support, directory type filtering/badges, seven type-linked system schedules plus the three existing general schedules, and idempotent production seeding after schema sync. Existing project/template copy semantics remain unchanged.
+- **Verification** — focused type/template tests pass 4/4, project-creation regression passes 108/108, full Project Management regression passes 331/331, Prisma generation and TypeScript pass, and the production build succeeds. Browser visual QA is performed after CI/CD deployment.
+
 ## 2026-08-17 — Project creation P2 Story 2.4: ordered DOCX extraction and untrusted-data framing
 
 - **Ordered DOCX sources** — added a Mammoth-backed extractor that reads top-level headings, paragraphs, and tables in document order, retains nested heading context and table cells, assigns stable source IDs/references, detects candidate project-information categories, and persists bounded plain-text evidence as typed normalized DOCX sources. Configurable defaults enforce 200 saved/explicit pages, 10,000 blocks, and 500,000 extracted characters.

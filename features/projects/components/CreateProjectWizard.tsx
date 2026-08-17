@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { Controller, useForm } from 'react-hook-form'
-import { Check, ChevronRight, LayoutTemplate, Save } from 'lucide-react'
+import { Check, ChevronRight, LayoutTemplate, Save, Settings2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { cn } from '@/lib/utils'
@@ -17,6 +18,7 @@ import {
   type ProjectCreationDraftNode,
   type ProjectTemplateDetail,
 } from '../hooks/useProjects'
+import { PROJECT_TYPES, PROJECT_TYPE_LABEL, type ProjectType } from '../types'
 import type { CommitProjectCreationDraftResult } from '@/lib/projects/creation-commit-shared'
 import { ProjectDatePicker } from './ProjectDatePicker'
 import { DraftReviewWorkspace } from './creation/DraftReviewWorkspace'
@@ -41,6 +43,7 @@ interface FormValues {
   currency: 'ETB' | 'USD' | 'EUR'
   plannedStart: string
   plannedEnd: string
+  projectType: ProjectType | ''
   templateId: string
 }
 
@@ -71,6 +74,7 @@ export function CreateProjectWizard({
     control,
     register,
     watch,
+    setValue,
     getValues,
     trigger,
     formState: { errors },
@@ -86,16 +90,24 @@ export function CreateProjectWizard({
       currency: initial.currency,
       plannedStart: initial.plannedStart ?? '',
       plannedEnd: initial.plannedEnd ?? '',
+      projectType: (initial.projectType as ProjectType | null) ?? '',
       templateId: getManualTemplateId(draft.scheduleJson) ?? '',
     },
   })
 
   const templateId = watch('templateId')
+  const projectType = watch('projectType')
   const selectedTemplateSummary = useMemo(
     () => templates?.find((template) => template.id === templateId) ?? null,
     [templateId, templates],
   )
   const selectedTemplate = useProjectTemplate(templateId || null)
+  const compatibleTemplates = useMemo(
+    () => projectType
+      ? (templates ?? []).filter((template) => template.projectType === null || template.projectType === projectType)
+      : [],
+    [projectType, templates],
+  )
   const startVal = watch('plannedStart')
   const endVal = watch('plannedEnd')
   const endBeforeStart = Boolean(startVal && endVal && endVal <= startVal)
@@ -107,6 +119,7 @@ export function CreateProjectWizard({
   const fieldsForStep = (currentStep: number): (keyof FormValues)[] => {
     if (currentStep === 0) return ['name', 'clientName', 'projectManagerId']
     if (currentStep === 1) return ['plannedStart', 'plannedEnd']
+    if (currentStep === 2) return ['projectType']
     return []
   }
 
@@ -136,6 +149,7 @@ export function CreateProjectWizard({
           currency: values.currency,
           plannedStart: values.plannedStart || null,
           plannedEnd: values.plannedEnd || null,
+          projectType: values.projectType || null,
         },
       },
       scheduleJson,
@@ -198,25 +212,28 @@ export function CreateProjectWizard({
 
   return (
     <form onSubmit={(event) => event.preventDefault()} className="space-y-5">
-      <ol aria-label="Manual project steps" className="grid grid-cols-4 gap-2">
-        {STEPS.map((label, index) => (
-          <li key={label} className="min-w-0">
-            <div className={cn('h-1 rounded-pill', index <= step ? 'bg-primary' : 'bg-surface-muted')} />
-            <div className="mt-2 flex items-center gap-1.5">
+      <div className="rounded-card border border-border bg-surface-muted/60 p-3">
+        <p className="mb-2 text-overline text-ink-secondary">Manual setup</p>
+        <ol aria-label="Manual project steps" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {STEPS.map((label, index) => (
+            <li key={label} className={cn(
+              'flex min-w-0 items-center gap-2 rounded-lg border px-3 py-2',
+              index === step ? 'border-primary bg-surface-card shadow-sm' : 'border-transparent',
+            )}>
               <span className={cn(
                 'flex size-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold',
-                index <= step ? 'bg-primary text-primary-foreground' : 'bg-surface-muted text-ink-tertiary',
+                index <= step ? 'bg-primary text-primary-foreground' : 'bg-surface-card text-ink-secondary ring-1 ring-border',
               )}>
                 {index < step ? <Check className="size-3.5" /> : index + 1}
               </span>
               <span className={cn(
                 'truncate text-body-sm',
-                index === step ? 'font-semibold text-ink-primary' : 'text-ink-tertiary',
+                index === step ? 'font-semibold text-ink-primary' : index < step ? 'text-ink-secondary' : 'text-ink-tertiary',
               )}>{label}</span>
-            </div>
-          </li>
-        ))}
-      </ol>
+            </li>
+          ))}
+        </ol>
+      </div>
 
       <div className="rounded-card border border-border bg-surface-card p-5 shadow-card">
         {step === 0 && (
@@ -303,30 +320,72 @@ export function CreateProjectWizard({
         )}
 
         {step === 2 && (
-          <div className="space-y-3">
-            <div>
-              <h3 className="text-section-title text-ink-primary">Choose a starting schedule</h3>
-              <p className="mt-1 text-body-sm text-ink-secondary">Start blank or copy an approved system or custom lifecycle template.</p>
-            </div>
-            <label className={cn('flex cursor-pointer items-start gap-3 rounded-card border p-3 transition-colors',
-              templateId === '' ? 'border-primary bg-primary/5' : 'border-border hover:bg-surface-hover')}>
-              <input type="radio" value="" className="mt-1" {...register('templateId')} />
+          <div className="space-y-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <div className="text-body font-medium text-ink-primary">Start blank</div>
-                <div className="text-body-sm text-ink-secondary">Create no phases, milestones, or activities.</div>
+                <h3 className="text-section-title text-ink-primary">Choose project type and schedule</h3>
+                <p className="mt-1 text-body-sm text-ink-secondary">Select the delivery type first, then start blank or copy a linked lifecycle template.</p>
               </div>
-            </label>
+              <Link href="/dashboard/projects/templates" className="inline-flex shrink-0 items-center gap-1.5 text-body-sm font-medium text-primary hover:underline">
+                <Settings2 className="size-4" /> Manage templates
+              </Link>
+            </div>
+
+            <Controller
+              name="projectType"
+              control={control}
+              rules={{ required: 'Choose a project type' }}
+              render={({ field }) => (
+                <fieldset>
+                  <legend className="mb-2 text-body-sm font-semibold text-ink-primary">Project type <span className="text-danger-500">*</span></legend>
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                    {PROJECT_TYPES.map((type) => (
+                      <label key={type} className={cn(
+                        'flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2.5 text-body-sm transition-colors',
+                        field.value === type ? 'border-primary bg-primary/5 font-semibold text-ink-primary' : 'border-border text-ink-secondary hover:bg-surface-hover',
+                      )}>
+                        <input
+                          type="radio"
+                          name={field.name}
+                          value={type}
+                          checked={field.value === type}
+                          onBlur={field.onBlur}
+                          onChange={() => {
+                            field.onChange(type)
+                            if (selectedTemplateSummary?.projectType && selectedTemplateSummary.projectType !== type) {
+                              setValue('templateId', '')
+                            }
+                          }}
+                        />
+                        {PROJECT_TYPE_LABEL[type]}
+                      </label>
+                    ))}
+                  </div>
+                  {errors.projectType?.message && <p className="mt-2 text-body-sm text-danger-600">{errors.projectType.message}</p>}
+                </fieldset>
+              )}
+            />
+
+            <div className="grid gap-3 lg:grid-cols-2">
+              <label className={cn('flex cursor-pointer items-start gap-3 rounded-card border p-4 transition-colors',
+                templateId === '' ? 'border-primary bg-primary/5' : 'border-border hover:bg-surface-hover')}>
+                <input type="radio" value="" className="mt-1" {...register('templateId')} />
+                <div>
+                  <div className="text-body font-medium text-ink-primary">Start blank</div>
+                  <div className="text-body-sm text-ink-secondary">Create no phases, milestones, or activities.</div>
+                </div>
+              </label>
             {templatesLoading ? (
-              <div className="space-y-2" aria-label="Loading project templates">
+              <div className="space-y-2 lg:col-span-2" aria-label="Loading project templates">
                 <Skeleton className="h-20 rounded-card" /><Skeleton className="h-20 rounded-card" />
               </div>
             ) : templatesError ? (
-              <div className="flex flex-col gap-3 rounded-card border border-danger-200 bg-danger-50 p-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-3 rounded-card border border-danger-200 bg-danger-50 p-3 sm:flex-row sm:items-center sm:justify-between lg:col-span-2">
                 <p className="text-body-sm text-danger-700">Lifecycle templates could not be loaded. Start blank or retry.</p>
                 <Button type="button" size="sm" variant="outline" onClick={() => refetchTemplates()}>Retry templates</Button>
               </div>
-            ) : (templates ?? []).map((template) => (
-              <label key={template.id} className={cn('flex cursor-pointer items-start gap-3 rounded-card border p-3 transition-colors',
+            ) : compatibleTemplates.map((template) => (
+              <label key={template.id} className={cn('flex cursor-pointer items-start gap-3 rounded-card border p-4 transition-colors',
                 templateId === template.id ? 'border-primary bg-primary/5' : 'border-border hover:bg-surface-hover')}>
                 <input type="radio" value={template.id} className="mt-1" {...register('templateId')} />
                 <div className="min-w-0">
@@ -334,12 +393,19 @@ export function CreateProjectWizard({
                     <LayoutTemplate className="size-4 text-primary" />
                     <span className="text-body font-medium text-ink-primary">{template.name}</span>
                     <span className="rounded-pill bg-surface-muted px-2 py-0.5 text-[11px] text-ink-secondary">{template.isSystem ? 'System' : 'Custom'}</span>
+                    {template.projectType === projectType && <span className="rounded-pill bg-success-50 px-2 py-0.5 text-[11px] text-success-700">Recommended</span>}
                   </div>
                   {template.description && <p className="text-body-sm text-ink-secondary">{template.description}</p>}
                   <p className="mt-1 text-body-sm text-ink-tertiary">{template.phases} phases · {template.milestones} milestones · {template.activities} activities</p>
                 </div>
               </label>
             ))}
+            {!templatesLoading && !templatesError && projectType && compatibleTemplates.length === 0 && (
+              <div className="rounded-card border border-dashed border-border p-4 text-body-sm text-ink-secondary lg:col-span-2">
+                No templates are linked to {PROJECT_TYPE_LABEL[projectType]} yet. You can start blank or create and link a template from Manage templates.
+              </div>
+            )}
+            </div>
             {templateId && (
               <TemplatePreview template={selectedTemplate.data ?? null} loading={selectedTemplate.isLoading} />
             )}

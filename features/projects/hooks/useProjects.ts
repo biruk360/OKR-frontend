@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
-import type { ProjectStatus, RagStatus } from '../types'
+import type { ProjectStatus, ProjectType, RagStatus } from '../types'
 import type { ProjectCreationSourceMethod } from '@/lib/projects/creation-draft'
 import type {
   ProjectCreationProjectJson,
@@ -59,6 +59,7 @@ export interface ProjectTemplateSummary {
   id: string
   name: string
   description: string | null
+  projectType: ProjectType | null
   isSystem: boolean
   version: number
   phases: number
@@ -70,6 +71,7 @@ export interface ProjectTemplateDetail {
   id: string
   name: string
   description: string | null
+  projectType: ProjectType | null
   isSystem: boolean
   version: number
   structureJson: {
@@ -94,12 +96,14 @@ export interface ProjectTemplateDetail {
 export interface CreateTemplatePayload {
   name: string
   description?: string | null
+  projectType: ProjectType
   structureJson?: ProjectTemplateDetail['structureJson']
 }
 
 export interface UpdateTemplatePayload {
   name?: string
   description?: string | null
+  projectType?: ProjectType
   structureJson?: ProjectTemplateDetail['structureJson']
 }
 

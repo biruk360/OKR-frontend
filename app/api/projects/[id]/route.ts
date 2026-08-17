@@ -109,7 +109,12 @@ export const PATCH = withAuth<{ id: string }>(async (req, { session, params }) =
 export const DELETE = withAuth<{ id: string }>(async (_req, { session, params }) => {
   const access = await getWritableProject(session, params.id)
   if (!access) return apiForbidden()
-  await prisma.project.update({ where: { id: params.id }, data: { archivedAt: new Date() } })
-  await recordActivity({ entityType: 'PROJECT', projectId: params.id, action: 'ARCHIVED', actorId: session.user.id })
+  await prisma.$transaction(async (tx) => {
+    await tx.project.update({ where: { id: params.id }, data: { archivedAt: new Date() } })
+    await recordActivity(
+      { entityType: 'PROJECT', projectId: params.id, action: 'ARCHIVED', actorId: session.user.id },
+      { client: tx, required: true },
+    )
+  })
   return apiSuccess({ id: params.id, archived: true })
 })

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import {
   AlertTriangle,
+  Archive,
   ArrowLeft,
   Check,
   ChevronDown,
@@ -19,12 +20,13 @@ import {
   X,
 } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Skeleton } from '@/components/ui/Skeleton'
 import SideDrawer from '@/components/ui/SideDrawer'
 import { cn } from '@/lib/utils'
 import { useProjectViewStore } from '@/lib/stores/project-view-store'
 import { useUsersForSelection } from '@/hooks/useUsersForSelection'
-import { useProject, useUpdateProject } from '../hooks/useProject'
+import { useArchiveProject, useProject, useUpdateProject } from '../hooks/useProject'
 import { ProjectViewSwitcher } from './views/ProjectViewSwitcher'
 import { ProjectDeliveryControlCenter } from './ProjectDeliveryControlCenter'
 import { ScheduleImportModal } from './ScheduleImportModal'
@@ -40,10 +42,12 @@ const CAN_EDIT_ROLES = ['ADMIN', 'EXECUTIVE', 'DEPARTMENT_LEAD']
 export function ProjectWorkspaceClient({ projectId, user }: Props) {
   const { data: project, isLoading, isError } = useProject(projectId)
   const updateProject = useUpdateProject(projectId)
+  const archiveProject = useArchiveProject(projectId)
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const [controlsOpen, setControlsOpen] = useState(false)
+  const [archiveOpen, setArchiveOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [editingName, setEditingName] = useState(false)
   const [draftName, setDraftName] = useState('')
@@ -220,8 +224,37 @@ export function ProjectWorkspaceClient({ projectId, user }: Props) {
 
       <ScheduleImportModal open={importOpen} onClose={() => setImportOpen(false)} projectId={project.id} hasSchedule={activityCount > 0} />
       <SideDrawer open={controlsOpen} onClose={() => setControlsOpen(false)} title={`${project.name} — Delivery controls`} width="full">
-        <ProjectDeliveryControlCenter project={project} canEdit={canEdit} />
+        <ProjectDeliveryControlCenter
+          project={project}
+          canEdit={canEdit}
+          onArchive={() => setArchiveOpen(true)}
+          archivePending={archiveProject.isPending}
+        />
       </SideDrawer>
+      <ConfirmDialog
+        open={archiveOpen}
+        onClose={() => setArchiveOpen(false)}
+        onConfirm={async () => {
+          await archiveProject.mutateAsync()
+          setArchiveOpen(false)
+          setControlsOpen(false)
+          router.replace('/dashboard/projects')
+          router.refresh()
+        }}
+        title="Archive project"
+        message={`Archive “${project.name}”?`}
+        description="This removes the project from the active directory without permanently deleting its records."
+        variant="warning"
+        icon={Archive}
+        confirmLabel="Archive project"
+        loadingLabel="Archiving project…"
+        isLoading={archiveProject.isPending}
+        bullets={[
+          'The project will disappear from the active Projects list.',
+          'Its schedule, delivery records, and audit history will be retained.',
+          'No project members or clients will be notified.',
+        ]}
+      />
     </div>
   )
 }

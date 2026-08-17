@@ -74,9 +74,12 @@
 ### Project Management
 | Route | Page File | Feature | Description |
 |-------|-----------|---------|-------------|
-| `/dashboard/projects` | `app/dashboard/projects/page.tsx` | projects | Project list plus authorized Manual/Import/AI creation-method entry and resumable private draft shell; `?creationDraft=<id>` resumes a saved draft |
+| `/dashboard/projects` | `app/dashboard/projects/page.tsx` | projects | Project list plus authorized Manual/Import/AI creation; Manual uses compact responsive steps and type-linked schedule selection; `?creationDraft=<id>` resumes a saved draft |
 | `/dashboard/projects/[id]` | `app/dashboard/projects/[id]/page.tsx` | projects | Project detail workspace with Gantt, registers, Delay Ledger, portal settings, Jira settings, scrum log, and J1 chart library in Overview |
 | `/dashboard/projects/portfolio` | `app/dashboard/projects/portfolio/page.tsx` | projects | Project portfolio view |
+| `/dashboard/projects/templates` | `app/dashboard/projects/templates/page.tsx` | projects | Search/filter reusable schedules by project type; create, clone, edit, or delete custom templates |
+| `/dashboard/projects/templates/new` | `app/dashboard/projects/templates/new/page.tsx` | projects | Create a project-type-linked reusable schedule |
+| `/dashboard/projects/templates/[id]` | `app/dashboard/projects/templates/[id]/page.tsx` | projects | View system schedules or edit a custom template and its project-type association |
 
 ### Performance & Scorecard
 
@@ -278,6 +281,9 @@
 | POST | `/api/projects/creation-drafts/[id]/analyze` | Owner-only re-scan and approval of an edited deterministic mapping; revalidates the same hashed source, active assignees, schedule, and dependency graph, then replaces the private retained source and saves normalized data/report plus safe audit metadata |
 | POST | `/api/projects/creation-drafts/[id]/mapping-proposal` | Owner-only, versioned, rate-limited optional OpenAI column proposal over the integrity-checked retained spreadsheet; returns strict editable original/proposed/reason/confidence evidence without updating the draft or applying values |
 | GET | `/api/projects/creation-templates?format=csv\|xlsx` | Authorized project-less schedule template download; shared generator also serves the existing project-scoped template endpoint |
+| GET/POST | `/api/projects/templates` | List reusable schedules with type/count metadata or create a custom project-type-linked template |
+| GET/PATCH/DELETE | `/api/projects/templates/[id]` | Read a full template, update a custom template/type link, or delete a custom template; system templates are immutable |
+| POST | `/api/projects/templates/[id]/clone` | Clone any template into an editable custom copy while preserving its project-type association |
 | GET | `/api/projects/[id]/schedule-import/template?format=csv\|xlsx` | Authorized project-scoped download of the shared 24-column schedule template |
 | POST | `/api/projects/[id]/schedule-import` | Existing validated append/replace schedule import; accepts the backward-compatible 24-column contract and preserves optional deliverable, estimate, and source-note values |
 | GET/POST | `/api/projects/[id]/reports` | List project reports / generate the R2 bi-monthly client report draft |

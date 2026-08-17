@@ -38,6 +38,7 @@ import {
   useCloneProjectTemplate,
   type ProjectTemplateSummary,
 } from '../hooks/useProjects'
+import { PROJECT_TYPES, PROJECT_TYPE_LABEL, type ProjectType } from '../types'
 
 interface Props {
   user: { id: string; role: string }
@@ -49,19 +50,20 @@ export function TemplateListClient({ user }: Props) {
   const router = useRouter()
   const canMutate = CAN_MUTATE.includes(user.role)
   const [search, setSearch] = useState('')
+  const [typeFilter, setTypeFilter] = useState<ProjectType | 'ALL'>('ALL')
   const debounced = useDebounce(search, 300)
   const { data, isLoading } = useProjectTemplates()
   const templates = data ?? []
 
   const filtered = useMemo(() => {
     const q = debounced.toLowerCase()
-    if (!q) return templates
     return templates.filter(
       (t) =>
-        t.name.toLowerCase().includes(q) ||
-        (t.description ?? '').toLowerCase().includes(q),
+        (typeFilter === 'ALL' || t.projectType === typeFilter) &&
+        (!q || t.name.toLowerCase().includes(q) ||
+        (t.description ?? '').toLowerCase().includes(q)),
     )
-  }, [templates, debounced])
+  }, [templates, debounced, typeFilter])
 
   const [createOpen, setCreateOpen] = useState(false)
   const [cloneTarget, setCloneTarget] = useState<ProjectTemplateSummary | null>(
@@ -90,14 +92,20 @@ export function TemplateListClient({ user }: Props) {
         }
       />
 
-      <div className="relative mb-6 max-w-sm">
-        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="Search templates…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-9"
-        />
+      <div className="mb-6 grid gap-3 sm:grid-cols-[minmax(0,1fr)_260px]">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search templates…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <select className="input" value={typeFilter} onChange={(event) => setTypeFilter(event.target.value as ProjectType | 'ALL')} aria-label="Filter templates by project type">
+          <option value="ALL">All project types</option>
+          {PROJECT_TYPES.map((type) => <option key={type} value={type}>{PROJECT_TYPE_LABEL[type]}</option>)}
+        </select>
       </div>
 
       {isLoading ? (
@@ -218,6 +226,10 @@ function TemplateCard({
         </div>
       </div>
 
+      {template.projectType && (
+        <Badge variant="outline" className="mb-3 w-fit">{PROJECT_TYPE_LABEL[template.projectType]}</Badge>
+      )}
+
       {template.description ? (
         <p className="mb-4 line-clamp-2 text-sm text-muted-foreground">
           {template.description}
@@ -251,11 +263,13 @@ function CreateTemplateModal({
 }) {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const [projectType, setProjectType] = useState<ProjectType>('WEBSITE')
   const create = useCreateProjectTemplate()
 
   const reset = () => {
     setName('')
     setDescription('')
+    setProjectType('WEBSITE')
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -263,6 +277,7 @@ function CreateTemplateModal({
     const result = await create.mutateAsync({
       name: name.trim(),
       description: description.trim() || null,
+      projectType,
     })
     reset()
     onClose()
@@ -305,6 +320,13 @@ function CreateTemplateModal({
             placeholder="e.g. Enterprise Software Implementation"
             autoFocus
           />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="template-project-type">Project type</Label>
+          <select id="template-project-type" className="input" value={projectType} onChange={(event) => setProjectType(event.target.value as ProjectType)}>
+            {PROJECT_TYPES.map((type) => <option key={type} value={type}>{PROJECT_TYPE_LABEL[type]}</option>)}
+          </select>
+          <p className="text-xs text-muted-foreground">This controls where the template appears during project creation.</p>
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="template-description">Description</Label>

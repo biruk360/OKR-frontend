@@ -7,10 +7,12 @@ import {
   normalizeTemplateStructure,
   templateStructureSchema,
 } from '@/lib/projects/templates'
+import { PROJECT_TYPES } from '@/features/projects/types'
 
 const updateSchema = z.object({
   name: z.string().trim().min(1).max(200).optional(),
   description: z.string().trim().max(2000).optional().nullable(),
+  projectType: z.enum(PROJECT_TYPES).optional(),
   structureJson: templateStructureSchema.optional(),
 })
 
@@ -18,7 +20,7 @@ const updateSchema = z.object({
 export const GET = withAuth<{ id: string }>(async (_request: NextRequest, { params }) => {
   const template = await prisma.projectTemplate.findUnique({
     where: { id: params.id },
-    select: { id: true, name: true, description: true, isSystem: true, version: true, structureJson: true },
+    select: { id: true, name: true, description: true, projectType: true, isSystem: true, version: true, structureJson: true },
   })
   if (!template) return apiNotFound('Template not found')
   return apiSuccess({
@@ -37,9 +39,10 @@ export const PATCH = withRole<{ id: string }>(['ADMIN', 'EXECUTIVE', 'DEPARTMENT
   const parsed = updateSchema.safeParse(json)
   if (!parsed.success) return apiValidationError('Invalid template payload', parsed.error.flatten())
 
-  const data: { name?: string; description?: string | null; version?: { increment: number }; structureJson?: any } = {}
+  const data: { name?: string; description?: string | null; projectType?: string; version?: { increment: number }; structureJson?: any } = {}
   if (parsed.data.name !== undefined) data.name = parsed.data.name
   if (parsed.data.description !== undefined) data.description = parsed.data.description
+  if (parsed.data.projectType !== undefined) data.projectType = parsed.data.projectType
   if (parsed.data.structureJson !== undefined) {
     data.structureJson = normalizeTemplateStructure(parsed.data.structureJson)
     data.version = { increment: 1 }
@@ -48,7 +51,7 @@ export const PATCH = withRole<{ id: string }>(['ADMIN', 'EXECUTIVE', 'DEPARTMENT
   const updated = await prisma.projectTemplate.update({
     where: { id: params.id },
     data,
-    select: { id: true, name: true, description: true, isSystem: true, version: true, structureJson: true },
+    select: { id: true, name: true, description: true, projectType: true, isSystem: true, version: true, structureJson: true },
   })
 
   await recordActivity({

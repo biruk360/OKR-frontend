@@ -13,7 +13,7 @@
  */
 
 import type { Prisma, ProjectTemplate } from '@prisma/client'
-import type { OwnerParty } from '@/features/projects/types'
+import type { OwnerParty, ProjectType } from '@/features/projects/types'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { recordActivity } from '@/lib/activity-log'
@@ -50,6 +50,7 @@ export interface SystemTemplateDef {
   slug: string
   name: string
   description: string
+  projectType: ProjectType | null
   structure: TemplateStructure
 }
 
@@ -235,24 +236,141 @@ const GOVERNMENT_TENDER: TemplateStructure = {
   ],
 }
 
+const ICT_EQUIPMENT_SUPPLY: TemplateStructure = {
+  phases: [
+    {
+      name: 'Contract & Technical Confirmation',
+      weight: 15,
+      milestones: [{ name: 'Technical Baseline', isKeyMilestone: true, activities: [{ title: 'Confirm bill of quantities' }, client('Confirm delivery sites and access'), approval('Technical specification approval')] }],
+    },
+    {
+      name: 'Sourcing & Procurement',
+      weight: 20,
+      milestones: [{ name: 'Procurement', activities: [{ title: 'Source approved equipment' }, { title: 'Verify supplier documentation' }, { title: 'Confirm warranties and licenses' }] }],
+    },
+    {
+      name: 'Logistics & Delivery',
+      weight: 20,
+      milestones: [{ name: 'Delivery', isKeyMilestone: true, activities: [{ title: 'Prepare shipment' }, { title: 'Transport equipment' }, client('Receive equipment at site'), approval('Delivery note sign-off')] }],
+    },
+    {
+      name: 'Installation & Configuration',
+      weight: 20,
+      milestones: [{ name: 'Installation', activities: [{ title: 'Install equipment' }, { title: 'Configure and label assets' }, { title: 'Update asset register' }] }],
+    },
+    {
+      name: 'Testing & Acceptance',
+      weight: 15,
+      milestones: [{ name: 'Acceptance', isKeyMilestone: true, activities: [{ title: 'Run acceptance tests' }, { title: 'Resolve defects' }, approval('Equipment acceptance sign-off')] }],
+    },
+    {
+      name: 'Training & Handover',
+      weight: 10,
+      milestones: [{ name: 'Handover', activities: [{ title: 'Deliver user training' }, { title: 'Hand over manuals and warranties' }, approval('Final handover approval')] }],
+    },
+  ],
+}
+
+const IMPORT_DELIVERY: TemplateStructure = {
+  phases: [
+    {
+      name: 'Order & Documentation',
+      weight: 15,
+      milestones: [{ name: 'Import File', isKeyMilestone: true, activities: [{ title: 'Confirm purchase order' }, { title: 'Collect commercial documents' }, approval('Import documentation approval')] }],
+    },
+    {
+      name: 'Supplier Production & Inspection',
+      weight: 20,
+      milestones: [{ name: 'Pre-shipment Readiness', activities: [{ title: 'Track supplier production' }, { title: 'Complete quality inspection' }, approval('Pre-shipment release')] }],
+    },
+    {
+      name: 'Freight & Transit',
+      weight: 20,
+      milestones: [{ name: 'Shipment', activities: [{ title: 'Book freight' }, { title: 'Dispatch shipment' }, { title: 'Track transit and documents' }] }],
+    },
+    {
+      name: 'Customs Clearance',
+      weight: 20,
+      milestones: [{ name: 'Clearance', isKeyMilestone: true, activities: [client('Provide permits and exemptions'), { title: 'Submit customs declaration' }, { title: 'Complete customs inspection' }, { title: 'Release cargo' }] }],
+    },
+    {
+      name: 'Local Delivery & Acceptance',
+      weight: 25,
+      milestones: [{ name: 'Final Delivery', isKeyMilestone: true, activities: [{ title: 'Transport to final destination' }, { title: 'Verify quantity and condition' }, approval('Final delivery acceptance')] }],
+    },
+  ],
+}
+
 export const SYSTEM_TEMPLATES: SystemTemplateDef[] = [
   {
     slug: 'standard-software-delivery',
     name: 'Standard Software Delivery',
     description: '360Ground standard 7-phase software delivery lifecycle with client approval gates.',
+    projectType: null,
     structure: STANDARD_SOFTWARE,
   },
   {
     slug: 'consulting-advisory',
     name: 'Consulting / Advisory Engagement',
     description: 'Non-software consulting lifecycle — discovery, analysis, and deliverable sign-off. No development or Jira.',
+    projectType: null,
     structure: CONSULTING,
   },
   {
     slug: 'government-tender',
     name: 'Government Tender Delivery',
     description: 'Enterprise / government delivery with contractual compliance and independent audit gates.',
+    projectType: null,
     structure: GOVERNMENT_TENDER,
+  },
+  {
+    slug: 'website-delivery',
+    name: 'Website Delivery',
+    description: 'Website discovery, UX/UI, content, implementation, acceptance, and launch schedule.',
+    projectType: 'WEBSITE',
+    structure: STANDARD_SOFTWARE,
+  },
+  {
+    slug: 'web-portal-delivery',
+    name: 'Web Portal Delivery',
+    description: 'Authenticated portal delivery with requirements, iterative development, UAT, and go-live gates.',
+    projectType: 'WEB_PORTAL',
+    structure: STANDARD_SOFTWARE,
+  },
+  {
+    slug: 'data-platform-delivery',
+    name: 'Data Platform Delivery',
+    description: 'Data platform delivery covering discovery, architecture, pipelines, validation, training, and rollout.',
+    projectType: 'DATA_PLATFORM',
+    structure: STANDARD_SOFTWARE,
+  },
+  {
+    slug: 'mobile-app-delivery',
+    name: 'Mobile App Delivery',
+    description: 'Mobile product lifecycle from discovery and design through development, store readiness, and launch.',
+    projectType: 'MOBILE_APP',
+    structure: STANDARD_SOFTWARE,
+  },
+  {
+    slug: 'banking-app-delivery',
+    name: 'Banking Application Delivery',
+    description: 'Regulated banking application lifecycle with compliance, audit, security, UAT, and formal acceptance gates.',
+    projectType: 'BANKING_APP',
+    structure: GOVERNMENT_TENDER,
+  },
+  {
+    slug: 'ict-equipment-supply',
+    name: 'ICT Equipment Supply',
+    description: 'Technical confirmation, sourcing, delivery, installation, acceptance, training, and warranty handover.',
+    projectType: 'ICT_EQUIPMENT_SUPPLY',
+    structure: ICT_EQUIPMENT_SUPPLY,
+  },
+  {
+    slug: 'import-delivery',
+    name: 'Import & Logistics Delivery',
+    description: 'Order documentation, supplier inspection, freight, customs clearance, local delivery, and acceptance.',
+    projectType: 'IMPORT',
+    structure: IMPORT_DELIVERY,
   },
 ]
 
@@ -369,11 +487,12 @@ export function normalizeTemplateStructure(structure: unknown): TemplateStructur
 
 /** Deep-copy a template's structure for cloning, stripping any system slug. */
 export function cloneTemplateStructure(
-  source: Pick<ProjectTemplate, 'name' | 'description' | 'structureJson'>,
+  source: Pick<ProjectTemplate, 'name' | 'description' | 'projectType' | 'structureJson'>,
   newName?: string,
 ): {
   name: string
   description: string | null
+  projectType: string | null
   isSystem: false
   version: number
   structureJson: TemplateStructure
@@ -385,6 +504,7 @@ export function cloneTemplateStructure(
   return {
     name: newName?.trim() || `Copy of ${source.name}`,
     description: source.description ?? null,
+    projectType: source.projectType ?? null,
     isSystem: false,
     version: 1,
     structureJson: normalizeTemplateStructure(raw),
@@ -398,7 +518,7 @@ export async function createTemplateClone(
 ): Promise<{ id: string; name: string; description: string | null; isSystem: boolean; version: number }> {
   const source = await prisma.projectTemplate.findUnique({
     where: { id: sourceId },
-    select: { id: true, name: true, description: true, structureJson: true },
+    select: { id: true, name: true, description: true, projectType: true, structureJson: true },
   })
   if (!source) throw new Error('Template not found')
 
@@ -407,6 +527,7 @@ export async function createTemplateClone(
     data: {
       name: payload.name,
       description: payload.description,
+      projectType: payload.projectType,
       isSystem: payload.isSystem,
       version: payload.version,
       structureJson: payload.structureJson as unknown as Prisma.InputJsonValue,

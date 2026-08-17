@@ -31,13 +31,14 @@ async function main(): Promise<void> {
     if (existing) {
       await prisma.projectTemplate.update({
         where: { id: existing.id },
-        data: { description: def.description, structureJson },
+        data: { description: def.description, projectType: def.projectType, structureJson },
       })
     } else {
       await prisma.projectTemplate.create({
         data: {
           name: def.name,
           description: def.description,
+          projectType: def.projectType,
           isSystem: true,
           structureJson,
           createdById: admin.id,

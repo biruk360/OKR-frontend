@@ -12,6 +12,7 @@ import {
   templateStructureSchema,
   type TemplateStructure,
 } from '@/lib/projects/templates'
+import { PROJECT_TYPES } from '@/features/projects/types'
 
 /**
  * GET /api/projects/templates — list available project templates (system + custom).
@@ -20,7 +21,7 @@ import {
 export const GET = withAuth(async (_request: NextRequest) => {
   const templates = await prisma.projectTemplate.findMany({
     orderBy: [{ isSystem: 'desc' }, { name: 'asc' }],
-    select: { id: true, name: true, description: true, isSystem: true, version: true, structureJson: true },
+    select: { id: true, name: true, description: true, projectType: true, isSystem: true, version: true, structureJson: true },
   })
 
   // Return a phase-count summary rather than the full tree for the picker.
@@ -31,6 +32,7 @@ export const GET = withAuth(async (_request: NextRequest) => {
       id: t.id,
       name: t.name,
       description: t.description,
+      projectType: t.projectType,
       isSystem: t.isSystem,
       version: t.version,
       ...counts,
@@ -43,6 +45,7 @@ export const GET = withAuth(async (_request: NextRequest) => {
 const createSchema = z.object({
   name: z.string().trim().min(1).max(200),
   description: z.string().trim().max(2000).optional().nullable(),
+  projectType: z.enum(PROJECT_TYPES),
   structureJson: templateStructureSchema.optional(),
 })
 
@@ -62,12 +65,13 @@ export const POST = withRole(['ADMIN', 'EXECUTIVE', 'DEPARTMENT_LEAD'], async (r
     data: {
       name: parsed.data.name,
       description: parsed.data.description ?? null,
+      projectType: parsed.data.projectType,
       isSystem: false,
       version: 1,
       structureJson: structure as any,
       createdById: session.user.id,
     },
-    select: { id: true, name: true, description: true, isSystem: true, version: true, structureJson: true },
+    select: { id: true, name: true, description: true, projectType: true, isSystem: true, version: true, structureJson: true },
   })
 
   await recordActivity({

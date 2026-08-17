@@ -3085,6 +3085,7 @@ model ProjectTemplate {
   id            String    @id @default(cuid())
   name          String // "Standard Software Delivery"
   description   String?
+  projectType   String? // WEBSITE|WEB_PORTAL|DATA_PLATFORM|MOBILE_APP|BANKING_APP|ICT_EQUIPMENT_SUPPLY|IMPORT
   version       Int       @default(1)
   isSystem      Boolean   @default(false)
   structureJson Json // phases -> milestones -> activities

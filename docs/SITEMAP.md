@@ -75,7 +75,7 @@
 | Route | Page File | Feature | Description |
 |-------|-----------|---------|-------------|
 | `/dashboard/projects` | `app/dashboard/projects/page.tsx` | projects | Project list plus authorized Manual/Import/AI creation; Manual uses compact responsive steps and type-linked schedule selection; `?creationDraft=<id>` resumes a saved draft |
-| `/dashboard/projects/[id]` | `app/dashboard/projects/[id]/page.tsx` | projects | Project detail workspace with Gantt, registers, Delay Ledger, portal settings, Jira settings, scrum log, and J1 chart library in Overview |
+| `/dashboard/projects/[id]` | `app/dashboard/projects/[id]/page.tsx` | projects | Project detail workspace with Gantt, registers, Delay Ledger, portal/Jira settings, scrum log, charts, and confirmed soft archive under Project settings |
 | `/dashboard/projects/portfolio` | `app/dashboard/projects/portfolio/page.tsx` | projects | Project portfolio view |
 | `/dashboard/projects/templates` | `app/dashboard/projects/templates/page.tsx` | projects | Search/filter reusable schedules by project type; create, clone, edit, or delete custom templates |
 | `/dashboard/projects/templates/new` | `app/dashboard/projects/templates/new/page.tsx` | projects | Create a project-type-linked reusable schedule |
@@ -274,6 +274,7 @@
 ### Project Management
 | Method | Route | Description |
 |--------|-------|-------------|
+| GET/PATCH/DELETE | `/api/projects/[id]` | Read/update a scoped project or atomically soft-archive it with a required `ARCHIVED` audit; archived projects leave the active directory while records remain retained |
 | POST | `/api/projects/creation-drafts` | Create an authorized, creator-owned manual/import/AI draft with version-1 normalized project metadata |
 | GET/PATCH/DELETE | `/api/projects/creation-drafts/[id]` | Load, strict-schema/version-save editable seven-panel review data, or discard a private creation draft and its retained source; Administrators may inspect but only the creator may mutate |
 | POST | `/api/projects/creation-drafts/[id]/commit` | Owner-only, versioned, commit-time-reauthorized atomic and idempotent conversion of a ready normalized draft into one Planning/unbaselined project and full schedule, with required audits and no external notification |

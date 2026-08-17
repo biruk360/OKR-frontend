@@ -866,6 +866,10 @@ export function useUpdateProject(id: string) {
   return useProjectMutation(id, (body: Record<string, unknown>) => fetchJson(`/api/projects/${id}`, jsonInit('PATCH', body)), 'Project updated')
 }
 
+export function useArchiveProject(id: string) {
+  return useProjectMutation<void>(id, () => fetchJson(`/api/projects/${id}`, { method: 'DELETE' }), 'Project archived')
+}
+
 export function useAddPhase(id: string) {
   return useProjectMutation(id, (body: { name: string; weight?: number }) => fetchJson(`/api/projects/${id}/phases`, jsonInit('POST', body)), 'Phase added')
 }

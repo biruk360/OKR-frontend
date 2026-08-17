@@ -2,6 +2,12 @@
 
 > **Purpose:** Log of all changes made by AI assistants. Every AI session that modifies code MUST append an entry here.
 
+## 2026-08-17 — Project archive control
+
+- **Discoverable lifecycle action** — added Project settings to the delivery-control drawer with a permission-aware Archive project action, explicit retained-data/no-notification consequences, pending state, and shared `ConfirmDialog`; success returns to the active Projects directory.
+- **Atomic safe archive** — connected the existing project `DELETE` endpoint through a TanStack Query mutation and made the soft-archive update plus required `ARCHIVED` activity audit commit in one transaction.
+- **Verification** — focused archive-flow tests, Project Management regression, TypeScript, production build, and diff check.
+
 ## 2026-08-17 — Project creation modal repair and project-type template linking
 
 - **Responsive creation UI** — reduced New Project from the full-width `2xl` dialog to `xl`, replaced the visually colliding stacked progress bars with clearly labelled responsive Project creation and Manual setup step cards, and preserved internal scrolling and draft controls.

@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
-import { BarChart3, BookOpenCheck, Link2, Settings, ShieldAlert, Users } from 'lucide-react'
+import { Archive, BarChart3, BookOpenCheck, Link2, Settings, ShieldAlert, Users } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useUsersForSelection } from '@/hooks/useUsersForSelection'
 import { projectKeys } from '../hooks/useProjects'
@@ -22,7 +23,7 @@ import { PerformanceReportsPanel } from './reports/PerformanceReportsPanel'
 import { JiraIntegrationPanel } from './integrations/JiraIntegrationPanel'
 import { ScrumLogWidget } from './ScrumLogWidget'
 
-type ControlTab = 'team' | 'governance' | 'delivery' | 'reports' | 'integrations'
+type ControlTab = 'team' | 'governance' | 'delivery' | 'reports' | 'integrations' | 'settings'
 
 const TABS: Array<{ id: ControlTab; label: string; icon: typeof Users }> = [
   { id: 'team', label: 'Team & OKRs', icon: Users },
@@ -30,9 +31,20 @@ const TABS: Array<{ id: ControlTab; label: string; icon: typeof Users }> = [
   { id: 'delivery', label: 'Delivery', icon: BookOpenCheck },
   { id: 'reports', label: 'Reports', icon: BarChart3 },
   { id: 'integrations', label: 'Integrations', icon: Link2 },
+  { id: 'settings', label: 'Settings', icon: Settings },
 ]
 
-export function ProjectDeliveryControlCenter({ project, canEdit }: { project: ProjectDetail; canEdit: boolean }) {
+export function ProjectDeliveryControlCenter({
+  project,
+  canEdit,
+  onArchive,
+  archivePending = false,
+}: {
+  project: ProjectDetail
+  canEdit: boolean
+  onArchive: () => void
+  archivePending?: boolean
+}) {
   const [activeTab, setActiveTab] = useState<ControlTab>('team')
   const { users } = useUsersForSelection()
   const queryClient = useQueryClient()
@@ -145,6 +157,31 @@ export function ProjectDeliveryControlCenter({ project, canEdit }: { project: Pr
           <ControlSection title="Project integrations" description="Connect external delivery systems without leaving the project workspace.">
             <div className="mb-3 flex items-center gap-2 text-body-sm text-ink-secondary"><Settings className="size-4" /> Integration settings use the existing project permission checks.</div>
             <JiraIntegrationPanel projectId={project.id} canEdit={canEdit} />
+          </ControlSection>
+        )}
+
+        {activeTab === 'settings' && (
+          <ControlSection title="Project settings" description="Manage this project's lifecycle and visibility.">
+            <div className="rounded-card border border-danger-500/25 bg-danger-50 p-4">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h4 className="text-body font-semibold text-danger-800">Archive project</h4>
+                  <p className="mt-1 text-body-sm text-danger-700">
+                    Remove this project from the active project directory while retaining its schedule and audit history.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  className="shrink-0"
+                  disabled={!canEdit || archivePending}
+                  onClick={onArchive}
+                >
+                  <Archive className="size-4" /> {archivePending ? 'Archiving…' : 'Archive project'}
+                </Button>
+              </div>
+              {!canEdit && <p className="mt-3 text-body-sm text-danger-700">Only a project manager or authorized management role can archive this project.</p>}
+            </div>
           </ControlSection>
         )}
       </div>

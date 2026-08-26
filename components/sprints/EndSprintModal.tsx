@@ -200,6 +200,8 @@ export default function EndSprintModal({ open, onClose, sprintId, onClosed }: Pr
       onClose={onClose}
       title="Complete sprint"
       size="lg"
+      scrollBehavior="internal"
+      stickyHeader
       footer={
         <>
           <Button variant="outline" size="sm" onClick={onClose} disabled={submitting}>Cancel</Button>

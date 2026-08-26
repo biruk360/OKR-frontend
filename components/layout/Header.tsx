@@ -135,7 +135,7 @@ export default function Header({ user, onMobileNavOpen }: HeaderProps) {
 
           <div className="min-w-0 flex-1">
             {!hidePageTitle && (
-              <h1 className="truncate text-lg font-semibold">{pageTitle}</h1>
+              <h1 className="truncate text-[15px] font-semibold tracking-[-0.01em]">{pageTitle}</h1>
             )}
           </div>
 

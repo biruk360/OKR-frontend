@@ -455,17 +455,11 @@ BEGIN
   END IF;
 END $$;
 
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint
-    WHERE conname = 'sprint_columns_sprintId_statusKey_key'
-  ) THEN
-    EXECUTE 'ALTER TABLE "public"."sprint_columns"
-             ADD CONSTRAINT "sprint_columns_sprintId_statusKey_key"
-             UNIQUE ("sprintId", "statusKey")';
-  END IF;
-END $$;
+-- NOTE (2026-09-15): this block used to ADD a UNIQUE("sprintId","statusKey")
+-- constraint. Dynamic board lists allow several lanes to share one status
+-- (e.g. "QA" and "Review" both IN_REVIEW), so the constraint is now dropped
+-- further down in the "Dynamic board lists" section. Creating it here would
+-- fight that drop on every run, so the creation is intentionally removed.
 
 -- 4b. initiatives.assigneeId — drop NOT NULL so todos can be unassigned.
 --     Trello-style: cards use TodoMember (members table) and the legacy primary
@@ -595,3 +589,133 @@ SET "closureStatus" = 'CLOSED',
     "outcome"       = COALESCE("outcome", CASE WHEN "progress" >= 100 THEN 'ACHIEVED' ELSE 'PARTIAL' END)
 WHERE "goalStatus" = 'CLOSED'
   AND "closureStatus" = 'OPEN';
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Dynamic board lists (Trello parity, Phase 2) — 2026-09-15
+-- Spec: docs/trello_parity_sprint_board_REQUIREMENTS.md DM-1 / DM-2 / DM-3
+--
+--   * Drop UNIQUE(sprintId, statusKey) on sprint_columns so several lanes may
+--     map to one status ("QA" + "Review" → IN_REVIEW, "Done" + "Shipped" →
+--     COMPLETED). Completion maths keys off initiatives.status, never the lane,
+--     so multi-lane statuses still roll up correctly.
+--   * Add sprint_columns.archivedAt (soft delete — archiving a lane must never
+--     orphan the cards pointing at it).
+--   * Backfill any legacy sprint_columns.statusKey nulls so every lane maps to
+--     a real status before the API starts requiring one.
+--   * Add initiatives.columnId + FK (ON DELETE SET NULL) + index, and backfill
+--     every sprint-attached todo into the lane matching its status.
+--
+-- All blocks are idempotent.
+-- ─────────────────────────────────────────────────────────────────────────────
+
+-- 1. Drop the per-sprint statusKey uniqueness. `prisma db push` would not do
+--    this on its own without risking data loss, hence doing it explicitly here.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'sprint_columns_sprintId_statusKey_key'
+  ) THEN
+    EXECUTE 'ALTER TABLE "public"."sprint_columns"
+             DROP CONSTRAINT "sprint_columns_sprintId_statusKey_key"';
+  END IF;
+END $$;
+
+-- 2. sprint_columns.archivedAt (nullable soft-delete marker)
+ALTER TABLE "public"."sprint_columns"
+  ADD COLUMN IF NOT EXISTS "archivedAt" TIMESTAMP(3);
+
+-- 3. Backfill statusKey for any lane still missing one. Match on the lane name
+--    first; anything unrecognised falls back to PENDING so no lane is orphaned
+--    from the status model.
+UPDATE "public"."sprint_columns"
+SET "statusKey" = CASE
+      WHEN lower("name") IN ('to do', 'todo', 'backlog', 'pending')      THEN 'PENDING'
+      WHEN lower("name") IN ('in progress', 'doing', 'wip')              THEN 'IN_PROGRESS'
+      WHEN lower("name") IN ('in review', 'review', 'qa', 'testing')     THEN 'IN_REVIEW'
+      WHEN lower("name") IN ('stuck', 'blocked', 'on hold')              THEN 'STUCK'
+      WHEN lower("name") IN ('done', 'complete', 'completed', 'shipped') THEN 'COMPLETED'
+      ELSE 'PENDING'
+    END
+WHERE "statusKey" IS NULL;
+
+-- 4. initiatives.columnId + FK + index
+ALTER TABLE "public"."initiatives"
+  ADD COLUMN IF NOT EXISTS "columnId" TEXT;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'initiatives_columnId_fkey'
+  ) THEN
+    EXECUTE 'ALTER TABLE "public"."initiatives"
+             ADD CONSTRAINT "initiatives_columnId_fkey"
+             FOREIGN KEY ("columnId") REFERENCES "public"."sprint_columns"("id")
+             ON DELETE SET NULL ON UPDATE CASCADE';
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS "initiatives_columnId_sprintPosition_idx"
+  ON "public"."initiatives" ("columnId", "sprintPosition");
+
+-- 5. Backfill columnId: place every sprint-attached todo in its own sprint's
+--    lowest-positioned lane whose statusKey matches the todo's status. Todos
+--    whose status has no lane (e.g. CANCELLED) are deliberately left null — the
+--    board excludes them anyway, and the API falls back to a status match.
+UPDATE "public"."initiatives" i
+SET "columnId" = sc.id
+FROM (
+  SELECT DISTINCT ON ("sprintId", "statusKey") id, "sprintId", "statusKey"
+  FROM "public"."sprint_columns"
+  WHERE "archivedAt" IS NULL
+  ORDER BY "sprintId", "statusKey", "position" ASC, "createdAt" ASC
+) sc
+WHERE i."sprintId" = sc."sprintId"
+  AND i."status"   = sc."statusKey"
+  AND i."columnId" IS NULL
+  AND i."sprintId" IS NOT NULL;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Card visuals (Trello parity, Phase 3) — 2026-09-15
+-- Spec: docs/trello_parity_sprint_board_REQUIREMENTS.md DM-4 / DM-5 / CVR-3
+--
+--   * initiatives.coverSize   — 'BAND' | 'FULL'; null behaves as BAND.
+--   * todo_label_defs.pattern — colour-blind texture; null falls back to a
+--     pattern derived from the colour, so no backfill is required.
+--   * user_preferences.colorBlindMode — per-viewer display preference.
+--
+-- All additive and nullable/defaulted; `prisma db push` would also add these,
+-- but declaring them here keeps the deploy order explicit.
+-- ─────────────────────────────────────────────────────────────────────────────
+
+ALTER TABLE "public"."initiatives"
+  ADD COLUMN IF NOT EXISTS "coverSize" TEXT;
+
+ALTER TABLE "public"."todo_label_defs"
+  ADD COLUMN IF NOT EXISTS "pattern" TEXT;
+
+ALTER TABLE "public"."user_preferences"
+  ADD COLUMN IF NOT EXISTS "colorBlindMode" BOOLEAN NOT NULL DEFAULT false;
+
+-- Existing rows carrying a cover render as a band, which is what they looked
+-- like before the size option existed.
+UPDATE "public"."initiatives"
+SET "coverSize" = 'BAND'
+WHERE "coverColor" IS NOT NULL AND "coverSize" IS NULL;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Due-date reminders (Trello parity, DTE-4) — 2026-09-16
+-- Spec: docs/trello_parity_sprint_board_REQUIREMENTS.md DTE-4
+--
+--   * initiatives.dueReminder       — AT_TIME | M5 | H1 | D1 | D2; null = off.
+--   * initiatives.dueReminderSentAt — idempotency marker so a cron re-run in the
+--     same window cannot notify twice. Cleared when dueDate/dueReminder change.
+--
+-- Additive and nullable; safe to re-run.
+-- ─────────────────────────────────────────────────────────────────────────────
+
+ALTER TABLE "public"."initiatives"
+  ADD COLUMN IF NOT EXISTS "dueReminder" TEXT,
+  ADD COLUMN IF NOT EXISTS "dueReminderSentAt" TIMESTAMP(3);
+
+CREATE INDEX IF NOT EXISTS "initiatives_dueReminder_dueReminderSentAt_idx"
+  ON "public"."initiatives" ("dueReminder", "dueReminderSentAt");

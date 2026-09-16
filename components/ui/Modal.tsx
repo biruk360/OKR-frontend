@@ -35,10 +35,18 @@ export interface ModalProps {
   footer?: ReactNode
   closeOnBackdrop?: boolean
   closeOnEsc?: boolean
+  /** Hide the visible header. The accessible name is still rendered sr-only. */
   hideHeader?: boolean
   scrollBehavior?: ModalScrollBehavior
   stickyHeader?: boolean
   className?: string
+  /** Show the built-in top-right close button. Turn off when the content
+   *  provides its own, or two close buttons stack on each other. */
+  showCloseButton?: boolean
+  /** Skip Radix's focus-the-first-focusable behaviour on open. Use when the
+   *  first control is a text editor that would otherwise swallow the caret,
+   *  or when opening should not scroll a long body to its first input. */
+  preventInitialFocus?: boolean
 }
 
 export function Modal({
@@ -56,6 +64,8 @@ export function Modal({
   scrollBehavior = 'outside',
   stickyHeader = false,
   className,
+  showCloseButton = true,
+  preventInitialFocus = false,
 }: ModalProps) {
   const internal = scrollBehavior === 'internal'
 
@@ -75,9 +85,21 @@ export function Modal({
           internal && 'max-h-[90vh] !flex flex-col',
           className,
         )}
+        showCloseButton={showCloseButton}
         onPointerDownOutside={(e) => { if (!closeOnBackdrop) e.preventDefault() }}
         onEscapeKeyDown={(e) => { if (!closeOnEsc) e.preventDefault() }}
+        onOpenAutoFocus={(e) => { if (preventInitialFocus) e.preventDefault() }}
       >
+        {/* Radix requires a DialogTitle and a description for every dialog; without
+            them the dialog is announced unnamed and Radix logs an error. When the
+            visible header is hidden, render both sr-only rather than omitting them. */}
+        {hideHeader && (
+          <>
+            <DialogTitle className="sr-only">{title}</DialogTitle>
+            <DialogDescription className="sr-only">{title}</DialogDescription>
+          </>
+        )}
+
         {!hideHeader && (
           <DialogHeader
             className={cn(

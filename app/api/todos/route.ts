@@ -5,6 +5,7 @@ import { recordActivity } from '@/lib/activity-log'
 import { emit } from '@/lib/notifications'
 import { broadcastSprintEvent } from '@/lib/pusher'
 import { buildScopeFilter } from '@/lib/apply-scope'
+import { getSprintLanes } from '@/lib/sprints/columns'
 import {
   apiSuccess,
   apiBadRequest,
@@ -228,6 +229,22 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
     }
   }
 
+  // Place new sprint cards in a board lane. An explicit `columnId` wins (the
+  // board's inline composer sends the lane it was opened in); otherwise the card
+  // lands in the first lane representing its status. Without this, new cards
+  // would depend on the board's status fallback and could not be ordered
+  // independently of other lanes sharing that status.
+  let columnId: string | null = null
+  if (sprintId) {
+    const lanes = await getSprintLanes(sprintId)
+    const requested = typeof body.columnId === 'string' ? body.columnId : null
+    const lane = requested
+      ? lanes.find((l) => l.id === requested)
+      : lanes.find((l) => l.statusKey === 'PENDING')
+    if (requested && !lane) return apiBadRequest('columnId does not belong to this sprint')
+    columnId = lane?.id ?? null
+  }
+
   const todo = await prisma.todo.create({
     data: {
       ...(clientId ? { id: clientId } : {}),
@@ -244,6 +261,7 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
       objectiveId,
       progressValue,
       sprintId,
+      columnId,
       taskType,
     },
     include: {

@@ -5,6 +5,7 @@ import { resolveDocTypePermission } from '@/lib/permission-resolver'
 import { buildScopeFilter } from '@/lib/apply-scope'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { recordActivity } from '@/lib/activity-log'
+import { isDueReminder, shouldResetReminderSentAt } from '@/lib/todos/due-reminders'
 import { emit, resolveTodoStakeholders } from '@/lib/notifications'
 import { broadcastSprintEvent } from '@/lib/pusher'
 import { recalcKrFromInitiatives, recalcNodeAndAncestors } from '@/lib/objectiveProgress'
@@ -23,6 +24,9 @@ import {
  * Powers the global initiative detail modal opened from anywhere in the app.
  */
 const TODO_INCLUDE = {
+  // The card modal needs the sprint's lifecycle state to render read-only on a
+  // closed sprint; without it the UI offers edits the API then rejects with 409.
+  sprint: { select: { id: true, name: true, state: true, startDate: true, endDate: true } },
   assignee: { select: { id: true, name: true, avatar: true } },
   creator: { select: { id: true, name: true, avatar: true } },
   members: { include: { user: { select: { id: true, name: true, avatar: true } } } },
@@ -79,8 +83,9 @@ export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { sess
 
   const {
     title, description, status, startDate, dueDate, startTime, endTime, completedAt, progressValue,
-    assigneeId, priority, coverColor,
-    sprintId, taskType,
+    dueReminder,
+    assigneeId, priority, coverColor, coverSize,
+    sprintId, columnId, taskType,
     sprintPosition, // number — card position within its sprint+status lane
     sortOrder,      // number — card position within its status column on the global todo kanban
     memberIds,   // string[] — full replacement of members list
@@ -115,6 +120,53 @@ export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { sess
   })
 
   if (!existingTodo) return apiNotFound('To-do not found')
+
+  const reminderNeedsReset = shouldResetReminderSentAt(
+    { dueDate: existingTodo.dueDate, dueReminder: existingTodo.dueReminder },
+    {
+      ...(dueDate !== undefined && { dueDate: dueDate ? new Date(dueDate) : null }),
+      ...(dueReminder !== undefined && { dueReminder: isDueReminder(dueReminder) ? dueReminder : null }),
+    },
+  )
+
+  // ── Board lane (columnId) ──────────────────────────────────────────────────
+  // A lane carries a statusKey, so moving a card between lanes must also move
+  // its status, and changing status must move it to a lane that represents the
+  // new status. Doing this server-side keeps the two from drifting apart no
+  // matter which field the caller sent.
+  const laneUpdate: { columnId?: string | null; status?: string } = {}
+  {
+    const targetSprintId = sprintId !== undefined ? (sprintId ?? null) : (existingTodo as any)?.sprintId ?? null
+
+    if (!targetSprintId) {
+      // Backlog / unassigned: a lane id would dangle, so clear it.
+      if (sprintId !== undefined) laneUpdate.columnId = null
+    } else if (columnId !== undefined && columnId !== null) {
+      const lane = await prisma.sprintColumn.findFirst({
+        where: { id: columnId, sprintId: targetSprintId, archivedAt: null },
+        select: { id: true, statusKey: true },
+      })
+      // Reject rather than silently ignore: accepting a foreign lane id would
+      // let a caller move a card into another sprint's board.
+      if (!lane) return apiBadRequest('columnId does not belong to this todo\u2019s sprint')
+      laneUpdate.columnId = lane.id
+      if (lane.statusKey && status === undefined) laneUpdate.status = lane.statusKey
+    } else {
+      // No explicit lane. If the status changed (or the card just joined a
+      // sprint), park it in the first lane representing its status.
+      const nextStatus = status !== undefined ? status : (existingTodo as any)?.status
+      const changedSprint = sprintId !== undefined && sprintId !== (existingTodo as any)?.sprintId
+      const changedStatus = status !== undefined && status !== (existingTodo as any)?.status
+      if (nextStatus && (changedSprint || changedStatus)) {
+        const lane = await prisma.sprintColumn.findFirst({
+          where: { sprintId: targetSprintId, statusKey: nextStatus, archivedAt: null },
+          orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
+          select: { id: true },
+        })
+        if (lane) laneUpdate.columnId = lane.id
+      }
+    }
+  }
 
   // Permission: creators, assignees, and explicit task members can always edit.
   // KR/objective managers can also edit linked todos.
@@ -249,7 +301,21 @@ export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { sess
         ...(assigneeId !== undefined && { assigneeId }),
         ...(priority !== undefined && { priority }),
         ...(coverColor !== undefined && { coverColor }),
+        ...(dueReminder !== undefined && {
+          // Anything unrecognised clears the reminder rather than persisting junk
+          // the cron would then skip forever.
+          dueReminder: isDueReminder(dueReminder) ? dueReminder : null,
+        }),
+        // A rescheduled card, or a changed lead time, must be able to remind
+        // again — otherwise moving a card a week out would silently never fire.
+        ...(reminderNeedsReset && { dueReminderSentAt: null }),
+        ...(coverSize !== undefined && {
+          // Only BAND/FULL are meaningful; anything else clears it back to the
+          // BAND default rather than persisting junk.
+          coverSize: coverSize === 'FULL' || coverSize === 'BAND' ? coverSize : null,
+        }),
         ...(sprintId !== undefined && { sprintId: sprintId ?? null }),
+        ...(laneUpdate),
         ...(taskType !== undefined && { taskType: taskType ?? null }),
         ...(typeof sprintPosition === 'number' && { sprintPosition }),
         ...(typeof sortOrder === 'number' && { sortOrder }),

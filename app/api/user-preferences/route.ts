@@ -6,7 +6,7 @@ export const GET = withAuth(async (_request, { session }) => {
   const pref = await prisma.userPreference.findUnique({
     where: { userId: session.user.id },
   })
-  return apiSuccess(pref || { todoViewMode: 'modal' })
+  return apiSuccess(pref || { todoViewMode: 'modal', colorBlindMode: false })
 })
 
 export const PATCH = withAuth(async (request: NextRequest, { session }) => {
@@ -14,6 +14,9 @@ export const PATCH = withAuth(async (request: NextRequest, { session }) => {
   const data: any = {}
   if (body.todoViewMode === 'modal' || body.todoViewMode === 'sidebar') {
     data.todoViewMode = body.todoViewMode
+  }
+  if (typeof body.colorBlindMode === 'boolean') {
+    data.colorBlindMode = body.colorBlindMode
   }
 
   const pref = await prisma.userPreference.upsert({

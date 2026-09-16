@@ -86,6 +86,7 @@ Hooks and API client are exported from the same barrel. Server-side scoring, pol
 | `StatCard` | `label`, `value`, `icon?`, `iconText?`, `tone?` (blue/green/yellow/red/purple/gray/indigo), `trend?` {value, direction}, `helperText?`, `onClick?` | Repeated stat cards across 8+ pages | DONE — adopted in 7 dashboard pages |
 | `StatGrid` | `children`, `columns?` (2/3/4/5) | Repeated grid layouts for stat cards | DONE |
 | `PageHeader` | `title`, `description?`, `actions?` (ReactNode), `breadcrumb?` | Repeated page header + action bar patterns | DONE |
+| `Popover` / `PopoverTrigger` / `PopoverContent` / `PopoverAnchor` / `PopoverClose` | `PopoverContent`: `label` (required a11y name), `heading?`, `showClose?`, `align?`, `sideOffset?`, `className?` | Hand-rolled absolutely-positioned popovers (date picker, card panels, OKR link, background picker) | NEW — Radix-backed; gives outside-click, Escape, focus management and collision-aware positioning. `heading` (not `title`) is the visible header, so it cannot clash with the HTML `title` attribute. |
 
 ### Usage Examples
 
@@ -168,6 +169,7 @@ import { Target, CheckSquare } from 'lucide-react'
 | `ActivityLogPanel` | `components/shared/ActivityLogPanel.tsx` | `entityType`, `entityId` | Displays activity audit trail for any entity |
 | `EntityLink` | `components/shared/EntityLink.tsx` | `entity`, `type` | Navigation link to objective/KR/todo detail |
 | `TimeframeBadge` | `components/shared/TimeframeBadge.tsx` | `timeframe` | Badge display for timeframe (Q1 2025, etc.) |
+| `LiveAnnouncer` + `announce()` | `components/shared/LiveAnnouncer.tsx` | none (mounted once in `app/layout.tsx`) | The app's only `aria-live` region. Call `announce('message')` or `announce('message', 'assertive')` from anywhere — no context, no prop drilling. Use for changes with no focus change (kanban moves, optimistic saves, bulk actions). |
 
 ## Layout Components (`components/layout/`)
 
@@ -251,6 +253,26 @@ import { Target, CheckSquare } from 'lucide-react'
 | `GoalsListView` | List | List view |
 | `GoalsFilterBar` | Filter | Filter bar for goals |
 | `MyTeamView` | List | Team goals with empty state (duplicate) |
+
+### Card visuals (`lib/card-visuals.ts`)
+
+Not a component — the shared palette + pattern + contrast helpers used by card labels and covers.
+Import these instead of writing hex literals.
+
+| Export | Signature | Description |
+|--------|-----------|-------------|
+| `CARD_PALETTE` | `CardSwatch[]` | The ten shared swatches (key, label, `--ap-card-*` token, hex, default pattern). Labels and covers both draw from this. |
+| `swatchStyle` | `(color, { colorBlind?, pattern?, ink? }) => CSSProperties` | Background for a colour chip; applies the colour-blind texture only when the viewer's preference is on. |
+| `resolvePattern` | `(pattern, color) => CardPattern` | Stored pattern if valid, else one derived deterministically from the colour. |
+| `readableInk` | `(hex) => '#1D1D1F' \| '#FFFFFF'` | Title ink for full-bleed covers; every palette colour is unit-tested to reach ≥4.5:1. |
+| `contrastRatio` / `relativeLuminance` | `(hex, hex) => number` / `(hex) => number` | WCAG 2.1 maths behind `readableInk`. |
+
+### Sprint board lists (`features/sprints/`)
+
+| Component | File | Props | Description |
+|-----------|------|-------|-------------|
+| `AddListColumn` (default) | `features/sprints/components/SprintListManager.tsx` | `sprintId`, `dark?`, `onCreated` | Trailing "+ Add another list" column. Inline name input + required status mapping; keeps the typed name on a duplicate-name 409. |
+| `ListHeaderMenu` | `features/sprints/components/SprintListManager.tsx` | `sprintId`, `lane` (`LaneSummary`), `lanes`, `disabled?`, `onChanged` | Per-lane "…" menu: rename, change status mapping (warns with the affected card count), archive (requires a destination when the lane holds cards). Disables archive for the last lane and the last Done lane, mirroring the server guards. |
 
 ### Sprints (`components/sprints/`)
 

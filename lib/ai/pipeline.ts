@@ -161,6 +161,13 @@ export async function runSprintPlanPipeline(req: PipelineRequest): Promise<Pipel
   const krIdSet = new Set(bundle.keyResults.map((k) => k.id))
   const objIdSet = new Set(bundle.objectives.map((o) => o.id))
 
+  const pendingLane = await prisma.sprintColumn.findFirst({
+    where: { sprintId: req.sprintId, statusKey: 'PENDING', archivedAt: null },
+    orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
+    select: { id: true },
+  })
+  const pendingLaneId = pendingLane?.id ?? null
+
   const persisted = await prisma.$transaction(async (tx) => {
     // Reuse the existing team sprint — the AI never creates one.
     const sprint = targetSprint
@@ -189,6 +196,10 @@ export async function runSprintPlanPipeline(req: PipelineRequest): Promise<Pipel
           progressValue: t.progressValue,
           taskType: t.taskType,
           sprintId: sprint.id,
+          // Park AI drafts in the sprint's To Do lane so that accepting them
+          // drops real cards straight into the board (they stay hidden until
+          // then via the board's aiSuggested filter).
+          columnId: pendingLaneId,
           aiSuggested: true,
           ambitionLevel: t.ambitionLevel,
           originalSprintId: sprint.id,

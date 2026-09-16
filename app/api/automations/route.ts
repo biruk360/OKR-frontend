@@ -4,9 +4,12 @@ import { apiForbidden, apiSuccess, apiValidationError, withAuth } from '@/lib/ap
 import { recordActivity } from '@/lib/activity-log'
 import { prisma } from '@/lib/prisma'
 import {
+  canApproveToolGrants,
   canAuthorAutomations,
-  filterVisibleRecipientIds,
+  filterVisibleRecipients,
   isAdminRole,
+  toolGrantDenialMessage,
+  toolGrantsRequiringApproval,
 } from '@/lib/automations/access'
 import { createAutomation, toAutomationSummary } from '@/lib/automations/crud'
 import { PlanValidationError } from '@/lib/automations/plan'
@@ -60,9 +63,16 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
   const parsed = createSchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) return apiValidationError('Invalid automation', parsed.error.flatten())
 
-  // Recipients narrow to users the author can actually see (spec §3.4).
-  const visibleIds = await filterVisibleRecipientIds(principal, parsed.data.recipients.map((r) => r.userId))
-  const recipients = parsed.data.recipients.filter((r) => visibleIds.includes(r.userId))
+  // Tool grants are the security boundary, not a field the requester fills in
+  // (spec §7, §13). A non-admin may only self-grant the Tier-0 tools; anything
+  // that reaches a shared service account or the internet needs an ADMIN.
+  const deniedGrants = toolGrantsRequiringApproval(parsed.data.toolGrants)
+  if (deniedGrants.length > 0 && !(await canApproveToolGrants(principal))) {
+    return apiForbidden(toolGrantDenialMessage(deniedGrants))
+  }
+
+  // Recipients narrow to users the author can actually see (spec §3.3).
+  const recipients = await filterVisibleRecipients(principal, parsed.data.recipients)
 
   try {
     const automation = await createAutomation({

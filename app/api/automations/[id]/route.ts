@@ -3,7 +3,14 @@ import { z } from 'zod'
 import { apiForbidden, apiNotFound, apiSuccess, apiValidationError, withAuth } from '@/lib/api'
 import { recordActivity } from '@/lib/activity-log'
 import { prisma } from '@/lib/prisma'
-import { canManageAutomation, canReadAutomation } from '@/lib/automations/access'
+import {
+  canApproveToolGrants,
+  canManageAutomation,
+  canReadAutomation,
+  filterVisibleRecipients,
+  toolGrantDenialMessage,
+  toolGrantsRequiringApproval,
+} from '@/lib/automations/access'
 import { monthToDateSpend, softDeleteAutomation, toAutomationSummary, updateAutomation } from '@/lib/automations/crud'
 import { PlanValidationError } from '@/lib/automations/plan'
 import { DELIVERY_CHANNELS, TOOL_IDS } from '@/types/automations'
@@ -61,8 +68,21 @@ export const PATCH = withAuth<RouteParams>(async (request: NextRequest, { sessio
   const parsed = updateSchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) return apiValidationError('Invalid automation update', parsed.error.flatten())
 
+  // Same grant rule as POST — an edit must not be a way around it (spec §7, §13).
+  const deniedGrants = toolGrantsRequiringApproval(parsed.data.toolGrants)
+  if (deniedGrants.length > 0 && !(await canApproveToolGrants(principal))) {
+    return apiForbidden(toolGrantDenialMessage(deniedGrants))
+  }
+
+  // ...and the same recipient-visibility rule, which PATCH used to skip entirely
+  // (spec §3.3). Without this, `POST recipients:[]` then `PATCH recipients:[ceo]`
+  // mails AI-authored, company-branded briefings to anyone whose id you can guess.
+  const input = parsed.data.recipients !== undefined
+    ? { ...parsed.data, recipients: await filterVisibleRecipients(principal, parsed.data.recipients) }
+    : parsed.data
+
   try {
-    const updated = await updateAutomation(params.id, parsed.data)
+    const updated = await updateAutomation(params.id, input)
     await recordActivity({
       entityType: 'AUTOMATION',
       action: 'UPDATED',

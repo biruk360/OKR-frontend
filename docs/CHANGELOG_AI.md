@@ -2,6 +2,16 @@
 
 > **Purpose:** Log of all changes made by AI assistants. Every AI session that modifies code MUST append an entry here.
 
+## 2026-09-16 — Fix: duplicate status control and header overlap on the card modal
+
+Reported from the running app with a screenshot: the card showed **two "To Do" dropdowns**, and the top one sat on top of the card title.
+
+- **Duplicate status control (my regression).** CDM-2 added a list chip to the modal header. A lane carries its `statusKey`, so moving lists sets status and setting status moves the card — which meant the new chip and the existing `StatusPill` were two controls for one value, both rendering "To Do", and able to disagree mid-update. The pill now renders only when the card has no lane to govern it (todos page, work board, or a card outside a sprint); inside a sprint the chip is the single control.
+- **Header overlapped the title (my regression).** The header actions row is `absolute … top-4`, but the left column kept its original `p-6`, so with no cover the title rendered underneath the chip. The column now takes `pt-16` when there is no cover; a cover already provides the clearance.
+- **No flicker while lanes load.** Gating the pill on `lanes.length === 0` alone made it appear and then vanish on every open, since lanes start empty and arrive async. A `lanesLoaded` flag holds it back until the answer is known, and if the lane fetch fails the pill still appears — the card is never left with no way to set status.
+- **Read-only banner spacing** now follows the same cover/no-cover rule instead of a hardcoded `mt-14`.
+- **Verification** — `tsc --noEmit` clean; sprints 21/21, cards 9/9, todos 14/14, security 20/20; `npm run build` exits 0. Not re-checked in a browser.
+
 ## 2026-09-16 — Production fix: chunk-load failures after deploy, plus SEC-6 and SHR-6
 
 Triaged from a live report of "Loading chunk 7921 failed" on /dashboard/sprints. The chunk was serving a valid 200 at the time of investigation, which pointed at the deploy window rather than a bad build.
@@ -13,6 +23,33 @@ Triaged from a live report of "Loading chunk 7921 failed" on /dashboard/sprints.
 - **Reuse note** — the first draft of the chunk fix added a new `lib/chunk-reload.ts` before spotting the existing module. That duplicate was deleted and the existing one extended, per the repo's reuse-first rule.
 - **Tests** — `lib/security/redirect-safety.test.ts` pins both fixes: the shared link round-trips, eight hostile callbackUrl values (absolute, protocol-relative, `javascript:`, malformed encoding) all fall back, the three SHR-6 pieces stay wired, and `TodoCardModal` contains no `dangerouslySetInnerHTML`.
 - **Verification** — `tsc --noEmit` clean; `test:sprints` 21/21, `test:cards` 9/9, `test:todos` 14/14, `test:security` 20/20; `npm run build` exits 0. **Not verified:** the deploy-script change has not itself been run — it only proves itself on the next deploy.
+
+## 2026-09-16 — AI Automations: the edit page
+
+Last unbuilt item from P0/P1/P2a. `PATCH`, `useUpdateAutomation` and `PlanDiffView` all already existed — this wires them into a page.
+
+- **One component for both modes.** `AutomationForm` now takes an optional `automation` prop rather than getting a parallel `AutomationEditForm`. The plan a user edits must be built by exactly the same code that built it originally, or the two drift and an edit silently changes a field the user never touched.
+- **`planToFormState()` is the explicit inverse of the submit handler** — it rebuilds form state from a saved plan, including pulling the Odoo staleness window back out of the templated `{{now-Nd}}` domain where it lives. Commented as a pair so the next person changes both.
+- **Widening edits are confirmed, not applied silently.** On save, the new plan is diffed against the *saved* one; if anything widens — runs more often, adds a source, more recipients, a higher cap, `onEmpty` flipping SKIP→SEND — a dialog shows the full grouped diff before writing. Narrowing edits save straight through, because tightening an automation is not the dangerous direction.
+- **Re-compiling while editing diffs against what is actually scheduled**, not against a draft compiled a minute earlier — that is the comparison the user cares about.
+- **The header states the consequence**: saving creates plan version N+1, and runs already queued keep the version they started with.
+- **`AutomationEditPage`** loads before rendering, so the form derives its whole initial state in one pass instead of mounting empty and back-filling — which would flash wrong values and fight the user's first keystroke.
+- **Verification** — `tsc --noEmit` clean; `test:automations` 143/143; `npm run build` exits 0. **Not run:** browser QA of the edit flow.
+
+## 2026-09-16 — AI Automations P2a: the natural-language compiler
+
+The headline feature from the original brief — describe a recurring task in a sentence and have the system schedule it. P2's other half (`web.search`/`web.fetch`) is still blocked on the search-provider decision; this half needed only OpenAI, which was already wired.
+
+- **`lib/automations/compiler.ts`** — instruction → PlanSpec via OpenAI structured output. The compile happens **once, interactively**, and the user reviews the result before anything is scheduled. Re-prompting from free text on every run would make cost unpredictable, runs irreproducible, and let a vague sentence quietly change behaviour at 03:00 — §6.1 of the spec, now actually enforced by the architecture rather than just asserted in a document.
+- **Two attempts, not a loop.** A plan that fails `validatePlan` is re-prompted **once** with the exact validation issues appended, then surfaced to the user with those issues. An instruction the model cannot compile twice is one the user needs to see the errors for, and an unbounded retry loop spends real money failing.
+- **The model's authority is deliberately narrow.** It chooses schedule anchors, steps and synthesis. It does **not** choose recipients (an identity question the server resolves — the compiled plan always comes back with an empty recipient list) and does **not** choose cost caps or timeouts (a governance question the owner's grant fixes). Grants are *derived from the steps it produced*, so an Odoo step pins the specific model it asked for rather than handing over the whole allowlist.
+- **It is told only about tools that are both implemented and credentialed** — `odoo.search` is omitted from the prompt entirely when Odoo is unconfigured, so it cannot propose a step that would fail at run time. It is instructed that if the instruction names a source it has no tool for, it must leave it out and say so in `notes` rather than fake it.
+- **`notes` is surfaced verbatim** — every assumption the model made ("assumed 08:00 since no time was given") appears above the form so the user can correct it rather than discover it a week later.
+- **`lib/automations/plan-diff.ts` (12 tests)** — grouped Schedule/Steps/Synthesis/Briefing/Recipients/Limits diff for FR-03. Changes that *widen* what the automation does — runs more often, adds a step, more recipients, a raised cost cap, `onEmpty` flipping SKIP→SEND — are flagged and sorted first, because those are the ones worth a second look. Frequency comparison is by preset rank, so WEEKLY→DAILY widens and DAILY→MONTHLY does not.
+- **`POST /api/automations/compile`** — compiles without saving; returns the plan, derived grants, suggested name, notes, and (when `previousPlan` is supplied) the diff. Distinct status codes so the UI can say something useful: 503 no credential, 422 uncompilable with the issues, 502 provider unreachable.
+- **16 compiler tests** covering the shaping of the model's flattened wire output: nulls dropped rather than written through, timezone taken from the caller and never the model, recipients always empty, caps server-fixed, grants derived per step, two Odoo steps collapsing into one grant listing both models, a step with a missing payload skipped rather than emitted broken, and quarterly/monthly anchors satisfying the validator.
+- **Form** — a **Compile into a plan** button fills every setting below it, then shows what the model assumed and, on a re-compile, what changed. The copy states plainly that the plan is what runs, not the sentence.
+- **Verification** — `tsc --noEmit` clean; `test:automations` 143/143 (115 + 16 compiler + 12 plan-diff); `npm run build` exits 0. **Not run:** a real compile call — the network path is unexercised, only the shaping logic is tested.
 
 ## 2026-09-16 — AI Automations: closing the P0/P1 gaps (export, promotion, transcripts, settings)
 

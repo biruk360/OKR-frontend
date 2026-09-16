@@ -1044,15 +1044,18 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
   // The list chip is the only way to move a card between lists without dragging,
   // which is also the mobile path (HTML5 drag does not work on touch).
   const [lanes, setLanes] = useState<{ id: string; name: string; statusKey: string | null }[]>([])
+  const [lanesLoaded, setLanesLoaded] = useState(false)
 
   useEffect(() => {
     const sprintId = todo?.sprintId
-    if (!sprintId) { setLanes([]); return }
+    if (!sprintId) { setLanes([]); setLanesLoaded(true); return }
+    setLanesLoaded(false)
     let cancelled = false
     fetch(`/api/sprints/${sprintId}/columns`)
       .then((r) => r.json())
       .then((json) => { if (!cancelled && json?.success) setLanes(json.data ?? []) })
       .catch(() => { /* non-fatal: the chip just stays hidden */ })
+      .finally(() => { if (!cancelled) setLanesLoaded(true) })
     return () => { cancelled = true }
   }, [todo?.sprintId])
 
@@ -1478,7 +1481,10 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
           <>
           {sprintClosed && (
             <div
-              className="mx-6 mt-14 flex items-center gap-2 rounded-[10px] px-3 py-2 text-[12px]"
+              className={cn(
+                'mx-6 flex items-center gap-2 rounded-[10px] px-3 py-2 text-[12px]',
+                todo.coverColor ? 'mt-4' : 'mt-14',
+              )}
               style={{
                 background: 'var(--ap-bg-sunken)',
                 border: '0.5px solid var(--ap-border)',
@@ -1495,7 +1501,12 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
           )}
           <div className="flex flex-col md:flex-row">
             {/* ══ LEFT column ══ */}
-            <div className="flex-1 min-w-0 p-6 space-y-6">
+            {/* pt-16 when there is no cover: the header actions row is absolutely
+                positioned at top-4 and would otherwise overlap the title. */}
+            <div className={cn(
+              'flex-1 min-w-0 p-6 space-y-6',
+              !todo.coverColor && 'pt-16',
+            )}>
 
               {/* ── Breadcrumb (linked OKR) ── */}
               {(todo.keyResult || todo.objective) && (
@@ -1546,7 +1557,15 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
 
               {/* ── Status / Priority / Due / Labels: pill row ── */}
               <div className="flex flex-wrap items-center gap-2">
-                <StatusPill status={todo.status} onChange={(v) => patch({ status: v })} />
+                {/* One status control, not two. With lanes present the header's
+                    list chip IS the status control — a lane carries its statusKey,
+                    so moving lists sets status and setting status moves the card.
+                    Rendering both showed "To Do" twice and let them disagree.
+                    Without lanes (todos page, work board) the pill is the only
+                    way to set status, so it stays. */}
+                {lanesLoaded && lanes.length === 0 && (
+                  <StatusPill status={todo.status} onChange={(v) => patch({ status: v })} />
+                )}
                 <PriorityPill priority={todo.priority} onChange={(v) => patch({ priority: v })} />
                 <DueDateBadge dueDate={todo.dueDate} endTime={todo.endTime} />
                 {todo.labels.map((l) => (

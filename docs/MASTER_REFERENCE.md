@@ -4,7 +4,7 @@
 > It is generated from a full traversal of all code, schemas, routes, components, and docs.
 > **Keep it up-to-date:** after every feature addition or significant change, update the relevant section(s) here, then update `docs/CHANGELOG_AI.md`.
 >
-> Last updated: 2026-07-20
+> Last updated: 2026-09-16
 
 ---
 
@@ -282,6 +282,36 @@ Daily employee scrum updates and team visibility. Current status is P0 foundatio
 | Working-day and mood privacy services | IN PROGRESS | `features/scrum/services/working-days.ts`, `features/scrum/services/scrum-serializer.ts` |
 | Permissions/settings seeds | IN PROGRESS | `scripts/seed-scrum-permissions.ts`, `scripts/seed-scrum-settings.ts` |
 | Core loop and visualization | PLANNED | P1/P2 in `docs/SCRUM_MODULE_TRACKER.md` |
+
+### 4.6a AI Automations
+
+Scheduled, user-authored AI tasks. Each firing produces a **Briefing** — a rendered HTML document — which is emailed to configured recipients. Spec: `docs/AI_Automations_Requirements_v1.0.md`. P0 is the complete loop with one tool; later phases add the natural-language compiler and external data sources.
+
+Three layers: **Automation** (config + compiled plan) → **AutomationRun** (audit object) → **AutomationBriefing** (the document; Findings are its payload).
+
+| Module | Status | Paths |
+|--------|--------|-------|
+| Schema | IN PROGRESS | `prisma/schema.prisma` (`Automation`, `AutomationRun`, `AutomationBriefing`, `AutomationBriefingRecipient`, `AutomationCredential`, `AutomationSettings`) |
+| Schedule engine (8 presets, tz, catch-up, jitter, cron) | IN PROGRESS | `lib/automations/schedule.ts` + 31 tests |
+| Plan validation + template resolution | IN PROGRESS | `lib/automations/plan.ts` + 16 tests |
+| Tool layer (`okr.query`, `odoo.search`, grant-gated registry) | IN PROGRESS | `lib/automations/tools/` |
+| AI synthesis (OpenAI structured output) | IN PROGRESS | `lib/automations/synthesis.ts` |
+| Findings + run-to-run diffing | IN PROGRESS | `lib/automations/findings.ts` + 12 tests |
+| Briefing assembly + 3 renderers (app / email / text) | IN PROGRESS | `lib/automations/briefing.ts`, `lib/automations/render.ts` + 22 tests |
+| Run executor | IN PROGRESS | `lib/automations/runner.ts` |
+| Queue: tick, claim (`FOR UPDATE SKIP LOCKED`), lease reaper | IN PROGRESS | `lib/automations/service.ts`, `app/api/cron/automations-{tick,reap}/` |
+| Worker process | IN PROGRESS | `scripts/automations-worker.ts` — `npm run worker:automations` (pm2) |
+| End-to-end smoke harness (34 checks vs a live Postgres) | IN PROGRESS | `scripts/smoke-automations.ts` — `npm run smoke:automations` |
+| Distribution + delivery ledger | IN PROGRESS | `lib/automations/delivery.ts` |
+| Access control + permission seed | IN PROGRESS | `lib/automations/access.ts`, `scripts/seed-automation-permissions.ts` |
+| UI (list, create/edit form, detail, briefing viewer, briefings list, run transcript, admin settings) | IN PROGRESS | `features/automations/`, `app/dashboard/automations/`, `app/dashboard/settings/automations/` |
+| Finding promotion (FR-12), export to PDF/DOCX (FR-13), month-to-date spend (FR-17) | IN PROGRESS | `app/api/automations/briefings/[id]/{promote,export}/`, `lib/automations/crud.ts` |
+| NL → plan compiler (two-attempt repair, grouped plan diff) | IN PROGRESS | `lib/automations/compiler.ts`, `lib/automations/plan-diff.ts` + 28 tests |
+| Shared Odoo XML-RPC client (read-only by construction) | IN PROGRESS | `lib/odoo/client.ts` + 13 tests; `lib/odoo-contacts.ts` now consumes it |
+| `web.search` / `web.fetch` + source registry | PLANNED | P2 |
+| Credential vault, site login, mailbox | PLANNED | P3 |
+
+**Key invariants.** The compiler runs **once, interactively** — the instruction is the authoring surface, the compiled PlanSpec is the execution surface, and the worker never re-interprets free text. The model never chooses recipients or cost caps, and its grants are derived from the steps it produced. `odoo.search` narrows in three layers, outermost first: `lib/odoo/client.ts` refuses any non-read method before doing I/O; `ODOO_ALLOWED_MODELS` is the outer bound; the grant's `models` list narrows that per automation — intersected, never unioned. An automation executes **as its owner** — every read passes that user's RBAC, and adding a recipient never widens it. Tools are granted, never ambient. Every automation starts in `DRY_RUN`; the `DRY_RUN → REVIEW → AUTO` graduation gates *distribution*, and promotion to AUTO is refused until one run has succeeded. `nextRunAt` is always recomputed from the wall-clock rule in the automation's timezone, never by adding a delta. `@@unique([automationId, scheduledFor])` makes the tick exactly-once per slot.
 
 ### 4.7 Telegram Bot
 
@@ -584,6 +614,19 @@ Database: **PostgreSQL** (production). All enums stored as `String` for portabil
 | `ScrumAbsence` | `scrum_absences` | `userId`, `date`, `type`, `reason`, `recordedById` | One row per user/date |
 | `ScrumSettings` | `scrum_settings` | `timezone`, reminder/cutoff/nudge times, `workingDays`, `holidays`, feature toggles, escalation thresholds | Singleton default row (`id="default"`) |
 | `ScrumUpdateLink` | `scrum_update_links` | `updateId`, `objectiveId?`, `keyResultId?`, `todoId?`, `linkType`, `context`, `progressNote` | OKR join table; app-layer guard must enforce exactly one FK |
+
+### 6.9a AI Automations
+
+| Model | Key fields |
+|-------|-----------|
+| `Automation` | `ownerId`, `instructionText`, `planJson` (compiled PlanSpec), `planVersion`, `scheduleKind`, `scheduleJson`, `timezone`, `nextRunAt` (the tick's only index), `mode` (DRY_RUN/REVIEW/AUTO), `status`, `toolGrants`, `recipientsJson`, `maxCostUsdPerRun`, `consecutiveFailures`, `deletedAt` |
+| `AutomationRun` | `scheduledFor` (nominal slot; unique with `automationId`), `status`, `trigger`, `leaseOwner`/`leaseExpiresAt`, `attempt`, `stepsJson` (transcript), `findingsJson` (next run's diff baseline), `costUsd`, `inputTokens`/`outputTokens` |
+| `AutomationBriefing` | `runId` (unique), `title`, `summary`, `blocksJson`, `htmlApp`, `htmlEmail`, `textPlain`, `status`, `newCount`/`changedCount`/`unchangedCount`/`resolvedCount`, `publishedAt`, `approvedById`, `promotedJson` (dedupeKeys already turned into a Todo/Risk) |
+| `AutomationBriefingRecipient` | `briefingId` + `userId` + `channel` (unique), `status` (PENDING/SENT/FAILED/SUPPRESSED), `deliveredAt`, `error` |
+| `AutomationCredential` | `key`, `encryptedKey` (AES-256-GCM envelope), `lastFour`, `lastVerifiedAt` |
+| `AutomationSettings` | Singleton: `globalPaused` (kill switch), `domainAllowlist`, `orgDailyCostCapUsd`, `maxConcurrentRuns`, `defaultTimezone`, `retentionDays` |
+
+AI spend is recorded in the existing `AiGenerationLog` under feature key `AUTOMATION_RUN` with `planId = runId` — there is no parallel cost ledger.
 
 ### 6.10 Telegram
 
@@ -906,6 +949,25 @@ Auth: routes use `withAuth(handler)` or `withRole(roles, handler)` from `lib/api
 | POST | `/api/risks` | Auth | Create risk |
 | GET/PUT/DELETE | `/api/risks/[id]` | Auth | Risk CRUD |
 
+### 7.16a AI Automations
+
+| Method | Route | Auth | Description |
+|--------|-------|------|-------------|
+| POST | `/api/automations/compile` | `canAuthorAutomations` | Instruction → PlanSpec + derived grants + notes + diff. Does not save. |
+| GET | `/api/automations/tools` | `canAuthorAutomations` | Tool catalog: per-tool `available` (phase) and `configured` (credentials), plus `aiConfigured` |
+| GET/POST | `/api/automations` | Auth / `canAuthorAutomations` | List own automations; create (always starts in DRY_RUN) |
+| GET/PATCH/DELETE | `/api/automations/[id]` | Owner or admin | Detail (plan, grants, recipients); update (bumps `planVersion`); soft delete |
+| POST | `/api/automations/[id]/run` | Owner or admin | Queue a manual run; 409 if one is in flight, 423 if globally paused |
+| POST | `/api/automations/[id]/mode` | Owner or admin | Change distribution mode; AUTO refused until one run has succeeded |
+| GET | `/api/automations/[id]/runs` | Owner or admin | Run timeline |
+| GET | `/api/automations/runs/[runId]` | Owner or admin | Full run detail incl. step transcript (never exposed to recipients) |
+| GET | `/api/automations/briefings` | Auth | Briefings the caller owns or has been sent |
+| GET | `/api/automations/briefings/[id]` | Owner, admin, or recipient | Rendered Briefing (app HTML + blocks) |
+| POST | `/api/automations/briefings/[id]/approve` | Owner or admin | Release a PENDING_REVIEW Briefing to recipients |
+| POST | `/api/automations/briefings/[id]/promote` | Owner, admin, or recipient | Turn one Finding into a Todo or Risk (FR-12) — always manual |
+| GET | `/api/automations/briefings/[id]/export` | Owner, admin, or recipient | `?format=pdf\|docx` via the Letters PDF/DOCX pipeline |
+| GET/PATCH | `/api/automations/settings` | Admin | Org settings: kill switch, caps, allowlist, retention |
+
 ### 7.17 Cron Jobs
 
 All cron routes: `POST /api/cron/*` — require Bearer `CRON_SECRET` header.
@@ -921,6 +983,8 @@ All cron routes: `POST /api/cron/*` — require Bearer `CRON_SECRET` header.
 | POST | `/api/cron/sprint-deadlines` | Sprint deadline warnings |
 | POST | `/api/cron/sprint-migration-check` | Legacy sprint migration status check |
 | POST | `/api/cron/prune-activity` | Prune old activity log rows |
+| POST | `/api/cron/automations-tick` | Enqueue due automation slots (every minute; cheap and idempotent — the worker does the work) |
+| POST | `/api/cron/automations-reap` | Reclaim automation runs whose worker lease expired (every 5 min) |
 | POST | `/api/cron/performance-nudge` | Bundled score-free weekly performance focus notification |
 
 ### 7.18 Performance & Scorecard

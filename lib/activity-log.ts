@@ -13,6 +13,9 @@ export type ActivityEntityType =
   | 'USER'
   | 'AI_CREDENTIAL'
   | 'PROJECT_CREATION_DRAFT'
+  // AI Automations module entity types.
+  | 'AUTOMATION'
+  | 'AUTOMATION_BRIEFING'
   // Project Management module entity types.
   | 'PROJECT'
   | 'PROJECT_PHASE'
@@ -110,6 +113,10 @@ export type ActivityAction =
   | 'SETTINGS_UPDATED'
   | 'PROJECT_MANAGER_CAPABILITY_GRANTED'
   | 'PROJECT_MANAGER_CAPABILITY_REVOKED'
+  // AI Automations module actions.
+  | 'AUTOMATION_MODE_CHANGED'
+  | 'AUTOMATION_RUN_TRIGGERED'
+  | 'AUTOMATION_BRIEFING_APPROVED'
   | 'KEY_ROTATED'
   | 'KEY_TESTED'
   | 'DRAFT_COMMITTED'

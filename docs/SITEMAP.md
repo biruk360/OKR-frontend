@@ -24,6 +24,13 @@
 
 | Route | Page File | Description |
 |-------|-----------|-------------|
+| `/dashboard/automations` | `app/dashboard/automations/page.tsx` | Automations list — mode, schedule, next/last run, failure health |
+| `/dashboard/automations/new` | `app/dashboard/automations/new/page.tsx` | Create an automation (plan authored by form; NL compiler is P2) |
+| `/dashboard/automations/[id]` | `app/dashboard/automations/[id]/page.tsx` | Automation detail — distribution mode control, run timeline, Run now |
+| `/dashboard/automations/[id]/edit` | `app/dashboard/automations/[id]/edit/page.tsx` | Edit an automation; widening changes are confirmed against a grouped plan diff |
+| `/dashboard/automations/briefings` | `app/dashboard/automations/briefings/page.tsx` | All briefings the caller owns or was sent |
+| `/dashboard/automations/briefings/[id]` | `app/dashboard/automations/briefings/[id]/page.tsx` | Rendered Briefing; Approve-and-send when the automation is in REVIEW |
+| `/dashboard/settings/automations` | `app/dashboard/settings/automations/page.tsx` | Admin: global pause, cost caps, concurrency, retention, domain allowlist |
 | `/dashboard/travel` | `app/dashboard/travel/page.tsx` | Employee home — recent plans + create-or-open CTA |
 | `/dashboard/travel/plans/[id]` | `app/dashboard/travel/plans/[id]/page.tsx` | Plan detail / editor (employee + Coordinator action bar) |
 | `/dashboard/travel/console` | `app/dashboard/travel/console/page.tsx` | Travel Coordinator console — pending plans, KPIs |

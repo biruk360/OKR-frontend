@@ -6,6 +6,10 @@ node_modules
 # Next.js
 .next/
 .next-dev/
+# Build scratch dirs used by scripts/deploy.sh and local verification.
+.next.build/
+.next.prev/
+.next.verify/
 out/
 
 # env / secrets (use env.example only in repo)

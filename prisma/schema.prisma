@@ -90,6 +90,8 @@ model User {
   performanceEvaluatorScores      EvaluatorScore[]             @relation("PerformanceScoreEvaluator")
   performanceImprovementFocuses   ImprovementFocus[]           @relation("PerformanceFocusEmployee")
   performanceManualMetricActuals  EvaluationMetricManualActual[] @relation("PerformanceManualActualEnteredBy")
+  ownedAutomations                Automation[]                  @relation("AutomationOwner")
+  automationBriefingDeliveries    AutomationBriefingRecipient[] @relation("AutomationBriefingRecipientUser")
 
   @@map("users")
 }
@@ -3378,4 +3380,192 @@ model ClientPortalUser {
   createdAt    DateTime  @default(now())
 
   @@map("project_client_portal_users")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AI Automations — scheduled, natural-language-authored AI tasks.
+// Spec: docs/AI_Automations_Requirements_v1.0.md
+//
+// Three layers: Automation (config) → AutomationRun (audit) → AutomationBriefing
+// (the rendered document). Status/kind fields are String for portability; the
+// canonical literal unions live in types/automations.ts.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// A saved, user-authored automated task. `instructionText` is the authoring
+/// surface; `planJson` is the compiled, versioned execution surface (spec §6).
+model Automation {
+  id              String    @id @default(cuid())
+  name            String
+  description     String?
+  ownerId         String
+  departmentId    String?
+
+  /// The natural-language source the plan was compiled from.
+  instructionText String
+  /// Compiled PlanSpec — see types/automations.ts `PlanSpec`.
+  planJson        Json
+  planVersion     Int       @default(1)
+  compiledAt      DateTime?
+  compiledModelId String?
+
+  scheduleKind    String // ONCE|HOURLY|DAILY|WEEKLY|MONTHLY|QUARTERLY|YEARLY|CUSTOM_CRON
+  /// Anchors + policies. Mirrors PlanSpec.schedule so the tick never parses the full plan.
+  scheduleJson    Json
+  timezone        String    @default("Africa/Addis_Ababa")
+  /// The tick's only index. Nominal slot, recomputed from the wall-clock rule after each run.
+  nextRunAt       DateTime?
+  lastRunAt       DateTime?
+
+  mode            String    @default("DRY_RUN") // DRY_RUN|REVIEW|AUTO
+  status          String    @default("ENABLED") // ENABLED|PAUSED|DISABLED_ON_FAILURE|ENDED
+  /// [{ tool, params }] — the security boundary. The worker refuses anything not listed.
+  toolGrants      Json      @default("[]")
+  /// [{ userId, channels[] }]
+  recipientsJson  Json      @default("[]")
+
+  maxCostUsdPerRun    Float @default(0.5)
+  maxCostUsdMonth     Float @default(10)
+  timeoutSeconds      Int   @default(600)
+  consecutiveFailures Int   @default(0)
+  /// Counts runs actually executed, for the optional maxRuns bound.
+  runCount            Int   @default(0)
+
+  createdById     String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  owner           User      @relation("AutomationOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  runs            AutomationRun[]
+  briefings       AutomationBriefing[]
+
+  @@index([status, nextRunAt])
+  @@index([ownerId, updatedAt])
+  @@map("automations")
+}
+
+/// One firing of an Automation. The audit object: transcript, cost, lease state.
+model AutomationRun {
+  id             String    @id @default(cuid())
+  automationId   String
+  planVersion    Int
+  /// The nominal slot this run belongs to — not the actual start time. The unique
+  /// constraint with automationId is what makes the tick exactly-once per slot.
+  scheduledFor   DateTime
+  startedAt      DateTime?
+  finishedAt     DateTime?
+  status         String    @default("QUEUED") // QUEUED|LEASED|RUNNING|SUCCEEDED|FAILED|SKIPPED|MISSED|CANCELLED
+  trigger        String    @default("SCHEDULE") // SCHEDULE|MANUAL|RETRY
+
+  /// Worker id holding the lease, and when it expires. The reaper reclaims expired rows.
+  leaseOwner     String?
+  leaseExpiresAt DateTime?
+  attempt        Int       @default(1)
+
+  /// StepTrace[] — tool, redacted args, duration, result size, truncated preview, error.
+  stepsJson      Json?
+  /// Finding[] with dedupeKey + contentHash; the baseline for the next run's diff.
+  findingsJson   Json?
+  costUsd        Float     @default(0)
+  inputTokens    Int       @default(0)
+  outputTokens   Int       @default(0)
+  errorMessage   String?
+
+  createdAt      DateTime  @default(now())
+
+  automation     Automation          @relation(fields: [automationId], references: [id], onDelete: Cascade)
+  briefing       AutomationBriefing?
+
+  @@unique([automationId, scheduledFor])
+  @@index([status, scheduledFor])
+  @@index([automationId, createdAt])
+  @@map("automation_runs")
+}
+
+/// The document a Run produces. Rendered once at creation into three
+/// representations so "view in app" and "what landed in my inbox" never drift.
+model AutomationBriefing {
+  id             String    @id @default(cuid())
+  runId          String    @unique
+  automationId   String
+  title          String
+  /// One line; doubles as the email preview text.
+  summary        String
+  /// BriefingBlock[] — see types/automations.ts.
+  blocksJson     Json
+  htmlApp        String
+  htmlEmail      String
+  textPlain      String
+  status         String    @default("PUBLISHED") // DRAFT|PENDING_REVIEW|PUBLISHED|ARCHIVED
+  newCount       Int       @default(0)
+  changedCount   Int       @default(0)
+  unchangedCount Int       @default(0)
+  resolvedCount  Int       @default(0)
+  publishedAt    DateTime?
+  approvedById   String?
+  approvedAt     DateTime?
+  /// dedupeKeys already turned into a Todo/Risk by a human (FR-12), so the UI can
+  /// show what has been actioned. Promotion is always manual — never automatic.
+  promotedJson   Json      @default("[]")
+  createdAt      DateTime  @default(now())
+
+  run            AutomationRun  @relation(fields: [runId], references: [id], onDelete: Cascade)
+  automation     Automation     @relation(fields: [automationId], references: [id], onDelete: Cascade)
+  recipients     AutomationBriefingRecipient[]
+
+  @@index([automationId, createdAt])
+  @@index([status, createdAt])
+  @@map("automation_briefings")
+}
+
+/// Per-recipient, per-channel delivery outcome for one Briefing.
+model AutomationBriefingRecipient {
+  id          String    @id @default(cuid())
+  briefingId  String
+  userId      String
+  channel     String // EMAIL|IN_APP|TELEGRAM
+  status      String    @default("PENDING") // PENDING|SENT|FAILED|SUPPRESSED
+  deliveredAt DateTime?
+  openedAt    DateTime?
+  error       String?
+
+  briefing    AutomationBriefing @relation(fields: [briefingId], references: [id], onDelete: Cascade)
+  user        User               @relation("AutomationBriefingRecipientUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([briefingId, userId, channel])
+  @@index([userId, status])
+  @@map("automation_briefing_recipients")
+}
+
+/// External credentials for Tier-1/2 tools. Same AES-256-GCM envelope pattern as
+/// AiProviderCredential — APIs may expose lastFour, never encryptedKey.
+model AutomationCredential {
+  id             String    @id @default(cuid())
+  /// "web_search" | "odoo" | "mailbox:<address>"
+  key            String    @unique
+  label          String?
+  encryptedKey   String
+  lastFour       String
+  createdById    String
+  lastVerifiedAt DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@map("automation_credentials")
+}
+
+/// Singleton org configuration for the Automations module.
+model AutomationSettings {
+  id                 String   @id @default("singleton")
+  /// Org-wide kill switch — short-circuits the tick.
+  globalPaused       Boolean  @default(false)
+  /// Domains web.fetch / web.search may touch. Empty means "nothing" once those tools land.
+  domainAllowlist    Json     @default("[]")
+  orgDailyCostCapUsd Float    @default(25)
+  maxConcurrentRuns  Int      @default(3)
+  defaultTimezone    String   @default("Africa/Addis_Ababa")
+  retentionDays      Int      @default(365)
+  updatedAt          DateTime @updatedAt
+
+  @@map("automation_settings")
 }

@@ -29,7 +29,7 @@ const BLOCKED_RECIPIENT_ADDRESSES = new Set<string>([
   'biruk.hailu@360ground.et',
 ])
 
-function isBlockedRecipient(email: string): boolean {
+export function isBlockedRecipient(email: string): boolean {
   const normalized = email.trim().toLowerCase()
   if (BLOCKED_RECIPIENT_ADDRESSES.has(normalized)) return true
   return BLOCKED_RECIPIENT_DOMAINS.some((d) => normalized.endsWith(d))

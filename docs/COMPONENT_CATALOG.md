@@ -44,6 +44,25 @@ Hooks (TanStack Query) exported from the same barrel: `usePlans`, `usePlan`, `us
 
 Services exported from the same barrel: working-day utilities and `serializeScrumUpdate()` mood privacy serializer.
 
+## AI Automations (`features/automations`)
+
+| Component | Props | Notes |
+|---|---|---|
+| `AutomationList` | — | Automations the caller owns: mode badge, schedule summary, next/last run, consecutive-failure warning. Links to detail. |
+| `AutomationDetail` | `id` | Distribution-mode control (DRY_RUN / REVIEW / AUTO), Run now, pause/resume, run timeline with cost and duration. Promotion to AUTO opens a `ConfirmDialog` naming the recipient count. Polls the timeline only while a run is in flight. |
+| `AutomationEditPage` | `id` | Loads an automation, then renders `AutomationForm` in edit mode. |
+| `AutomationForm` | `automation?` | Creates **or edits** an automation by form (one component for both, so the plan is always built by the same code): basics, schedule preset + anchors, internal entities/scope, optional Odoo record type + staleness window, briefing objective, recipients. Builds the `PlanSpec` and the tool grants the worker executes. Renders the Odoo section disabled with a reason when Odoo is unconfigured (`GET /api/automations/tools`). A **Compile into a plan** button fills every field from a natural-language instruction and shows what the model assumed. When editing, widening changes are confirmed against a grouped plan diff before saving. `react-hook-form`. |
+| `BriefingView` | `id` | Renders the server-produced Briefing HTML (escaped server-side in `lib/automations/render.ts`), with dry-run / pending-review / published banners and Approve-and-send. |
+| `BriefingList` | `automationId?` | Every briefing the caller owns or was sent, with new/changed counts and status. |
+| `RunTranscript` | `runId`, `onClose` | Modal showing one run's per-step trace — tool, resolved args, duration, rows, preview, error. Refused steps are styled distinctly from failed ones. Owner/admin only. |
+| `PromoteFindingModal` | `briefingId`, `finding`, `onClose` | Turns a Finding into a Todo or Risk (FR-12), pre-filled, with a back-link to the briefing. Always manual. |
+| `PlanDiffView` | `diff` | Grouped plan-version diff (FR-03). Widening changes — more often, more sources, more recipients, higher cap — are marked and sorted first. |
+| `AutomationSettingsForm` | — | Admin org settings (FR-18). The global pause sits outside the form so the kill switch never waits on a Save. |
+| `ModeBadge` | `mode`, `showHint?` | Distribution mode pill; the hint states plainly whether recipients get email. |
+| `StatusBadge` / `RunStatusBadge` | `status` | Automation lifecycle and run-status pills using semantic design tokens. |
+
+---
+
 ## Performance & Scorecard (`features/performance`)
 
 > Import from the barrel: `import { PerformanceHome, TemplatesWorkspace, TemplateBuilder, CyclesWorkspace, EvaluatorQueue, ScoringWorkspace, ActionsWorkspace } from '@/features/performance'`
@@ -315,6 +334,7 @@ Strangler-pattern barrels. Import from these for new code:
 
 | Feature | Path | Contents |
 |---|---|---|
+| AI Automations | `features/automations/index.ts` | `AutomationList`, `AutomationDetail`, `AutomationForm`, `BriefingView`, `ModeBadge`, `StatusBadge`, `RunStatusBadge`, `automationsApi`, `useAutomations`, `useAutomation`, `useAutomationRuns`, `useAutomationSettings`, `useAutomationTools`, `useBriefing`, `useBriefings`, `useCompileInstruction`, `useCreateAutomation`, `useRunAutomationNow`, `useRunDetail`, `useSetMode`, `useSetStatus`, `useApproveBriefing`, `useDeleteAutomation`, `usePromoteFinding`, `useUpdateAutomation`, `useUpdateAutomationSettings` |
 | Objectives | `@/features/objectives` | 18 exports: modals, buttons, lists, `OKRLevelView`, + shared form/filter types |
 | Key Results | `@/features/key-results` | 16 exports: modals, buttons, chart, `KeyResultsList`, + confidence/form types |
 | Todos | `@/features/todos` | 11 exports: modals, buttons, `ToDoList`, `MyTasksList`, + form types |

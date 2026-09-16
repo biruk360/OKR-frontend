@@ -32,6 +32,25 @@ Triaged from a live report of "Loading chunk 7921 failed" on /dashboard/sprints.
 - **Tests** — `lib/security/redirect-safety.test.ts` pins both fixes: the shared link round-trips, eight hostile callbackUrl values (absolute, protocol-relative, `javascript:`, malformed encoding) all fall back, the three SHR-6 pieces stay wired, and `TodoCardModal` contains no `dangerouslySetInnerHTML`.
 - **Verification** — `tsc --noEmit` clean; `test:sprints` 21/21, `test:cards` 9/9, `test:todos` 14/14, `test:security` 20/20; `npm run build` exits 0. **Not verified:** the deploy-script change has not itself been run — it only proves itself on the next deploy.
 
+## 2026-09-16 — AI Automations: smoke harness, and the pipeline actually runs
+
+**The first real execution.** Everything before this was type-checked and unit-tested but had never touched a database or a worker. `scripts/smoke-automations.ts` (`npm run smoke:automations`) drives the real pipeline end to end and asserts 34 things unit tests structurally cannot.
+
+- **Proven against a live Postgres**, on a throwaway database created and dropped by the run — the developer's own `okr_system` was never touched:
+  - the Prisma schema matches the code (every query in the module executed);
+  - the tick enqueues a due slot and advances `nextRunAt` to exactly what `computeNextRunAt` predicts;
+  - **re-firing an already-fired slot creates no duplicate run** — the `@@unique([automationId, scheduledFor])` constraint does the work and the P2002 is swallowed, not counted;
+  - one worker claims the run and **a second worker claims nothing** — `FOR UPDATE SKIP LOCKED` behaving as designed;
+  - the lease holder can heartbeat and a non-holder cannot;
+  - the runner produces a Briefing with all three renderings from real rows, releases its lease, and persists both a transcript and findings;
+  - **DRY_RUN genuinely sends nothing** — briefing stays `DRAFT`, `publishedAt` is null, zero delivery rows;
+  - a second run diffs correctly against the first: 1 NEW, 1 CHANGED, 1 UNCHANGED;
+  - the reaper requeues a dead worker's run, increments `attempt`, and clears the lease.
+- **Injection seam** — `executeRun(runId, { synthesize })`. Its only purpose is letting the harness drive the real pipeline without paying for a provider call; everything else runs exactly as it does in production, which is the point of a smoke test. `--live` uses the real provider.
+- **Safety** — refuses any non-local `DATABASE_URL` without `--i-know`; the fixture is created in DRY_RUN so no email can escape; everything it creates is deleted unless `--keep`. `--create-owner` bootstraps a throwaway user so the harness works on a blank database.
+- **Found while running it:** the local dev database was behind `schema.prisma` by 7 tables, 6 column additions and an index drop from *other* work in this repo — not just the automations tables. Flagged rather than pushed; `prisma db push` there is the developer's call to make, not this session's.
+- **Verification** — `tsc --noEmit` clean; `test:automations` 143/143; smoke **34/34** against PostgreSQL 5432. **Still not run:** a live provider call (`--live`), the pm2 worker as a long-lived process, and browser QA.
+
 ## 2026-09-16 — AI Automations: the edit page
 
 Last unbuilt item from P0/P1/P2a. `PATCH`, `useUpdateAutomation` and `PlanDiffView` all already existed — this wires them into a page.

@@ -27,6 +27,7 @@ import {
   ClipboardCheck,
   Award,
   Library,
+  Bot,
 } from 'lucide-react'
 
 export interface NavItem {
@@ -109,6 +110,8 @@ export const navigationGroups: NavGroup[] = [
       { name: 'Daily Trip Plan', href: '/dashboard/travel', icon: MapPin },
       { name: 'Coordinator Console', href: '/dashboard/travel/console', icon: ClipboardList },
       { name: 'Pool Coordinator', href: '/dashboard/travel/pool', icon: Truck },
+      { name: 'Automations', href: '/dashboard/automations', icon: Bot, featureKey: 'canAuthorAutomations' },
+      { name: 'Briefings', href: '/dashboard/automations/briefings', icon: FileText },
     ],
     defaultOpen: false,
   },
@@ -189,6 +192,7 @@ export const navigationGroups: NavGroup[] = [
       { name: 'Integrations', href: '/dashboard/settings/integrations', icon: Settings },
       { name: 'Audit Logs', href: '/dashboard/settings/audit-logs', icon: FileText },
       { name: 'Travel & Mobility', href: '/dashboard/settings/travel', icon: MapPin },
+      { name: 'Automations', href: '/dashboard/settings/automations', icon: Bot },
       { name: 'Letter Permissions', href: '/dashboard/settings/letter-permissions', icon: ShieldCheck },
     ],
     defaultOpen: false,

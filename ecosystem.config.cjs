@@ -25,5 +25,27 @@ module.exports = {
         NODE_OPTIONS: '--max-old-space-size=2560',
       },
     },
+    {
+      // AI Automations worker. Claims queued runs and executes them.
+      //
+      // Separate from the web app on purpose: an automation run takes 30s-5min
+      // and needs retries, so it cannot live inside a request. The cron tick
+      // only enqueues; this process does the work. Without it, runs sit QUEUED
+      // forever and nothing is ever produced.
+      name: 'okr-automations-worker',
+      cwd: __dirname,
+      script: 'npm',
+      args: 'run worker:automations',
+      interpreter: 'none',
+      instances: 1,
+      autorestart: true,
+      // Far lighter than the web app: no Next runtime, no PDF renderer. The
+      // ceiling is for a large briefing payload plus the Prisma client.
+      max_memory_restart: '768M',
+      env: {
+        NODE_ENV: 'production',
+        NODE_OPTIONS: '--max-old-space-size=640',
+      },
+    },
   ],
 }

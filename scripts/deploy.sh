@@ -73,6 +73,10 @@ npx prisma generate
 # scope rules. Existing administrator configuration is preserved by the seed.
 npx tsx scripts/seed-permissions.ts
 npm run db:seed:project-templates
+# AI Automations doctypes, role matrix and the canAuthorAutomations capability.
+# Without this the module's API refuses every write (canDocType fails closed),
+# so the UI would ship visible but unusable.
+npm run db:seed:automation-permissions
 
 # --- 4. Build + restart -------------------------------------------------------
 # Build into a scratch dir, then swap it in. The old build keeps serving for the
@@ -96,10 +100,20 @@ fi
 if [ -d .next ]; then mv .next "$PREV_DIR"; fi
 mv "$BUILD_DIR" .next
 
-pm2 startOrReload ecosystem.config.cjs --only okr
+# Both processes: the web app and the automations worker. Naming them explicitly
+# rather than dropping --only keeps the blast radius of this line obvious.
+pm2 startOrReload ecosystem.config.cjs --only okr,okr-automations-worker
 pm2 save
 
 # Keep the previous build until the reload has settled, then drop it.
 rm -rf "$PREV_DIR"
 
 echo "[deploy] done: $(git rev-parse --short HEAD) on $BRANCH"
+
+# --- 5. One-time manual steps (NOT performed here) ----------------------------
+# The automations tick is a crontab entry, and crontab is installed once per box
+# rather than rewritten on every deploy. If /api/cron/automations-tick is not in
+# `crontab -l`, run: bash scripts/install-crontab.sh
+if ! crontab -l 2>/dev/null | grep -q automations-tick; then
+  echo "[deploy] NOTE: automations-tick is not in crontab — run scripts/install-crontab.sh once, or automations will never fire."
+fi

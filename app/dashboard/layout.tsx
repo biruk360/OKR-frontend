@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
 import { getServerSessionSafe } from '@/lib/auth'
 import { DashboardTitleProvider } from '@/components/layout/DashboardTitleContext'
 import DashboardShell from '@/components/layout/DashboardShell'
@@ -12,7 +13,15 @@ export default async function DashboardLayout({
   const session = await getServerSessionSafe()
 
   if (!session) {
-    redirect('/auth/signin')
+    // Send the user back where they were going. A shared card link
+    // (/dashboard/sprints/<id>?card=<todoId>) otherwise died at sign-in and
+    // dropped the recipient on the default page with no card open.
+    const target = headers().get('x-pathname')
+    redirect(
+      target && target.startsWith('/dashboard')
+        ? `/auth/signin?callbackUrl=${encodeURIComponent(target)}`
+        : '/auth/signin',
+    )
   }
 
   return (

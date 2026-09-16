@@ -9,7 +9,14 @@ function normalizeBasePath() {
 
 const nextConfig = {
   basePath: normalizeBasePath(),
-  distDir: process.env.NODE_ENV === 'development' ? '.next-dev' : '.next',
+  // `NEXT_DIST_DIR` lets the deploy build into a scratch directory while the
+  // running app keeps serving from `.next`, then swap the two with a mv.
+  // Without it deploy.sh had to `rm -rf .next` before building, which left the
+  // live process with no static assets for the whole build — every chunk
+  // request 404'd and users got "Loading chunk N failed".
+  distDir:
+    process.env.NEXT_DIST_DIR ||
+    (process.env.NODE_ENV === 'development' ? '.next-dev' : '.next'),
   images: {
     domains: ['localhost'],
     remotePatterns: [

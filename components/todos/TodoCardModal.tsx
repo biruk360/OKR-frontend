@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils'
 import { userColor, userInitials } from '@/lib/user-color'
 import { TODO_STATUS_META, BOARD_STATUSES, todoStatusMeta } from '@/lib/todo-status'
 import { MentionEditor } from './MentionEditor'
+import RichTextContent from '@/components/shared/RichTextContent'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ActionsMenu } from '@/components/ui/ActionsMenu'
 import { Modal } from '@/components/ui/Modal'
@@ -2037,9 +2038,14 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                                 </div>
                               </div>
                             ) : (
-                              <div
-                                className="prose prose-sm mt-1 max-w-none text-[13px] text-[var(--ap-fg)] [&_.mention]:text-[var(--ap-accent)] [&_.mention]:font-medium"
-                                dangerouslySetInnerHTML={{ __html: c.content }}
+                              // SEC-6 — comment bodies are user-authored HTML from
+                              // TipTap and reach every viewer of the card. They were
+                              // injected raw; RichTextContent runs the DOMPurify
+                              // allowlist (which keeps span+class, so mentions still
+                              // style) and handles legacy plaintext comments.
+                              <RichTextContent
+                                html={c.content}
+                                className="mt-1 text-[13px] text-[var(--ap-fg)] [&_.mention]:text-[var(--ap-accent)] [&_.mention]:font-medium"
                               />
                             )}
                             {c.attachments && c.attachments.length > 0 && (

@@ -3,7 +3,7 @@
 import { usePathname } from 'next/navigation'
 import { useEffect } from 'react'
 import { reportClientError, serializeUnknownError } from '@/lib/client-error-report'
-import { isStaleDevChunkRejection } from '@/lib/dev-stale-chunk-reload'
+import { isStaleChunkRejection } from '@/lib/stale-chunk-reload'
 
 /**
  * Global browser listeners + route context for crash troubleshooting.
@@ -29,7 +29,7 @@ export function CrashReporter() {
 
     const onRejection = (event: PromiseRejectionEvent) => {
       const { message, stack } = serializeUnknownError(event.reason)
-      if (isStaleDevChunkRejection(event.reason)) {
+      if (isStaleChunkRejection(event.reason)) {
         // Stale-chunk reload is handled in Providers; still log for diagnosis.
         reportClientError({
           source: 'unhandledrejection.chunk',

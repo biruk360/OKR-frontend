@@ -75,11 +75,31 @@ npx tsx scripts/seed-permissions.ts
 npm run db:seed:project-templates
 
 # --- 4. Build + restart -------------------------------------------------------
-# Clean stale .next to prevent "ENOENT build-manifest.json" errors when
-# the build output shape changes between deploys (e.g. new dependencies).
-rm -rf .next
-npm run build
+# Build into a scratch dir, then swap it in. The old build keeps serving for the
+# whole build, so there is no window where the live process has no static assets.
+#
+# This previously did `rm -rf .next && npm run build` with the app still running,
+# which meant every chunk request 404'd for the length of the build (~8 min on
+# this box) and users saw "Loading chunk N failed". The scratch dir also
+# preserves the original intent — a clean build, never a stale mix of outputs.
+BUILD_DIR=".next.build"
+PREV_DIR=".next.prev"
+
+rm -rf "$BUILD_DIR" "$PREV_DIR"
+if ! NEXT_DIST_DIR="$BUILD_DIR" npm run build; then
+  echo "[deploy] build failed — leaving the running app untouched"
+  rm -rf "$BUILD_DIR"
+  exit 1
+fi
+
+# Swap: mv is atomic within a filesystem, so the gap is milliseconds, not minutes.
+if [ -d .next ]; then mv .next "$PREV_DIR"; fi
+mv "$BUILD_DIR" .next
+
 pm2 startOrReload ecosystem.config.cjs --only okr
 pm2 save
+
+# Keep the previous build until the reload has settled, then drop it.
+rm -rf "$PREV_DIR"
 
 echo "[deploy] done: $(git rev-parse --short HEAD) on $BRANCH"

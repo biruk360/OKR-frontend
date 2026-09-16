@@ -31,7 +31,13 @@ export function middleware(req: NextRequest) {
     return res
   }
 
-  return NextResponse.next()
+  // SHR-6 — a server layout has no access to the request URL, so it cannot build
+  // a callbackUrl on its own. Passing the path through a header lets the
+  // dashboard's auth redirect send the user back to exactly where they were
+  // headed; without it a shared card link lost its target at sign-in.
+  const res = NextResponse.next()
+  res.headers.set('x-pathname', pathname + (req.nextUrl.search || ''))
+  return res
 }
 
 export const config = {

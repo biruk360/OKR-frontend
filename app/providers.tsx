@@ -14,9 +14,9 @@ import { reportClientError, serializeUnknownError } from '@/lib/client-error-rep
 import {
   clearStaleChunkReloadGuard,
   isNextChunkScriptError,
-  isStaleDevChunkRejection,
-  reloadOnceForStaleDevChunks,
-} from '@/lib/dev-stale-chunk-reload'
+  isStaleChunkRejection,
+  reloadOnceForStaleChunks,
+} from '@/lib/stale-chunk-reload'
 
 export function Providers({
   children,
@@ -25,17 +25,19 @@ export function Providers({
   children: React.ReactNode
   session: Session | null
 }) {
+  // Runs in production too. A deploy rebuilds every chunk hash, so a tab opened
+  // before it requests files that no longer exist; gating this to development
+  // meant production users hit "Loading chunk N failed" with no recovery but a
+  // manual hard reload.
   useEffect(() => {
-    if (process.env.NODE_ENV !== 'development') return
-
     const onRejection = (e: PromiseRejectionEvent) => {
-      if (!isStaleDevChunkRejection(e.reason)) return
-      reloadOnceForStaleDevChunks()
+      if (!isStaleChunkRejection(e.reason)) return
+      reloadOnceForStaleChunks()
     }
 
     const onError = (e: ErrorEvent) => {
       if (!isNextChunkScriptError(e)) return
-      reloadOnceForStaleDevChunks()
+      reloadOnceForStaleChunks()
     }
 
     window.addEventListener('unhandledrejection', onRejection)
@@ -46,8 +48,9 @@ export function Providers({
     }
   }, [])
 
+  // A healthy render means the current build loaded, so re-arm the one-shot
+  // guard for the next deploy.
   useEffect(() => {
-    if (process.env.NODE_ENV !== 'development') return
     const t = window.setTimeout(() => clearStaleChunkReloadGuard(), 3000)
     return () => window.clearTimeout(t)
   }, [])

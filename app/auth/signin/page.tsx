@@ -1,18 +1,35 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import { signIn, getSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Eye, EyeOff, Mail, Lock, Target } from 'lucide-react'
 
-export default function SignInPage() {
+/**
+ * Where to land after a successful sign-in.
+ *
+ * Only same-origin `/dashboard` paths are honoured — anything else (a protocol,
+ * a host, a protocol-relative `//evil.com`) is discarded, so the callbackUrl
+ * cannot be used as an open redirect.
+ */
+function safeCallbackUrl(raw: string | null): string {
+  if (!raw) return '/dashboard'
+  let decoded = raw
+  try { decoded = decodeURIComponent(raw) } catch { return '/dashboard' }
+  if (!decoded.startsWith('/dashboard')) return '/dashboard'
+  if (decoded.startsWith('//')) return '/dashboard'
+  return decoded
+}
+
+function SignInForm() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -26,7 +43,8 @@ export default function SignInPage() {
       } else {
         const session = await getSession()
         if (session) {
-          router.push('/dashboard')
+          // Honour callbackUrl so a shared card link survives sign-in (SHR-6).
+          router.push(safeCallbackUrl(searchParams.get('callbackUrl')))
           router.refresh()
         }
       }
@@ -151,5 +169,14 @@ export default function SignInPage() {
         </p>
       </div>
     </div>
+  )
+}
+
+export default function SignInPage() {
+  // useSearchParams requires a Suspense boundary under the app router.
+  return (
+    <Suspense fallback={null}>
+      <SignInForm />
+    </Suspense>
   )
 }

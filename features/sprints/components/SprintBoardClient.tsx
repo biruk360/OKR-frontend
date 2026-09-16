@@ -154,7 +154,7 @@ function ProgressBar({ percent, color }: { percent: number; color?: string }) {
 // ─── Add Task inline form (Sprints v2 §4.3 / D) ─────────────────────────────
 
 function AddTaskInline({
-  sprintId, columnId, currentUserId, defaultDueDate, onCreated,
+  sprintId, columnId, currentUserId, defaultDueDate, onCreated, openSignal,
 }: {
   sprintId: string
   /** Lane the card is created in. Without it the server would guess by status. */
@@ -162,14 +162,29 @@ function AddTaskInline({
   currentUserId: string
   defaultDueDate: string | null
   onCreated: () => void
+  /** Incremented by the board to open and focus this composer from elsewhere
+   *  (STA-2: the empty-state CTA). A counter rather than a boolean so repeat
+   *  presses re-open it after the user cancels. */
+  openSignal?: number
 }) {
   const [open, setOpen] = useState(false)
   const [title, setTitle] = useState('')
+  const formRef = useRef<HTMLFormElement | null>(null)
   const [more, setMore] = useState(false)
   const [priority, setPriority] = useState('MEDIUM')
   const [dueDate, setDueDate] = useState<string>(defaultDueDate?.slice(0, 10) ?? '')
   const [okr, setOkr] = useState<OkrLinkValue | null>(null)
   const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    if (!openSignal) return
+    setOpen(true)
+    // Scroll it into view — on an empty board the composer sits below the
+    // empty state, so opening it off-screen would look like nothing happened.
+    requestAnimationFrame(() => {
+      formRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    })
+  }, [openSignal])
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -220,7 +235,7 @@ function AddTaskInline({
   }
 
   return (
-    <form onSubmit={submit} className="rounded-[10px] border bg-card p-2" style={{ borderColor: 'var(--ap-border)' }}>
+    <form ref={formRef} onSubmit={submit} className="rounded-[10px] border bg-card p-2" style={{ borderColor: 'var(--ap-border)' }}>
       <input
         autoFocus
         value={title}
@@ -285,6 +300,9 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
   const [mobileCol, setMobileCol] = useState<string | null>(null)
   const [view, setView] = useState<SprintBoardView>('board')
   const [showSwitcher, setShowSwitcher] = useState(false)
+  // STA-2 — bumping this opens the quick-add composer. The empty-state button
+  // used to carry an empty handler, so "Create task" did nothing at all.
+  const [quickAddSignal, setQuickAddSignal] = useState(0)
 
   // ── Drag-and-drop state ──────────────────────────────────────────────────
   // localColumns mirrors filteredColumns and is updated optimistically during drag.
@@ -747,7 +765,15 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
         <EmptyState
           title="This sprint is empty"
           description="Add tasks from the backlog or create new ones."
-          action={{ label: 'Create task', onClick: () => { /* opens via inline form below */ } }}
+          action={{
+            label: 'Create task',
+            onClick: () => {
+              // Mobile shows one lane at a time, so make sure the lane holding
+              // the composer is the visible one before opening it.
+              if (quickAddLaneId) setMobileCol(quickAddLaneId)
+              setQuickAddSignal((n) => n + 1)
+            },
+          }}
         />
       ) : null}
 
@@ -933,6 +959,7 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
                     <AddTaskInline
                       sprintId={sprintId}
                       columnId={col.id}
+                      openSignal={quickAddSignal}
                       currentUserId={currentUserId}
                       defaultDueDate={sprint.endDate}
                       onCreated={invalidate}

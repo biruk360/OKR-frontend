@@ -2,6 +2,14 @@
 
 > **Purpose:** Log of all changes made by AI assistants. Every AI session that modifies code MUST append an entry here.
 
+## 2026-09-16 — STA-2 empty-state CTA, and the due-date reminder cron entry
+
+- **STA-2 fixed** — the sprint board's empty-state "Create task" button carried an empty handler (`onClick: () => { /* opens via inline form below */ }`), so it had literally never done anything. `AddTaskInline` now accepts an `openSignal` counter (a counter, not a boolean, so repeat presses re-open it after a cancel); the button bumps it, scrolls the composer into view, and on mobile first switches to the lane that holds it — otherwise the composer would open on a lane the user cannot see.
+- **Due-date reminders were deployed but inert.** `app/api/cron/todo-reminders` shipped and `docs/CRON.md` documented the schedule, but `scripts/install-crontab.sh` was never updated, so the entry would never exist on the VPS and no reminder could fire. Added, matching the existing `\$CRON_SECRET` convention exactly.
+- **Staging note** — `scripts/install-crontab.sh` also holds uncommitted changes from the in-flight AI Automations work. Only this commit's three lines were staged (via a hand-built index entry), so that work stays uncommitted and intact in the working tree rather than being swept into this commit.
+- **Build note** — local `npm run build` failed twice with unrelated `ENOENT` races (`_not-found.js.nft.json`, then `export/500.html`). Cause was a second `next build` running concurrently in the same directory from the parallel automations session, both writing `.next`. Rebuilding into an isolated dist dir via the new `NEXT_DIST_DIR` override passed at exit 0, 204/204 pages — which is also a live demonstration that the override works.
+- **Verification** — `tsc --noEmit` clean; sprints 21/21, cards 9/9, todos 14/14, security 20/20; isolated build exits 0. The cron entry itself is only proven once `install-crontab.sh` is run on the VPS.
+
 ## 2026-09-16 — Fix: duplicate status control and header overlap on the card modal
 
 Reported from the running app with a screenshot: the card showed **two "To Do" dropdowns**, and the top one sat on top of the card title.

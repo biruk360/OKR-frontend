@@ -65,6 +65,15 @@ export type ActivityAction =
   | 'SPRINT_CANCELLED'
   | 'SPRINT_REOPENED'
   | 'SPRINT_GOAL_UPDATED'
+  // Dynamic board lists (Trello parity, Phase 2). These are plain String
+  // columns in the DB, so adding actions here needs no migration.
+  | 'SPRINT_COLUMN_CREATED'
+  | 'SPRINT_COLUMN_RENAMED'
+  | 'SPRINT_COLUMN_ARCHIVED'
+  | 'SPRINT_COLUMN_REORDERED'
+  | 'SPRINT_COLUMN_STATUS_CHANGED'
+  | 'TODO_MOVED_COLUMN'
+  | 'TODO_SHARED'
   | 'INITIATIVE_SPRINT_CHANGED'
   | 'INITIATIVE_TASK_TYPE_CHANGED'
   | 'INITIATIVE_KR_LINK_CHANGED'

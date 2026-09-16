@@ -6,6 +6,7 @@ import { getServerSessionSafe } from '@/lib/auth'
 import ThemeBodyClass from './theme-body-class'
 import AppleToaster from '@/components/layout/AppleToaster'
 import { CommandPalette } from '@/components/cmdk/CommandPalette'
+import LiveAnnouncer from '@/components/shared/LiveAnnouncer'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -41,6 +42,7 @@ export default async function RootLayout({
           {children}
           <CommandPalette />
           <AppleToaster />
+          <LiveAnnouncer />
         </Providers>
       </body>
     </html>

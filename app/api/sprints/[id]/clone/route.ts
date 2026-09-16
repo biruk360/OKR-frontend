@@ -33,7 +33,10 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
     where: { id },
     include: {
       participants: { select: { userId: true, role: true } },
-      columns: { select: { name: true, statusKey: true, position: true, color: true } },
+      columns: {
+        where: { archivedAt: null },
+        select: { name: true, statusKey: true, position: true, color: true },
+      },
     },
   })
   if (!source) return apiNotFound('Source sprint not found')
@@ -80,6 +83,16 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
   })
 
   if (includeIncompleteTodos && !sourceClosed) {
+    // Lane ids are per-sprint, so a copied card cannot reuse the source's
+    // columnId. Everything is copied as PENDING, so they all land in the
+    // clone's first To Do lane.
+    const cloneLanes = await prisma.sprintColumn.findMany({
+      where: { sprintId: created.id, archivedAt: null },
+      orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
+      select: { id: true, statusKey: true },
+    })
+    const pendingLaneId = cloneLanes.find((l) => l.statusKey === 'PENDING')?.id ?? null
+
     const incomplete = await prisma.todo.findMany({
       where: { sprintId: id, status: { notIn: ['COMPLETED', 'CANCELLED'] } },
     })
@@ -89,6 +102,7 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
           title: t.title,
           description: t.description,
           status: 'PENDING',
+          columnId: pendingLaneId,
           priority: t.priority,
           coverColor: t.coverColor,
           dueDate: t.dueDate,

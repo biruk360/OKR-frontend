@@ -201,7 +201,10 @@ function BacklogList({ currentUserId }: { currentUserId: string }) {
   const { data, isLoading } = useQuery({
     queryKey: ['sprints-backlog'],
     queryFn: async () => {
-      const res = await fetch('/api/todos?sprintId=null&limit=200')
+      // `?noSprint=1` is the API's contract for "unassigned to a sprint".
+      // Sending `?sprintId=null` sets where.sprintId to the *string* "null"
+      // (which is truthy), so the backlog always came back empty.
+      const res = await fetch('/api/todos?noSprint=1&limit=200')
       const json = await res.json()
       const items = Array.isArray(json?.data) ? json.data : json?.data?.items ?? []
       return items as BacklogTodo[]

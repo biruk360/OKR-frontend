@@ -175,6 +175,23 @@ export async function executeSprintClose(args: {
       for (const d of dispositions) if (d.action === 'next') d.toSprintId = resolvedNextId
     }
 
+    // Destination lane per status. Carried cards must land in a real lane of the
+    // NEXT sprint — its lane ids differ from this sprint's, so the columnId a
+    // card arrives with is meaningless there and would dangle.
+    const destLaneByStatus = new Map<string, string>()
+    if (resolvedNextId) {
+      const destLanes = await tx.sprintColumn.findMany({
+        where: { sprintId: resolvedNextId, archivedAt: null },
+        orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
+        select: { id: true, statusKey: true },
+      })
+      for (const lane of destLanes) {
+        if (lane.statusKey && !destLaneByStatus.has(lane.statusKey)) {
+          destLaneByStatus.set(lane.statusKey, lane.id)
+        }
+      }
+    }
+
     // BR-04 — lane maxima in the destination sprint, per status.
     const laneMax = new Map<string, number>()
     if (resolvedNextId) {
@@ -212,14 +229,19 @@ export async function executeSprintClose(args: {
         const sprintPosition = carriedPosition(laneMax.get(todo.status) ?? 0, off)
         await tx.todo.update({
           where: { id: todo.id },
-          data: { sprintId: resolvedNextId, sprintPosition, ...buildCarryoverPatch(todo, sprintId, now) },
+          data: {
+            sprintId: resolvedNextId,
+            columnId: destLaneByStatus.get(todo.status) ?? null,
+            sprintPosition,
+            ...buildCarryoverPatch(todo, sprintId, now),
+          },
         })
         movedToNext++
         carried.push({ todoId: todo.id, title: todo.title, assigneeId: todo.assigneeId })
       } else if (d.action === 'cancel') {
         await tx.todo.update({
           where: { id: todo.id },
-          data: { status: 'CANCELLED', sprintId: null, sprintPosition: 0 },
+          data: { status: 'CANCELLED', sprintId: null, columnId: null, sprintPosition: 0 },
         })
         cancelled++
         cancelledTodos.push({ todoId: todo.id, title: todo.title, assigneeId: todo.assigneeId })
@@ -229,7 +251,7 @@ export async function executeSprintClose(args: {
         const sortOrder = backlogSortOrder(backlogMax.get(todo.status) ?? 0, off)
         await tx.todo.update({
           where: { id: todo.id },
-          data: { sprintId: null, sprintPosition: 0, sortOrder },
+          data: { sprintId: null, columnId: null, sprintPosition: 0, sortOrder },
         })
         movedToBacklog++
       }

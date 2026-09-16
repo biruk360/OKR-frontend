@@ -50,6 +50,7 @@ export type EventKey =
   // Todo
   | 'TODO_ASSIGNED'
   | 'TODO_REASSIGNED_AWAY'
+  | 'TODO_DUE_REMINDER'
   | 'TODO_DUE_TOMORROW'
   | 'TODO_DUE_TODAY'
   | 'TODO_OVERDUE'
@@ -173,6 +174,10 @@ export const EVENT_META: Record<EventKey, EventMeta> = {
 
   TODO_ASSIGNED: { key: 'TODO_ASSIGNED', category: 'TODO', defaultCadence: 'IMMEDIATE', redactable: false, label: 'To-do assigned to you' },
   TODO_REASSIGNED_AWAY: { key: 'TODO_REASSIGNED_AWAY', category: 'TODO', defaultCadence: 'IMMEDIATE', redactable: false, label: 'To-do reassigned away from you' },
+  // User-chosen lead time on a specific card (DTE-4). IMMEDIATE because the
+  // whole point is that it lands at the moment the user asked for; batching
+  // it into a daily digest would defeat a "5 minutes before" reminder.
+  TODO_DUE_REMINDER: { key: 'TODO_DUE_REMINDER', category: 'TODO', defaultCadence: 'IMMEDIATE', redactable: false, label: 'To-do reminder you set' },
   TODO_DUE_TOMORROW: { key: 'TODO_DUE_TOMORROW', category: 'TODO', defaultCadence: 'DAILY', redactable: false, label: 'To-do due tomorrow' },
   TODO_DUE_TODAY: { key: 'TODO_DUE_TODAY', category: 'TODO', defaultCadence: 'DAILY', redactable: false, label: 'To-do due today' },
   TODO_OVERDUE: { key: 'TODO_OVERDUE', category: 'TODO', defaultCadence: 'DAILY', redactable: false, label: 'To-do overdue' },

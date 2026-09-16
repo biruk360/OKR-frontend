@@ -69,10 +69,10 @@ export default function DashboardShell({ user, children }: DashboardShellProps) 
           'grid min-h-[100dvh] w-full max-w-[100vw] overflow-x-hidden bg-background',
           'grid-cols-1 grid-rows-[auto_minmax(0,1fr)]',
           !sidebarReady
-            ? 'lg:grid-cols-[260px_minmax(0,1fr)] lg:grid-rows-[3.5rem_minmax(0,1fr)]'
+            ? 'lg:grid-cols-[260px_minmax(0,1fr)] lg:grid-rows-[3rem_minmax(0,1fr)]'
             : sidebarCollapsed
-              ? 'lg:grid-cols-[4rem_minmax(0,1fr)] lg:grid-rows-[3.5rem_minmax(0,1fr)]'
-              : 'lg:grid-cols-[260px_minmax(0,1fr)] lg:grid-rows-[3.5rem_minmax(0,1fr)]'
+              ? 'lg:grid-cols-[4rem_minmax(0,1fr)] lg:grid-rows-[3rem_minmax(0,1fr)]'
+              : 'lg:grid-cols-[260px_minmax(0,1fr)] lg:grid-rows-[3rem_minmax(0,1fr)]'
         )}
       >
         <SidebarDesktopColumn
@@ -88,15 +88,17 @@ export default function DashboardShell({ user, children }: DashboardShellProps) 
         <main
           className={cn(
             'col-start-1 row-start-2 min-h-0 min-w-0 lg:col-start-2 lg:row-start-2',
-            isStrategyMap ? 'flex flex-col overflow-hidden' : 'overflow-y-auto py-6'
+            isStrategyMap ? 'flex flex-col overflow-hidden' : 'overflow-y-auto py-4'
           )}
         >
+          {/* Gutters intentionally match the Header's own px-3/sm:px-4/lg:px-5 so page
+              content lines up with the header instead of sitting in from it. */}
           {isStrategyMap ? (
             <div className="flex min-h-0 flex-1 flex-col">{children}</div>
           ) : isFullWidth ? (
-            <div className="w-full px-4 sm:px-6 lg:px-8">{children}</div>
+            <div className="w-full px-3 sm:px-4 lg:px-5">{children}</div>
           ) : (
-            <div className="mx-auto w-full max-w-content px-4 sm:px-6 lg:px-8">{children}</div>
+            <div className="mx-auto w-full max-w-content px-3 sm:px-4 lg:px-5">{children}</div>
           )}
         </main>
       </div>

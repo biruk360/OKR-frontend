@@ -41,6 +41,21 @@ jobs:
       - name: Prisma generate
         run: npx prisma generate
 
+      - name: Sprint board unit tests
+        run: |
+          npm run test:sprints
+          npm run test:cards
+          npm run test:todos
+
+      - name: Security invariants
+        # Static guards: every API route carries an auth wrapper (or a named
+        # exemption that proves its own guard), card sharing mints no tokens and
+        # stays under /dashboard, and scripts/preflight.sql is safe to re-run.
+        # The preflight check matters most here — deploy.sh runs that file against
+        # production with ON_ERROR_STOP=1, so a non-idempotent statement aborts a
+        # deploy midway.
+        run: npm run test:security
+
       - name: TypeScript check
         run: npx tsc --noEmit
 

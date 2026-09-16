@@ -7,10 +7,12 @@
  * provided by the user). Uses Apple Pro design tokens — never raw hex.
  */
 
-import { Eye, Calendar, MessageSquare, CheckSquare2, Target, AlertCircle, RotateCcw } from 'lucide-react'
+import { Eye, Calendar, MessageSquare, CheckSquare2, Target, AlertCircle, RotateCcw, Paperclip, AlignLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { UserAvatarStack } from '@/components/shared/UserAvatar'
 import { userColor } from '@/lib/user-color'
+import { swatchStyle, readableInk } from '@/lib/card-visuals'
+import { useUserPrefsStore } from '@/lib/stores/user-prefs-store'
 
 interface CardUser { id: string; name: string; avatar: string | null }
 
@@ -34,6 +36,15 @@ export interface TrelloTodo {
   watchers?: { userId: string }[]
   /** BR-03 carryover lineage — how many sprints this card has been carried into. */
   carryoverCount?: number
+  /** Labels shown as a colour strip above the title (CRD-1). */
+  labels?: { labelDef: { id: string; name: string; color: string; pattern?: string | null } }[]
+  /** Cover colour + how it renders: BAND (strip) or FULL (full-bleed) (CRD-2). */
+  coverColor?: string | null
+  coverSize?: string | null
+  /** Presence drives the "has description" glyph (CRD-3). */
+  description?: string | null
+  /** Attachment count badge (CRD-3). */
+  _count?: { attachments?: number }
 }
 
 interface Props {
@@ -124,6 +135,17 @@ export default function TaskCardTrello({ todo, onClick, onDragStart, onDragEnd, 
       ? [todo.assignee]
       : []
 
+  const colorBlind = useUserPrefsStore((st) => st.colorBlindMode)
+  const attachmentCount = todo._count?.attachments ?? 0
+  const hasDescription = Boolean(todo.description && todo.description.trim())
+  const labels = todo.labels ?? []
+
+  // CRD-2 — FULL covers put the title directly on the colour, so the ink has to
+  // be chosen from the cover's luminance to stay readable on both light swatches
+  // (yellow, lime) and dark ones (slate, blue).
+  const isFullCover = Boolean(todo.coverColor) && todo.coverSize === 'FULL'
+  const coverInk = isFullCover && todo.coverColor ? readableInk(todo.coverColor) : undefined
+
   const dateChipClass = cn(
     'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium',
     tone === 'overdue' && 'bg-danger-100 text-danger-700',
@@ -141,9 +163,27 @@ export default function TaskCardTrello({ todo, onClick, onDragStart, onDragEnd, 
       onDragEnd={readOnly ? undefined : onDragEnd}
       onClick={onClick}
       onKeyDown={(e) => { if (e.key === 'Enter') onClick() }}
-      className="group cursor-pointer overflow-hidden rounded-[8px] border bg-card shadow-sm transition hover:shadow-card"
-      style={{ opacity: isDragging ? 0.4 : undefined, borderColor: 'var(--ap-border-soft, var(--ap-border))' }}
+      className={cn(
+        'group cursor-pointer overflow-hidden rounded-[8px] border shadow-sm transition hover:shadow-card',
+        !isFullCover && 'bg-card',
+      )}
+      style={{
+        opacity: isDragging ? 0.4 : undefined,
+        borderColor: 'var(--ap-border-soft, var(--ap-border))',
+        ...(isFullCover && todo.coverColor
+          ? { ...swatchStyle(todo.coverColor, { colorBlind, ink: 'rgba(255,255,255,0.25)' }), color: coverInk }
+          : {}),
+      }}
     >
+      {/* Cover band (CRD-2). FULL covers paint the whole card instead, above. */}
+      {todo.coverColor && !isFullCover && (
+        <div
+          aria-hidden
+          className="h-8 w-full"
+          style={swatchStyle(todo.coverColor, { colorBlind, ink: 'rgba(255,255,255,0.28)' })}
+        />
+      )}
+
       {/* URGENT striped indicator (mirrors the yellow striped band in the screenshots) */}
       {todo.priority === 'URGENT' && (
         <div
@@ -174,6 +214,26 @@ export default function TaskCardTrello({ todo, onClick, onDragStart, onDragEnd, 
       )}
 
       <div className="px-2.5 pb-2.5 pt-1.5">
+        {/* Label strip (CRD-1). Colour alone is not enough, so each chip carries
+            an accessible name and, in colour-blind mode, a distinct texture. */}
+        {labels.length > 0 && (
+          <div className="mb-1.5 flex flex-wrap gap-1">
+            {labels.map((l) => (
+              <span
+                key={l.labelDef.id}
+                title={l.labelDef.name}
+                aria-label={`Label: ${l.labelDef.name}`}
+                className="h-2 w-9 rounded-full"
+                style={swatchStyle(l.labelDef.color, {
+                  colorBlind,
+                  pattern: l.labelDef.pattern,
+                  ink: 'rgba(255,255,255,0.55)',
+                })}
+              />
+            ))}
+          </div>
+        )}
+
         <div className="flex items-start gap-1.5">
           <p className="line-clamp-2 min-w-0 flex-1 text-[13px] font-medium leading-snug text-foreground">
             {todo.title}
@@ -211,7 +271,7 @@ export default function TaskCardTrello({ todo, onClick, onDragStart, onDragEnd, 
         {/* Meta row: icons + date chip */}
         <div className="mt-2 flex items-center gap-1.5 text-[10px] text-muted-foreground">
           {watcherCount > 0 && (
-            <span title="Watching" className="inline-flex items-center gap-0.5">
+            <span title="You are watching this card" aria-label="You are watching this card" className="inline-flex items-center gap-0.5">
               <Eye className="h-3 w-3" />
             </span>
           )}
@@ -222,8 +282,27 @@ export default function TaskCardTrello({ todo, onClick, onDragStart, onDragEnd, 
               {start && end ? `${fmt(start)} - ${fmt(end)}` : fmt((end ?? start)!)}
             </span>
           )}
+          {hasDescription && (
+            <span title="This card has a description" aria-label="Has a description">
+              <AlignLeft className="h-3 w-3" />
+            </span>
+          )}
+          {attachmentCount > 0 && (
+            <span
+              className="inline-flex items-center gap-0.5"
+              title={`${attachmentCount} attachment${attachmentCount === 1 ? '' : 's'}`}
+              aria-label={`${attachmentCount} attachment${attachmentCount === 1 ? '' : 's'}`}
+            >
+              <Paperclip className="h-3 w-3" />
+              {attachmentCount}
+            </span>
+          )}
           {commentCount > 0 && (
-            <span className="inline-flex items-center gap-0.5">
+            <span
+              className="inline-flex items-center gap-0.5"
+              title={`${commentCount} comment${commentCount === 1 ? '' : 's'}`}
+              aria-label={`${commentCount} comment${commentCount === 1 ? '' : 's'}`}
+            >
               <MessageSquare className="h-3 w-3" />
               {commentCount}
             </span>

@@ -6,15 +6,25 @@ import {
   X, Check, Plus, Trash2, Paperclip, Tag, Users, Calendar,
   ChevronDown, AlignLeft, MessageSquare, Activity, MoreHorizontal,
   CheckSquare, Image as ImageIcon, File as FileIcon, AlertCircle,
-  Link2, Target, Search, ExternalLink,
+  Link2, Target, Search, ExternalLink, Eye, EyeOff, Pencil,
 } from 'lucide-react'
 import { format, isPast, isToday, isTomorrow, isYesterday, formatDistanceToNow } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { userColor, userInitials } from '@/lib/user-color'
 import { TODO_STATUS_META, BOARD_STATUSES, todoStatusMeta } from '@/lib/todo-status'
 import { MentionEditor } from './MentionEditor'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { ActionsMenu } from '@/components/ui/ActionsMenu'
+import { Modal } from '@/components/ui/Modal'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { AppleDatePicker, toIso } from '@/components/ui/date-picker'
+import { CARD_PALETTE, swatchStyle, readableInk } from '@/lib/card-visuals'
+import { DUE_REMINDERS } from '@/lib/todos/due-reminders'
+import { useUserPrefsStore } from '@/lib/stores/user-prefs-store'
 import { useUsersForSelection } from '@/hooks/useUsersForSelection'
 import toast from 'react-hot-toast'
+import { useSession } from 'next-auth/react'
+import { announce } from '@/components/shared/LiveAnnouncer'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -24,7 +34,13 @@ export interface TodoCardData {
   description: string | null
   status: string
   priority: string
+  sprintId: string | null
+  sprint?: { id: string; name: string; state: string; startDate?: string | null; endDate?: string | null } | null
+  dueReminder?: string | null
+  columnId: string | null
   coverColor: string | null
+  /** 'BAND' | 'FULL' — null behaves as BAND. */
+  coverSize: string | null
   startDate: string | null
   dueDate: string | null
   startTime: string | null
@@ -91,15 +107,11 @@ const PRIORITY_COLORS: Record<string, string> = {
   LOW: '#8E8E93', MEDIUM: '#FF9500', HIGH: '#FF3B30', URGENT: '#AF52DE',
 }
 // Trello-style label palette — kept short so the popover stays scannable.
-const LABEL_COLORS = [
-  '#61BD4F', '#F2D600', '#FF9F1A', '#EB5A46', '#C377E0',
-  '#0079BF', '#00C2E0', '#51E898', '#FF78CB', '#344563',
-]
-const COVER_COLORS = [
-  '#007AFF', '#34C759', '#FF9500', '#FF3B30', '#AF52DE',
-  '#FF2D55', '#5AC8FA', '#4CD964', '#FFCC00', '#FF6B35',
-  null, // no cover
-]
+// Labels and covers draw from the same ten swatches (lib/card-visuals.ts), so a
+// label colour and a cover colour can never disagree. They used to be two
+// separate arrays of raw hex here.
+const LABEL_COLORS = CARD_PALETTE.map((sw) => sw.hex)
+const COVER_COLORS = CARD_PALETTE.map((sw) => sw.hex)
 
 // ─── Helper components ────────────────────────────────────────────────────────
 
@@ -436,7 +448,14 @@ interface DatesPanelProps {
   dueDate: string | null
   startTime: string | null
   endTime: string | null
-  onSave: (v: { startDate: string | null; dueDate: string | null; startTime: string | null; endTime: string | null }) => void
+  dueReminder: string | null
+  /** Sprint window, used only for the non-blocking out-of-range warning (DTE-7). */
+  sprintWindow?: { name: string; startDate: string | null; endDate: string | null } | null
+  onSave: (v: {
+    startDate: string | null; dueDate: string | null
+    startTime: string | null; endTime: string | null
+    dueReminder: string | null
+  }) => void
   onRemove: () => void
   onClose: () => void
 }
@@ -479,7 +498,7 @@ function to12h(t: string | null): string {
   return `${h}:${mm} ${ap}`
 }
 
-function DatesPanel({ startDate, dueDate, startTime, endTime, onSave, onRemove, onClose }: DatesPanelProps) {
+function DatesPanel({ startDate, dueDate, startTime, endTime, dueReminder, sprintWindow, onSave, onRemove, onClose }: DatesPanelProps) {
   const today = new Date()
   const initialFocus = parseYmd(dueDate) ?? parseYmd(startDate) ?? today
   const [viewYear, setViewYear] = useState(initialFocus.getFullYear())
@@ -494,6 +513,7 @@ function DatesPanel({ startDate, dueDate, startTime, endTime, onSave, onRemove, 
   const [dueStr, setDueStr] = useState<string | null>(initDueD ? ymd(initDueD) : null)
   const [startTimeVal, setStartTimeVal] = useState<string>(startTime ?? '')
   const [endTimeVal, setEndTimeVal] = useState<string>(endTime ?? '')
+  const [reminderVal, setReminderVal] = useState<string>(dueReminder ?? '')
   // Which date input the calendar populates on click. Defaults to "due" for
   // typical add-a-deadline flow; user can switch by clicking the Start row.
   const [activeTarget, setActiveTarget] = useState<'start' | 'due'>(dueDate || !startDate ? 'due' : 'start')
@@ -535,12 +555,30 @@ function DatesPanel({ startDate, dueDate, startTime, endTime, onSave, onRemove, 
     }
   }
 
+  // DTE-6 — due must be on or after start. Blocked with a message rather than
+  // silently corrected, so the user sees which of the two dates to fix.
+  const rangeInvalid =
+    startEnabled && dueEnabled && !!startD && !!dueD && dueD.getTime() < startD.getTime()
+
+  // DTE-7 — dates outside the sprint window are allowed, but worth flagging.
+  const outsideSprint = (() => {
+    if (!sprintWindow?.startDate || !sprintWindow?.endDate) return false
+    const ws = parseYmd(sprintWindow.startDate)
+    const we = parseYmd(sprintWindow.endDate)
+    if (!ws || !we) return false
+    const picks = [startEnabled ? startD : null, dueEnabled ? dueD : null].filter(Boolean) as Date[]
+    return picks.some((d) => d.getTime() < ws.getTime() || d.getTime() > we.getTime())
+  })()
+
   const save = () => {
+    if (rangeInvalid) return
     onSave({
       startDate: startEnabled ? startStr : null,
       dueDate: dueEnabled ? dueStr : null,
       startTime: startEnabled ? (startTimeVal || null) : null,
       endTime: dueEnabled ? (endTimeVal || null) : null,
+      // A reminder without a due date has nothing to count back from.
+      dueReminder: dueEnabled ? (reminderVal || null) : null,
     })
   }
 
@@ -698,10 +736,64 @@ function DatesPanel({ startDate, dueDate, startTime, endTime, onSave, onRemove, 
         </div>
       </div>
 
+      {/* Recurring (DTE-5) — specified but deferred: it needs a recurrence engine
+          and a generator cron that no module has yet. Rendered disabled so the
+          capability is visible and honestly labelled, matching how
+          GenerateSprintModal handles its unbuilt MANUAL scope. */}
+      <div className="mt-3">
+        <label htmlFor="recurring" className="mb-1 block text-[11px] font-700 text-[var(--ap-fg)]">Recurring</label>
+        <select
+          id="recurring"
+          disabled
+          value="never"
+          className="ap-input h-8 w-full text-[12px] py-0 disabled:opacity-50"
+          title="Recurring tasks are not available yet"
+        >
+          <option value="never">Never — coming soon</option>
+        </select>
+      </div>
+
+      {/* Reminder (DTE-4) */}
+      <div className="mt-3">
+        <label htmlFor="due-reminder" className="mb-1 block text-[11px] font-700 text-[var(--ap-fg)]">
+          Set due date reminder
+        </label>
+        <select
+          id="due-reminder"
+          value={reminderVal}
+          disabled={!dueEnabled}
+          onChange={(e) => setReminderVal(e.target.value)}
+          className="ap-input h-8 w-full text-[12px] py-0 disabled:opacity-50"
+        >
+          <option value="">None</option>
+          {DUE_REMINDERS.map((r) => (
+            <option key={r.value} value={r.value}>{r.label}</option>
+          ))}
+        </select>
+        <p className="mt-1 text-[10px] text-[var(--ap-fg-subtle)]">
+          Reminders go to all members and watchers of this card.
+        </p>
+      </div>
+
+      {rangeInvalid && (
+        <p className="mt-3 text-[11px] font-600" style={{ color: 'var(--ap-danger-fg)' }}>
+          Due date must be on or after the start date.
+        </p>
+      )}
+      {!rangeInvalid && outsideSprint && (
+        <p
+          className="mt-3 rounded-[8px] px-2 py-1.5 text-[11px]"
+          style={{ background: 'var(--ap-warn-bg)', color: 'var(--ap-warn-fg)' }}
+        >
+          This is outside the sprint window ({fmtMd(sprintWindow?.startDate ?? null)} – {fmtMd(sprintWindow?.endDate ?? null)}).
+        </p>
+      )}
+
       <div className="mt-4 space-y-2">
         <button
           onClick={save}
-          className="w-full rounded-[8px] bg-[var(--ap-accent)] px-3 py-2 text-[13px] font-600 text-white hover:opacity-90 transition-opacity"
+          disabled={rangeInvalid}
+          className="w-full rounded-[8px] bg-[var(--ap-accent)] px-3 py-2 text-[13px] font-600 text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           Save
         </button>
@@ -750,6 +842,10 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
   const [newItemTitles, setNewItemTitles] = useState<Record<string, string>>({})
   const [submittingComment, setSubmittingComment] = useState(false)
   const { users } = useUsersForSelection()
+  const { data: session } = useSession()
+  const sessionRole = session?.user?.role
+  const colorBlind = useUserPrefsStore((st) => st.colorBlindMode)
+  const setColorBlindMode = useUserPrefsStore((st) => st.setColorBlindMode)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const titleRef = useRef<HTMLTextAreaElement>(null)
 
@@ -776,12 +872,29 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
 
   useEffect(() => { fetchTodo() }, [fetchTodo])
 
-  // Escape to close
+  // Escape to close.
+  //
+  // This is a window-level listener, so it also fires for Escape presses that a
+  // nested layer is already handling. Without the guards below, dismissing a
+  // popover, dropdown or date picker would close the whole card with it, and
+  // cancelling an inline rename would do the same.
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    // Modal mode delegates Escape to Radix, which correctly dismisses only the
+    // topmost layer. This listener exists for drawer mode, which is still a
+    // hand-rolled portal.
+    if (mode !== 'drawer') return
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      // A floating layer is open — let it consume this Escape.
+      if (document.querySelector('[data-radix-popper-content-wrapper], .apdp-pop')) return
+      // Inline editors (title, checklist rename) handle their own Escape.
+      const el = e.target as HTMLElement | null
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
+      onClose()
+    }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [onClose])
+  }, [onClose, mode])
 
   // ── PATCH helper ──
   const patch = useCallback(async (body: Record<string, unknown>) => {
@@ -852,6 +965,167 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
     if (json.success) { setTodo((t) => t ? { ...t, checklists: [...t.checklists, json.data] } : t); setNewChecklistTitle(''); setActivePanel(null) }
   }
 
+  // ── Comments + activity rail (CDM-5 / CDM-6) ──────────────────────────────
+  const HIDE_DETAILS_KEY = 'card-hide-activity-details-v1'
+  const [hideDetails, setHideDetails] = useState(false)
+  const [editingComment, setEditingComment] = useState<{ id: string; content: string } | null>(null)
+
+  // Per-viewer preference, so the rail opens the way they left it.
+  useEffect(() => {
+    try { setHideDetails(window.localStorage.getItem(HIDE_DETAILS_KEY) === '1') } catch { /* private mode */ }
+  }, [])
+  const toggleHideDetails = () => {
+    setHideDetails((prev) => {
+      const next = !prev
+      try { window.localStorage.setItem(HIDE_DETAILS_KEY, next ? '1' : '0') } catch { /* private mode */ }
+      return next
+    })
+  }
+
+  /** Author, ADMIN and EXECUTIVE may moderate — mirrors the server check so the
+   *  UI never offers an action the API will refuse. */
+  const canModerate = (authorId: string) =>
+    authorId === currentUserId || sessionRole === 'ADMIN' || sessionRole === 'EXECUTIVE'
+
+  const saveCommentEdit = async () => {
+    if (!editingComment || !todo) return
+    const content = editingComment.content.trim()
+    if (!content) return
+    const res = await fetch(`/api/todos/${todo.id}/comments/${editingComment.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content }),
+    })
+    const json = await res.json()
+    if (!res.ok || !json.success) { toast.error(json.error || 'Could not save the comment'); return }
+    setComments((list) => list.map((c) => (c.id === editingComment.id ? { ...c, ...json.data } : c)))
+    setEditingComment(null)
+    announce('Comment updated')
+  }
+
+  const deleteComment = async (commentId: string) => {
+    if (!todo) return
+    const prev = comments
+    setComments((list) => list.filter((c) => c.id !== commentId))   // optimistic
+    const res = await fetch(`/api/todos/${todo.id}/comments/${commentId}`, { method: 'DELETE' })
+    if (!res.ok) {
+      setComments(prev)
+      toast.error('Could not delete the comment')
+      return
+    }
+    announce('Comment deleted')
+  }
+
+  // ── Share + delete ────────────────────────────────────────────────────────
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  /**
+   * SHR-1 — copies an ordinary in-app deep link. No token is minted and no new
+   * access path is created: the recipient must sign in and independently pass
+   * the sprint's existing permission check.
+   */
+  const copyCardLink = async () => {
+    if (!todo) return
+    try {
+      const res = await fetch(`/api/todos/${todo.id}/share`, { method: 'POST' })
+      const json = await res.json()
+      if (!res.ok || !json.success) throw new Error(json.error || 'Could not share this card')
+      await navigator.clipboard.writeText(`${window.location.origin}${json.data.path}`)
+      toast.success('Card link copied')
+      announce('Card link copied to clipboard')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not copy the link')
+    }
+  }
+
+  // ── Board lane (CDM-2) ────────────────────────────────────────────────────
+  // The list chip is the only way to move a card between lists without dragging,
+  // which is also the mobile path (HTML5 drag does not work on touch).
+  const [lanes, setLanes] = useState<{ id: string; name: string; statusKey: string | null }[]>([])
+
+  useEffect(() => {
+    const sprintId = todo?.sprintId
+    if (!sprintId) { setLanes([]); return }
+    let cancelled = false
+    fetch(`/api/sprints/${sprintId}/columns`)
+      .then((r) => r.json())
+      .then((json) => { if (!cancelled && json?.success) setLanes(json.data ?? []) })
+      .catch(() => { /* non-fatal: the chip just stays hidden */ })
+    return () => { cancelled = true }
+  }, [todo?.sprintId])
+
+  const currentLane = lanes.find((l) => l.id === todo?.columnId) ?? null
+
+  // CDM-11 — a closed sprint is read-only. The API already returns 409
+  // SPRINT_CLOSED, but offering controls that always fail is worse than not
+  // offering them, so the card renders as a record rather than an editor.
+  const sprintClosed =
+    todo?.sprint?.state === 'COMPLETED' || todo?.sprint?.state === 'CANCELLED'
+
+  const sprintWindow = todo?.sprint
+    ? {
+        name: todo.sprint.name,
+        startDate: todo.sprint.startDate ?? null,
+        endDate: todo.sprint.endDate ?? null,
+      }
+    : null
+
+  const moveToLane = async (columnId: string) => {
+    const lane = lanes.find((l) => l.id === columnId)
+    if (!lane) return
+    // Server derives status from the lane, so we only send columnId.
+    await patch({ columnId })
+    announce(`Card moved to ${lane.name}`)
+  }
+
+  // ── Watch / subscribe ──
+  // Backed by the generic polymorphic `Watcher` table via /api/watchers, which
+  // has always supported entityType='TODO' but was never wired to any todo UI.
+  // Without a way to opt in, the board's watcher badge could never light up.
+  const [editingItem, setEditingItem] = useState<{ checklistId: string; itemId: string; title: string } | null>(null)
+  const [isWatching, setIsWatching] = useState(false)
+  const [watchPending, setWatchPending] = useState(false)
+
+  useEffect(() => {
+    if (!todoId) { setIsWatching(false); return }
+    let cancelled = false
+    fetch(`/api/watchers?entityType=TODO&entityId=${todoId}`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (cancelled || !json?.success) return
+        const rows: { userId: string }[] = json.data ?? []
+        setIsWatching(rows.some((w) => w.userId === currentUserId))
+      })
+      .catch(() => { /* non-fatal: the toggle just starts in the unwatched state */ })
+    return () => { cancelled = true }
+  }, [todoId, currentUserId])
+
+  const toggleWatch = async () => {
+    if (!todoId || watchPending) return
+    const next = !isWatching
+    setIsWatching(next)          // optimistic
+    setWatchPending(true)
+    try {
+      const res = next
+        ? await fetch('/api/watchers', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ entityType: 'TODO', entityId: todoId }),
+          })
+        : await fetch(`/api/watchers?entityType=TODO&entityId=${todoId}`, { method: 'DELETE' })
+      const json = await res.json()
+      if (!res.ok || !json.success) throw new Error(json.error || 'Failed')
+      announce(next ? 'Watching this card' : 'Stopped watching this card')
+      onUpdated?.()
+    } catch {
+      setIsWatching(!next)       // roll back
+      toast.error(next ? 'Could not watch this card' : 'Could not unwatch this card')
+    } finally {
+      setWatchPending(false)
+    }
+  }
+
   const addChecklistItem = async (checklistId: string) => {
     const title = newItemTitles[checklistId]?.trim()
     if (!title) return
@@ -867,21 +1141,54 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
     }
   }
 
-  const toggleChecklistItem = async (checklistId: string, itemId: string, completed: boolean) => {
+  /**
+   * Generic checklist-item PATCH. The route already accepts title, completed,
+   * assigneeId and dueDate; only `completed` was ever sent from the UI, which
+   * is why the per-item due-date and assign buttons sat inert.
+   */
+  const patchChecklistItem = async (
+    checklistId: string,
+    itemId: string,
+    data: { title?: string; completed?: boolean; assigneeId?: string | null; dueDate?: string | null },
+  ) => {
     const res = await fetch(`/api/todos/${todo!.id}/checklists/${checklistId}/items/${itemId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ completed }),
+      body: JSON.stringify(data),
     })
     const json = await res.json()
-    if (json.success) {
-      setTodo((t) => t ? {
-        ...t,
-        checklists: t.checklists.map((cl) => cl.id === checklistId
-          ? { ...cl, items: cl.items.map((i) => i.id === itemId ? { ...i, ...json.data } : i) }
-          : cl),
-      } : t)
+    if (!res.ok || !json.success) {
+      toast.error(json.error || 'Could not update the item')
+      return false
     }
+    setTodo((t) => t ? {
+      ...t,
+      checklists: t.checklists.map((cl) => cl.id === checklistId
+        ? { ...cl, items: cl.items.map((i) => i.id === itemId ? { ...i, ...json.data } : i) }
+        : cl),
+    } : t)
+    return true
+  }
+
+  const toggleChecklistItem = (checklistId: string, itemId: string, completed: boolean) =>
+    patchChecklistItem(checklistId, itemId, { completed })
+
+  const deleteChecklistItem = async (checklistId: string, itemId: string) => {
+    const prev = todo
+    // Optimistic — the row disappears immediately, restored if the call fails.
+    setTodo((t) => t ? {
+      ...t,
+      checklists: t.checklists.map((cl) => cl.id === checklistId
+        ? { ...cl, items: cl.items.filter((i) => i.id !== itemId) }
+        : cl),
+    } : t)
+    const res = await fetch(`/api/todos/${todo!.id}/checklists/${checklistId}/items/${itemId}`, { method: 'DELETE' })
+    if (!res.ok) {
+      setTodo(prev)
+      toast.error('Could not delete the item')
+      return
+    }
+    announce('Checklist item deleted')
   }
 
   const deleteChecklist = async (checklistId: string) => {
@@ -1032,39 +1339,159 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
   if (!todoId) return null
 
   const isDrawer = mode === 'drawer'
-  return createPortal(
-    <div
-      className={isDrawer
-        ? 'fixed inset-0 z-[80] flex justify-end'
-        : 'fixed inset-0 z-[80] flex items-start justify-center overflow-y-auto p-4 sm:p-8'}
-      style={isDrawer
-        ? { background: 'rgba(0,0,0,0.2)' }
-        : { background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }}
-      onClick={onClose}
-    >
+
+  // CDM-1 — the card body used to sit in a hand-rolled portal with no focus
+  // trap, no focus restore and no scroll lock. It now renders inside the shared
+  // Modal (Radix) in modal mode, which supplies all three. Drawer mode keeps the
+  // side-sheet portal because its layout is a right-hand sheet, not a dialog box.
+  const body = (
       <div
         className={isDrawer
           ? 'ap-modal-enter pointer-events-auto relative h-full w-full overflow-y-auto bg-[var(--ap-bg-raised)] shadow-[var(--ap-shadow-lg)] sm:rounded-l-[20px] sm:max-w-[760px]'
-          : 'ap-modal-enter relative my-4 w-full max-w-[860px] rounded-[20px] bg-[var(--ap-bg-raised)] shadow-[var(--ap-shadow-lg)] overflow-hidden'}
+          : 'relative w-full overflow-hidden rounded-[20px] bg-[var(--ap-bg-raised)]'}
         onClick={(e) => e.stopPropagation()}
       >
         {/* ── Cover strip (taller, gradient feel) ── */}
         {todo?.coverColor && (
-          <div className="h-14 w-full" style={{ background: `linear-gradient(135deg, ${todo.coverColor}, ${todo.coverColor}cc)` }} />
+          <div
+            className={todo.coverSize === 'FULL' ? 'h-28 w-full' : 'h-14 w-full'}
+            style={swatchStyle(todo.coverColor, { colorBlind, ink: 'rgba(255,255,255,0.28)' })}
+          />
         )}
 
-        {/* ── Close ── */}
-        <button
-          onClick={onClose}
-          aria-label="Close"
-          className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-[var(--ap-bg-raised)] shadow-sm text-[var(--ap-fg-muted)] hover:text-[var(--ap-fg)] hover:shadow transition-all"
-        >
-          <X className="h-4 w-4" />
-        </button>
+        {/* ── List selector chip (CDM-2) ── */}
+        {todo && lanes.length > 0 && !sprintClosed && (
+          <div className="absolute left-4 top-4 z-10">
+            <ActionsMenu
+              label={`Move card. Currently in ${currentLane?.name ?? 'no list'}`}
+              align="left"
+              className="flex h-8 items-center gap-1.5 rounded-full bg-[var(--ap-bg-raised)] px-3 text-[12px] font-600 text-[var(--ap-fg-muted)] shadow-sm transition-all hover:text-[var(--ap-fg)] hover:shadow"
+              trigger={
+                <>
+                  <span>{currentLane?.name ?? 'No list'}</span>
+                  <ChevronDown className="h-3.5 w-3.5" />
+                </>
+              }
+              items={lanes.map((l) => ({
+                key: l.id,
+                label: l.name,
+                disabled: l.id === todo.columnId,
+                onSelect: () => moveToLane(l.id),
+              }))}
+            />
+          </div>
+        )}
+
+        {/* ── Header actions: complete · watch · more · close ── */}
+        <div className="absolute right-4 top-4 z-10 flex items-center gap-1.5">
+          {todo && (
+            <button
+              onClick={() => {
+                const next = todo.status === 'COMPLETED' ? 'PENDING' : 'COMPLETED'
+                patch({ status: next })
+                announce(next === 'COMPLETED' ? 'Card marked complete' : 'Card reopened')
+              }}
+              disabled={sprintClosed}
+              aria-label={todo.status === 'COMPLETED' ? 'Mark as not complete' : 'Mark complete'}
+              aria-pressed={todo.status === 'COMPLETED'}
+              title={todo.status === 'COMPLETED' ? 'Completed — click to reopen' : 'Mark complete'}
+              className={cn(
+                'flex h-8 items-center gap-1.5 rounded-full bg-[var(--ap-bg-raised)] px-2.5 shadow-sm transition-all hover:shadow disabled:cursor-not-allowed disabled:opacity-50',
+                todo.status === 'COMPLETED'
+                  ? 'text-[var(--ap-ok)]'
+                  : 'text-[var(--ap-fg-muted)] hover:text-[var(--ap-fg)]',
+              )}
+            >
+              <span
+                aria-hidden
+                className={cn(
+                  'flex h-[18px] w-[18px] items-center justify-center rounded-full border-2 transition-colors',
+                  todo.status === 'COMPLETED'
+                    ? 'border-[var(--ap-ok)] bg-[var(--ap-ok)]'
+                    : 'border-[var(--ap-border-strong)]',
+                )}
+              >
+                {todo.status === 'COMPLETED' && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+              </span>
+              <span className="hidden text-[12px] font-600 sm:inline">
+                {todo.status === 'COMPLETED' ? 'Completed' : 'Mark complete'}
+              </span>
+            </button>
+          )}
+          {todo && (
+            <button
+              onClick={toggleWatch}
+              disabled={watchPending}
+              aria-label={isWatching ? 'Stop watching this card' : 'Watch this card'}
+              aria-pressed={isWatching}
+              title={isWatching ? 'Watching — click to stop' : 'Watch this card'}
+              className={cn(
+                'flex h-8 items-center gap-1.5 rounded-full bg-[var(--ap-bg-raised)] px-2.5 shadow-sm transition-all hover:shadow disabled:opacity-60',
+                isWatching
+                  ? 'text-[var(--ap-accent)]'
+                  : 'text-[var(--ap-fg-muted)] hover:text-[var(--ap-fg)]',
+              )}
+            >
+              {isWatching ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+              <span className="hidden text-[12px] font-600 sm:inline">
+                {isWatching ? 'Watching' : 'Watch'}
+              </span>
+            </button>
+          )}
+          {todo && (
+            <ActionsMenu
+              label="More card actions"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--ap-bg-raised)] shadow-sm text-[var(--ap-fg-muted)] transition-all hover:text-[var(--ap-fg)] hover:shadow"
+              trigger={<MoreHorizontal className="h-4 w-4" />}
+              items={[
+                {
+                  key: 'copy-link',
+                  label: 'Copy card link',
+                  icon: Link2,
+                  hidden: !todo.sprintId,
+                  onSelect: () => copyCardLink(),
+                },
+                {
+                  key: 'delete',
+                  label: 'Delete card',
+                  icon: Trash2,
+                  destructive: true,
+                  hidden: sprintClosed,
+                  onSelect: () => setConfirmDelete(true),
+                },
+              ]}
+            />
+          )}
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--ap-bg-raised)] shadow-sm text-[var(--ap-fg-muted)] hover:text-[var(--ap-fg)] hover:shadow transition-all"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
 
         {loading && !todo ? (
           <div className="flex h-48 items-center justify-center text-[13px] text-[var(--ap-fg-subtle)]">Loading…</div>
         ) : todo ? (
+          <>
+          {sprintClosed && (
+            <div
+              className="mx-6 mt-14 flex items-center gap-2 rounded-[10px] px-3 py-2 text-[12px]"
+              style={{
+                background: 'var(--ap-bg-sunken)',
+                border: '0.5px solid var(--ap-border)',
+                color: 'var(--ap-fg-muted)',
+              }}
+              role="status"
+            >
+              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+              <span>
+                “{todo.sprint?.name}” is {todo.sprint?.state === 'COMPLETED' ? 'completed' : 'cancelled'} —
+                this card is read-only.
+              </span>
+            </div>
+          )}
           <div className="flex flex-col md:flex-row">
             {/* ══ LEFT column ══ */}
             <div className="flex-1 min-w-0 p-6 space-y-6">
@@ -1124,8 +1551,16 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                 {todo.labels.map((l) => (
                   <span
                     key={l.labelDef.id}
-                    className="inline-flex items-center rounded-full px-2.5 py-[3px] text-[11px] font-600 text-white shadow-sm"
-                    style={{ background: l.labelDef.color }}
+                    className="inline-flex items-center rounded-full px-2.5 py-[3px] text-[11px] font-600 shadow-sm"
+                    style={{
+                      ...swatchStyle(l.labelDef.color, {
+                        colorBlind,
+                        pattern: (l.labelDef as { pattern?: string | null }).pattern,
+                        ink: 'rgba(255,255,255,0.5)',
+                      }),
+                      // Yellow and lime are unreadable under white text.
+                      color: readableInk(l.labelDef.color),
+                    }}
                   >
                     {l.labelDef.name}
                   </span>
@@ -1201,18 +1636,38 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                       minHeight={80}
                     />
                     {activePanel === 'description' && (
-                      <div className="mt-2 flex gap-2">
+                      <div className="mt-2 flex items-center gap-2">
                         <button onClick={saveDescription} className="ap-btn ap-btn-primary ap-btn-sm">Save</button>
                         <button onClick={() => { setDescDraft(todo.description ?? ''); setActivePanel(null) }} className="ap-btn ap-btn-secondary ap-btn-sm">Cancel</button>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button
+                              type="button"
+                              className="ml-auto text-[11px] text-[var(--ap-fg-muted)] underline-offset-2 hover:underline"
+                            >
+                              Formatting help
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent label="Formatting help" heading="Formatting" align="end" className="w-[260px]">
+                            <ul className="space-y-1.5 text-[12px] text-[var(--ap-fg-muted)]">
+                              <li><strong className="text-[var(--ap-fg)]">Bold / italic</strong> — toolbar, or ⌘B / ⌘I</li>
+                              <li><strong className="text-[var(--ap-fg)]">Lists</strong> — toolbar, or start a line with <code>-</code> or <code>1.</code></li>
+                              <li><strong className="text-[var(--ap-fg)]">Mention</strong> — type <code>@</code> then a name</li>
+                              <li><strong className="text-[var(--ap-fg)]">Links</strong> — paste a URL over selected text</li>
+                              <li><strong className="text-[var(--ap-fg)]">Save</strong> — ⌘↵ (Ctrl+↵ on Windows)</li>
+                            </ul>
+                          </PopoverContent>
+                        </Popover>
                       </div>
                     )}
                   </div>
                 ) : (
                   <button
                     onClick={() => setActivePanel('description')}
-                    className="w-full rounded-[10px] bg-[var(--ap-bg-sunken)] px-3 py-2.5 text-left text-[13px] text-[var(--ap-fg-subtle)] hover:bg-[var(--ap-bg-hover)] transition-colors"
+                    disabled={sprintClosed}
+                    className="w-full rounded-[10px] bg-[var(--ap-bg-sunken)] px-3 py-2.5 text-left text-[13px] text-[var(--ap-fg-subtle)] transition-colors hover:bg-[var(--ap-bg-hover)] disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    Add a more detailed description…
+                    {sprintClosed ? 'No description' : 'Add a more detailed description…'}
                   </button>
                 )}
               </div>
@@ -1251,12 +1706,32 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                         >
                           {item.completed && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
                         </button>
-                        <span className={cn(
-                          'flex-1 text-[13px] leading-snug min-w-0',
-                          item.completed && 'line-through text-[var(--ap-fg-subtle)]',
-                        )}>
-                          {item.title}
-                        </span>
+                        {editingItem?.itemId === item.id ? (
+                          <input
+                            autoFocus
+                            value={editingItem.title}
+                            onChange={(e) => setEditingItem({ ...editingItem, title: e.target.value })}
+                            onBlur={() => {
+                              const next = editingItem.title.trim()
+                              if (next && next !== item.title) patchChecklistItem(cl.id, item.id, { title: next })
+                              setEditingItem(null)
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLInputElement).blur() }
+                              if (e.key === 'Escape') setEditingItem(null)
+                            }}
+                            aria-label="Checklist item title"
+                            className="flex-1 min-w-0 rounded-[6px] border px-1.5 py-0.5 text-[13px] outline-none"
+                            style={{ borderColor: 'var(--ap-accent)', background: 'var(--ap-bg-raised)' }}
+                          />
+                        ) : (
+                          <span className={cn(
+                            'flex-1 text-[13px] leading-snug min-w-0',
+                            item.completed && 'line-through text-[var(--ap-fg-subtle)]',
+                          )}>
+                            {item.title}
+                          </span>
+                        )}
                         {item.dueDate && (
                           <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-[var(--ap-bg-sunken)] px-2 py-[2px] text-[10px] font-600 text-[var(--ap-fg-muted)]">
                             <Calendar className="h-2.5 w-2.5" />
@@ -1266,28 +1741,99 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                         {item.assignee && (
                           <Avatar id={item.assignee.id} name={item.assignee.name} avatar={item.assignee.avatar} size={20} />
                         )}
-                        <div className="hidden gap-0.5 group-hover:flex">
-                          <button
-                            type="button"
-                            title="Set due date"
+                        {/* Per-item actions. Focus-within keeps them reachable by
+                            keyboard; group-hover alone would hide them from tab users. */}
+                        <div className="hidden gap-0.5 group-hover:flex group-focus-within:flex">
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <button
+                                type="button"
+                                aria-label={item.dueDate ? `Change due date for ${item.title}` : `Set due date for ${item.title}`}
+                                className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--ap-fg-muted)] hover:bg-[var(--ap-bg-raised)] hover:text-[var(--ap-fg)] transition-colors"
+                              >
+                                <Calendar className="h-3 w-3" />
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent label="Checklist item due date" heading="Due date" align="end" className="w-[260px]">
+                              <AppleDatePicker
+                                value={item.dueDate ? toIso(new Date(item.dueDate)) : null}
+                                onChange={(iso) => patchChecklistItem(cl.id, item.id, { dueDate: iso })}
+                                placeholder="Pick a date"
+                              />
+                              {item.dueDate && (
+                                <button
+                                  type="button"
+                                  onClick={() => patchChecklistItem(cl.id, item.id, { dueDate: null })}
+                                  className="mt-2 w-full rounded-[8px] px-2 py-1.5 text-[12px] font-600 text-[var(--ap-danger-fg)] hover:bg-[var(--ap-danger-bg)] transition-colors"
+                                >
+                                  Remove due date
+                                </button>
+                              )}
+                            </PopoverContent>
+                          </Popover>
+
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <button
+                                type="button"
+                                aria-label={`Assign ${item.title}`}
+                                className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--ap-fg-muted)] hover:bg-[var(--ap-bg-raised)] hover:text-[var(--ap-fg)] transition-colors"
+                              >
+                                <Users className="h-3 w-3" />
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent label="Assign checklist item" heading="Assign" align="end" className="w-[260px]">
+                              <div className="max-h-[220px] space-y-0.5 overflow-y-auto">
+                                {item.assignee && (
+                                  <button
+                                    type="button"
+                                    onClick={() => patchChecklistItem(cl.id, item.id, { assigneeId: null })}
+                                    className="flex w-full items-center gap-2 rounded-[8px] px-2 py-1.5 text-left text-[12px] text-[var(--ap-danger-fg)] hover:bg-[var(--ap-bg-hover)]"
+                                  >
+                                    Unassign
+                                  </button>
+                                )}
+                                {users.map((u) => (
+                                  <button
+                                    key={u.id}
+                                    type="button"
+                                    onClick={() => patchChecklistItem(cl.id, item.id, { assigneeId: u.id })}
+                                    className={cn(
+                                      'flex w-full items-center gap-2 rounded-[8px] px-2 py-1.5 text-left text-[12px] hover:bg-[var(--ap-bg-hover)]',
+                                      item.assignee?.id === u.id && 'bg-[var(--ap-bg-hover)] font-600',
+                                    )}
+                                  >
+                                    <Avatar id={u.id} name={u.name ?? u.email} avatar={null} size={20} />
+                                    <span className="truncate">{u.name ?? u.email}</span>
+                                    {item.assignee?.id === u.id && (
+                                      <Check className="ml-auto h-3 w-3 text-[var(--ap-accent)]" />
+                                    )}
+                                  </button>
+                                ))}
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+
+                          <ActionsMenu
+                            label={`More actions for ${item.title}`}
                             className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--ap-fg-muted)] hover:bg-[var(--ap-bg-raised)] hover:text-[var(--ap-fg)] transition-colors"
-                          >
-                            <Calendar className="h-3 w-3" />
-                          </button>
-                          <button
-                            type="button"
-                            title="Assign"
-                            className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--ap-fg-muted)] hover:bg-[var(--ap-bg-raised)] hover:text-[var(--ap-fg)] transition-colors"
-                          >
-                            <Users className="h-3 w-3" />
-                          </button>
-                          <button
-                            type="button"
-                            title="More"
-                            className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--ap-fg-muted)] hover:bg-[var(--ap-bg-raised)] hover:text-[var(--ap-fg)] transition-colors"
-                          >
-                            <MoreHorizontal className="h-3 w-3" />
-                          </button>
+                            trigger={<MoreHorizontal className="h-3 w-3" />}
+                            items={[
+                              {
+                                key: 'rename',
+                                label: 'Rename',
+                                icon: Pencil,
+                                onSelect: () => setEditingItem({ checklistId: cl.id, itemId: item.id, title: item.title }),
+                              },
+                              {
+                                key: 'delete',
+                                label: 'Delete item',
+                                icon: Trash2,
+                                destructive: true,
+                                onSelect: () => deleteChecklistItem(cl.id, item.id),
+                              },
+                            ]}
+                          />
                         </div>
                       </div>
                     ))}
@@ -1352,13 +1898,21 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                 <div className="mb-3 flex items-center gap-1.5 text-[var(--ap-fg)]">
                   <MessageSquare className="h-3.5 w-3.5 text-[var(--ap-fg-muted)]" />
                   <span className="text-[12px] font-700 uppercase tracking-[0.05em] text-[var(--ap-fg-subtle)]">
-                    Comments ({comments.length})
+                    Comments and activity
                   </span>
+                  <button
+                    type="button"
+                    onClick={toggleHideDetails}
+                    aria-pressed={hideDetails}
+                    className="ml-auto rounded-[8px] border border-[var(--ap-border)] px-2 py-0.5 text-[11px] font-600 text-[var(--ap-fg-muted)] hover:bg-[var(--ap-bg-hover)] transition-colors"
+                  >
+                    {hideDetails ? 'Show details' : 'Hide details'}
+                  </button>
                 </div>
 
                 <>
-                    {/* Comment input */}
-                    <div className="space-y-2">
+                    {/* Comment input — hidden on a closed sprint (CDM-11). */}
+                    <div className={cn('space-y-2', sprintClosed && 'hidden')}>
                       <MentionEditor
                         value={commentDraft}
                         onChange={setCommentDraft}
@@ -1436,11 +1990,58 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                             <div className="flex items-baseline gap-2">
                               <span className="text-[12px] font-600 text-[var(--ap-fg)]">{c.author.name}</span>
                               <span className="text-[11px] text-[var(--ap-fg-faint)]">{format(new Date(c.createdAt), 'MMM d, h:mm a')}</span>
+                              {canModerate(c.author.id) && editingComment?.id !== c.id && (
+                                <span className="ml-auto flex gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingComment({ id: c.id, content: c.content })}
+                                    className="text-[11px] text-[var(--ap-fg-muted)] underline-offset-2 hover:underline"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => deleteComment(c.id)}
+                                    className="text-[11px] text-[var(--ap-danger-fg)] underline-offset-2 hover:underline"
+                                  >
+                                    Delete
+                                  </button>
+                                </span>
+                              )}
                             </div>
-                            <div
-                              className="prose prose-sm mt-1 max-w-none text-[13px] text-[var(--ap-fg)] [&_.mention]:text-[var(--ap-accent)] [&_.mention]:font-medium"
-                              dangerouslySetInnerHTML={{ __html: c.content }}
-                            />
+                            {editingComment?.id === c.id ? (
+                              <div className="mt-1.5">
+                                <MentionEditor
+                                  value={editingComment.content}
+                                  onChange={(html) => setEditingComment({ id: c.id, content: html })}
+                                  users={users}
+                                  onSubmit={saveCommentEdit}
+                                  minHeight={60}
+                                  autoFocus
+                                />
+                                <div className="mt-1.5 flex gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={saveCommentEdit}
+                                    className="ap-btn ap-btn-primary ap-btn-sm"
+                                  >
+                                    Save
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingComment(null)}
+                                    className="ap-btn ap-btn-secondary ap-btn-sm"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div
+                                className="prose prose-sm mt-1 max-w-none text-[13px] text-[var(--ap-fg)] [&_.mention]:text-[var(--ap-accent)] [&_.mention]:font-medium"
+                                dangerouslySetInnerHTML={{ __html: c.content }}
+                              />
+                            )}
                             {c.attachments && c.attachments.length > 0 && (
                               <div className="mt-2 flex flex-wrap gap-2">
                                 {c.attachments.map((att) => {
@@ -1471,7 +2072,7 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                 </>
 
                 {/* Activity log inline below comments */}
-                {activityLogs.length > 0 && (
+                {activityLogs.length > 0 && !hideDetails && (
                   <div className="mt-6 border-t border-[var(--ap-border)] pt-4">
                     <div className="mb-3 flex items-center gap-1.5">
                       <Activity className="h-3.5 w-3.5 text-[var(--ap-fg-muted)]" />
@@ -1485,8 +2086,12 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
               </div>
             </div>
 
-            {/* ══ RIGHT sidebar ══ */}
-            <div className="w-full md:w-[200px] shrink-0 border-t md:border-t-0 md:border-l border-[var(--ap-border)] bg-[var(--ap-bg-sunken)] p-4 space-y-3">
+            {/* ══ RIGHT sidebar ══ — every control here mutates, so it is
+                 removed rather than disabled on a closed sprint. */}
+            <div className={cn(
+              'w-full md:w-[200px] shrink-0 border-t md:border-t-0 md:border-l border-[var(--ap-border)] bg-[var(--ap-bg-sunken)] p-4 space-y-3',
+              sprintClosed && 'hidden',
+            )}>
               <p className="text-[10px] font-700 uppercase tracking-[0.06em] text-[var(--ap-fg-subtle)]">Add to card</p>
 
               {/* Link OKR — surfaced at the top */}
@@ -1555,13 +2160,15 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                           className="ap-input h-7 w-full text-[12px] py-0"
                         />
                         <div className="mt-2 grid grid-cols-5 gap-1.5">
-                          {LABEL_COLORS.map((c) => (
+                          {CARD_PALETTE.map((sw) => (
                             <button
-                              key={c}
-                              onClick={() => setNewLabelColor(c)}
-                              className={cn('h-6 rounded-[4px] border-2 transition-transform hover:scale-105', newLabelColor === c ? 'border-[var(--ap-fg)]' : 'border-transparent')}
-                              style={{ background: c }}
-                              title={c}
+                              key={sw.key}
+                              onClick={() => setNewLabelColor(sw.hex)}
+                              aria-label={sw.label}
+                              aria-pressed={newLabelColor === sw.hex}
+                              className={cn('h-6 rounded-[4px] border-2 transition-transform hover:scale-105', newLabelColor === sw.hex ? 'border-[var(--ap-fg)]' : 'border-transparent')}
+                              style={swatchStyle(sw.hex, { colorBlind, pattern: sw.pattern, ink: 'rgba(255,255,255,0.5)' })}
+                              title={sw.label}
                             />
                           ))}
                         </div>
@@ -1636,8 +2243,17 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                       dueDate={todo.dueDate}
                       startTime={todo.startTime}
                       endTime={todo.endTime}
+                      dueReminder={todo.dueReminder ?? null}
+                      sprintWindow={sprintWindow}
                       onSave={(v) => { patch(v); setActivePanel(null) }}
-                      onRemove={() => patch({ startDate: null, dueDate: null, startTime: null, endTime: null })}
+                      // DTE-8 — Remove clears both dates, both times and the
+                      // reminder in one request; a reminder with no due date
+                      // would never fire.
+                      onRemove={() => patch({
+                        startDate: null, dueDate: null,
+                        startTime: null, endTime: null,
+                        dueReminder: null,
+                      })}
                       onClose={() => setActivePanel(null)}
                     />
                   </>
@@ -1673,19 +2289,76 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                 {activePanel === 'cover' && (
                   <>
                     <div className="fixed inset-0 z-[90]" onClick={() => setActivePanel(null)} />
-                    <div className="absolute right-0 top-full z-[91] mt-1.5 w-[220px] rounded-[12px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] p-2 shadow-[var(--ap-shadow-lg)]">
-                      <p className="px-1 pb-2 text-[10px] font-700 uppercase tracking-[0.06em] text-[var(--ap-fg-subtle)]">Cover color</p>
-                      <div className="grid grid-cols-5 gap-1.5">
-                        {COVER_COLORS.map((color, i) => (
-                          <button
-                            key={i}
-                            onClick={() => { patch({ coverColor: color }); setActivePanel(null) }}
-                            className={cn('h-7 w-full rounded-md border-2 transition-transform hover:scale-110', todo.coverColor === color ? 'border-[var(--ap-fg)]' : 'border-transparent')}
-                            style={{ background: color ?? 'transparent', border: color ? undefined : '2px dashed var(--ap-border)' }}
-                            title={color ?? 'Remove cover'}
-                          />
-                        ))}
+                    <div className="absolute right-0 top-full z-[91] mt-1.5 w-[248px] rounded-[12px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] p-3 shadow-[var(--ap-shadow-lg)]">
+                      {/* Size (CVR-1) */}
+                      <p className="pb-1.5 text-[10px] font-700 uppercase tracking-[0.06em] text-[var(--ap-fg-subtle)]">Size</p>
+                      <div className="mb-3 grid grid-cols-2 gap-1.5">
+                        {([
+                          { key: 'BAND', label: 'Band' },
+                          { key: 'FULL', label: 'Full bleed' },
+                        ] as const).map((opt) => {
+                          const active = (todo.coverSize ?? 'BAND') === opt.key
+                          return (
+                            <button
+                              key={opt.key}
+                              type="button"
+                              aria-pressed={active}
+                              disabled={!todo.coverColor}
+                              onClick={() => patch({ coverSize: opt.key })}
+                              className={cn(
+                                'rounded-[8px] border px-2 py-1.5 text-[11px] font-600 transition-colors disabled:opacity-40',
+                                active
+                                  ? 'border-[var(--ap-accent)] bg-[var(--ap-accent-soft)] text-[var(--ap-accent)]'
+                                  : 'border-[var(--ap-border)] text-[var(--ap-fg-muted)] hover:bg-[var(--ap-bg-hover)]',
+                              )}
+                            >
+                              {opt.label}
+                            </button>
+                          )
+                        })}
                       </div>
+
+                      {/* Colours */}
+                      <p className="pb-1.5 text-[10px] font-700 uppercase tracking-[0.06em] text-[var(--ap-fg-subtle)]">Colors</p>
+                      <div className="grid grid-cols-5 gap-1.5">
+                        {CARD_PALETTE.map((sw) => {
+                          const active = todo.coverColor?.toLowerCase() === sw.hex.toLowerCase()
+                          return (
+                            <button
+                              key={sw.key}
+                              type="button"
+                              aria-label={sw.label}
+                              aria-pressed={active}
+                              onClick={() => patch({ coverColor: sw.hex, coverSize: todo.coverSize ?? 'BAND' })}
+                              className={cn(
+                                'h-7 w-full rounded-md border-2 transition-transform hover:scale-110',
+                                active ? 'border-[var(--ap-fg)]' : 'border-transparent',
+                              )}
+                              style={swatchStyle(sw.hex, { colorBlind, pattern: sw.pattern, ink: 'rgba(255,255,255,0.5)' })}
+                              title={sw.label}
+                            />
+                          )
+                        })}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setColorBlindMode(!colorBlind)}
+                        aria-pressed={colorBlind}
+                        className="mt-3 w-full rounded-[8px] border border-[var(--ap-border)] px-2 py-1.5 text-[11px] font-600 text-[var(--ap-fg-muted)] hover:bg-[var(--ap-bg-hover)] transition-colors"
+                      >
+                        {colorBlind ? 'Disable' : 'Enable'} colorblind friendly mode
+                      </button>
+
+                      {todo.coverColor && (
+                        <button
+                          type="button"
+                          onClick={() => { patch({ coverColor: null, coverSize: null }); setActivePanel(null) }}
+                          className="mt-1.5 w-full rounded-[8px] px-2 py-1.5 text-[11px] font-600 text-[var(--ap-danger-fg)] hover:bg-[var(--ap-danger-bg)] transition-colors"
+                        >
+                          Remove cover
+                        </button>
+                      )}
                     </div>
                   </>
                 )}
@@ -1700,11 +2373,7 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                   <Check className="h-3.5 w-3.5" /> Mark done
                 </button>
                 <button
-                  onClick={async () => {
-                    if (!confirm('Delete this card?')) return
-                    await fetch(`/api/todos/${todo.id}`, { method: 'DELETE' })
-                    onUpdated?.(); onClose()
-                  }}
+                  onClick={() => setConfirmDelete(true)}
                   className="flex w-full items-center gap-2.5 rounded-[10px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-3 py-2 text-left text-[12px] font-600 text-[var(--ap-danger)] hover:border-[var(--ap-danger)] hover:bg-[var(--ap-danger-bg)] transition-all"
                 >
                   <Trash2 className="h-3.5 w-3.5" /> Delete card
@@ -1712,9 +2381,75 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
               </div>
             </div>
           </div>
+          </>
         ) : null}
+
+        {/* Replaces window.confirm — the project standard for destructive
+            actions, and the only version that states what is lost. */}
+        <ConfirmDialog
+          open={confirmDelete}
+          onClose={() => setConfirmDelete(false)}
+          title="Delete card"
+          message={todo ? `Delete “${todo.title}”?` : 'Delete this card?'}
+          description="This cannot be undone."
+          variant="danger"
+          confirmLabel="Delete card"
+          isLoading={deleting}
+          bullets={[
+            'The card and its checklists, comments and attachments are removed',
+            'Any linked key result keeps its current value',
+          ]}
+          onConfirm={async () => {
+            if (!todo) return
+            setDeleting(true)
+            try {
+              const res = await fetch(`/api/todos/${todo.id}`, { method: 'DELETE' })
+              if (!res.ok) throw new Error('Delete failed')
+              toast.success('Card deleted')
+              announce('Card deleted')
+              setConfirmDelete(false)
+              onUpdated?.()
+              onClose()
+            } catch {
+              toast.error('Could not delete the card')
+            } finally {
+              setDeleting(false)
+            }
+          }}
+        />
       </div>
-    </div>,
-    document.body,
+  )
+
+  if (isDrawer) {
+    return createPortal(
+      <div
+        className="fixed inset-0 z-[80] flex justify-end"
+        style={{ background: 'rgba(0,0,0,0.2)' }}
+        onClick={onClose}
+      >
+        {body}
+      </div>,
+      document.body,
+    )
+  }
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      // Accessible name only — the visible title is the editable hero below.
+      title={todo?.title ?? 'Card'}
+      hideHeader
+      // The card provides its own close button in the header actions row.
+      showCloseButton={false}
+      // Otherwise focus lands in the title textarea and the caret starts editing
+      // the moment the card opens.
+      preventInitialFocus
+      size="2xl"
+      scrollBehavior="internal"
+      className="max-w-[860px] overflow-hidden !p-0 sm:max-w-[860px]"
+    >
+      {body}
+    </Modal>
   )
 }

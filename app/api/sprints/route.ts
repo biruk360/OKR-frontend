@@ -5,6 +5,7 @@ import { canFeature } from '@/lib/rbac'
 import { canCreateSprint, type UserRole } from '@/lib/permissions'
 import { recordActivity } from '@/lib/activity-log'
 import { buildScopeFilter } from '@/lib/apply-scope'
+import { DEFAULT_LANES } from '@/lib/sprints/columns'
 
 /**
  * GET — list sprints visible to the user.
@@ -54,15 +55,9 @@ export const GET = withAuth(async (request: NextRequest, { session }) => {
   return apiSuccess(sprints)
 })
 
-// Five board lanes, one per global TodoStatus. Order is the default lane order
-// shown on the sprint board; users can re-order per sprint via the columns API.
-const DEFAULT_COLUMNS = [
-  { name: 'To Do',       statusKey: 'PENDING',     position: 0, color: null },
-  { name: 'In Progress', statusKey: 'IN_PROGRESS', position: 1, color: '#0A84FF' },
-  { name: 'In Review',   statusKey: 'IN_REVIEW',   position: 2, color: '#AF52DE' },
-  { name: 'Stuck',       statusKey: 'STUCK',       position: 3, color: '#FF9500' },
-  { name: 'Done',        statusKey: 'COMPLETED',   position: 4, color: '#34C759' },
-]
+// The starting lanes for a new sprint. Single-sourced from lib/sprints/columns
+// so the board's self-healing default and this create path cannot drift apart.
+const DEFAULT_COLUMNS = DEFAULT_LANES
 
 const VALID_STATES = new Set(['PLANNING', 'ACTIVE', 'COMPLETED', 'CANCELLED'])
 

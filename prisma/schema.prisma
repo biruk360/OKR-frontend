@@ -114,6 +114,8 @@ model Favorite {
 model UserPreference {
   userId       String   @id
   todoViewMode String   @default("modal") // "modal" | "sidebar"
+  /// Draw textures over label/cover colours so hue is never the only signal.
+  colorBlindMode Boolean @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -482,6 +484,9 @@ model Todo {
   status                String    @default("PENDING") // PENDING, IN_PROGRESS, IN_REVIEW, STUCK, COMPLETED, CANCELLED
   priority              String    @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
   coverColor            String? // hex or named colour for the card cover strip
+  /// BAND (a strip above the title) | FULL (full-bleed behind the card content).
+  /// Null behaves as BAND. Only meaningful when coverColor is set.
+  coverSize             String?
   startDate             DateTime?
   dueDate               DateTime?
   /// Wall-clock start/end time on the planner ("HH:mm"). Optional — todos
@@ -489,6 +494,12 @@ model Todo {
   startTime             String?
   endTime               String?
   completedAt           DateTime?
+  /// Due-date reminder lead time: AT_TIME | M5 | H1 | D1 | D2. Null = no reminder.
+  /// Delivered to card members + watchers by app/api/cron/todo-reminders.
+  dueReminder           String?
+  /// Set when the reminder for the CURRENT dueDate has been sent, so a cron
+  /// re-run cannot double-notify. Cleared whenever dueDate or dueReminder change.
+  dueReminderSentAt     DateTime?
   /// Optional primary assignee (legacy — Trello-style usage relies on TodoMember
   /// instead). Kept nullable for filters/notifications/legacy queries.
   assigneeId            String?
@@ -505,6 +516,10 @@ model Todo {
   /// Sprint v2 (Phase 1) — optional link to a Sprint. Allows todos to participate in
   /// the unified Sprint+Todo board planned for Phase 3. SetNull on sprint delete.
   sprintId              String?
+  /// Board lane this card sits in. Null means "not yet placed" — the board falls
+  /// back to the first lane whose statusKey matches the todo's status, which keeps
+  /// pre-migration rows and any row created outside the board renderable.
+  columnId              String?
   /// Card order within the sprint board lane. Higher = lower in list. Per-lane via (sprintId, status, sprintPosition).
   sprintPosition        Int       @default(0)
   /// Card order within a status column on the global todo kanban. Higher = lower in list.
@@ -538,6 +553,7 @@ model Todo {
   keyResult KeyResult? @relation(fields: [keyResultId], references: [id], onDelete: Cascade)
   objective Objective? @relation("TodoObjective", fields: [objectiveId], references: [id], onDelete: SetNull)
   sprint    Sprint?    @relation(fields: [sprintId], references: [id], onDelete: SetNull)
+  column    SprintColumn? @relation(fields: [columnId], references: [id], onDelete: SetNull)
 
   initiativeUpdates InitiativeUpdate[]
   members           TodoMember[]
@@ -551,6 +567,8 @@ model Todo {
   @@index([assigneeId, status])
   @@index([creatorId, status])
   @@index([sprintId])
+  @@index([columnId, sprintPosition])
+  @@index([dueReminder, dueReminderSentAt])
   @@index([taskType])
   @@index([sprintId, status])
   @@index([sprintId, status, sprintPosition])
@@ -594,6 +612,12 @@ model TodoLabelDef {
   id        String   @id @default(cuid())
   name      String
   color     String   @default("#6366F1") // indigo default
+  /// Colour-blind-safe texture drawn over `color` when the viewer has
+  /// colour-blind mode on: SOLID | DIAGONAL | DOTS | VERTICAL | HORIZONTAL |
+  /// ZIGZAG | CROSS | WAVE | GRID | DASH. Null falls back to a pattern derived
+  /// deterministically from the colour's index in the shared palette, so
+  /// existing labels get a distinct texture without a data migration.
+  pattern   String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1110,18 +1134,32 @@ model SprintColumn {
   sprintId  String
   name      String
   /// Global TodoStatus this lane represents (PENDING, IN_PROGRESS, IN_REVIEW, STUCK, COMPLETED).
-  /// Each sprint has exactly one row per board status; lane order on the board is driven by `position`.
+  /// Lane order on the board is driven by `position`.
+  ///
+  /// SEVERAL LANES MAY SHARE A statusKey — e.g. "QA" and "Review" both mapping to
+  /// IN_REVIEW, or "Done" and "Shipped" both mapping to COMPLETED. The old
+  /// @@unique([sprintId, statusKey]) constraint that forbade this was dropped;
+  /// see scripts/preflight.sql. Completion maths keys off Todo.status, never off
+  /// the lane, so multiple COMPLETED lanes still roll up correctly.
+  ///
+  /// Nullable at the DB level only so `prisma db push` cannot fail on legacy rows
+  /// created before statusKey existed; the API requires it on every write and the
+  /// preflight backfills any remaining nulls to PENDING.
   statusKey String?
   position  Int      @default(0)
   color     String? // optional accent color for the column header
+  /// Soft delete. Archiving keeps the row so cards that still reference it are
+  /// never orphaned; the board only renders lanes where this is null.
+  archivedAt DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   sprint Sprint @relation(fields: [sprintId], references: [id], onDelete: Cascade)
+  todos  Todo[]
 
   @@unique([sprintId, name])
-  @@unique([sprintId, statusKey])
   @@index([sprintId, position])
+  @@index([sprintId, archivedAt])
   @@map("sprint_columns")
 }
 

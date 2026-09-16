@@ -1,12 +1,21 @@
 # System Cron Entries (VPS)
 
-Add these to the deploy user's crontab on the VPS. Last reviewed: 2026-04-27.
+Add these to the deploy user's crontab on the VPS. Last reviewed: 2026-09-16.
 
 ## Sprint state transitions (hourly)
 0 * * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://YOUR_HOST/api/cron/sprint-tick > /var/log/sprint-tick.log 2>&1
 
 ## Sprint deadline notifications (daily 09:00 local)
 0 9 * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://YOUR_HOST/api/cron/sprint-deadlines > /var/log/sprint-deadlines.log 2>&1
+
+## Card due-date reminders (every 5 minutes)
+*/5 * * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://YOUR_HOST/api/cron/todo-reminders > /var/log/todo-reminders.log 2>&1
+
+> Runs every 5 minutes because the shortest lead time the card UI offers is
+> "5 minutes before". Idempotent: each card is stamped with `dueReminderSentAt`
+> once its reminder is emitted, and reminders whose moment passed more than
+> 6 hours ago are dropped rather than delivered late in a batch — so a cron
+> outage does not produce a flood when it comes back.
 
 ## Notification digest (daily 18:00) — already configured if applicable
 

@@ -995,6 +995,20 @@
 
   --ap-kr-bar-bg: rgba(60, 60, 67, 0.12);
 
+  /* Card palette — labels and covers share these ten swatches.
+     See lib/card-visuals.ts (CARD_PALETTE) which mirrors them for
+     non-CSS contexts and derives colour-blind textures from the order. */
+  --ap-card-green: #61BD4F;
+  --ap-card-yellow: #F2D600;
+  --ap-card-orange: #FF9F1A;
+  --ap-card-red: #EB5A46;
+  --ap-card-purple: #C377E0;
+  --ap-card-blue: #0079BF;
+  --ap-card-sky: #00C2E0;
+  --ap-card-lime: #51E898;
+  --ap-card-pink: #FF78CB;
+  --ap-card-slate: #344563;
+
   /* ──────────────────────────────────────────────────────────────────
      Map shadcn/Tailwind tokens → Apple Pro palette so every existing
      component (using bg-card, text-muted-foreground, border-border,
@@ -1523,4 +1537,55 @@
 .letter-amharic {
   font-family: 'Noto Sans Ethiopic', 'Noto Serif Ethiopic', 'Abyssinica SIL',
     'Nyala', 'Ethiopia Jiret', system-ui, sans-serif;
+}
+
+/* ---------------------------------------------------------------------------
+   Reduced motion
+   ---------------------------------------------------------------------------
+   docs/apple_pro_ux_guide.md §9 requires honouring prefers-reduced-motion —
+   "kill dot pulse, springs → 0" — but nothing in the app implemented it. This
+   is the single global honouring of that setting.
+
+   Durations are collapsed to 0.01ms rather than set to `none` so that
+   animation/transition *end* events still fire; several components (and Radix
+   exit animations) rely on those events to unmount, and `animation: none`
+   would strand them on screen.
+
+   Spec: docs/trello_parity_sprint_board_REQUIREMENTS.md A11Y-6.
+--------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  :root,
+  .apple-pro-surface,
+  .theme-apple-full {
+    --ap-duration-fast: 0.01ms;
+    --ap-duration-base: 0.01ms;
+    --ap-duration-slow: 0.01ms;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+  }
+
+  html {
+    scroll-behavior: auto !important;
+  }
+
+  /* Decorative loops carry no information — stop them outright. */
+  .ap-status-dot[data-pulse='true'],
+  .animate-pulse-slow,
+  .animate-shimmer {
+    animation: none !important;
+  }
+
+  /* Skeletons lose their shimmer above; keep them visibly distinct from
+     real content with a static tint. */
+  .animate-shimmer {
+    background-color: var(--ap-bg-sunken);
+  }
 }

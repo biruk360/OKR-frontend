@@ -28,7 +28,7 @@ export function SkeletonAvatar({ size = 28, className }: { size?: number; classN
 export function SkeletonRow() {
   return (
     <div
-      className="flex items-center gap-4 rounded-[14px] border bg-[var(--ap-bg-raised)] px-4 py-3"
+      className="flex items-center gap-4 rounded-[var(--ap-radius-md)] border bg-[var(--ap-bg-raised)] px-4 py-3"
       style={{ borderColor: 'var(--ap-border)' }}
     >
       <Skeleton className="h-2 w-2 rounded-full" />
@@ -45,7 +45,7 @@ export function SkeletonRow() {
 export function SkeletonCard({ className }: { className?: string }) {
   return (
     <div
-      className={cn('rounded-[16px] border bg-[var(--ap-bg-raised)] p-5', className)}
+      className={cn('rounded-[var(--ap-radius-card)] border bg-[var(--ap-bg-raised)] p-5', className)}
       style={{ borderColor: 'var(--ap-border)' }}
     >
       <div className="space-y-3">
@@ -64,7 +64,7 @@ export function SkeletonCard({ className }: { className?: string }) {
 export function SkeletonChart({ height = 240 }: { height?: number }) {
   return (
     <div
-      className="rounded-[16px] border bg-[var(--ap-bg-raised)] p-5"
+      className="rounded-[var(--ap-radius-card)] border bg-[var(--ap-bg-raised)] p-5"
       style={{ borderColor: 'var(--ap-border)' }}
     >
       <Skeleton className="mb-4 h-4 w-40" />

@@ -215,7 +215,7 @@
 | Concern | Path |
 |---|---|
 | Tokens (CSS) | `app/globals.css` |
-| Tokens (TS) | `lib/design/apple-pro-tokens.ts` |
+| Tokens (email HEX snapshot) | `lib/email/templates/components.ts` (`TOKENS`) |
 | Theme store | `lib/stores/theme-store.ts` |
 | Theme switcher | `components/layout/ThemeSwitcher.tsx` |
 | Sidebar / Topbar | `components/layout/{Sidebar,Header}.tsx` |

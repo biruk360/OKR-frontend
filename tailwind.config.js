@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
+  darkMode: 'class',
   content: [
     './pages/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
@@ -26,12 +27,18 @@ module.exports = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        // Without these, `font-sans` / `font-mono` ignore the --ap-* tokens and
+        // the mono face lands on ~2 CSS selectors instead of the whole app.
+        sans: ['var(--ap-font-sans)'],
+        mono: ['var(--ap-font-mono)'],
+      },
       borderRadius: {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
-        card: '0.75rem',
-        'card-lg': '1rem',
+        card: 'var(--ap-radius-card)',      /* 12px */
+        'card-lg': 'var(--ap-radius-lg)',   /* 14px */
         pill: '999px',
       },
       colors: {

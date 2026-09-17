@@ -140,7 +140,7 @@ export default function MyTeamView() {
             <div
               key={user.id}
               className={cn(
-                'ap-hover-lift rounded-[14px] border p-4 transition-shadow',
+                'ap-hover-lift rounded-[var(--ap-radius-md)] border p-4 transition-shadow',
               )}
               style={{
                 background: 'var(--ap-bg, #fff)',
@@ -190,7 +190,7 @@ export default function MyTeamView() {
               </div>
 
               <div
-                className="grid grid-cols-3 gap-2 rounded-[10px] p-2.5 mb-3"
+                className="grid grid-cols-3 gap-2 rounded-[var(--ap-radius-sm)] p-2.5 mb-3"
                 style={{ background: 'rgba(120,120,128,0.04)' }}
               >
                 <div>

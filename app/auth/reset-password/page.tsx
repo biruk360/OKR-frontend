@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Eye, EyeOff, Lock, ArrowLeft, KeyRound } from 'lucide-react'
 
 const inputCls =
-  'w-full rounded-[10px] border-0 pl-9 pr-3 py-2 text-[13px] outline-none focus:ring-2 focus:ring-[color:var(--ap-accent)]'
+  'w-full rounded-[var(--ap-radius-sm)] border-0 pl-9 pr-3 py-2 text-[13px] outline-none focus:ring-2 focus:ring-[color:var(--ap-accent)]'
 const inputStyle = { background: 'rgba(120,120,128,0.06)' } as const
 
 function ResetPasswordForm() {
@@ -50,7 +50,7 @@ function ResetPasswordForm() {
 
   if (!token) {
     return (
-      <div className="rounded-[10px] px-4 py-3 text-[12px]"
+      <div className="rounded-[var(--ap-radius-sm)] px-4 py-3 text-[12px]"
         style={{ background: 'var(--ap-danger-bg)', color: 'var(--ap-danger-fg)' }}>
         This page requires a reset token.{' '}
         <Link href="/auth/forgot-password" className="font-semibold underline">Request a new link.</Link>
@@ -60,7 +60,7 @@ function ResetPasswordForm() {
 
   if (done) {
     return (
-      <div className="rounded-[10px] px-4 py-3 text-[12px]"
+      <div className="rounded-[var(--ap-radius-sm)] px-4 py-3 text-[12px]"
         style={{ background: 'var(--ap-ok-bg)', color: 'var(--ap-ok-fg)' }}>
         Password updated. Redirecting to sign in…
       </div>
@@ -70,7 +70,7 @@ function ResetPasswordForm() {
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
       {error && (
-        <div className="rounded-[10px] px-3 py-2 text-[12px] font-medium"
+        <div className="rounded-[var(--ap-radius-sm)] px-3 py-2 text-[12px] font-medium"
           style={{ background: 'var(--ap-danger-bg)', color: 'var(--ap-danger-fg)' }}>
           {error}
         </div>
@@ -98,7 +98,7 @@ function ResetPasswordForm() {
         </div>
       </div>
       <button type="submit" disabled={loading}
-        className="w-full rounded-[10px] py-2.5 text-[13px] font-semibold text-white transition disabled:opacity-60"
+        className="w-full rounded-[var(--ap-radius-sm)] py-2.5 text-[13px] font-semibold text-white transition disabled:opacity-60"
         style={{ background: 'var(--ap-accent)' }}>
         {loading ? 'Updating…' : 'Reset password'}
       </button>
@@ -109,10 +109,10 @@ function ResetPasswordForm() {
 export default function ResetPasswordPage() {
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-12" style={{ background: 'var(--ap-bg)' }}>
-      <div className="w-full max-w-[420px] rounded-[14px] border bg-card p-8 shadow-lg"
+      <div className="w-full max-w-[420px] rounded-[var(--ap-radius-md)] border bg-card p-8 shadow-lg"
         style={{ borderColor: 'var(--ap-border)' }}>
         <div className="flex flex-col items-center">
-          <div className="flex size-11 items-center justify-center rounded-[10px]"
+          <div className="flex size-11 items-center justify-center rounded-[var(--ap-radius-sm)]"
             style={{ background: 'var(--ap-accent-soft)' }}>
             <KeyRound className="size-5" style={{ color: 'var(--ap-accent)' }} strokeWidth={2} />
           </div>

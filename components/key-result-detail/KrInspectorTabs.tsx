@@ -69,7 +69,7 @@ export default function KrInspectorTabs({ keyResultId, activityElementId, detail
   const userRole = (session?.user?.role as string | undefined) ?? 'EMPLOYEE'
   useViewTracker({ keyResultId })
   return (
-    <section className="rounded-[14px] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
+    <section className="rounded-[var(--ap-radius-md)] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
       <Tabs defaultValue="details">
         <TabsList
           className="h-9 w-full justify-start gap-0 p-0 rounded-none border-b bg-transparent"
@@ -141,7 +141,7 @@ export default function KrInspectorTabs({ keyResultId, activityElementId, detail
               <Field icon={<Target className="size-3" />} label="Parent objective">
                 <Link
                   href={`/dashboard/objectives/${details.parentObjective.id}`}
-                  className="block rounded-[10px] border px-2.5 py-1.5 text-[12px] hover:bg-[var(--ap-bg-hover)]"
+                  className="block rounded-[var(--ap-radius-sm)] border px-2.5 py-1.5 text-[12px] hover:bg-[var(--ap-bg-hover)]"
                   style={{
                     borderColor: 'var(--ap-border)',
                     background: 'var(--ap-accent-soft)',

@@ -254,7 +254,7 @@ export default function PlansGantt() {
 
   return (
     <div
-      className="rounded-[14px] border overflow-hidden"
+      className="rounded-[var(--ap-radius-md)] border overflow-hidden"
       style={{
         background: 'var(--ap-bg, #fff)',
         borderColor: 'var(--ap-border, hsl(var(--border)))',
@@ -274,7 +274,7 @@ export default function PlansGantt() {
           <LegendDot color="#8e8e93" label="Closed" />
         </div>
         <div
-          className="inline-flex h-8 items-center gap-0.5 rounded-[10px] p-0.5"
+          className="inline-flex h-8 items-center gap-0.5 rounded-[var(--ap-radius-sm)] p-0.5"
           style={{ background: 'rgba(120,120,128,0.08)' }}
         >
           {(['week', 'month', 'quarter', 'year'] as ZoomLevel[]).map((z) => {

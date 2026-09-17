@@ -118,7 +118,7 @@ export default function MyOKRsPage() {
     <div className="space-y-4">
       {/* Hero */}
       <div
-        className="rounded-[14px] border bg-card px-5 pt-5 pb-4 flex items-start justify-between gap-4"
+        className="rounded-[var(--ap-radius-md)] border bg-card px-5 pt-5 pb-4 flex items-start justify-between gap-4"
         style={{ borderColor: 'var(--ap-border)' }}
       >
         <div className="min-w-0">
@@ -142,12 +142,12 @@ export default function MyOKRsPage() {
 
       {/* Filter strip */}
       <div
-        className="rounded-[14px] border bg-card px-3 py-2.5 flex flex-wrap items-center gap-2"
+        className="rounded-[var(--ap-radius-md)] border bg-card px-3 py-2.5 flex flex-wrap items-center gap-2"
         style={{ borderColor: 'var(--ap-border)' }}
       >
         {/* Level segmented */}
         <div
-          className="inline-flex items-center rounded-[10px] p-0.5"
+          className="inline-flex items-center rounded-[var(--ap-radius-sm)] p-0.5"
           style={{ background: 'var(--ap-bg-sunken)' }}
         >
           {levels.map((lv) => (
@@ -175,7 +175,7 @@ export default function MyOKRsPage() {
             placeholder="Search…"
             value={filters.search}
             onChange={(e) => setFilters((p) => ({ ...p, search: e.target.value }))}
-            className="input pl-8 h-8 text-sm rounded-[10px]"
+            className="input pl-8 h-8 text-sm rounded-[var(--ap-radius-sm)]"
           />
         </div>
 
@@ -183,7 +183,7 @@ export default function MyOKRsPage() {
         <select
           value={filters.timeframe}
           onChange={(e) => setFilters((p) => ({ ...p, timeframe: e.target.value }))}
-          className="input h-8 text-sm w-auto pr-7 rounded-[10px]"
+          className="input h-8 text-sm w-auto pr-7 rounded-[var(--ap-radius-sm)]"
         >
           <option value="">All timeframes</option>
           {timeframes.map((tf) => (

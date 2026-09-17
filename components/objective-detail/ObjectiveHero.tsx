@@ -137,7 +137,7 @@ function OwnerAvatar({ owner, summary }: { owner: Props['objective']['owner']; s
         )}
       </Link>
       {showCard && summary && (
-        <div className="absolute left-9 top-0 z-50 w-56 rounded-[14px] border bg-card p-3 shadow-lg"
+        <div className="absolute left-9 top-0 z-50 w-56 rounded-[var(--ap-radius-md)] border bg-card p-3 shadow-lg"
           style={{ borderColor: 'var(--ap-border)' }}>
           <div className="flex items-center gap-2.5 mb-2">
             {owner.avatar ? (
@@ -152,7 +152,7 @@ function OwnerAvatar({ owner, summary }: { owner: Props['objective']['owner']; s
               <p className="text-[11px] text-muted-foreground">Objective Owner</p>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-2 rounded-[10px] p-2" style={{ background: 'var(--ap-bg-sunken)' }}>
+          <div className="grid grid-cols-3 gap-2 rounded-[var(--ap-radius-sm)] p-2" style={{ background: 'var(--ap-bg-sunken)' }}>
             <div className="text-center">
               <p className="text-[13px] font-semibold tabular-nums">{summary.objectiveCount}</p>
               <p className="text-[10px] text-muted-foreground">OKRs</p>
@@ -193,7 +193,7 @@ export default function ObjectiveHero({
   const deadlineLabel = cycleEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 
   return (
-    <div className="rounded-[14px] border bg-card" style={{ borderColor: 'var(--ap-border)' }}>
+    <div className="rounded-[var(--ap-radius-md)] border bg-card" style={{ borderColor: 'var(--ap-border)' }}>
       {/* Top: chip row */}
       <div className="px-5 pt-5 pb-3">
         <div className="flex flex-wrap items-center gap-1.5 mb-3 text-[11px]">
@@ -282,7 +282,7 @@ export default function ObjectiveHero({
           )}
           <div className="ml-auto flex items-center gap-2">
             {onCheckIn && (
-              <Button size="sm" onClick={onCheckIn} className="rounded-[10px] h-8 px-3 text-[12px]">
+              <Button size="sm" onClick={onCheckIn} className="rounded-[var(--ap-radius-sm)] h-8 px-3 text-[12px]">
                 Check in
               </Button>
             )}

@@ -151,7 +151,7 @@ export default function CheckInPickerModal() {
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="ap-modal-enter flex w-[480px] max-w-[92vw] flex-col overflow-hidden rounded-[14px]"
+        className="ap-modal-enter flex w-[480px] max-w-[92vw] flex-col overflow-hidden rounded-[var(--ap-radius-md)]"
         style={{
           background: 'var(--ap-bg-raised)',
           color: 'var(--ap-fg)',
@@ -210,12 +210,12 @@ export default function CheckInPickerModal() {
                       onMouseEnter={() => setActiveIdx(localIdx)}
                       onClick={() => selectKr(r.id)}
                       className={cn(
-                        'flex w-full items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-left text-[13px] outline-none',
+                        'flex w-full items-center gap-2.5 rounded-[var(--ap-radius-sm)] px-2.5 py-2 text-left text-[13px] outline-none',
                         isActive && 'bg-[var(--ap-bg-hover)]',
                       )}
                     >
                       <span
-                        className="inline-flex h-5 shrink-0 items-center justify-center rounded-[10px] px-1.5 font-mono text-[10px] font-semibold"
+                        className="inline-flex h-5 shrink-0 items-center justify-center rounded-[var(--ap-radius-sm)] px-1.5 font-mono text-[10px] font-semibold"
                         style={{
                           background: 'var(--ap-bg-sunken)',
                           color: 'var(--ap-fg-subtle)',

@@ -226,7 +226,7 @@ function AddTaskInline({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex w-full items-center gap-1.5 rounded-[10px] border-2 border-dashed px-3 py-2 text-[12px] text-muted-foreground hover:bg-muted/40"
+        className="flex w-full items-center gap-1.5 rounded-[var(--ap-radius-sm)] border-2 border-dashed px-3 py-2 text-[12px] text-muted-foreground hover:bg-muted/40"
         style={{ borderColor: 'var(--ap-border)' }}
       >
         <Plus className="h-3.5 w-3.5" /> Add task
@@ -235,7 +235,7 @@ function AddTaskInline({
   }
 
   return (
-    <form ref={formRef} onSubmit={submit} className="rounded-[10px] border bg-card p-2" style={{ borderColor: 'var(--ap-border)' }}>
+    <form ref={formRef} onSubmit={submit} className="rounded-[var(--ap-radius-sm)] border bg-card p-2" style={{ borderColor: 'var(--ap-border)' }}>
       <input
         autoFocus
         value={title}
@@ -605,7 +605,7 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
                 <button
                   type="button"
                   onClick={() => setScheduleMode('edit')}
-                  className="rounded-[10px] border px-3 py-1 text-[12px] font-semibold hover:bg-muted"
+                  className="rounded-[var(--ap-radius-sm)] border px-3 py-1 text-[12px] font-semibold hover:bg-muted"
                   style={{ borderColor: 'var(--ap-border)' }}
                 >
                   {sprint.startDate && sprint.endDate ? 'Edit dates' : 'Schedule'}
@@ -617,7 +617,7 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
                   type="button"
                   onClick={handleStartSprintClick}
                   disabled={starting}
-                  className="rounded-[10px] bg-primary px-3 py-1 text-[12px] font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                  className="rounded-[var(--ap-radius-sm)] bg-primary px-3 py-1 text-[12px] font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
                 >
                   {starting ? 'Starting…' : 'Start sprint'}
                 </button>
@@ -627,7 +627,7 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
               <button
                 type="button"
                 onClick={() => setShowEnd(true)}
-                className="rounded-[10px] px-3 py-1 text-[12px] font-semibold transition-colors"
+                className="rounded-[var(--ap-radius-sm)] px-3 py-1 text-[12px] font-semibold transition-colors"
                 style={{
                   border: '0.5px solid var(--ap-accent)',
                   color: 'var(--ap-accent)',
@@ -642,7 +642,7 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
             {isClosed && (
               <Link
                 href={`/dashboard/sprints/${sprintId}/report`}
-                className="rounded-[10px] px-3 py-1 text-[12px] font-semibold"
+                className="rounded-[var(--ap-radius-sm)] px-3 py-1 text-[12px] font-semibold"
                 style={{ background: 'var(--ap-accent)', color: '#fff' }}
               >
                 View sprint report
@@ -659,7 +659,7 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
               type="button"
               aria-label="More board actions"
               title="More board actions"
-              className="rounded-[10px] border p-1 hover:bg-muted"
+              className="rounded-[var(--ap-radius-sm)] border p-1 hover:bg-muted"
               style={{ borderColor: 'var(--ap-border)' }}
             >
               <MoreHorizontal className="h-4 w-4" />
@@ -670,7 +670,7 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
         {/* Read-only banner (FR-04 / UX-05) */}
         {isClosed && (
           <div
-            className="mt-3 flex items-center gap-2 rounded-[10px] px-3 py-2 text-[12px]"
+            className="mt-3 flex items-center gap-2 rounded-[var(--ap-radius-sm)] px-3 py-2 text-[12px]"
             style={{
               background: 'var(--ap-bg-sunken)',
               border: '0.5px solid var(--ap-border)',
@@ -724,7 +724,7 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
 
         {/* Action row */}
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1 rounded-[10px] border p-0.5 text-[11px]" style={{ borderColor: 'var(--ap-border)' }}>
+          <div className="flex items-center gap-1 rounded-[var(--ap-radius-sm)] border p-0.5 text-[11px]" style={{ borderColor: 'var(--ap-border)' }}>
             <Filter className="ml-1 h-3 w-3 text-muted-foreground" />
             <select
               value={filterAssignee ?? ''}
@@ -736,7 +736,7 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
               {participants.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </div>
-          <div className="flex items-center gap-1 rounded-[10px] border p-0.5 text-[11px]" style={{ borderColor: 'var(--ap-border)' }}>
+          <div className="flex items-center gap-1 rounded-[var(--ap-radius-sm)] border p-0.5 text-[11px]" style={{ borderColor: 'var(--ap-border)' }}>
             {(['all', 'linked', 'unlinked'] as const).map((f) => (
               <button
                 key={f}
@@ -778,7 +778,7 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
       ) : null}
 
       {/* Mobile column tab switcher (hidden on lg+) */}
-      <div className="flex gap-1 overflow-x-auto rounded-[10px] border p-1 lg:hidden" style={{ borderColor: 'var(--ap-border)', background: 'var(--ap-bg-sunken)' }}>
+      <div className="flex gap-1 overflow-x-auto rounded-[var(--ap-radius-sm)] border p-1 lg:hidden" style={{ borderColor: 'var(--ap-border)', background: 'var(--ap-bg-sunken)' }}>
         {filteredColumns.map((col) => {
           const active = activeMobileCol === col.id
           return (
@@ -985,7 +985,7 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
       ) : (
         <div
           className={cn(
-            'rounded-[14px] border p-8 text-center backdrop-blur-md',
+            'rounded-[var(--ap-radius-md)] border p-8 text-center backdrop-blur-md',
             dark ? 'bg-white/10 text-white' : 'bg-white/85',
           )}
           style={{ borderColor: 'var(--ap-border)' }}

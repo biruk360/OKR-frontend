@@ -66,7 +66,7 @@ export default function SprintPlannerView({ columns, onTodoClick, onDragStartCar
     <div className="grid grid-cols-1 gap-3 lg:grid-cols-[340px_1fr]">
       {/* Left — calendar pane */}
       <div
-        className="flex flex-col rounded-[14px] border bg-white/85 backdrop-blur-md"
+        className="flex flex-col rounded-[var(--ap-radius-md)] border bg-white/85 backdrop-blur-md"
         style={{ borderColor: 'var(--ap-border)', minHeight: 520 }}
       >
         {/* Header */}
@@ -120,7 +120,7 @@ export default function SprintPlannerView({ columns, onTodoClick, onDragStartCar
         {columns.map((col) => (
           <div
             key={col.id}
-            className="flex w-[260px] shrink-0 flex-col rounded-[14px] border bg-white/85 p-2 backdrop-blur-md"
+            className="flex w-[260px] shrink-0 flex-col rounded-[var(--ap-radius-md)] border bg-white/85 p-2 backdrop-blur-md"
             style={{ borderColor: 'var(--ap-border)' }}
           >
             <div className="mb-2 flex items-center justify-between px-1">

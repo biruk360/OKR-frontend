@@ -18,7 +18,7 @@ export default function LettersTable({ items, loading }: { items: LetterListItem
   if (!loading && items.length === 0) {
     return (
       <div
-        className="rounded-[14px] border bg-card shadow-card"
+        className="rounded-[var(--ap-radius-md)] border bg-card shadow-card"
         style={{ borderColor: 'var(--ap-border)' }}
       >
         <EmptyState
@@ -32,7 +32,7 @@ export default function LettersTable({ items, loading }: { items: LetterListItem
 
   return (
     <div
-      className="overflow-hidden rounded-[14px] border bg-card shadow-card"
+      className="overflow-hidden rounded-[var(--ap-radius-md)] border bg-card shadow-card"
       style={{ borderColor: 'var(--ap-border)' }}
     >
       <table className="min-w-full divide-y divide-[color:var(--ap-border)] text-[13px]">

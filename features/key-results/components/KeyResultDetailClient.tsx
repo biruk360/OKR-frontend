@@ -281,7 +281,7 @@ export default function KeyResultDetailClient({
                       aria-label="Close menu"
                       onClick={() => setMenuOpen(false)}
                     />
-                    <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-[10px] border bg-card py-1 text-[13px] shadow-[var(--ap-shadow-lg)]" style={{ borderColor: 'var(--ap-border)' }}>
+                    <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-[var(--ap-radius-sm)] border bg-card py-1 text-[13px] shadow-[var(--ap-shadow-lg)]" style={{ borderColor: 'var(--ap-border)' }}>
                       <Link
                         href={`/dashboard/objectives/${objective.id}`}
                         className="block px-3 py-1.5 text-muted-foreground hover:bg-[var(--ap-bg-hover)]"
@@ -326,7 +326,7 @@ export default function KeyResultDetailClient({
           )}
 
           {/* Apple Pro KR Hero */}
-          <section className="rounded-[14px] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
+          <section className="rounded-[var(--ap-radius-md)] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
             <div className="px-5 pt-5 pb-4">
               {/* Chip row */}
               <div className="flex flex-wrap items-center gap-1.5 mb-3 text-[11px]">
@@ -524,7 +524,7 @@ export default function KeyResultDetailClient({
 
           {/* Quick check-in bar */}
           {showCheckIn && (
-            <div className="rounded-[14px] border bg-card flex items-center gap-3 px-4 py-2.5"
+            <div className="rounded-[var(--ap-radius-md)] border bg-card flex items-center gap-3 px-4 py-2.5"
               style={{ borderColor: 'var(--ap-border)' }}>
               <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Quick check-in</span>
               <span className="text-[12px] text-muted-foreground tabular-nums">
@@ -533,7 +533,7 @@ export default function KeyResultDetailClient({
               <button
                 type="button"
                 onClick={() => setCheckInOpen(true)}
-                className="ml-auto rounded-[10px] bg-[var(--ap-accent)] px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-[var(--ap-accent-hover)]"
+                className="ml-auto rounded-[var(--ap-radius-sm)] bg-[var(--ap-accent)] px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-[var(--ap-accent-hover)]"
               >
                 Post check-in
               </button>
@@ -541,7 +541,7 @@ export default function KeyResultDetailClient({
           )}
 
           {/* Check-in history */}
-          <section className="rounded-[14px] border bg-card p-5" style={{ borderColor: 'var(--ap-border)' }} id={TIMELINE_ELEMENT_ID}>
+          <section className="rounded-[var(--ap-radius-md)] border bg-card p-5" style={{ borderColor: 'var(--ap-border)' }} id={TIMELINE_ELEMENT_ID}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Check-in history</h2>
               <span className="text-[11px] text-muted-foreground tabular-nums">{isRedacted ? '—' : `${checkIns.length} total`}</span>
@@ -584,7 +584,7 @@ export default function KeyResultDetailClient({
           </section>
 
           {/* Initiatives under this KR */}
-          <section className="rounded-[14px] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
+          <section className="rounded-[var(--ap-radius-md)] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
             <div className="px-5 py-3 border-b flex flex-wrap items-center justify-between gap-2" style={{ borderColor: 'var(--ap-border)' }}>
               <h2 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                 Initiatives <span className="ml-1 tabular-nums">({todoCount})</span>

@@ -177,7 +177,7 @@ export default function WorkItemsKanban({
   }
 
   return (
-    <section className="rounded-[14px] border bg-card p-4" style={{ borderColor: 'var(--ap-border)' }}>
+    <section className="rounded-[var(--ap-radius-md)] border bg-card p-4" style={{ borderColor: 'var(--ap-border)' }}>
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{title}</h3>
         <span className="text-[11px] text-muted-foreground">Drag initiatives to change status</span>
@@ -192,7 +192,7 @@ export default function WorkItemsKanban({
               onDragOver={(e) => onDragOver(e, col.key)}
               onDragLeave={() => hoverColumn === col.key && setHoverColumn(null)}
               onDrop={(e) => onDrop(e, col.key)}
-              className={`rounded-[14px] border ${col.tint} p-3 min-h-[160px] transition-shadow ${
+              className={`rounded-[var(--ap-radius-md)] border ${col.tint} p-3 min-h-[160px] transition-shadow ${
                 isHover ? `ring-2 ${col.ring} ring-offset-1` : ''
               }`}
               style={{ borderColor: 'var(--ap-border)' }}
@@ -225,7 +225,7 @@ export default function WorkItemsKanban({
                         draggable={it.kind === 'INITIATIVE'}
                         onDragStart={(e) => onDragStart(e, it)}
                         onDragEnd={onDragEnd}
-                        className={`group rounded-[10px] bg-card border p-2.5 text-[13px] transition-all ${
+                        className={`group rounded-[var(--ap-radius-sm)] bg-card border p-2.5 text-[13px] transition-all ${
                           it.kind === 'INITIATIVE' ? 'cursor-grab active:cursor-grabbing hover:shadow-sm' : ''
                         } ${isDragging ? 'opacity-40' : ''} ${isSaving ? 'opacity-60' : ''}`}
                         style={{ borderColor: 'var(--ap-border)' }}

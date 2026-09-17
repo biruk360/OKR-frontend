@@ -27,7 +27,7 @@ export default function PerKrProgressCard({ keyResults }: Props) {
     ? Math.round(active.reduce((s, k) => s + k.progress, 0) / active.length) : 0
 
   return (
-    <section className="rounded-[14px] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
+    <section className="rounded-[var(--ap-radius-md)] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
       <header className="px-4 py-3 border-b" style={{ borderColor: 'var(--ap-border)' }}>
         <h3 className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
           Per-KR Progress

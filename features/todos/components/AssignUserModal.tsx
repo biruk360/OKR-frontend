@@ -120,7 +120,7 @@ export default function AssignUserModal({ isOpen, onClose, todo, users, onAssign
                       // eslint-disable-next-line @next/next/no-img-element
                       <img className="h-8 w-8 rounded-full" src={user.avatar} alt={user.name} />
                     ) : (
-                      <div className="h-8 w-8 rounded-full bg-muted0 flex items-center justify-center">
+                      <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
                         <User className="h-4 w-4 text-white" />
                       </div>
                     )}

@@ -92,7 +92,7 @@ export default function CreateLetterModal({ open, onClose, onCreated }: Props) {
         </Field>
 
         {error && (
-          <div className="rounded-[10px] bg-red-50 px-3 py-2 text-[12px] text-red-700 dark:bg-red-900/20 dark:text-red-300">
+          <div className="rounded-[var(--ap-radius-sm)] bg-red-50 px-3 py-2 text-[12px] text-red-700 dark:bg-red-900/20 dark:text-red-300">
             {error}
           </div>
         )}

@@ -77,7 +77,7 @@ function SectionHeader({ children, right }: { children: React.ReactNode; right?:
 function APCard({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
     <section
-      className={cn('rounded-[14px] border bg-card overflow-hidden', className)}
+      className={cn('rounded-[var(--ap-radius-md)] border bg-card overflow-hidden', className)}
       style={{ borderColor: 'var(--ap-border)' }}
     >
       {children}
@@ -119,12 +119,12 @@ function DashboardHero({ name, banner }: { name: string; banner: CheckInBannerDa
         </div>
         <div className="flex items-center gap-2">
           <Link href="/dashboard/my-okrs">
-            <Button variant="outline" size="sm" className="rounded-[10px] h-8 px-3 text-[12px]">
+            <Button variant="outline" size="sm" className="rounded-[var(--ap-radius-sm)] h-8 px-3 text-[12px]">
               My OKRs
             </Button>
           </Link>
           <Link href="/dashboard/key-results">
-            <Button size="sm" className="rounded-[10px] h-8 px-3 text-[12px]">
+            <Button size="sm" className="rounded-[var(--ap-radius-sm)] h-8 px-3 text-[12px]">
               Check in
             </Button>
           </Link>
@@ -312,7 +312,7 @@ function MyOkrsCard({ objectives }: { objectives: OkrTreeObjective[] }) {
       </SectionHeader>
       {rows.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12">
-          <div className="flex size-10 items-center justify-center rounded-[10px]" style={{ background: 'var(--ap-bg-sunken)' }}>
+          <div className="flex size-10 items-center justify-center rounded-[var(--ap-radius-sm)]" style={{ background: 'var(--ap-bg-sunken)' }}>
             <Target className="size-5 text-muted-foreground" />
           </div>
           <p className="mt-2 text-[13px] font-medium">No active key results</p>
@@ -405,7 +405,7 @@ function ActivityCard({ items }: { items: ActivityFeedItem[] }) {
       </SectionHeader>
       {items.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12">
-          <div className="flex size-10 items-center justify-center rounded-[10px]" style={{ background: 'var(--ap-bg-sunken)' }}>
+          <div className="flex size-10 items-center justify-center rounded-[var(--ap-radius-sm)]" style={{ background: 'var(--ap-bg-sunken)' }}>
             <Activity className="size-5 text-muted-foreground" />
           </div>
           <p className="mt-2 text-[13px] font-medium">Nothing new yet</p>

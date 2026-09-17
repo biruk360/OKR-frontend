@@ -56,7 +56,7 @@ export default function SprintSwitcher({ open, onClose, currentSprintId }: Props
               key={s.id}
               href={`/dashboard/sprints/${s.id}`}
               onClick={onClose}
-              className="flex items-center gap-3 rounded-[10px] border bg-card p-3 transition hover:bg-muted"
+              className="flex items-center gap-3 rounded-[var(--ap-radius-sm)] border bg-card p-3 transition hover:bg-muted"
               style={{ borderColor: 'var(--ap-border)' }}
               aria-current={isCurrent}
             >

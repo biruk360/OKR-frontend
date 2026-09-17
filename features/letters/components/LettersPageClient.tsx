@@ -109,7 +109,7 @@ function LettersPageInner(_props: Props) {
 
       {/* Status tabs — apple-style segmented control look */}
       <div
-        className="rounded-[14px] border bg-card p-1.5 shadow-card"
+        className="rounded-[var(--ap-radius-md)] border bg-card p-1.5 shadow-card"
         style={{ borderColor: 'var(--ap-border)' }}
       >
         <div className="flex flex-wrap items-center gap-1">
@@ -120,7 +120,7 @@ function LettersPageInner(_props: Props) {
                 key={k}
                 onClick={() => setTab(k as any)}
                 className={cn(
-                  'rounded-[10px] px-3 py-1.5 text-[13px] font-medium transition-colors',
+                  'rounded-[var(--ap-radius-sm)] px-3 py-1.5 text-[13px] font-medium transition-colors',
                   active
                     ? 'bg-foreground text-background shadow-sm'
                     : 'text-muted-foreground hover:bg-[color:var(--ap-bg-sunken)] hover:text-foreground'
@@ -135,7 +135,7 @@ function LettersPageInner(_props: Props) {
 
       {/* Search + type filter row */}
       <div
-        className="flex flex-wrap items-center gap-3 rounded-[14px] border bg-card px-3 py-2 shadow-card"
+        className="flex flex-wrap items-center gap-3 rounded-[var(--ap-radius-md)] border bg-card px-3 py-2 shadow-card"
         style={{ borderColor: 'var(--ap-border)' }}
       >
         <div className="relative min-w-[260px] flex-1">
@@ -185,7 +185,7 @@ function LettersPageInner(_props: Props) {
       {/* Pagination */}
       {!loading && total > 0 && (
         <div
-          className="flex items-center justify-between rounded-[14px] border bg-card px-4 py-2.5 shadow-card"
+          className="flex items-center justify-between rounded-[var(--ap-radius-md)] border bg-card px-4 py-2.5 shadow-card"
           style={{ borderColor: 'var(--ap-border)' }}
         >
           <span className="text-[12px] text-muted-foreground">
@@ -250,7 +250,7 @@ function LettersPageInner(_props: Props) {
 function LangSwitch({ lang, onChange }: { lang: LetterLang; onChange: (l: LetterLang) => void }) {
   return (
     <div
-      className="inline-flex h-10 overflow-hidden rounded-[10px] border bg-card text-[12px] shadow-sm"
+      className="inline-flex h-10 overflow-hidden rounded-[var(--ap-radius-sm)] border bg-card text-[12px] shadow-sm"
       style={{ borderColor: 'var(--ap-border)' }}
     >
       {(['en', 'am'] as LetterLang[]).map((l) => (

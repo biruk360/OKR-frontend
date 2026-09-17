@@ -58,7 +58,7 @@ export default function AddToSprintDropdown({
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between gap-2 rounded-[10px] border bg-card px-3 py-1.5 text-left text-[12px] hover:bg-muted/40"
+        className="flex w-full items-center justify-between gap-2 rounded-[var(--ap-radius-sm)] border bg-card px-3 py-1.5 text-left text-[12px] hover:bg-muted/40"
         style={{ borderColor: 'var(--ap-border)' }}
       >
         <span className={cn('truncate', !selected && 'text-muted-foreground')}>

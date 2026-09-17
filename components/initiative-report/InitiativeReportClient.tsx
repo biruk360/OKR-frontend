@@ -128,7 +128,7 @@ export default function InitiativeReportClient() {
               type="date"
               value={from}
               onChange={(e) => setFrom(e.target.value)}
-              className="h-7 rounded-[10px] border bg-background px-2 text-[12px] outline-none"
+              className="h-7 rounded-[var(--ap-radius-sm)] border bg-background px-2 text-[12px] outline-none"
               style={{ borderColor: 'var(--ap-border)' }}
             />
             <span className="text-[12px] text-muted-foreground">→</span>
@@ -136,13 +136,13 @@ export default function InitiativeReportClient() {
               type="date"
               value={to}
               onChange={(e) => setTo(e.target.value)}
-              className="h-7 rounded-[10px] border bg-background px-2 text-[12px] outline-none"
+              className="h-7 rounded-[var(--ap-radius-sm)] border bg-background px-2 text-[12px] outline-none"
               style={{ borderColor: 'var(--ap-border)' }}
             />
             <button
               type="button"
               onClick={() => typeof window !== 'undefined' && window.print()}
-              className="inline-flex items-center gap-1 h-7 rounded-[10px] border bg-card px-2.5 text-[12px] text-muted-foreground hover:text-foreground"
+              className="inline-flex items-center gap-1 h-7 rounded-[var(--ap-radius-sm)] border bg-card px-2.5 text-[12px] text-muted-foreground hover:text-foreground"
               style={{ borderColor: 'var(--ap-border)' }}
             >
               <Printer className="h-3.5 w-3.5" /> Print
@@ -167,7 +167,7 @@ export default function InitiativeReportClient() {
               placeholder="Filter by initiative, owner or objective"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="h-8 w-full rounded-[10px] border bg-background pl-7 pr-2 text-[13px] outline-none"
+              className="h-8 w-full rounded-[var(--ap-radius-sm)] border bg-background pl-7 pr-2 text-[13px] outline-none"
               style={{ borderColor: 'var(--ap-border)' }}
             />
           </div>
@@ -175,7 +175,7 @@ export default function InitiativeReportClient() {
 
         {loading ? (
           <div
-            className="rounded-[14px] border bg-card p-8 text-center text-[13px] text-muted-foreground"
+            className="rounded-[var(--ap-radius-md)] border bg-card p-8 text-center text-[13px] text-muted-foreground"
             style={{ borderColor: 'var(--ap-border)' }}
           >
             Loading report…
@@ -187,7 +187,7 @@ export default function InitiativeReportClient() {
           />
         ) : (
           <div
-            className="rounded-[14px] border bg-card overflow-x-auto"
+            className="rounded-[var(--ap-radius-md)] border bg-card overflow-x-auto"
             style={{ borderColor: 'var(--ap-border)' }}
           >
             <table className="min-w-max w-full text-[13px]">
@@ -291,7 +291,7 @@ export default function InitiativeReportClient() {
                           >
                             {isEditing ? (
                               <div
-                                className="absolute z-20 mt-1 w-60 p-2 rounded-[14px] border bg-card"
+                                className="absolute z-20 mt-1 w-60 p-2 rounded-[var(--ap-radius-md)] border bg-card"
                                 style={{ borderColor: 'var(--ap-border)', boxShadow: '0 4px 12px rgba(0,0,0,0.12)' }}
                               >
                                 <textarea
@@ -299,7 +299,7 @@ export default function InitiativeReportClient() {
                                   value={editContent}
                                   onChange={(e) => setEditContent(e.target.value)}
                                   rows={3}
-                                  className="w-full min-h-[64px] rounded-[10px] border bg-background p-2 text-[12px] outline-none"
+                                  className="w-full min-h-[64px] rounded-[var(--ap-radius-sm)] border bg-background p-2 text-[12px] outline-none"
                                   style={{ borderColor: 'var(--ap-border)' }}
                                   placeholder="What did you do today?"
                                 />
@@ -346,7 +346,7 @@ export default function InitiativeReportClient() {
 function KpiCard({ label, value, tint }: { label: string; value: string | number; tint: string }) {
   return (
     <div
-      className="rounded-[14px] border bg-card p-4"
+      className="rounded-[var(--ap-radius-md)] border bg-card p-4"
       style={{ borderColor: 'var(--ap-border)' }}
     >
       <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>

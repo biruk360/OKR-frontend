@@ -116,7 +116,7 @@ export default function KrProgressConfidenceCard({
     pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${x(p.x).toFixed(1)} ${y(p.y).toFixed(1)}`).join(' ')
 
   return (
-    <section className="rounded-[14px] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
+    <section className="rounded-[var(--ap-radius-md)] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
       <header className="flex items-baseline justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--ap-border)' }}>
         <h3 className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
           Progress &amp; Confidence

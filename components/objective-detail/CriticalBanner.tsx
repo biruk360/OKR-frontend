@@ -29,7 +29,7 @@ export default function CriticalBanner({
 
   return (
     <div
-      className="flex items-center justify-between gap-4 rounded-[14px] border px-4 py-3"
+      className="flex items-center justify-between gap-4 rounded-[var(--ap-radius-md)] border px-4 py-3"
       style={{
         background: 'rgba(255, 149, 0, 0.10)',
         borderColor: 'rgba(255, 149, 0, 0.28)',
@@ -56,7 +56,7 @@ export default function CriticalBanner({
         <Button
           variant="outline"
           size="sm"
-          className="shrink-0 rounded-[10px]"
+          className="shrink-0 rounded-[var(--ap-radius-sm)]"
           style={{ borderColor: 'rgba(255, 149, 0, 0.4)', color: 'var(--ap-warn-fg)' }}
           onClick={onRecoverClick}
         >

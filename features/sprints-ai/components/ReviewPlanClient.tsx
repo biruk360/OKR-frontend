@@ -194,7 +194,7 @@ export function ReviewPlanClient({ planId }: Props) {
             <button
               onClick={() => discard.mutate()}
               disabled={discard.isPending}
-              className="inline-flex items-center gap-1 rounded-[10px] border h-8 px-3 text-[12px] font-medium text-rose-600"
+              className="inline-flex items-center gap-1 rounded-[var(--ap-radius-sm)] border h-8 px-3 text-[12px] font-medium text-rose-600"
               style={{ borderColor: 'var(--ap-border)' }}
             >
               <Trash2 className="h-3.5 w-3.5" /> Discard
@@ -202,7 +202,7 @@ export function ReviewPlanClient({ planId }: Props) {
             <button
               onClick={() => accept.mutate()}
               disabled={accept.isPending || selectedTodoIds.size === 0}
-              className="inline-flex items-center gap-1 rounded-[10px] h-8 px-3 text-[12px] font-semibold text-white disabled:opacity-50"
+              className="inline-flex items-center gap-1 rounded-[var(--ap-radius-sm)] h-8 px-3 text-[12px] font-semibold text-white disabled:opacity-50"
               style={{ background: 'linear-gradient(135deg, #10b981, #059669)' }}
             >
               {accept.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
@@ -286,7 +286,7 @@ export function ReviewPlanClient({ planId }: Props) {
           </h2>
           <div className="space-y-2">
             {plan.carryover.map((c) => (
-              <div key={c.id} className="rounded-[10px] border p-3 flex items-center justify-between gap-3 text-[13px]"
+              <div key={c.id} className="rounded-[var(--ap-radius-sm)] border p-3 flex items-center justify-between gap-3 text-[13px]"
                    style={{ borderColor: 'var(--ap-border)' }}>
                 <div className="min-w-0">
                   <div className="font-medium truncate">{c.title}</div>
@@ -319,7 +319,7 @@ export function ReviewPlanClient({ planId }: Props) {
             return (
               <label
                 key={t.id}
-                className="block rounded-[10px] border p-3 cursor-pointer transition"
+                className="block rounded-[var(--ap-radius-sm)] border p-3 cursor-pointer transition"
                 style={{
                   borderColor: checked ? 'rgb(16 185 129)' : 'var(--ap-border)',
                   background: checked ? 'rgba(16 185 129 / 0.04)' : 'transparent',
@@ -393,14 +393,14 @@ export function ReviewPlanClient({ planId }: Props) {
           value={feedback}
           onChange={(e) => setFeedback(e.target.value)}
           placeholder="e.g. Fewer marketing tasks, focus on product KRs, or less ambitious."
-          className="w-full rounded-[10px] border p-2 text-[13px] min-h-[60px]"
+          className="w-full rounded-[var(--ap-radius-sm)] border p-2 text-[13px] min-h-[60px]"
           style={{ borderColor: 'var(--ap-border)' }}
         />
         <div className="mt-2 flex justify-end">
           <button
             onClick={() => regenerate.mutate()}
             disabled={regenerate.isPending || feedback.trim().length === 0}
-            className="inline-flex items-center gap-1 rounded-[10px] border h-8 px-3 text-[12px] font-medium disabled:opacity-50"
+            className="inline-flex items-center gap-1 rounded-[var(--ap-radius-sm)] border h-8 px-3 text-[12px] font-medium disabled:opacity-50"
             style={{ borderColor: 'var(--ap-border)' }}
           >
             {regenerate.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}

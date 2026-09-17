@@ -74,7 +74,7 @@ function PopoverContent({
         sideOffset={sideOffset}
         collisionPadding={12}
         className={cn(
-          "z-50 w-[300px] overflow-hidden rounded-[14px] bg-popover p-0 text-popover-foreground",
+          "z-50 w-[300px] overflow-hidden rounded-[var(--ap-radius-md)] bg-popover p-0 text-popover-foreground",
           "shadow-[var(--ap-shadow-lg)] ring-1 ring-foreground/10",
           "data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95",
           "data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95",

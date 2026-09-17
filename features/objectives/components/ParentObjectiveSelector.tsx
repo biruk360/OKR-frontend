@@ -205,7 +205,7 @@ export default function ParentObjectiveSelector({
             <div className="flex min-h-screen items-center justify-center p-4">
               <button
                 type="button"
-                className="fixed inset-0 bg-muted0 bg-opacity-75 cursor-default"
+                className="fixed inset-0 cursor-default" style={{ background: 'var(--ap-overlay)' }}
                 aria-label="Close picker"
                 onClick={() => setIsOpen(false)}
               />

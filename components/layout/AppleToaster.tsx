@@ -1,48 +1,35 @@
 'use client'
 
 import { Toaster } from 'react-hot-toast'
-import { useEffect, useState } from 'react'
-import { useThemeStore } from '@/lib/stores/theme-store'
 
-function isDarkMode(): boolean {
-  if (typeof document === 'undefined') return false
-  return document.documentElement.classList.contains('dark') ||
-    document.body.classList.contains('dark')
-}
-
+/**
+ * Toasts render inside the app document, so they read the `--ap-*` custom
+ * properties from `app/globals.css` directly — no hardcoded palette, no
+ * JS dark-mode detection. The dark theme is applied by a `dark` class on
+ * <html>, which `:root.dark` in globals.css keys off, so every var() below
+ * flips automatically with the theme and stays correct after a retarget.
+ *
+ * react-hot-toast writes `style` and `iconTheme` straight into CSS, so var()
+ * references resolve the same way they would in a stylesheet.
+ */
 export default function AppleToaster() {
-  const theme = useThemeStore((s) => s.theme)
-  const [dark, setDark] = useState(false)
-
-  useEffect(() => {
-    setDark(isDarkMode())
-    const observer = new MutationObserver(() => setDark(isDarkMode()))
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
-    observer.observe(document.body, { attributes: true, attributeFilter: ['class'] })
-    return () => observer.disconnect()
-  }, [theme])
-
-  const bg = dark ? '#1C1C1E' : '#FFFFFF'
-  const fg = dark ? '#FFFFFF' : '#000000'
-  const border = dark ? 'rgba(255,255,255,0.10)' : 'rgba(60,60,67,0.10)'
-
   return (
     <Toaster
       position="top-right"
       toastOptions={{
         duration: 4000,
         style: {
-          background: bg,
-          color: fg,
-          border: `0.5px solid ${border}`,
-          borderRadius: '12px',
+          background: 'var(--ap-bg-raised)',
+          color: 'var(--ap-fg)',
+          border: '1px solid var(--ap-border)',
+          borderRadius: 'var(--ap-radius-card)',
           padding: '12px 16px',
           fontSize: '13px',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.06), 0 0.5px 0 rgba(0,0,0,0.05)',
+          boxShadow: 'var(--ap-shadow-md)',
         },
-        success: { iconTheme: { primary: '#34C759', secondary: bg } },
-        error: { iconTheme: { primary: '#FF3B30', secondary: bg } },
-        loading: { iconTheme: { primary: '#007AFF', secondary: bg } },
+        success: { iconTheme: { primary: 'var(--ap-ok)', secondary: 'var(--ap-bg-raised)' } },
+        error: { iconTheme: { primary: 'var(--ap-danger)', secondary: 'var(--ap-bg-raised)' } },
+        loading: { iconTheme: { primary: 'var(--ap-accent)', secondary: 'var(--ap-bg-raised)' } },
       }}
     />
   )

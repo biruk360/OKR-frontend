@@ -194,7 +194,7 @@ function RiskCard({
 
   return (
     <li
-      className="group rounded-[10px] border p-3 hover:bg-[var(--ap-bg-hover)] transition-colors"
+      className="group rounded-[var(--ap-radius-sm)] border p-3 hover:bg-[var(--ap-bg-hover)] transition-colors"
       style={{ borderColor: 'var(--ap-border)' }}
     >
       <div className="flex items-center gap-2 mb-1.5">

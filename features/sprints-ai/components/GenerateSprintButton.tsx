@@ -28,8 +28,8 @@ export function GenerateSprintButton({ sprintId, subjectUserId, variant = 'prima
         onClick={() => setOpen(true)}
         className={
           variant === 'primary'
-            ? `inline-flex items-center gap-1.5 rounded-[10px] h-8 px-3 text-[12px] font-semibold text-white ${className ?? ''}`
-            : `inline-flex items-center gap-1.5 rounded-[10px] h-8 px-3 text-[12px] font-semibold ${className ?? ''}`
+            ? `inline-flex items-center gap-1.5 rounded-[var(--ap-radius-sm)] h-8 px-3 text-[12px] font-semibold text-white ${className ?? ''}`
+            : `inline-flex items-center gap-1.5 rounded-[var(--ap-radius-sm)] h-8 px-3 text-[12px] font-semibold ${className ?? ''}`
         }
         style={
           variant === 'primary'

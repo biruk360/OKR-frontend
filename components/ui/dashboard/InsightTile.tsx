@@ -18,7 +18,7 @@ interface Props {
  */
 export function InsightTile({ icon: Icon, label, value, detail, tint, trailing }: Props) {
   return (
-    <div className="rounded-[14px] border bg-card p-4" style={{ borderColor: 'var(--ap-border)' }}>
+    <div className="rounded-[var(--ap-radius-md)] border bg-card p-4" style={{ borderColor: 'var(--ap-border)' }}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
@@ -30,7 +30,7 @@ export function InsightTile({ icon: Icon, label, value, detail, tint, trailing }
           </p>
         </div>
         <span
-          className="inline-flex h-9 w-9 items-center justify-center rounded-[10px]"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-[var(--ap-radius-sm)]"
           style={{ background: 'var(--ap-bg-sunken)', color: tint }}
         >
           <Icon className="h-[18px] w-[18px]" />

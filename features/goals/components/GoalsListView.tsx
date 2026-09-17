@@ -120,7 +120,7 @@ export default function GoalsListView({ tab, viewMode }: GoalsListViewProps) {
         </p>
         <button
           onClick={() => setIsCreateModalOpen(true)}
-          className="ap-btn ap-btn-primary ap-focus-ring inline-flex shrink-0 items-center justify-center h-8 px-3 text-[12px] font-semibold rounded-[10px] text-white"
+          className="ap-btn ap-btn-primary ap-focus-ring inline-flex shrink-0 items-center justify-center h-8 px-3 text-[12px] font-semibold rounded-[var(--ap-radius-sm)] text-white"
           style={{ background: 'var(--ap-accent, #007aff)' }}
         >
           <Plus className="h-3.5 w-3.5 mr-1.5" />

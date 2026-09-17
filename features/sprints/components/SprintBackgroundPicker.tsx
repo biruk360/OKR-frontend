@@ -61,7 +61,7 @@ export default function SprintBackgroundPicker({ sprintId, current, onChanged }:
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex items-center gap-1.5 rounded-[10px] border bg-card px-3 py-1 text-[12px] font-semibold hover:bg-muted"
+        className="inline-flex items-center gap-1.5 rounded-[var(--ap-radius-sm)] border bg-card px-3 py-1 text-[12px] font-semibold hover:bg-muted"
         style={{ borderColor: 'var(--ap-border)' }}
       >
         <ImageIcon className="h-3.5 w-3.5" />

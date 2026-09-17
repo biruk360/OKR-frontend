@@ -42,7 +42,7 @@ function APSeg<T extends string>({
 }) {
   return (
     <div
-      className="inline-flex items-center rounded-[10px] p-0.5 border"
+      className="inline-flex items-center rounded-[var(--ap-radius-sm)] p-0.5 border"
       style={{ background: 'var(--ap-bg-sunken)', borderColor: 'var(--ap-border)' }}
     >
       {options.map((opt) => {
@@ -157,13 +157,13 @@ export default function PlansList({
             />
             <Link
               href="/dashboard/objectives?create=1"
-              className="inline-flex h-7 items-center rounded-[10px] px-3 text-[12px] font-semibold text-white"
+              className="inline-flex h-7 items-center rounded-[var(--ap-radius-sm)] px-3 text-[12px] font-semibold text-white"
               style={{ background: 'var(--ap-accent)' }}
             >
               Create a plan
             </Link>
             <button
-              className="inline-flex items-center justify-center size-7 rounded-[10px] border text-muted-foreground hover:text-foreground"
+              className="inline-flex items-center justify-center size-7 rounded-[var(--ap-radius-sm)] border text-muted-foreground hover:text-foreground"
               style={{ borderColor: 'var(--ap-border)' }}
               aria-label="More"
             >
@@ -182,7 +182,7 @@ export default function PlansList({
 
         {/* Sub-tabs + filter strip */}
         <div
-          className="rounded-[14px] border bg-card overflow-hidden"
+          className="rounded-[var(--ap-radius-md)] border bg-card overflow-hidden"
           style={{ borderColor: 'var(--ap-border)' }}
         >
           <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b" style={{ borderColor: 'var(--ap-border)' }}>
@@ -197,7 +197,7 @@ export default function PlansList({
             <div className="relative ml-1">
               <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
               <input
-                className="h-7 w-[220px] rounded-[10px] border bg-background pl-7 pr-2 text-[12px] outline-none"
+                className="h-7 w-[220px] rounded-[var(--ap-radius-sm)] border bg-background pl-7 pr-2 text-[12px] outline-none"
                 style={{ borderColor: 'var(--ap-border)' }}
                 placeholder="Filter by name"
                 value={nameFilter}
@@ -205,7 +205,7 @@ export default function PlansList({
               />
             </div>
             <select
-              className="h-7 rounded-[10px] border bg-background px-2 text-[12px] outline-none"
+              className="h-7 rounded-[var(--ap-radius-sm)] border bg-background px-2 text-[12px] outline-none"
               style={{ borderColor: 'var(--ap-border)' }}
               value={teamFilter}
               onChange={(e) => setTeamFilter(e.target.value)}
@@ -216,7 +216,7 @@ export default function PlansList({
               ))}
             </select>
             <select
-              className="h-7 rounded-[10px] border bg-background px-2 text-[12px] outline-none"
+              className="h-7 rounded-[var(--ap-radius-sm)] border bg-background px-2 text-[12px] outline-none"
               style={{ borderColor: 'var(--ap-border)' }}
               value={insightFilter}
               onChange={(e) => setInsightFilter(e.target.value)}
@@ -301,7 +301,7 @@ export default function PlansList({
 function KpiCard({ label, value, tint }: { label: string; value: number; tint: string }) {
   return (
     <div
-      className="rounded-[14px] border bg-card p-4"
+      className="rounded-[var(--ap-radius-md)] border bg-card p-4"
       style={{ borderColor: 'var(--ap-border)' }}
     >
       <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>

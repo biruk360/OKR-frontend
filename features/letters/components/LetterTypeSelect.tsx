@@ -63,7 +63,7 @@ export default function LetterTypeSelect({ value, onChange, disabled, label, all
           disabled={disabled}
           onClick={() => setOpen((o) => !o)}
           className={cn(
-            'flex h-10 w-full items-center justify-between gap-2 rounded-[14px] border bg-card px-3 text-left text-[13px] transition-colors',
+            'flex h-10 w-full items-center justify-between gap-2 rounded-[var(--ap-radius-md)] border bg-card px-3 text-left text-[13px] transition-colors',
             'hover:border-[color:var(--ap-fg-muted)] focus:outline-none focus:ring-2 focus:ring-[color:var(--ap-accent)] focus:ring-offset-1',
             disabled && 'cursor-not-allowed opacity-60',
             !selected && 'text-muted-foreground'
@@ -87,7 +87,7 @@ export default function LetterTypeSelect({ value, onChange, disabled, label, all
 
         {open && !disabled && (
           <div
-            className="absolute z-30 mt-1 w-full overflow-hidden rounded-[14px] border bg-card shadow-md"
+            className="absolute z-30 mt-1 w-full overflow-hidden rounded-[var(--ap-radius-md)] border bg-card shadow-md"
             style={{ borderColor: 'var(--ap-border)' }}
             onMouseLeave={() => setOpen(false)}
           >

@@ -217,7 +217,7 @@ export default function EndSprintModal({ open, onClose, sprintId, onClosed }: Pr
           <button
             type="button"
             onClick={load}
-            className="mt-3 rounded-[10px] px-3 py-1.5 text-[13px] font-medium"
+            className="mt-3 rounded-[var(--ap-radius-sm)] px-3 py-1.5 text-[13px] font-medium"
             style={{ background: 'rgba(120,120,128,0.12)', color: 'var(--ap-accent)' }}
           >
             Try again
@@ -229,7 +229,7 @@ export default function EndSprintModal({ open, onClose, sprintId, onClosed }: Pr
         <div className="space-y-4 text-[13px]">
           {/* Summary card (UX-02) */}
           <div
-            className="rounded-[14px] p-4"
+            className="rounded-[var(--ap-radius-md)] p-4"
             style={{ background: 'var(--ap-bg-sunken)', border: '0.5px solid var(--ap-border)' }}
           >
             <div className="flex items-baseline justify-between gap-3">
@@ -297,7 +297,7 @@ export default function EndSprintModal({ open, onClose, sprintId, onClosed }: Pr
                   {preflight.incompleteTodos.map(t => (
                     <div
                       key={t.id}
-                      className="flex items-center gap-2 rounded-[10px] px-2 py-1.5 transition-colors"
+                      className="flex items-center gap-2 rounded-[var(--ap-radius-sm)] px-2 py-1.5 transition-colors"
                       style={{ border: '0.5px solid transparent' }}
                       onMouseEnter={e => (e.currentTarget.style.background = 'var(--ap-bg-hover)')}
                       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
@@ -354,7 +354,7 @@ export default function EndSprintModal({ open, onClose, sprintId, onClosed }: Pr
                     {preflight.destinations.map(d => (
                       <label
                         key={d.id}
-                        className="flex cursor-pointer items-center gap-2.5 rounded-[10px] px-3 py-2 transition-colors"
+                        className="flex cursor-pointer items-center gap-2.5 rounded-[var(--ap-radius-sm)] px-3 py-2 transition-colors"
                         style={{
                           border: `0.5px solid ${destination === d.id ? 'var(--ap-accent)' : 'var(--ap-border)'}`,
                           background: destination === d.id ? 'var(--ap-accent-soft)' : 'transparent',
@@ -368,7 +368,7 @@ export default function EndSprintModal({ open, onClose, sprintId, onClosed }: Pr
                       </label>
                     ))}
                     <label
-                      className="block cursor-pointer rounded-[10px] px-3 py-2 transition-colors"
+                      className="block cursor-pointer rounded-[var(--ap-radius-sm)] px-3 py-2 transition-colors"
                       style={{
                         border: `0.5px solid ${destination === 'new' ? 'var(--ap-accent)' : 'var(--ap-border)'}`,
                         background: destination === 'new' ? 'var(--ap-accent-soft)' : 'transparent',
@@ -384,7 +384,7 @@ export default function EndSprintModal({ open, onClose, sprintId, onClosed }: Pr
                             value={newName}
                             onChange={e => setNewName(e.target.value)}
                             placeholder="Sprint name"
-                            className="w-full rounded-[10px] px-2.5 py-1.5 text-[13px]"
+                            className="w-full rounded-[var(--ap-radius-sm)] px-2.5 py-1.5 text-[13px]"
                             style={{
                               background: 'rgba(120,120,128,0.10)',
                               border: '0.5px solid var(--ap-border)',
@@ -417,7 +417,7 @@ export default function EndSprintModal({ open, onClose, sprintId, onClosed }: Pr
               onChange={e => setReflection(e.target.value)}
               rows={3}
               placeholder="What went well? What didn't? — shown on the sprint report"
-              className="w-full resize-none rounded-[10px] px-2.5 py-2 text-[13px]"
+              className="w-full resize-none rounded-[var(--ap-radius-sm)] px-2.5 py-2 text-[13px]"
               style={{
                 background: 'rgba(120,120,128,0.10)',
                 border: '0.5px solid var(--ap-border)',
@@ -429,7 +429,7 @@ export default function EndSprintModal({ open, onClose, sprintId, onClosed }: Pr
 
           {summary.next > 0 && (preflight.incompleteTodos.some(t => t.carryoverCount >= 2 && actions[t.id] === 'next')) && (
             <div
-              className="flex items-start gap-2 rounded-[10px] px-3 py-2 text-[12px]"
+              className="flex items-start gap-2 rounded-[var(--ap-radius-sm)] px-3 py-2 text-[12px]"
               style={{ background: 'var(--ap-warn-bg)', color: 'var(--ap-warn-fg)' }}
             >
               <AlertTriangle size={14} className="mt-0.5 shrink-0" />

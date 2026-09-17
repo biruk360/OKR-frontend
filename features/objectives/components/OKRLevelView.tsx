@@ -95,7 +95,7 @@ export default async function OKRLevelView({
     <div className="space-y-4">
       {/* Hero */}
       <div
-        className="rounded-[14px] border bg-card overflow-hidden"
+        className="rounded-[var(--ap-radius-md)] border bg-card overflow-hidden"
         style={{ borderColor: 'var(--ap-border)' }}
       >
         <div className="px-5 pt-5 pb-4 flex items-start justify-between gap-4">

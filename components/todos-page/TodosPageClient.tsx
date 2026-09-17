@@ -110,7 +110,7 @@ export default function TodosPageClient({
 
   // Hydrate stores from server-provided initial data + user prefs
   useEffect(() => {
-    setTodos(initialRows as any)
+    setTodos(initialRows)
     loadPrefs()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -208,7 +208,7 @@ export default function TodosPageClient({
   }
 
   function onCreated(newRow: TodoRow) {
-    addTodo(newRow as any)
+    addTodo(newRow)
     setShowCreate(false)
   }
 
@@ -248,7 +248,7 @@ export default function TodosPageClient({
         </div>
 
         {/* Filter bar */}
-        <div className="rounded-[10px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] mb-4 px-3 py-2 flex flex-wrap items-center gap-2">
+        <div className="rounded-[var(--ap-radius-sm)] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] mb-4 px-3 py-2 flex flex-wrap items-center gap-2">
           <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--ap-fg-muted)]" />
             <input
@@ -310,7 +310,7 @@ export default function TodosPageClient({
 
         {/* Views */}
         {viewType === 'list' && (
-          <div className="rounded-[10px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] overflow-hidden">
+          <div className="rounded-[var(--ap-radius-sm)] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] overflow-hidden">
             <table className="w-full border-collapse text-[13px]">
               <thead>
                 <tr className="border-b border-[var(--ap-border)] bg-[rgba(120,120,128,0.04)]">
@@ -651,7 +651,7 @@ function CreateTodoModal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="ap-modal-enter relative w-full max-w-[560px] rounded-[14px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)]"
+        className="ap-modal-enter relative w-full max-w-[560px] rounded-[var(--ap-radius-md)] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)]"
         style={{ boxShadow: '0 20px 60px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.05)' }}
       >
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-[var(--ap-border)]">

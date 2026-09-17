@@ -36,7 +36,7 @@ export default function GoalsTabBar({
     >
       <div className="flex flex-col gap-2 px-3 py-2 sm:px-4 lg:flex-row lg:items-center lg:justify-between">
         <div
-          className="inline-flex h-8 items-center gap-0.5 rounded-[10px] p-0.5"
+          className="inline-flex h-8 items-center gap-0.5 rounded-[var(--ap-radius-sm)] p-0.5"
           style={{ background: 'rgba(120,120,128,0.08)' }}
         >
           {tabs.map((tab) => {
@@ -63,7 +63,7 @@ export default function GoalsTabBar({
         </div>
 
         <div
-          className="inline-flex h-8 items-center gap-0.5 rounded-[10px] p-0.5 shrink-0"
+          className="inline-flex h-8 items-center gap-0.5 rounded-[var(--ap-radius-sm)] p-0.5 shrink-0"
           style={{ background: 'rgba(120,120,128,0.08)' }}
         >
           {showUserView && (

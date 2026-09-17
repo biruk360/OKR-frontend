@@ -51,7 +51,7 @@ export default function NotificationsClient({ notifications }: { notifications: 
 
   return (
     <div className="space-y-3">
-      <section className="rounded-[14px] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
+      <section className="rounded-[var(--ap-radius-md)] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
         <div className="flex flex-col gap-3 px-5 py-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Inbox</p>
@@ -65,7 +65,7 @@ export default function NotificationsClient({ notifications }: { notifications: 
           {unreadCount > 0 && (
             <button
               type="button"
-              className="rounded-[10px] border px-3 py-1.5 text-[12px] font-medium hover:bg-[color:var(--ap-bg-hover)]"
+              className="rounded-[var(--ap-radius-sm)] border px-3 py-1.5 text-[12px] font-medium hover:bg-[color:var(--ap-bg-hover)]"
               style={{ borderColor: 'var(--ap-border)' }}
             >
               Mark all as read
@@ -134,7 +134,7 @@ export default function NotificationsClient({ notifications }: { notifications: 
               </>
             )
             const className = cn(
-              'flex items-start gap-3 rounded-[14px] border bg-card px-4 py-3 transition hover:bg-[color:var(--ap-bg-hover)]',
+              'flex items-start gap-3 rounded-[var(--ap-radius-md)] border bg-card px-4 py-3 transition hover:bg-[color:var(--ap-bg-hover)]',
               !n.isRead && 'shadow-sm',
               n.deepLink && 'cursor-pointer'
             )

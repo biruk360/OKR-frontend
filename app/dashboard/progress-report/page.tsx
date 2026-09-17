@@ -114,7 +114,7 @@ export default async function ProgressReportPage() {
 
   return (
     <div className="space-y-3">
-      <section className="rounded-[14px] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
+      <section className="rounded-[var(--ap-radius-md)] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
         <div className="flex flex-col gap-3 px-5 py-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Reports</p>
@@ -136,7 +136,7 @@ export default async function ProgressReportPage() {
           onTrack={krOnTrack} atRisk={krAtRisk} offTrack={krOffTrack} />
       </section>
 
-      <section className="rounded-[14px] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
+      <section className="rounded-[var(--ap-radius-md)] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
         <div className="flex items-center justify-between border-b px-4 py-3" style={{ borderColor: 'var(--ap-border)' }}>
           <h2 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Statuses over time</h2>
         </div>
@@ -167,7 +167,7 @@ function SummaryCard({
   title, total, completed, completionPct, onTrack, atRisk, offTrack,
 }: { title: string; total: number; completed: number; completionPct: number; onTrack: number; atRisk: number; offTrack: number }) {
   return (
-    <div className="rounded-[14px] border bg-card px-5 py-5" style={{ borderColor: 'var(--ap-border)' }}>
+    <div className="rounded-[var(--ap-radius-md)] border bg-card px-5 py-5" style={{ borderColor: 'var(--ap-border)' }}>
       <div className="flex items-baseline justify-between">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
         <span className="text-[11px] tabular-nums text-muted-foreground">{Math.round(completionPct)}% complete</span>
@@ -190,7 +190,7 @@ function SummaryCard({
 
 function Chip({ label, value, bg, fg }: { label: string; value: number; bg: string; fg: string }) {
   return (
-    <div className="rounded-[10px] px-2 py-2 text-center" style={{ background: bg, color: fg }}>
+    <div className="rounded-[var(--ap-radius-sm)] px-2 py-2 text-center" style={{ background: bg, color: fg }}>
       <div className="text-[16px] font-semibold tabular-nums">{value}</div>
       <div className="text-[10px] uppercase tracking-wide opacity-90">{label}</div>
     </div>
@@ -204,7 +204,7 @@ function StatusList({
   rows: Array<{ id: string; kind: 'OBJ' | 'KR'; title: string; owner: string; href: string; progress: number; status: 'off-track' | 'at-risk' }>
 }) {
   return (
-    <div className="rounded-[14px] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
+    <div className="rounded-[var(--ap-radius-md)] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
       <div className="border-b px-4 py-3" style={{ borderColor: 'var(--ap-border)' }}>
         <h2 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{title}</h2>
         <p className="mt-0.5 text-[12px] text-muted-foreground">{subtitle}</p>

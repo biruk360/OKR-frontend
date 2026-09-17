@@ -252,7 +252,7 @@ export function ScoringWorkspace({ evaluationId }: { evaluationId: string }) {
   if (query.isLoading) {
     return (
       <div className="space-y-4">
-        <Skeleton className="h-20 rounded-[14px]" />
+        <Skeleton className="h-20 rounded-[var(--ap-radius-md)]" />
         <SkeletonCard />
         <SkeletonCard />
       </div>
@@ -272,7 +272,7 @@ export function ScoringWorkspace({ evaluationId }: { evaluationId: string }) {
     return (
       <div className="space-y-4">
         <div
-          className="flex flex-wrap items-center justify-between gap-3 rounded-[14px] border bg-card px-4 py-4"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--ap-radius-md)] border bg-card px-4 py-4"
           style={{ borderColor: 'var(--ap-border)' }}
         >
           <div>
@@ -345,7 +345,7 @@ export function ScoringWorkspace({ evaluationId }: { evaluationId: string }) {
   return (
     <div className="space-y-4">
       <div
-        className="flex flex-wrap items-center justify-between gap-3 rounded-[14px] border bg-card px-4 py-4"
+        className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--ap-radius-md)] border bg-card px-4 py-4"
         style={{ borderColor: 'var(--ap-border)' }}
       >
         <div>

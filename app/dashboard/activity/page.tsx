@@ -78,7 +78,7 @@ export default async function ActivityFeedPage() {
 
   return (
     <div className="space-y-3">
-      <section className="rounded-[14px] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
+      <section className="rounded-[var(--ap-radius-md)] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
         <div className="px-5 py-5">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Audit trail</p>
           <h1 className="mt-1 text-[24px] font-semibold leading-tight" style={{ letterSpacing: '-0.02em' }}>
@@ -90,7 +90,7 @@ export default async function ActivityFeedPage() {
         </div>
       </section>
 
-      <section className="rounded-[14px] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
+      <section className="rounded-[var(--ap-radius-md)] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
         <div className="flex items-center justify-between border-b px-4 py-3" style={{ borderColor: 'var(--ap-border)' }}>
           <h2 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Recent activity <span className="ml-1 font-mono normal-case text-muted-foreground">({activities.length})</span>
@@ -98,7 +98,7 @@ export default async function ActivityFeedPage() {
         </div>
         {activities.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12">
-            <div className="flex size-10 items-center justify-center rounded-[10px]" style={{ background: 'var(--ap-bg-sunken)' }}>
+            <div className="flex size-10 items-center justify-center rounded-[var(--ap-radius-sm)]" style={{ background: 'var(--ap-bg-sunken)' }}>
               <Activity className="size-5 text-muted-foreground" />
             </div>
             <p className="mt-2 text-[13px] font-medium">Nothing yet</p>

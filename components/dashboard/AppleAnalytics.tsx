@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils'
 function APCard({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
     <section
-      className={cn('rounded-[14px] border bg-card overflow-hidden', className)}
+      className={cn('rounded-[var(--ap-radius-md)] border bg-card overflow-hidden', className)}
       style={{ borderColor: 'var(--ap-border)' }}
     >
       {children}
@@ -44,7 +44,7 @@ interface SegProps {
 function Segmented({ options, current, paramName, basePath, otherParams }: SegProps) {
   return (
     <div
-      className="inline-flex items-center rounded-[10px] p-0.5 border"
+      className="inline-flex items-center rounded-[var(--ap-radius-sm)] p-0.5 border"
       style={{ background: 'var(--ap-bg-sunken)', borderColor: 'var(--ap-border)' }}
     >
       {options.map((opt) => {

@@ -43,7 +43,7 @@ export default function GoalsPageClient({ user }: GoalsPageClientProps) {
 
       {/* AP Tab Bar Card */}
       <div
-        className="rounded-[14px] border bg-card overflow-hidden"
+        className="rounded-[var(--ap-radius-md)] border bg-card overflow-hidden"
         style={{ borderColor: 'var(--ap-border)' }}
       >
         <GoalsTabBar

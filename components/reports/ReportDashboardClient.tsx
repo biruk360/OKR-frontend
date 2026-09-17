@@ -203,7 +203,7 @@ function APSeg<T extends string>({
 }) {
   return (
     <div
-      className="inline-flex items-center rounded-[10px] p-0.5 border"
+      className="inline-flex items-center rounded-[var(--ap-radius-sm)] p-0.5 border"
       style={{ background: 'var(--ap-bg-sunken)', borderColor: 'var(--ap-border)' }}
     >
       {options.map((opt) => {
@@ -699,7 +699,7 @@ export default function ReportDashboardClient({
           <button
             type="button"
             onClick={shareReport}
-            className="inline-flex items-center gap-1 h-7 rounded-[10px] border bg-card px-2.5 text-[12px] text-muted-foreground hover:text-foreground"
+            className="inline-flex items-center gap-1 h-7 rounded-[var(--ap-radius-sm)] border bg-card px-2.5 text-[12px] text-muted-foreground hover:text-foreground"
             style={{ borderColor: 'var(--ap-border)' }}
           >
             <Share2 className="h-3.5 w-3.5" /> Share
@@ -707,7 +707,7 @@ export default function ReportDashboardClient({
           <button
             type="button"
             onClick={() => typeof window !== 'undefined' && window.print()}
-            className="inline-flex items-center gap-1 h-7 rounded-[10px] border bg-card px-2.5 text-[12px] text-muted-foreground hover:text-foreground"
+            className="inline-flex items-center gap-1 h-7 rounded-[var(--ap-radius-sm)] border bg-card px-2.5 text-[12px] text-muted-foreground hover:text-foreground"
             style={{ borderColor: 'var(--ap-border)' }}
           >
             <Printer className="h-3.5 w-3.5" /> Print
@@ -784,7 +784,7 @@ export default function ReportDashboardClient({
 
       {/* Tabs + filter strip card */}
       <div
-        className="rounded-[14px] border bg-card overflow-hidden"
+        className="rounded-[var(--ap-radius-md)] border bg-card overflow-hidden"
         style={{ borderColor: 'var(--ap-border)' }}
       >
         <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b" style={{ borderColor: 'var(--ap-border)' }}>
@@ -804,14 +804,14 @@ export default function ReportDashboardClient({
               placeholder="Search objectives, KRs, plans…"
               value={segmentQuery}
               onChange={(e) => setSegmentQuery(e.target.value)}
-              className="h-7 w-full rounded-[10px] border bg-background pl-7 pr-2 text-[12px] outline-none"
+              className="h-7 w-full rounded-[var(--ap-radius-sm)] border bg-background pl-7 pr-2 text-[12px] outline-none"
               style={{ borderColor: 'var(--ap-border)' }}
             />
           </div>
           <select
             value={planStatus}
             onChange={(e) => setPlanStatus(e.target.value)}
-            className="h-7 rounded-[10px] border bg-background px-2 text-[12px] outline-none"
+            className="h-7 rounded-[var(--ap-radius-sm)] border bg-background px-2 text-[12px] outline-none"
             style={{ borderColor: 'var(--ap-border)' }}
           >
             <option value="all">Plan status — all</option>
@@ -823,7 +823,7 @@ export default function ReportDashboardClient({
           <select
             value={confidenceFilter}
             onChange={(e) => setConfidenceFilter(e.target.value)}
-            className="h-7 rounded-[10px] border bg-background px-2 text-[12px] outline-none"
+            className="h-7 rounded-[var(--ap-radius-sm)] border bg-background px-2 text-[12px] outline-none"
             style={{ borderColor: 'var(--ap-border)' }}
           >
             <option value="all">Confidence — all</option>
@@ -835,7 +835,7 @@ export default function ReportDashboardClient({
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as SortKey)}
             disabled={mainTab !== 'key-results'}
-            className="h-7 rounded-[10px] border bg-background px-2 text-[12px] outline-none disabled:opacity-50"
+            className="h-7 rounded-[var(--ap-radius-sm)] border bg-background px-2 text-[12px] outline-none disabled:opacity-50"
             style={{ borderColor: 'var(--ap-border)' }}
           >
             <option value="plan">Sort: Plan</option>
@@ -846,7 +846,7 @@ export default function ReportDashboardClient({
           <button
             type="button"
             onClick={resetFilters}
-            className="inline-flex items-center gap-1 h-7 rounded-[10px] px-2 text-[12px] text-muted-foreground hover:text-foreground"
+            className="inline-flex items-center gap-1 h-7 rounded-[var(--ap-radius-sm)] px-2 text-[12px] text-muted-foreground hover:text-foreground"
           >
             <RotateCcw className="h-3.5 w-3.5" /> Reset
           </button>
@@ -915,42 +915,42 @@ export default function ReportDashboardClient({
               <Filter className="h-3 w-3" /> Add filter
             </button>
             {addingFilterType === '_pick' && (
-              <div className="absolute left-0 top-8 z-20 rounded-[10px] border bg-card p-1 shadow-lg min-w-[160px]" style={{ borderColor: 'var(--ap-border)' }}>
+              <div className="absolute left-0 top-8 z-20 rounded-[var(--ap-radius-sm)] border bg-card p-1 shadow-lg min-w-[160px]" style={{ borderColor: 'var(--ap-border)' }}>
                 {['user', 'department', 'timeframe', 'confidence', 'status'].map((t) => (
                   <button key={t} onClick={() => setAddingFilterType(t)} className="w-full text-left px-3 py-1.5 text-[12px] capitalize hover:bg-muted rounded">{t}</button>
                 ))}
               </div>
             )}
             {addingFilterType === 'user' && filterOptions && (
-              <div className="absolute left-0 top-8 z-20 rounded-[10px] border bg-card p-1 shadow-lg min-w-[200px] max-h-[240px] overflow-auto" style={{ borderColor: 'var(--ap-border)' }}>
+              <div className="absolute left-0 top-8 z-20 rounded-[var(--ap-radius-sm)] border bg-card p-1 shadow-lg min-w-[200px] max-h-[240px] overflow-auto" style={{ borderColor: 'var(--ap-border)' }}>
                 {filterOptions.users.map((u) => (
                   <button key={u.id} onClick={() => addDynamicFilter('user', u.id, u.name)} className="w-full text-left px-3 py-1.5 text-[12px] hover:bg-muted rounded truncate">{u.name}</button>
                 ))}
               </div>
             )}
             {addingFilterType === 'department' && filterOptions && (
-              <div className="absolute left-0 top-8 z-20 rounded-[10px] border bg-card p-1 shadow-lg min-w-[200px] max-h-[240px] overflow-auto" style={{ borderColor: 'var(--ap-border)' }}>
+              <div className="absolute left-0 top-8 z-20 rounded-[var(--ap-radius-sm)] border bg-card p-1 shadow-lg min-w-[200px] max-h-[240px] overflow-auto" style={{ borderColor: 'var(--ap-border)' }}>
                 {filterOptions.departments.map((d) => (
                   <button key={d.id} onClick={() => addDynamicFilter('department', d.id, d.name)} className="w-full text-left px-3 py-1.5 text-[12px] hover:bg-muted rounded truncate">{d.name}</button>
                 ))}
               </div>
             )}
             {addingFilterType === 'timeframe' && filterOptions && (
-              <div className="absolute left-0 top-8 z-20 rounded-[10px] border bg-card p-1 shadow-lg min-w-[200px] max-h-[240px] overflow-auto" style={{ borderColor: 'var(--ap-border)' }}>
+              <div className="absolute left-0 top-8 z-20 rounded-[var(--ap-radius-sm)] border bg-card p-1 shadow-lg min-w-[200px] max-h-[240px] overflow-auto" style={{ borderColor: 'var(--ap-border)' }}>
                 {filterOptions.timeframes.map((t) => (
                   <button key={t.id} onClick={() => addDynamicFilter('timeframe', t.id, t.name)} className="w-full text-left px-3 py-1.5 text-[12px] hover:bg-muted rounded truncate">{t.name}</button>
                 ))}
               </div>
             )}
             {addingFilterType === 'confidence' && (
-              <div className="absolute left-0 top-8 z-20 rounded-[10px] border bg-card p-1 shadow-lg min-w-[160px]" style={{ borderColor: 'var(--ap-border)' }}>
+              <div className="absolute left-0 top-8 z-20 rounded-[var(--ap-radius-sm)] border bg-card p-1 shadow-lg min-w-[160px]" style={{ borderColor: 'var(--ap-border)' }}>
                 <button onClick={() => addDynamicFilter('confidence', 'ON_TRACK', 'On track')} className="w-full text-left px-3 py-1.5 text-[12px] hover:bg-muted rounded">On track</button>
                 <button onClick={() => addDynamicFilter('confidence', 'AT_RISK', 'At risk')} className="w-full text-left px-3 py-1.5 text-[12px] hover:bg-muted rounded">At risk</button>
                 <button onClick={() => addDynamicFilter('confidence', 'OFF_TRACK', 'Off track')} className="w-full text-left px-3 py-1.5 text-[12px] hover:bg-muted rounded">Off track</button>
               </div>
             )}
             {addingFilterType === 'status' && (
-              <div className="absolute left-0 top-8 z-20 rounded-[10px] border bg-card p-1 shadow-lg min-w-[160px]" style={{ borderColor: 'var(--ap-border)' }}>
+              <div className="absolute left-0 top-8 z-20 rounded-[var(--ap-radius-sm)] border bg-card p-1 shadow-lg min-w-[160px]" style={{ borderColor: 'var(--ap-border)' }}>
                 <button onClick={() => addDynamicFilter('status', 'ACTIVE', 'Active')} className="w-full text-left px-3 py-1.5 text-[12px] hover:bg-muted rounded">Active</button>
                 <button onClick={() => addDynamicFilter('status', 'DRAFT', 'Draft')} className="w-full text-left px-3 py-1.5 text-[12px] hover:bg-muted rounded">Draft</button>
               </div>
@@ -1392,7 +1392,7 @@ function RecommendationRow({ item }: { item: { title: string; detail: string; to
     <AlertTriangle className="h-4 w-4" />
   const body = (
     <div className="flex gap-3 rounded-[12px] border p-3 transition hover:bg-muted/40" style={{ borderColor: 'var(--ap-border)' }}>
-      <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px]" style={{ background: `${toneColor}1F`, color: toneColor }}>
+      <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--ap-radius-sm)]" style={{ background: `${toneColor}1F`, color: toneColor }}>
         {icon}
       </span>
       <div className="min-w-0">

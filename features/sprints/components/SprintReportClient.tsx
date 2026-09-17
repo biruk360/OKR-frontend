@@ -135,7 +135,7 @@ function TaskGroup({
 
   return (
     <div
-      className="overflow-hidden rounded-[16px]"
+      className="overflow-hidden rounded-[var(--ap-radius-card)]"
       style={{ background: 'var(--ap-bg-raised)', border: '0.5px solid var(--ap-border)', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0.5px 0 rgba(0,0,0,0.03)' }}
     >
       <button
@@ -292,7 +292,7 @@ export function SprintReportClient({ sprintId, canEdit, canDelete }: Props) {
 
       {/* Hero card */}
       <div
-        className="rounded-[16px] p-5"
+        className="rounded-[var(--ap-radius-card)] p-5"
         style={{ background: 'var(--ap-bg-raised)', border: '0.5px solid var(--ap-border)', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0.5px 0 rgba(0,0,0,0.03)' }}
       >
         <div className="flex flex-wrap items-center gap-2.5">
@@ -334,7 +334,7 @@ export function SprintReportClient({ sprintId, canEdit, canDelete }: Props) {
       {/* Stat strip */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <div
-          className="flex items-center gap-3 rounded-[16px] p-4"
+          className="flex items-center gap-3 rounded-[var(--ap-radius-card)] p-4"
           style={{ background: 'var(--ap-bg-raised)', border: '0.5px solid var(--ap-border)' }}
         >
           <CompletionRing rate={counts.completionRate} />
@@ -355,7 +355,7 @@ export function SprintReportClient({ sprintId, canEdit, canDelete }: Props) {
         ].map(s => (
           <div
             key={s.label}
-            className="rounded-[16px] p-4"
+            className="rounded-[var(--ap-radius-card)] p-4"
             style={{ background: 'var(--ap-bg-raised)', border: '0.5px solid var(--ap-border)' }}
           >
             <div className="text-[10px] font-semibold uppercase tracking-[0.6px]" style={{ color: 'var(--ap-fg-subtle)' }}>{s.label}</div>
@@ -404,7 +404,7 @@ export function SprintReportClient({ sprintId, canEdit, canDelete }: Props) {
       {/* Actions */}
       {(canEdit || canDelete) && (
         <div
-          className="flex flex-wrap items-center gap-3 rounded-[16px] p-4"
+          className="flex flex-wrap items-center gap-3 rounded-[var(--ap-radius-card)] p-4"
           style={{ background: 'var(--ap-bg-raised)', border: '0.5px solid var(--ap-border)' }}
         >
           {canEdit && sprint.state === 'COMPLETED' && (
@@ -413,7 +413,7 @@ export function SprintReportClient({ sprintId, canEdit, canDelete }: Props) {
                 type="button"
                 onClick={() => setShowReopen(true)}
                 disabled={!report.reopen.available}
-                className="inline-flex items-center gap-1.5 rounded-[10px] px-3 py-1.5 text-[13px] font-medium transition-colors disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-[var(--ap-radius-sm)] px-3 py-1.5 text-[13px] font-medium transition-colors disabled:opacity-50"
                 style={{ background: 'rgba(120,120,128,0.12)', color: 'var(--ap-accent)' }}
                 title={report.reopen.available ? undefined : `Reopen window (${report.reopen.windowDays} days) has expired`}
               >
@@ -431,7 +431,7 @@ export function SprintReportClient({ sprintId, canEdit, canDelete }: Props) {
               type="button"
               onClick={cloneSprint}
               disabled={cloning}
-              className="inline-flex items-center gap-1.5 rounded-[10px] px-3 py-1.5 text-[13px] font-medium transition-colors"
+              className="inline-flex items-center gap-1.5 rounded-[var(--ap-radius-sm)] px-3 py-1.5 text-[13px] font-medium transition-colors"
               style={{ color: 'var(--ap-fg-muted)' }}
             >
               <Copy size={14} /> {cloning ? 'Cloning…' : 'Clone as new sprint'}
@@ -441,7 +441,7 @@ export function SprintReportClient({ sprintId, canEdit, canDelete }: Props) {
             <button
               type="button"
               onClick={() => setConfirmDelete(true)}
-              className="ml-auto inline-flex items-center gap-1.5 rounded-[10px] px-3 py-1.5 text-[13px] font-medium"
+              className="ml-auto inline-flex items-center gap-1.5 rounded-[var(--ap-radius-sm)] px-3 py-1.5 text-[13px] font-medium"
               style={{ background: 'var(--ap-danger-bg)', color: 'var(--ap-danger-fg)' }}
             >
               <Trash2 size={14} /> Delete sprint
@@ -454,7 +454,7 @@ export function SprintReportClient({ sprintId, canEdit, canDelete }: Props) {
       {showReopen && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }}>
           <div
-            className="w-full max-w-[480px] rounded-[20px] p-5"
+            className="w-full max-w-[480px] rounded-[var(--ap-radius-lg)] p-5"
             style={{ background: 'var(--ap-bg-raised)', boxShadow: '0 30px 60px -20px rgba(0,0,0,0.25), 0 10px 20px -10px rgba(0,0,0,0.1)' }}
           >
             <h2 className="text-[15px] font-semibold">Reopen {sprint.name}?</h2>
@@ -484,12 +484,12 @@ export function SprintReportClient({ sprintId, canEdit, canDelete }: Props) {
             )}
             <div className="mt-4 flex justify-end gap-2">
               <button type="button" onClick={() => setShowReopen(false)}
-                className="rounded-[10px] px-3 py-1.5 text-[13px] font-medium"
+                className="rounded-[var(--ap-radius-sm)] px-3 py-1.5 text-[13px] font-medium"
                 style={{ color: 'var(--ap-fg-muted)' }}>
                 Cancel
               </button>
               <button type="button" onClick={reopen} disabled={reopening}
-                className="rounded-[10px] px-3 py-1.5 text-[13px] font-semibold disabled:opacity-50"
+                className="rounded-[var(--ap-radius-sm)] px-3 py-1.5 text-[13px] font-semibold disabled:opacity-50"
                 style={{ background: 'var(--ap-accent)', color: '#fff' }}>
                 {reopening ? 'Reopening…' : `Reopen${bringBack.size > 0 ? ` · bring back ${bringBack.size}` : ''}`}
               </button>
@@ -502,7 +502,7 @@ export function SprintReportClient({ sprintId, canEdit, canDelete }: Props) {
       {confirmDelete && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }}>
           <div
-            className="w-full max-w-[440px] rounded-[20px] p-5"
+            className="w-full max-w-[440px] rounded-[var(--ap-radius-lg)] p-5"
             style={{ background: 'var(--ap-bg-raised)', boxShadow: '0 30px 60px -20px rgba(0,0,0,0.25), 0 10px 20px -10px rgba(0,0,0,0.1)' }}
           >
             <h2 className="text-[15px] font-semibold">Delete {sprint.name}?</h2>
@@ -511,12 +511,12 @@ export function SprintReportClient({ sprintId, canEdit, canDelete }: Props) {
             </p>
             <div className="mt-4 flex justify-end gap-2">
               <button type="button" onClick={() => setConfirmDelete(false)}
-                className="rounded-[10px] px-3 py-1.5 text-[13px] font-medium"
+                className="rounded-[var(--ap-radius-sm)] px-3 py-1.5 text-[13px] font-medium"
                 style={{ color: 'var(--ap-fg-muted)' }}>
                 Keep sprint
               </button>
               <button type="button" onClick={deleteSprint} disabled={deleting}
-                className="rounded-[10px] px-3 py-1.5 text-[13px] font-semibold disabled:opacity-50"
+                className="rounded-[var(--ap-radius-sm)] px-3 py-1.5 text-[13px] font-semibold disabled:opacity-50"
                 style={{ background: 'var(--ap-danger)', color: '#fff' }}>
                 {deleting ? 'Deleting…' : 'Delete sprint'}
               </button>

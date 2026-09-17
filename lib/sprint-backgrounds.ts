@@ -1,10 +1,19 @@
 import type { CSSProperties } from 'react'
 
 /**
- * Sprint board background presets — subtle, modern, Apple-design-inspired.
- * Stored on Sprint.background as a preset key. Gradients are picked to feel
- * cohesive with the Apple Pro design tokens (--ap-*) and never compete with
- * the white/translucent lane surfaces stacked on top.
+ * Sprint board background presets.
+ *
+ * Stored on Sprint.background as a preset KEY, never as a colour — which is why
+ * the values could be retargeted to the refreshed palette without a migration.
+ * Every pre-existing key is preserved for exactly that reason; dropping one
+ * would leave sprints saved against it with no ground.
+ *
+ * Values merge the app's original set with the refreshed design's: ten map
+ * across directly, `sunrise` is derived (no counterpart), and `clay` is the one
+ * new preset. The swatch is deliberately a STRONGER gradient than the ground it
+ * applies — that contrast is what keeps the 40px picker chips readable.
+ *
+ * Grounds must never compete with the translucent lane surfaces stacked on top.
  */
 
 export type SprintBackgroundKey =
@@ -19,6 +28,7 @@ export type SprintBackgroundKey =
   | 'dusk'
   | 'mint'
   | 'blush'
+  | 'clay'
 
 export interface SprintBackgroundPreset {
   key: SprintBackgroundKey
@@ -34,77 +44,75 @@ export const BACKGROUND_PRESETS: Record<SprintBackgroundKey, SprintBackgroundPre
     key: 'none',
     label: 'None',
     gradient: '',
-    swatch: 'linear-gradient(135deg, #F2F2F7 0%, #E5E5EA 100%)',
+    swatch: 'linear-gradient(150deg, oklch(0.97 0.004 262), oklch(0.94 0.006 262))',
   },
   sunrise: {
     key: 'sunrise',
     label: 'Sunrise',
-    gradient:
-      'radial-gradient(at 18% 12%, #FFE7CF 0%, transparent 55%), radial-gradient(at 82% 88%, #FFD4D6 0%, transparent 55%), linear-gradient(135deg, #FFF6EC 0%, #FFEDED 100%)',
-    swatch: 'linear-gradient(135deg, #FFE7CF 0%, #FFD4D6 100%)',
+    // The one preset with no counterpart in the design set. Derived in the same
+    // idiom but pushed golden, so it stays distinguishable from `peach`.
+    gradient: 'linear-gradient(150deg, oklch(0.96 0.035 75), oklch(0.94 0.045 45))',
+    swatch: 'linear-gradient(150deg, oklch(0.95 0.045 75), oklch(0.93 0.055 45))',
   },
   slate: {
     key: 'slate',
     label: 'Slate Mist',
-    gradient:
-      'radial-gradient(at 0% 0%, #DCE3EC 0%, transparent 60%), radial-gradient(at 100% 100%, #C7D0DC 0%, transparent 60%), linear-gradient(135deg, #EDF1F6 0%, #DCE3EC 100%)',
-    swatch: 'linear-gradient(135deg, #DCE3EC 0%, #C7D0DC 100%)',
+    gradient: 'linear-gradient(150deg, oklch(0.94 0.012 250), oklch(0.9 0.018 255))',
+    swatch: 'linear-gradient(150deg, oklch(0.92 0.015 250), oklch(0.87 0.02 255))',
   },
   sage: {
     key: 'sage',
     label: 'Sage',
-    gradient:
-      'radial-gradient(at 20% 20%, #DCEBDA 0%, transparent 55%), radial-gradient(at 80% 80%, #C9DDC8 0%, transparent 55%), linear-gradient(135deg, #ECF3EA 0%, #D6E5D3 100%)',
-    swatch: 'linear-gradient(135deg, #DCEBDA 0%, #C9DDC8 100%)',
+    gradient: 'linear-gradient(150deg, oklch(0.95 0.025 150), oklch(0.92 0.035 145))',
+    swatch: 'linear-gradient(150deg, oklch(0.94 0.03 150), oklch(0.9 0.04 145))',
   },
   peach: {
     key: 'peach',
     label: 'Peach',
-    gradient:
-      'radial-gradient(at 20% 25%, #FCD9C7 0%, transparent 55%), radial-gradient(at 85% 80%, #F9C0B0 0%, transparent 55%), linear-gradient(135deg, #FFEDE3 0%, #FCD0BD 100%)',
-    swatch: 'linear-gradient(135deg, #FCD9C7 0%, #F9C0B0 100%)',
+    gradient: 'linear-gradient(150deg, oklch(0.96 0.03 45), oklch(0.94 0.045 30))',
+    swatch: 'linear-gradient(150deg, oklch(0.95 0.035 45), oklch(0.93 0.05 30))',
   },
   lavender: {
     key: 'lavender',
     label: 'Lavender',
-    gradient:
-      'radial-gradient(at 15% 15%, #E1DCF2 0%, transparent 55%), radial-gradient(at 85% 85%, #CFC6EA 0%, transparent 55%), linear-gradient(135deg, #EFEAFB 0%, #DBD2F1 100%)',
-    swatch: 'linear-gradient(135deg, #E1DCF2 0%, #CFC6EA 100%)',
+    gradient: 'linear-gradient(150deg, oklch(0.94 0.03 285), oklch(0.91 0.04 275))',
+    swatch: 'linear-gradient(150deg, oklch(0.91 0.04 285), oklch(0.88 0.05 275))',
   },
   graphite: {
     key: 'graphite',
     label: 'Graphite',
-    gradient:
-      'radial-gradient(at 0% 100%, #2B2D33 0%, transparent 60%), radial-gradient(at 100% 0%, #3B3D45 0%, transparent 60%), linear-gradient(135deg, #1F2126 0%, #2B2D33 100%)',
-    swatch: 'linear-gradient(135deg, #3B3D45 0%, #1F2126 100%)',
+    gradient: 'linear-gradient(150deg, oklch(0.34 0.015 262), oklch(0.26 0.015 262))',
+    swatch: 'oklch(0.28 0.015 262)',
   },
   ocean: {
     key: 'ocean',
     label: 'Ocean',
-    gradient:
-      'radial-gradient(at 20% 20%, #CFE3F2 0%, transparent 55%), radial-gradient(at 85% 85%, #B6D2E8 0%, transparent 55%), linear-gradient(135deg, #E3EEF7 0%, #BFD6E9 100%)',
-    swatch: 'linear-gradient(135deg, #CFE3F2 0%, #B6D2E8 100%)',
+    gradient: 'linear-gradient(150deg, oklch(0.94 0.03 225), oklch(0.91 0.045 235))',
+    swatch: 'linear-gradient(150deg, oklch(0.92 0.04 225), oklch(0.88 0.055 235))',
   },
   dusk: {
     key: 'dusk',
     label: 'Dusk',
-    gradient:
-      'radial-gradient(at 10% 10%, #E5D0E2 0%, transparent 55%), radial-gradient(at 90% 90%, #C7B9DC 0%, transparent 55%), linear-gradient(135deg, #EDDCEB 0%, #B8AAD3 100%)',
-    swatch: 'linear-gradient(135deg, #E5D0E2 0%, #B8AAD3 100%)',
+    gradient: 'linear-gradient(150deg, oklch(0.92 0.045 300), oklch(0.89 0.055 290))',
+    swatch: 'linear-gradient(150deg, oklch(0.87 0.06 300), oklch(0.83 0.07 290))',
   },
   mint: {
     key: 'mint',
     label: 'Mint',
-    gradient:
-      'radial-gradient(at 18% 22%, #D2EDE0 0%, transparent 55%), radial-gradient(at 80% 78%, #BCE2D2 0%, transparent 55%), linear-gradient(135deg, #E5F4EC 0%, #C9E6D8 100%)',
-    swatch: 'linear-gradient(135deg, #D2EDE0 0%, #BCE2D2 100%)',
+    gradient: 'linear-gradient(150deg, oklch(0.94 0.04 160), oklch(0.91 0.05 165))',
+    swatch: 'linear-gradient(150deg, oklch(0.91 0.06 160), oklch(0.88 0.07 165))',
   },
   blush: {
     key: 'blush',
     label: 'Blush',
-    gradient:
-      'radial-gradient(at 20% 20%, #F8DCE2 0%, transparent 55%), radial-gradient(at 80% 80%, #F1C5D2 0%, transparent 55%), linear-gradient(135deg, #FBEAEF 0%, #F0CCD7 100%)',
-    swatch: 'linear-gradient(135deg, #F8DCE2 0%, #F1C5D2 100%)',
+    gradient: 'linear-gradient(150deg, oklch(0.94 0.035 350), oklch(0.91 0.045 355))',
+    swatch: 'linear-gradient(150deg, oklch(0.91 0.05 350), oklch(0.88 0.06 355))',
+  },
+  clay: {
+    key: 'clay',
+    label: 'Clay',
+    gradient: 'linear-gradient(150deg, oklch(0.93 0.04 40), oklch(0.89 0.05 30))',
+    swatch: 'linear-gradient(150deg, oklch(0.9 0.05 40), oklch(0.86 0.06 30))',
   },
 }
 

@@ -14,14 +14,25 @@ export type StatCardTone =
   | 'gray'
   | 'indigo'
 
-const toneClasses: Record<StatCardTone, string> = {
-  blue: 'bg-blue-500',
-  green: 'bg-green-500',
-  yellow: 'bg-yellow-500',
-  red: 'bg-red-500',
-  purple: 'bg-purple-500',
-  gray: 'bg-muted0',
-  indigo: 'bg-indigo-500',
+/**
+ * Tone fills. Every value must carry WHITE text at 4.5:1 — the tile renders a
+ * white icon or a white initial on top.
+ *
+ * Two are deliberately NOT the obvious token:
+ *  - `yellow` uses --ap-warn-fg (dark amber), because white on --ap-warn is
+ *    2.55:1 and cannot be fixed by lightness — the required L is outside sRGB
+ *    at that hue and chroma.
+ *  - `gray` uses --ap-fg-secondary. It previously read `bg-muted0`, a typo that
+ *    generated no CSS rule at all, so the tile rendered transparent.
+ */
+const toneVars: Record<StatCardTone, string> = {
+  blue: 'var(--ap-accent)',
+  green: 'var(--ap-ok)',
+  yellow: 'var(--ap-warn-fg)',
+  red: 'var(--ap-danger)',
+  purple: 'var(--ap-ahead)',
+  gray: 'var(--ap-fg-secondary)',
+  indigo: 'var(--ap-accent-on-soft)',
 }
 
 export interface StatCardProps {
@@ -69,10 +80,8 @@ export function StatCard({
         <div className="flex items-center">
           <div className="shrink-0">
             <div
-              className={cn(
-                'size-8 rounded-md flex items-center justify-center',
-                toneClasses[tone]
-              )}
+              className="size-8 rounded-[var(--ap-radius-xs)] flex items-center justify-center"
+              style={{ background: toneVars[tone] }}
             >
               {Icon ? (
                 <Icon className="size-5 text-white" />

@@ -85,7 +85,7 @@ export function TemplateBuilder({ templateId }: { templateId: string }) {
   if (query.isLoading) {
     return (
       <div className="space-y-4">
-        <Skeleton className="h-20 rounded-[14px]" />
+        <Skeleton className="h-20 rounded-[var(--ap-radius-md)]" />
         <SkeletonCard />
         <SkeletonCard />
       </div>
@@ -163,7 +163,7 @@ export function TemplateBuilder({ templateId }: { templateId: string }) {
   return (
     <div className="space-y-4">
       <div
-        className="flex flex-wrap items-center justify-between gap-3 rounded-[14px] border bg-card px-4 py-4"
+        className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--ap-radius-md)] border bg-card px-4 py-4"
         style={{ borderColor: 'var(--ap-border)' }}
       >
         <div>
@@ -179,7 +179,7 @@ export function TemplateBuilder({ templateId }: { templateId: string }) {
       {tiers.map((tier, tierIndex) => (
         <section
           key={tierIndex}
-          className="rounded-[14px] border bg-card"
+          className="rounded-[var(--ap-radius-md)] border bg-card"
           style={{ borderColor: 'var(--ap-border)' }}
           onDragOver={(event) => { if (editable) event.preventDefault() }}
           onDrop={(event) => onTierDrop(event, tierIndex)}

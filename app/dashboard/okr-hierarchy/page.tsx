@@ -12,7 +12,7 @@ export default async function OkrHierarchyPage() {
     <div className="space-y-4">
       {/* Hero */}
       <div
-        className="rounded-[14px] border bg-card px-5 pt-5 pb-4"
+        className="rounded-[var(--ap-radius-md)] border bg-card px-5 pt-5 pb-4"
         style={{ borderColor: 'var(--ap-border)' }}
       >
         <div className="flex items-start justify-between gap-4">

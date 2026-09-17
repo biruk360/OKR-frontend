@@ -98,7 +98,7 @@ function SprintCard({ s, greyscale }: { s: Sprint; greyscale?: boolean }) {
     <Link
       href={isClosed && summary ? `/dashboard/sprints/${s.id}/report` : `/dashboard/sprints/${s.id}`}
       className={cn(
-        'ap-hover-lift block rounded-[14px] border bg-card p-4 transition-all hover:shadow-md',
+        'ap-hover-lift block rounded-[var(--ap-radius-md)] border bg-card p-4 transition-all hover:shadow-md',
         greyscale && 'opacity-80 grayscale',
       )}
       style={{ borderColor: 'var(--ap-border)' }}
@@ -239,7 +239,7 @@ function BacklogList({ currentUserId }: { currentUserId: string }) {
   }
 
   return (
-    <div className="rounded-[14px] border bg-card" style={{ borderColor: 'var(--ap-border)' }}>
+    <div className="rounded-[var(--ap-radius-md)] border bg-card" style={{ borderColor: 'var(--ap-border)' }}>
       <div className="divide-y" style={{ borderColor: 'var(--ap-border)' }}>
         {todos.map((t) => (
           <label key={t.id} className="flex cursor-pointer items-center gap-3 px-4 py-2 text-[12px] hover:bg-muted/30">
@@ -287,7 +287,7 @@ function BacklogList({ currentUserId }: { currentUserId: string }) {
               type="button"
               disabled={!bulkSprintId}
               onClick={moveBulk}
-              className="rounded-[10px] px-3 py-1.5 text-[12px] font-semibold text-white disabled:opacity-50"
+              className="rounded-[var(--ap-radius-sm)] px-3 py-1.5 text-[12px] font-semibold text-white disabled:opacity-50"
               style={{ background: 'var(--ap-accent)' }}
             >
               Move
@@ -364,7 +364,7 @@ export default function SprintsListClient({ currentUserId }: { currentUserId: st
           <button
             type="button"
             onClick={() => setCreating(true)}
-            className="inline-flex items-center gap-1.5 rounded-[10px] h-8 px-3 text-[12px] font-semibold text-white"
+            className="inline-flex items-center gap-1.5 rounded-[var(--ap-radius-sm)] h-8 px-3 text-[12px] font-semibold text-white"
             style={{ background: 'var(--ap-accent)' }}
           >
             <Plus className="h-3.5 w-3.5" /> New sprint
@@ -373,7 +373,7 @@ export default function SprintsListClient({ currentUserId }: { currentUserId: st
       </div>
 
       {/* Sub-tabs */}
-      <div className="flex items-center gap-1 rounded-[10px] border p-0.5 text-[12px]" style={{ borderColor: 'var(--ap-border)', width: 'fit-content' }}>
+      <div className="flex items-center gap-1 rounded-[var(--ap-radius-sm)] border p-0.5 text-[12px]" style={{ borderColor: 'var(--ap-border)', width: 'fit-content' }}>
         {(['active', 'planning', 'backlog', 'completed'] as Tab[]).map((t) => (
           <button
             key={t}
@@ -390,7 +390,7 @@ export default function SprintsListClient({ currentUserId }: { currentUserId: st
       </div>
 
       {creating && (
-        <div className="rounded-[14px] border bg-card p-3" style={{ borderColor: 'var(--ap-border)' }}>
+        <div className="rounded-[var(--ap-radius-md)] border bg-card p-3" style={{ borderColor: 'var(--ap-border)' }}>
           <input
             autoFocus
             value={name}
@@ -400,17 +400,17 @@ export default function SprintsListClient({ currentUserId }: { currentUserId: st
               if (e.key === 'Escape') { setCreating(false); setName('') }
             }}
             placeholder="Sprint name (e.g. Marketing Q2 W14)"
-            className="w-full rounded-[10px] border bg-card px-3 py-1.5 text-[13px] outline-none"
+            className="w-full rounded-[var(--ap-radius-sm)] border bg-card px-3 py-1.5 text-[13px] outline-none"
             style={{ borderColor: 'var(--ap-border)' }}
           />
           <div className="mt-2 flex items-center gap-2">
             <button onClick={createSprint} disabled={!name.trim() || submitting}
-              className="rounded-[10px] px-3 py-1.5 text-[12px] font-semibold text-white disabled:opacity-50"
+              className="rounded-[var(--ap-radius-sm)] px-3 py-1.5 text-[12px] font-semibold text-white disabled:opacity-50"
               style={{ background: 'var(--ap-accent)' }}>
               {submitting ? 'Creating…' : 'Create'}
             </button>
             <button onClick={() => { setCreating(false); setName('') }}
-              className="rounded-[10px] p-1.5 text-muted-foreground hover:bg-muted">
+              className="rounded-[var(--ap-radius-sm)] p-1.5 text-muted-foreground hover:bg-muted">
               <X className="h-4 w-4" />
             </button>
           </div>

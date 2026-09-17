@@ -28,8 +28,15 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     try {
       const res = await fetch('/api/notifications?limit=20')
       const data = await res.json()
-      if (data.success) {
-        const items: NotificationItem[] = data.notifications || []
+      // Standard envelope `{ success, data }`. This read `data.notifications`, which the
+      // envelope never carries — the same defect as todo-store had.
+      // NOTE: `/api/notifications` (list) and `PATCH /api/notifications/:id` do not exist
+      // yet; only `/api/notifications/preferences` does. This store has no consumers, so
+      // nothing is currently broken by that — but wiring the header's notification
+      // dropdown (docs/design_refresh_IMPLEMENTATION_STRATEGY.md §6.2) means building
+      // those routes first. Do not mount this store until they exist.
+      if (data.success && Array.isArray(data.data)) {
+        const items: NotificationItem[] = data.data
         set({
           notifications: items,
           unreadCount: items.filter((n) => !n.isRead).length,

@@ -61,7 +61,7 @@ export default function SignUpPage() {
   }
 
   const inputCls =
-    'w-full rounded-[10px] border-0 pl-9 pr-3 py-2 text-[13px] outline-none focus:ring-2 focus:ring-[color:var(--ap-accent)]'
+    'w-full rounded-[var(--ap-radius-sm)] border-0 pl-9 pr-3 py-2 text-[13px] outline-none focus:ring-2 focus:ring-[color:var(--ap-accent)]'
   const inputStyle = { background: 'rgba(120,120,128,0.06)' } as const
 
   return (
@@ -70,12 +70,12 @@ export default function SignUpPage() {
       style={{ background: 'var(--ap-bg)' }}
     >
       <div
-        className="w-full max-w-[420px] rounded-[14px] border bg-card p-8 shadow-lg"
+        className="w-full max-w-[420px] rounded-[var(--ap-radius-md)] border bg-card p-8 shadow-lg"
         style={{ borderColor: 'var(--ap-border)' }}
       >
         <div className="flex flex-col items-center">
           <div
-            className="flex size-11 items-center justify-center rounded-[10px]"
+            className="flex size-11 items-center justify-center rounded-[var(--ap-radius-sm)]"
             style={{ background: 'var(--ap-accent-soft)' }}
           >
             <Target className="size-5" style={{ color: 'var(--ap-accent)' }} strokeWidth={2} />
@@ -151,7 +151,7 @@ export default function SignUpPage() {
           </div>
 
           <button type="submit" disabled={isLoading}
-            className="w-full rounded-[10px] py-2.5 text-[13px] font-semibold text-white transition disabled:opacity-60"
+            className="w-full rounded-[var(--ap-radius-sm)] py-2.5 text-[13px] font-semibold text-white transition disabled:opacity-60"
             style={{ background: 'var(--ap-accent)' }}>
             {isLoading ? 'Creating account…' : 'Create account'}
           </button>

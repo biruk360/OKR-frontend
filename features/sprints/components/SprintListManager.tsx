@@ -154,7 +154,7 @@ export function ListHeaderMenu({
           value={name}
           maxLength={60}
           onChange={(e) => setName(e.target.value)}
-          className="w-full rounded-[10px] border bg-card px-3 py-1.5 text-[13px] outline-none"
+          className="w-full rounded-[var(--ap-radius-sm)] border bg-card px-3 py-1.5 text-[13px] outline-none"
           style={{ borderColor: 'var(--ap-border)' }}
         />
       </Modal>
@@ -192,7 +192,7 @@ export function ListHeaderMenu({
           <StatusSelect id="lane-status" value={nextStatus} onChange={setNextStatus} />
           {lane.cardCount > 0 && nextStatus !== lane.statusKey && (
             <div
-              className="rounded-[10px] px-3 py-2 text-[12px]"
+              className="rounded-[var(--ap-radius-sm)] px-3 py-2 text-[12px]"
               style={{ background: 'var(--ap-warn-bg)', color: 'var(--ap-warn-fg)' }}
             >
               This will change the status of {lane.cardCount} card{lane.cardCount === 1 ? '' : 's'}.

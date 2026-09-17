@@ -334,7 +334,7 @@ function LetterFormInner({ initial, viewer }: Props) {
                 setSignatoryId(newId)
                 if (editable) void saveWith({ signatoryId: newId }, { silent: true })
               }}
-              className="flex h-10 w-full rounded-[14px] border bg-card px-3 text-[13px] focus:outline-none focus:ring-2 focus:ring-[color:var(--ap-accent)] focus:ring-offset-1 disabled:opacity-60"
+              className="flex h-10 w-full rounded-[var(--ap-radius-md)] border bg-card px-3 text-[13px] focus:outline-none focus:ring-2 focus:ring-[color:var(--ap-accent)] focus:ring-offset-1 disabled:opacity-60"
               style={{ borderColor: 'var(--ap-border)' }}
             >
               <option value="">{t('form.signatory.empty')}</option>
@@ -453,7 +453,7 @@ function ApCard({
   const pad = padding === 'sm' ? 'p-3' : padding === 'lg' ? 'p-5' : 'p-4'
   return (
     <div
-      className="rounded-[16px] border bg-card shadow-card"
+      className="rounded-[var(--ap-radius-card)] border bg-card shadow-card"
       style={{ borderColor: 'var(--ap-border)' }}
     >
       {header && (
@@ -494,7 +494,7 @@ function Field({
 function LangSwitch({ lang, onChange }: { lang: LetterLang; onChange: (l: LetterLang) => void }) {
   return (
     <div
-      className="inline-flex h-10 overflow-hidden rounded-[10px] border bg-card text-[12px] shadow-sm"
+      className="inline-flex h-10 overflow-hidden rounded-[var(--ap-radius-sm)] border bg-card text-[12px] shadow-sm"
       style={{ borderColor: 'var(--ap-border)' }}
     >
       {(['en', 'am'] as LetterLang[]).map((l) => (

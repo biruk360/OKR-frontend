@@ -63,7 +63,7 @@ export default async function ProgressTrackingPage() {
 
   return (
     <div className="space-y-3">
-      <section className="rounded-[14px] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
+      <section className="rounded-[var(--ap-radius-md)] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
         <div className="flex flex-col gap-3 px-5 py-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Tracking</p>
@@ -85,7 +85,7 @@ export default async function ProgressTrackingPage() {
         <Kpi label="Average progress" value={`${avgProgress}%`} />
       </div>
 
-      <section className="rounded-[14px] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
+      <section className="rounded-[var(--ap-radius-md)] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
         <div className="flex items-center justify-between border-b px-4 py-3" style={{ borderColor: 'var(--ap-border)' }}>
           <h2 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Objectives <span className="ml-1 font-mono normal-case text-muted-foreground">({objectives.length})</span>
@@ -134,7 +134,7 @@ export default async function ProgressTrackingPage() {
 
 function Kpi({ label, value, color }: { label: string; value: number | string; color?: string }) {
   return (
-    <div className="rounded-[14px] border bg-card px-4 py-4" style={{ borderColor: 'var(--ap-border)' }}>
+    <div className="rounded-[var(--ap-radius-md)] border bg-card px-4 py-4" style={{ borderColor: 'var(--ap-border)' }}>
       <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
       <p
         className="mt-1.5 text-[28px] font-semibold tabular-nums leading-none"

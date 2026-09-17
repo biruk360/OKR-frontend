@@ -4,7 +4,7 @@ import { type ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
 /**
- * Apple Pro section card used across the performance module: rounded-[14px]
+ * Apple Pro section card used across the performance module: rounded-[var(--ap-radius-md)]
  * bordered card with an uppercase kicker header row — mirrors the section
  * idiom of app/dashboard/comments/page.tsx and components/dashboard/MyOKRsPage.tsx.
  */
@@ -23,7 +23,7 @@ export function SectionCard({
 }) {
   return (
     <section
-      className={cn('rounded-[14px] border bg-card overflow-hidden', className)}
+      className={cn('rounded-[var(--ap-radius-md)] border bg-card overflow-hidden', className)}
       style={{ borderColor: 'var(--ap-border)' }}
     >
       {(title || actions) && (

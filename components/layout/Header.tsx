@@ -143,7 +143,7 @@ export default function Header({ user, onMobileNavOpen }: HeaderProps) {
             type="button"
             onClick={() => useCmdkStore.getState().setOpen(true)}
             aria-label="Open command palette"
-            className="hidden h-8 w-[280px] items-center gap-2 rounded-[10px] px-3 text-[13px] transition-colors md:flex"
+            className="hidden h-8 w-[280px] items-center gap-2 rounded-[var(--ap-radius-sm)] px-3 text-[13px] transition-colors md:flex"
             style={{
               background: 'rgba(120,120,128,0.10)',
               color: 'var(--ap-fg-subtle)',

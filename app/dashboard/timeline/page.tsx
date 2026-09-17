@@ -48,7 +48,7 @@ export default async function TimelinePage() {
 
   return (
     <div className="space-y-3">
-      <section className="rounded-[14px] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
+      <section className="rounded-[var(--ap-radius-md)] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
         <div className="px-5 py-5">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Schedule</p>
           <h1 className="mt-1 text-[24px] font-semibold leading-tight" style={{ letterSpacing: '-0.02em' }}>
@@ -57,7 +57,7 @@ export default async function TimelinePage() {
           <p className="mt-1 text-[13px] text-muted-foreground">Schedule of all active objectives across quarters.</p>
         </div>
       </section>
-      <section className="rounded-[14px] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
+      <section className="rounded-[var(--ap-radius-md)] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
         <TimelineBoard rows={rows} />
       </section>
     </div>

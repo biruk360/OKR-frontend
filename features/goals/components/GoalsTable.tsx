@@ -48,7 +48,7 @@ export default function GoalsTable({ objectives, onRefresh, users }: GoalsTableP
 
   return (
     <div
-      className="rounded-[14px] border overflow-hidden"
+      className="rounded-[var(--ap-radius-md)] border overflow-hidden"
       style={{
         background: 'var(--ap-bg, #fff)',
         borderColor: 'var(--ap-border, hsl(var(--border)))',

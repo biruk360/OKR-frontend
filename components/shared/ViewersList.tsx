@@ -57,7 +57,7 @@ export default function ViewersList({ endpoint, entityId, onCountChange }: Props
       ) : (
         <ul className="space-y-2">
           {viewers.map(v => (
-            <li key={v.id} className="flex items-center gap-2.5 ap-hover-lift rounded-[10px] px-1.5 py-1.5">
+            <li key={v.id} className="flex items-center gap-2.5 ap-hover-lift rounded-[var(--ap-radius-sm)] px-1.5 py-1.5">
               {v.avatar ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={v.avatar} alt={v.name} className="size-8 rounded-full object-cover" />

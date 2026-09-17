@@ -136,7 +136,7 @@ export default function PdfPreviewPanel({ letterId }: Props) {
       ) : null}
 
       <div
-        className="relative overflow-hidden rounded-[14px] border bg-[color:var(--ap-bg-sunken)]"
+        className="relative overflow-hidden rounded-[var(--ap-radius-md)] border bg-[color:var(--ap-bg-sunken)]"
         style={{ borderColor: 'var(--ap-border)' }}
       >
         {loading ? (

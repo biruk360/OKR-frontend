@@ -91,7 +91,7 @@ export function GenerateSprintModal({ open, onClose, sprintId, subjectUserId }: 
           <button
             type="button"
             onClick={onClose}
-            className="rounded-[10px] border h-8 px-3 text-[12px] font-medium"
+            className="rounded-[var(--ap-radius-sm)] border h-8 px-3 text-[12px] font-medium"
             style={{ borderColor: 'var(--ap-border)' }}
           >
             Cancel
@@ -100,7 +100,7 @@ export function GenerateSprintModal({ open, onClose, sprintId, subjectUserId }: 
             type="button"
             onClick={submit}
             disabled={submitting || scope === 'MANUAL'}
-            className="inline-flex items-center gap-1.5 rounded-[10px] h-8 px-3 text-[12px] font-semibold text-white disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-[var(--ap-radius-sm)] h-8 px-3 text-[12px] font-semibold text-white disabled:opacity-50"
             style={{ background: 'linear-gradient(135deg, #7c3aed, #2563eb)' }}
           >
             {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}

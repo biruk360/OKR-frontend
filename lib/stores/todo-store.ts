@@ -8,7 +8,8 @@ export interface TodoItem {
   status: string
   dueDate: string | null
   completedAt: string | null
-  assignee: { id: string; name: string; avatar: string | null }
+  /** Trello-style — a card may have no primary assignee. Matches `TodoRow.assignee`. */
+  assignee: { id: string; name: string; avatar: string | null } | null
   creator: { id: string; name: string; avatar: string | null }
   keyResultId: string | null
   keyResult: {
@@ -53,7 +54,15 @@ export const useTodoStore = create<TodoState>((set, get) => ({
     try {
       const res = await fetch('/api/todos?mine=all')
       const data = await res.json()
-      if (data.success) set({ todos: data.todos, initialized: true })
+      // The route returns the standard envelope `{ success, data }` (apiSuccess).
+      // This used to read `data.todos`, which does not exist — so `todos` was set to
+      // undefined and the next `rows.filter(...)` in TodosPageClient threw. It fired on
+      // the page's only refresh path (onUpdated from TodoCardModal), i.e. every time a
+      // user edited a to-do. The Array.isArray guard keeps a malformed payload from
+      // reintroducing the same crash.
+      if (data.success && Array.isArray(data.data)) {
+        set({ todos: data.data, initialized: true })
+      }
     } catch {
       toast.error('Failed to load to-dos')
     } finally {

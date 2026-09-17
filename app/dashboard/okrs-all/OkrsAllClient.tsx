@@ -215,7 +215,7 @@ function MultiPill<T extends { id: string; label?: string; name?: string }>({
         type="button"
         onClick={() => setOpen(o => !o)}
         className={cn(
-          'inline-flex items-center gap-1.5 rounded-[10px] px-2.5 h-8 text-[12px] font-medium border transition-colors',
+          'inline-flex items-center gap-1.5 rounded-[var(--ap-radius-sm)] px-2.5 h-8 text-[12px] font-medium border transition-colors',
           active ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
         )}
         style={{
@@ -234,7 +234,7 @@ function MultiPill<T extends { id: string; label?: string; name?: string }>({
       </button>
       {open && (
         <div
-          className="absolute z-30 top-full left-0 mt-1 w-64 rounded-[14px] border bg-card shadow-lg overflow-hidden"
+          className="absolute z-30 top-full left-0 mt-1 w-64 rounded-[var(--ap-radius-md)] border bg-card shadow-lg overflow-hidden"
           style={{ borderColor: 'var(--ap-border)' }}
         >
           <div className="px-3 py-2 border-b text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
@@ -281,7 +281,7 @@ function TabButton({
       onClick={onClick}
       aria-selected={active}
       className={cn(
-        'inline-flex items-center gap-1.5 px-3 h-9 rounded-[10px] text-[13px] font-medium transition-colors',
+        'inline-flex items-center gap-1.5 px-3 h-9 rounded-[var(--ap-radius-sm)] text-[13px] font-medium transition-colors',
         active ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
       )}
       style={{ background: active ? 'var(--ap-bg-sunken)' : 'transparent' }}
@@ -453,7 +453,7 @@ function RichCard({
     <div
       onClick={onOpen}
       className={cn(
-        'group rounded-[14px] border bg-card px-4 py-3 cursor-pointer transition-all hover:shadow-md hover:-translate-y-px',
+        'group rounded-[var(--ap-radius-md)] border bg-card px-4 py-3 cursor-pointer transition-all hover:shadow-md hover:-translate-y-px',
         selected && 'ring-2',
       )}
       style={{
@@ -830,7 +830,7 @@ export default function OkrsAllClient({ currentUser }: { currentUser: CurrentUse
             type="button"
             onClick={() => setCreateOpen(o => !o)}
             size="sm"
-            className="h-9 rounded-[10px] text-[13px] gap-1"
+            className="h-9 rounded-[var(--ap-radius-sm)] text-[13px] gap-1"
           >
             <Plus className="h-4 w-4" /> Create
             <ChevronDown className="h-3.5 w-3.5" />
@@ -839,7 +839,7 @@ export default function OkrsAllClient({ currentUser }: { currentUser: CurrentUse
             <>
               <button type="button" className="fixed inset-0 z-40 cursor-default" aria-label="Close menu" onClick={() => setCreateOpen(false)} />
               <div
-                className="absolute right-0 top-full z-50 mt-1 w-56 rounded-[14px] border bg-card p-1 shadow-lg"
+                className="absolute right-0 top-full z-50 mt-1 w-56 rounded-[var(--ap-radius-md)] border bg-card p-1 shadow-lg"
                 style={{ borderColor: 'var(--ap-border)' }}
               >
                 {canCreateCompany && (
@@ -861,14 +861,14 @@ export default function OkrsAllClient({ currentUser }: { currentUser: CurrentUse
         </div>
       </div>
 
-      <div className="rounded-[14px] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
+      <div className="rounded-[var(--ap-radius-md)] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
         {/* Filter strip */}
         <div
           className="flex flex-wrap items-center gap-2 border-b px-3 py-2.5"
           style={{ borderColor: 'var(--ap-border)', background: 'var(--ap-bg-sunken)' }}
         >
           <div
-            className="flex items-center gap-1.5 rounded-[10px] border px-2 h-8 w-72 bg-card"
+            className="flex items-center gap-1.5 rounded-[var(--ap-radius-sm)] border px-2 h-8 w-72 bg-card"
             style={{ borderColor: 'var(--ap-border)' }}
           >
             <Search className="h-3.5 w-3.5 text-muted-foreground" />
@@ -915,7 +915,7 @@ export default function OkrsAllClient({ currentUser }: { currentUser: CurrentUse
           <div className="ml-auto flex items-center gap-2">
             {/* View toggle */}
             <div
-              className="inline-flex items-center rounded-[10px] p-0.5 text-[11px] font-medium"
+              className="inline-flex items-center rounded-[var(--ap-radius-sm)] p-0.5 text-[11px] font-medium"
               style={{ background: 'var(--ap-bg)' }}
             >
               <button
@@ -1103,7 +1103,7 @@ export default function OkrsAllClient({ currentUser }: { currentUser: CurrentUse
             <Field label="Expected end">{formatDate(selected.data.endDate ?? selected.data.dueDate)}</Field>
             {selected.data.href && (
               <Link href={selected.data.href} className="inline-block">
-                <Button size="sm" className="h-8 rounded-[10px] text-[12px]">Open full page</Button>
+                <Button size="sm" className="h-8 rounded-[var(--ap-radius-sm)] text-[12px]">Open full page</Button>
               </Link>
             )}
           </div>

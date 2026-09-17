@@ -142,7 +142,7 @@ export function CommandPalette() {
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="ap-modal-enter w-[600px] max-w-[92vw] overflow-hidden rounded-[14px] bg-white"
+        className="ap-modal-enter w-[600px] max-w-[92vw] overflow-hidden rounded-[var(--ap-radius-md)] bg-white"
         style={{
           background: 'var(--ap-bg-raised)',
           color: 'var(--ap-fg)',
@@ -309,7 +309,7 @@ function CmdkItem({
       value={value}
       onSelect={onSelect}
       className={cn(
-        'flex h-9 cursor-pointer items-center gap-2.5 rounded-[10px] px-2.5 text-[13px] outline-none',
+        'flex h-9 cursor-pointer items-center gap-2.5 rounded-[var(--ap-radius-sm)] px-2.5 text-[13px] outline-none',
         'data-[selected=true]:bg-[var(--ap-accent)] data-[selected=true]:text-white',
         'data-[selected=true]:[&_svg]:text-white',
       )}

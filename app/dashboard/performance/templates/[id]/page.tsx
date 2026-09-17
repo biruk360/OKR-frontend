@@ -8,7 +8,7 @@ export default async function PerformanceTemplateBuilderPage({ params }: { param
   return (
     <div className="space-y-4">
       <div
-        className="rounded-[14px] border bg-card px-5 pt-5 pb-4"
+        className="rounded-[var(--ap-radius-md)] border bg-card px-5 pt-5 pb-4"
         style={{ borderColor: 'var(--ap-border)' }}
       >
         <Link

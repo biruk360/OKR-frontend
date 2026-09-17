@@ -190,7 +190,7 @@ function Segmented<T extends string>({
 }) {
   return (
     <div
-      className="inline-flex items-center rounded-[10px] p-0.5 text-[11px] font-medium"
+      className="inline-flex items-center rounded-[var(--ap-radius-sm)] p-0.5 text-[11px] font-medium"
       style={{ background: 'var(--ap-bg-sunken)' }}
     >
       {options.map(opt => (
@@ -234,7 +234,7 @@ function MultiPill<T extends { id: string; label?: string; name?: string }>({
         type="button"
         onClick={() => setOpen(o => !o)}
         className={cn(
-          'inline-flex items-center gap-1.5 rounded-[10px] px-2.5 h-8 text-[12px] font-medium border transition-colors',
+          'inline-flex items-center gap-1.5 rounded-[var(--ap-radius-sm)] px-2.5 h-8 text-[12px] font-medium border transition-colors',
           active ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
         )}
         style={{
@@ -253,7 +253,7 @@ function MultiPill<T extends { id: string; label?: string; name?: string }>({
       </button>
       {open && (
         <div
-          className="absolute z-30 top-full left-0 mt-1 w-64 rounded-[14px] border bg-card shadow-lg overflow-hidden"
+          className="absolute z-30 top-full left-0 mt-1 w-64 rounded-[var(--ap-radius-md)] border bg-card shadow-lg overflow-hidden"
           style={{ borderColor: 'var(--ap-border)' }}
         >
           <div className="px-3 py-2 border-b text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
@@ -343,7 +343,7 @@ function NodeCard({
       onClick={onOpen}
       onKeyDown={() => {}}
       className={cn(
-        'group ap-hover-lift relative flex items-start gap-2 rounded-[14px] border bg-card px-3 py-3 transition-all cursor-pointer',
+        'group ap-hover-lift relative flex items-start gap-2 rounded-[var(--ap-radius-md)] border bg-card px-3 py-3 transition-all cursor-pointer',
         'hover:shadow-md hover:-translate-y-px',
         focused && 'ring-2 ring-offset-1',
       )}
@@ -596,14 +596,14 @@ export default function OkrHierarchyTable() {
   }, [visible, focusedId, openRow])
 
   return (
-    <div className="rounded-[14px] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
+    <div className="rounded-[var(--ap-radius-md)] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
       {/* Toolbar */}
       <div
         className="flex flex-wrap items-center gap-2 border-b px-3 py-2.5"
         style={{ borderColor: 'var(--ap-border)', background: 'var(--ap-bg-sunken)' }}
       >
         <div
-          className="flex items-center gap-1.5 rounded-[10px] border px-2 h-8 w-72 bg-card"
+          className="flex items-center gap-1.5 rounded-[var(--ap-radius-sm)] border px-2 h-8 w-72 bg-card"
           style={{ borderColor: 'var(--ap-border)' }}
         >
           <Search className="h-3.5 w-3.5 text-muted-foreground" />
@@ -786,7 +786,7 @@ export default function OkrHierarchyTable() {
             <Field label="Expected end">{formatDate(selected.data.endDate ?? selected.data.dueDate)}</Field>
             {selected.data.href && (
               <Link href={selected.data.href} className="inline-block">
-                <Button size="sm" className="h-8 rounded-[10px] text-[12px]">Open full page</Button>
+                <Button size="sm" className="h-8 rounded-[var(--ap-radius-sm)] text-[12px]">Open full page</Button>
               </Link>
             )}
           </div>

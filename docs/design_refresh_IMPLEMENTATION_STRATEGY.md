@@ -384,7 +384,55 @@ Also: `EndSprintModal:359,373` toggles between `--ap-accent` and `--ap-border` t
 selection. With an opaque border the unselected state gains weight and the
 selected/unselected contrast collapses. Check it after Phase 1.
 
-### 2.9 Type and space scale
+### 2.9 Board backgrounds — merge both sets, keep every key
+
+**Decided (2026-09-17).** `lib/sprint-backgrounds.ts` has 11 presets; the design has 11.
+Six names overlap, all values differ. Merge them.
+
+**The stored value is the key** (`sprint.background = 'graphite'`), never the colour — so
+retargeting values is safe and needs no migration. **Every existing key must survive**, or
+sprints saved against it lose their ground.
+
+| key (keep — in the DB) | label | new value from |
+|---|---|---|
+| `none` | None | design **Paper** |
+| `sunrise` | Sunrise | *derive* — no design equivalent (see below) |
+| `slate` | Slate Mist | design **Slate** |
+| `sage` | Sage | design **Sage** |
+| `peach` | Peach | design **Peach** |
+| `lavender` | Lavender | design **Periwinkle** |
+| `graphite` | Graphite | design **Graphite** |
+| `ocean` | Ocean | design **Sky** |
+| `dusk` | Dusk | design **Lilac** |
+| `mint` | Mint | design **Mint** |
+| `blush` | Blush | design **Blush** |
+| `clay` *(new)* | Clay | design **Clay** |
+
+That is 10 mapped directly, 1 derived, 1 added — 12 presets, zero data risk.
+
+**`sunrise` has no design counterpart** and must not collide with `peach`. Derive it in
+the design's idiom (a two-stop `linear-gradient(150deg, …)`), pushed golden rather than
+pink so the two stay distinguishable:
+
+```
+swatch: linear-gradient(150deg, oklch(0.95 0.045 75), oklch(0.93 0.055 45))
+board:  linear-gradient(150deg, oklch(0.96 0.035 75), oklch(0.94 0.045 45))
+```
+
+Two structural notes:
+
+- The shapes already match — existing presets carry `swatch` + `gradient`, the design
+  carries `swatch` + `board`. Map `board → gradient`. The design's swatch is deliberately
+  a **stronger** gradient than the ground it applies; preserve that, it is what makes the
+  picker chips readable at 40px.
+- **`isDarkBackground()` needs no change.** It returns true only for `graphite`, and
+  Graphite is the only dark preset in the design too. The dark-fork work in §6.3 keys off
+  the same single preset.
+
+> Doing nothing here is not neutral: Phase 1 retargets the lanes, cards and borders that
+> sit **on top of** these grounds. Old gradients under new opaque borders will clash.
+
+### 2.10 Type and space scale
 
 The designs have a real scale; the app currently has ~450 arbitrary values and no scale
 in use. Measured frequency:
@@ -414,7 +462,7 @@ Register these in `tailwind.config.js` so the arbitrary values have somewhere to
 Without a scale, the retarget makes the app *look* new while leaving it just as
 inconsistent underneath.
 
-### 2.10 Priority is a four-value enum with two untokenised hues
+### 2.11 Priority is a four-value enum with two untokenised hues
 
 Identical in both the board and list designs:
 
@@ -467,8 +515,9 @@ Dark surface values to add, derived from the design's `Graphite` board backgroun
 --ap-accent:     oklch(0.62 0.17 255)
 ```
 
-> If dark mode is not wanted in this release, say so and we drop §3 entirely — but then
-> do **not** ship a `.dark` class, because a half-wired dark mode is worse than none.
+> **Confirmed in scope (2026-09-17).** Dark mode ships with this refresh. All three
+> wiring fixes and the full set of dark token values are required in Phase 1 — a
+> half-wired dark mode is worse than none, so this is all-or-nothing and it is on.
 
 ### 3.1 The "Default" theme is already broken — decide its fate now
 
@@ -485,15 +534,31 @@ colour, skeletons render as transparent boxes, the command palette has no backgr
 its scrim, the date picker has no surface, and every `.ap-btn-primary` becomes a
 transparent borderless button. This is pre-existing, not caused by the refresh.
 
-Three options — **pick one before Phase 1**:
+**Decided (2026-09-17): do both — move the tokens to `:root`, and drop the "Default" tab.**
 
-- **Remove the theme.** Ship one visual language. Simplest, and matches Decision 1.
-- **Move the `--ap-*` block to `:root`** so the tokens always resolve and the theme
-  classes only override. Cheap, and fixes all 2,239 sites at once.
-- **Keep it broken and hide it.** Only defensible if nobody uses "Default".
+**1. Move the `--ap-*` block from `.apple-pro-surface, .theme-apple-full` to `:root`.**
+Theme classes then only *override* rather than *define*. One edit; it makes all 2,239
+unguarded call sites resolve in every context, forever. This is worth doing on its own
+merits — it removes a whole class of "component renders colourless" bug that has nothing
+to do with theming, including inside print, email previews and any future surface that
+renders outside the app shell.
 
-The design's own top bar still shows a three-way switcher, so this needs an explicit
-answer rather than a default.
+**2. Remove `'default'` from `ThemeName` and from `ThemeSwitcher`.** Reasons, in order:
+
+- It is broken today and nobody has reported it, which is weak evidence anyone uses it.
+- After step 1 it would no longer be *broken* — it would be near-identical to "Apple",
+  since the tokens now resolve from `:root` and `.apple-pro-surface` adds little beyond
+  them. Three tabs where two look the same is worse UI than two tabs.
+- Decision 1 says one visual language ships. A "Default" tab showing the base shadcn
+  blue-grey would be a third language contradicting that.
+
+Ship **Apple** and **Apple Pro**. `bodyClassForTheme` loses its first branch; the
+persisted `okr-theme` value `'default'` must fall back to `'apple-pro'` rather than
+throwing — existing users have it in localStorage.
+
+> This is not a Decision 0 violation. Decision 0 protects existing *working* behaviour
+> from being overwritten by the design. Removing a control that renders the app
+> colourless is a defect fix, and the design does not ask for it either way.
 
 ---
 
@@ -835,7 +900,7 @@ The design **restructures the left column**, it does not just restyle it:
   > **Priority is the fourth cell in the design.** The modal already has a `PriorityPill`,
   > so moving it into the grid is a restyle, not a new feature — keep it. Use the existing
   > `PRIORITY_COLORS` semantics (retargeted), not the design's four hues, two of which
-  > have no token (§2.10).
+  > have no token (§2.11).
 - Linked-OKR card, Description, Checklist, then Comments and Activity.
 - The comment composer gets the mono `⌘↵` hint.
 
@@ -1050,8 +1115,8 @@ Also out of scope:
 
 | Phase | Status | Owner | Notes |
 |---|---|---|---|
-| 0 — crash fix | Not started | | |
-| 1 — token retarget | Not started | | |
+| 0 — crash fix | **Done** 2026-09-17 | Claude | `data.data` + Array.isArray guard; nullable assignee; both `as any` removed |
+| 1 — token retarget | **Done** 2026-09-17 | Claude | Tokens on `:root`; WCAG-corrected values; dark wired; fonts; 294 radii swept; backgrounds merged. **No browser check yet.** |
 | 2 — primitives | Not started | | |
 | 3 — shell | Not started | | |
 | 4 — sprint board | Not started | | |
@@ -1119,14 +1184,13 @@ its own estimate, separately from the visual work.
 | Comment `React` link | Reaction model |
 | Cover `repeating-linear-gradient(...)` | Covers as **patterns**, not just hex — `CARD_PALETTE` only models colour |
 
-### Still genuinely open — worth answering even though nothing here is scoped
+### Resolved
 
-1. **11 board background presets, each with a separate `swatch` and `board` value** (the
-   swatch is a stronger gradient than the ground it applies). The existing
-   `lib/sprint-backgrounds.ts` has 11 presets too — confirm whether the names and values
-   should be retargeted to the design's, or left alone. This is the one place where
-   "existing wins" and "retarget the palette" genuinely collide.
-2. **`.ap-glass` and the `default` theme** — §2.7 and §3.1. Both need a call.
+1. **Board backgrounds** — decided, see §2.9 below. Merge both sets, keep every existing
+   key.
+2. **The `default` theme** — decided, see §3.1. Tokens move to `:root`; the tab is removed.
+3. **`.ap-glass`** — §2.7. Change it to read `--ap-border` instead of its hardcoded rgba,
+   so the header and sidebar stop keeping the old border after the retarget.
 
 ---
 

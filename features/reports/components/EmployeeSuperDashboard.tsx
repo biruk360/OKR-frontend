@@ -210,7 +210,7 @@ export function EmployeeSuperDashboard(props: EmployeeSuperData) {
                   style={{ borderColor: 'var(--ap-border)' }}
                 >
                   <span
-                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px]"
+                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--ap-radius-sm)]"
                     style={{ background: priorityBg(t.priority), color: priorityFg(t.priority) }}
                   >
                     <ListChecks className="h-4 w-4" />
@@ -255,7 +255,7 @@ export function EmployeeSuperDashboard(props: EmployeeSuperData) {
                   <button
                     type="button"
                     onClick={() => open(t.id)}
-                    className="flex w-full items-start gap-3 rounded-[10px] px-2 py-1.5 text-left transition hover:bg-muted/40"
+                    className="flex w-full items-start gap-3 rounded-[var(--ap-radius-sm)] px-2 py-1.5 text-left transition hover:bg-muted/40"
                   >
                     <span className="mt-0.5 inline-flex h-9 w-12 shrink-0 flex-col items-center justify-center rounded-[8px] text-center"
                       style={{ background: 'var(--ap-bg-sunken)' }}>
@@ -303,7 +303,7 @@ function KrGaugeCard({ kr }: { kr: EmployeeSuperData['krs'][number] }) {
     'var(--ap-fg-muted)'
   const pct = Math.max(0, Math.min(100, Math.round(kr.progress)))
   return (
-    <div className="rounded-[14px] border bg-card p-4" style={{ borderColor: 'var(--ap-border)' }}>
+    <div className="rounded-[var(--ap-radius-md)] border bg-card p-4" style={{ borderColor: 'var(--ap-border)' }}>
       <div className="flex items-start gap-4">
         <RadialGauge percent={pct} color={tone} />
         <div className="min-w-0 flex-1">
@@ -436,7 +436,7 @@ function RecommendationRow({ item }: {
   const body = (
     <div className="flex gap-3 rounded-[12px] border p-3 transition hover:bg-muted/40"
       style={{ borderColor: 'var(--ap-border)' }}>
-      <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px]"
+      <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--ap-radius-sm)]"
         style={{ background: `${toneColor}1F`, color: toneColor }}>
         <Icon className="h-4 w-4" />
       </span>
@@ -453,7 +453,7 @@ function EmptyHint({ icon: Icon, message }: { icon: LucideIcon; message: string 
   return (
     <div className="flex items-center gap-3 rounded-[12px] border border-dashed p-4"
       style={{ borderColor: 'var(--ap-border)' }}>
-      <span className="inline-flex h-9 w-9 items-center justify-center rounded-[10px]"
+      <span className="inline-flex h-9 w-9 items-center justify-center rounded-[var(--ap-radius-sm)]"
         style={{ background: 'var(--ap-bg-sunken)', color: 'var(--ap-fg-muted)' }}>
         <Icon className="h-[18px] w-[18px]" />
       </span>

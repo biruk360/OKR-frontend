@@ -947,57 +947,88 @@
    `.dark .apple-pro-surface`.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-.apple-pro-surface,
-.theme-apple-full {
-  --ap-font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  --ap-font-mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+/* Custom properties live on :root so they ALWAYS resolve, in every context —
+   including the "Default" theme (which drops the scope classes), print, and
+   anything rendered outside the app shell. 97% of the ~2,300 var(--ap-*) call
+   sites carry no fallback, so scoping the definitions was a standing source of
+   "component renders colourless" bugs. Theme classes now only OVERRIDE.
 
-  --ap-bg: #F2F2F7;
+   The applied properties (background, font, metrics) deliberately stay on the
+   scope class below: `font-size: 13px` on :root would rebase every rem in the
+   app. Variables here, rendering there. */
+:root {
+  /* next/font generates scoped family names, so reference its variables rather
+     than naming the families directly. Noto Sans Ethiopic stays in the stack:
+     Instrument Sans has no Ethiopic coverage, and Amharic text outside the
+     .font-amharic / .letter-amharic classes would otherwise lose its fallback
+     now that --ap-font-sans genuinely applies. */
+  --ap-font-sans: var(--font-instrument-sans), system-ui, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, 'Noto Sans Ethiopic', sans-serif;
+  --ap-font-mono: var(--font-plex-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  --ap-bg: oklch(0.985 0.003 262);
   --ap-bg-raised: #FFFFFF;
-  --ap-bg-sunken: #EFEFF4;
-  --ap-bg-hover: #F7F7FA;
+  --ap-bg-sunken: oklch(0.975 0.004 262);
+  --ap-bg-hover: oklch(0.96 0.004 262);
 
-  --ap-border: rgba(60, 60, 67, 0.10);
-  --ap-border-strong: rgba(60, 60, 67, 0.22);
-  --ap-border-soft: rgba(60, 60, 67, 0.06);
+  /* --ap-border is DECORATIVE ONLY (card edges, table rules, dividers).
+     Any border that identifies a control — input outlines, checkbox/radio
+     edges, focus indicators — must use --ap-border-strong, which clears the
+     3:1 that WCAG 1.4.11 requires. Using --ap-border on an input is an
+     accessibility bug, not a style preference. */
+  --ap-border: oklch(0.92 0.006 262);
+  --ap-border-strong: oklch(0.62 0.006 262);
+  --ap-border-soft: oklch(0.94 0.006 262);
 
-  --ap-fg: #000000;
-  --ap-fg-muted: #3C3C43;
-  --ap-fg-subtle: rgba(60, 60, 67, 0.60);
-  --ap-fg-faint: rgba(60, 60, 67, 0.36);
+  --ap-fg: oklch(0.26 0.015 262);
+  --ap-fg-muted: oklch(0.32 0.015 262);
+  --ap-fg-secondary: oklch(0.42 0.015 262);
+  --ap-fg-subtle: oklch(0.53 0.012 262);
+  /* Clears 3:1 only. Decorative, disabled, or large text — never body copy. */
+  --ap-fg-faint: oklch(0.658 0.01 262);
 
-  --ap-accent: #007AFF;
-  --ap-accent-hover: #0060DF;
-  --ap-accent-soft: rgba(0, 122, 255, 0.12);
+  --ap-accent: oklch(0.52 0.17 255);
+  --ap-accent-hover: oklch(0.45 0.17 255);
+  --ap-accent-soft: oklch(0.95 0.024 255);
   --ap-accent-fg: #FFFFFF;
+  /* Dark accent text ON a soft accent fill. The design used eight near-identical
+     values for this; none of them was --ap-accent. */
+  --ap-accent-on-soft: oklch(0.42 0.15 255);
+  /* Focus is a border-colour + width swap, not a ring. Lighter than the accent. */
+  --ap-focus: oklch(0.62 0.14 255);
 
-  --ap-ok: #34C759;
-  --ap-ok-bg: rgba(52, 199, 89, 0.15);
-  --ap-ok-fg: #1F7A33;
-  --ap-warn: #FF9500;
-  --ap-warn-bg: rgba(255, 149, 0, 0.15);
-  --ap-warn-fg: #A85800;
-  --ap-danger: #FF3B30;
-  --ap-danger-bg: rgba(255, 59, 48, 0.14);
-  --ap-danger-fg: #B3271E;
-  --ap-ahead: #AF52DE;
-  --ap-ahead-bg: rgba(175, 82, 222, 0.14);
-  --ap-ahead-fg: #7A2DB0;
-  --ap-none: #8E8E93;
-  --ap-none-bg: rgba(142, 142, 147, 0.15);
-  --ap-none-fg: #3C3C43;
+  --ap-ok: oklch(0.54 0.14 150);
+  --ap-ok-bg: oklch(0.955 0.03 150);
+  --ap-ok-fg: oklch(0.42 0.10 150);
+  /* Amber cannot carry white text at any in-gamut lightness (best case 2.55:1).
+     Use --ap-fg on a --ap-warn fill, never #fff. */
+  --ap-warn: oklch(0.72 0.14 70);
+  --ap-warn-bg: oklch(0.975 0.018 70);
+  --ap-warn-fg: oklch(0.44 0.103 60);
+  --ap-danger: oklch(0.58 0.19 25);
+  --ap-danger-bg: oklch(0.96 0.020 25);
+  --ap-danger-fg: oklch(0.49 0.18 25);
+  --ap-ahead: oklch(0.57 0.14 300);
+  --ap-ahead-bg: oklch(0.95 0.028 300);
+  --ap-ahead-fg: oklch(0.42 0.13 300);
+  --ap-none: oklch(0.65 0.01 262);
+  --ap-none-bg: oklch(0.965 0.004 262);
+  --ap-none-fg: oklch(0.42 0.015 262);
 
   /* semantic color aliases */
-  --ap-red: #FF3B30;
-  --ap-green: #34C759;
-  --ap-orange: #FF9500;
-  --ap-fg-secondary: rgba(60, 60, 67, 0.72);
+  --ap-red: oklch(0.58 0.19 25);
+  --ap-green: oklch(0.54 0.14 150);
+  --ap-orange: oklch(0.72 0.14 70);
 
-  --ap-kr-bar-bg: rgba(60, 60, 67, 0.12);
+  --ap-kr-bar-bg: oklch(0.93 0.006 262);
+
+  /* Priority scale. Low and High have no status-token equivalent. */
+  --ap-priority-low: oklch(0.62 0.12 215);
+  --ap-priority-high: oklch(0.65 0.17 40);
 
   /* Card palette — labels and covers share these ten swatches.
-     See lib/card-visuals.ts (CARD_PALETTE) which mirrors them for
-     non-CSS contexts and derives colour-blind textures from the order. */
+     DELIBERATELY NOT RETARGETED: these hexes are persisted in the database
+     (TodoLabelDef.color), so changing them would orphan every saved label.
+     See lib/card-visuals.ts (CARD_PALETTE) which mirrors them. */
   --ap-card-green: #61BD4F;
   --ap-card-yellow: #F2D600;
   --ap-card-orange: #FF9F1A;
@@ -1013,48 +1044,66 @@
      Map shadcn/Tailwind tokens → Apple Pro palette so every existing
      component (using bg-card, text-muted-foreground, border-border,
      bg-primary, etc.) is automatically restyled — no per-component edits.
-     HSL triplet form because Tailwind composes them as `hsl(var(--token))`.
+     HSL triplet form because Tailwind composes them as `hsl(var(--token))`,
+     which is why these are HSL and not oklch like the tokens above.
      ────────────────────────────────────────────────────────────────── */
-  --background: 240 24% 96%;        /* #F2F2F7 */
-  --foreground: 0 0% 0%;            /* #000000 */
-  --card: 0 0% 100%;                /* #FFFFFF */
-  --card-foreground: 0 0% 0%;
+  --background: 218 36% 98%;
+  --foreground: 218 15% 15%;
+  --card: 0 0% 100%;
+  --card-foreground: 218 15% 15%;
   --popover: 0 0% 100%;
-  --popover-foreground: 0 0% 0%;
-  --primary: 211 100% 50%;          /* #007AFF */
+  --popover-foreground: 218 15% 15%;
+  --primary: 209 98% 40%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 240 9% 94%;          /* #EFEFF4 */
-  --secondary-foreground: 240 6% 24%;
-  --muted: 240 9% 94%;
-  --muted-foreground: 240 6% 38%;   /* #5F5F66 — readable secondary */
-  --accent: 240 9% 94%;
-  --accent-foreground: 0 0% 0%;
-  --destructive: 4 100% 59%;        /* #FF3B30 */
+  --secondary: 218 28% 97%;
+  --secondary-foreground: 218 15% 15%;
+  --muted: 218 28% 97%;
+  --muted-foreground: 218 5% 43%;
+  --accent: 218 28% 97%;
+  --accent-foreground: 218 15% 15%;
+  --destructive: 360 64% 53%;
   --destructive-foreground: 0 0% 100%;
-  --border: 240 8% 88%;             /* #DEDEE3 — solid equivalent of rgba(60,60,67,0.10) */
-  --input: 240 8% 88%;
-  --ring: 211 100% 50%;
-  --radius: 0.625rem;               /* 10px */
+  --border: 218 12% 90%;
+  --input: 218 12% 90%;
+  --ring: 209 98% 40%;
+  --radius: 0.5rem;                 /* 8px → rounded-lg 8, md 6, sm 4 */
   --sidebar: 0 0% 100%;
-  --sidebar-foreground: 0 0% 0%;
-  --sidebar-primary: 211 100% 50%;
+  --sidebar-foreground: 218 15% 15%;
+  --sidebar-primary: 209 98% 40%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 240 9% 94%;
-  --sidebar-accent-foreground: 0 0% 0%;
-  --sidebar-border: 240 8% 88%;
-  --sidebar-ring: 211 100% 50%;
+  --sidebar-accent: 218 28% 97%;
+  --sidebar-accent-foreground: 218 15% 15%;
+  --sidebar-border: 218 12% 90%;
+  --sidebar-ring: 209 98% 40%;
 
-  --ap-radius-sm: 10px;
-  --ap-radius-md: 14px;
-  --ap-radius-card: 16px;
-  --ap-radius-lg: 22px;
+  /* Measured from the designs: 7px and 6px are the workhorses (89 of 207
+     radii). 14px occurs exactly once — the modal shell. */
+  --ap-radius-xs: 6px;
+  --ap-radius-sm: 7px;
+  --ap-radius-md: 9px;
+  --ap-radius-card: 12px;
+  --ap-radius-lg: 14px;
   --ap-radius-pill: 999px;
 
-  --ap-shadow-sm: 0 0.5px 0 rgba(0,0,0,0.04), 0 1px 3px rgba(0,0,0,0.05);
-  --ap-shadow-md: 0 2px 8px rgba(0,0,0,0.06), 0 0.5px 0 rgba(0,0,0,0.05);
-  --ap-shadow-lg: 0 30px 60px -20px rgba(0,0,0,0.25), 0 10px 20px -10px rgba(0,0,0,0.1);
-  --ap-shadow-card: 0 1px 3px rgba(0,0,0,0.04), 0 0.5px 0 rgba(0,0,0,0.03);
+  --ap-shadow-sm: 0 1px 2px oklch(0.2 0.04 260 / 0.06);
+  --ap-shadow-card: 0 1px 2px oklch(0.2 0.04 260 / 0.07);
+  --ap-shadow-md: 0 4px 12px -4px oklch(0.2 0.04 260 / 0.18);
+  --ap-shadow-lg: 0 24px 64px -12px oklch(0.2 0.04 260 / 0.45), 0 2px 8px oklch(0.2 0.04 260 / 0.12);
 
+  /* Popover elevation is a ramp keyed to width — wider popover, deeper
+     shadow. Pick via the Popover `width` prop, never by hand. */
+  --ap-shadow-pop-sm: 0 12px 28px -8px oklch(0.2 0.04 260 / 0.28);
+  --ap-shadow-pop-md: 0 14px 32px -10px oklch(0.2 0.04 260 / 0.3);
+  --ap-shadow-pop-lg: 0 16px 36px -10px oklch(0.2 0.04 260 / 0.3);
+  --ap-shadow-pop-xl: 0 18px 40px -12px oklch(0.2 0.04 260 / 0.32);
+  --ap-shadow-pop-panel: 0 18px 40px -12px oklch(0.2 0.04 260 / 0.32), 0 2px 6px oklch(0.2 0.04 260 / 0.08);
+  --ap-shadow-dock: 0 10px 30px -8px oklch(0.2 0.04 260 / 0.28);
+
+  --ap-overlay: oklch(0.28 0.03 262 / 0.46);
+}
+
+.apple-pro-surface,
+.theme-apple-full {
   background: var(--ap-bg);
   color: var(--ap-fg);
   font-family: var(--ap-font-sans);
@@ -1065,62 +1114,109 @@
   -webkit-font-smoothing: antialiased;
 }
 
+/* Dark mode. The `dark` class goes on <html>, NOT <body> — theme-body-class.tsx
+   rewrites body.className wholesale on every theme change and would wipe it.
+   tailwind.config.js must carry darkMode: 'class' or the `dark:` variants
+   follow prefers-color-scheme instead and the two mechanisms disagree.
+
+   Every token the light block defines is overridden here. The previous dark
+   block covered only ~20 of them, so status pill text, radii and shadows kept
+   their light values on dark surfaces. */
+:root.dark,
 .dark .apple-pro-surface,
 .dark .theme-apple-full,
 .apple-pro-surface.dark,
 .theme-apple-full.dark {
-  --ap-bg: #000000;
-  --ap-bg-raised: #1C1C1E;
-  --ap-bg-sunken: #0A0A0C;
-  --ap-bg-hover: #2C2C2E;
-  --ap-border: rgba(255, 255, 255, 0.10);
-  --ap-border-strong: rgba(255, 255, 255, 0.18);
-  --ap-border-soft: rgba(255, 255, 255, 0.06);
-  --ap-fg: #FFFFFF;
-  --ap-fg-muted: rgba(235, 235, 245, 0.78);
-  --ap-fg-subtle: rgba(235, 235, 245, 0.55);
-  --ap-fg-faint: rgba(235, 235, 245, 0.28);
-  --ap-accent: #0A84FF;
-  --ap-accent-hover: #409CFF;
-  --ap-accent-soft: rgba(10, 132, 255, 0.22);
-  --ap-ok: #30D158;
-  --ap-warn: #FF9F0A;
-  --ap-danger: #FF453A;
-  --ap-ahead: #BF5AF2;
-  --ap-red: #FF453A;
-  --ap-green: #30D158;
-  --ap-orange: #FF9F0A;
-  --ap-fg-secondary: rgba(235, 235, 245, 0.60);
-  --ap-kr-bar-bg: rgba(255, 255, 255, 0.10);
+  --ap-bg: oklch(0.19 0.012 262);
+  --ap-bg-raised: oklch(0.24 0.014 262);
+  --ap-bg-sunken: oklch(0.16 0.012 262);
+  --ap-bg-hover: oklch(0.28 0.015 262);
+
+  --ap-border: oklch(0.32 0.014 262);
+  --ap-border-strong: oklch(0.55 0.014 262);
+  --ap-border-soft: oklch(0.26 0.013 262);
+
+  --ap-fg: oklch(0.96 0.003 262);
+  --ap-fg-muted: oklch(0.86 0.006 262);
+  --ap-fg-secondary: oklch(0.76 0.008 262);
+  --ap-fg-subtle: oklch(0.68 0.010 262);
+  --ap-fg-faint: oklch(0.52 0.010 262);
+
+  --ap-accent: oklch(0.66 0.17 255);
+  --ap-accent-hover: oklch(0.72 0.15 255);
+  --ap-accent-soft: oklch(0.32 0.07 255);
+  --ap-accent-fg: oklch(0.16 0.012 262);
+  --ap-accent-on-soft: oklch(0.80 0.10 255);
+  --ap-focus: oklch(0.70 0.14 255);
+
+  --ap-ok: oklch(0.70 0.15 150);
+  --ap-ok-bg: oklch(0.28 0.05 150);
+  --ap-ok-fg: oklch(0.84 0.12 150);
+  --ap-warn: oklch(0.78 0.14 70);
+  --ap-warn-bg: oklch(0.30 0.05 70);
+  --ap-warn-fg: oklch(0.86 0.11 75);
+  --ap-danger: oklch(0.66 0.19 25);
+  --ap-danger-bg: oklch(0.30 0.07 25);
+  --ap-danger-fg: oklch(0.82 0.12 25);
+  --ap-ahead: oklch(0.70 0.15 300);
+  --ap-ahead-bg: oklch(0.30 0.06 300);
+  --ap-ahead-fg: oklch(0.84 0.10 300);
+  --ap-none: oklch(0.55 0.010 262);
+  --ap-none-bg: oklch(0.28 0.008 262);
+  --ap-none-fg: oklch(0.78 0.008 262);
+
+  --ap-red: oklch(0.66 0.19 25);
+  --ap-green: oklch(0.70 0.15 150);
+  --ap-orange: oklch(0.78 0.14 70);
+
+  --ap-kr-bar-bg: oklch(0.32 0.012 262);
+
+  --ap-priority-low: oklch(0.70 0.12 215);
+  --ap-priority-high: oklch(0.72 0.16 40);
+
+  /* Shadows read as depth against light, not dark — on dark surfaces they need
+     more spread and opacity to register at all. */
+  --ap-shadow-sm: 0 1px 2px oklch(0 0 0 / 0.4);
+  --ap-shadow-card: 0 1px 3px oklch(0 0 0 / 0.45);
+  --ap-shadow-md: 0 4px 14px -4px oklch(0 0 0 / 0.55);
+  --ap-shadow-lg: 0 24px 64px -12px oklch(0 0 0 / 0.7), 0 2px 8px oklch(0 0 0 / 0.4);
+  --ap-shadow-pop-sm: 0 12px 28px -8px oklch(0 0 0 / 0.55);
+  --ap-shadow-pop-md: 0 14px 32px -10px oklch(0 0 0 / 0.58);
+  --ap-shadow-pop-lg: 0 16px 36px -10px oklch(0 0 0 / 0.58);
+  --ap-shadow-pop-xl: 0 18px 40px -12px oklch(0 0 0 / 0.62);
+  --ap-shadow-pop-panel: 0 18px 40px -12px oklch(0 0 0 / 0.62), 0 2px 6px oklch(0 0 0 / 0.4);
+  --ap-shadow-dock: 0 10px 30px -8px oklch(0 0 0 / 0.55);
+
+  --ap-overlay: oklch(0.12 0.02 262 / 0.62);
 
   /* shadcn token overrides for dark mode */
-  --background: 0 0% 0%;
-  --foreground: 0 0% 100%;
-  --card: 240 6% 11%;               /* #1C1C1E */
-  --card-foreground: 0 0% 100%;
-  --popover: 240 6% 11%;
-  --popover-foreground: 0 0% 100%;
-  --primary: 211 100% 52%;          /* #0A84FF */
-  --primary-foreground: 0 0% 100%;
-  --secondary: 240 4% 17%;          /* #2C2C2E */
-  --secondary-foreground: 0 0% 100%;
-  --muted: 240 4% 17%;
-  --muted-foreground: 240 5% 65%;
-  --accent: 240 4% 17%;
-  --accent-foreground: 0 0% 100%;
-  --destructive: 4 100% 62%;
-  --destructive-foreground: 0 0% 100%;
-  --border: 240 4% 22%;
-  --input: 240 4% 22%;
-  --ring: 211 100% 52%;
-  --sidebar: 240 6% 11%;
-  --sidebar-foreground: 0 0% 100%;
-  --sidebar-primary: 211 100% 52%;
-  --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 240 4% 17%;
-  --sidebar-accent-foreground: 0 0% 100%;
-  --sidebar-border: 240 4% 22%;
-  --sidebar-ring: 211 100% 52%;
+  --background: 218 20% 8%;
+  --foreground: 218 12% 95%;
+  --card: 218 16% 13%;
+  --card-foreground: 218 12% 95%;
+  --popover: 218 16% 13%;
+  --popover-foreground: 218 12% 95%;
+  --primary: 213 92% 61%;
+  --primary-foreground: 218 20% 8%;
+  --secondary: 218 14% 17%;
+  --secondary-foreground: 218 12% 95%;
+  --muted: 218 14% 17%;
+  --muted-foreground: 218 5% 60%;
+  --accent: 218 14% 17%;
+  --accent-foreground: 218 12% 95%;
+  --destructive: 0 72% 58%;
+  --destructive-foreground: 218 12% 95%;
+  --border: 218 11% 21%;
+  --input: 218 11% 21%;
+  --ring: 213 92% 61%;
+  --sidebar: 218 16% 13%;
+  --sidebar-foreground: 218 12% 95%;
+  --sidebar-primary: 213 92% 61%;
+  --sidebar-primary-foreground: 218 20% 8%;
+  --sidebar-accent: 218 14% 17%;
+  --sidebar-accent-foreground: 218 12% 95%;
+  --sidebar-border: 218 11% 21%;
+  --sidebar-ring: 213 92% 61%;
 }
 
 /* Typography */
@@ -1151,14 +1247,13 @@
 .apple-pro-surface .ap-glass,
 .theme-apple-full .ap-glass,
 .ap-glass {
-  background: rgba(242, 242, 247, 0.72);
+  /* color-mix keeps the translucency that makes backdrop-filter visible while
+     still tracking --ap-bg. Hardcoding these was why the header and sidebar
+     kept the old grey border after a retarget — a visible seam on every page. */
+  background: color-mix(in oklab, var(--ap-bg) 72%, transparent);
   -webkit-backdrop-filter: saturate(180%) blur(24px);
   backdrop-filter: saturate(180%) blur(24px);
-  border-color: rgba(60, 60, 67, 0.12);
-}
-.dark .ap-glass {
-  background: rgba(28, 28, 30, 0.72);
-  border-color: rgba(255, 255, 255, 0.08);
+  border-color: var(--ap-border);
 }
 
 /* Card */
@@ -1263,7 +1358,7 @@
   cursor: pointer;
 }
 .ap-switch[data-state='checked'],
-.ap-switch.on { background: #34C759; }
+.ap-switch.on { background: var(--ap-ok); }
 .ap-switch::after {
   content: '';
   position: absolute;
@@ -1362,20 +1457,23 @@
 
 /* Modal */
 .ap-modal {
-  border-radius: 20px;
+  border-radius: var(--ap-radius-lg);
   background: var(--ap-bg-raised);
   box-shadow: var(--ap-shadow-lg);
 }
 .ap-modal-overlay {
-  background: rgba(0, 0, 0, 0.4);
-  -webkit-backdrop-filter: blur(4px);
-  backdrop-filter: blur(4px);
+  background: var(--ap-overlay);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
 }
 
-/* Sidebar (220 / 52) & Topbar (48) helpers */
-.ap-sidebar { width: 220px; }
+/* Sidebar (228 / 52) & Topbar (54) helpers.
+   These must stay in step with DashboardShell's grid columns and Sidebar's
+   aside width — they were 220/52/48 while the aside said 220 and the grid said
+   260, i.e. three copies of the number and only one of them applied. */
+.ap-sidebar { width: 228px; }
 .ap-sidebar[data-collapsed='true'] { width: 52px; }
-.ap-topbar { height: 48px; padding: 10px 20px; }
+.ap-topbar { height: 54px; padding: 10px 18px; }
 
 /* Apple Pro sidebar active nav pill override (spec §2.1) */
 .theme-apple-full aside nav button[style*="accent-soft"],

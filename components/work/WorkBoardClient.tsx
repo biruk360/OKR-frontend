@@ -216,7 +216,7 @@ export default function WorkBoardClient({ initialTodos, users, labelDefs, curren
             <div
               key={col.id}
               className={cn(
-                'flex w-72 shrink-0 flex-col rounded-[16px] transition-colors',
+                'flex w-72 shrink-0 flex-col rounded-[var(--ap-radius-card)] transition-colors',
                 dragOverCol === col.id ? 'ring-2 ring-[var(--ap-accent)]' : '',
               )}
               style={{ background: col.bgLight }}

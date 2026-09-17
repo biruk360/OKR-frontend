@@ -119,7 +119,7 @@ export function MentionEditor({ value, onChange, placeholder, users = [], onSubm
   if (!editor) return null
 
   return (
-    <div className={cn('flex flex-col rounded-[10px] border border-[var(--ap-border)] bg-[rgba(120,120,128,0.06)] overflow-hidden', className)}>
+    <div className={cn('flex flex-col rounded-[var(--ap-radius-sm)] border border-[var(--ap-border)] bg-[rgba(120,120,128,0.06)] overflow-hidden', className)}>
       {/* Toolbar */}
       <div className="flex items-center gap-0.5 border-b border-[var(--ap-border)] px-2 py-1">
         {[

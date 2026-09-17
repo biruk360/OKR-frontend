@@ -215,7 +215,7 @@ interface LinkedOkrCardProps {
 function LinkedOkrCard(p: LinkedOkrCardProps) {
   const linked = p.todo.keyResult || p.todo.objective
   return (
-    <div className="rounded-[14px] border border-[var(--ap-border)] bg-[var(--ap-bg-sunken)] overflow-hidden">
+    <div className="rounded-[var(--ap-radius-md)] border border-[var(--ap-border)] bg-[var(--ap-bg-sunken)] overflow-hidden">
       <div className="flex items-center gap-3 px-4 py-3">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--ap-accent-soft)] text-[var(--ap-accent)]">
           <Target className="h-[18px] w-[18px]" />
@@ -263,7 +263,7 @@ function LinkedOkrCard(p: LinkedOkrCardProps) {
               value={p.query}
               onChange={(e) => p.onQueryChange(e.target.value)}
               placeholder="Search objectives & key results…"
-              className="w-full rounded-[10px] border border-[var(--ap-border)] bg-[var(--ap-bg-sunken)] pl-9 pr-3 py-2 text-[13px] outline-none focus:ring-2 focus:ring-[var(--ap-accent)] focus:border-transparent"
+              className="w-full rounded-[var(--ap-radius-sm)] border border-[var(--ap-border)] bg-[var(--ap-bg-sunken)] pl-9 pr-3 py-2 text-[13px] outline-none focus:ring-2 focus:ring-[var(--ap-accent)] focus:border-transparent"
             />
           </div>
           {linked && (
@@ -287,7 +287,7 @@ function LinkedOkrCard(p: LinkedOkrCardProps) {
                     <button
                       key={kr.id}
                       onClick={() => p.onPickKr(kr.id)}
-                      className="flex w-full items-center gap-3 rounded-[10px] px-2 py-2 text-left hover:bg-[var(--ap-bg-hover)] transition-colors"
+                      className="flex w-full items-center gap-3 rounded-[var(--ap-radius-sm)] px-2 py-2 text-left hover:bg-[var(--ap-bg-hover)] transition-colors"
                     >
                       <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[var(--ap-accent-soft)] text-[var(--ap-accent)] text-[11px] font-700">KR</div>
                       <div className="min-w-0 flex-1">
@@ -307,7 +307,7 @@ function LinkedOkrCard(p: LinkedOkrCardProps) {
                     <button
                       key={o.id}
                       onClick={() => p.onPickObjective(o.id)}
-                      className="flex w-full items-center gap-3 rounded-[10px] px-2 py-2 text-left hover:bg-[var(--ap-bg-hover)] transition-colors"
+                      className="flex w-full items-center gap-3 rounded-[var(--ap-radius-sm)] px-2 py-2 text-left hover:bg-[var(--ap-bg-hover)] transition-colors"
                     >
                       <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[rgba(175,82,222,0.12)] text-[#AF52DE] text-[11px] font-700">O</div>
                       <div className="min-w-0 flex-1">
@@ -401,7 +401,7 @@ function ActivityFeed({
 }) {
   if (logs.length === 0) {
     return (
-      <div className="rounded-[14px] border border-dashed border-[var(--ap-border)] bg-[var(--ap-bg-sunken)] px-4 py-8 text-center">
+      <div className="rounded-[var(--ap-radius-md)] border border-dashed border-[var(--ap-border)] bg-[var(--ap-bg-sunken)] px-4 py-8 text-center">
         <p className="text-[13px] font-600 text-[var(--ap-fg)]">No activity yet</p>
         <p className="mt-1 text-[12px] text-[var(--ap-fg-subtle)]">Changes to this card will appear here.</p>
       </div>
@@ -640,7 +640,7 @@ function DatesPanel({ startDate, dueDate, startTime, endTime, dueReminder, sprin
           target so calendar clicks fill this date. */}
       <div
         className={cn(
-          'mt-3 rounded-[10px] border p-2 transition-colors cursor-pointer',
+          'mt-3 rounded-[var(--ap-radius-sm)] border p-2 transition-colors cursor-pointer',
           activeTarget === 'start'
             ? 'border-[var(--ap-accent)] bg-[var(--ap-accent-soft)]'
             : 'border-[var(--ap-border)] hover:bg-[var(--ap-bg-hover)]',
@@ -690,7 +690,7 @@ function DatesPanel({ startDate, dueDate, startTime, endTime, dueReminder, sprin
       {/* Due date row */}
       <div
         className={cn(
-          'mt-2 rounded-[10px] border p-2 transition-colors cursor-pointer',
+          'mt-2 rounded-[var(--ap-radius-sm)] border p-2 transition-colors cursor-pointer',
           activeTarget === 'due'
             ? 'border-[var(--ap-accent)] bg-[var(--ap-accent-soft)]'
             : 'border-[var(--ap-border)] hover:bg-[var(--ap-bg-hover)]',
@@ -1351,8 +1351,8 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
   const body = (
       <div
         className={isDrawer
-          ? 'ap-modal-enter pointer-events-auto relative h-full w-full overflow-y-auto bg-[var(--ap-bg-raised)] shadow-[var(--ap-shadow-lg)] sm:rounded-l-[20px] sm:max-w-[760px]'
-          : 'relative w-full overflow-hidden rounded-[20px] bg-[var(--ap-bg-raised)]'}
+          ? 'ap-modal-enter pointer-events-auto relative h-full w-full overflow-y-auto bg-[var(--ap-bg-raised)] shadow-[var(--ap-shadow-lg)] sm:rounded-l-[var(--ap-radius-lg)] sm:max-w-[760px]'
+          : 'relative w-full overflow-hidden rounded-[var(--ap-radius-lg)] bg-[var(--ap-bg-raised)]'}
         onClick={(e) => e.stopPropagation()}
       >
         {/* ── Cover strip (taller, gradient feel) ── */}
@@ -1482,7 +1482,7 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
           {sprintClosed && (
             <div
               className={cn(
-                'mx-6 flex items-center gap-2 rounded-[10px] px-3 py-2 text-[12px]',
+                'mx-6 flex items-center gap-2 rounded-[var(--ap-radius-sm)] px-3 py-2 text-[12px]',
                 todo.coverColor ? 'mt-4' : 'mt-14',
               )}
               style={{
@@ -1685,7 +1685,7 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                   <button
                     onClick={() => setActivePanel('description')}
                     disabled={sprintClosed}
-                    className="w-full rounded-[10px] bg-[var(--ap-bg-sunken)] px-3 py-2.5 text-left text-[13px] text-[var(--ap-fg-subtle)] transition-colors hover:bg-[var(--ap-bg-hover)] disabled:cursor-not-allowed disabled:opacity-60"
+                    className="w-full rounded-[var(--ap-radius-sm)] bg-[var(--ap-bg-sunken)] px-3 py-2.5 text-left text-[13px] text-[var(--ap-fg-subtle)] transition-colors hover:bg-[var(--ap-bg-hover)] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {sprintClosed ? 'No description' : 'Add a more detailed description…'}
                   </button>
@@ -1888,7 +1888,7 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                     {todo.attachments.map((att) => {
                       const isImage = att.mimeType.startsWith('image/')
                       return (
-                        <div key={att.id} className="group relative flex items-center gap-2 rounded-[10px] border border-[var(--ap-border)] bg-[var(--ap-bg-sunken)] p-2 overflow-hidden">
+                        <div key={att.id} className="group relative flex items-center gap-2 rounded-[var(--ap-radius-sm)] border border-[var(--ap-border)] bg-[var(--ap-bg-sunken)] p-2 overflow-hidden">
                           {isImage ? (
                             <img src={att.url} alt={att.filename} className="h-10 w-10 rounded-md object-cover shrink-0" />
                           ) : (
@@ -1946,7 +1946,7 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                         <button
                           type="button"
                           onClick={() => commentFileInputRef.current?.click()}
-                          className="inline-flex items-center gap-1 rounded-[10px] border border-[var(--ap-border)] bg-[var(--ap-bg-sunken)] px-2 py-1 text-[11px] text-[var(--ap-fg-muted)] hover:text-[var(--ap-fg)] hover:bg-[var(--ap-bg-hover)] transition-colors"
+                          className="inline-flex items-center gap-1 rounded-[var(--ap-radius-sm)] border border-[var(--ap-border)] bg-[var(--ap-bg-sunken)] px-2 py-1 text-[11px] text-[var(--ap-fg-muted)] hover:text-[var(--ap-fg)] hover:bg-[var(--ap-bg-hover)] transition-colors"
                         >
                           <Paperclip className="h-3 w-3" /> Attach file
                         </button>
@@ -2073,7 +2073,7 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                                   const isImage = att.mimeType?.startsWith('image/')
                                   return isImage ? (
                                     <a key={att.id} href={att.url} target="_blank" rel="noreferrer" className="block">
-                                      <img src={att.url} alt={att.filename} className="max-h-48 rounded-[10px] border border-[var(--ap-border)] object-cover" />
+                                      <img src={att.url} alt={att.filename} className="max-h-48 rounded-[var(--ap-radius-sm)] border border-[var(--ap-border)] object-cover" />
                                     </a>
                                   ) : (
                                     <a
@@ -2122,7 +2122,7 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
               {/* Link OKR — surfaced at the top */}
               <button
                 onClick={() => setActivePanel(activePanel === 'link' ? null : 'link')}
-                className="flex w-full items-center gap-2.5 rounded-[10px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-3 py-2 text-left text-[12px] font-500 text-[var(--ap-fg)] hover:border-[var(--ap-accent)] hover:text-[var(--ap-accent)] hover:shadow-sm transition-all"
+                className="flex w-full items-center gap-2.5 rounded-[var(--ap-radius-sm)] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-3 py-2 text-left text-[12px] font-500 text-[var(--ap-fg)] hover:border-[var(--ap-accent)] hover:text-[var(--ap-accent)] hover:shadow-sm transition-all"
               >
                 <Target className="h-3.5 w-3.5" /> Link OKR
               </button>
@@ -2131,7 +2131,7 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
               <div className="relative">
                 <button
                   onClick={() => setActivePanel(activePanel === 'labels' ? null : 'labels')}
-                  className="flex w-full items-center gap-2.5 rounded-[10px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-3 py-2 text-left text-[12px] font-500 text-[var(--ap-fg)] hover:border-[var(--ap-accent)] hover:shadow-sm transition-all"
+                  className="flex w-full items-center gap-2.5 rounded-[var(--ap-radius-sm)] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-3 py-2 text-left text-[12px] font-500 text-[var(--ap-fg)] hover:border-[var(--ap-accent)] hover:shadow-sm transition-all"
                 >
                   <Tag className="h-3.5 w-3.5" /> Labels
                 </button>
@@ -2214,7 +2214,7 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
               <div className="relative">
                 <button
                   onClick={() => setActivePanel(activePanel === 'checklist' ? null : 'checklist')}
-                  className="flex w-full items-center gap-2.5 rounded-[10px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-3 py-2 text-left text-[12px] font-500 text-[var(--ap-fg)] hover:border-[var(--ap-accent)] hover:shadow-sm transition-all"
+                  className="flex w-full items-center gap-2.5 rounded-[var(--ap-radius-sm)] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-3 py-2 text-left text-[12px] font-500 text-[var(--ap-fg)] hover:border-[var(--ap-accent)] hover:shadow-sm transition-all"
                 >
                   <CheckSquare className="h-3.5 w-3.5" /> Checklist
                 </button>
@@ -2243,7 +2243,7 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
               <div className="relative">
                 <button
                   onClick={() => setActivePanel(activePanel === 'dates' ? null : 'dates')}
-                  className="flex w-full items-center gap-2.5 rounded-[10px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-3 py-2 text-left text-[12px] font-500 text-[var(--ap-fg)] hover:border-[var(--ap-accent)] hover:shadow-sm transition-all"
+                  className="flex w-full items-center gap-2.5 rounded-[var(--ap-radius-sm)] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-3 py-2 text-left text-[12px] font-500 text-[var(--ap-fg)] hover:border-[var(--ap-accent)] hover:shadow-sm transition-all"
                 >
                   <Calendar className="h-3.5 w-3.5 shrink-0" />
                   <span className="flex-1 min-w-0 truncate">
@@ -2288,7 +2288,7 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
               {/* Attach */}
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="flex w-full items-center gap-2.5 rounded-[10px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-3 py-2 text-left text-[12px] font-500 text-[var(--ap-fg)] hover:border-[var(--ap-accent)] hover:shadow-sm transition-all"
+                className="flex w-full items-center gap-2.5 rounded-[var(--ap-radius-sm)] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-3 py-2 text-left text-[12px] font-500 text-[var(--ap-fg)] hover:border-[var(--ap-accent)] hover:shadow-sm transition-all"
               >
                 <Paperclip className="h-3.5 w-3.5" /> Attachment
               </button>
@@ -2307,7 +2307,7 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
               <div className="relative">
                 <button
                   onClick={() => setActivePanel(activePanel === 'cover' ? null : 'cover')}
-                  className="flex w-full items-center gap-2.5 rounded-[10px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-3 py-2 text-left text-[12px] font-500 text-[var(--ap-fg)] hover:border-[var(--ap-accent)] hover:shadow-sm transition-all"
+                  className="flex w-full items-center gap-2.5 rounded-[var(--ap-radius-sm)] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-3 py-2 text-left text-[12px] font-500 text-[var(--ap-fg)] hover:border-[var(--ap-accent)] hover:shadow-sm transition-all"
                 >
                   <ImageIcon className="h-3.5 w-3.5" /> Cover
                 </button>
@@ -2393,13 +2393,13 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                 <p className="text-[10px] font-700 uppercase tracking-[0.06em] text-[var(--ap-fg-subtle)]">Actions</p>
                 <button
                   onClick={() => { patch({ status: 'COMPLETED' }) }}
-                  className="flex w-full items-center gap-2.5 rounded-[10px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-3 py-2 text-left text-[12px] font-600 text-[var(--ap-ok)] hover:border-[var(--ap-ok)] hover:bg-[var(--ap-ok-bg)] transition-all"
+                  className="flex w-full items-center gap-2.5 rounded-[var(--ap-radius-sm)] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-3 py-2 text-left text-[12px] font-600 text-[var(--ap-ok)] hover:border-[var(--ap-ok)] hover:bg-[var(--ap-ok-bg)] transition-all"
                 >
                   <Check className="h-3.5 w-3.5" /> Mark done
                 </button>
                 <button
                   onClick={() => setConfirmDelete(true)}
-                  className="flex w-full items-center gap-2.5 rounded-[10px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-3 py-2 text-left text-[12px] font-600 text-[var(--ap-danger)] hover:border-[var(--ap-danger)] hover:bg-[var(--ap-danger-bg)] transition-all"
+                  className="flex w-full items-center gap-2.5 rounded-[var(--ap-radius-sm)] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-3 py-2 text-left text-[12px] font-600 text-[var(--ap-danger)] hover:border-[var(--ap-danger)] hover:bg-[var(--ap-danger-bg)] transition-all"
                 >
                   <Trash2 className="h-3.5 w-3.5" /> Delete card
                 </button>

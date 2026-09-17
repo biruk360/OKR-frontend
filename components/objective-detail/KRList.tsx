@@ -70,7 +70,7 @@ export default function KRList({ keyResults, objectiveId }: Props) {
     ? Math.round((onTrackCount / active.length) * 100) : 0
 
   return (
-    <section className="rounded-[14px] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
+    <section className="rounded-[var(--ap-radius-md)] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--ap-border)' }}>
         <div className="flex items-baseline gap-2">
@@ -80,7 +80,7 @@ export default function KRList({ keyResults, objectiveId }: Props) {
         <div className="flex items-center gap-2">
           {/* Rich/Compact segmented control */}
           <div
-            className="inline-flex items-center rounded-[10px] p-0.5 text-[11px] font-medium"
+            className="inline-flex items-center rounded-[var(--ap-radius-sm)] p-0.5 text-[11px] font-medium"
             style={{ background: 'var(--ap-bg-sunken)' }}
           >
             <button
@@ -96,11 +96,11 @@ export default function KRList({ keyResults, objectiveId }: Props) {
                 density === 'compact' ? 'bg-card shadow-sm' : 'text-muted-foreground')}
             >Compact</button>
           </div>
-          <Button variant="outline" size="sm" className="h-7 px-2 rounded-[10px] text-[11px]">
+          <Button variant="outline" size="sm" className="h-7 px-2 rounded-[var(--ap-radius-sm)] text-[11px]">
             <Filter className="size-3 mr-1" /> Filter
           </Button>
           <Link href={`/dashboard/objectives/${objectiveId}`}>
-            <Button size="sm" className="h-7 px-2 rounded-[10px] text-[11px]">
+            <Button size="sm" className="h-7 px-2 rounded-[var(--ap-radius-sm)] text-[11px]">
               <Plus className="size-3 mr-1" /> Add KR
             </Button>
           </Link>

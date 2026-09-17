@@ -169,7 +169,7 @@ export default function NestedObjectivesList({
       <div key={obj.id}>
         <div
           className={cn(
-            'group ap-hover-lift rounded-[14px] border bg-card transition-all mb-2 hover:shadow-sm',
+            'group ap-hover-lift rounded-[var(--ap-radius-md)] border bg-card transition-all mb-2 hover:shadow-sm',
             isArchived && 'opacity-70 grayscale-[40%]'
           )}
           style={{ marginLeft: `${indent}px`, borderColor: 'var(--ap-border)' }}
@@ -277,7 +277,7 @@ export default function NestedObjectivesList({
                 <Link
                   key={kr.id}
                   href={`/dashboard/key-results/${kr.id}`}
-                  className="flex items-center gap-3 rounded-[10px] border bg-card px-3 py-2 hover:shadow-sm transition-all"
+                  className="flex items-center gap-3 rounded-[var(--ap-radius-sm)] border bg-card px-3 py-2 hover:shadow-sm transition-all"
                   style={{ borderColor: 'var(--ap-border)' }}
                 >
                   <span

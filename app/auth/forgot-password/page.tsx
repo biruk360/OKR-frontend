@@ -35,10 +35,10 @@ export default function ForgotPasswordPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-12" style={{ background: 'var(--ap-bg)' }}>
-      <div className="w-full max-w-[420px] rounded-[14px] border bg-card p-8 shadow-lg"
+      <div className="w-full max-w-[420px] rounded-[var(--ap-radius-md)] border bg-card p-8 shadow-lg"
         style={{ borderColor: 'var(--ap-border)' }}>
         <div className="flex flex-col items-center">
-          <div className="flex size-11 items-center justify-center rounded-[10px]"
+          <div className="flex size-11 items-center justify-center rounded-[var(--ap-radius-sm)]"
             style={{ background: 'var(--ap-accent-soft)' }}>
             <KeyRound className="size-5" style={{ color: 'var(--ap-accent)' }} strokeWidth={2} />
           </div>
@@ -51,14 +51,14 @@ export default function ForgotPasswordPage() {
         </div>
 
         {done ? (
-          <div className="mt-6 rounded-[10px] px-4 py-3 text-[12px]"
+          <div className="mt-6 rounded-[var(--ap-radius-sm)] px-4 py-3 text-[12px]"
             style={{ background: 'var(--ap-ok-bg)', color: 'var(--ap-ok-fg)' }}>
             If an account exists for <strong>{email}</strong>, a reset link has been sent. The link expires in 1 hour.
           </div>
         ) : (
           <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
             {error && (
-              <div className="rounded-[10px] px-3 py-2 text-[12px] font-medium"
+              <div className="rounded-[var(--ap-radius-sm)] px-3 py-2 text-[12px] font-medium"
                 style={{ background: 'var(--ap-danger-bg)', color: 'var(--ap-danger-fg)' }}>
                 {error}
               </div>
@@ -70,12 +70,12 @@ export default function ForgotPasswordPage() {
                 <input id="email" type="email" required autoComplete="email"
                   value={email} onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
-                  className="w-full rounded-[10px] border-0 pl-9 pr-3 py-2 text-[13px] outline-none focus:ring-2 focus:ring-[color:var(--ap-accent)]"
+                  className="w-full rounded-[var(--ap-radius-sm)] border-0 pl-9 pr-3 py-2 text-[13px] outline-none focus:ring-2 focus:ring-[color:var(--ap-accent)]"
                   style={{ background: 'rgba(120,120,128,0.06)' }} />
               </div>
             </div>
             <button type="submit" disabled={loading}
-              className="w-full rounded-[10px] py-2.5 text-[13px] font-semibold text-white transition disabled:opacity-60"
+              className="w-full rounded-[var(--ap-radius-sm)] py-2.5 text-[13px] font-semibold text-white transition disabled:opacity-60"
               style={{ background: 'var(--ap-accent)' }}>
               {loading ? 'Sending…' : 'Send reset link'}
             </button>

@@ -47,9 +47,28 @@ if command -v flock >/dev/null 2>&1; then
 fi
 
 git config --global --add safe.directory "$APP_DIR" 2>/dev/null || true
+# Re-exec after pulling, because the GitHub action invokes the copy of this script
+# that is ALREADY on disk — i.e. the PREVIOUS deploy's version. Without this, any
+# change to deploy.sh only takes effect one deploy later than you think it does.
+# That bit us for real: a build-OOM guard added in one push did not run during the
+# push that added it, and a broken build was swapped into production anyway.
+SELF_BEFORE=""
+if [ -z "${DEPLOY_REEXEC:-}" ] && command -v sha256sum >/dev/null 2>&1; then
+  SELF_BEFORE="$(sha256sum "$0" | cut -d' ' -f1)"
+fi
+
 git fetch origin
 git checkout "$BRANCH"
 git pull --ff-only origin "$BRANCH"
+
+if [ -n "$SELF_BEFORE" ]; then
+  SELF_AFTER="$(sha256sum "$0" | cut -d' ' -f1)"
+  if [ "$SELF_BEFORE" != "$SELF_AFTER" ]; then
+    echo "[deploy] deploy.sh changed in this pull — re-executing the new version."
+    export DEPLOY_REEXEC=1
+    exec bash "$0" "$@"
+  fi
+fi
 
 # --- 1. Install deps (only if package-lock changed, for speed) ---------------
 if [ ! -d node_modules ] || [ package-lock.json -nt node_modules/.package-lock.json ]; then

@@ -13,6 +13,8 @@ import {
 import { cn } from '@/lib/utils'
 import { EmptyState } from '@/components/ui/EmptyState'
 import ObjectiveActionsMenu from './ObjectiveActionsMenu'
+import { Progress } from '@/components/ui/progress'
+import { getOkrStatusColor } from '@/lib/utils'
 
 interface NestedObjectivesListProps {
   objectives: any[]
@@ -77,18 +79,9 @@ function LevelBadge({ level }: { level: string }) {
 }
 
 function ProgressBar({ value, status }: { value: number; status: string }) {
-  const color =
-    status === 'on-track' || status === 'completed' ? 'var(--ap-green)'
-    : status === 'at-risk' ? 'var(--ap-orange)'
-    : 'var(--ap-red)'
   return (
     <div className="flex items-center gap-2 w-[140px]">
-      <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--ap-kr-bar-bg)' }}>
-        <div
-          className="h-full rounded-full transition-all"
-          style={{ width: `${Math.min(Math.max(value, 0), 100)}%`, background: color }}
-        />
-      </div>
+      <Progress value={Math.min(Math.max(value, 0), 100)} fill={getOkrStatusColor(status)} className="flex-1" />
       <span className="text-[12px] font-semibold tabular-nums w-[34px] text-right">
         {Math.round(value)}%
       </span>

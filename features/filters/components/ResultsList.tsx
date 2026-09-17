@@ -7,6 +7,8 @@ import { useInitiativeDetailStore } from '@/lib/stores/initiative-detail-store'
 import { ObjectiveDetailModal } from './ObjectiveDetailModal'
 import { KeyResultDetailModal } from './KeyResultDetailModal'
 import type { FilteredResult, FiltersTab } from '../types'
+import { Progress } from '@/components/ui/progress'
+import { getProgressBarColor } from '@/lib/utils'
 
 // ─── Status helpers ───────────────────────────────────────────────────────────
 
@@ -41,12 +43,9 @@ function StatusPill({ tone, label }: { tone: string; label: string }) {
 
 function ProgressBar({ value, width = 80 }: { value: number; width?: number }) {
   const pct = Math.min(Math.max(value, 0), 100)
-  const tone = pct >= 70 ? 'var(--ap-ok)' : pct >= 40 ? 'var(--ap-warn)' : 'var(--ap-danger)'
   return (
     <div className="flex items-center gap-2">
-      <div className="h-1.5 shrink-0 overflow-hidden rounded-full" style={{ width, background: 'var(--ap-border-strong)' }}>
-        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: tone }} />
-      </div>
+      <Progress value={pct} fill={getProgressBarColor(pct)} className="shrink-0" style={{ width }} />
       <span className="w-9 text-right text-xs font-semibold tabular-nums" style={{ color: 'var(--ap-fg-muted)' }}>{pct}%</span>
     </div>
   )

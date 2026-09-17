@@ -1,16 +1,13 @@
 'use client'
 
-import { cn, formatDate, getProgressColor } from '@/lib/utils'
+import { formatDate, getProgressBarColor } from '@/lib/utils'
 import type { OkrAttainment } from '../types'
 import { SectionCard } from './SectionCard'
+import { Progress } from '@/components/ui/progress'
 
 function ProgressBar({ value }: { value: number }) {
   const clamped = Math.max(0, Math.min(100, value))
-  return (
-    <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-      <div className={cn('h-full rounded-full', getProgressColor(clamped))} style={{ width: `${clamped}%` }} />
-    </div>
-  )
+  return <Progress value={clamped} fill={getProgressBarColor(clamped)} />
 }
 
 /**

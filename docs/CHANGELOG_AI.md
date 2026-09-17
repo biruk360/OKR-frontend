@@ -2,6 +2,25 @@
 
 > **Purpose:** Log of all changes made by AI assistants. Every AI session that modifies code MUST append an entry here.
 
+## 2026-09-17 — Adopt the Progress primitive, and settle the control-border rule
+
+Closes the last two open items from `docs/design_refresh_IMPLEMENTATION_STRATEGY.md`.
+
+**All 7 hand-rolled `ProgressBar` copies now use `components/ui/progress.tsx`** — `OkrAttainmentSection`, `NestedObjectivesList`, `SprintBoardClient`, `SprintsListClient`, `ResultsList`, `OkrHierarchyTable`, `OkrsAllClient`. The primitive is Radix-backed, so every progress bar in these surfaces now exposes `role="progressbar"` and `aria-value*`; **none of the seven copies did**. Each file keeps its own local wrapper where it had one (widths, percentage labels differ by surface) — only the bar markup was replaced, so the diff stays small and nothing re-flows.
+
+**Three more duplications came out with them**, all entangled in those copies:
+- `progressColor(status)` was **byte-identical** in `OkrHierarchyTable` and `OkrsAllClient`, with an inline variant in `NestedObjectivesList`. Now `getOkrStatusColor()` in `lib/utils.ts`.
+- `ResultsList` had `getProgressColor`'s exact 70/40 threshold ladder inline. Now `getProgressBarColor()`, which returns a token rather than a Tailwind class — `progress.tsx` styles its indicator inline, so a class was not usable.
+- Both helpers sit next to `getConfidenceColor` with a note on the docblock that they take **different vocabularies**: `getOkrStatusColor` handles kebab-case UI status (`on-track`), `getConfidenceColor` handles the `ON_TRACK` enum. Conflating them is how the app grew the near-copies in the first place.
+
+**The header search-field border is resolved, and the rule is now sharper.** §2 said control boundaries need `--ap-border-strong` for WCAG 1.4.11's 3:1; the design specifies a lighter value. The deciding fact is that the field is `--ap-bg-sunken` on an `--ap-bg-raised` header — a **1.04:1** fill difference, so nothing but the stroke shows where the control is. That makes the boundary "required to identify the component", which is exactly what 1.4.11 covers. `--ap-border-strong` stays. The rule in §2 now states the real test — *is the boundary load-bearing*, not *is it technically a control* — so a field that is identifiable by a distinct fill or a persistent icon may still use `--ap-border`. Rationale recorded inline in `Header.tsx` so it is not relitigated.
+
+**Not done, deliberately:** six files still draw progress bars inline without a named `ProgressBar` — `ObjectiveNode` (3 bars), `AppleDashboard`, `ObjectiveDetailModal`, `MapObjectiveNode`, and the two `progress*` pages. They are the same pattern and would benefit from the same a11y, but they were outside the stated set of seven and several sit in contexts (a reactflow node, a hierarchy tree) I cannot check visually. Logged rather than swept.
+
+**Verification** — `tsc --noEmit` clean; sprints 21/21, todos 28/28, cards 9/9, security 20/20, scrum 29/29; `npm run build` exits 0. **Not opened in a browser.**
+
+Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+
 ## 2026-09-17 — Harmonize due-date tone: one helper, ten call sites, and an overdue bug
 
 Adds `lib/todos/due-tone.ts` (+ `due-tone.test.ts`, 14 tests, picked up by the existing `test:todos` glob) and retires ten private implementations. This was listed as the open behaviour change in `docs/design_refresh_IMPLEMENTATION_STRATEGY.md`.

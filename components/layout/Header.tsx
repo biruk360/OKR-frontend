@@ -154,6 +154,13 @@ export default function Header({ user, onMobileNavOpen }: HeaderProps) {
               type="button"
               onClick={() => useCmdkStore.getState().setOpen(true)}
               aria-label="Open command palette"
+              /* --ap-border-strong, not the design's lighter border, is deliberate.
+                 The field is --ap-bg-sunken on a --ap-bg-raised header: a 1.04:1
+                 fill difference, so nothing but the stroke shows where the control
+                 is. That makes the boundary "required to identify the component"
+                 under WCAG 1.4.11, which needs 3:1 — the design's value sits at
+                 ~1.2:1. Same call we already made on the palette: where the mock
+                 fails AA, the mock loses. */
               className="hidden h-[34px] w-full max-w-[420px] items-center gap-2 rounded-[var(--ap-radius-md)] border border-[var(--ap-border-strong)] bg-[var(--ap-bg-sunken)] px-[11px] text-[13px] text-[var(--ap-fg-subtle)] transition-colors hover:bg-[var(--ap-bg-hover)] md:flex"
             >
               <Search className="size-[14px] shrink-0" />

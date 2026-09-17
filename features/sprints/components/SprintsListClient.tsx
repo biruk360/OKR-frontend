@@ -20,6 +20,7 @@ import StatusPill from '@/components/shared/StatusPill'
 import { EmptyState } from '@/components/ui/EmptyState'
 import AddToSprintDropdown from '@/components/sprints/AddToSprintDropdown'
 import { cn } from '@/lib/utils'
+import { Progress } from '@/components/ui/progress'
 
 type Tab = 'active' | 'planning' | 'backlog' | 'completed'
 
@@ -74,11 +75,7 @@ function Avatar({ name, avatar, size = 22 }: { name: string; avatar: string | nu
 }
 
 function ProgressBar({ percent, color }: { percent: number; color?: string }) {
-  return (
-    <div className="h-1.5 w-full overflow-hidden rounded-full" style={{ background: 'var(--ap-bg-sunken)' }}>
-      <div className="h-full rounded-full" style={{ width: `${percent}%`, background: color ?? 'var(--ap-accent)' }} />
-    </div>
-  )
+  return <Progress value={percent} fill={color ?? 'var(--ap-accent)'} />
 }
 
 function SprintCard({ s, greyscale }: { s: Sprint; greyscale?: boolean }) {

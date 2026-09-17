@@ -20,6 +20,8 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import StatusPill, { LevelBadge, normalizeStatus } from '@/components/shared/StatusPill'
 import { useInitiativeDetailStore } from '@/lib/stores/initiative-detail-store'
+import { Progress } from '@/components/ui/progress'
+import { getOkrStatusColor } from '@/lib/utils'
 
 /* ----------------------------- Types --------------------------------- */
 
@@ -81,20 +83,12 @@ function statusOf(row: Row): string {
   return normalizeStatus(v)
 }
 
-function progressColor(status: string): string {
-  if (status === 'on-track' || status === 'completed' || status === 'in-progress') return 'var(--ap-green)'
-  if (status === 'at-risk') return 'var(--ap-orange)'
-  if (status === 'off-track') return 'var(--ap-red)'
-  return 'var(--ap-fg-muted)'
-}
 
 function ProgressBar({ value, status, width = 120 }: { value: number; status: string; width?: number }) {
   const pct = Math.max(0, Math.min(100, value))
   return (
     <div className="flex items-center gap-2" style={{ width }}>
-      <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--ap-kr-bar-bg)' }}>
-        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: progressColor(status) }} />
-      </div>
+      <Progress value={pct} fill={getOkrStatusColor(status)} className="flex-1" />
       <span className="text-[12px] font-semibold tabular-nums w-9 text-right">{Math.round(pct)}%</span>
     </div>
   )

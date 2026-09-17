@@ -37,6 +37,7 @@ import SprintBackgroundPicker from './SprintBackgroundPicker'
 import SprintFloatingBar, { type SprintBoardView } from './SprintFloatingBar'
 import SprintSwitcher from './SprintSwitcher'
 import SprintPlannerView from './SprintPlannerView'
+import { Progress } from '@/components/ui/progress'
 import {
   getBackgroundStyle,
   isDarkBackground,
@@ -126,14 +127,7 @@ function Avatar({ user, size = 22 }: { user: BoardUser; size?: number }) {
 }
 
 function ProgressBar({ percent, color }: { percent: number; color?: string }) {
-  return (
-    <div className="h-[6px] w-full overflow-hidden rounded-[var(--ap-radius-pill)]" style={{ background: 'var(--ap-kr-bar-bg, var(--ap-bg-sunken))' }}>
-      <div
-        className="h-full rounded-[var(--ap-radius-pill)]"
-        style={{ width: `${percent}%`, background: color ?? 'var(--ap-accent)', transition: 'width 0.25s ease' }}
-      />
-    </div>
-  )
+  return <Progress value={percent} fill={color ?? 'var(--ap-accent)'} />
 }
 
 // ─── Add Task inline form (Sprints v2 §4.3 / D) ─────────────────────────────

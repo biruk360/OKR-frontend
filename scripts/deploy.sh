@@ -31,6 +31,21 @@ APP_DIR="${APP_DIR:-${DEPLOY_ROOT:-$DEFAULT_APP_DIR}}"
 BRANCH="${DEPLOY_BRANCH:-main}"
 
 cd "$APP_DIR"
+
+# Serialise deploys on this box. GitHub's `concurrency: cancel-in-progress` cancels
+# the WORKFLOW JOB, but the ssh-action has already started this script on the VPS and
+# the remote process keeps running — so two deploys can interleave over the same
+# .next / .next.build / .next.prev and race on the swap. flock makes the second one
+# wait instead.
+LOCK_FILE="${DEPLOY_LOCK:-/tmp/okr-deploy.lock}"
+if command -v flock >/dev/null 2>&1; then
+  exec 9>"$LOCK_FILE"
+  if ! flock -w 900 9; then
+    echo "[deploy] another deploy has held $LOCK_FILE for over 15 minutes — aborting."
+    exit 1
+  fi
+fi
+
 git config --global --add safe.directory "$APP_DIR" 2>/dev/null || true
 git fetch origin
 git checkout "$BRANCH"
@@ -89,9 +104,30 @@ npm run db:seed:automation-permissions
 BUILD_DIR=".next.build"
 PREV_DIR=".next.prev"
 
+# Heap headroom for the build. Node's default cap on this box is ~2006 MB and the
+# app outgrew it: `next build` OOM'd at ~1950 MB, and — this is the dangerous part —
+# still exited 0, because the OOM killed a static-generation worker rather than the
+# parent. The `if ! npm run build` check below therefore passed, a half-written
+# .next (no BUILD_ID) was swapped in, and `next start` crash-looped 440 times with
+# ENOENT on BUILD_ID until someone rebuilt by hand. Both guards below exist because
+# of that outage; do not remove either.
+BUILD_HEAP_MB="${BUILD_HEAP_MB:-3072}"
+
 rm -rf "$BUILD_DIR" "$PREV_DIR"
-if ! NEXT_DIST_DIR="$BUILD_DIR" npm run build; then
+if ! NEXT_DIST_DIR="$BUILD_DIR" NODE_OPTIONS="--max-old-space-size=${BUILD_HEAP_MB}" npm run build; then
   echo "[deploy] build failed — leaving the running app untouched"
+  rm -rf "$BUILD_DIR"
+  exit 1
+fi
+
+# Exit code 0 is NOT sufficient evidence of a usable build (see above). BUILD_ID is
+# the last artifact `next build` writes, so its presence is the real completion
+# signal. Refuse to swap without it — a crash-looping app is far worse than a
+# skipped deploy, because the previous build keeps serving.
+if [ ! -f "$BUILD_DIR/BUILD_ID" ]; then
+  echo "[deploy] build produced no $BUILD_DIR/BUILD_ID — treating as FAILED despite exit 0."
+  echo "[deploy] most likely an out-of-memory kill; current heap cap ${BUILD_HEAP_MB}MB."
+  echo "[deploy] the running app is untouched. Raise BUILD_HEAP_MB or add swap, then retry."
   rm -rf "$BUILD_DIR"
   exit 1
 fi

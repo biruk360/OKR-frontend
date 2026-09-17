@@ -2,6 +2,31 @@
 
 > **Purpose:** Log of all changes made by AI assistants. Every AI session that modifies code MUST append an entry here.
 
+## 2026-09-17 — Harmonize due-date tone: one helper, ten call sites, and an overdue bug
+
+Adds `lib/todos/due-tone.ts` (+ `due-tone.test.ts`, 14 tests, picked up by the existing `test:todos` glob) and retires ten private implementations. This was listed as the open behaviour change in `docs/design_refresh_IMPLEMENTATION_STRATEGY.md`.
+
+**A real bug, not just inconsistency.** Five UI files decided lateness with `new Date(dueDate).getTime() < Date.now()`. A `dueDate` carries no time component, so it parses to midnight — meaning **a task due today rendered as overdue from 00:01 onward**. The fix was not a judgement call, because the repo had already answered this twice on the server:
+
+- `lib/todos/due-reminders.ts` treats an all-day task as due at the **END** of its day (that is why a "1 day before" reminder lands the previous evening rather than at midnight).
+- `lib/daily-digest.ts` compares `t.dueDate < todayStart` — day-normalized.
+
+So the reminder system and the email digest were both already correct and only the UI disagreed. `dueInstant()` now follows the reminder convention, and a test asserts the two stay aligned. Affected: `TaskCardTrello`, `TodosPageClient` (badge **and** the overdue counter), `TodoKanbanView`, `TodoTreeView`, `ReportDashboardClient`.
+
+**The ≤2d vs ≤7d conflict is resolved by parameterising, not by picking a winner.** `TaskCardTrello` used a 2-day "soon" window and `ReportDashboardClient` used 7. Both are right for their surface — a sprint card has a tighter horizon than a weekly report — so `soonWithinDays` is an argument with a documented default of 2, and the report passes 7. `ReportDashboardClient` additionally keeps its own `overdue|soon|later|none` vocabulary via a four-line adapter that folds `today` into `soon`, because it filters on `=== 'soon'` and a naive swap would have silently undercounted.
+
+**Green now means one thing.** `TodoCardModal` painted "due tomorrow" green and `SetDueDateButton` painted *any* future date green, with `SetDueDateModal` labelling it "Future Date - On Track" — an assertion a due date cannot support, since a task is not on track merely because it is scheduled. Green is reserved for `done`, and a test asserts no other tone may use the success token. The modal keeps its richer "Tomorrow ·" **label** while taking the shared **colour**, so no information is lost.
+
+**Consolidated:** `pickDateChipTone` (TaskCardTrello), `DueDateBadge` (TodoCardModal), `getDueDateStatus` (MyTasksList and its byte-identical copy in ToDoList), `getDateStatus` + `getButtonColor` (SetDueDateButton), `getDateStatus` (SetDueDateModal), `dueState` (ReportDashboardClient), and three boolean `overdue` expressions. All tone styling now flows through `DUE_TONE_STYLE`, which returns `--ap-*` pairs, so these surfaces follow dark mode for the first time — several of them were on raw Tailwind palette classes (`text-red-600`, `bg-green-50`) that do not.
+
+**Visual changes, all intended:** fewer items marked overdue; "due tomorrow" amber rather than green; "scheduled" neutral rather than green.
+
+**Not touched:** raw palette colours in those same files that serve other purposes (delete buttons, completed-state cards, validation text) — out of scope for due-date tone, deliberately left rather than widening the change.
+
+**Verification** — `tsc --noEmit` clean; todos **28/28** (14 new), sprints 21/21, cards 9/9, security 20/20, automations 206/206, scrum 29/29; `npm run build` exits 0. **Not opened in a browser.**
+
+Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+
 ## 2026-09-17 — Design refresh Phase 6 + 7: the to-dos list, and the cleanup sweep
 
 Closes the last two phases of `docs/design_refresh_IMPLEMENTATION_STRATEGY.md`. All eight phases are now done.

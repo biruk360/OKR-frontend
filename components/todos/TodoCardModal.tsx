@@ -26,6 +26,7 @@ import { useUsersForSelection } from '@/hooks/useUsersForSelection'
 import toast from 'react-hot-toast'
 import { useSession } from 'next-auth/react'
 import { announce } from '@/components/shared/LiveAnnouncer'
+import { dueTone, DUE_TONE_STYLE } from '@/lib/todos/due-tone'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -146,19 +147,23 @@ function Avatar({ id, name, avatar, size = 22 }: { id?: string | null; name: str
 function DueDateBadge({ dueDate, endTime }: { dueDate: string | null; endTime?: string | null }) {
   if (!dueDate) return null
   const d = new Date(dueDate)
-  const overdue = isPast(d) && !isToday(d)
-  const today = isToday(d)
-  const tomorrow = isTomorrow(d)
+  // Colour comes from the shared tone so this badge agrees with the board card,
+  // the to-do row and the reminder system. It previously painted "due tomorrow"
+  // GREEN, which reads as complete; green is now reserved for `done`.
+  const tone = dueTone({ dueDate, endTime })
+  // The label stays richer than the tone — "Tomorrow" is useful to say even
+  // though it shares `soon`'s amber.
+  const prefix = tone === 'overdue' ? 'Overdue · '
+    : isToday(d) ? 'Today · '
+    : isTomorrow(d) ? 'Tomorrow · '
+    : ''
   return (
-    <span className={cn(
-      'inline-flex h-7 items-center gap-1.5 rounded-[var(--ap-radius-xs)] px-2.5 text-[12.5px] font-semibold',
-      overdue && 'bg-[var(--ap-danger-bg)] text-[var(--ap-danger-fg)]',
-      today && 'bg-[var(--ap-warn-bg)] text-[var(--ap-warn-fg)]',
-      tomorrow && 'bg-[var(--ap-ok-bg)] text-[var(--ap-ok-fg)]',
-      !overdue && !today && !tomorrow && 'bg-[var(--ap-bg-sunken)] text-[var(--ap-fg-muted)]',
-    )}>
+    <span
+      className="inline-flex h-7 items-center gap-1.5 rounded-[var(--ap-radius-xs)] px-2.5 text-[12.5px] font-semibold"
+      style={DUE_TONE_STYLE[tone]}
+    >
       <Calendar className="h-3.5 w-3.5" />
-      {overdue ? 'Overdue · ' : today ? 'Today · ' : tomorrow ? 'Tomorrow · ' : ''}
+      {prefix}
       {format(d, 'MMM d')}
       {endTime ? `, ${to12h(endTime)}` : ''}
     </span>

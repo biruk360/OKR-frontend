@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils'
 import { UserAvatarStack } from '@/components/shared/UserAvatar'
 import { swatchStyle, readableInk } from '@/lib/card-visuals'
 import { useUserPrefsStore } from '@/lib/stores/user-prefs-store'
+import { dueTone, DUE_TONE_STYLE } from '@/lib/todos/due-tone'
 
 interface CardUser { id: string; name: string; avatar: string | null }
 
@@ -83,35 +84,18 @@ function fmt(d: Date) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-function pickDateChipTone(args: {
-  start: Date | null
-  end: Date | null
-  status: string
-}): 'overdue' | 'done' | 'soon' | 'neutral' {
-  const { start, end, status } = args
-  if (status === 'COMPLETED') return 'done'
-  if (end) {
-    const now = new Date()
-    if (end < now) return 'overdue'
-    const days = (end.getTime() - now.getTime()) / 86400000
-    if (days <= 2) return 'soon'
-  }
-  if (start && start > new Date()) return 'neutral'
-  return 'neutral'
-}
 
-/** Token pair for each due-date tone. */
-const DATE_TONE: Record<'overdue' | 'done' | 'soon' | 'neutral', { background: string; color: string }> = {
-  overdue: { background: 'var(--ap-danger-bg)', color: 'var(--ap-danger-fg)' },
-  done:    { background: 'var(--ap-ok-bg)',     color: 'var(--ap-ok-fg)' },
-  soon:    { background: 'var(--ap-warn-bg)',   color: 'var(--ap-warn-fg)' },
-  neutral: { background: 'var(--ap-bg-sunken)', color: 'var(--ap-fg-secondary)' },
-}
 
 export default function TaskCardTrello({ todo, onClick, onDragStart, onDragEnd, isDragging, readOnly, dark }: Props) {
   const start = todo.startDate ? new Date(todo.startDate) : null
   const end = todo.dueDate ? new Date(todo.dueDate) : null
-  const tone = pickDateChipTone({ start, end, status: todo.status })
+  // Shared with every other due-date surface. The old private version compared
+  // raw timestamps, so an all-day card due today read as overdue from 00:01.
+  const tone = dueTone({
+    dueDate: todo.dueDate,
+    endTime: todo.endTime,
+    done: todo.status === 'COMPLETED',
+  })
 
   const dotCount = PRIORITY_DOTS[todo.priority] ?? 0
 
@@ -269,11 +253,12 @@ export default function TaskCardTrello({ todo, onClick, onDragStart, onDragEnd, 
           {(start || end) && (
             <span
               className={META_CHIP}
-              style={DATE_TONE[tone]}
+              style={DUE_TONE_STYLE[tone]}
               title={
                 tone === 'overdue' ? 'Overdue'
                   : tone === 'soon' ? 'Due soon'
-                    : tone === 'done' ? 'Completed'
+                    : tone === 'today' ? 'Due today'
+                      : tone === 'done' ? 'Completed'
                       : 'Scheduled'
               }
             >

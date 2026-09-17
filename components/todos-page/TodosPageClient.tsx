@@ -28,6 +28,7 @@ import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/button'
 import { useUserPrefsStore } from '@/lib/stores/user-prefs-store'
 import { useCreateIntentStore } from '@/lib/stores/create-intent-store'
+import { isOverdue } from '@/lib/todos/due-tone'
 
 export interface UserOption {
   id: string
@@ -172,10 +173,12 @@ export default function TodosPageClient({
 
   const counts = useMemo(() => {
     const open = rows.filter((t) => t.status !== 'COMPLETED' && t.status !== 'CANCELLED').length
-    const overdue = rows.filter((t) => {
-      if (t.status === 'COMPLETED' || !t.dueDate) return false
-      return new Date(t.dueDate).getTime() < Date.now()
-    }).length
+    // `isOverdue` treats an all-day task as due at the END of its day, so a
+    // task due today no longer counts as overdue from 00:01 — which is also
+    // what lib/todos/due-reminders.ts has always assumed.
+    const overdue = rows.filter((t) =>
+      isOverdue(t.dueDate, { done: t.status === 'COMPLETED' || t.status === 'CANCELLED' }),
+    ).length
     const dueToday = rows.filter((t) => {
       if (t.status === 'COMPLETED' || !t.dueDate) return false
       return isSameDay(new Date(t.dueDate), new Date())
@@ -442,7 +445,7 @@ function TodoTableRow({
 }) {
   const isDone = row.status === 'COMPLETED'
   const timeframeName = row.keyResult?.objective.timeframeName ?? row.objective?.timeframeName
-  const overdue = !isDone && row.dueDate && new Date(row.dueDate).getTime() < Date.now()
+  const overdue = isOverdue(row.dueDate, { done: isDone })
 
   return (
     <tr

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { dueTone, DUE_TONE_STYLE } from '@/lib/todos/due-tone'
 import { Calendar, Trash2 } from 'lucide-react'
 import { Modal } from '@/components/ui'
 
@@ -41,22 +42,8 @@ export default function SetDueDateModal({ isOpen, onClose, todo, onSetDueDate }:
     }
   }
 
-  const getDateStatus = (dateString: string) => {
-    if (!dateString) return 'none'
-    const picked = new Date(dateString)
-    const today = new Date()
-    const tomorrow = new Date(today)
-    tomorrow.setDate(tomorrow.getDate() + 1)
-    picked.setHours(0, 0, 0, 0)
-    today.setHours(0, 0, 0, 0)
-    tomorrow.setHours(0, 0, 0, 0)
-    if (picked < today) return 'overdue'
-    if (picked.getTime() === today.getTime()) return 'due-today'
-    if (picked.getTime() === tomorrow.getTime()) return 'due-tomorrow'
-    return 'future'
-  }
 
-  const dateStatus = getDateStatus(selectedDate)
+  const tone = dueTone({ dueDate: selectedDate || null })
 
   if (!todo) return null
 
@@ -100,44 +87,26 @@ export default function SetDueDateModal({ isOpen, onClose, todo, onSetDueDate }:
 
         {selectedDate && (
           <div className="mb-4">
+            {/* Tone and copy both come from the shared vocabulary. This block
+                used to paint any future date GREEN and label it "On Track",
+                which asserts something a due date cannot tell you — a task is
+                not on track merely because it is scheduled. */}
             <div
-              className={`p-3 rounded-md ${
-                dateStatus === 'overdue'
-                  ? 'bg-red-50 border border-red-200'
-                  : dateStatus === 'due-today'
-                  ? 'bg-yellow-50 border border-yellow-200'
-                  : dateStatus === 'due-tomorrow'
-                  ? 'bg-orange-50 border border-orange-200'
-                  : 'bg-green-50 border border-green-200'
-              }`}
+              className="rounded-md border p-3"
+              style={{
+                background: DUE_TONE_STYLE[tone].background,
+                borderColor: 'var(--ap-border)',
+              }}
             >
               <div className="flex items-center">
-                <Calendar
-                  className={`h-4 w-4 mr-2 ${
-                    dateStatus === 'overdue'
-                      ? 'text-red-600'
-                      : dateStatus === 'due-today'
-                      ? 'text-yellow-600'
-                      : dateStatus === 'due-tomorrow'
-                      ? 'text-orange-600'
-                      : 'text-green-600'
-                  }`}
-                />
-                <span
-                  className={`text-sm font-medium ${
-                    dateStatus === 'overdue'
-                      ? 'text-red-800'
-                      : dateStatus === 'due-today'
-                      ? 'text-yellow-800'
-                      : dateStatus === 'due-tomorrow'
-                      ? 'text-orange-800'
-                      : 'text-green-800'
-                  }`}
-                >
-                  {dateStatus === 'overdue' && 'Overdue - This date has passed'}
-                  {dateStatus === 'due-today' && 'Due Today - High Priority'}
-                  {dateStatus === 'due-tomorrow' && 'Due Tomorrow - Urgent'}
-                  {dateStatus === 'future' && 'Future Date - On Track'}
+                <Calendar className="mr-2 h-4 w-4" style={{ color: DUE_TONE_STYLE[tone].color }} />
+                <span className="text-sm font-medium" style={{ color: DUE_TONE_STYLE[tone].color }}>
+                  {tone === 'overdue' && 'Overdue — this date has passed'}
+                  {tone === 'today' && 'Due today'}
+                  {tone === 'soon' && 'Due soon'}
+                  {tone === 'upcoming' && 'Scheduled'}
+                  {tone === 'done' && 'Completed'}
+                  {tone === 'none' && 'No due date'}
                 </span>
               </div>
             </div>

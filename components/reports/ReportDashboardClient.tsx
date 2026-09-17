@@ -39,6 +39,7 @@ import toast from 'react-hot-toast'
 import { cn } from '@/lib/utils'
 import StatusPill from '@/components/shared/StatusPill'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { dueTone } from '@/lib/todos/due-tone'
 import {
   DashboardCard,
   InsightTile,
@@ -165,14 +166,21 @@ function average(items: number[]) {
   return Math.round(items.reduce((sum, value) => sum + value, 0) / items.length)
 }
 
+/**
+ * Report vocabulary, on top of the shared tone.
+ *
+ * This surface deliberately keeps a 7-day "soon" horizon — a weekly report has
+ * a wider view than a sprint card, which uses the 2-day default. The mapping
+ * folds `today` into `soon` so the counts below mean exactly what they did
+ * before; what changes is that an all-day to-do due TODAY is no longer counted
+ * as overdue from 00:01 (see lib/todos/due-tone.ts).
+ */
 function dueState(dueDate: string | null) {
-  if (!dueDate) return 'none'
-  const due = new Date(dueDate).getTime()
-  const now = Date.now()
-  const week = 7 * 24 * 60 * 60 * 1000
-  if (due < now) return 'overdue'
-  if (due - now <= week) return 'soon'
-  return 'later'
+  const tone = dueTone({ dueDate, soonWithinDays: 7 })
+  if (tone === 'overdue') return 'overdue'
+  if (tone === 'today' || tone === 'soon') return 'soon'
+  if (tone === 'upcoming') return 'later'
+  return 'none'
 }
 
 function initials(name: string) {

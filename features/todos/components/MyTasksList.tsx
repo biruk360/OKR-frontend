@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { CheckSquare, Square, Target, User, Calendar, Building, Clock } from 'lucide-react'
 import { useInitiativeDetailStore } from '@/lib/stores/initiative-detail-store'
 import { useTodoStatusToggle } from './useTodoStatusToggle'
+import { dueTone, DUE_TONE_STYLE } from '@/lib/todos/due-tone'
 
 interface MyTasksListProps {
   assignedTodos: any[]
@@ -14,24 +15,6 @@ export default function MyTasksList({ assignedTodos, completedTodos }: MyTasksLi
   const [showCompleted, setShowCompleted] = useState(false)
 
   // Helper function to get due date status
-  const getDueDateStatus = (dueDate: string) => {
-    if (!dueDate) return 'none'
-    
-    const due = new Date(dueDate)
-    const today = new Date()
-    const tomorrow = new Date(today)
-    tomorrow.setDate(tomorrow.getDate() + 1)
-    
-    // Reset time to compare only dates
-    due.setHours(0, 0, 0, 0)
-    today.setHours(0, 0, 0, 0)
-    tomorrow.setHours(0, 0, 0, 0)
-    
-    if (due < today) return 'overdue'
-    if (due.getTime() === today.getTime()) return 'due-today'
-    if (due.getTime() === tomorrow.getTime()) return 'due-tomorrow'
-    return 'future'
-  }
 
   // Toggle todo completion
   const handleToggleTodo = useTodoStatusToggle(() => {
@@ -186,12 +169,14 @@ export default function MyTasksList({ assignedTodos, completedTodos }: MyTasksLi
                           {todo.dueDate && (
                             <div className="flex items-center">
                               <Clock className="h-3 w-3 mr-1" />
-                              <span className={`font-medium ${
-                                getDueDateStatus(todo.dueDate) === 'overdue' ? 'text-red-600' :
-                                getDueDateStatus(todo.dueDate) === 'due-today' ? 'text-yellow-600' :
-                                getDueDateStatus(todo.dueDate) === 'due-tomorrow' ? 'text-orange-600' :
-                                'text-green-600'
-                              }`}>
+                              {/* Tone is shared with every other due surface.
+                                  A merely-scheduled task used to render GREEN,
+                                  which reads as on-track; green is now `done`
+                                  only. */}
+                              <span
+                                className="font-medium"
+                                style={{ color: DUE_TONE_STYLE[dueTone({ dueDate: todo.dueDate, done: todo.status === 'COMPLETED' })].color }}
+                              >
                                 Due: {new Date(todo.dueDate).toLocaleDateString('en-US', {
                                   month: 'short',
                                   day: 'numeric'

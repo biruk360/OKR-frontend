@@ -14,6 +14,7 @@ import DeleteTodoButton from './DeleteTodoButton'
 import { UserAvatar } from '@/components/shared/UserAvatar'
 import { userColor } from '@/lib/user-color'
 import { useTodoStatusToggle } from './useTodoStatusToggle'
+import { dueTone, DUE_TONE_STYLE } from '@/lib/todos/due-tone'
 
 interface ToDoListProps {
   keyResultId: string
@@ -276,24 +277,6 @@ export default function ToDoList({
   }
 
   // Helper function to get due date status
-  const getDueDateStatus = (dueDate: string) => {
-    if (!dueDate) return 'none'
-    
-    const due = new Date(dueDate)
-    const today = new Date()
-    const tomorrow = new Date(today)
-    tomorrow.setDate(tomorrow.getDate() + 1)
-    
-    // Reset time to compare only dates
-    due.setHours(0, 0, 0, 0)
-    today.setHours(0, 0, 0, 0)
-    tomorrow.setHours(0, 0, 0, 0)
-    
-    if (due < today) return 'overdue'
-    if (due.getTime() === today.getTime()) return 'due-today'
-    if (due.getTime() === tomorrow.getTime()) return 'due-tomorrow'
-    return 'future'
-  }
 
   // Calculate completion stats
   const completedTodos = todos.filter(todo => todo.status === 'COMPLETED').length
@@ -363,7 +346,7 @@ export default function ToDoList({
               })
               .map((todo) => {
               const isDone = todo.status === 'COMPLETED'
-              const dueStatus = todo.dueDate ? getDueDateStatus(todo.dueDate) : 'none'
+              const dueStatus = dueTone({ dueDate: todo.dueDate, done: todo.status === 'COMPLETED' })
               return (
                 <li
                   key={todo.id}
@@ -439,13 +422,8 @@ export default function ToDoList({
                   )}
                   {todo.dueDate && (
                     <span
-                      className="inline-flex items-center h-5 px-1.5 text-xs font-medium rounded bg-muted text-muted-foreground"
-                      data-tone={
-                        dueStatus === 'overdue' ? 'red' :
-                        dueStatus === 'due-today' ? 'yellow' :
-                        dueStatus === 'due-tomorrow' ? 'yellow' :
-                        'gray'
-                      }
+                      className="inline-flex h-5 items-center rounded px-1.5 text-xs font-medium"
+                      style={DUE_TONE_STYLE[dueStatus]}
                     >
                       {new Date(todo.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                     </span>

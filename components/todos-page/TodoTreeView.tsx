@@ -12,6 +12,7 @@ import {
   User as UserIcon,
 } from 'lucide-react'
 import type { TodoRow, UserOption } from './TodosPageClient'
+import { isOverdue } from '@/lib/todos/due-tone'
 
 interface Props {
   rows: TodoRow[]
@@ -251,7 +252,7 @@ function TodoLeafRow({
   const [editingAssignee, setEditingAssignee] = useState(false)
   const [editingDate, setEditingDate] = useState(false)
   const isDone = todo.status === 'COMPLETED'
-  const overdue = !isDone && todo.dueDate && new Date(todo.dueDate).getTime() < Date.now()
+  const overdue = isOverdue(todo.dueDate, { done: isDone })
 
   return (
     <div

@@ -4,6 +4,7 @@ import { useRef, useCallback, useState, useEffect } from 'react'
 import { Calendar, Inbox, Link2, Target } from 'lucide-react'
 import { KanbanDropLine } from '@/components/shared/KanbanDropLine'
 import type { TodoRow, UserOption } from './TodosPageClient'
+import { isOverdue } from '@/lib/todos/due-tone'
 
 const COLUMNS: Array<{ key: string; label: string; color: string }> = [
   { key: 'PENDING',     label: 'To do',       color: 'var(--ap-none)' },
@@ -186,7 +187,7 @@ function KanbanCard({
   onOpen: () => void
   onAssigneeChange: (rowId: string, assigneeId: string) => void
 }) {
-  const overdue = row.dueDate && row.status !== 'COMPLETED' && new Date(row.dueDate).getTime() < Date.now()
+  const overdue = isOverdue(row.dueDate, { done: row.status === 'COMPLETED' })
 
   return (
     <div

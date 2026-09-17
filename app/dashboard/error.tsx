@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import { reportClientError } from '@/lib/client-error-report'
+import { isStaleChunkRejection, reloadOnceForStaleChunks } from '@/lib/stale-chunk-reload'
 
 export default function DashboardError({
   error,
@@ -12,6 +13,16 @@ export default function DashboardError({
   reset: () => void
 }) {
   const pathname = usePathname()
+
+
+  // A failed chunk load surfaces HERE, not on window: React catches it during
+  // render, so the window-level listeners in app/providers.tsx never fire and
+  // the user is left on "Something went wrong" with a Try again button that
+  // cannot succeed — the client's chunk map still points at hashes the new
+  // deploy removed. Only a document reload fetches a fresh map.
+  useEffect(() => {
+    if (isStaleChunkRejection(error)) reloadOnceForStaleChunks()
+  }, [error])
 
   useEffect(() => {
     reportClientError({

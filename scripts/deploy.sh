@@ -155,6 +155,17 @@ fi
 if [ -d .next ]; then mv .next "$PREV_DIR"; fi
 mv "$BUILD_DIR" .next
 
+# Carry the previous build's static assets forward. Chunk filenames are
+# content-hashed, so a tab opened before this deploy still asks for the OLD
+# hashes; once the old build is deleted those 404 and the user gets
+# "Loading chunk N failed". Copying non-conflicting files in means one
+# generation of already-open tabs keeps working instead of breaking on deploy.
+# -n never overwrites, so the new build always wins on any shared path.
+if [ -d "$PREV_DIR/static" ]; then
+  cp -rn "$PREV_DIR/static/." .next/static/ 2>/dev/null || true
+  echo "[deploy] carried previous static assets forward for already-open tabs"
+fi
+
 # Both processes: the web app and the automations worker. Naming them explicitly
 # rather than dropping --only keeps the blast radius of this line obvious.
 pm2 startOrReload ecosystem.config.cjs --only okr,okr-automations-worker

@@ -3,6 +3,7 @@
 import { Calendar, Paperclip, CheckSquare } from 'lucide-react'
 import { format, isPast, isToday } from 'date-fns'
 import { cn } from '@/lib/utils'
+import { userColor, userInitials } from '@/lib/user-color'
 
 interface Label { name: string; color: string }
 interface Member { id: string; name: string; avatar?: string | null }
@@ -27,14 +28,23 @@ export interface TodoCardProps {
   className?: string
 }
 
+/** Mirrors TodoCardModal's PRIORITY_COLORS — status tokens, never hex (§2.11). */
 const PRIORITY_DOT: Record<string, string> = {
-  LOW: '#8E8E93', MEDIUM: '#FF9500', HIGH: '#FF3B30', URGENT: '#AF52DE',
+  LOW: 'var(--ap-none)',
+  MEDIUM: 'var(--ap-warn)',
+  HIGH: 'var(--ap-danger)',
+  URGENT: 'var(--ap-ahead)',
 }
 
-function Avatar({ name, avatar, size = 20 }: { name: string; avatar?: string | null; size?: number }) {
-  const initials = name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
-  const colors = ['#007AFF', '#34C759', '#FF9500', '#FF3B30', '#AF52DE', '#FF2D55']
-  const bg = colors[name.charCodeAt(0) % colors.length]
+/**
+ * Avatar colour and initials come from `lib/user-color`, the same source the card
+ * modal and the board use — this file used to carry its own six-hex palette keyed
+ * off `name.charCodeAt(0)`, so the same person was one colour here and another
+ * everywhere else.
+ */
+function Avatar({ id, name, avatar, size = 20 }: { id?: string | null; name: string; avatar?: string | null; size?: number }) {
+  const initials = userInitials(name)
+  const bg = userColor(id, name)
   return avatar ? (
     <img src={avatar} alt={name} title={name} className="rounded-full object-cover ring-2 ring-[var(--ap-bg-raised)]" style={{ width: size, height: size }} />
   ) : (
@@ -99,7 +109,7 @@ export function TodoCard({
         )}
 
         {/* Title */}
-        <p className={cn('text-[13px] font-500 leading-snug text-[var(--ap-fg)] line-clamp-3', isCompleted && 'line-through text-[var(--ap-fg-subtle)]')}>
+        <p className={cn('text-[13px] font-medium leading-snug text-[var(--ap-fg)] line-clamp-3', isCompleted && 'line-through text-[var(--ap-fg-subtle)]')}>
           {priority && priority !== 'MEDIUM' && (
             <span className="mr-1 inline-block h-2 w-2 rounded-full align-middle" style={{ background: PRIORITY_DOT[priority] }} />
           )}
@@ -112,7 +122,7 @@ export function TodoCard({
             <div className="flex items-center gap-2 flex-wrap">
               {dueDate && (
                 <span className={cn(
-                  'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-500',
+                  'inline-flex items-center gap-1 rounded-[var(--ap-radius-xs)] px-1.5 py-0.5 text-[11px] font-medium',
                   duePast ? 'bg-[var(--ap-danger-bg)] text-[var(--ap-danger-fg)]' :
                     dueToday ? 'bg-[var(--ap-warn-bg)] text-[var(--ap-warn-fg)]' :
                       'bg-[var(--ap-bg-sunken)] text-[var(--ap-fg-subtle)]',
@@ -123,7 +133,7 @@ export function TodoCard({
               )}
               {checklist && checklist.total > 0 && (
                 <span className={cn(
-                  'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-500',
+                  'inline-flex items-center gap-1 rounded-[var(--ap-radius-xs)] px-1.5 py-0.5 text-[11px] font-medium',
                   checklist.done === checklist.total ? 'bg-[var(--ap-ok-bg)] text-[var(--ap-ok-fg)]' : 'bg-[var(--ap-bg-sunken)] text-[var(--ap-fg-subtle)]',
                 )}>
                   <CheckSquare className="h-2.5 w-2.5" />
@@ -131,7 +141,7 @@ export function TodoCard({
                 </span>
               )}
               {attachmentCount > 0 && (
-                <span className="inline-flex items-center gap-1 rounded-md bg-[var(--ap-bg-sunken)] px-1.5 py-0.5 text-[11px] text-[var(--ap-fg-subtle)]">
+                <span className="inline-flex items-center gap-1 rounded-[var(--ap-radius-xs)] bg-[var(--ap-bg-sunken)] px-1.5 py-0.5 text-[11px] text-[var(--ap-fg-subtle)]">
                   <Paperclip className="h-2.5 w-2.5" />
                   {attachmentCount}
                 </span>
@@ -139,8 +149,8 @@ export function TodoCard({
             </div>
             {/* Avatars */}
             <div className="flex -space-x-1.5 shrink-0">
-              {assignee && <Avatar name={assignee.name} avatar={assignee.avatar} size={20} />}
-              {members.slice(0, 3).map((m) => <Avatar key={m.id} name={m.name} avatar={m.avatar} size={20} />)}
+              {assignee && <Avatar id={assignee.id} name={assignee.name} avatar={assignee.avatar} size={20} />}
+              {members.slice(0, 3).map((m) => <Avatar key={m.id} id={m.id} name={m.name} avatar={m.avatar} size={20} />)}
             </div>
           </div>
         )}

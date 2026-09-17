@@ -5,7 +5,8 @@
  *
  * Reads /api/sprints/[id]/board (Todo single-source-of-truth) and renders three
  * status columns (PENDING / IN_PROGRESS / COMPLETED). Drag-drop updates Todo.status
- * via PATCH /api/todos/[id]. Click a card → opens TodoCardModal in drawer mode.
+ * via PATCH /api/todos/[id]. Click a card → opens TodoCardModal (a centred modal;
+ * drawer mode was removed in the design refresh, §6.4).
  */
 
 import { useMemo, useState, useEffect, useRef, useCallback } from 'react'
@@ -104,25 +105,6 @@ interface BoardData {
 // ─── Re-export legacy SprintBoardData type for back-compat ─────────────────
 
 export type SprintBoardData = BoardData
-// Legacy shape (Phase 2/3 compat): SprintCardModal — deprecated component — references this.
-export interface SprintBoardActivity {
-  id: string
-  title: string
-  description: string | null
-  ownerId: string
-  owner: { id: string; name: string; avatar: string | null }
-  keyResultId: string | null
-  keyResult: { id: string; title: string; objective: { id: string; title: string } } | null
-  objectiveId: string | null
-  objective: { id: string; title: string } | null
-  convertedInitiativeId: string | null
-  dueDate: string | null
-  position: number
-  columnId: string
-  commentCount: number
-  tasksTotal: number
-  tasksCompleted: number
-}
 
 interface Props {
   sprintId: string
@@ -145,8 +127,11 @@ function Avatar({ user, size = 22 }: { user: BoardUser; size?: number }) {
 
 function ProgressBar({ percent, color }: { percent: number; color?: string }) {
   return (
-    <div className="h-1.5 w-full overflow-hidden rounded-full" style={{ background: 'var(--ap-bg-sunken)' }}>
-      <div className="h-full rounded-full transition-all" style={{ width: `${percent}%`, background: color ?? 'var(--ap-accent)' }} />
+    <div className="h-[6px] w-full overflow-hidden rounded-[var(--ap-radius-pill)]" style={{ background: 'var(--ap-kr-bar-bg, var(--ap-bg-sunken))' }}>
+      <div
+        className="h-full rounded-[var(--ap-radius-pill)]"
+        style={{ width: `${percent}%`, background: color ?? 'var(--ap-accent)', transition: 'width 0.25s ease' }}
+      />
     </div>
   )
 }
@@ -154,7 +139,7 @@ function ProgressBar({ percent, color }: { percent: number; color?: string }) {
 // ─── Add Task inline form (Sprints v2 §4.3 / D) ─────────────────────────────
 
 function AddTaskInline({
-  sprintId, columnId, currentUserId, defaultDueDate, onCreated, openSignal,
+  sprintId, columnId, currentUserId, defaultDueDate, onCreated, openSignal, dark,
 }: {
   sprintId: string
   /** Lane the card is created in. Without it the server would guess by status. */
@@ -162,6 +147,8 @@ function AddTaskInline({
   currentUserId: string
   defaultDueDate: string | null
   onCreated: () => void
+  /** Dark board ground (`graphite`). */
+  dark?: boolean
   /** Incremented by the board to open and focus this composer from elsewhere
    *  (STA-2: the empty-state CTA). A counter rather than a boolean so repeat
    *  presses re-open it after the user cancels. */
@@ -222,33 +209,45 @@ function AddTaskInline({
   }
 
   if (!open) {
+    // Lane-footer affordance from the design: 32px ghost row, not a dashed box.
+    // (The per-lane `+` in the lane HEADER stays deferred — Decision 0.)
     return (
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex w-full items-center gap-1.5 rounded-[var(--ap-radius-sm)] border-2 border-dashed px-3 py-2 text-[12px] text-muted-foreground hover:bg-muted/40"
-        style={{ borderColor: 'var(--ap-border)' }}
+        className={cn(
+          'flex h-[32px] w-full items-center gap-2 rounded-[var(--ap-radius-md)] px-2 text-left text-[12.5px] font-semibold transition-colors',
+          dark
+            ? 'text-white/80 hover:bg-white/15 hover:text-white'
+            : 'text-[var(--ap-fg-secondary)] hover:bg-[var(--ap-bg-sunken)] hover:text-[var(--ap-fg)]',
+        )}
       >
-        <Plus className="h-3.5 w-3.5" /> Add task
+        <Plus className="h-3.5 w-3.5" /> Add a card
       </button>
     )
   }
 
   return (
-    <form ref={formRef} onSubmit={submit} className="rounded-[var(--ap-radius-sm)] border bg-card p-2" style={{ borderColor: 'var(--ap-border)' }}>
+    <form
+      ref={formRef}
+      onSubmit={submit}
+      className="rounded-[10px] border p-2"
+      style={{ borderColor: 'var(--ap-border)', background: 'var(--ap-bg-raised)', boxShadow: 'var(--ap-shadow-card)' }}
+    >
       <input
         autoFocus
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         placeholder="Task title…"
-        className="w-full rounded-[8px] border-0 bg-muted/40 px-2 py-1.5 text-[12px] outline-none focus:bg-muted"
+        className="w-full rounded-[var(--ap-radius-sm)] border px-2 py-1.5 text-[12px] outline-none"
+        style={{ borderColor: 'var(--ap-border-strong)', background: 'var(--ap-bg-raised)', color: 'var(--ap-fg)' }}
       />
       {more && (
         <div className="mt-2 space-y-2">
           <div className="flex items-center gap-2">
             <select value={priority} onChange={(e) => setPriority(e.target.value)}
-              className="rounded-[8px] border bg-card px-2 py-1 text-[11px]"
-              style={{ borderColor: 'var(--ap-border)' }}>
+              className="rounded-[var(--ap-radius-sm)] border bg-card px-2 py-1 text-[11px]"
+              style={{ borderColor: 'var(--ap-border-strong)' }}>
               {['LOW', 'MEDIUM', 'HIGH', 'URGENT'].map((p) => <option key={p} value={p}>{p}</option>)}
             </select>
             <div className="flex-1">
@@ -268,12 +267,12 @@ function AddTaskInline({
         </button>
         <div className="flex items-center gap-1">
           <button type="button" onClick={() => { setOpen(false); setTitle('') }}
-            className="rounded-[8px] px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted">
+            className="rounded-[var(--ap-radius-sm)] px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted">
             Cancel
           </button>
           <button type="submit" disabled={!title.trim() || submitting}
-            className="rounded-[8px] px-2 py-1 text-[11px] font-semibold text-white disabled:opacity-50"
-            style={{ background: 'var(--ap-accent)' }}>
+            className="rounded-[var(--ap-radius-sm)] px-2 py-1 text-[11px] font-semibold disabled:opacity-50"
+            style={{ background: 'var(--ap-accent)', color: 'var(--ap-accent-fg)' }}>
             {submitting ? 'Adding…' : 'Add'}
           </button>
         </div>
@@ -589,12 +588,19 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
       <div
         className={cn(
           'sticky top-0 z-20 -mx-4 border-b px-4 py-3 backdrop-blur-md',
-          dark ? 'bg-black/30 text-white' : 'bg-white/70',
+          dark && 'text-white',
         )}
-        style={{ borderColor: 'var(--ap-border)' }}
+        style={{
+          background: dark ? 'oklch(0.22 0.02 262 / 0.62)' : 'oklch(1 0 0 / 0.7)',
+          borderColor: dark ? 'oklch(1 0 0 / 0.14)' : 'var(--ap-border)',
+        }}
       >
         <div className="flex flex-wrap items-center gap-3">
-          <Link href="/dashboard/sprints" className="inline-flex items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground">
+          <Link
+            href="/dashboard/sprints"
+            className="inline-flex items-center gap-1 text-[12px] font-semibold hover:underline"
+            style={{ color: dark ? 'oklch(0.94 0.005 262)' : 'var(--ap-fg-secondary)' }}
+          >
             <ArrowLeft className="h-3.5 w-3.5" /> Sprints
           </Link>
           <h1 className="text-[18px] font-semibold leading-tight" style={{ letterSpacing: '-0.01em' }}>{sprint.name}</h1>
@@ -605,8 +611,12 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
                 <button
                   type="button"
                   onClick={() => setScheduleMode('edit')}
-                  className="rounded-[var(--ap-radius-sm)] border px-3 py-1 text-[12px] font-semibold hover:bg-muted"
-                  style={{ borderColor: 'var(--ap-border)' }}
+                  className="h-[32px] rounded-[var(--ap-radius-md)] border px-3 text-[12.5px] font-semibold"
+                  style={{
+                    borderColor: dark ? 'oklch(1 0 0 / 0.2)' : 'var(--ap-border-strong)',
+                    background: dark ? 'oklch(1 0 0 / 0.1)' : 'var(--ap-bg-raised)',
+                    color: dark ? 'oklch(1 0 0)' : 'var(--ap-fg-muted)',
+                  }}
                 >
                   {sprint.startDate && sprint.endDate ? 'Edit dates' : 'Schedule'}
                 </button>
@@ -633,7 +643,7 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
                   color: 'var(--ap-accent)',
                   background: 'var(--ap-accent-soft)',
                 }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'var(--ap-accent)', e.currentTarget.style.color = '#fff')}
+                onMouseEnter={e => (e.currentTarget.style.background = 'var(--ap-accent)', e.currentTarget.style.color = 'var(--ap-accent-fg)')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'var(--ap-accent-soft)', e.currentTarget.style.color = 'var(--ap-accent)')}
               >
                 Complete sprint
@@ -643,7 +653,7 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
               <Link
                 href={`/dashboard/sprints/${sprintId}/report`}
                 className="rounded-[var(--ap-radius-sm)] px-3 py-1 text-[12px] font-semibold"
-                style={{ background: 'var(--ap-accent)', color: '#fff' }}
+                style={{ background: 'var(--ap-accent)', color: 'var(--ap-accent-fg)' }}
               >
                 View sprint report
               </Link>
@@ -653,14 +663,19 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
                 sprintId={sprintId}
                 current={(sprint.background as SprintBackgroundKey | null) ?? 'none'}
                 onChanged={() => invalidate()}
+                dark={dark}
               />
             )}
             <button
               type="button"
               aria-label="More board actions"
               title="More board actions"
-              className="rounded-[var(--ap-radius-sm)] border p-1 hover:bg-muted"
-              style={{ borderColor: 'var(--ap-border)' }}
+              className="grid h-[32px] w-[32px] place-items-center rounded-[var(--ap-radius-md)] border"
+              style={{
+                borderColor: dark ? 'oklch(1 0 0 / 0.2)' : 'var(--ap-border-strong)',
+                background: dark ? 'oklch(1 0 0 / 0.1)' : 'var(--ap-bg-raised)',
+                color: dark ? 'oklch(1 0 0)' : 'var(--ap-fg-secondary)',
+              }}
             >
               <MoreHorizontal className="h-4 w-4" />
             </button>
@@ -686,7 +701,10 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
           </div>
         )}
 
-        <div className="mt-2 flex items-center gap-3 text-[11px] text-muted-foreground">
+        <div
+          className="mt-2 flex items-center gap-3 text-[11px]"
+          style={{ color: dark ? 'oklch(0.9 0.006 262)' : 'var(--ap-fg-subtle)' }}
+        >
           {sprint.startDate && sprint.endDate && (
             <span className="inline-flex items-center gap-1">
               <Calendar className="h-3 w-3" />
@@ -703,8 +721,11 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
           <div>
             <div className="flex items-center justify-between text-[11px]">
               <span className="font-semibold">Tasks</span>
-              <span className="tabular-nums text-muted-foreground">
-                {aggregates.taskDone}/{aggregates.taskTotal} done ({aggregates.taskPercent}%)
+              <span
+                className="font-mono tabular-nums"
+                style={{ color: dark ? 'oklch(0.9 0.006 262)' : 'var(--ap-fg-subtle)' }}
+              >
+                {aggregates.taskDone}/{aggregates.taskTotal} done · {aggregates.taskPercent}%
               </span>
             </div>
             <div className="mt-1"><ProgressBar percent={aggregates.taskPercent} color="var(--ap-green)" /></div>
@@ -713,8 +734,11 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
             <div>
               <div className="flex items-center justify-between text-[11px]">
                 <span className="font-semibold">{sprint.goalLabel ?? 'Goal'}</span>
-                <span className="tabular-nums text-muted-foreground">
-                  {sprint.goalUnit ? `${sprint.goalUnit} ` : ''}{(sprint.goalCurrent ?? 0).toLocaleString()} / {sprint.goalTarget.toLocaleString()} ({aggregates.goalPercent ?? 0}%)
+                <span
+                  className="font-mono tabular-nums"
+                  style={{ color: dark ? 'oklch(0.9 0.006 262)' : 'var(--ap-fg-subtle)' }}
+                >
+                  {sprint.goalUnit ? `${sprint.goalUnit} ` : ''}{(sprint.goalCurrent ?? 0).toLocaleString()} / {sprint.goalTarget.toLocaleString()} · {aggregates.goalPercent ?? 0}%
                 </span>
               </div>
               <div className="mt-1"><ProgressBar percent={aggregates.goalPercent ?? 0} color="var(--ap-accent)" /></div>
@@ -724,30 +748,50 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
 
         {/* Action row */}
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1 rounded-[var(--ap-radius-sm)] border p-0.5 text-[11px]" style={{ borderColor: 'var(--ap-border)' }}>
-            <Filter className="ml-1 h-3 w-3 text-muted-foreground" />
+          <div
+            className="flex h-[32px] items-center gap-1.5 rounded-[var(--ap-radius-md)] border px-[11px] text-[12.5px] font-semibold"
+            style={{
+              borderColor: dark ? 'oklch(1 0 0 / 0.2)' : 'var(--ap-border-strong)',
+              background: dark ? 'oklch(1 0 0 / 0.1)' : 'var(--ap-bg-raised)',
+              color: dark ? 'oklch(1 0 0)' : 'var(--ap-fg-muted)',
+            }}
+          >
+            <Filter className="h-[13px] w-[13px] opacity-60" />
             <select
               value={filterAssignee ?? ''}
               onChange={(e) => setFilterAssignee(e.target.value || null)}
               aria-label="Filter cards by assignee"
-              className="bg-transparent px-1 py-0.5 outline-none"
+              className="bg-transparent outline-none"
+              style={{ color: 'inherit' }}
             >
               <option value="">All assignees</option>
               {participants.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </div>
-          <div className="flex items-center gap-1 rounded-[var(--ap-radius-sm)] border p-0.5 text-[11px]" style={{ borderColor: 'var(--ap-border)' }}>
-            {(['all', 'linked', 'unlinked'] as const).map((f) => (
-              <button
-                key={f}
-                type="button"
-                onClick={() => setFilterLinked(f)}
-                className={cn('rounded px-2 py-0.5 capitalize',
-                  filterLinked === f ? 'bg-muted font-semibold' : 'text-muted-foreground hover:bg-muted/50')}
-              >
-                {f}
-              </button>
-            ))}
+          {/* Segmented control (§4.1): 3px track, 2px gap, 26px pills. */}
+          <div
+            className="flex items-center gap-[2px] rounded-[var(--ap-radius-md)] p-[3px]"
+            style={{ background: dark ? 'oklch(1 0 0 / 0.14)' : 'var(--ap-bg-sunken)' }}
+          >
+            {(['all', 'linked', 'unlinked'] as const).map((f) => {
+              const active = filterLinked === f
+              return (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => setFilterLinked(f)}
+                  aria-pressed={active}
+                  className="h-[26px] rounded-[var(--ap-radius-sm)] px-[11px] text-[12.5px] font-semibold capitalize transition-colors"
+                  style={
+                    active
+                      ? { background: 'var(--ap-bg-raised)', color: 'var(--ap-fg)' }
+                      : { background: 'transparent', color: dark ? 'oklch(0.94 0.005 262)' : 'var(--ap-fg-secondary)' }
+                  }
+                >
+                  {f}
+                </button>
+              )
+            })}
           </div>
           <div className="ml-auto flex -space-x-1">
             {participants.slice(0, 5).map((u) => <Avatar key={u.id} user={u} size={22} />)}
@@ -778,7 +822,13 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
       ) : null}
 
       {/* Mobile column tab switcher (hidden on lg+) */}
-      <div className="flex gap-1 overflow-x-auto rounded-[var(--ap-radius-sm)] border p-1 lg:hidden" style={{ borderColor: 'var(--ap-border)', background: 'var(--ap-bg-sunken)' }}>
+      <div
+        className="flex gap-[2px] overflow-x-auto rounded-[var(--ap-radius-md)] p-[3px] lg:hidden"
+        style={{
+          background: dark ? 'oklch(1 0 0 / 0.14)' : 'var(--ap-bg-sunken)',
+          border: `1px solid ${dark ? 'oklch(1 0 0 / 0.16)' : 'var(--ap-border)'}`,
+        }}
+      >
         {filteredColumns.map((col) => {
           const active = activeMobileCol === col.id
           return (
@@ -787,10 +837,12 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
               type="button"
               onClick={() => setMobileCol(col.id)}
               aria-pressed={active}
-              className={cn(
-                'shrink-0 rounded-[8px] px-2 py-1.5 text-[12px] font-semibold transition-colors',
-                active ? 'bg-[var(--ap-bg-raised)] text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
-              )}
+              className="h-[26px] shrink-0 rounded-[var(--ap-radius-sm)] px-[11px] text-[12.5px] font-semibold transition-colors"
+              style={
+                active
+                  ? { background: 'var(--ap-bg-raised)', color: 'var(--ap-fg)' }
+                  : { background: 'transparent', color: dark ? 'oklch(0.94 0.005 262)' : 'var(--ap-fg-secondary)' }
+              }
             >
               {col.name} <span className="ml-1 tabular-nums opacity-70">{col.todos.length}</span>
             </button>
@@ -800,7 +852,7 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
 
       {view === 'board' ? (
         <div
-          className="flex gap-3 overflow-x-auto pb-2"
+          className="flex items-start gap-2 overflow-x-auto pb-2"
           style={isClosed ? { filter: 'saturate(0.6)' } : undefined}
         >
           {localColumns.map((col) => {
@@ -872,24 +924,36 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
                   announce(`${sourceCard.title} moved to ${col.name}, position ${insertIdx + 1} of ${newOrder.length}`)
                 }}
                 className={cn(
-                  'flex w-[272px] shrink-0 flex-col rounded-[12px] border p-2 backdrop-blur-md',
-                  dark ? 'bg-white/15' : 'bg-white/85',
+                  'flex w-[286px] shrink-0 flex-col gap-2 rounded-[var(--ap-radius-card)] border p-[10px] backdrop-blur-md',
+                  dark && 'text-white',
                   isMobile && activeMobileCol !== col.id && 'hidden',
                 )}
-                style={{ borderColor: 'var(--ap-border)' }}
+                style={{
+                  background: dark ? 'oklch(0.28 0.02 262 / 0.62)' : 'oklch(1 0 0 / 0.72)',
+                  borderColor: dark ? 'oklch(1 0 0 / 0.14)' : 'oklch(1 0 0 / 0.8)',
+                  boxShadow: 'var(--ap-shadow-sm)',
+                }}
               >
-                <div className="mb-2 flex items-center justify-between px-1">
-                  <p className={cn('text-[13px] font-semibold', dark && 'text-white')}>
-                    {col.color && (
-                      <span
-                        aria-hidden
-                        className="mr-1.5 inline-block h-2 w-2 rounded-full align-middle"
-                        style={{ background: col.color }}
-                      />
-                    )}
-                    {col.name}
-                    <span className="ml-1.5 tabular-nums opacity-60">{col.todos.length}</span>
-                  </p>
+                <div className="flex items-center gap-2 px-[2px] pt-[2px]">
+                  {col.color && (
+                    <span
+                      aria-hidden
+                      className="h-2 w-2 shrink-0 rounded-full"
+                      style={{ background: col.color }}
+                    />
+                  )}
+                  <span className="truncate text-[13.5px] font-bold tracking-[-0.01em]">{col.name}</span>
+                  <span
+                    className="shrink-0 rounded-[5px] px-1.5 py-px font-mono text-[10.5px] tabular-nums"
+                    style={
+                      dark
+                        ? { background: 'oklch(1 0 0 / 0.16)', color: 'oklch(1 0 0)' }
+                        : { background: 'var(--ap-bg-sunken)', color: 'var(--ap-fg-secondary)' }
+                    }
+                  >
+                    {col.todos.length}
+                  </span>
+                  <span className="flex-1" />
                   <ListHeaderMenu
                     sprintId={sprintId}
                     lane={{ id: col.id, name: col.name, statusKey: col.statusKey, cardCount: col.cardCount }}
@@ -899,15 +963,25 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
                   />
                 </div>
 
-                {/* Drop indicator before first card */}
-                <KanbanDropLine active={!!indicator && indicator.colId === col.id && indicator.afterIndex === -1} />
-
                 <div
                   role="list"
                   aria-label={`${col.name}, ${col.todos.length} card${col.todos.length === 1 ? '' : 's'}`}
+                  className="flex flex-col overflow-y-auto p-[2px]"
+                  style={{ maxHeight: 'calc(100vh - 340px)' }}
                 >
+                {/* Drop indicator before first card. Stays mounted and animates
+                    height 0→10 — deliberate anti-jank, see updateIndicator. */}
+                <KanbanDropLine active={!!indicator && indicator.colId === col.id && indicator.afterIndex === -1} />
+
                 {isEmpty && indicator?.colId === col.id && !isClosed ? (
-                  <div className="flex min-h-[60px] items-center justify-center rounded-lg border-2 border-dashed border-primary/40 bg-primary/5 text-[11px] text-primary">
+                  <div
+                    className="flex min-h-[60px] items-center justify-center rounded-[10px] border border-dashed text-[12.5px] font-semibold"
+                    style={{
+                      borderColor: 'var(--ap-focus)',
+                      background: 'var(--ap-accent-soft)',
+                      color: 'var(--ap-accent-on-soft)',
+                    }}
+                  >
                     Drop here
                   </div>
                 ) : (
@@ -923,16 +997,20 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
                           : `${t.title}, in ${col.name}, position ${cardIdx + 1} of ${col.todos.length}. Press space to move.`
                       }
                       className={cn(
-                        'rounded-[8px] transition-shadow',
+                        'rounded-[10px] transition-shadow',
+                        // 8px between cards (design). Carried by the wrapper, not
+                        // a flex `gap` — see the scroller comment above.
+                        cardIdx < col.todos.length - 1 && 'pb-2',
                         // A lifted card needs to stay visually identifiable while
                         // the eye follows the arrow keys.
-                        lifted === t.id && 'ring-2 ring-primary-500 ring-offset-2',
+                        lifted === t.id && 'ring-2 ring-[var(--ap-focus)] ring-offset-2',
                       )}
                     >
                       <TaskCardTrello
                         todo={t as unknown as TrelloTodo}
                         isDragging={draggedId === t.id}
                         readOnly={isClosed}
+                        dark={dark}
                         onClick={() => setOpenTodoId(t.id)}
                         onDragStart={(e) => {
                           if (isClosed) return
@@ -952,19 +1030,34 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
                   ))
                 )}
 
+                {/* Empty lane (§4.1) — dashed panel, not a bare gap. Only when
+                    nothing is being dragged over it; a drag shows "Drop here". */}
+                {isEmpty && !(indicator?.colId === col.id && !isClosed) && (
+                  <div
+                    className="rounded-[10px] border border-dashed px-3 py-[18px] text-center text-[12.5px] leading-[1.5]"
+                    style={{
+                      borderColor: dark ? 'oklch(1 0 0 / 0.28)' : 'oklch(0.86 0.01 262)',
+                      color: dark ? 'oklch(0.88 0.006 262)' : 'var(--ap-fg-subtle)',
+                    }}
+                  >
+                    {col.statusKey === 'STUCK'
+                      ? 'Nothing stuck right now. Drag a card here when it needs help.'
+                      : 'Nothing here yet. Drag a card here.'}
+                  </div>
+                )}
+
                 </div>
 
                 {col.id === quickAddLaneId && !isClosed && (
-                  <div className="mt-2">
-                    <AddTaskInline
-                      sprintId={sprintId}
-                      columnId={col.id}
-                      openSignal={quickAddSignal}
-                      currentUserId={currentUserId}
-                      defaultDueDate={sprint.endDate}
-                      onCreated={invalidate}
-                    />
-                  </div>
+                  <AddTaskInline
+                    sprintId={sprintId}
+                    columnId={col.id}
+                    openSignal={quickAddSignal}
+                    currentUserId={currentUserId}
+                    defaultDueDate={sprint.endDate}
+                    onCreated={invalidate}
+                    dark={dark}
+                  />
                 )}
               </div>
             )
@@ -981,14 +1074,19 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
           columns={filteredColumns as unknown as Parameters<typeof SprintPlannerView>[0]['columns']}
           onTodoClick={(id) => setOpenTodoId(id)}
           onDragStartCard={(e, id) => e.dataTransfer.setData('todoId', id)}
+          dark={dark}
         />
       ) : (
         <div
           className={cn(
-            'rounded-[var(--ap-radius-md)] border p-8 text-center backdrop-blur-md',
-            dark ? 'bg-white/10 text-white' : 'bg-white/85',
+            'rounded-[var(--ap-radius-card)] border p-8 text-center backdrop-blur-md',
+            dark && 'text-white',
           )}
-          style={{ borderColor: 'var(--ap-border)' }}
+          style={{
+            background: dark ? 'oklch(0.28 0.02 262 / 0.62)' : 'oklch(1 0 0 / 0.72)',
+            borderColor: dark ? 'oklch(1 0 0 / 0.14)' : 'oklch(1 0 0 / 0.8)',
+            boxShadow: 'var(--ap-shadow-sm)',
+          }}
         >
           <p className="text-[13px] font-semibold">Inbox is coming soon</p>
           <p className="mt-1 text-[12px] text-muted-foreground">
@@ -1038,6 +1136,7 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
         view={view}
         onViewChange={setView}
         onSwitchBoards={() => setShowSwitcher(true)}
+        dark={dark}
       />
     </div>
   )

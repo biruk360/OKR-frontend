@@ -12,7 +12,16 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 
-export type ModalSize = 'sm' | 'md' | 'lg' | 'xl' | '2xl'
+/**
+ * Sizes are **additive only** — never remap an existing one. This file has 50
+ * importers and every one of them was sized against the five original values.
+ *
+ * The gap the refresh found was not that the ceiling was too low (`2xl` is
+ * `sm:max-w-6xl` = 1152px, already wider than the design's 940px card modal) —
+ * it was that there was no *fixed-px* size at all. `940` fills that.
+ * See docs/design_refresh_IMPLEMENTATION_STRATEGY.md §4 / §5.
+ */
+export type ModalSize = 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '940'
 
 export type ModalScrollBehavior = 'outside' | 'internal'
 
@@ -22,6 +31,8 @@ const sizeClasses: Record<ModalSize, string> = {
   lg: 'sm:max-w-2xl',
   xl: 'sm:max-w-4xl',
   '2xl': 'sm:max-w-6xl',
+  // Fixed px — the design's card-modal shell.
+  '940': 'sm:max-w-[940px]',
 }
 
 export interface ModalProps {
@@ -47,6 +58,13 @@ export interface ModalProps {
    *  first control is a text editor that would otherwise swallow the caret,
    *  or when opening should not scroll a long body to its first input. */
   preventInitialFocus?: boolean
+  /** Paint a 6px strip across the top of the shell. Pass a CSS colour — use an
+   *  `--ap-*` token, never a hex.
+   *
+   *  Deliberately **not** bound to the card's status: the design hardcodes one
+   *  value and that value matches no entry in the status colour map, so any
+   *  status mapping here would be an invention. Omit the prop for no strip. */
+  accentColor?: string
 }
 
 export function Modal({
@@ -66,6 +84,7 @@ export function Modal({
   className,
   showCloseButton = true,
   preventInitialFocus = false,
+  accentColor,
 }: ModalProps) {
   const internal = scrollBehavior === 'internal'
 
@@ -83,6 +102,9 @@ export function Modal({
           // Without the override the column layout never applies, the body never
           // shrinks, and a tall modal overflows the viewport instead of scrolling.
           internal && 'max-h-[90vh] !flex flex-col',
+          // The strip is absolutely positioned, so the shell has to clip it to its
+          // own radius and push its own top padding down by the strip's height.
+          accentColor && 'overflow-hidden pt-[calc(1rem+6px)]',
           className,
         )}
         showCloseButton={showCloseButton}
@@ -90,6 +112,14 @@ export function Modal({
         onEscapeKeyDown={(e) => { if (!closeOnEsc) e.preventDefault() }}
         onOpenAutoFocus={(e) => { if (preventInitialFocus) e.preventDefault() }}
       >
+        {accentColor && (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-0 top-0 h-[6px]"
+            style={{ background: accentColor }}
+          />
+        )}
+
         {/* Radix requires a DialogTitle and a description for every dialog; without
             them the dialog is announced unnamed and Radix logs an error. When the
             visible header is hidden, render both sr-only rather than omitting them. */}

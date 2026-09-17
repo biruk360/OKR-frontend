@@ -146,8 +146,8 @@ export default function WorkBoardClient({ initialTodos, users, labelDefs, curren
       <div className="flex shrink-0 items-center justify-between gap-4 border-b border-[var(--ap-border)] px-5 py-3">
         <div className="flex items-center gap-2">
           <LayoutGrid className="h-4 w-4 text-[var(--ap-accent)]" />
-          <h1 className="text-[15px] font-700 text-[var(--ap-fg)]">Work Board</h1>
-          <span className="rounded-full bg-[var(--ap-bg-sunken)] px-2 py-0.5 text-[11px] font-600 text-[var(--ap-fg-subtle)]">{todos.length}</span>
+          <h1 className="text-[15px] font-bold text-[var(--ap-fg)]">Work Board</h1>
+          <span className="rounded-full bg-[var(--ap-bg-sunken)] px-2 py-0.5 text-[11px] font-semibold text-[var(--ap-fg-subtle)]">{todos.length}</span>
         </div>
         <div className="flex items-center gap-2">
           {/* Search */}
@@ -228,8 +228,8 @@ export default function WorkBoardClient({ initialTodos, users, labelDefs, curren
               <div className="flex items-center justify-between px-3 py-2.5">
                 <div className="flex items-center gap-2">
                   <span className="h-2 w-2 rounded-full" style={{ background: col.color }} />
-                  <span className="text-[12px] font-700 text-[var(--ap-fg)]">{col.label}</span>
-                  <span className="rounded-full bg-[rgba(0,0,0,0.06)] px-1.5 py-0.5 text-[10px] font-600 text-[var(--ap-fg-subtle)]">{cards.length}</span>
+                  <span className="text-[12px] font-bold text-[var(--ap-fg)]">{col.label}</span>
+                  <span className="rounded-full bg-[rgba(0,0,0,0.06)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--ap-fg-subtle)]">{cards.length}</span>
                 </div>
                 <button
                   onClick={() => { setShowCreate(true); setNewColId(col.id) }}

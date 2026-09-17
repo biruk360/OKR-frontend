@@ -151,9 +151,9 @@ function TreeNodeRow({
     node.children.reduce((s, c) => s + c.todos.filter((t) => t.status === 'COMPLETED').length, 0)
 
   const levelBadge = node.type === 'objective'
-    ? node.level === 'COMPANY' ? 'bg-[color:#dbeafe] text-primary-500'
-      : node.level === 'DEPARTMENT' ? 'bg-[color:#ede9fe] text-purple-600'
-      : 'bg-[color:#ebecf0] text-muted-foreground'
+    ? node.level === 'COMPANY' ? 'bg-[var(--ap-accent-soft)] text-[var(--ap-accent-on-soft)]'
+      : node.level === 'DEPARTMENT' ? 'bg-[var(--ap-ahead-bg)] text-[var(--ap-ahead-fg)]'
+      : 'bg-[var(--ap-none-bg)] text-[var(--ap-none-fg)]'
     : null
 
   const icon = node.type === 'objective' ? <Target className="h-3.5 w-3.5" />
@@ -187,7 +187,7 @@ function TreeNodeRow({
         <span className="text-[11px] text-muted-foreground tabular-nums ml-2">
           {completedTodos}/{totalTodos}
         </span>
-        <div className="w-12 h-1 w-full bg-muted rounded-full overflow-hidden ml-1">
+        <div className="h-1 w-full bg-muted rounded-full overflow-hidden ml-1">
           <div className="h-full bg-primary-500 rounded-full transition-all" style={{ width: `${progressPct}%` }} />
         </div>
       </div>

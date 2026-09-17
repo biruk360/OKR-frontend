@@ -303,7 +303,7 @@ export default function ToDoList({
   // Compact / Notion-style design: single-line rows, hover-revealed actions, no per-row card.
   const shellClass = cn(
     '',
-    variant === 'card' && 'mt-4 rounded-md border border-[color:var(--border-t border-border)] bg-card',
+    variant === 'card' && 'mt-4 rounded-md border border-[color:var(--ap-border)] bg-card',
     variant === 'embedded' && 'mt-0'
   )
 
@@ -321,17 +321,17 @@ export default function ToDoList({
     <button
       type="button"
       onClick={() => setExpanded((e) => !e)}
-      className="flex w-full min-w-0 items-center gap-1.5 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-[color:#f9fafb]"
+      className="flex w-full min-w-0 items-center gap-1.5 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-[color:var(--ap-bg-sunken)]"
       aria-expanded={expanded}
     >
       {expanded ? (
-        <ChevronDown className="h-3.5 w-3.5 shrink-0 text-[color:var(--text-xs text-muted-foreground)]" />
+        <ChevronDown className="h-3.5 w-3.5 shrink-0 text-[color:var(--ap-fg-subtle)]" />
       ) : (
-        <ChevronRight className="h-3.5 w-3.5 shrink-0 text-[color:var(--text-xs text-muted-foreground)]" />
+        <ChevronRight className="h-3.5 w-3.5 shrink-0 text-[color:var(--ap-fg-subtle)]" />
       )}
-      <span className="text-[13px] font-semibold text-[color:var(--text-sm)]">Initiatives</span>
+      <span className="text-[13px] font-semibold text-[color:var(--ap-fg)]">Initiatives</span>
       {totalTodos > 0 && (
-        <span className="ml-1 inline-flex h-4 min-w-[18px] items-center justify-center rounded-sm bg-[color:#f9fafb] px-1 text-[10px] font-semibold text-[color:var(--text-sm text-muted-foreground)]">
+        <span className="ml-1 inline-flex h-4 min-w-[18px] items-center justify-center rounded-sm bg-[color:var(--ap-bg-sunken)] px-1 text-[10px] font-semibold text-[color:var(--ap-fg-subtle)]">
           {totalTodos}
         </span>
       )}
@@ -342,9 +342,9 @@ export default function ToDoList({
   const listBody =
     isLoading && expanded ? (
       <div className="px-2 py-3 animate-pulse">
-        <div className="h-3 w-1/3 bg-[color:var(--border-t border-border)] rounded mb-2" />
-        <div className="h-3 w-3/4 bg-[color:var(--border-t border-border)] rounded mb-1" />
-        <div className="h-3 w-1/2 bg-[color:var(--border-t border-border)] rounded" />
+        <div className="h-3 w-1/3 bg-[color:var(--ap-border)] rounded mb-2" />
+        <div className="h-3 w-3/4 bg-[color:var(--ap-border)] rounded mb-1" />
+        <div className="h-3 w-1/2 bg-[color:var(--ap-border)] rounded" />
       </div>
     ) : (
       <div className="px-1 pb-1">
@@ -367,7 +367,7 @@ export default function ToDoList({
               return (
                 <li
                   key={todo.id}
-                  className="group flex min-h-[40px] items-center gap-2 rounded-sm px-2 py-1 hover:bg-[color:#f9fafb]"
+                  className="group flex min-h-[40px] items-center gap-2 rounded-sm px-2 py-1 hover:bg-[color:var(--ap-bg-sunken)]"
                 >
                   <input
                     type="checkbox"
@@ -382,8 +382,8 @@ export default function ToDoList({
                     className={cn(
                       'min-w-0 flex-1 truncate text-left text-sm hover:text-blue-600',
                       isDone
-                        ? 'text-[color:var(--text-xs text-muted-foreground)] line-through'
-                        : 'text-[color:var(--text-sm)]'
+                        ? 'text-[color:var(--ap-fg-subtle)] line-through'
+                        : 'text-[color:var(--ap-fg)]'
                     )}
                     title={todo.title}
                   >
@@ -430,7 +430,7 @@ export default function ToDoList({
                         size={20}
                       />
                       <span
-                        className="text-xs font-600 truncate max-w-[120px]"
+                        className="text-xs font-semibold truncate max-w-[120px]"
                         style={{ color: userColor(todo.assignee.id, todo.assignee.name) }}
                       >
                         {todo.assignee.name}
@@ -473,7 +473,7 @@ export default function ToDoList({
             })}
           </ul>
         ) : (
-          <div className="px-2 py-2 text-[12px] text-[color:var(--text-xs text-muted-foreground)]">
+          <div className="px-2 py-2 text-[12px] text-[color:var(--ap-fg-subtle)]">
             No initiatives yet — add one above.
           </div>
         )}

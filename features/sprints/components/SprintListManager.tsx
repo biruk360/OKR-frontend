@@ -49,8 +49,8 @@ function StatusSelect({
       id={id}
       value={value ?? ''}
       onChange={(e) => onChange(e.target.value as TodoStatus)}
-      className="w-full rounded-[8px] border bg-card px-2 py-1.5 text-[13px] outline-none"
-      style={{ borderColor: 'var(--ap-border)' }}
+      className="w-full rounded-[var(--ap-radius-sm)] border bg-card px-2 py-1.5 text-[13px] outline-none"
+      style={{ borderColor: 'var(--ap-border-strong)' }}
     >
       {BOARD_STATUSES.map((st) => (
         <option key={st} value={st}>{TODO_STATUS_META[st].label}</option>
@@ -106,7 +106,7 @@ export function ListHeaderMenu({
     <>
       <ActionsMenu
         label={`List actions for ${lane.name}`}
-        className="rounded-md p-0.5 opacity-60 hover:bg-muted hover:opacity-100"
+        className="rounded-[var(--ap-radius-xs)] p-0.5 opacity-60 hover:bg-muted hover:opacity-100"
         items={[
           { key: 'rename', label: 'Rename list', icon: Pencil, onSelect: () => { setName(lane.name); setRenaming(true) } },
           { key: 'remap', label: 'Change status mapping', icon: ArrowRightLeft, onSelect: () => { setNextStatus(lane.statusKey ?? 'PENDING'); setRemapping(true) } },
@@ -155,7 +155,7 @@ export function ListHeaderMenu({
           maxLength={60}
           onChange={(e) => setName(e.target.value)}
           className="w-full rounded-[var(--ap-radius-sm)] border bg-card px-3 py-1.5 text-[13px] outline-none"
-          style={{ borderColor: 'var(--ap-border)' }}
+          style={{ borderColor: 'var(--ap-border-strong)' }}
         />
       </Modal>
 
@@ -231,8 +231,8 @@ export function ListHeaderMenu({
               id="lane-move-to"
               value={moveTo}
               onChange={(e) => setMoveTo(e.target.value)}
-              className="w-full rounded-[8px] border bg-card px-2 py-1.5 text-[13px] outline-none"
-              style={{ borderColor: 'var(--ap-border)' }}
+              className="w-full rounded-[var(--ap-radius-sm)] border bg-card px-2 py-1.5 text-[13px] outline-none"
+              style={{ borderColor: 'var(--ap-border-strong)' }}
             >
               <option value="">Select a list…</option>
               {others.map((l) => (
@@ -288,28 +288,34 @@ export default function AddListColumn({
   }
 
   if (!open) {
+    // Design: 218 × 44, dashed white-on-white ghost affordance (§4.1 / §5).
     return (
       <button
         type="button"
         onClick={() => setOpen(true)}
         className={cn(
-          'flex h-fit w-[272px] shrink-0 items-center gap-1.5 rounded-[12px] border border-dashed px-3 py-2.5 text-[13px] font-semibold backdrop-blur-md transition-colors',
-          dark ? 'bg-white/10 text-white hover:bg-white/20' : 'bg-white/60 text-foreground hover:bg-white/85',
+          'flex h-[44px] w-[218px] shrink-0 items-center gap-[9px] rounded-[var(--ap-radius-card)] border border-dashed px-[14px] text-[13px] font-semibold backdrop-blur-md transition-colors',
+          dark
+            ? 'border-[oklch(1_0_0_/_0.35)] bg-[oklch(1_0_0_/_0.12)] text-white hover:bg-[oklch(1_0_0_/_0.22)]'
+            : 'border-[oklch(1_0_0_/_0.9)] bg-[oklch(1_0_0_/_0.45)] text-[var(--ap-fg-muted)] hover:bg-[oklch(1_0_0_/_0.75)]',
         )}
-        style={{ borderColor: 'var(--ap-border)' }}
       >
-        <Plus className="h-4 w-4" /> Add another list
+        <Plus className="h-[15px] w-[15px]" /> Add another list
       </button>
     )
   }
 
+  // Open state matches a lane exactly: 286px on a translucent ground with the
+  // board's own 12px radius and 1px border, so it does not read as a different
+  // kind of surface mid-creation.
   return (
     <div
-      className={cn(
-        'flex w-[272px] shrink-0 flex-col gap-2 rounded-[12px] border p-2 backdrop-blur-md',
-        dark ? 'bg-white/15' : 'bg-white/85',
-      )}
-      style={{ borderColor: 'var(--ap-border)' }}
+      className="flex w-[286px] shrink-0 flex-col gap-2 rounded-[var(--ap-radius-card)] border p-[10px] backdrop-blur-md"
+      style={{
+        background: dark ? 'oklch(0.28 0.02 262 / 0.62)' : 'oklch(1 0 0 / 0.72)',
+        borderColor: dark ? 'oklch(1 0 0 / 0.14)' : 'oklch(1 0 0 / 0.8)',
+        boxShadow: 'var(--ap-shadow-sm)',
+      }}
     >
       <input
         autoFocus
@@ -322,10 +328,19 @@ export default function AddListColumn({
         }}
         placeholder="List name…"
         aria-label="New list name"
-        className="w-full rounded-[8px] border-0 bg-muted/40 px-2 py-1.5 text-[13px] outline-none focus:bg-muted"
+        className="w-full rounded-[var(--ap-radius-sm)] border px-2 py-1.5 text-[13px] outline-none"
+        style={{
+          background: 'var(--ap-bg-raised)',
+          borderColor: 'var(--ap-border-strong)',
+          color: 'var(--ap-fg)',
+        }}
       />
       <div>
-        <label htmlFor="new-lane-status" className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+        <label
+          htmlFor="new-lane-status"
+          className="mb-1 block text-[10px] font-semibold uppercase tracking-wide"
+          style={{ color: dark ? 'oklch(0.9 0.006 262)' : 'var(--ap-fg-subtle)' }}
+        >
           Counts as
         </label>
         <StatusSelect id="new-lane-status" value={statusKey} onChange={setStatusKey} />
@@ -335,8 +350,8 @@ export default function AddListColumn({
           type="button"
           onClick={submit}
           disabled={!name.trim() || busy}
-          className="rounded-[8px] px-2.5 py-1 text-[12px] font-semibold text-white disabled:opacity-50"
-          style={{ background: 'var(--ap-accent)' }}
+          className="rounded-[var(--ap-radius-sm)] px-2.5 py-1 text-[12px] font-semibold disabled:opacity-50"
+          style={{ background: 'var(--ap-accent)', color: 'var(--ap-accent-fg)' }}
         >
           {busy ? 'Adding…' : 'Add list'}
         </button>
@@ -344,7 +359,10 @@ export default function AddListColumn({
           type="button"
           onClick={() => { setOpen(false); setName('') }}
           aria-label="Cancel adding a list"
-          className="rounded-[8px] p-1 text-muted-foreground hover:bg-muted"
+          className={cn(
+            'rounded-[var(--ap-radius-sm)] p-1',
+            dark ? 'text-white hover:bg-white/15' : 'text-[var(--ap-fg-secondary)] hover:bg-[var(--ap-bg-hover)]',
+          )}
         >
           <X className="h-4 w-4" />
         </button>

@@ -74,7 +74,7 @@ export function UserAvatarStack({ users, size = 22, max = 3, showNames = false, 
         )}
       </div>
       {showNames && (
-        <span className="truncate text-[11px] font-500 text-foreground/80 min-w-0">
+        <span className="truncate text-[11px] font-medium text-foreground/80 min-w-0">
           {visible.map((u) => (
             <span
               key={u.id}

@@ -6,10 +6,10 @@ import { KanbanDropLine } from '@/components/shared/KanbanDropLine'
 import type { TodoRow, UserOption } from './TodosPageClient'
 
 const COLUMNS: Array<{ key: string; label: string; color: string }> = [
-  { key: 'PENDING',     label: 'To do',       color: '#c1c7d0' },
-  { key: 'IN_PROGRESS', label: 'In progress', color: '#2563eb' },
-  { key: 'COMPLETED',   label: 'Done',        color: '#059669' },
-  { key: 'CANCELLED',   label: 'Cancelled',   color: '#a5adba' },
+  { key: 'PENDING',     label: 'To do',       color: 'var(--ap-none)' },
+  { key: 'IN_PROGRESS', label: 'In progress', color: 'var(--ap-accent)' },
+  { key: 'COMPLETED',   label: 'Done',        color: 'var(--ap-ok)' },
+  { key: 'CANCELLED',   label: 'Cancelled',   color: 'var(--ap-none)' },
 ]
 
 interface Props {
@@ -194,7 +194,7 @@ function KanbanCard({
       onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; onDragStart() }}
       onDragEnd={onDragEnd}
       onClick={onOpen}
-      className="mt-1.5 rounded-lg border border-border bg-card p-2 cursor-pointer hover:border-[color:#c1c7d0] transition"
+      className="mt-1.5 cursor-pointer rounded-[var(--ap-radius-md)] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] p-2 transition hover:border-[var(--ap-border-strong)]"
       style={{ opacity: isDragging ? 0.4 : undefined }}
     >
       <div className="text-[13px] font-medium text-foreground break-words">{row.title}</div>

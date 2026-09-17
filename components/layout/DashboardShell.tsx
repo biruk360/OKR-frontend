@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, type ReactNode } from 'react'
+import { useState, useEffect, useCallback, type CSSProperties, type ReactNode } from 'react'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import {
@@ -8,6 +8,9 @@ import {
   SidebarMobileDrawer,
   readSidebarCollapsed,
   writeSidebarCollapsed,
+  sidebarWidth,
+  SIDEBAR_WIDTH_VAR,
+  SIDEBAR_WIDTH_BOOT_SCRIPT,
 } from '@/components/layout/Sidebar'
 import Header from '@/components/layout/Header'
 import CmdkActionListener from '@/components/cmdk/CmdkActionListener'
@@ -57,22 +60,34 @@ export default function DashboardShell({ user, children }: DashboardShellProps) 
     })
   }, [])
 
+  // Before the effect has run we deliberately publish *no* value: the boot
+  // script below has already set the stored width on <html>, and overriding it
+  // here with the default-expanded state is exactly what caused the layout jump
+  // for collapsed users. Once hydrated, this local value takes over so toggling
+  // stays reactive.
+  const shellStyle = sidebarReady
+    ? ({ [SIDEBAR_WIDTH_VAR]: sidebarWidth(sidebarCollapsed) } as CSSProperties)
+    : undefined
+
   return (
     <>
+      <script dangerouslySetInnerHTML={{ __html: SIDEBAR_WIDTH_BOOT_SCRIPT }} />
       <CmdkActionListener />
       <CheckInPickerModal />
       <GlobalCheckInModal />
       <SidebarMobileDrawer open={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
 
       <div
+        style={shellStyle}
         className={cn(
           'grid min-h-[100dvh] w-full max-w-[100vw] overflow-x-hidden bg-background',
           'grid-cols-1 grid-rows-[auto_minmax(0,1fr)]',
-          !sidebarReady
-            ? 'lg:grid-cols-[260px_minmax(0,1fr)] lg:grid-rows-[3rem_minmax(0,1fr)]'
-            : sidebarCollapsed
-              ? 'lg:grid-cols-[4rem_minmax(0,1fr)] lg:grid-rows-[3rem_minmax(0,1fr)]'
-              : 'lg:grid-cols-[260px_minmax(0,1fr)] lg:grid-rows-[3rem_minmax(0,1fr)]'
+          // Sidebar track and the aside itself both read --ap-sidebar-w, so the
+          // 40px dead strip the old 220-inside-260 mismatch produced is gone.
+          // Written out literally on purpose — Tailwind scans source text, so an
+          // interpolated `${SIDEBAR_WIDTH_VAR}` here would emit no CSS at all.
+          'lg:grid-cols-[var(--ap-sidebar-w,228px)_minmax(0,1fr)]',
+          'lg:grid-rows-[54px_minmax(0,1fr)]'
         )}
       >
         <SidebarDesktopColumn
@@ -81,7 +96,7 @@ export default function DashboardShell({ user, children }: DashboardShellProps) 
           className="lg:col-start-1 lg:row-start-1 lg:row-span-2"
         />
 
-        <div className="col-start-1 row-start-1 min-w-0 border-b border-border bg-card lg:col-start-2">
+        <div className="col-start-1 row-start-1 min-w-0 lg:col-start-2">
           <Header user={user} onMobileNavOpen={() => setMobileNavOpen(true)} />
         </div>
 
@@ -91,14 +106,14 @@ export default function DashboardShell({ user, children }: DashboardShellProps) 
             isStrategyMap ? 'flex flex-col overflow-hidden' : 'overflow-y-auto py-4'
           )}
         >
-          {/* Gutters intentionally match the Header's own px-3/sm:px-4/lg:px-5 so page
-              content lines up with the header instead of sitting in from it. */}
+          {/* Gutters intentionally match the Header's own px-3/sm:px-4/lg:px-[18px] so
+              page content lines up with the header instead of sitting in from it. */}
           {isStrategyMap ? (
             <div className="flex min-h-0 flex-1 flex-col">{children}</div>
           ) : isFullWidth ? (
-            <div className="w-full px-3 sm:px-4 lg:px-5">{children}</div>
+            <div className="w-full px-3 sm:px-4 lg:px-[18px]">{children}</div>
           ) : (
-            <div className="mx-auto w-full max-w-content px-3 sm:px-4 lg:px-5">{children}</div>
+            <div className="mx-auto w-full max-w-content px-3 sm:px-4 lg:px-[18px]">{children}</div>
           )}
         </main>
       </div>

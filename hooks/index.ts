@@ -17,3 +17,10 @@ export type { ViewerRow } from './useViewTracker'
 export { useMediaQuery, useIsMobile } from './useMediaQuery'
 
 export { useIdleTimeout } from './useIdleTimeout'
+
+export { useOkrOptions, okrOptionsQueryKey } from './useOkrOptions'
+export type {
+  OkrObjectiveOption,
+  OkrKeyResultOption,
+  UseOkrOptionsParams,
+} from './useOkrOptions'

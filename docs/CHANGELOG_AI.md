@@ -2,6 +2,135 @@
 
 > **Purpose:** Log of all changes made by AI assistants. Every AI session that modifies code MUST append an entry here.
 
+## 2026-09-17 — Design refresh Phase 6 + 7: the to-dos list, and the cleanup sweep
+
+Closes the last two phases of `docs/design_refresh_IMPLEMENTATION_STRATEGY.md`. All eight phases are now done.
+
+**Phase 6 — to-dos list. A restyle, not a rebuild.** Per Decision 0 the features the design adds (date grouping, row selection, the bulk-action dock, the priority column, "Showing N of 150") are deferred to §11 rather than built, and the existing 8-column table was kept rather than reshaped to the design's 7-column grid — that grid exists to carry a selection checkbox and a priority column we are not filling. Applied: 1180px content width, 26px title, 38px filter controls, the tab underline treatment, a 42px mono eyebrow header strip on `--ap-bg-sunken`, 11px/14px row padding.
+
+Defects fixed in the same pass:
+- **A regex sanitiser feeding an HTML sink.** The description preview ran `.replace(/<[^>]+>/g, '')` and injected the result through `dangerouslySetInnerHTML` — malformed or nested tags can survive that pattern. Now returns a string React escapes; the sink is gone rather than guarded.
+- **`StatusLozenge` was a private 4-status map**, so `IN_REVIEW` and `STUCK` rendered as raw uppercase strings and had no kanban column. Now reads `todoStatusMeta()`.
+- **`TODO_STATUS_META` was another hand-copied palette snapshot** (literal `#34C759`, `rgba(0,122,255,…)`) — retargeted onto tokens, so it follows dark mode for free. Marked canonical in a comment, since the two designs disagree on the status set and on STUCK's colour (amber on the board, red in the modal).
+- **The create form's assignee `<select>` had no "Unassigned" option** despite initialising to `''`, so the browser showed the first user while state said empty.
+- `CreateTodoModal` moved onto `components/ui/Modal` per CLAUDE.md — the hand-rolled overlay had no focus trap, no Escape handling and no scroll lock. Row delete moved to `ConfirmDialog`.
+- `TodoKanbanView` and `TodoTreeView` moved off Tailwind-config tokens onto `--ap-*`; the page no longer crosses token systems when you switch from List to Board. Kanban's private 4-status `COLUMNS` const with raw hex dots is gone.
+- Removed the modal/sidebar view toggle: it persisted a preference to the database that nothing consumed, and drawer mode was deleted in Phase 5, so sidebar mode is now impossible.
+
+**Phase 7 — cleanup.**
+- **Deleted** `features/sprints/components/SprintCardModal.tsx` (810 lines; its own header said it should have gone in Phase 4) plus the barrel line and the `SprintBoardActivity` type that existed only for it; `components/todos-page/TodoDetailPanel.tsx` (325 lines, zero references); and 5 dead CSS blocks — `.ap-segmented`, `.ap-progress*`, `.ap-kbd`, `.ap-sidebar`, `.ap-topbar`. The last two were a **third** copy of the 228/52/54 sidebar metrics that nothing applied.
+- **18 malformed `var()` names fixed** in `ToDoList` and `AddToDo` — a Tailwind class name pasted inside `var()`, e.g. `text-[color:var(--text-sm text-muted-foreground)]`. These resolve to nothing, so those elements had been silently inheriting colour.
+- 6 more dead `font-500/600/700` classes replaced outside the card modal.
+- **`getConfidenceColor` added to `lib/utils.ts`.** CLAUDE.md, `COMPONENT_CATALOG.md` and `MASTER_REFERENCE.md` have all mandated it "from lib/utils.ts" and **it never existed** — so three call sites each grew their own map: raw hex in `PlansGantt`, `--ap-*` vars in `PerKrProgressCard`, raw Tailwind palette classes in `NavProgressCircles`. All three now use it. Unknown confidence falls back to the neutral token, not green — "no data" must not read as "on track".
+- **`DialogOverlay` now carries `.ap-modal-overlay`**, closing the one gap Phase 5 could not reach from its own scope. `--ap-overlay` + `blur(3px)` replaces a flat `bg-black/10` that was nearly invisible over the refreshed light surfaces and far too weak in dark mode. This is the single scrim for all ~50 `Modal` consumers.
+
+**Left open, deliberately** — both need a decision rather than a default:
+- `lib/todos/due-tone.ts` is not extracted. It is a behaviour change, not a refactor: "soon" means ≤2 days in `TaskCardTrello` and ≤7 in `ReportDashboardClient`, and `TodoCardModal` renders "tomorrow" in a success tone while `SetDueDateButton` renders it as warning. Someone has to pick a vocabulary.
+- The 7 hand-rolled `ProgressBar` copies are not migrated onto `ui/progress.tsx`. The primitive is ready and adds `role=progressbar` + `aria-value*`, which none of the copies have.
+
+**Verification** — `tsc --noEmit` clean; sprints 21/21, cards 9/9, todos 14/14, automations 206/206, scrum 29/29, security 20/20; `npm run build` exits 0. **Nothing has been opened in a browser.** Given this changes appearance across ~124 files beyond the four redesigned surfaces, and dark mode has literally never rendered before, a visual pass is the main outstanding risk.
+
+Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+
+## 2026-09-17 — Design refresh Phase 5: the task card modal
+
+Executes Phase 5 of `docs/design_refresh_IMPLEMENTATION_STRATEGY.md` (§6.4, §2 tokens, §5 metrics) against `design-import/Modal design optimization with Trello/Task Card Modal.dc.html`. Files: `components/todos/TodoCardModal.tsx`, `components/todos/TodoCard.tsx`, plus one stale doc line in `features/sprints/components/SprintBoardClient.tsx`.
+
+**Shell.** 860 → **940px** (`Modal size="940"`), `--ap-radius-lg` (14px), the 6px accent strip via `Modal`'s new `accentColor` — bound to the card's own status through `TODO_STATUS_META`, so it reads as state rather than decoration. The dialog is **top-aligned, not centred**: `top-[28px] translate-y-0 max-h-[calc(100vh-88px)]`, giving the design's 28/20/60 gutters, with each column capped at `calc(100vh - 140px)` and scrolling on its own so the shell itself never has to.
+
+**Relayout, not just restyle.** The absolutely-positioned header action row is gone, and with it the `pt-16` compensation on the left column and the `mt-4`/`mt-14` flip on the closed-sprint banner — both existed only to clear it. The complete-toggle is now a 26px round control inline to the left of the title. Under the title sits the metadata line: "in list" · list chip · status dropdown · "added {date} by {person}" (`Todo.createdAt` + `creator`, both already returned by `GET /api/todos/[id]`). **No card-ID chip** — no such field exists on `Todo`, and Decision 0 drops the element rather than adding the column. Below it, a responsive `repeat(auto-fit, minmax(192px, 1fr))` attribute grid holds Members, Labels (span 2), Due date and Priority, each under a mono `Eyebrow`. The two-column grid is `minmax(0,1fr) 232px`; the left column's padding is deliberately asymmetric (`20px 8px 28px 28px`) so its gutter sits under its own scrollbar, and the 232px rail is tinted `--ap-bg-sunken` with a `border-l`.
+
+**Priority kept its own semantics.** `PRIORITY_COLORS` was retargeted from four raw hexes onto `--ap-none / --ap-warn / --ap-danger / --ap-ahead` rather than adopting the design's four hues, two of which have no token (§2.11). `TodoCard`'s duplicate `PRIORITY_DOT` map followed, and its private six-hex avatar palette was replaced with `lib/user-color`, so the same person is no longer one colour on the card and another everywhere else.
+
+**Deleted.** `mode="drawer"` had no call sites: the branch, its portal, its `isDrawer` flag and the window-level Escape listener guarded by `if (mode !== 'drawer') return` (i.e. dead since the day it was written) are all gone. The `mode` prop survives narrowed to `'modal'` and marked deprecated, purely so `SprintBoardClient`'s existing `mode="modal"` keeps type-checking.
+
+**Fixed.** ~70 `font-500` / `font-600` / `font-700` classes are **not valid Tailwind v3 utilities** — they rendered nothing. All are now `font-medium` / `font-semibold` / `font-bold`, which makes the card genuinely bolder for the first time. `DatesPanel` rendered two identical close buttons flanking its title; one is gone. `deleteLabel` used `window.confirm`; it now routes through `ConfirmDialog` and says what the blast radius is (labels are workspace-wide). All `rounded-[8px]/[12px]/[6px]/[5px]`, `rounded-md` and `rounded-lg` moved onto `--ap-radius-*`; popovers moved onto the `--ap-shadow-pop-*` ramp; the last hardcoded hex (`#AF52DE` on the objective search chip, `#61BD4F` as the default new-label colour) are gone.
+
+**Not built**, per §6.4's deferred table: per-item due-date/assignee popovers stay as they already were (they exist and work — the deferral is about *adding* them, not removing them), no named/multiple checklists, no "Hide checked", **no tabbed Comments/Activity** (the existing stack is restyled in place), no comment formatting toolbar, no Reply/React. The `⌘↵` behaviour is unchanged; only the mono hint is new.
+
+**Preserved and re-verified:** the `activePanel` single-slot state; every optimistic path with snapshot-and-rollback (members, labels, checklist item delete, comment delete, watch toggle); `sprintClosed` gating (disables complete, hides the comment composer, hides the whole rail, swaps the description copy); `DatesPanel`'s state machine (`activeTarget`, `pickDay` auto-drag, `rangeInvalid` gate, `outsideSprint` warning, `onRemove` clearing five fields); `RichTextContent` as the SEC-6 sanitisation boundary; the `z-[90]`/`z-[91]` scrim/panel pairing above Radix's `z-50`; and the `lanesLoaded && lanes.length === 0` guard that prevents a duplicate status control.
+
+**Two judgement calls worth flagging.**
+- The rail carries watch/more/close, and the rail is removed wholesale on a closed sprint — which would have taken the only close button with it. The same cluster is therefore also rendered inline at the top of the left column in that one case.
+- Members, Labels and Dates now have two triggers (the attribute-grid control and the rail row) but **one** panel, anchored in the grid where there is room for it. Opening from the rail scrolls the grid back into view. The checklist and cover popovers stay in the rail and were sized to 212px to fit the 232px track, because a scrolling column clips horizontally whatever its children stick out by.
+
+**Known gap.** §6.4's overlay scrim (`--ap-overlay` + `backdrop-filter: blur(3px)`) could not land here: the overlay is `DialogOverlay` in `components/ui/dialog.tsx` (`bg-black/10` + `backdrop-blur-xs`), which was out of this phase's scope. `globals.css` already defines `.ap-modal-overlay` with exactly the specified values — adding that class to `DialogOverlay` is the whole fix. The top-alignment and scrolling half of the requirement is done.
+
+**Tests:** `npx tsc --noEmit` clean; `npm run test:cards` 9/9; `npm run test:security` 20/20 (SEC-6 included). `npm run build` **not** run — other agents were building concurrently. **No browser check yet.**
+
+## 2026-09-17 — Design refresh Phase 4: the sprint board
+
+Executes Phase 4 of `docs/design_refresh_IMPLEMENTATION_STRATEGY.md` (§6.3, with §2 tokens, §4.1 idioms, §5 metrics), against `design-import/Modal design optimization with Trello/Sprint Board.dc.html`.
+
+**Lanes and board (`SprintBoardClient.tsx`).** 272 → **286px**, `10px` padding, `8px` gap, `--ap-radius-card` (12px), `1px solid oklch(1 0 0 / 0.8)` on `oklch(1 0 0 / 0.72)`, `--ap-shadow-sm`. The card scroller is now its own `overflow-y-auto` region at `max-height: calc(100vh - 340px)`. Lane headers took the design's shape: colour dot, 13.5px/700 name, mono count chip on `--ap-bg-sunken`, spacer, list menu. The empty lane gained the §4.1 dashed panel (`18px 12px`, `1px dashed oklch(0.86 0.01 262)`, 10px radius, 12.5px) — the design's "Nothing stuck right now…" copy is used on lanes mapped to `STUCK`, a neutral line elsewhere, since the copy is lane-specific but the state is not. The all/linked/unlinked filter is now the §4.1 segmented control (3px track, 2px gap, 26px pills) and `.ap-segmented`'s geometry; the progress bars are 6px on `--ap-kr-bar-bg` with the design's only two transitions.
+
+**Cards (`TaskCardTrello.tsx`).** `10px` radius, cover strip `h-8` → **5px**, 10/11/11px body, 22×6px pill label chips, and one **21px meta chip row** at `--ap-radius-xs` (6px) carrying due / checklist / KR / watching — plus the existing attachment, comment, description and time-range signals, which the design has no slot for but which are live data. Hover is the specified `oklch(0.72 0.1 255)` border + `--ap-shadow-md`; both live in Tailwind classes rather than inline styles, because an inline `borderColor` would beat the `:hover` variant. Member avatars moved into the meta row's trailing slot (design), replacing the name-label footer — names remain on hover via `UserAvatarStack`. The KR chip keeps the key-result title truncated rather than the design's bare "KR", which would have dropped real information.
+
+**Two token-retarget consequences fixed.**
+- The URGENT stripe mixed `var(--ap-warn)` with a literal `rgba(255,149,0,0.5)`; post-retarget that was two different oranges. The second stop is now `color-mix(in oklab, var(--ap-warn) 50%, transparent)` — the same idiom `globals.css:1253` already uses.
+- `SprintListManager` and `SprintPlannerView` drew lane edges with Tailwind's `border` (shadcn `hsl(var(--border))`). Both now take the board's own lane treatment, so the three surfaces agree. Control boundaries in those files moved to `--ap-border-strong` per §2's decorative/control split; `PlannerTimeGrid` stopped carrying a second copy of the status palette and reads `todoStatusMeta()` instead.
+
+**"Add another list"** is 218 × 44 with the §4.1 white-on-white dashed ghost; its open state matches a lane exactly. The background picker adopted the §4.1 selection ring, the `--ap-shadow-pop-xl` ramp and 268px/40px swatches.
+
+**Dark-background fork finished.** `dark` (true only for `graphite`) reached six places; it now also reaches the floating bar, the planner and its time grid, task cards, the mobile lane tab strip, the background-picker trigger, the sticky header chrome and the quick-add composer. The dock was the contrast-critical one: it was the only element that could not borrow the ground's darkness, and its active pill was `#007AFF` + white at **4.0:1**. It now flips to a dark fill with `oklch(0.96 0.004 262)` ink (~10:1) and an accent pill at 5.0:1, over the deeper `0 14px 34px -10px` dock shadow §2 specifies for dark docks. No hardcoded hex remains in any of the seven files.
+
+**Not built, per Decision 0:** the per-lane `+` add-card button in lane headers (the lane-footer composer is the existing, canonical affordance). `SprintFloatingBar` stays inline — no `FloatingDock` extraction (§4, one consumer).
+
+**Must-not-break, all verified in place.** `data-sprint-card` and `onCardKeyDown` are still on the card *wrapper*, not the card, so the `onDragOver` rect scan and the keyboard lift path are unaffected; the wrapper's new 8px spacing is `pb-2` on the wrapper rather than a flex `gap` on the scroller, because the always-mounted drop indicator is a flex child and `gap` would have reserved 8px above the first card at height 0. The rAF-throttled indicator with its ref dedupe, the optimistic reorder + rollback, the `?card=` deep link and its neutral SEC-5 message, the mobile lane tab strip, and `quickAddSignal` as a counter are all unchanged. All ten closed-sprint suppression points carried over (drag-over / drag-leave / drop / key handler / `readOnly` / drag-start / per-card drop line / list menu `disabled` / quick-add / add-list, plus the background picker and the board desaturation).
+
+**Files changed:** `features/sprints/components/` — `SprintBoardClient.tsx`, `TaskCardTrello.tsx`, `SprintListManager.tsx`, `SprintFloatingBar.tsx`, `SprintPlannerView.tsx`, `PlannerTimeGrid.tsx`, `SprintBackgroundPicker.tsx` (the last only to accept and apply `dark`, which §6.3 lists in the fork).
+
+**Verification** — `npx tsc --noEmit`: no errors in any sprint file (four pre-existing errors remain in `components/todos/TodoCardModal.tsx`, a concurrently-edited Phase 5 file). `npm run test:sprints`: 21/21 pass. `npm run build` deliberately not run (concurrent agents). **Not opened in a browser.**
+
+
+## 2026-09-17 — Design refresh Phase 3: the app shell
+
+Executes phase 3 of `docs/design_refresh_IMPLEMENTATION_STRATEGY.md` (§5, §6.1, §6.2). Scope was `components/layout/DashboardShell.tsx`, `components/layout/Sidebar.tsx`, `components/layout/Header.tsx` only.
+
+**The width mismatch — a live bug, not a restyle.**
+- The aside was `w-[220px] shrink-0` inside a `260px` grid column, so every desktop page carried a 40px strip of bare `bg-background` between the sidebar's `border-r` and the content column (12px when collapsed: 52px inside `4rem`). Both are now **228px / 52px**, and they read the *same* `--ap-sidebar-w` custom property rather than two literals that can drift apart again.
+- **The pre-hydration branch used the expanded column regardless of the stored value.** `sidebarCollapsed` starts `false` and is only corrected in an effect, so a collapsed user got a 176px layout jump on every page load. A small boot script (`SIDEBAR_WIDTH_BOOT_SCRIPT`, exported from `Sidebar.tsx` so the storage key and the two widths stay in one file) sets `--ap-sidebar-w` on `<html>` before first paint; `DashboardShell` deliberately publishes no inline value until hydrated, then takes over so toggling stays reactive. The rail's *contents* still swap at hydration — fully fixing that needs the collapsed flag in a cookie, which is outside this phase.
+- Grid rows moved `3rem` → `54px` to match the new top bar.
+
+**Sidebar (§6.1).** 228px, solid `--ap-bg-raised` instead of `ap-glass`; 32px rows at 13px/500 with `--ap-radius-sm` (7px); 5px dot markers replace the per-item Lucide icons inside grouped nav; mono 9.5px/0.12em section eyebrows; active row is `--ap-accent-soft` fill + `--ap-accent-on-soft` text + weight 600 + accent dot. The design's three shapes map onto the real IA: single-item groups keep their icon (the design's "Dashboard"/"Filters" block), open multi-item groups render as eyebrow + dot rows ("MY WORK", "OKRS"), closed ones as a single row with a trailing chevron (the design's tail nav) — so the group-collapse affordance survives the flattening.
+- Preserved: the collapsed icon rail and its portal flyout, the mobile drawer, `getVisibleNavigationGroups` permission filtering, `useNavOpenState`, the `okr-sidebar-collapsed` key, `isNavPathActive` / `getActiveNavContext`. **All 14 permission-gated nav groups are intact** — the design shows 3 and is an excerpt, not a replacement IA. `lib/dashboard-navigation.ts` untouched.
+
+**Top bar (§6.2).** 54px; the 280px right-aligned search button is now a centred 420px field at 34px with `--ap-radius-md` (9px) and a mono `⌘K` chip; 26px profile avatar. It stays a button that opens the cmdk palette — turning it into a real input is a behaviour change this phase does not own. Deferred as instructed: the participant avatar stack with `+N` (`NavProgressCircles` already holds that slot with real data).
+
+**Two pre-existing defects fixed while there.**
+- **Two bottom borders.** The grid cell carried `border-b bg-card` *and* the `<header>` carried `ap-glass border-b`; the opaque `bg-card` underneath also cancelled the glass `backdrop-filter`, so the blur was pure cost. Resolved in favour of the design's solid bar — the wrapper is now plain, the header is `bg-[var(--ap-bg-raised)]` with one border. Nothing scrolls beneath it (main is a sibling grid row with its own `overflow-y-auto`), so the only thing the blur contributed was a stacking context, which `NavProgressCircles` already portals out of.
+- **The notifications dropdown was fiction** — a literal `3` badge over three hardcoded strings. There is no `/api/notifications` list route to back it (only `.../preferences` and the cron writer). The fake badge and fake rows are gone; the dropdown now shows an honest empty state and routes to `/dashboard/notifications`, which *does* read `Notification` rows server-side. A comment marks where to restore the badge and preview once the route exists.
+
+**Verification** — `tsc --noEmit` reports no errors in the three files (one unrelated error in `components/todos/TodoCardModal.tsx`, a concurrently-edited Phase 5 file). Every new arbitrary Tailwind utility was confirmed to compile by building the stylesheet to a temp file — including the grid track, which was initially written as a template literal that Tailwind's source scanner cannot see and would have emitted no CSS. `npm run build` deliberately not run (concurrent agents). **Not opened in a browser.**
+
+
+## 2026-09-17 — Design refresh Phase 2: the four new primitives, three extensions, and four deletions
+
+Executes Phase 2 of `docs/design_refresh_IMPLEMENTATION_STRATEGY.md` §4/§4.1. Scope was `components/ui/` plus one new shared hook; no call sites migrated — later phases do that.
+
+**Built (4).**
+- **`Eyebrow`** — ⚠ **default is non-mono, deliberately.** 249 eyebrows exist across 94 files and *not one* is mono, so shipping the design's mono eyebrow as the default would have been 249 visual regressions. The `default` size reproduces the 54-occurrence majority byte for byte (`text-[11px] font-semibold uppercase tracking-wide text-muted-foreground`); `sm` (9.5px/.12em) and `md` (10px/.1em) are the design's two sizes, and `mono` is opt-in.
+- **`FilterSelect`** — a thin styled wrapper over the Radix `ui/select.tsx`, *not* a hand-rolled div popover: the latter would drop listbox roles, type-ahead and arrow-key roving. Shape copied from `FilterBar.tsx:305-372` (labelled trigger, conditional search above 6 options, clear, remove). **Single-select only** — Radix Select has no multi-select mode, and the accessible multi-select pattern is a checkbox group rather than a listbox, so FilterBar's multi-select fields keep their own control for now. The search box calls `stopPropagation` on keydown; without it Radix's type-ahead also consumes the typing.
+- **`EntityPicker`** — promoted from `components/sprints/LinkToOkrPopover.tsx`, the most complete of the 11 independent OKR pickers (recents, cascading expand, both entity types), then generalised with `selectable`, `recentKey`, `disabledIds` and `query`. `LinkToOkrPopover` is left in place; its call sites migrate in a later phase.
+- **`SectionHeading`** — extracted out of `ui/dashboard/DashboardCard.tsx:14`, which now consumes it. Seven hand-rolled copies exist; two are byte-identical.
+
+**`hooks/useOkrOptions.ts`** — one fetch strategy for OKR pickers. There were two for the same data: `LinkToOkrPopover` called `/api/objectives?limit=200` **and** `/api/key-results?limit=500` and re-joined them client-side, while `CheckInPickerModal` called `/api/objectives` alone. The second is right — `app/api/objectives/route.ts:104` already nests `keyResults` — so one request replaces two. Consolidating the component without the fetch would only have moved the duplication.
+
+**Extended (3).**
+- **`Popover`** — `width` (px) and `variant` ('menu' 5px/9px vs 'panel' 12px/11px). `width` also **selects the shadow step** from the `--ap-shadow-pop-sm…panel` ramp, so no call site picks elevation by hand. The design's own ramp is not monotonic (168 sits a step above 176); it is collapsed to a monotonic ladder — ~0.02 shadow alpha of difference — with a `shadow` prop to override. Omitting `width` keeps the legacy `w-[300px]` **class** and `--ap-shadow-lg`, which matters because the 3 existing call sites size themselves with `w-[260px]` and an inline width would have beaten it.
+- **`ScrollArea`** — `orientation` ('vertical' | 'horizontal' | 'both'). The Root hardcoded one vertical `<ScrollBar>`, so horizontal scrollers (board lanes, the to-do table) had no thumb at all. Default is unchanged.
+- **`Modal`** — highest-risk file here at 50 importers, so sizes are **additive only, never remapped**. Added `'940'`, the first fixed-px size; the ceiling was never the problem (`2xl` = 1152px is already wider than the design's 940). Added `accentColor` for the 6px top strip — **not** bound to card status, because the design hardcodes one value and that value matches no entry in the status colour map, so any mapping would be invented.
+
+**Promoted, not duplicated.**
+- **`MiniBadge`** → main barrel, with `tone` (neutral/accent/ok/warn/danger/ahead) and `mono`. `color` is kept and still wins over `tone`, so the 10 existing call sites render identically. **No `CountChip` was created** — this plus `.ap-kbd` already cover that shape; a third way to render a count makes it worse.
+- **`Progress`** now matches the design (6px, 99px radius, `--ap-kr-bar-bg` track, `--ap-ok` fill, tokenised `fill`/`track` overrides for status tinting) and is exported. It had **zero consumers** while `ProgressBar` was re-implemented seven times. Being Radix-backed it also exposes `role=progressbar` + `aria-value*`, which none of the seven copies do. The 7 call sites are **not** migrated — that is a later phase.
+
+**Deleted (4)** — each verified to have zero external consumers (referenced only by the barrel): `accordion.tsx` (81 lines), `alert-dialog.tsx` (199 — superseded by `ConfirmDialog`, 33 importers), `toggle-group.tsx` (89), `toggle.tsx` (47, whose only consumer was `toggle-group`). Barrel updated; the Radix `select` primitive `FilterSelect` wraps was also added to it, having never been exported. Net barrel count is unchanged at 32 files.
+
+**Decided against.** `CountChip` and `FloatingDock` (§4 says don't — 1 real consumer for the dock, two existing equivalents for the chip). `StatCard`'s tone retarget and the `bg-muted0` fixes were already done in Phase 1. `DueDateChip` is deferred: §4 flags it as a behaviour change needing a deliberate vocabulary choice ("soon" is ≤2 days in `TaskCardTrello` but ≤7 in `ReportDashboardClient`), and the helper belongs in `lib/todos/due-tone.ts`, outside this phase's scope.
+
+**Verification** — `tsc --noEmit` clean (exit 0; confirmed the new files are actually in the program by planting and removing a deliberate type error). `npm run build` **not run** — other agents were working in the repo concurrently. No browser check.
+
 ## 2026-09-17 — Design refresh Phase 0 + Phase 1: the live crash, and the token retarget
 
 Executes phases 0 and 1 of `docs/design_refresh_IMPLEMENTATION_STRATEGY.md`. Phase 2 (primitives) onward is not started.

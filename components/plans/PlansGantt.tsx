@@ -6,6 +6,7 @@ import { gantt, type GanttStatic } from 'dhtmlx-gantt'
 import 'dhtmlx-gantt/codebase/dhtmlxgantt.css'
 import type { GanttPayload, GanttTask } from '@/app/api/gantt/route'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { getConfidenceColor } from '@/lib/utils'
 
 type ZoomLevel = 'week' | 'month' | 'quarter' | 'year'
 
@@ -14,12 +15,6 @@ const STATUS_BAR_COLOR: Record<string, string> = {
   AT_RISK: '#ff9500',
   OFF_TRACK: '#ff3b30',
   CLOSED: '#8e8e93',
-}
-
-const CONFIDENCE_BAR_COLOR: Record<string, string> = {
-  ON_TRACK: '#34c759',
-  AT_RISK: '#ff9500',
-  OFF_TRACK: '#ff3b30',
 }
 
 function applyZoom(g: GanttStatic, level: ZoomLevel) {
@@ -131,7 +126,7 @@ export default function PlansGantt() {
             return `<span style="display:inline-block;padding:2px 6px;border-radius:10px;background:${color};color:white;font-size:10px;font-weight:600;">${task.goalStatus.replace(/_/g, ' ')}</span>`
           }
           if (task.entityType === 'keyresult' && task.confidence) {
-            const color = CONFIDENCE_BAR_COLOR[task.confidence] ?? '#94a3b8'
+            const color = getConfidenceColor(task.confidence)
             return `<span style="display:inline-block;padding:2px 6px;border-radius:10px;background:${color};color:white;font-size:10px;font-weight:600;">${task.confidence.replace(/_/g, ' ')}</span>`
           }
           return ''

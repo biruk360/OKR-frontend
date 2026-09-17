@@ -8,7 +8,7 @@
  */
 
 import { useMemo } from 'react'
-import { cn } from '@/lib/utils'
+import { todoStatusMeta } from '@/lib/todo-status'
 
 export interface PlannerTodo {
   id: string
@@ -30,6 +30,8 @@ interface Props {
   startHour?: number
   /** Hour to end the grid on, exclusive (default 21). */
   endHour?: number
+  /** Dark board ground (`graphite`) — hour rules and labels have to invert. */
+  dark?: boolean
 }
 
 function sameLocalDay(a: Date, b: Date) {
@@ -43,16 +45,22 @@ function parseHHMM(s: string | null): number | null {
   return parseInt(m[1], 10) * 60 + parseInt(m[2], 10)
 }
 
-function statusToTone(status: string): { bg: string; bd: string; tx: string } {
-  if (status === 'COMPLETED') return { bg: 'bg-success-100', bd: 'border-success-300', tx: 'text-success-700' }
-  if (status === 'IN_PROGRESS') return { bg: 'bg-primary-100', bd: 'border-primary-300', tx: 'text-primary-700' }
-  if (status === 'STUCK') return { bg: 'bg-danger-100', bd: 'border-danger-300', tx: 'text-danger-700' }
-  if (status === 'IN_REVIEW') return { bg: 'bg-warning-100', bd: 'border-warning-300', tx: 'text-warning-700' }
-  return { bg: 'bg-muted', bd: 'border-[var(--ap-border)]', tx: 'text-foreground' }
+/**
+ * Block tone comes from the canonical status map (lib/todo-status), not a
+ * second copy of the palette — that map is the one place STUCK's hue is
+ * decided, and it already reads the --ap-* tokens.
+ */
+function statusToTone(status: string): React.CSSProperties {
+  const meta = todoStatusMeta(status)
+  return { background: meta.bg, borderColor: meta.dot, color: meta.fg }
 }
 
-export default function PlannerTimeGrid({ day, todos, onTodoClick, startHour = 7, endHour = 21 }: Props) {
+export default function PlannerTimeGrid({ day, todos, onTodoClick, startHour = 7, endHour = 21, dark }: Props) {
   const hours = endHour - startHour
+
+  /** Hairlines and secondary ink both have to invert on a dark ground. */
+  const ruleColor = dark ? 'oklch(1 0 0 / 0.14)' : 'var(--ap-border)'
+  const subtleInk = dark ? 'oklch(0.88 0.006 262)' : 'var(--ap-fg-subtle)'
 
   /** Pixels per hour — drives both the grid row height and todo block sizing. */
   const HOUR_PX = 56
@@ -80,25 +88,20 @@ export default function PlannerTimeGrid({ day, todos, onTodoClick, startHour = 7
     <div className="flex h-full flex-col">
       {/* All-day strip */}
       {allDay.length > 0 && (
-        <div className="border-b px-3 py-2" style={{ borderColor: 'var(--ap-border-soft, var(--ap-border))' }}>
-          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">All day</p>
+        <div className="border-b px-3 py-2" style={{ borderColor: ruleColor }}>
+          <p className="mb-1 font-mono text-[10px] font-medium uppercase tracking-[0.1em]" style={{ color: subtleInk }}>All day</p>
           <div className="flex flex-wrap gap-1.5">
-            {allDay.map((t) => {
-              const tone = statusToTone(t.status)
-              return (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => onTodoClick(t.id)}
-                  className={cn(
-                    'max-w-full truncate rounded-md border px-2 py-0.5 text-[11px] font-medium transition hover:brightness-95',
-                    tone.bg, tone.bd, tone.tx,
-                  )}
-                >
-                  {t.title}
-                </button>
-              )
-            })}
+            {allDay.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => onTodoClick(t.id)}
+                className="inline-flex h-[21px] max-w-full items-center truncate rounded-[var(--ap-radius-xs)] border px-[7px] text-[11px] font-semibold transition hover:brightness-95"
+                style={statusToTone(t.status)}
+              >
+                {t.title}
+              </button>
+            ))}
           </div>
         </div>
       )}
@@ -117,15 +120,13 @@ export default function PlannerTimeGrid({ day, todos, onTodoClick, startHour = 7
                 className="absolute inset-x-0 flex items-start"
                 style={{ top, height: HOUR_PX }}
               >
-                <span className="w-12 shrink-0 -translate-y-1/2 pl-2 text-[10px] tabular-nums text-muted-foreground">
+                <span
+                  className="w-12 shrink-0 -translate-y-1/2 pl-2 font-mono text-[10px] tabular-nums"
+                  style={{ color: subtleInk }}
+                >
                   {i < hours ? label : ''}
                 </span>
-                <span
-                  className="flex-1 self-start"
-                  style={{
-                    borderTop: '1px solid var(--ap-border-soft, var(--ap-border))',
-                  }}
-                />
+                <span className="flex-1 self-start" style={{ borderTop: `1px solid ${ruleColor}` }} />
               </div>
             )
           })}
@@ -136,8 +137,8 @@ export default function PlannerTimeGrid({ day, todos, onTodoClick, startHour = 7
               className="pointer-events-none absolute left-12 right-2 z-10 flex items-center"
               style={{ top: nowTop }}
             >
-              <span className="h-2 w-2 -translate-x-1 rounded-full bg-primary-500" />
-              <span className="h-px flex-1 bg-primary-500" />
+              <span className="h-2 w-2 -translate-x-1 rounded-full" style={{ background: 'var(--ap-danger)' }} />
+              <span className="h-px flex-1" style={{ background: 'var(--ap-danger)' }} />
             </div>
           )}
 
@@ -147,17 +148,13 @@ export default function PlannerTimeGrid({ day, todos, onTodoClick, startHour = 7
             const end = parseHHMM(t.endTime)!
             const top = ((start - startHour * 60) / 60) * HOUR_PX
             const height = Math.max(20, ((end - start) / 60) * HOUR_PX)
-            const tone = statusToTone(t.status)
             return (
               <button
                 key={t.id}
                 type="button"
                 onClick={() => onTodoClick(t.id)}
-                className={cn(
-                  'absolute left-12 right-2 overflow-hidden rounded-md border px-2 py-1 text-left text-[11px] font-medium shadow-sm transition hover:brightness-95',
-                  tone.bg, tone.bd, tone.tx,
-                )}
-                style={{ top, height }}
+                className="absolute left-12 right-2 overflow-hidden rounded-[var(--ap-radius-xs)] border px-2 py-1 text-left text-[11px] font-medium shadow-[var(--ap-shadow-sm)] transition hover:brightness-95"
+                style={{ ...statusToTone(t.status), top, height }}
                 title={`${t.startTime}–${t.endTime} ${t.title}`}
               >
                 <p className="truncate">{t.title}</p>

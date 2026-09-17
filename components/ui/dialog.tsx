@@ -39,7 +39,11 @@ function DialogOverlay({
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
-        "fixed inset-0 isolate z-50 bg-black/10 duration-100 supports-backdrop-filter:backdrop-blur-xs data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
+        // Scrim comes from --ap-overlay (via .ap-modal-overlay in globals.css) rather
+      // than bg-black/10, so it follows the theme — the old flat 10% black was
+      // nearly invisible over the refreshed light surfaces and far too weak in
+      // dark mode. This is the single scrim for all ~50 Modal consumers.
+      "ap-modal-overlay fixed inset-0 isolate z-50 duration-100 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
         className
       )}
       {...props}

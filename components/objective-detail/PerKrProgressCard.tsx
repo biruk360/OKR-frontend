@@ -1,4 +1,5 @@
 'use client'
+import { getConfidenceColor } from '@/lib/utils'
 
 interface KR {
   id: string
@@ -10,12 +11,6 @@ interface KR {
 
 interface Props {
   keyResults: KR[]
-}
-
-function color(confidence: string): string {
-  if (confidence === 'OFF_TRACK') return 'var(--ap-red)'
-  if (confidence === 'AT_RISK') return 'var(--ap-orange)'
-  return 'var(--ap-green)'
 }
 
 /**
@@ -55,7 +50,7 @@ export default function PerKrProgressCard({ keyResults }: Props) {
                   >
                     <div
                       className="absolute bottom-0 inset-x-0 rounded-t-[4px] transition-all"
-                      style={{ height: `${pct}%`, background: color(kr.confidence) }}
+                      style={{ height: `${pct}%`, background: getConfidenceColor(kr.confidence) }}
                     />
                   </div>
                   <div className="text-[10px] font-semibold tabular-nums">{pct}%</div>

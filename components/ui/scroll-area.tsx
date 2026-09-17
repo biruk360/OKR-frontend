@@ -5,14 +5,29 @@ import { ScrollArea as ScrollAreaPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * `orientation` controls which scrollbars are rendered. Previously the Root
+ * hardcoded a single vertical `<ScrollBar>`, so horizontal scrollers (the board
+ * lane scroller, the to-do table) had no visible thumb at all.
+ * See docs/design_refresh_IMPLEMENTATION_STRATEGY.md §4.
+ */
+export type ScrollAreaOrientation = "vertical" | "horizontal" | "both"
+
 function ScrollArea({
   className,
   children,
+  orientation = "vertical",
+  scrollBarClassName,
   ...props
-}: React.ComponentProps<typeof ScrollAreaPrimitive.Root>) {
+}: React.ComponentProps<typeof ScrollAreaPrimitive.Root> & {
+  orientation?: ScrollAreaOrientation
+  /** Forwarded to every rendered ScrollBar. */
+  scrollBarClassName?: string
+}) {
   return (
     <ScrollAreaPrimitive.Root
       data-slot="scroll-area"
+      data-orientation={orientation}
       className={cn("relative", className)}
       {...props}
     >
@@ -22,7 +37,12 @@ function ScrollArea({
       >
         {children}
       </ScrollAreaPrimitive.Viewport>
-      <ScrollBar />
+      {orientation !== "horizontal" && (
+        <ScrollBar orientation="vertical" className={scrollBarClassName} />
+      )}
+      {orientation !== "vertical" && (
+        <ScrollBar orientation="horizontal" className={scrollBarClassName} />
+      )}
       <ScrollAreaPrimitive.Corner />
     </ScrollAreaPrimitive.Root>
   )

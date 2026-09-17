@@ -9,7 +9,6 @@
 import { useEffect, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import { Check, Image as ImageIcon } from 'lucide-react'
-import { cn } from '@/lib/utils'
 import {
   BACKGROUND_PRESETS,
   BACKGROUND_KEYS,
@@ -20,9 +19,15 @@ interface Props {
   sprintId: string
   current: SprintBackgroundKey | string | null
   onChanged: (next: SprintBackgroundKey) => void
+  /**
+   * Dark board ground (`graphite`). Only the TRIGGER forks — it sits on the
+   * board chrome. The popover keeps its own light surface so the swatches are
+   * judged against a neutral ground rather than the preset being replaced.
+   */
+  dark?: boolean
 }
 
-export default function SprintBackgroundPicker({ sprintId, current, onChanged }: Props) {
+export default function SprintBackgroundPicker({ sprintId, current, onChanged, dark }: Props) {
   const [open, setOpen] = useState(false)
   const [saving, setSaving] = useState<SprintBackgroundKey | null>(null)
   const wrapRef = useRef<HTMLDivElement | null>(null)
@@ -61,8 +66,12 @@ export default function SprintBackgroundPicker({ sprintId, current, onChanged }:
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex items-center gap-1.5 rounded-[var(--ap-radius-sm)] border bg-card px-3 py-1 text-[12px] font-semibold hover:bg-muted"
-        style={{ borderColor: 'var(--ap-border)' }}
+        className="inline-flex h-[32px] items-center gap-1.5 rounded-[var(--ap-radius-md)] border px-3 text-[12.5px] font-semibold"
+        style={{
+          borderColor: dark ? 'oklch(1 0 0 / 0.2)' : 'var(--ap-border-strong)',
+          background: dark ? 'oklch(1 0 0 / 0.1)' : 'var(--ap-bg-raised)',
+          color: dark ? 'oklch(1 0 0)' : 'var(--ap-fg-muted)',
+        }}
       >
         <ImageIcon className="h-3.5 w-3.5" />
         Background
@@ -70,13 +79,17 @@ export default function SprintBackgroundPicker({ sprintId, current, onChanged }:
 
       {open && (
         <div
-          className="absolute right-0 z-30 mt-2 w-[280px] rounded-[12px] border bg-card p-3 shadow-popover"
-          style={{ borderColor: 'var(--ap-border)' }}
+          className="absolute right-0 z-30 mt-2 w-[268px] rounded-[11px] border p-3"
+          style={{
+            borderColor: 'var(--ap-border)',
+            background: 'var(--ap-bg-raised)',
+            boxShadow: 'var(--ap-shadow-pop-xl)',
+          }}
         >
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <p className="mb-2 font-mono text-[10px] font-medium uppercase tracking-[0.1em]" style={{ color: 'var(--ap-fg-subtle)' }}>
             Board background
           </p>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-4 gap-[7px]">
             {BACKGROUND_KEYS.map((k) => {
               const preset = BACKGROUND_PRESETS[k]
               const active = current === k || (!current && k === 'none')
@@ -86,18 +99,18 @@ export default function SprintBackgroundPicker({ sprintId, current, onChanged }:
                   type="button"
                   onClick={() => pick(k)}
                   title={preset.label}
-                  className={cn(
-                    'relative aspect-[5/4] overflow-hidden rounded-[8px] border transition hover:scale-[1.04]',
-                    active ? 'ring-2 ring-primary-500 ring-offset-1' : '',
-                  )}
+                  className="relative h-[40px] overflow-hidden rounded-[var(--ap-radius-md)] border transition hover:brightness-[0.97]"
                   style={{
-                    borderColor: 'var(--ap-border-soft, var(--ap-border))',
+                    borderColor: 'var(--ap-border-soft)',
                     backgroundImage: preset.swatch,
+                    boxShadow: active
+                      ? '0 0 0 2px var(--ap-bg-raised), 0 0 0 4px oklch(0.55 0.14 255)'
+                      : undefined,
                   }}
                 >
                   {active && (
                     <span className="absolute inset-0 flex items-center justify-center">
-                      <Check className="h-4 w-4 text-white drop-shadow" />
+                      <Check className="h-[15px] w-[15px]" style={{ color: 'oklch(0.35 0.06 262)' }} strokeWidth={3} />
                     </span>
                   )}
                   {saving === k && (
@@ -109,8 +122,8 @@ export default function SprintBackgroundPicker({ sprintId, current, onChanged }:
               )
             })}
           </div>
-          <p className="mt-2 text-[10px] text-muted-foreground">
-            Subtle gradients, designed to keep cards legible.
+          <p className="mt-2 text-[11.5px] leading-[1.5]" style={{ color: 'var(--ap-fg-subtle)' }}>
+            Subtle grounds, chosen to keep card text legible.
           </p>
         </div>
       )}

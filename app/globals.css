@@ -1319,32 +1319,6 @@
 }
 
 /* Segmented / pill tabs */
-.ap-segmented {
-  display: inline-flex;
-  padding: 2px;
-  gap: 2px;
-  background: rgba(120, 120, 128, 0.16);
-  border: none;
-  border-radius: 9px;
-}
-.ap-segmented button {
-  padding: 5px 12px;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--ap-fg-muted);
-  background: transparent;
-  border: none;
-  border-radius: 7px;
-  cursor: pointer;
-  transition: all 0.12s ease;
-}
-.ap-segmented button[data-active='true'],
-.ap-segmented button[aria-selected='true'] {
-  background: var(--ap-bg-raised);
-  box-shadow: 0 3px 8px rgba(0,0,0,0.08), 0 0 0 0.5px rgba(0,0,0,0.04);
-  color: var(--ap-fg);
-  font-weight: 600;
-}
 
 /* iOS Switch */
 .ap-switch {
@@ -1423,37 +1397,8 @@
 }
 
 /* Progress bar */
-.ap-progress {
-  position: relative;
-  height: 8px;
-  width: 100%;
-  background: var(--ap-kr-bar-bg);
-  border-radius: 999px;
-  overflow: hidden;
-}
-.ap-progress.ap-progress-inline { height: 5px; }
-.ap-progress-fill {
-  height: 100%;
-  border-radius: 999px;
-  background: var(--ap-ok);
-  transition: width 0.4s cubic-bezier(.2,.8,.2,1);
-}
 
 /* Kbd */
-.ap-kbd {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  background: var(--ap-bg-sunken);
-  border: 1px solid var(--ap-border);
-  border-radius: 5px;
-  font-family: var(--ap-font-mono);
-  font-size: 10px;
-  color: var(--ap-fg-muted);
-}
 
 /* Modal */
 .ap-modal {
@@ -1467,13 +1412,6 @@
   backdrop-filter: blur(3px);
 }
 
-/* Sidebar (228 / 52) & Topbar (54) helpers.
-   These must stay in step with DashboardShell's grid columns and Sidebar's
-   aside width — they were 220/52/48 while the aside said 220 and the grid said
-   260, i.e. three copies of the number and only one of them applied. */
-.ap-sidebar { width: 228px; }
-.ap-sidebar[data-collapsed='true'] { width: 52px; }
-.ap-topbar { height: 54px; padding: 10px 18px; }
 
 /* Apple Pro sidebar active nav pill override (spec §2.1) */
 .theme-apple-full aside nav button[style*="accent-soft"],

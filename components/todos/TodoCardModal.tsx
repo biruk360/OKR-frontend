@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { createPortal } from 'react-dom'
 import {
   X, Check, Plus, Trash2, Paperclip, Tag, Users, Calendar,
   ChevronDown, AlignLeft, MessageSquare, Activity, MoreHorizontal,
@@ -17,6 +16,7 @@ import RichTextContent from '@/components/shared/RichTextContent'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ActionsMenu } from '@/components/ui/ActionsMenu'
 import { Modal } from '@/components/ui/Modal'
+import { Eyebrow } from '@/components/ui/Eyebrow'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { AppleDatePicker, toIso } from '@/components/ui/date-picker'
 import { CARD_PALETTE, swatchStyle, readableInk } from '@/lib/card-visuals'
@@ -34,6 +34,8 @@ export interface TodoCardData {
   title: string
   description: string | null
   status: string
+  /** Prisma scalar, spread by GET /api/todos/[id]. Drives the "added … by …" line. */
+  createdAt?: string | null
   priority: string
   sprintId: string | null
   sprint?: { id: string; name: string; state: string; startDate?: string | null; endDate?: string | null } | null
@@ -104,8 +106,17 @@ interface LabelDef { id: string; name: string; color: string }
 // (kept selectable so a card can be marked off without leaving the system).
 const STATUS_OPTIONS = [...BOARD_STATUSES, 'CANCELLED'] as const
 const PRIORITY_OPTIONS = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const
+/**
+ * Retargeted onto the status tokens (§2 / §2.11). The design asks for four
+ * bespoke hues, two of which have no token — per Decision 0 the existing
+ * four-step semantics win, so Low maps to `--ap-none` and High to `--ap-danger`
+ * rather than inventing cyan and orange-red.
+ */
 const PRIORITY_COLORS: Record<string, string> = {
-  LOW: '#8E8E93', MEDIUM: '#FF9500', HIGH: '#FF3B30', URGENT: '#AF52DE',
+  LOW: 'var(--ap-none)',
+  MEDIUM: 'var(--ap-warn)',
+  HIGH: 'var(--ap-danger)',
+  URGENT: 'var(--ap-ahead)',
 }
 // Trello-style label palette — kept short so the popover stays scannable.
 // Labels and covers draw from the same ten swatches (lib/card-visuals.ts), so a
@@ -140,13 +151,13 @@ function DueDateBadge({ dueDate, endTime }: { dueDate: string | null; endTime?: 
   const tomorrow = isTomorrow(d)
   return (
     <span className={cn(
-      'inline-flex items-center gap-1.5 rounded-full px-2.5 py-[3px] text-[11px] font-600',
+      'inline-flex h-7 items-center gap-1.5 rounded-[var(--ap-radius-xs)] px-2.5 text-[12.5px] font-semibold',
       overdue && 'bg-[var(--ap-danger-bg)] text-[var(--ap-danger-fg)]',
       today && 'bg-[var(--ap-warn-bg)] text-[var(--ap-warn-fg)]',
       tomorrow && 'bg-[var(--ap-ok-bg)] text-[var(--ap-ok-fg)]',
       !overdue && !today && !tomorrow && 'bg-[var(--ap-bg-sunken)] text-[var(--ap-fg-muted)]',
     )}>
-      <Calendar className="h-3 w-3" />
+      <Calendar className="h-3.5 w-3.5" />
       {overdue ? 'Overdue · ' : today ? 'Today · ' : tomorrow ? 'Tomorrow · ' : ''}
       {format(d, 'MMM d')}
       {endTime ? `, ${to12h(endTime)}` : ''}
@@ -154,19 +165,24 @@ function DueDateBadge({ dueDate, endTime }: { dueDate: string | null; endTime?: 
   )
 }
 
+/**
+ * Neutral chrome, coloured dot — the design's metadata-line control. The native
+ * <select> stays as the overlay: it is keyboard- and screen-reader-complete for
+ * free, and it cannot collide with `activePanel`'s single popover slot.
+ */
 function StatusPill({ status, onChange }: { status: string; onChange: (v: string) => void }) {
   const meta = todoStatusMeta(status)
   return (
     <label
-      className="relative inline-flex items-center gap-1 rounded-full px-2.5 py-[3px] text-[11px] font-600 cursor-pointer transition-shadow hover:shadow-sm"
-      style={{ background: meta.bg, color: meta.fg }}
+      className="relative inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-[var(--ap-radius-xs)] border border-[var(--ap-border-strong)] bg-[var(--ap-bg-raised)] px-2 text-[12.5px] font-semibold text-[var(--ap-fg-muted)] transition-colors hover:bg-[var(--ap-bg-hover)]"
     >
-      <span className="size-1.5 rounded-full" style={{ background: meta.dot }} />
+      <span className="size-[7px] rounded-full" style={{ background: meta.dot }} />
       {meta.label}
-      <ChevronDown className="h-3 w-3 opacity-70" />
+      <ChevronDown className="h-3 w-3 opacity-50" />
       <select
         value={status}
         onChange={(e) => onChange(e.target.value)}
+        aria-label="Card status"
         className="absolute inset-0 cursor-pointer opacity-0"
       >
         {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{TODO_STATUS_META[s].label}</option>)}
@@ -176,18 +192,18 @@ function StatusPill({ status, onChange }: { status: string; onChange: (v: string
 }
 
 function PriorityPill({ priority, onChange }: { priority: string; onChange: (v: string) => void }) {
-  const fg = PRIORITY_COLORS[priority] ?? PRIORITY_COLORS.MEDIUM
+  const dot = PRIORITY_COLORS[priority] ?? PRIORITY_COLORS.MEDIUM
   return (
     <label
-      className="relative inline-flex items-center gap-1 rounded-full border px-2.5 py-[3px] text-[11px] font-600 cursor-pointer transition-shadow hover:shadow-sm"
-      style={{ borderColor: fg, color: fg, background: 'transparent' }}
+      className="relative inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-[var(--ap-radius-xs)] border border-[var(--ap-border-strong)] bg-[var(--ap-bg-raised)] px-2.5 text-[12.5px] font-semibold text-[var(--ap-fg-muted)] transition-colors hover:bg-[var(--ap-bg-hover)]"
     >
-      <span className="size-1.5 rounded-full" style={{ background: fg }} />
+      <span className="size-[9px] rounded-full" style={{ background: dot }} />
       {priority}
-      <ChevronDown className="h-3 w-3 opacity-70" />
+      <ChevronDown className="h-3 w-3 opacity-50" />
       <select
         value={priority}
         onChange={(e) => onChange(e.target.value)}
+        aria-label="Card priority"
         className="absolute inset-0 cursor-pointer opacity-0"
       >
         {PRIORITY_OPTIONS.map((p) => <option key={p} value={p}>{p}</option>)}
@@ -215,16 +231,19 @@ interface LinkedOkrCardProps {
 function LinkedOkrCard(p: LinkedOkrCardProps) {
   const linked = p.todo.keyResult || p.todo.objective
   return (
-    <div className="rounded-[var(--ap-radius-md)] border border-[var(--ap-border)] bg-[var(--ap-bg-sunken)] overflow-hidden">
-      <div className="flex items-center gap-3 px-4 py-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--ap-accent-soft)] text-[var(--ap-accent)]">
-          <Target className="h-[18px] w-[18px]" />
+    <div className={cn(
+      'overflow-hidden rounded-[var(--ap-radius-card)] bg-[var(--ap-bg-sunken)]',
+      linked ? 'border border-[var(--ap-border)]' : 'border border-dashed border-[var(--ap-border-strong)]',
+    )}>
+      <div className="flex items-center gap-3 px-3.5 py-3">
+        <div className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[var(--ap-radius-sm)] bg-[var(--ap-accent-soft)] text-[var(--ap-accent-on-soft)]">
+          <Target className="h-4 w-4" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-[10px] font-700 uppercase tracking-[0.06em] text-[var(--ap-fg-subtle)]">Linked OKR</p>
+          <Eyebrow size="md" mono className="text-[var(--ap-fg-subtle)]">Linked OKR</Eyebrow>
           {linked ? (
             <div className="mt-0.5 min-w-0">
-              <p className="truncate text-[13px] font-600 text-[var(--ap-fg)]">
+              <p className="truncate text-[13px] font-semibold text-[var(--ap-fg)]">
                 {p.todo.keyResult?.title ?? p.todo.objective?.title}
               </p>
               {p.todo.keyResult && (
@@ -241,14 +260,14 @@ function LinkedOkrCard(p: LinkedOkrCardProps) {
           {linked && (
             <a
               href={p.todo.keyResult ? `/dashboard/key-results/${p.todo.keyResult.id}` : `/dashboard/objectives/${p.todo.objective?.id}`}
-              className="inline-flex h-7 items-center gap-1 rounded-full border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-2.5 text-[11px] font-600 text-[var(--ap-fg-muted)] hover:text-[var(--ap-fg)] hover:bg-[var(--ap-bg-hover)] transition-colors"
+              className="inline-flex h-7 items-center gap-1 rounded-full border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-2.5 text-[11px] font-semibold text-[var(--ap-fg-muted)] hover:text-[var(--ap-fg)] hover:bg-[var(--ap-bg-hover)] transition-colors"
             >
               <ExternalLink className="h-3 w-3" /> Open
             </a>
           )}
           <button
             onClick={p.onToggle}
-            className="inline-flex h-7 items-center gap-1 rounded-full border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-2.5 text-[11px] font-600 text-[var(--ap-fg)] hover:bg-[var(--ap-bg-hover)] transition-colors"
+            className="inline-flex h-7 items-center gap-1 rounded-full border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-2.5 text-[11px] font-semibold text-[var(--ap-fg)] hover:bg-[var(--ap-bg-hover)] transition-colors"
           >
             <Link2 className="h-3 w-3" /> {linked ? 'Change' : 'Link'}
           </button>
@@ -269,7 +288,7 @@ function LinkedOkrCard(p: LinkedOkrCardProps) {
           {linked && (
             <button
               onClick={p.onUnlink}
-              className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-600 text-[var(--ap-danger)] hover:bg-[var(--ap-danger-bg)] transition-colors"
+              className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold text-[var(--ap-danger)] hover:bg-[var(--ap-danger-bg)] transition-colors"
             >
               <X className="h-3 w-3" /> Remove current link
             </button>
@@ -281,7 +300,7 @@ function LinkedOkrCard(p: LinkedOkrCardProps) {
             )}
             {p.results.keyResults.length > 0 && (
               <div>
-                <p className="px-2 pb-1 text-[10px] font-700 uppercase tracking-[0.06em] text-[var(--ap-fg-subtle)]">Key results</p>
+                <Eyebrow size="md" mono className="px-2 pb-1 text-[var(--ap-fg-subtle)]">Key results</Eyebrow>
                 <div className="space-y-1">
                   {p.results.keyResults.map((kr) => (
                     <button
@@ -289,9 +308,9 @@ function LinkedOkrCard(p: LinkedOkrCardProps) {
                       onClick={() => p.onPickKr(kr.id)}
                       className="flex w-full items-center gap-3 rounded-[var(--ap-radius-sm)] px-2 py-2 text-left hover:bg-[var(--ap-bg-hover)] transition-colors"
                     >
-                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[var(--ap-accent-soft)] text-[var(--ap-accent)] text-[11px] font-700">KR</div>
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--ap-radius-xs)] bg-[var(--ap-accent-soft)] text-[var(--ap-accent)] text-[11px] font-bold">KR</div>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-[12px] font-600 text-[var(--ap-fg)]">{kr.title}</p>
+                        <p className="truncate text-[12px] font-semibold text-[var(--ap-fg)]">{kr.title}</p>
                         <p className="truncate text-[11px] text-[var(--ap-fg-subtle)]">{kr.objective.title} · {Math.round(kr.progress ?? 0)}%</p>
                       </div>
                     </button>
@@ -301,7 +320,7 @@ function LinkedOkrCard(p: LinkedOkrCardProps) {
             )}
             {p.results.objectives.length > 0 && (
               <div>
-                <p className="px-2 pb-1 text-[10px] font-700 uppercase tracking-[0.06em] text-[var(--ap-fg-subtle)]">Objectives</p>
+                <Eyebrow size="md" mono className="px-2 pb-1 text-[var(--ap-fg-subtle)]">Objectives</Eyebrow>
                 <div className="space-y-1">
                   {p.results.objectives.map((o) => (
                     <button
@@ -309,9 +328,9 @@ function LinkedOkrCard(p: LinkedOkrCardProps) {
                       onClick={() => p.onPickObjective(o.id)}
                       className="flex w-full items-center gap-3 rounded-[var(--ap-radius-sm)] px-2 py-2 text-left hover:bg-[var(--ap-bg-hover)] transition-colors"
                     >
-                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[rgba(175,82,222,0.12)] text-[#AF52DE] text-[11px] font-700">O</div>
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--ap-radius-xs)] bg-[var(--ap-ahead-bg)] text-[var(--ap-ahead-fg)] text-[11px] font-bold">O</div>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-[12px] font-600 text-[var(--ap-fg)]">{o.title}</p>
+                        <p className="truncate text-[12px] font-semibold text-[var(--ap-fg)]">{o.title}</p>
                         <p className="truncate text-[11px] text-[var(--ap-fg-subtle)]">{o.level} · {Math.round(o.progress ?? 0)}%</p>
                       </div>
                     </button>
@@ -331,9 +350,9 @@ function ChecklistProgress({ items }: { items: ChecklistItemData[] }) {
   const done = items.filter((i) => i.completed).length
   const pct = Math.round((done / items.length) * 100)
   return (
-    <div className="flex items-center gap-2">
-      <span className="w-8 text-right text-[11px] text-[var(--ap-fg-subtle)]">{pct}%</span>
-      <div className="h-1.5 flex-1 rounded-full bg-[var(--ap-kr-bar-bg)]">
+    <div className="flex items-center gap-2.5">
+      <span className="w-10 shrink-0 text-right font-mono text-[11px] text-[var(--ap-fg-subtle)]">{done}/{items.length}</span>
+      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--ap-kr-bar-bg)]">
         <div
           className="h-full rounded-full transition-all duration-300"
           style={{ width: `${pct}%`, background: pct === 100 ? 'var(--ap-ok)' : 'var(--ap-accent)' }}
@@ -402,7 +421,7 @@ function ActivityFeed({
   if (logs.length === 0) {
     return (
       <div className="rounded-[var(--ap-radius-md)] border border-dashed border-[var(--ap-border)] bg-[var(--ap-bg-sunken)] px-4 py-8 text-center">
-        <p className="text-[13px] font-600 text-[var(--ap-fg)]">No activity yet</p>
+        <p className="text-[13px] font-semibold text-[var(--ap-fg)]">No activity yet</p>
         <p className="mt-1 text-[12px] text-[var(--ap-fg-subtle)]">Changes to this card will appear here.</p>
       </div>
     )
@@ -419,13 +438,13 @@ function ActivityFeed({
     <div className="space-y-4">
       {groups.map((g) => (
         <div key={g.label}>
-          <p className="mb-2 text-[10px] font-600 uppercase tracking-[0.6px] text-[var(--ap-fg-subtle)]">{g.label}</p>
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.6px] text-[var(--ap-fg-subtle)]">{g.label}</p>
           <ol className="space-y-2">
             {g.entries.map((log) => (
               <li key={log.id} className="flex items-start gap-2.5">
                 <Avatar id={log.actor?.id} name={log.actor?.name ?? 'System'} avatar={log.actor?.avatar} size={24} />
                 <div className="flex-1 min-w-0 text-[12px] text-[var(--ap-fg)]">
-                  <span className="font-600">{log.actor?.name ?? 'System'}</span>{' '}
+                  <span className="font-semibold">{log.actor?.name ?? 'System'}</span>{' '}
                   <span className="text-[var(--ap-fg-muted)]">{formatActivity(log, users, labelDefs)}</span>
                 </div>
                 <span className="shrink-0 text-[11px] text-[var(--ap-fg-faint)]">
@@ -584,32 +603,31 @@ function DatesPanel({ startDate, dueDate, startTime, endTime, dueReminder, sprin
   }
 
   return (
-    <div className="absolute right-0 top-full z-[91] mt-1.5 w-[340px] max-w-[calc(100vw-2rem)] rounded-[12px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] p-3 shadow-[var(--ap-shadow-lg)]">
-      <div className="flex items-center justify-between mb-2">
-        <button onClick={onClose} className="size-6 inline-flex items-center justify-center rounded hover:bg-[var(--ap-bg-hover)] text-[var(--ap-fg-muted)]" aria-label="Close">
-          <X className="h-3.5 w-3.5" />
-        </button>
-        <p className="text-[12px] font-700 text-[var(--ap-fg)]">Dates</p>
-        <button onClick={onClose} className="size-6 inline-flex items-center justify-center rounded hover:bg-[var(--ap-bg-hover)] text-[var(--ap-fg-muted)]" aria-label="Close">
+    <div className="absolute left-0 top-full z-[91] mt-2 w-[340px] max-w-[calc(100vw-2rem)] rounded-[var(--ap-radius-card)] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] p-3 shadow-[var(--ap-shadow-pop-panel)]">
+      {/* One close button, not two — the panel used to render an identical pair
+          flanking the title, which read as a symmetry accident rather than UI. */}
+      <div className="mb-2 flex items-center">
+        <Eyebrow size="md" mono align="center" className="flex-1 text-[var(--ap-fg-subtle)]">Dates</Eyebrow>
+        <button onClick={onClose} className="inline-flex size-[22px] items-center justify-center rounded-[var(--ap-radius-xs)] text-[var(--ap-fg-muted)] hover:bg-[var(--ap-bg-hover)]" aria-label="Close">
           <X className="h-3.5 w-3.5" />
         </button>
       </div>
 
       <div className="flex items-center justify-between px-1">
         <div className="flex gap-0.5">
-          <button onClick={() => stepYear(-1)} className="size-6 inline-flex items-center justify-center rounded hover:bg-[var(--ap-bg-hover)] text-[var(--ap-fg-muted)]" aria-label="Previous year">«</button>
-          <button onClick={() => stepMonth(-1)} className="size-6 inline-flex items-center justify-center rounded hover:bg-[var(--ap-bg-hover)] text-[var(--ap-fg-muted)]" aria-label="Previous month">‹</button>
+          <button onClick={() => stepYear(-1)} className="size-6 inline-flex items-center justify-center rounded-[var(--ap-radius-xs)] hover:bg-[var(--ap-bg-hover)] text-[var(--ap-fg-muted)]" aria-label="Previous year">«</button>
+          <button onClick={() => stepMonth(-1)} className="size-6 inline-flex items-center justify-center rounded-[var(--ap-radius-xs)] hover:bg-[var(--ap-bg-hover)] text-[var(--ap-fg-muted)]" aria-label="Previous month">‹</button>
         </div>
-        <p className="text-[13px] font-600 text-[var(--ap-fg)]">{MONTHS[viewMonth]} {viewYear}</p>
+        <p className="text-[13px] font-semibold text-[var(--ap-fg)]">{MONTHS[viewMonth]} {viewYear}</p>
         <div className="flex gap-0.5">
-          <button onClick={() => stepMonth(1)} className="size-6 inline-flex items-center justify-center rounded hover:bg-[var(--ap-bg-hover)] text-[var(--ap-fg-muted)]" aria-label="Next month">›</button>
-          <button onClick={() => stepYear(1)} className="size-6 inline-flex items-center justify-center rounded hover:bg-[var(--ap-bg-hover)] text-[var(--ap-fg-muted)]" aria-label="Next year">»</button>
+          <button onClick={() => stepMonth(1)} className="size-6 inline-flex items-center justify-center rounded-[var(--ap-radius-xs)] hover:bg-[var(--ap-bg-hover)] text-[var(--ap-fg-muted)]" aria-label="Next month">›</button>
+          <button onClick={() => stepYear(1)} className="size-6 inline-flex items-center justify-center rounded-[var(--ap-radius-xs)] hover:bg-[var(--ap-bg-hover)] text-[var(--ap-fg-muted)]" aria-label="Next year">»</button>
         </div>
       </div>
 
       <div className="mt-2 grid grid-cols-7 gap-0.5">
         {WEEKDAYS.map((w) => (
-          <div key={w} className="text-center text-[10px] font-700 text-[var(--ap-fg-muted)] py-1">{w}</div>
+          <div key={w} className="text-center text-[10px] font-bold text-[var(--ap-fg-muted)] py-1">{w}</div>
         ))}
         {cells.map((d, i) => {
           const isOther = d.getMonth() !== viewMonth
@@ -622,7 +640,7 @@ function DatesPanel({ startDate, dueDate, startTime, endTime, dueReminder, sprin
               key={i}
               onClick={() => pickDay(d)}
               className={cn(
-                'h-8 w-full rounded-md text-[12px] font-500 transition-colors',
+                'h-8 w-full rounded-[var(--ap-radius-xs)] text-[12px] font-medium transition-colors',
                 isOther ? 'text-[var(--ap-fg-subtle)]' : 'text-[var(--ap-fg)]',
                 !isStart && !isDue && !isBetween && 'hover:bg-[var(--ap-bg-hover)]',
                 isBetween && 'bg-[var(--ap-accent-soft)]',
@@ -655,9 +673,9 @@ function DatesPanel({ startDate, dueDate, startTime, endTime, dueReminder, sprin
             onClick={(e) => e.stopPropagation()}
             className="size-4 cursor-pointer accent-[var(--ap-accent)]"
           />
-          <p className="text-[12px] font-700 text-[var(--ap-fg)]">Start date</p>
+          <p className="text-[12px] font-bold text-[var(--ap-fg)]">Start date</p>
           {activeTarget === 'start' && (
-            <span className="ml-auto text-[10px] font-600 text-[var(--ap-accent)]">Active</span>
+            <span className="ml-auto text-[10px] font-semibold text-[var(--ap-accent)]">Active</span>
           )}
         </div>
         <div className="flex items-center gap-2">
@@ -705,9 +723,9 @@ function DatesPanel({ startDate, dueDate, startTime, endTime, dueReminder, sprin
             onClick={(e) => e.stopPropagation()}
             className="size-4 cursor-pointer accent-[var(--ap-accent)]"
           />
-          <p className="text-[12px] font-700 text-[var(--ap-fg)]">Due date</p>
+          <p className="text-[12px] font-bold text-[var(--ap-fg)]">Due date</p>
           {activeTarget === 'due' && (
-            <span className="ml-auto text-[10px] font-600 text-[var(--ap-accent)]">Active</span>
+            <span className="ml-auto text-[10px] font-semibold text-[var(--ap-accent)]">Active</span>
           )}
         </div>
         <div className="flex items-center gap-2">
@@ -742,7 +760,7 @@ function DatesPanel({ startDate, dueDate, startTime, endTime, dueReminder, sprin
           capability is visible and honestly labelled, matching how
           GenerateSprintModal handles its unbuilt MANUAL scope. */}
       <div className="mt-3">
-        <label htmlFor="recurring" className="mb-1 block text-[11px] font-700 text-[var(--ap-fg)]">Recurring</label>
+        <label htmlFor="recurring" className="mb-1 block text-[11px] font-bold text-[var(--ap-fg)]">Recurring</label>
         <select
           id="recurring"
           disabled
@@ -756,7 +774,7 @@ function DatesPanel({ startDate, dueDate, startTime, endTime, dueReminder, sprin
 
       {/* Reminder (DTE-4) */}
       <div className="mt-3">
-        <label htmlFor="due-reminder" className="mb-1 block text-[11px] font-700 text-[var(--ap-fg)]">
+        <label htmlFor="due-reminder" className="mb-1 block text-[11px] font-bold text-[var(--ap-fg)]">
           Set due date reminder
         </label>
         <select
@@ -777,13 +795,13 @@ function DatesPanel({ startDate, dueDate, startTime, endTime, dueReminder, sprin
       </div>
 
       {rangeInvalid && (
-        <p className="mt-3 text-[11px] font-600" style={{ color: 'var(--ap-danger-fg)' }}>
+        <p className="mt-3 text-[11px] font-semibold" style={{ color: 'var(--ap-danger-fg)' }}>
           Due date must be on or after the start date.
         </p>
       )}
       {!rangeInvalid && outsideSprint && (
         <p
-          className="mt-3 rounded-[8px] px-2 py-1.5 text-[11px]"
+          className="mt-3 rounded-[var(--ap-radius-xs)] px-2 py-1.5 text-[11px]"
           style={{ background: 'var(--ap-warn-bg)', color: 'var(--ap-warn-fg)' }}
         >
           This is outside the sprint window ({fmtMd(sprintWindow?.startDate ?? null)} – {fmtMd(sprintWindow?.endDate ?? null)}).
@@ -794,13 +812,13 @@ function DatesPanel({ startDate, dueDate, startTime, endTime, dueReminder, sprin
         <button
           onClick={save}
           disabled={rangeInvalid}
-          className="w-full rounded-[8px] bg-[var(--ap-accent)] px-3 py-2 text-[13px] font-600 text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          className="w-full rounded-[var(--ap-radius-sm)] bg-[var(--ap-accent)] px-3 py-2 text-[13px] font-semibold text-[var(--ap-accent-fg)] transition-colors hover:bg-[var(--ap-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
         >
           Save
         </button>
         <button
           onClick={() => { onRemove(); onClose() }}
-          className="w-full rounded-[8px] border border-[var(--ap-border)] bg-transparent px-3 py-2 text-[13px] font-600 text-[var(--ap-fg)] hover:bg-[var(--ap-bg-hover)] transition-colors"
+          className="w-full rounded-[var(--ap-radius-sm)] border border-[var(--ap-border-strong)] bg-transparent px-3 py-2 text-[13px] font-semibold text-[var(--ap-fg)] hover:bg-[var(--ap-bg-hover)] transition-colors"
         >
           Remove
         </button>
@@ -814,10 +832,17 @@ interface Props {
   currentUserId: string
   onClose: () => void
   onUpdated?: () => void
-  mode?: 'drawer' | 'modal'
+  /**
+   * @deprecated Vestigial. Drawer mode had no call sites and was deleted in the
+   * design refresh (§6.4) — the card is always a centred modal. The prop is
+   * kept, narrowed to its only legal value, purely so the one call site that
+   * still passes `mode="modal"` keeps type-checking. Drop it there and this
+   * can go too.
+   */
+  mode?: 'modal'
 }
 
-export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode = 'modal' }: Props) {
+export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Props) {
   const [todo, setTodo] = useState<TodoCardData | null>(null)
   const [loading, setLoading] = useState(false)
   const [comments, setComments] = useState<CommentData[]>([])
@@ -838,7 +863,7 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
   const [commentDraft, setCommentDraft] = useState('')
   const [newChecklistTitle, setNewChecklistTitle] = useState('')
   const [newLabelName, setNewLabelName] = useState('')
-  const [newLabelColor, setNewLabelColor] = useState('#61BD4F')
+  const [newLabelColor, setNewLabelColor] = useState(CARD_PALETTE[0].hex)
   const [labelSearch, setLabelSearch] = useState('')
   const [newItemTitles, setNewItemTitles] = useState<Record<string, string>>({})
   const [submittingComment, setSubmittingComment] = useState(false)
@@ -849,6 +874,7 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
   const setColorBlindMode = useUserPrefsStore((st) => st.setColorBlindMode)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const titleRef = useRef<HTMLTextAreaElement>(null)
+  const attrGridRef = useRef<HTMLDivElement>(null)
 
   // ── Fetch ──
   const fetchTodo = useCallback(async () => {
@@ -873,29 +899,10 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
 
   useEffect(() => { fetchTodo() }, [fetchTodo])
 
-  // Escape to close.
-  //
-  // This is a window-level listener, so it also fires for Escape presses that a
-  // nested layer is already handling. Without the guards below, dismissing a
-  // popover, dropdown or date picker would close the whole card with it, and
-  // cancelling an inline rename would do the same.
-  useEffect(() => {
-    // Modal mode delegates Escape to Radix, which correctly dismisses only the
-    // topmost layer. This listener exists for drawer mode, which is still a
-    // hand-rolled portal.
-    if (mode !== 'drawer') return
-    const handler = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return
-      // A floating layer is open — let it consume this Escape.
-      if (document.querySelector('[data-radix-popper-content-wrapper], .apdp-pop')) return
-      // Inline editors (title, checklist rename) handle their own Escape.
-      const el = e.target as HTMLElement | null
-      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
-      onClose()
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [onClose, mode])
+  // Escape is Radix's job: the shared Modal dismisses only the topmost layer,
+  // so a popover, dropdown or inline rename swallows its own Escape without
+  // taking the card down with it. The hand-rolled window listener that used to
+  // live here was guarded by `mode !== 'drawer'` and therefore never ran.
 
   // ── PATCH helper ──
   const patch = useCallback(async (body: Record<string, unknown>) => {
@@ -1020,6 +1027,7 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
   // ── Share + delete ────────────────────────────────────────────────────────
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [confirmLabel, setConfirmLabel] = useState<LabelDef | null>(null)
 
   /**
    * SHR-1 — copies an ordinary in-app deep link. No token is minted and no new
@@ -1275,13 +1283,16 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
     setNewLabelName('')
     if (todo) await toggleLabel(json.data.id)
   }
+  // Workspace-wide destructive action — routed through ConfirmDialog (the project
+  // standard) rather than window.confirm, which states nothing about the blast
+  // radius and cannot be styled or tested.
   const deleteLabel = async (id: string) => {
-    if (!confirm('Delete this label from the entire workspace?')) return
     const res = await fetch(`/api/todo-labels/${id}`, { method: 'DELETE' })
     const json = await res.json()
     if (!json.success) { toast.error(json.error ?? 'Failed to delete label'); return }
     setLabelDefs((d) => d.filter((l) => l.id !== id))
     setTodo((t) => t ? { ...t, labels: t.labels.filter((l) => l.labelDef.id !== id) } : t)
+    announce('Label deleted')
   }
 
   // ── Attachment ──
@@ -1340,21 +1351,202 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
     toast.success('Unlinked')
   }
 
+  /**
+   * Members, Labels and Dates each have two triggers but a single panel, anchored
+   * in the attribute grid. Opening one from the rail therefore has to bring the
+   * grid back into view, or the click looks like it did nothing on a long card.
+   */
+  const openAttributePanel = (panel: 'members' | 'labels' | 'dates') => {
+    setActivePanel((cur) => (cur === panel ? null : panel))
+    attrGridRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }
+
   if (!todoId) return null
 
-  const isDrawer = mode === 'drawer'
+  /**
+   * Watch · more · close. The design parks these at the top of the right rail,
+   * which is removed wholesale on a closed sprint — so the same cluster is also
+   * rendered inline at the top of the left column in that one case, rather than
+   * losing the only close button with the rail.
+   */
+  const cardActionCluster = todo ? (
+    <>
+      <button
+        onClick={toggleWatch}
+        disabled={watchPending}
+        aria-label={isWatching ? 'Stop watching this card' : 'Watch this card'}
+        aria-pressed={isWatching}
+        title={isWatching ? 'Watching — click to stop' : 'Watch this card'}
+        className={cn(
+          'inline-flex h-[30px] items-center gap-1.5 rounded-[var(--ap-radius-sm)] px-2.5 text-[12.5px] font-semibold transition-colors disabled:opacity-60',
+          isWatching
+            ? 'bg-[var(--ap-accent-soft)] text-[var(--ap-accent-on-soft)] hover:bg-[var(--ap-accent-soft)]'
+            : 'text-[var(--ap-fg-muted)] hover:bg-[var(--ap-bg-hover)] hover:text-[var(--ap-fg)]',
+        )}
+      >
+        {isWatching ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+        <span className="hidden sm:inline">{isWatching ? 'Watching' : 'Watch'}</span>
+      </button>
+      <ActionsMenu
+        label="More card actions"
+        align="right"
+        className="flex h-[30px] w-[30px] items-center justify-center rounded-[var(--ap-radius-sm)] text-[var(--ap-fg-muted)] transition-colors hover:bg-[var(--ap-bg-hover)] hover:text-[var(--ap-fg)]"
+        trigger={<MoreHorizontal className="h-4 w-4" />}
+        items={[
+          {
+            key: 'copy-link',
+            label: 'Copy card link',
+            icon: Link2,
+            hidden: !todo.sprintId,
+            onSelect: () => copyCardLink(),
+          },
+          {
+            key: 'delete',
+            label: 'Delete card',
+            icon: Trash2,
+            destructive: true,
+            hidden: sprintClosed,
+            onSelect: () => setConfirmDelete(true),
+          },
+        ]}
+      />
+      <button
+        onClick={onClose}
+        aria-label="Close"
+        className="flex h-[30px] w-[30px] items-center justify-center rounded-[var(--ap-radius-sm)] text-[var(--ap-fg-muted)] transition-colors hover:bg-[var(--ap-bg-hover)] hover:text-[var(--ap-fg)]"
+      >
+        <X className="h-4 w-4" />
+      </button>
+    </>
+  ) : null
+
+  /**
+   * Labels and Dates each have two triggers — the attribute-grid control and the
+   * rail row — but exactly one panel, rendered at the grid anchor where there is
+   * room for it. The `z-[90]` scrim / `z-[91]` panel pairing is load-bearing:
+   * Radix parks dialog and popper layers at `z-50`, so anything lower would open
+   * underneath the card it belongs to.
+   */
+  const labelsPanel = todo ? (
+    <>
+      <div className="fixed inset-0 z-[90]" onClick={() => setActivePanel(null)} />
+      <div className="absolute left-0 top-full z-[91] mt-2 max-h-[420px] w-[276px] max-w-[calc(100vw-2rem)] overflow-y-auto rounded-[var(--ap-radius-card)] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] p-2.5 shadow-[var(--ap-shadow-pop-panel)]">
+        <div className="mb-2 flex items-center">
+          <Eyebrow size="md" mono align="center" className="flex-1 text-[var(--ap-fg-subtle)]">Labels</Eyebrow>
+          <button
+            onClick={() => setActivePanel(null)}
+            aria-label="Close"
+            className="inline-flex size-[22px] items-center justify-center rounded-[var(--ap-radius-xs)] text-[var(--ap-fg-muted)] hover:bg-[var(--ap-bg-hover)]"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </div>
+        <input
+          value={labelSearch}
+          onChange={(e) => setLabelSearch(e.target.value)}
+          placeholder="Search labels…"
+          className="ap-input mb-2 h-8 w-full py-0 text-[13px]"
+        />
+        <div className="space-y-1">
+          {labelDefs
+            .filter((ld) => !labelSearch.trim() || ld.name.toLowerCase().includes(labelSearch.toLowerCase()))
+            .map((ld) => {
+              const active = todo.labels.some((l) => l.labelDef.id === ld.id)
+              return (
+                <div key={ld.id} className="group flex items-center gap-1.5">
+                  <button
+                    onClick={() => toggleLabel(ld.id)}
+                    className="flex flex-1 items-center gap-2 rounded-[var(--ap-radius-sm)] px-1.5 py-1 transition-colors hover:bg-[var(--ap-bg-hover)]"
+                  >
+                    <span
+                      className="h-[26px] min-w-0 flex-1 truncate rounded-[var(--ap-radius-xs)] px-2.5 pt-[5px] text-left text-[12px] font-semibold"
+                      style={{
+                        ...swatchStyle(ld.color, { colorBlind, ink: 'rgba(255,255,255,0.5)' }),
+                        color: readableInk(ld.color),
+                      }}
+                    >
+                      {ld.name}
+                    </span>
+                    {active && <Check className="h-3.5 w-3.5 shrink-0 text-[var(--ap-accent)]" />}
+                  </button>
+                  <button
+                    onClick={() => setConfirmLabel(ld)}
+                    title="Delete label"
+                    aria-label={`Delete label ${ld.name}`}
+                    className="p-1 text-[var(--ap-fg-subtle)] opacity-0 transition-opacity hover:text-[var(--ap-danger)] group-hover:opacity-100 focus-visible:opacity-100"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
+              )
+            })}
+          {labelDefs.length === 0 && (
+            <p className="px-2 py-1 text-[12px] text-[var(--ap-fg-subtle)]">No labels yet — create one below.</p>
+          )}
+        </div>
+
+        <div className="mt-3 border-t border-[var(--ap-border)] pt-3">
+          <Eyebrow size="md" mono className="mb-1.5 text-[var(--ap-fg-subtle)]">Create label</Eyebrow>
+          <input
+            value={newLabelName}
+            onChange={(e) => setNewLabelName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') createLabel() }}
+            placeholder="Label name…"
+            className="ap-input h-8 w-full py-0 text-[13px]"
+          />
+          <div className="mt-2 grid grid-cols-5 gap-1.5">
+            {CARD_PALETTE.map((sw) => (
+              <button
+                key={sw.key}
+                onClick={() => setNewLabelColor(sw.hex)}
+                aria-label={sw.label}
+                aria-pressed={newLabelColor === sw.hex}
+                className={cn('h-6 rounded-[var(--ap-radius-xs)] border-2 transition-transform hover:scale-105', newLabelColor === sw.hex ? 'border-[var(--ap-fg)]' : 'border-transparent')}
+                style={swatchStyle(sw.hex, { colorBlind, pattern: sw.pattern, ink: 'rgba(255,255,255,0.5)' })}
+                title={sw.label}
+              />
+            ))}
+          </div>
+          <button
+            onClick={createLabel}
+            disabled={!newLabelName.trim()}
+            className="mt-2 h-8 w-full rounded-[var(--ap-radius-sm)] bg-[var(--ap-accent)] text-[13px] font-semibold text-[var(--ap-accent-fg)] transition-colors hover:bg-[var(--ap-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Create
+          </button>
+        </div>
+      </div>
+    </>
+  ) : null
+
+  const datesPanel = todo ? (
+    <>
+      <div className="fixed inset-0 z-[90]" onClick={() => setActivePanel(null)} />
+      <DatesPanel
+        startDate={todo.startDate}
+        dueDate={todo.dueDate}
+        startTime={todo.startTime}
+        endTime={todo.endTime}
+        dueReminder={todo.dueReminder ?? null}
+        sprintWindow={sprintWindow}
+        onSave={(v) => { patch(v); setActivePanel(null) }}
+        // DTE-8 — Remove clears both dates, both times and the reminder in one
+        // request; a reminder with no due date would never fire.
+        onRemove={() => patch({
+          startDate: null, dueDate: null,
+          startTime: null, endTime: null,
+          dueReminder: null,
+        })}
+        onClose={() => setActivePanel(null)}
+      />
+    </>
+  ) : null
 
   // CDM-1 — the card body used to sit in a hand-rolled portal with no focus
-  // trap, no focus restore and no scroll lock. It now renders inside the shared
-  // Modal (Radix) in modal mode, which supplies all three. Drawer mode keeps the
-  // side-sheet portal because its layout is a right-hand sheet, not a dialog box.
+  // trap, no focus restore and no scroll lock. It renders inside the shared
+  // Modal (Radix), which supplies all three.
   const body = (
-      <div
-        className={isDrawer
-          ? 'ap-modal-enter pointer-events-auto relative h-full w-full overflow-y-auto bg-[var(--ap-bg-raised)] shadow-[var(--ap-shadow-lg)] sm:rounded-l-[var(--ap-radius-lg)] sm:max-w-[760px]'
-          : 'relative w-full overflow-hidden rounded-[var(--ap-radius-lg)] bg-[var(--ap-bg-raised)]'}
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="relative w-full">
         {/* ── Cover strip (taller, gradient feel) ── */}
         {todo?.coverColor && (
           <div
@@ -1363,131 +1555,16 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
           />
         )}
 
-        {/* ── List selector chip (CDM-2) ── */}
-        {todo && lanes.length > 0 && !sprintClosed && (
-          <div className="absolute left-4 top-4 z-10">
-            <ActionsMenu
-              label={`Move card. Currently in ${currentLane?.name ?? 'no list'}`}
-              align="left"
-              className="flex h-8 items-center gap-1.5 rounded-full bg-[var(--ap-bg-raised)] px-3 text-[12px] font-600 text-[var(--ap-fg-muted)] shadow-sm transition-all hover:text-[var(--ap-fg)] hover:shadow"
-              trigger={
-                <>
-                  <span>{currentLane?.name ?? 'No list'}</span>
-                  <ChevronDown className="h-3.5 w-3.5" />
-                </>
-              }
-              items={lanes.map((l) => ({
-                key: l.id,
-                label: l.name,
-                disabled: l.id === todo.columnId,
-                onSelect: () => moveToLane(l.id),
-              }))}
-            />
-          </div>
-        )}
-
-        {/* ── Header actions: complete · watch · more · close ── */}
-        <div className="absolute right-4 top-4 z-10 flex items-center gap-1.5">
-          {todo && (
-            <button
-              onClick={() => {
-                const next = todo.status === 'COMPLETED' ? 'PENDING' : 'COMPLETED'
-                patch({ status: next })
-                announce(next === 'COMPLETED' ? 'Card marked complete' : 'Card reopened')
-              }}
-              disabled={sprintClosed}
-              aria-label={todo.status === 'COMPLETED' ? 'Mark as not complete' : 'Mark complete'}
-              aria-pressed={todo.status === 'COMPLETED'}
-              title={todo.status === 'COMPLETED' ? 'Completed — click to reopen' : 'Mark complete'}
-              className={cn(
-                'flex h-8 items-center gap-1.5 rounded-full bg-[var(--ap-bg-raised)] px-2.5 shadow-sm transition-all hover:shadow disabled:cursor-not-allowed disabled:opacity-50',
-                todo.status === 'COMPLETED'
-                  ? 'text-[var(--ap-ok)]'
-                  : 'text-[var(--ap-fg-muted)] hover:text-[var(--ap-fg)]',
-              )}
-            >
-              <span
-                aria-hidden
-                className={cn(
-                  'flex h-[18px] w-[18px] items-center justify-center rounded-full border-2 transition-colors',
-                  todo.status === 'COMPLETED'
-                    ? 'border-[var(--ap-ok)] bg-[var(--ap-ok)]'
-                    : 'border-[var(--ap-border-strong)]',
-                )}
-              >
-                {todo.status === 'COMPLETED' && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
-              </span>
-              <span className="hidden text-[12px] font-600 sm:inline">
-                {todo.status === 'COMPLETED' ? 'Completed' : 'Mark complete'}
-              </span>
-            </button>
-          )}
-          {todo && (
-            <button
-              onClick={toggleWatch}
-              disabled={watchPending}
-              aria-label={isWatching ? 'Stop watching this card' : 'Watch this card'}
-              aria-pressed={isWatching}
-              title={isWatching ? 'Watching — click to stop' : 'Watch this card'}
-              className={cn(
-                'flex h-8 items-center gap-1.5 rounded-full bg-[var(--ap-bg-raised)] px-2.5 shadow-sm transition-all hover:shadow disabled:opacity-60',
-                isWatching
-                  ? 'text-[var(--ap-accent)]'
-                  : 'text-[var(--ap-fg-muted)] hover:text-[var(--ap-fg)]',
-              )}
-            >
-              {isWatching ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-              <span className="hidden text-[12px] font-600 sm:inline">
-                {isWatching ? 'Watching' : 'Watch'}
-              </span>
-            </button>
-          )}
-          {todo && (
-            <ActionsMenu
-              label="More card actions"
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--ap-bg-raised)] shadow-sm text-[var(--ap-fg-muted)] transition-all hover:text-[var(--ap-fg)] hover:shadow"
-              trigger={<MoreHorizontal className="h-4 w-4" />}
-              items={[
-                {
-                  key: 'copy-link',
-                  label: 'Copy card link',
-                  icon: Link2,
-                  hidden: !todo.sprintId,
-                  onSelect: () => copyCardLink(),
-                },
-                {
-                  key: 'delete',
-                  label: 'Delete card',
-                  icon: Trash2,
-                  destructive: true,
-                  hidden: sprintClosed,
-                  onSelect: () => setConfirmDelete(true),
-                },
-              ]}
-            />
-          )}
-          <button
-            onClick={onClose}
-            aria-label="Close"
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--ap-bg-raised)] shadow-sm text-[var(--ap-fg-muted)] hover:text-[var(--ap-fg)] hover:shadow transition-all"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
         {loading && !todo ? (
           <div className="flex h-48 items-center justify-center text-[13px] text-[var(--ap-fg-subtle)]">Loading…</div>
         ) : todo ? (
           <>
           {sprintClosed && (
             <div
-              className={cn(
-                'mx-6 flex items-center gap-2 rounded-[var(--ap-radius-sm)] px-3 py-2 text-[12px]',
-                todo.coverColor ? 'mt-4' : 'mt-14',
-              )}
+              className="mx-5 mt-5 flex items-center gap-2 rounded-[var(--ap-radius-sm)] px-3 py-2 text-[12px] md:mx-7"
               style={{
                 background: 'var(--ap-bg-sunken)',
-                border: '0.5px solid var(--ap-border)',
+                border: '1px solid var(--ap-border)',
                 color: 'var(--ap-fg-muted)',
               }}
               role="status"
@@ -1499,14 +1576,25 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
               </span>
             </div>
           )}
-          <div className="flex flex-col md:flex-row">
+          {/* Two columns, each scrolling on its own — the shell never scrolls as a
+              whole, so the rail stays reachable however long the comment thread is.
+              With the rail removed (closed sprint) the 232px track goes with it. */}
+          <div className={cn(
+            'grid grid-cols-1 items-start',
+            !sprintClosed && 'md:grid-cols-[minmax(0,1fr)_232px]',
+          )}>
             {/* ══ LEFT column ══ */}
-            {/* pt-16 when there is no cover: the header actions row is absolutely
-                positioned at top-4 and would otherwise overlap the title. */}
-            <div className={cn(
-              'flex-1 min-w-0 p-6 space-y-6',
-              !todo.coverColor && 'pt-16',
-            )}>
+            {/* Asymmetric right padding is deliberate: the column owns the
+                scrollbar, so the gutter sits under it rather than beside it. */}
+            <div className="min-w-0 space-y-6 px-5 pb-7 pt-5 md:max-h-[calc(100vh-140px)] md:overflow-y-auto md:pl-7 md:pr-2">
+
+              {/* The rail carries watch/more/close, and the rail is gone on a
+                  closed sprint — so render the same cluster here in that case. */}
+              {sprintClosed && (
+                <div className="flex items-center justify-end gap-0.5 md:pr-5">
+                  {cardActionCluster}
+                </div>
+              )}
 
               {/* ── Breadcrumb (linked OKR) ── */}
               {(todo.keyResult || todo.objective) && (
@@ -1532,98 +1620,213 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                 </div>
               )}
 
-              {/* ── Hero: title ── */}
-              <div>
-                {editingTitle ? (
-                  <textarea
-                    ref={titleRef}
-                    value={titleDraft}
-                    onChange={(e) => setTitleDraft(e.target.value)}
-                    onBlur={saveTitle}
-                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveTitle() } if (e.key === 'Escape') setEditingTitle(false) }}
-                    rows={2}
-                    className="w-full resize-none bg-transparent text-[26px] font-600 leading-[1.2] tracking-[-0.01em] text-[var(--ap-fg)] outline-none focus:ring-2 focus:ring-[var(--ap-accent)] focus:rounded-lg focus:px-2 focus:-mx-2 transition-all"
-                    autoFocus
+              {/* ── Hero: complete toggle · title · metadata line ── */}
+              <div className="flex items-start gap-3">
+                <button
+                  onClick={() => {
+                    const next = todo.status === 'COMPLETED' ? 'PENDING' : 'COMPLETED'
+                    patch({ status: next })
+                    announce(next === 'COMPLETED' ? 'Card marked complete' : 'Card reopened')
+                  }}
+                  disabled={sprintClosed}
+                  aria-label={todo.status === 'COMPLETED' ? 'Mark as not complete' : 'Mark complete'}
+                  aria-pressed={todo.status === 'COMPLETED'}
+                  title={todo.status === 'COMPLETED' ? 'Completed — click to reopen' : 'Mark complete'}
+                  className={cn(
+                    'mt-[3px] flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full border transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+                    todo.status === 'COMPLETED'
+                      ? 'border-[var(--ap-ok)] bg-[var(--ap-ok)] text-white'
+                      : 'border-[1.5px] border-[var(--ap-border-strong)] bg-transparent text-[var(--ap-ok)] hover:border-[var(--ap-ok)] hover:bg-[var(--ap-ok-bg)]',
+                  )}
+                >
+                  <Check
+                    className={cn('h-[15px] w-[15px]', todo.status !== 'COMPLETED' && 'opacity-35')}
+                    strokeWidth={3.2}
                   />
-                ) : (
-                  <h2
-                    className="cursor-text text-[26px] font-600 leading-[1.2] tracking-[-0.01em] text-[var(--ap-fg)] hover:bg-[var(--ap-bg-hover)] -mx-2 px-2 py-1 rounded-lg transition-colors"
-                    onClick={() => setEditingTitle(true)}
-                  >
-                    {todo.title}
-                  </h2>
-                )}
-              </div>
+                </button>
 
-              {/* ── Status / Priority / Due / Labels: pill row ── */}
-              <div className="flex flex-wrap items-center gap-2">
-                {/* One status control, not two. With lanes present the header's
-                    list chip IS the status control — a lane carries its statusKey,
-                    so moving lists sets status and setting status moves the card.
-                    Rendering both showed "To Do" twice and let them disagree.
-                    Without lanes (todos page, work board) the pill is the only
-                    way to set status, so it stays. */}
-                {lanesLoaded && lanes.length === 0 && (
-                  <StatusPill status={todo.status} onChange={(v) => patch({ status: v })} />
-                )}
-                <PriorityPill priority={todo.priority} onChange={(v) => patch({ priority: v })} />
-                <DueDateBadge dueDate={todo.dueDate} endTime={todo.endTime} />
-                {todo.labels.map((l) => (
-                  <span
-                    key={l.labelDef.id}
-                    className="inline-flex items-center rounded-full px-2.5 py-[3px] text-[11px] font-600 shadow-sm"
-                    style={{
-                      ...swatchStyle(l.labelDef.color, {
-                        colorBlind,
-                        pattern: (l.labelDef as { pattern?: string | null }).pattern,
-                        ink: 'rgba(255,255,255,0.5)',
-                      }),
-                      // Yellow and lime are unreadable under white text.
-                      color: readableInk(l.labelDef.color),
-                    }}
-                  >
-                    {l.labelDef.name}
-                  </span>
-                ))}
-              </div>
+                <div className="min-w-0 flex-1">
+                  {editingTitle ? (
+                    <textarea
+                      ref={titleRef}
+                      value={titleDraft}
+                      onChange={(e) => setTitleDraft(e.target.value)}
+                      onBlur={saveTitle}
+                      onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveTitle() } if (e.key === 'Escape') setEditingTitle(false) }}
+                      rows={2}
+                      className="w-full resize-none rounded-[var(--ap-radius-sm)] border-2 border-[var(--ap-focus)] bg-[var(--ap-bg-raised)] px-2 py-1 text-[23px] font-semibold leading-[1.25] tracking-[-0.015em] text-[var(--ap-fg)] outline-none"
+                      autoFocus
+                    />
+                  ) : (
+                    <h2
+                      className="-mx-2 cursor-text rounded-[var(--ap-radius-sm)] px-2 py-1 text-[23px] font-semibold leading-[1.25] tracking-[-0.015em] text-[var(--ap-fg)] transition-colors hover:bg-[var(--ap-bg-hover)]"
+                      onClick={() => setEditingTitle(true)}
+                    >
+                      {todo.title}
+                    </h2>
+                  )}
 
-              {/* ── Members (Trello-style — no "primary assignee", just a set) ── */}
-              <div className="relative flex items-center gap-3">
-                <span className="text-[11px] font-600 uppercase tracking-[0.05em] text-[var(--ap-fg-subtle)]">Members</span>
-                <div className="flex -space-x-1.5">
-                  {todo.members.map((m) => (
-                    <Avatar key={m.user.id} id={m.user.id} name={m.user.name} avatar={m.user.avatar} size={26} />
-                  ))}
-                  <button
-                    onClick={() => setActivePanel(activePanel === 'members' ? null : 'members')}
-                    className="inline-flex h-[26px] w-[26px] items-center justify-center rounded-full border-2 border-dashed border-[var(--ap-border-strong)] text-[var(--ap-fg-muted)] hover:border-[var(--ap-accent)] hover:text-[var(--ap-accent)] transition-colors"
-                    title="Add member"
-                  >
-                    <Plus className="h-3 w-3" />
-                  </button>
+                  {/* Metadata line. No card-ID chip: `Todo` has no such field and
+                      Decision 0 drops the element rather than adding the column. */}
+                  <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2 text-[12.5px] text-[var(--ap-fg-subtle)]">
+                    {/* CDM-2 — the list chip is the only non-drag way to move a card
+                        between lists, which is also the mobile path. */}
+                    {lanes.length > 0 && !sprintClosed && (
+                      <>
+                        <span>in list</span>
+                        <ActionsMenu
+                          label={`Move card. Currently in ${currentLane?.name ?? 'no list'}`}
+                          align="left"
+                          className="inline-flex h-7 items-center gap-1.5 rounded-[var(--ap-radius-xs)] border border-[var(--ap-border-strong)] bg-[var(--ap-bg-raised)] px-2 text-[12.5px] font-semibold text-[var(--ap-fg-muted)] transition-colors hover:bg-[var(--ap-bg-hover)] hover:text-[var(--ap-fg)]"
+                          trigger={
+                            <>
+                              <span>{currentLane?.name ?? 'No list'}</span>
+                              <ChevronDown className="h-3 w-3 opacity-50" />
+                            </>
+                          }
+                          items={lanes.map((l) => ({
+                            key: l.id,
+                            label: l.name,
+                            disabled: l.id === todo.columnId,
+                            onSelect: () => moveToLane(l.id),
+                          }))}
+                        />
+                      </>
+                    )}
+                    {/* One status control, not two. With lanes present the list chip
+                        IS the status control — a lane carries its statusKey, so moving
+                        lists sets status and setting status moves the card. Rendering
+                        both showed "To Do" twice and let them disagree. Without lanes
+                        (todos page, work board) the pill is the only way to set it. */}
+                    {lanesLoaded && lanes.length === 0 && (
+                      <StatusPill status={todo.status} onChange={(v) => patch({ status: v })} />
+                    )}
+                    {todo.createdAt && (
+                      <>
+                        <span className="opacity-50">·</span>
+                        <span>added {format(new Date(todo.createdAt), 'MMM d')} by {todo.creator.name}</span>
+                      </>
+                    )}
+                  </div>
                 </div>
-                {activePanel === 'members' && (
-                  <>
-                    <div className="fixed inset-0 z-[90]" onClick={() => setActivePanel(null)} />
-                    <div className="absolute left-[78px] top-full z-[91] mt-2 w-[260px] max-h-[360px] overflow-y-auto rounded-[12px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] p-2 space-y-1 shadow-[var(--ap-shadow-lg)]">
-                      <p className="px-2 pb-1 text-[10px] font-700 uppercase tracking-[0.06em] text-[var(--ap-fg-subtle)]">Card members</p>
-                      {users.map((u) => {
-                        const isMember = todo.members.some((m) => m.user.id === u.id)
-                        return (
-                          <button
-                            key={u.id}
-                            onClick={() => toggleMember(u.id)}
-                            className={cn('flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[12px] transition-colors', isMember ? 'bg-[var(--ap-accent-soft)] text-[var(--ap-accent)]' : 'hover:bg-[var(--ap-bg-hover)] text-[var(--ap-fg)]')}
-                          >
-                            <Avatar id={u.id} name={u.name ?? u.email} size={18} />
-                            <span className="flex-1 truncate">{u.name ?? u.email}</span>
-                            {isMember && <Check className="h-3 w-3 shrink-0" />}
-                          </button>
-                        )
-                      })}
+              </div>
+
+              {/* ── Attribute grid ── */}
+              <div ref={attrGridRef} className="grid grid-cols-[repeat(auto-fit,minmax(192px,1fr))] gap-x-5 gap-y-4">
+                {/* Members */}
+                <div>
+                  <Eyebrow size="md" mono className="mb-2 text-[var(--ap-fg-subtle)]">Members</Eyebrow>
+                  <div className="relative flex items-center">
+                    <div className="flex -space-x-1.5">
+                      {todo.members.map((m) => (
+                        <Avatar key={m.user.id} id={m.user.id} name={m.user.name} avatar={m.user.avatar} size={28} />
+                      ))}
                     </div>
-                  </>
-                )}
+                    <button
+                      onClick={() => setActivePanel(activePanel === 'members' ? null : 'members')}
+                      className="ml-2 inline-flex h-7 w-7 items-center justify-center rounded-full border border-dashed border-[var(--ap-border-strong)] text-[var(--ap-fg-muted)] transition-colors hover:border-[var(--ap-accent)] hover:text-[var(--ap-accent)]"
+                      title="Add member"
+                      aria-label="Add member"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </button>
+                    {activePanel === 'members' && (
+                      <>
+                        <div className="fixed inset-0 z-[90]" onClick={() => setActivePanel(null)} />
+                        <div className="absolute left-0 top-full z-[91] mt-2 max-h-[360px] w-[272px] overflow-y-auto rounded-[var(--ap-radius-card)] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] p-2.5 shadow-[var(--ap-shadow-pop-panel)]">
+                          <div className="mb-2 flex items-center">
+                            <Eyebrow size="md" mono align="center" className="flex-1 text-[var(--ap-fg-subtle)]">Card members</Eyebrow>
+                            <button
+                              onClick={() => setActivePanel(null)}
+                              aria-label="Close"
+                              className="inline-flex size-[22px] items-center justify-center rounded-[var(--ap-radius-xs)] text-[var(--ap-fg-muted)] hover:bg-[var(--ap-bg-hover)]"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                          <div className="space-y-px">
+                            {users.map((u) => {
+                              const isMember = todo.members.some((m) => m.user.id === u.id)
+                              return (
+                                <button
+                                  key={u.id}
+                                  onClick={() => toggleMember(u.id)}
+                                  className={cn('flex w-full items-center gap-2.5 rounded-[var(--ap-radius-sm)] px-2 py-1.5 text-left text-[13px] transition-colors', isMember ? 'bg-[var(--ap-accent-soft)] text-[var(--ap-accent-on-soft)]' : 'text-[var(--ap-fg)] hover:bg-[var(--ap-bg-hover)]')}
+                                >
+                                  <Avatar id={u.id} name={u.name ?? u.email} size={26} />
+                                  <span className="flex-1 truncate">{u.name ?? u.email}</span>
+                                  {isMember && <Check className="h-3.5 w-3.5 shrink-0" />}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Labels — spans two tracks, as in the design */}
+                <div className="md:col-span-2">
+                  <Eyebrow size="md" mono className="mb-2 text-[var(--ap-fg-subtle)]">Labels</Eyebrow>
+                  <div className="relative flex flex-wrap items-center gap-1.5">
+                    {todo.labels.map((l) => (
+                      <span
+                        key={l.labelDef.id}
+                        className="inline-flex h-[26px] items-center rounded-[var(--ap-radius-xs)] px-2.5 text-[12px] font-semibold"
+                        style={{
+                          ...swatchStyle(l.labelDef.color, {
+                            colorBlind,
+                            pattern: (l.labelDef as { pattern?: string | null }).pattern,
+                            ink: 'rgba(255,255,255,0.5)',
+                          }),
+                          // Yellow and lime are unreadable under white text.
+                          color: readableInk(l.labelDef.color),
+                        }}
+                      >
+                        {l.labelDef.name}
+                      </span>
+                    ))}
+                    <button
+                      onClick={() => setActivePanel(activePanel === 'labels' ? null : 'labels')}
+                      className="inline-flex h-[26px] w-[26px] items-center justify-center rounded-[var(--ap-radius-xs)] border border-dashed border-[var(--ap-border-strong)] text-[var(--ap-fg-muted)] transition-colors hover:border-[var(--ap-accent)] hover:text-[var(--ap-accent)]"
+                      title="Add labels"
+                      aria-label="Add labels"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </button>
+                    {activePanel === 'labels' && labelsPanel}
+                  </div>
+                </div>
+
+                {/* Due date */}
+                <div>
+                  <Eyebrow size="md" mono className="mb-2 text-[var(--ap-fg-subtle)]">Due date</Eyebrow>
+                  <div className="relative inline-block">
+                    <button
+                      onClick={() => setActivePanel(activePanel === 'dates' ? null : 'dates')}
+                      className={cn(
+                        'inline-flex h-7 max-w-full items-center gap-1.5 rounded-[var(--ap-radius-xs)] text-[12.5px] font-semibold transition-colors',
+                        // With a date set the badge brings its own chrome and padding.
+                        todo.dueDate
+                          ? 'hover:opacity-80'
+                          : 'border border-[var(--ap-border-strong)] bg-[var(--ap-bg-raised)] px-2.5 text-[var(--ap-fg-muted)] hover:bg-[var(--ap-bg-hover)]',
+                      )}
+                      aria-label={todo.dueDate ? 'Change dates' : 'Add due date'}
+                    >
+                      {todo.dueDate
+                        ? <DueDateBadge dueDate={todo.dueDate} endTime={todo.endTime} />
+                        : <><Calendar className="h-3.5 w-3.5" /> Add due date</>}
+                    </button>
+                    {activePanel === 'dates' && datesPanel}
+                  </div>
+                </div>
+
+                {/* Priority — existing PriorityPill semantics, moved into the grid */}
+                <div>
+                  <Eyebrow size="md" mono className="mb-2 text-[var(--ap-fg-subtle)]">Priority</Eyebrow>
+                  <PriorityPill priority={todo.priority} onChange={(v) => patch({ priority: v })} />
+                </div>
               </div>
 
               {/* ── Linked OKR card (always visible — surfaces the link or invites it) ── */}
@@ -1642,9 +1845,9 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
 
               {/* ── Description ── */}
               <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <AlignLeft className="h-4 w-4 text-[var(--ap-fg-muted)]" />
-                  <h3 className="text-[15px] font-600 text-[var(--ap-fg)]">Description</h3>
+                <div className="flex items-center gap-2.5">
+                  <AlignLeft className="h-[15px] w-[15px] text-[var(--ap-fg-subtle)]" />
+                  <h3 className="text-[14px] font-semibold text-[var(--ap-fg-muted)]">Description</h3>
                 </div>
                 {activePanel === 'description' || todo.description ? (
                   <div>
@@ -1685,7 +1888,7 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                   <button
                     onClick={() => setActivePanel('description')}
                     disabled={sprintClosed}
-                    className="w-full rounded-[var(--ap-radius-sm)] bg-[var(--ap-bg-sunken)] px-3 py-2.5 text-left text-[13px] text-[var(--ap-fg-subtle)] transition-colors hover:bg-[var(--ap-bg-hover)] disabled:cursor-not-allowed disabled:opacity-60"
+                    className="w-full rounded-[var(--ap-radius-md)] bg-[var(--ap-bg-sunken)] px-3.5 py-3 text-left text-[13.5px] leading-[1.65] text-[var(--ap-fg-subtle)] transition-colors hover:bg-[var(--ap-bg-hover)] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {sprintClosed ? 'No description' : 'Add a more detailed description…'}
                   </button>
@@ -1697,12 +1900,12 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                 <div key={cl.id} className="space-y-2.5">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
-                      <CheckSquare className="h-4 w-4 shrink-0 text-[var(--ap-fg-muted)]" />
-                      <h3 className="truncate text-[15px] font-600 text-[var(--ap-fg)]">{cl.title}</h3>
+                      <CheckSquare className="h-[15px] w-[15px] shrink-0 text-[var(--ap-fg-subtle)]" />
+                      <h3 className="truncate text-[14px] font-semibold text-[var(--ap-fg-muted)]">{cl.title}</h3>
                     </div>
                     <button
                       onClick={() => deleteChecklist(cl.id)}
-                      className="inline-flex h-7 items-center gap-1 rounded-[8px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-2.5 text-[11px] font-600 text-[var(--ap-fg-muted)] hover:border-[var(--ap-danger)] hover:bg-[var(--ap-danger-bg)] hover:text-[var(--ap-danger)] transition-all"
+                      className="inline-flex h-7 items-center gap-1 rounded-[var(--ap-radius-sm)] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-2.5 text-[11px] font-semibold text-[var(--ap-fg-muted)] hover:border-[var(--ap-danger)] hover:bg-[var(--ap-danger-bg)] hover:text-[var(--ap-danger)] transition-all"
                     >
                       Delete
                     </button>
@@ -1712,13 +1915,13 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                     {cl.items.map((item) => (
                       <div
                         key={item.id}
-                        className="group flex items-center gap-2.5 rounded-[8px] px-2 py-1.5 hover:bg-[var(--ap-bg-hover)] transition-colors"
+                        className="group flex items-center gap-2.5 rounded-[var(--ap-radius-sm)] px-2 py-1.5 hover:bg-[var(--ap-bg-hover)] transition-colors"
                       >
                         <button
                           type="button"
                           onClick={() => toggleChecklistItem(cl.id, item.id, !item.completed)}
                           className={cn(
-                            'h-[18px] w-[18px] shrink-0 rounded-[5px] border-2 flex items-center justify-center transition-colors',
+                            'flex h-[17px] w-[17px] shrink-0 items-center justify-center rounded-[4px] border-[1.5px] transition-colors',
                             item.completed
                               ? 'border-[var(--ap-ok)] bg-[var(--ap-ok)]'
                               : 'border-[var(--ap-border-strong)] bg-transparent hover:border-[var(--ap-fg-muted)]',
@@ -1741,7 +1944,7 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                               if (e.key === 'Escape') setEditingItem(null)
                             }}
                             aria-label="Checklist item title"
-                            className="flex-1 min-w-0 rounded-[6px] border px-1.5 py-0.5 text-[13px] outline-none"
+                            className="flex-1 min-w-0 rounded-[var(--ap-radius-xs)] border px-1.5 py-0.5 text-[13px] outline-none"
                             style={{ borderColor: 'var(--ap-accent)', background: 'var(--ap-bg-raised)' }}
                           />
                         ) : (
@@ -1753,7 +1956,7 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                           </span>
                         )}
                         {item.dueDate && (
-                          <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-[var(--ap-bg-sunken)] px-2 py-[2px] text-[10px] font-600 text-[var(--ap-fg-muted)]">
+                          <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-[var(--ap-bg-sunken)] px-2 py-[2px] text-[10px] font-semibold text-[var(--ap-fg-muted)]">
                             <Calendar className="h-2.5 w-2.5" />
                             {format(new Date(item.dueDate), 'MMM d')}
                           </span>
@@ -1769,7 +1972,7 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                               <button
                                 type="button"
                                 aria-label={item.dueDate ? `Change due date for ${item.title}` : `Set due date for ${item.title}`}
-                                className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--ap-fg-muted)] hover:bg-[var(--ap-bg-raised)] hover:text-[var(--ap-fg)] transition-colors"
+                                className="flex h-6 w-6 items-center justify-center rounded-[var(--ap-radius-xs)] text-[var(--ap-fg-muted)] hover:bg-[var(--ap-bg-raised)] hover:text-[var(--ap-fg)] transition-colors"
                               >
                                 <Calendar className="h-3 w-3" />
                               </button>
@@ -1784,7 +1987,7 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                                 <button
                                   type="button"
                                   onClick={() => patchChecklistItem(cl.id, item.id, { dueDate: null })}
-                                  className="mt-2 w-full rounded-[8px] px-2 py-1.5 text-[12px] font-600 text-[var(--ap-danger-fg)] hover:bg-[var(--ap-danger-bg)] transition-colors"
+                                  className="mt-2 w-full rounded-[var(--ap-radius-sm)] px-2 py-1.5 text-[12px] font-semibold text-[var(--ap-danger-fg)] hover:bg-[var(--ap-danger-bg)] transition-colors"
                                 >
                                   Remove due date
                                 </button>
@@ -1797,7 +2000,7 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                               <button
                                 type="button"
                                 aria-label={`Assign ${item.title}`}
-                                className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--ap-fg-muted)] hover:bg-[var(--ap-bg-raised)] hover:text-[var(--ap-fg)] transition-colors"
+                                className="flex h-6 w-6 items-center justify-center rounded-[var(--ap-radius-xs)] text-[var(--ap-fg-muted)] hover:bg-[var(--ap-bg-raised)] hover:text-[var(--ap-fg)] transition-colors"
                               >
                                 <Users className="h-3 w-3" />
                               </button>
@@ -1808,7 +2011,7 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                                   <button
                                     type="button"
                                     onClick={() => patchChecklistItem(cl.id, item.id, { assigneeId: null })}
-                                    className="flex w-full items-center gap-2 rounded-[8px] px-2 py-1.5 text-left text-[12px] text-[var(--ap-danger-fg)] hover:bg-[var(--ap-bg-hover)]"
+                                    className="flex w-full items-center gap-2 rounded-[var(--ap-radius-sm)] px-2 py-1.5 text-left text-[12px] text-[var(--ap-danger-fg)] hover:bg-[var(--ap-bg-hover)]"
                                   >
                                     Unassign
                                   </button>
@@ -1819,8 +2022,8 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                                     type="button"
                                     onClick={() => patchChecklistItem(cl.id, item.id, { assigneeId: u.id })}
                                     className={cn(
-                                      'flex w-full items-center gap-2 rounded-[8px] px-2 py-1.5 text-left text-[12px] hover:bg-[var(--ap-bg-hover)]',
-                                      item.assignee?.id === u.id && 'bg-[var(--ap-bg-hover)] font-600',
+                                      'flex w-full items-center gap-2 rounded-[var(--ap-radius-sm)] px-2 py-1.5 text-left text-[12px] hover:bg-[var(--ap-bg-hover)]',
+                                      item.assignee?.id === u.id && 'bg-[var(--ap-bg-hover)] font-semibold',
                                     )}
                                   >
                                     <Avatar id={u.id} name={u.name ?? u.email} avatar={null} size={20} />
@@ -1836,7 +2039,7 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
 
                           <ActionsMenu
                             label={`More actions for ${item.title}`}
-                            className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--ap-fg-muted)] hover:bg-[var(--ap-bg-raised)] hover:text-[var(--ap-fg)] transition-colors"
+                            className="flex h-6 w-6 items-center justify-center rounded-[var(--ap-radius-xs)] text-[var(--ap-fg-muted)] hover:bg-[var(--ap-bg-raised)] hover:text-[var(--ap-fg)] transition-colors"
                             trigger={<MoreHorizontal className="h-3 w-3" />}
                             items={[
                               {
@@ -1864,7 +2067,7 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                       onChange={(e) => setNewItemTitles((p) => ({ ...p, [cl.id]: e.target.value }))}
                       onKeyDown={(e) => { if (e.key === 'Enter') addChecklistItem(cl.id) }}
                       placeholder="Add an item"
-                      className="flex-1 rounded-[8px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-3 h-8 text-[13px] outline-none focus:ring-2 focus:ring-[var(--ap-accent)] focus:border-transparent transition-all"
+                      className="flex-1 rounded-[var(--ap-radius-sm)] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-3 h-8 text-[13px] outline-none focus:ring-2 focus:ring-[var(--ap-accent)] focus:border-transparent transition-all"
                     />
                     <button
                       onClick={() => addChecklistItem(cl.id)}
@@ -1882,7 +2085,7 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                 <div>
                   <div className="flex items-center gap-1.5 mb-2">
                     <Paperclip className="h-3.5 w-3.5 text-[var(--ap-fg-muted)]" />
-                    <span className="text-[12px] font-600 text-[var(--ap-fg-muted)]">Attachments</span>
+                    <span className="text-[12px] font-semibold text-[var(--ap-fg-muted)]">Attachments</span>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     {todo.attachments.map((att) => {
@@ -1890,19 +2093,19 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                       return (
                         <div key={att.id} className="group relative flex items-center gap-2 rounded-[var(--ap-radius-sm)] border border-[var(--ap-border)] bg-[var(--ap-bg-sunken)] p-2 overflow-hidden">
                           {isImage ? (
-                            <img src={att.url} alt={att.filename} className="h-10 w-10 rounded-md object-cover shrink-0" />
+                            <img src={att.url} alt={att.filename} className="h-10 w-10 rounded-[var(--ap-radius-xs)] object-cover shrink-0" />
                           ) : (
-                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[var(--ap-bg-hover)]">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--ap-radius-xs)] bg-[var(--ap-bg-hover)]">
                               <FileIcon className="h-5 w-5 text-[var(--ap-fg-subtle)]" />
                             </div>
                           )}
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-[12px] font-500 text-[var(--ap-fg)]">{att.filename}</p>
+                            <p className="truncate text-[12px] font-medium text-[var(--ap-fg)]">{att.filename}</p>
                             <p className="text-[11px] text-[var(--ap-fg-subtle)]">{(att.size / 1024).toFixed(0)} KB</p>
                           </div>
                           <button
                             onClick={() => deleteAttachment(att.id)}
-                            className="absolute right-1 top-1 hidden rounded p-0.5 text-[var(--ap-fg-faint)] hover:text-[var(--ap-danger)] group-hover:flex transition-colors"
+                            className="absolute right-1 top-1 hidden rounded-[var(--ap-radius-xs)] p-0.5 text-[var(--ap-fg-faint)] hover:text-[var(--ap-danger)] group-hover:flex transition-colors"
                           >
                             <Trash2 className="h-3 w-3" />
                           </button>
@@ -1913,18 +2116,19 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                 </div>
               )}
 
-              {/* ── Comments + activity (Trello-style: stacked, no tabs) ── */}
-              <div>
-                <div className="mb-3 flex items-center gap-1.5 text-[var(--ap-fg)]">
-                  <MessageSquare className="h-3.5 w-3.5 text-[var(--ap-fg-muted)]" />
-                  <span className="text-[12px] font-700 uppercase tracking-[0.05em] text-[var(--ap-fg-subtle)]">
-                    Comments and activity
-                  </span>
+              {/* ── Comments + activity ──
+                   Deliberately still stacked. The design tabs them; §6.4 defers that
+                   as an IA change with no functional gain, so this is a restyle of
+                   the existing stack and nothing more. */}
+              <div className="border-t border-[var(--ap-border)] pt-5">
+                <div className="mb-3.5 flex items-center gap-2.5">
+                  <MessageSquare className="h-[15px] w-[15px] text-[var(--ap-fg-subtle)]" />
+                  <h3 className="text-[14px] font-semibold text-[var(--ap-fg-muted)]">Comments and activity</h3>
                   <button
                     type="button"
                     onClick={toggleHideDetails}
                     aria-pressed={hideDetails}
-                    className="ml-auto rounded-[8px] border border-[var(--ap-border)] px-2 py-0.5 text-[11px] font-600 text-[var(--ap-fg-muted)] hover:bg-[var(--ap-bg-hover)] transition-colors"
+                    className="ml-auto h-[26px] rounded-[var(--ap-radius-xs)] bg-[var(--ap-bg-sunken)] px-2.5 text-[12px] font-semibold text-[var(--ap-fg-muted)] transition-colors hover:bg-[var(--ap-bg-hover)] hover:text-[var(--ap-fg)]"
                   >
                     {hideDetails ? 'Show details' : 'Hide details'}
                   </button>
@@ -1995,7 +2199,11 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                         >
                           {submittingComment ? 'Posting…' : 'Save'}
                         </button>
-                        <span className="text-[11px] text-[var(--ap-fg-faint)]">Ctrl+Enter</span>
+                        {/* The shortcut itself is unchanged — MentionEditor's
+                            onSubmit already fires on ⌘↵ / Ctrl+↵. Only the hint is new. */}
+                        <kbd className="rounded-[var(--ap-radius-xs)] bg-[var(--ap-bg-sunken)] px-1.5 py-0.5 font-mono text-[10.5px] font-medium text-[var(--ap-fg-subtle)]">
+                          ⌘↵
+                        </kbd>
                       </div>
                     </div>
                     {/* Comment list */}
@@ -2005,11 +2213,11 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                       )}
                       {comments.map((c) => (
                         <div key={c.id} className="flex gap-2.5">
-                          <Avatar id={c.author.id} name={c.author.name} avatar={c.author.avatar} size={26} />
+                          <Avatar id={c.author.id} name={c.author.name} avatar={c.author.avatar} size={30} />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-baseline gap-2">
-                              <span className="text-[12px] font-600 text-[var(--ap-fg)]">{c.author.name}</span>
-                              <span className="text-[11px] text-[var(--ap-fg-faint)]">{format(new Date(c.createdAt), 'MMM d, h:mm a')}</span>
+                              <span className="text-[13px] font-semibold text-[var(--ap-fg)]">{c.author.name}</span>
+                              <span className="text-[11.5px] text-[var(--ap-fg-subtle)]">{format(new Date(c.createdAt), 'MMM d, h:mm a')}</span>
                               {canModerate(c.author.id) && editingComment?.id !== c.id && (
                                 <span className="ml-auto flex gap-2">
                                   <button
@@ -2064,7 +2272,7 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                               // style) and handles legacy plaintext comments.
                               <RichTextContent
                                 html={c.content}
-                                className="mt-1 text-[13px] text-[var(--ap-fg)] [&_.mention]:text-[var(--ap-accent)] [&_.mention]:font-medium"
+                                className="mt-1.5 rounded-[var(--ap-radius-md)] bg-[var(--ap-bg-sunken)] px-3.5 py-2.5 text-[13.5px] leading-[1.6] text-[var(--ap-fg-muted)] [&_.mention]:font-medium [&_.mention]:text-[var(--ap-accent)]"
                               />
                             )}
                             {c.attachments && c.attachments.length > 0 && (
@@ -2099,11 +2307,11 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
                 {/* Activity log inline below comments */}
                 {activityLogs.length > 0 && !hideDetails && (
                   <div className="mt-6 border-t border-[var(--ap-border)] pt-4">
-                    <div className="mb-3 flex items-center gap-1.5">
-                      <Activity className="h-3.5 w-3.5 text-[var(--ap-fg-muted)]" />
-                      <span className="text-[12px] font-700 uppercase tracking-[0.05em] text-[var(--ap-fg-subtle)]">
+                    <div className="mb-3 flex items-center gap-2">
+                      <Activity className="h-3.5 w-3.5 text-[var(--ap-fg-subtle)]" />
+                      <Eyebrow size="md" mono className="text-[var(--ap-fg-subtle)]">
                         Activity ({activityLogs.length})
-                      </span>
+                      </Eyebrow>
                     </div>
                     <ActivityFeed logs={activityLogs} users={users} labelDefs={labelDefs} />
                   </div>
@@ -2111,297 +2319,191 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
               </div>
             </div>
 
-            {/* ══ RIGHT sidebar ══ — every control here mutates, so it is
-                 removed rather than disabled on a closed sprint. */}
+            {/* ══ RIGHT rail (232px) ══ — every control below the action row
+                 mutates, so the whole rail is removed rather than disabled on a
+                 closed sprint. Watch / more / close move inline in that case. */}
             <div className={cn(
-              'w-full md:w-[200px] shrink-0 border-t md:border-t-0 md:border-l border-[var(--ap-border)] bg-[var(--ap-bg-sunken)] p-4 space-y-3',
+              'w-full border-t border-[var(--ap-border)] bg-[var(--ap-bg-sunken)] px-5 pb-7 pt-5 md:w-[232px] md:max-h-[calc(100vh-140px)] md:overflow-y-auto md:border-l md:border-t-0',
               sprintClosed && 'hidden',
             )}>
-              <p className="text-[10px] font-700 uppercase tracking-[0.06em] text-[var(--ap-fg-subtle)]">Add to card</p>
-
-              {/* Link OKR — surfaced at the top */}
-              <button
-                onClick={() => setActivePanel(activePanel === 'link' ? null : 'link')}
-                className="flex w-full items-center gap-2.5 rounded-[var(--ap-radius-sm)] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-3 py-2 text-left text-[12px] font-500 text-[var(--ap-fg)] hover:border-[var(--ap-accent)] hover:text-[var(--ap-accent)] hover:shadow-sm transition-all"
-              >
-                <Target className="h-3.5 w-3.5" /> Link OKR
-              </button>
-
-              {/* Labels — popover */}
-              <div className="relative">
-                <button
-                  onClick={() => setActivePanel(activePanel === 'labels' ? null : 'labels')}
-                  className="flex w-full items-center gap-2.5 rounded-[var(--ap-radius-sm)] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-3 py-2 text-left text-[12px] font-500 text-[var(--ap-fg)] hover:border-[var(--ap-accent)] hover:shadow-sm transition-all"
-                >
-                  <Tag className="h-3.5 w-3.5" /> Labels
-                </button>
-                {activePanel === 'labels' && (
-                  <>
-                    <div className="fixed inset-0 z-[90]" onClick={() => setActivePanel(null)} />
-                    <div className="absolute right-0 top-full z-[91] mt-1.5 w-[280px] max-w-[calc(100vw-2rem)] max-h-[420px] overflow-y-auto rounded-[12px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] p-3 shadow-[var(--ap-shadow-lg)]">
-                      <p className="pb-2 text-[10px] font-700 uppercase tracking-[0.06em] text-[var(--ap-fg-subtle)]">Labels</p>
-                      <input
-                        value={labelSearch}
-                        onChange={(e) => setLabelSearch(e.target.value)}
-                        placeholder="Search labels…"
-                        className="ap-input h-7 w-full text-[12px] py-0 mb-2"
-                      />
-                      <div className="space-y-1">
-                        {labelDefs
-                          .filter((ld) => !labelSearch.trim() || ld.name.toLowerCase().includes(labelSearch.toLowerCase()))
-                          .map((ld) => {
-                            const active = todo.labels.some((l) => l.labelDef.id === ld.id)
-                            return (
-                              <div key={ld.id} className="group flex items-center gap-1.5">
-                                <button
-                                  onClick={() => toggleLabel(ld.id)}
-                                  className="flex flex-1 items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-[var(--ap-bg-hover)] transition-colors"
-                                >
-                                  <span className="h-6 flex-1 min-w-0 rounded-[4px] px-2 py-0.5 text-[11px] font-600 text-white truncate text-left" style={{ background: ld.color }}>
-                                    {ld.name}
-                                  </span>
-                                  {active && <Check className="h-3.5 w-3.5 text-[var(--ap-accent)] shrink-0" />}
-                                </button>
-                                <button
-                                  onClick={() => deleteLabel(ld.id)}
-                                  title="Delete label"
-                                  className="opacity-0 group-hover:opacity-100 transition-opacity text-[var(--ap-fg-subtle)] hover:text-[var(--ap-danger)] p-1"
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                </button>
-                              </div>
-                            )
-                          })}
-                        {labelDefs.length === 0 && <p className="text-[11px] text-[var(--ap-fg-subtle)] px-2 py-1">No labels yet — create one below.</p>}
-                      </div>
-
-                      <div className="mt-3 pt-3 border-t border-[var(--ap-border)]">
-                        <p className="pb-1.5 text-[10px] font-700 uppercase tracking-[0.06em] text-[var(--ap-fg-subtle)]">Create label</p>
-                        <input
-                          value={newLabelName}
-                          onChange={(e) => setNewLabelName(e.target.value)}
-                          onKeyDown={(e) => { if (e.key === 'Enter') createLabel() }}
-                          placeholder="Label name…"
-                          className="ap-input h-7 w-full text-[12px] py-0"
-                        />
-                        <div className="mt-2 grid grid-cols-5 gap-1.5">
-                          {CARD_PALETTE.map((sw) => (
-                            <button
-                              key={sw.key}
-                              onClick={() => setNewLabelColor(sw.hex)}
-                              aria-label={sw.label}
-                              aria-pressed={newLabelColor === sw.hex}
-                              className={cn('h-6 rounded-[4px] border-2 transition-transform hover:scale-105', newLabelColor === sw.hex ? 'border-[var(--ap-fg)]' : 'border-transparent')}
-                              style={swatchStyle(sw.hex, { colorBlind, pattern: sw.pattern, ink: 'rgba(255,255,255,0.5)' })}
-                              title={sw.label}
-                            />
-                          ))}
-                        </div>
-                        <button
-                          onClick={createLabel}
-                          disabled={!newLabelName.trim()}
-                          className="mt-2 w-full rounded-[8px] bg-[var(--ap-accent)] px-3 py-1.5 text-[12px] font-600 text-white disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
-                        >
-                          Create
-                        </button>
-                      </div>
-                    </div>
-                  </>
-                )}
+              <div className="mb-[18px] flex items-center justify-end gap-0.5">
+                {cardActionCluster}
               </div>
 
-              {/* Checklist — popover */}
-              <div className="relative">
-                <button
-                  onClick={() => setActivePanel(activePanel === 'checklist' ? null : 'checklist')}
-                  className="flex w-full items-center gap-2.5 rounded-[var(--ap-radius-sm)] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-3 py-2 text-left text-[12px] font-500 text-[var(--ap-fg)] hover:border-[var(--ap-accent)] hover:shadow-sm transition-all"
-                >
-                  <CheckSquare className="h-3.5 w-3.5" /> Checklist
+              <Eyebrow size="md" mono className="mb-2 text-[var(--ap-fg-subtle)]">Add to card</Eyebrow>
+              <div className="flex flex-col gap-0.5">
+                {/* Members, Labels and Dates open the panels anchored in the
+                    attribute grid — one panel per control, one `activePanel` slot. */}
+                <button onClick={() => openAttributePanel('members')} className="flex h-[34px] w-full items-center gap-2.5 rounded-[var(--ap-radius-sm)] px-2.5 text-left text-[13px] font-medium text-[var(--ap-fg)] transition-colors hover:bg-[var(--ap-bg-hover)]">
+                  <Users className="h-[15px] w-[15px] text-[var(--ap-fg-subtle)]" /> Members
                 </button>
-                {activePanel === 'checklist' && (
-                  <>
-                    <div className="fixed inset-0 z-[90]" onClick={() => setActivePanel(null)} />
-                    <div className="absolute right-0 top-full z-[91] mt-1.5 w-[240px] rounded-[12px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] p-2 shadow-[var(--ap-shadow-lg)]">
-                      <p className="px-2 pb-1 text-[10px] font-700 uppercase tracking-[0.06em] text-[var(--ap-fg-subtle)]">New checklist</p>
-                      <div className="flex gap-1.5">
+                <button onClick={() => openAttributePanel('labels')} className="flex h-[34px] w-full items-center gap-2.5 rounded-[var(--ap-radius-sm)] px-2.5 text-left text-[13px] font-medium text-[var(--ap-fg)] transition-colors hover:bg-[var(--ap-bg-hover)]">
+                  <Tag className="h-[15px] w-[15px] text-[var(--ap-fg-subtle)]" /> Labels
+                </button>
+
+                {/* Checklist — popover stays inside the rail, so it is sized to fit
+                    the 232px track: the rail scrolls, and a scroll container clips
+                    horizontally whatever its children stick out by. */}
+                <div className="relative">
+                  <button onClick={() => setActivePanel(activePanel === 'checklist' ? null : 'checklist')} className="flex h-[34px] w-full items-center gap-2.5 rounded-[var(--ap-radius-sm)] px-2.5 text-left text-[13px] font-medium text-[var(--ap-fg)] transition-colors hover:bg-[var(--ap-bg-hover)]">
+                    <CheckSquare className="h-[15px] w-[15px] text-[var(--ap-fg-subtle)]" /> Checklist
+                  </button>
+                  {activePanel === 'checklist' && (
+                    <>
+                      <div className="fixed inset-0 z-[90]" onClick={() => setActivePanel(null)} />
+                      <div className="absolute right-0 top-full z-[91] mt-1.5 w-[212px] rounded-[var(--ap-radius-card)] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] p-2.5 shadow-[var(--ap-shadow-pop-xl)]">
+                        <div className="mb-2 flex items-center">
+                          <Eyebrow size="md" mono align="center" className="flex-1 text-[var(--ap-fg-subtle)]">New checklist</Eyebrow>
+                          <button
+                            onClick={() => setActivePanel(null)}
+                            aria-label="Close"
+                            className="inline-flex size-[22px] items-center justify-center rounded-[var(--ap-radius-xs)] text-[var(--ap-fg-muted)] hover:bg-[var(--ap-bg-hover)]"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
                         <input
                           autoFocus
                           value={newChecklistTitle}
                           onChange={(e) => setNewChecklistTitle(e.target.value)}
-                          placeholder="Title…"
-                          className="ap-input flex-1 h-7 text-[12px] py-0"
+                          placeholder="Checklist title…"
+                          className="ap-input h-8 w-full py-0 text-[13px]"
                           onKeyDown={(e) => { if (e.key === 'Enter') addChecklist() }}
                         />
-                        <button onClick={addChecklist} className="ap-btn ap-btn-primary ap-btn-sm">Add</button>
+                        <button
+                          onClick={addChecklist}
+                          className="mt-2 h-8 w-full rounded-[var(--ap-radius-sm)] bg-[var(--ap-accent)] text-[13px] font-semibold text-[var(--ap-accent-fg)] transition-colors hover:bg-[var(--ap-accent-hover)]"
+                        >
+                          Add checklist
+                        </button>
                       </div>
-                    </div>
-                  </>
-                )}
-              </div>
+                    </>
+                  )}
+                </div>
 
-              {/* Dates — Trello-style popover with start + due date and optional times */}
-              <div className="relative">
-                <button
-                  onClick={() => setActivePanel(activePanel === 'dates' ? null : 'dates')}
-                  className="flex w-full items-center gap-2.5 rounded-[var(--ap-radius-sm)] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-3 py-2 text-left text-[12px] font-500 text-[var(--ap-fg)] hover:border-[var(--ap-accent)] hover:shadow-sm transition-all"
-                >
-                  <Calendar className="h-3.5 w-3.5 shrink-0" />
-                  <span className="flex-1 min-w-0 truncate">
-                    {todo.dueDate || todo.startDate ? (
-                      <>
-                        {todo.startDate ? format(new Date(todo.startDate), 'MMM d') : '—'}
-                        {todo.startTime ? `, ${to12h(todo.startTime)}` : ''}
-                        <span className="text-[var(--ap-fg-subtle)]"> → </span>
-                        {todo.dueDate ? format(new Date(todo.dueDate), 'MMM d, yyyy') : '—'}
-                        {todo.endTime ? `, ${to12h(todo.endTime)}` : ''}
-                      </>
-                    ) : (
-                      'Dates'
-                    )}
-                  </span>
+                <button onClick={() => openAttributePanel('dates')} className="flex h-[34px] w-full items-center gap-2.5 rounded-[var(--ap-radius-sm)] px-2.5 text-left text-[13px] font-medium text-[var(--ap-fg)] transition-colors hover:bg-[var(--ap-bg-hover)]">
+                  <Calendar className="h-[15px] w-[15px] text-[var(--ap-fg-subtle)]" /> Dates
                 </button>
-                {activePanel === 'dates' && (
-                  <>
-                    <div className="fixed inset-0 z-[90]" onClick={() => setActivePanel(null)} />
-                    <DatesPanel
-                      startDate={todo.startDate}
-                      dueDate={todo.dueDate}
-                      startTime={todo.startTime}
-                      endTime={todo.endTime}
-                      dueReminder={todo.dueReminder ?? null}
-                      sprintWindow={sprintWindow}
-                      onSave={(v) => { patch(v); setActivePanel(null) }}
-                      // DTE-8 — Remove clears both dates, both times and the
-                      // reminder in one request; a reminder with no due date
-                      // would never fire.
-                      onRemove={() => patch({
-                        startDate: null, dueDate: null,
-                        startTime: null, endTime: null,
-                        dueReminder: null,
-                      })}
-                      onClose={() => setActivePanel(null)}
-                    />
-                  </>
-                )}
-              </div>
 
-              {/* Attach */}
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="flex w-full items-center gap-2.5 rounded-[var(--ap-radius-sm)] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-3 py-2 text-left text-[12px] font-500 text-[var(--ap-fg)] hover:border-[var(--ap-accent)] hover:shadow-sm transition-all"
-              >
-                <Paperclip className="h-3.5 w-3.5" /> Attachment
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                className="hidden"
-                multiple
-                onChange={(e) => {
-                  Array.from(e.target.files ?? []).forEach(uploadAttachment)
-                  e.target.value = ''
-                }}
-              />
-
-              {/* Cover — popover */}
-              <div className="relative">
-                <button
-                  onClick={() => setActivePanel(activePanel === 'cover' ? null : 'cover')}
-                  className="flex w-full items-center gap-2.5 rounded-[var(--ap-radius-sm)] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-3 py-2 text-left text-[12px] font-500 text-[var(--ap-fg)] hover:border-[var(--ap-accent)] hover:shadow-sm transition-all"
-                >
-                  <ImageIcon className="h-3.5 w-3.5" /> Cover
+                <button onClick={() => fileInputRef.current?.click()} className="flex h-[34px] w-full items-center gap-2.5 rounded-[var(--ap-radius-sm)] px-2.5 text-left text-[13px] font-medium text-[var(--ap-fg)] transition-colors hover:bg-[var(--ap-bg-hover)]">
+                  <Paperclip className="h-[15px] w-[15px] text-[var(--ap-fg-subtle)]" /> Attachment
                 </button>
-                {activePanel === 'cover' && (
-                  <>
-                    <div className="fixed inset-0 z-[90]" onClick={() => setActivePanel(null)} />
-                    <div className="absolute right-0 top-full z-[91] mt-1.5 w-[248px] rounded-[12px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] p-3 shadow-[var(--ap-shadow-lg)]">
-                      {/* Size (CVR-1) */}
-                      <p className="pb-1.5 text-[10px] font-700 uppercase tracking-[0.06em] text-[var(--ap-fg-subtle)]">Size</p>
-                      <div className="mb-3 grid grid-cols-2 gap-1.5">
-                        {([
-                          { key: 'BAND', label: 'Band' },
-                          { key: 'FULL', label: 'Full bleed' },
-                        ] as const).map((opt) => {
-                          const active = (todo.coverSize ?? 'BAND') === opt.key
-                          return (
-                            <button
-                              key={opt.key}
-                              type="button"
-                              aria-pressed={active}
-                              disabled={!todo.coverColor}
-                              onClick={() => patch({ coverSize: opt.key })}
-                              className={cn(
-                                'rounded-[8px] border px-2 py-1.5 text-[11px] font-600 transition-colors disabled:opacity-40',
-                                active
-                                  ? 'border-[var(--ap-accent)] bg-[var(--ap-accent-soft)] text-[var(--ap-accent)]'
-                                  : 'border-[var(--ap-border)] text-[var(--ap-fg-muted)] hover:bg-[var(--ap-bg-hover)]',
-                              )}
-                            >
-                              {opt.label}
-                            </button>
-                          )
-                        })}
-                      </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  multiple
+                  onChange={(e) => {
+                    Array.from(e.target.files ?? []).forEach(uploadAttachment)
+                    e.target.value = ''
+                  }}
+                />
 
-                      {/* Colours */}
-                      <p className="pb-1.5 text-[10px] font-700 uppercase tracking-[0.06em] text-[var(--ap-fg-subtle)]">Colors</p>
-                      <div className="grid grid-cols-5 gap-1.5">
-                        {CARD_PALETTE.map((sw) => {
-                          const active = todo.coverColor?.toLowerCase() === sw.hex.toLowerCase()
-                          return (
-                            <button
-                              key={sw.key}
-                              type="button"
-                              aria-label={sw.label}
-                              aria-pressed={active}
-                              onClick={() => patch({ coverColor: sw.hex, coverSize: todo.coverSize ?? 'BAND' })}
-                              className={cn(
-                                'h-7 w-full rounded-md border-2 transition-transform hover:scale-110',
-                                active ? 'border-[var(--ap-fg)]' : 'border-transparent',
-                              )}
-                              style={swatchStyle(sw.hex, { colorBlind, pattern: sw.pattern, ink: 'rgba(255,255,255,0.5)' })}
-                              title={sw.label}
-                            />
-                          )
-                        })}
-                      </div>
+                {/* Cover — popover also sized to the rail track. */}
+                <div className="relative">
+                  <button onClick={() => setActivePanel(activePanel === 'cover' ? null : 'cover')} className="flex h-[34px] w-full items-center gap-2.5 rounded-[var(--ap-radius-sm)] px-2.5 text-left text-[13px] font-medium text-[var(--ap-fg)] transition-colors hover:bg-[var(--ap-bg-hover)]">
+                    <ImageIcon className="h-[15px] w-[15px] text-[var(--ap-fg-subtle)]" /> Cover
+                  </button>
+                  {activePanel === 'cover' && (
+                    <>
+                      <div className="fixed inset-0 z-[90]" onClick={() => setActivePanel(null)} />
+                      <div className="absolute right-0 top-full z-[91] mt-1.5 w-[212px] rounded-[var(--ap-radius-card)] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] p-2.5 shadow-[var(--ap-shadow-pop-xl)]">
+                        {/* Size (CVR-1) */}
+                        <Eyebrow size="md" mono className="mb-1.5 text-[var(--ap-fg-subtle)]">Size</Eyebrow>
+                        <div className="mb-3 grid grid-cols-2 gap-1.5">
+                          {([
+                            { key: 'BAND', label: 'Band' },
+                            { key: 'FULL', label: 'Full bleed' },
+                          ] as const).map((opt) => {
+                            const active = (todo.coverSize ?? 'BAND') === opt.key
+                            return (
+                              <button
+                                key={opt.key}
+                                type="button"
+                                aria-pressed={active}
+                                disabled={!todo.coverColor}
+                                onClick={() => patch({ coverSize: opt.key })}
+                                className={cn(
+                                  'rounded-[var(--ap-radius-xs)] border px-2 py-1.5 text-[11px] font-semibold transition-colors disabled:opacity-40',
+                                  active
+                                    ? 'border-[var(--ap-accent)] bg-[var(--ap-accent-soft)] text-[var(--ap-accent-on-soft)]'
+                                    : 'border-[var(--ap-border-strong)] text-[var(--ap-fg-muted)] hover:bg-[var(--ap-bg-hover)]',
+                                )}
+                              >
+                                {opt.label}
+                              </button>
+                            )
+                          })}
+                        </div>
 
-                      <button
-                        type="button"
-                        onClick={() => setColorBlindMode(!colorBlind)}
-                        aria-pressed={colorBlind}
-                        className="mt-3 w-full rounded-[8px] border border-[var(--ap-border)] px-2 py-1.5 text-[11px] font-600 text-[var(--ap-fg-muted)] hover:bg-[var(--ap-bg-hover)] transition-colors"
-                      >
-                        {colorBlind ? 'Disable' : 'Enable'} colorblind friendly mode
-                      </button>
+                        {/* Colours */}
+                        <Eyebrow size="md" mono className="mb-1.5 text-[var(--ap-fg-subtle)]">Colors</Eyebrow>
+                        <div className="grid grid-cols-5 gap-1.5">
+                          {CARD_PALETTE.map((sw) => {
+                            const active = todo.coverColor?.toLowerCase() === sw.hex.toLowerCase()
+                            return (
+                              <button
+                                key={sw.key}
+                                type="button"
+                                aria-label={sw.label}
+                                aria-pressed={active}
+                                onClick={() => patch({ coverColor: sw.hex, coverSize: todo.coverSize ?? 'BAND' })}
+                                className={cn(
+                                  'h-7 w-full rounded-[var(--ap-radius-xs)] border-2 transition-transform hover:scale-110',
+                                  active ? 'border-[var(--ap-fg)]' : 'border-transparent',
+                                )}
+                                style={swatchStyle(sw.hex, { colorBlind, pattern: sw.pattern, ink: 'rgba(255,255,255,0.5)' })}
+                                title={sw.label}
+                              />
+                            )
+                          })}
+                        </div>
 
-                      {todo.coverColor && (
                         <button
                           type="button"
-                          onClick={() => { patch({ coverColor: null, coverSize: null }); setActivePanel(null) }}
-                          className="mt-1.5 w-full rounded-[8px] px-2 py-1.5 text-[11px] font-600 text-[var(--ap-danger-fg)] hover:bg-[var(--ap-danger-bg)] transition-colors"
+                          onClick={() => setColorBlindMode(!colorBlind)}
+                          aria-pressed={colorBlind}
+                          className="mt-3 w-full rounded-[var(--ap-radius-xs)] border border-[var(--ap-border-strong)] px-2 py-1.5 text-[11px] font-semibold text-[var(--ap-fg-muted)] transition-colors hover:bg-[var(--ap-bg-hover)]"
                         >
-                          Remove cover
+                          {colorBlind ? 'Disable' : 'Enable'} colorblind friendly mode
                         </button>
-                      )}
-                    </div>
-                  </>
-                )}
+
+                        {todo.coverColor && (
+                          <button
+                            type="button"
+                            onClick={() => { patch({ coverColor: null, coverSize: null }); setActivePanel(null) }}
+                            className="mt-1.5 w-full rounded-[var(--ap-radius-xs)] px-2 py-1.5 text-[11px] font-semibold text-[var(--ap-danger-fg)] transition-colors hover:bg-[var(--ap-danger-bg)]"
+                          >
+                            Remove cover
+                          </button>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                <button onClick={() => setActivePanel(activePanel === 'link' ? null : 'link')} className="flex h-[34px] w-full items-center gap-2.5 rounded-[var(--ap-radius-sm)] px-2.5 text-left text-[13px] font-medium text-[var(--ap-fg)] transition-colors hover:bg-[var(--ap-bg-hover)]">
+                  <Target className="h-[15px] w-[15px] text-[var(--ap-fg-subtle)]" /> Link OKR
+                </button>
               </div>
 
-              <div className="!mt-5 border-t border-[var(--ap-border)] pt-3 space-y-2">
-                <p className="text-[10px] font-700 uppercase tracking-[0.06em] text-[var(--ap-fg-subtle)]">Actions</p>
-                <button
-                  onClick={() => { patch({ status: 'COMPLETED' }) }}
-                  className="flex w-full items-center gap-2.5 rounded-[var(--ap-radius-sm)] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-3 py-2 text-left text-[12px] font-600 text-[var(--ap-ok)] hover:border-[var(--ap-ok)] hover:bg-[var(--ap-ok-bg)] transition-all"
-                >
-                  <Check className="h-3.5 w-3.5" /> Mark done
+              <div className="my-4 h-px bg-[var(--ap-border)]" />
+
+              <Eyebrow size="md" mono className="mb-2 text-[var(--ap-fg-subtle)]">Actions</Eyebrow>
+              <div className="flex flex-col gap-0.5">
+                <button onClick={() => { patch({ status: 'COMPLETED' }) }} className="flex h-[34px] w-full items-center gap-2.5 rounded-[var(--ap-radius-sm)] px-2.5 text-left text-[13px] font-medium text-[var(--ap-fg)] transition-colors hover:bg-[var(--ap-bg-hover)]">
+                  <Check className="h-[15px] w-[15px] text-[var(--ap-ok)]" /> Mark done
                 </button>
+                {todo.sprintId && (
+                  <button onClick={copyCardLink} className="flex h-[34px] w-full items-center gap-2.5 rounded-[var(--ap-radius-sm)] px-2.5 text-left text-[13px] font-medium text-[var(--ap-fg)] transition-colors hover:bg-[var(--ap-bg-hover)]">
+                    <Link2 className="h-[15px] w-[15px] text-[var(--ap-fg-subtle)]" /> Copy link
+                  </button>
+                )}
                 <button
                   onClick={() => setConfirmDelete(true)}
-                  className="flex w-full items-center gap-2.5 rounded-[var(--ap-radius-sm)] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-3 py-2 text-left text-[12px] font-600 text-[var(--ap-danger)] hover:border-[var(--ap-danger)] hover:bg-[var(--ap-danger-bg)] transition-all"
+                  className="flex h-[34px] w-full items-center gap-2.5 rounded-[var(--ap-radius-sm)] px-2.5 text-left text-[13px] font-medium text-[var(--ap-danger-fg)] transition-colors hover:bg-[var(--ap-danger-bg)]"
                 >
-                  <Trash2 className="h-3.5 w-3.5" /> Delete card
+                  <Trash2 className="h-[15px] w-[15px]" /> Delete card
                 </button>
               </div>
             </div>
@@ -2411,6 +2513,25 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
 
         {/* Replaces window.confirm — the project standard for destructive
             actions, and the only version that states what is lost. */}
+        <ConfirmDialog
+          open={!!confirmLabel}
+          onClose={() => setConfirmLabel(null)}
+          title="Delete label"
+          message={confirmLabel ? `Delete “${confirmLabel.name}”?` : 'Delete this label?'}
+          description="Labels are shared across the workspace."
+          variant="danger"
+          confirmLabel="Delete label"
+          bullets={[
+            'The label is removed from every card that carries it',
+            'Nothing else about those cards changes',
+          ]}
+          onConfirm={async () => {
+            if (!confirmLabel) return
+            await deleteLabel(confirmLabel.id)
+            setConfirmLabel(null)
+          }}
+        />
+
         <ConfirmDialog
           open={confirmDelete}
           onClose={() => setConfirmDelete(false)}
@@ -2445,19 +2566,6 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
       </div>
   )
 
-  if (isDrawer) {
-    return createPortal(
-      <div
-        className="fixed inset-0 z-[80] flex justify-end"
-        style={{ background: 'rgba(0,0,0,0.2)' }}
-        onClick={onClose}
-      >
-        {body}
-      </div>,
-      document.body,
-    )
-  }
-
   return (
     <Modal
       open
@@ -2465,14 +2573,21 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated, mode 
       // Accessible name only — the visible title is the editable hero below.
       title={todo?.title ?? 'Card'}
       hideHeader
-      // The card provides its own close button in the header actions row.
+      // The card provides its own close button in the right rail.
       showCloseButton={false}
       // Otherwise focus lands in the title textarea and the caret starts editing
       // the moment the card opens.
       preventInitialFocus
-      size="2xl"
-      scrollBehavior="internal"
-      className="max-w-[860px] overflow-hidden !p-0 sm:max-w-[860px]"
+      size="940"
+      // §6.4's 6px strip. Bound to the card's own status so it reads as state
+      // rather than decoration; every value is an `--ap-*` token via TODO_STATUS_META.
+      accentColor={todoStatusMeta(todo?.status ?? 'PENDING').dot}
+      // `!p-0 !pt-[6px]`: the shell is full-bleed, but the accent strip is
+      // absolutely positioned at top-0, so the body still has to clear its 6px.
+      // Top-aligned, not centred — the two columns cap at calc(100vh - 140px)
+      // and scroll on their own, so the shell never needs to be vertically
+      // centred and never grows past the viewport.
+      className="!p-0 !pt-[6px] top-[28px] translate-y-0 max-h-[calc(100vh-88px)] max-w-[calc(100%-40px)] overflow-hidden overflow-y-auto rounded-[var(--ap-radius-lg)] border-0 bg-[var(--ap-bg-raised)] shadow-[var(--ap-shadow-lg)] ring-0"
     >
       {body}
     </Modal>

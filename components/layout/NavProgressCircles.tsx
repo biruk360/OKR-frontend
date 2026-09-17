@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
+import { getConfidenceColor } from '@/lib/utils'
 
 interface NavKeyResult {
   id: string
@@ -25,12 +26,6 @@ const statusColour: Record<string, string> = {
   AT_RISK: 'bg-amber-500',
   OFF_TRACK: 'bg-red-500',
   CLOSED: 'bg-slate-400',
-}
-
-const confidenceColour: Record<string, string> = {
-  ON_TRACK: 'text-emerald-600',
-  AT_RISK: 'text-amber-600',
-  OFF_TRACK: 'text-red-600',
 }
 
 /**
@@ -146,7 +141,7 @@ export default function NavProgressCircles() {
                       {kr.title}
                     </Link>
                     <span className="tabular-nums text-muted-foreground">{Math.round(kr.progress)}%</span>
-                    <span className={`text-[10px] ${confidenceColour[kr.confidence] ?? 'text-muted-foreground'}`}>
+                    <span className="text-[10px]" style={{ color: getConfidenceColor(kr.confidence) }}>
                       {kr.confidence.replace(/_/g, ' ')}
                     </span>
                   </li>

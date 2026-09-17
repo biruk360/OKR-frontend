@@ -119,8 +119,17 @@ export default function Header({ user, onMobileNavOpen }: HeaderProps) {
 
   return (
     <>
-      <header className="ap-glass sticky top-0 z-20 border-b" style={{ borderBottomColor: 'var(--ap-border)' }}>
-        <div className="flex h-12 items-center gap-2 px-3 sm:px-4 lg:px-5">
+      {/* One bottom border, one background. The grid cell in DashboardShell used
+          to add `border-b bg-card` on top of this header's own `ap-glass border-b`
+          — two hairlines, and the opaque bg-card underneath cancelled the glass
+          backdrop-filter anyway. Resolved in favour of the design's solid bar:
+          nothing scrolls beneath this header (main is a sibling grid row with its
+          own overflow), so the blur only cost a stacking context. */}
+      <header
+        className="sticky top-0 z-20 border-b bg-[var(--ap-bg-raised)]"
+        style={{ borderBottomColor: 'var(--ap-border)' }}
+      >
+        <div className="flex h-[54px] items-center gap-2 px-3 sm:gap-3.5 sm:px-4 lg:px-[18px]">
           {onMobileNavOpen && (
             <Button
               variant="ghost"
@@ -133,68 +142,57 @@ export default function Header({ user, onMobileNavOpen }: HeaderProps) {
             </Button>
           )}
 
-          <div className="min-w-0 flex-1">
-            {!hidePageTitle && (
-              <h1 className="truncate text-[15px] font-semibold tracking-[-0.01em]">{pageTitle}</h1>
-            )}
-          </div>
+          {!hidePageTitle && (
+            <h1 className="min-w-0 shrink truncate text-[15px] font-semibold tracking-[-0.01em]">{pageTitle}</h1>
+          )}
 
-          <button
-            type="button"
-            onClick={() => useCmdkStore.getState().setOpen(true)}
-            aria-label="Open command palette"
-            className="hidden h-8 w-[280px] items-center gap-2 rounded-[var(--ap-radius-sm)] px-3 text-[13px] transition-colors md:flex"
-            style={{
-              background: 'rgba(120,120,128,0.10)',
-              color: 'var(--ap-fg-subtle)',
-            }}
-          >
-            <Search className="size-4 shrink-0" />
-            <span className="flex-1 text-left">Search…</span>
-            <kbd
-              className="flex h-5 items-center gap-0.5 rounded-[6px] px-1.5 font-mono text-[11px]"
-              style={{
-                background: 'rgba(120,120,128,0.16)',
-                color: 'var(--ap-fg-subtle)',
-              }}
+          {/* Spacer + centred search. The wrapper always takes the free space so
+              the right-hand cluster stays flush right even when the field is
+              hidden below md. */}
+          <div className="flex min-w-0 flex-1 justify-center">
+            <button
+              type="button"
+              onClick={() => useCmdkStore.getState().setOpen(true)}
+              aria-label="Open command palette"
+              className="hidden h-[34px] w-full max-w-[420px] items-center gap-2 rounded-[var(--ap-radius-md)] border border-[var(--ap-border-strong)] bg-[var(--ap-bg-sunken)] px-[11px] text-[13px] text-[var(--ap-fg-subtle)] transition-colors hover:bg-[var(--ap-bg-hover)] md:flex"
             >
-              ⌘K
-            </kbd>
-          </button>
+              <Search className="size-[14px] shrink-0" />
+              <span className="flex-1 truncate text-left">Search cards, OKRs, people…</span>
+              <kbd className="shrink-0 rounded-[4px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-[5px] py-[2px] font-mono text-[10px] leading-none text-[var(--ap-fg-subtle)]">
+                ⌘K
+              </kbd>
+            </button>
+          </div>
 
           <div className="flex shrink-0 items-center gap-1 sm:gap-2">
             <ThemeSwitcher />
 
-            {/* Notifications */}
+            {/* Notifications.
+                The preview list used to be three hardcoded strings behind a
+                literal "3" badge. There is no /api/notifications list route to
+                back it (only .../preferences and the cron writer), so the
+                dropdown now says so honestly and routes to the real page, which
+                does read Notification rows server-side. Restore the badge and a
+                preview list here once that route exists. */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="relative">
+                <Button variant="ghost" size="icon" aria-label="Notifications">
                   <Bell className="size-4" />
-                  <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-destructive text-[10px] font-medium text-destructive-foreground">
-                    3
-                  </span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-72">
                 <div className="px-3 py-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Notifications</p>
+                  <p className="font-mono text-[9.5px] font-medium uppercase tracking-[0.12em] text-[var(--ap-fg-subtle)]">
+                    Notifications
+                  </p>
                 </div>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="flex-col items-start gap-0.5 py-2.5">
-                  <p className="text-sm">New comment on your objective</p>
-                  <p className="text-xs text-muted-foreground">2 minutes ago</p>
-                </DropdownMenuItem>
-                <DropdownMenuItem className="flex-col items-start gap-0.5 py-2.5">
-                  <p className="text-sm">Key result progress updated</p>
-                  <p className="text-xs text-muted-foreground">1 hour ago</p>
-                </DropdownMenuItem>
-                <DropdownMenuItem className="flex-col items-start gap-0.5 py-2.5">
-                  <p className="text-sm">New objective assigned to you</p>
-                  <p className="text-xs text-muted-foreground">3 hours ago</p>
-                </DropdownMenuItem>
+                <p className="px-3 py-6 text-center text-[13px] text-[var(--ap-fg-subtle)]">
+                  No preview available yet.
+                </p>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  className="justify-center text-sm font-medium text-primary-500"
+                  className="justify-center text-[13px] font-medium text-[var(--ap-accent)]"
                   onSelect={() => router.push('/dashboard/notifications')}
                 >
                   View all notifications
@@ -210,21 +208,21 @@ export default function Header({ user, onMobileNavOpen }: HeaderProps) {
                 <Button
                   variant="ghost"
                   size="default"
-                  className="h-9 gap-2 rounded-full px-2 pr-2.5"
+                  className="h-8 gap-2 rounded-[8px] pl-1 pr-2"
                 >
                   {user.avatar ? (
-                    <img className="size-6 rounded-full object-cover" src={user.avatar} alt={user.name || 'User'} />
+                    <img className="size-[26px] rounded-full object-cover" src={user.avatar} alt={user.name || 'User'} />
                   ) : (
-                    <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                      <span className="text-[11px] font-semibold text-primary-600">
+                    <div className="flex size-[26px] shrink-0 items-center justify-center rounded-full bg-[var(--ap-accent-soft)]">
+                      <span className="text-[9.5px] font-bold text-[var(--ap-accent-on-soft)]">
                         {user.name ? getInitials(user.name) : 'U'}
                       </span>
                     </div>
                   )}
-                  <span className="hidden max-w-[120px] truncate text-[13px] font-medium sm:block">
+                  <span className="hidden max-w-[120px] truncate text-[13px] font-semibold sm:block">
                     {user.name ?? user.email ?? 'Account'}
                   </span>
-                  <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
+                  <ChevronDown className="size-3 shrink-0 text-[var(--ap-fg-subtle)]" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">

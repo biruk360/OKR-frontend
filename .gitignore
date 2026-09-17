@@ -3,13 +3,10 @@ node_modules
 /.pnp
 .pnp.js
 
-# Next.js
-.next/
-.next-dev/
-# Build scratch dirs used by scripts/deploy.sh and local verification.
-.next.build/
-.next.prev/
-.next.verify/
+# Next.js build output, including every NEXT_DIST_DIR variant
+# (.next.build / .next.prev used by scripts/deploy.sh, and any ad-hoc
+# verification dir) — a new one should never need a new gitignore line.
+.next*/
 out/
 
 # env / secrets (use env.example only in repo)

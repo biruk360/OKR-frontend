@@ -51,8 +51,8 @@ export default function SprintPlannerView({ columns, onTodoClick, onDragStartCar
   // board's own lane treatment rather than Tailwind's `border`
   // (shadcn hsl(var(--border))), which does not follow the --ap-* retarget.
   const paneStyle = {
-    background: dark ? 'oklch(0.28 0.02 262 / 0.62)' : 'oklch(1 0 0 / 0.72)',
-    borderColor: dark ? 'oklch(1 0 0 / 0.14)' : 'oklch(1 0 0 / 0.8)',
+    background: dark ? 'oklch(0.28 0.02 262 / 0.62)' : 'color-mix(in oklab, var(--ap-bg-raised) 72%, transparent)',
+    borderColor: dark ? 'oklch(1 0 0 / 0.14)' : 'color-mix(in oklab, var(--ap-bg-raised) 80%, transparent)',
     boxShadow: 'var(--ap-shadow-sm)',
   } as const
 
@@ -179,7 +179,7 @@ export default function SprintPlannerView({ columns, onTodoClick, onDragStartCar
                 <p
                   className="rounded-[10px] border border-dashed px-3 py-[18px] text-center text-[12.5px] leading-[1.5]"
                   style={{
-                    borderColor: dark ? 'oklch(1 0 0 / 0.28)' : 'oklch(0.86 0.01 262)',
+                    borderColor: dark ? 'oklch(1 0 0 / 0.28)' : 'var(--ap-border-strong)',
                     color: dark ? 'oklch(0.88 0.006 262)' : 'var(--ap-fg-subtle)',
                   }}
                 >

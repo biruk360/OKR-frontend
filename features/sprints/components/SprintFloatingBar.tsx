@@ -53,7 +53,9 @@ export default function SprintFloatingBar({ view, onViewChange, onSwitchBoards, 
           dark && 'text-white',
         )}
         style={{
-          background: dark ? 'oklch(0.24 0.02 262 / 0.94)' : 'oklch(0.99 0.002 262 / 0.94)',
+          background: dark
+            ? 'oklch(0.24 0.02 262 / 0.94)'
+            : 'color-mix(in oklab, var(--ap-bg-raised) 94%, transparent)',
           borderColor: dark ? 'oklch(1 0 0 / 0.16)' : 'var(--ap-border)',
           // The dark dock sits on a dark fill, so it needs the deeper ramp.
           boxShadow: dark

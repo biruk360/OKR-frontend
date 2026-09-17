@@ -318,7 +318,7 @@ export default function TodosPageClient({
                   <th className="px-3.5 text-left font-mono text-[9.5px] font-medium uppercase tracking-[0.11em] text-[var(--ap-fg-subtle)] w-[100px]">Timeframe</th>
                   <th className="px-3.5 text-left font-mono text-[9.5px] font-medium uppercase tracking-[0.11em] text-[var(--ap-fg-subtle)] w-[110px]">Due</th>
                   <th className="px-3.5 text-center font-mono text-[9.5px] font-medium uppercase tracking-[0.11em] text-[var(--ap-fg-subtle)] w-[50px]">Who</th>
-                  <th className="px-3.5 text-left font-mono text-[9.5px] font-medium uppercase tracking-[0.11em] text-[var(--ap-fg-subtle)] w-[100px]">Status</th>
+                  <th className="px-3.5 text-left font-mono text-[9.5px] font-medium uppercase tracking-[0.11em] text-[var(--ap-fg-subtle)] w-[112px]">Status</th>
                   <th className="w-10 px-2 py-2.5"></th>
                 </tr>
               </thead>
@@ -541,7 +541,7 @@ function TodoTableRow({
           </span>
         )}
       </td>
-      <td className="px-3.5 py-[11px] w-[100px]">
+      <td className="w-[112px] px-3.5 py-[11px]">
         <StatusLozenge status={row.status} />
       </td>
       <td className="px-2 py-[11px] w-10">
@@ -564,7 +564,7 @@ function StatusLozenge({ status }: { status: string }) {
   const meta = todoStatusMeta(status)
   return (
     <span
-      className="inline-flex h-[22px] items-center rounded-[var(--ap-radius-xs)] px-2 text-[11px] font-semibold"
+      className="inline-flex h-[22px] shrink-0 items-center whitespace-nowrap rounded-[var(--ap-radius-xs)] px-2 text-[11px] font-semibold"
       style={{ background: meta.bg, color: meta.fg }}
     >
       {meta.label}

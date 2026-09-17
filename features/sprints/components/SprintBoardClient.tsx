@@ -585,7 +585,7 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
           dark && 'text-white',
         )}
         style={{
-          background: dark ? 'oklch(0.22 0.02 262 / 0.62)' : 'oklch(1 0 0 / 0.7)',
+          background: dark ? 'oklch(0.22 0.02 262 / 0.62)' : 'color-mix(in oklab, var(--ap-bg-raised) 70%, transparent)',
           borderColor: dark ? 'oklch(1 0 0 / 0.14)' : 'var(--ap-border)',
         }}
       >
@@ -923,8 +923,8 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
                   isMobile && activeMobileCol !== col.id && 'hidden',
                 )}
                 style={{
-                  background: dark ? 'oklch(0.28 0.02 262 / 0.62)' : 'oklch(1 0 0 / 0.72)',
-                  borderColor: dark ? 'oklch(1 0 0 / 0.14)' : 'oklch(1 0 0 / 0.8)',
+                  background: dark ? 'oklch(0.28 0.02 262 / 0.62)' : 'color-mix(in oklab, var(--ap-bg-raised) 72%, transparent)',
+                  borderColor: dark ? 'oklch(1 0 0 / 0.14)' : 'color-mix(in oklab, var(--ap-bg-raised) 80%, transparent)',
                   boxShadow: 'var(--ap-shadow-sm)',
                 }}
               >
@@ -1030,7 +1030,7 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
                   <div
                     className="rounded-[10px] border border-dashed px-3 py-[18px] text-center text-[12.5px] leading-[1.5]"
                     style={{
-                      borderColor: dark ? 'oklch(1 0 0 / 0.28)' : 'oklch(0.86 0.01 262)',
+                      borderColor: dark ? 'oklch(1 0 0 / 0.28)' : 'var(--ap-border-strong)',
                       color: dark ? 'oklch(0.88 0.006 262)' : 'var(--ap-fg-subtle)',
                     }}
                   >
@@ -1077,8 +1077,8 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
             dark && 'text-white',
           )}
           style={{
-            background: dark ? 'oklch(0.28 0.02 262 / 0.62)' : 'oklch(1 0 0 / 0.72)',
-            borderColor: dark ? 'oklch(1 0 0 / 0.14)' : 'oklch(1 0 0 / 0.8)',
+            background: dark ? 'oklch(0.28 0.02 262 / 0.62)' : 'color-mix(in oklab, var(--ap-bg-raised) 72%, transparent)',
+            borderColor: dark ? 'oklch(1 0 0 / 0.14)' : 'color-mix(in oklab, var(--ap-bg-raised) 80%, transparent)',
             boxShadow: 'var(--ap-shadow-sm)',
           }}
         >

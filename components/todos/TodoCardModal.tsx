@@ -1585,7 +1585,7 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
               whole, so the rail stays reachable however long the comment thread is.
               With the rail removed (closed sprint) the 232px track goes with it. */}
           <div className={cn(
-            'grid grid-cols-1 items-start',
+            'grid grid-cols-1 items-stretch',
             !sprintClosed && 'md:grid-cols-[minmax(0,1fr)_232px]',
           )}>
             {/* ══ LEFT column ══ */}

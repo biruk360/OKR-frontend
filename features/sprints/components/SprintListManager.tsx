@@ -312,8 +312,8 @@ export default function AddListColumn({
     <div
       className="flex w-[286px] shrink-0 flex-col gap-2 rounded-[var(--ap-radius-card)] border p-[10px] backdrop-blur-md"
       style={{
-        background: dark ? 'oklch(0.28 0.02 262 / 0.62)' : 'oklch(1 0 0 / 0.72)',
-        borderColor: dark ? 'oklch(1 0 0 / 0.14)' : 'oklch(1 0 0 / 0.8)',
+        background: dark ? 'oklch(0.28 0.02 262 / 0.62)' : 'color-mix(in oklab, var(--ap-bg-raised) 72%, transparent)',
+        borderColor: dark ? 'oklch(1 0 0 / 0.14)' : 'color-mix(in oklab, var(--ap-bg-raised) 80%, transparent)',
         boxShadow: 'var(--ap-shadow-sm)',
       }}
     >

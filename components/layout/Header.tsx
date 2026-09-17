@@ -143,7 +143,7 @@ export default function Header({ user, onMobileNavOpen }: HeaderProps) {
           )}
 
           {!hidePageTitle && (
-            <h1 className="min-w-0 shrink truncate text-[15px] font-semibold tracking-[-0.01em]">{pageTitle}</h1>
+            <h1 className="min-w-0 shrink truncate text-[18px] font-bold tracking-[-0.02em]">{pageTitle}</h1>
           )}
 
           {/* Spacer + centred search. The wrapper always takes the free space so

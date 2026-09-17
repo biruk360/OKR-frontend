@@ -1219,28 +1219,43 @@
   --sidebar-ring: 213 92% 61%;
 }
 
-/* Typography */
-.apple-pro-surface h1,
-.theme-apple-full h1 {
-  font-size: 30px;
-  font-weight: 700;
-  letter-spacing: -0.028em;
-  line-height: 1.15;
-  text-wrap: balance;
-}
-.apple-pro-surface h2,
-.theme-apple-full h2 {
-  font-size: 20px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1.25;
-}
-.apple-pro-surface h3,
-.theme-apple-full h3 {
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: -0.005em;
-  line-height: 1.3;
+/* Typography defaults.
+   These live in @layer base deliberately. Unlayered, `.apple-pro-surface h1`
+   (class + element = 0,1,1) beat every Tailwind heading utility in the app, so
+   a component asking for `text-[15px]` on an <h1> still rendered at 30px —
+   which is exactly what the top bar's page title was doing. In @layer base they
+   are what they were always meant to be: a default that an explicit utility
+   overrides.
+
+   :where() is what actually does it. Tailwind v3's @layer is a build-time
+   directive, not a native CSS layer, so placement alone does not change the
+   cascade — specificity still decides, and `.apple-pro-surface h1` (0,1,1)
+   outranks a utility's (0,1,0). Wrapping the element in :where() drops these to
+   0,1,0, and because @layer base is emitted before utilities, the utility wins
+   the tie. */
+@layer base {
+  .apple-pro-surface :where(h1),
+  .theme-apple-full :where(h1) {
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: -0.028em;
+    line-height: 1.15;
+    text-wrap: balance;
+  }
+  .apple-pro-surface :where(h2),
+  .theme-apple-full :where(h2) {
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.25;
+  }
+  .apple-pro-surface :where(h3),
+  .theme-apple-full :where(h3) {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    line-height: 1.3;
+  }
 }
 
 /* Glass material */

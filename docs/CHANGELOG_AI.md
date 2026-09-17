@@ -2,6 +2,30 @@
 
 > **Purpose:** Log of all changes made by AI assistants. Every AI session that modifies code MUST append an entry here.
 
+## 2026-09-17 — Browser pass on the design refresh: four defects the test suite could not see
+
+First time any of this was rendered. Ran the dev server against a local Postgres and drove it with Puppeteer (sign-in, sprint board, card modal, to-dos, dashboard, light + dark). Every phase had passed `tsc`, six test suites and a production build; all four defects below survived that.
+
+**1. Dark mode was unusable on the sprint board.** The board header and every lane name were invisible. The cause was the opposite of what it looked like: the text had correctly flipped to `oklch(0.96 …)`, but the surface beneath it was a hardcoded `oklch(1 0 0 / 0.72)` — light on light. The board's `dark` flag means "the background **preset** is graphite", not "the app is in dark mode", so with any light preset the else branch painted a literal white. Fixed by deriving all 11 glass surfaces from `--ap-bg-raised` through `color-mix` — byte-identical in light mode, theme-following in dark — across `SprintBoardClient`, `SprintPlannerView` and `SprintListManager`. `SprintFloatingBar`'s dock got the same treatment: it is chrome, not board decoration, and should not follow the preset at all.
+
+**2. Every heading utility in the app was being silently overridden — pre-existing.** The top-bar page title declared `text-[15px]` and rendered at **30px**. `.apple-pro-surface h1` was unlayered, and class+element (0,1,1) beats any Tailwind utility (0,1,0). Moving the block into `@layer base` did **not** fix it: Tailwind v3's `@layer` is a build-time directive, not a native CSS layer, so placement alone does not change the cascade. `:where()` does — it drops the selector to 0,1,0 and the utility wins the tie on source order. These rules are now defaults an explicit class can override, which is what they were always meant to be. The header title is also now 18px/700 per the design.
+
+**3. The card modal's tinted right rail stopped partway down** with its `border-l` dangling — `items-start` on the grid sized it to its own content. Now `items-stretch`.
+
+**4. A regression from the Phase 6 restyle:** the status lozenge had a fixed `h-[22px]` but no `whitespace-nowrap`, so "In Progress" wrapped and spilled out of its own background. Fixed, and the Status column widened to 112px.
+
+**Confirmed working, visually:** the due-tone fix end to end — a card due TODAY renders amber rather than red, yesterday renders red with an alert icon, tomorrow renders amber where it used to be green, and the to-dos header counts "58 overdue · 2 due today" as separate buckets. Also verified: the 228px sidebar with no dead strip, dot markers and mono eyebrows; the 54px header; the card modal's inline complete-toggle with no ID chip; and dark mode across dashboard, board, to-dos and modal.
+
+**A correction to an earlier claim in this session:** the Done lane is *not* missing from the board. The API returns all five lanes and the DOM contains all five — five 286px lanes simply exceed the content width, so the fifth is off-screen and the board scrolls. Correct behaviour.
+
+**Left as a product decision, not styled around:** board background presets stay light in dark mode. They are user-chosen decoration and `graphite` exists for dark, so changing that is a behaviour choice rather than a styling one.
+
+**Local environment note:** the local database was behind `prisma/schema.prisma` (`initiatives.coverSize` missing) and every authenticated page 500'd until `prisma db push` was run against it. Additive, local only. A throwaway admin and a seeded sprint were created to exercise the date boundaries and both were deleted afterwards.
+
+**Verification** — `tsc --noEmit` clean; sprints 21/21, todos 28/28, cards 9/9, security 20/20, scrum 29/29, automations 206/206; `npm run build` exits 0; and this time, **rendered and inspected in a real browser.**
+
+Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+
 ## 2026-09-17 — Adopt the Progress primitive, and settle the control-border rule
 
 Closes the last two open items from `docs/design_refresh_IMPLEMENTATION_STRATEGY.md`.

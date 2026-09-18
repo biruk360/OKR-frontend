@@ -2,6 +2,22 @@
 
 > **Purpose:** Log of all changes made by AI assistants. Every AI session that modifies code MUST append an entry here.
 
+## 2026-09-18 — Card modal: open each panel at the control you actually pressed
+
+Deferred entry for `e2ff503`, which shipped without one — `docs/CHANGELOG_AI.md` was held by another session at the time, carrying an entry for their own then-unshipped sign-in work, so staging it would have published a log entry for code that commit did not contain. Their work has since landed as `32608bf`.
+
+**The defect.** Members, Labels and Dates each have two triggers — the attribute-grid control on the left of the card and the rail row on the right — but shared a single popover anchored at the grid. Pressing "Labels" in the rail opened the panel against the far-left column. The previous fix (`f2a60ee`) anchored popovers to their trigger, which was necessary but did not cover the case of two triggers sharing one panel; this is that second half.
+
+**The fix.** Each trigger renders its own `Popover` over the same content. A `panelAnchor` state (`'grid' | 'rail'`) decides which of the pair is open, so `activePanel` still holds exactly one panel and the mutually-exclusive behaviour is unchanged. The rail copies use `side="left"` so they open over the card body rather than off the right edge of the modal — matching Checklist and Cover, which already did.
+
+`openAttributePanel` and the `attrGridRef` it scrolled into view are gone: a panel that opens in place has nothing to scroll to.
+
+**Verification** — measured in a browser, both anchors independently: rail trigger x=1009 → popover right=1003 (a 6px gap) with dY=0 for all three; grid trigger x=316 → popover x=316, dY=34, directly below. `tsc` clean; cards 9/9, todos 28/28, sprints 21/21, security 20/20.
+
+> **Deploy note:** the first attempt failed on `dial tcp ***:22: i/o timeout` — the SSH step could not reach the VPS, so `deploy.sh` never ran and production was left untouched rather than half-updated. A straight re-run succeeded, so it was a transient blip. If it recurs it is worth checking the host rather than retrying: `VPS_HOST` is a repo secret, and a changed IP would fail in exactly this way.
+
+Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+
 ## 2026-09-18 — Sign-in card: out of the template, into the design system
 
 The card looked like every generated login card: two boxed inputs with a mail and a padlock icon inside them, floating labels above, and a blue-to-purple gradient pill with an arrow. Those are the template tells, and they were not what the rest of this app looks like. Rebuilt around the idioms already in the product.

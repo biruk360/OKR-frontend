@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Compass, LineChart, Target, Users } from 'lucide-react'
+import CompanySignature from './CompanySignature'
 
 /**
  * The editorial half of the sign-in screen — brand lockup, a greeting that
@@ -98,6 +99,10 @@ export default function AuthHero() {
           {today}
         </p>
       )}
+
+      <div className="ap-auth-rise mt-9" style={{ animationDelay: '440ms' }}>
+        <CompanySignature />
+      </div>
     </div>
   )
 }

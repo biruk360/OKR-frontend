@@ -2,6 +2,38 @@
 
 > **Purpose:** Log of all changes made by AI assistants. Every AI session that modifies code MUST append an entry here.
 
+## 2026-09-18 — Sign-in card: out of the template, into the design system
+
+The card looked like every generated login card: two boxed inputs with a mail and a padlock icon inside them, floating labels above, and a blue-to-purple gradient pill with an arrow. Those are the template tells, and they were not what the rest of this app looks like. Rebuilt around the idioms already in the product.
+
+**One grouped block instead of two boxes.** Email and password are now rows of a single inset container split by a hairline — the same grouped-list idiom the app uses elsewhere — with the field name set in mono micro-caps above the value. The in-field icons are gone; the label does that job.
+
+**A focus signature.** Focus lifts the row's background and grows a 2.5px bar out of its left edge. It is deliberately brighter than `--ap-accent`, which is tuned for white surfaces and loses its 3:1 against this panel. `globals.css` puts a 3px blue ring on every focused input under the Apple Pro scope, which would have drawn a halo around a field with no visible box; that ring is suppressed on these inputs (`focus-visible:!shadow-none`) and replaced by the row treatment, so the indicator is still there — it is just the row, not a ring.
+
+**The CTA is a solid accent fill**, not a gradient, with an inset top highlight and a `⏎` hint in mono where the arrow used to be. The panel gained a real sheet highlight — a hairline along the top edge that fades before the corners.
+
+**Details:** one note line now serves the whole block (validation, or Caps Lock) and holds its height so nothing jumps; the reveal toggle sits on the value's baseline rather than the row's centre; the checkbox is a custom mark that fills with the accent; the error strip is a square-shouldered bar with an accent spine rather than a rounded red pill.
+
+**The eyebrow carries information now.** It was a second copy of "OKR Workspace" — which the hero already shows, on every viewport. It now prints the host you are signing in to (`okr.…`), read after mount, since the server cannot know it and guessing is a hydration mismatch. The line holds its height so the card does not reflow on hydration.
+
+**Verification** — `tsc --noEmit` clean; `npm run build` exits 0; security 20/20; and every state rendered and inspected in a browser at 3× — rest, focused, filled, rejected credentials, empty-submit validation — plus the full page at 1512 and 390 px.
+
+Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+
+## 2026-09-18 — Sign-in: house signature, an app icon, and no registration link
+
+Three small passes on the screen shipped earlier today.
+
+**The registration link is gone.** "Don't have an account? Create one" is removed from `SignInForm`. Accounts are created by an admin, so the link invited a dead end. `/auth/signup` and `POST /api/auth/register` still exist and are still reachable by direct URL — this removes the entrance, not the door; closing the route is a separate decision.
+
+**The house signature.** New `CompanySignature` component: 360Ground™ and Eldix IT Technology PLC set as a single typographic lockup rather than fine print — display weight and trademark on the first name, letterspaced caps at a smaller size on the second, opened by a hairline rule. It closes the editorial column on `lg` and up, and rides centred in the footer below that, where the hero column is hidden. The two names are typeset, not logo files: `public/branding/*.png` are near-black on transparent and would need inverting to survive a photograph. Fits one line at 360px and wraps cleanly if it ever does not.
+
+**An app icon, finally.** The app had none — every page load 404'd on `/favicon.ico`. `app/icon.svg` is a target mark (one ring and a centre, sized to still read at 16px where a three-ring Lucide icon turns to mush) on the accent-to-CTA-purple gradient, with the hexes converted from the oklch tokens in `globals.css` and noted in the file, since no stylesheet reaches a standalone image. `app/favicon.ico` carries 16/32/48 PNG entries for the legacy request, and `app/apple-icon.png` is the full-bleed 180px tile (iOS masks its own corners). Next's file conventions inject all three link tags.
+
+**Verification** — `tsc --noEmit` clean; rendered at 1512, 390 and 360 px; `/favicon.ico`, `/icon.svg` and `/apple-icon.png` all 200 with the expected `<link>` tags in the served HTML; the icon inspected at 16px and 64px; and the only links left on the sign-in page are "Forgot password?" and the photo credit.
+
+Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+
 ## 2026-09-18 — Close out the design refresh: card references, soft archive, and the last progress bars
 
 Clears the remaining backlog from `docs/design_refresh_IMPLEMENTATION_STRATEGY.md`.

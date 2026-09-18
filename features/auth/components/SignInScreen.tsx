@@ -2,6 +2,7 @@
 
 import { Compass } from 'lucide-react'
 import AuthBackdrop from './AuthBackdrop'
+import CompanySignature from './CompanySignature'
 import AuthHero from './AuthHero'
 import SignInForm from './SignInForm'
 
@@ -34,7 +35,9 @@ export default function SignInScreen() {
           </div>
         </div>
 
-        <p className="mt-10 text-center text-[11.5px] text-white/60 [text-shadow:0_1px_2px_oklch(0.1_0.02_258/0.6)] lg:text-left">
+        <CompanySignature align="center" className="ap-auth-rise mt-12 lg:hidden" />
+
+        <p className="mt-8 text-center text-[11.5px] text-white/60 [text-shadow:0_1px_2px_oklch(0.1_0.02_258/0.6)] lg:mt-10 lg:text-left">
           Trouble signing in? Ask your workspace admin to reset your access.
         </p>
       </div>

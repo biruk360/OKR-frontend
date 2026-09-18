@@ -5,6 +5,7 @@
 
 export { default as AuthBackdrop } from './components/AuthBackdrop'
 export { default as AuthHero } from './components/AuthHero'
+export { default as CompanySignature } from './components/CompanySignature'
 export { default as SignInForm } from './components/SignInForm'
 export { default as SignInScreen } from './components/SignInScreen'
 

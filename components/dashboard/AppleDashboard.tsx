@@ -16,6 +16,7 @@ import type { OkrTreeObjective } from './UserOkrTree'
 import type { NeedsAttentionItem } from './NeedsAttention'
 import type { ActivityFeedItem } from './TeamActivityFeed'
 import { cn } from '@/lib/utils'
+import { Progress } from '@/components/ui/progress'
 
 /* ────────────────────────────────────────────────────────────────────────────
  * Reused AP primitives (ported from ObjectiveHero)
@@ -344,9 +345,7 @@ function MyOkrsCard({ objectives }: { objectives: OkrTreeObjective[] }) {
                   <span className="text-[12px] font-mono tabular-nums text-muted-foreground w-10 text-right">
                     {Math.round(r.krProgress)}%
                   </span>
-                  <div className="hidden sm:block h-1.5 w-20 rounded-full overflow-hidden" style={{ background: 'var(--ap-kr-bar-bg)' }}>
-                    <div className="h-full rounded-full" style={{ width: `${Math.min(r.krProgress, 100)}%`, background: color }} />
-                  </div>
+                  <Progress className="hidden w-20 sm:block" value={Math.min(r.krProgress, 100)} fill={color} aria-label="Key result progress" />
                   <ChevronRight className="size-3.5 text-muted-foreground shrink-0" />
                 </Link>
               </li>

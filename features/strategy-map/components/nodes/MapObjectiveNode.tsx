@@ -2,6 +2,7 @@
 
 import { Handle, Position } from 'reactflow'
 import { Target } from 'lucide-react'
+import { Progress } from '@/components/ui/progress'
 
 interface Data {
   title: string
@@ -37,9 +38,7 @@ export function MapObjectiveNode({ data }: { data: Data }) {
       </div>
       <p className="line-clamp-2 text-[12px] font-medium leading-snug text-gray-900">{data.title}</p>
       <div className="mt-1.5 flex items-center gap-1.5">
-        <div className="h-1 flex-1 overflow-hidden rounded-full bg-gray-200">
-          <div className="h-full rounded-full" style={{ width: `${data.progress}%`, background: tone }} />
-        </div>
+        <Progress className="flex-1" height={4} value={data.progress} fill={tone} aria-label="Objective progress" />
         <span className="text-[10px] font-semibold tabular-nums text-gray-600">{data.progress}%</span>
       </div>
       <Handle type="source" position={Position.Bottom} style={{ opacity: 0 }} />

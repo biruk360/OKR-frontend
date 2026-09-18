@@ -22,9 +22,9 @@ model User {
   password               String?
   avatar                 String?
   role                   String    @default("EMPLOYEE") // ADMIN, EXECUTIVE, DEPARTMENT_LEAD, EMPLOYEE
-  designation            String?   // Job title / position, e.g. "CEO", "Sales Engineer"
-  nameAmharic            String?   // Full name in Amharic — used on Amharic letterhead
-  designationAmharic     String?   // Job title in Amharic — used on Amharic letterhead
+  designation            String? // Job title / position, e.g. "CEO", "Sales Engineer"
+  nameAmharic            String? // Full name in Amharic — used on Amharic letterhead
+  designationAmharic     String? // Job title in Amharic — used on Amharic letterhead
   isActive               Boolean   @default(true)
   isProjectManager       Boolean   @default(false)
   activationToken        String?
@@ -34,64 +34,64 @@ model User {
   updatedAt              DateTime  @updatedAt
 
   // Relationships
-  ownedObjectives             Objective[]              @relation("ObjectiveOwner")
-  ownedKeyResults             KeyResult[]              @relation("KeyResultOwner")
-  objectivesClosed            Objective[]              @relation("ObjectiveClosedBy")
-  keyResultsClosed            KeyResult[]              @relation("KeyResultClosedBy")
-  assignedTodos               Todo[]                   @relation("TodoAssignee")
-  createdTodos                Todo[]                   @relation("TodoCreator")
-  keyResultCheckIns           KeyResultCheckIn[]
-  comments                    Comment[]
-  notifications               Notification[]
-  departmentMemberships       DepartmentMembership[]
-  managerRelationships        ManagerRelationship[]    @relation("Manager")
-  directReports               ManagerRelationship[]    @relation("DirectReport")
-  clientErrorLogs             ClientErrorLog[]
-  activityLogs                ActivityLog[]
-  objectiveViews              ObjectiveView[]
-  keyResultViews              KeyResultView[]
-  objectiveContributions      ObjectiveContributor[]
-  ownedSprints                Sprint[]                 @relation("SprintOwner")
-  emailDigestSent             EmailDigestState?
-  initiativeUpdates           InitiativeUpdate[]       @relation("InitiativeUpdateAuthor")
-  userPreferences             UserPreference?
-  notificationPrefs           NotificationPreference[]
-  watchers                    Watcher[]
-  favorites                   Favorite[]
-  todoMembers                 TodoMember[]             @relation("TodoMemberUser")
-  todoChecklistItems          TodoChecklistItem[]      @relation("TodoChecklistItemAssignee")
-  todoAttachments             TodoAttachment[]         @relation("TodoAttachmentUploader")
-  todoComments                TodoComment[]            @relation("TodoCommentAuthor")
-  reportedRisks               Risk[]                   @relation("RiskReporter")
-  sprintParticipations        SprintParticipant[]      @relation("SprintParticipantUser")
-  sprintsEnded                Sprint[]                 @relation("SprintEndedBy")
-  sprintSummariesReopened     SprintCompletionSummary[] @relation("SprintSummaryReopenedBy")
-  ceoOf                       OrganizationSettings?    @relation("OrgSettingsCeo")
+  ownedObjectives                 Objective[]                    @relation("ObjectiveOwner")
+  ownedKeyResults                 KeyResult[]                    @relation("KeyResultOwner")
+  objectivesClosed                Objective[]                    @relation("ObjectiveClosedBy")
+  keyResultsClosed                KeyResult[]                    @relation("KeyResultClosedBy")
+  assignedTodos                   Todo[]                         @relation("TodoAssignee")
+  createdTodos                    Todo[]                         @relation("TodoCreator")
+  keyResultCheckIns               KeyResultCheckIn[]
+  comments                        Comment[]
+  notifications                   Notification[]
+  departmentMemberships           DepartmentMembership[]
+  managerRelationships            ManagerRelationship[]          @relation("Manager")
+  directReports                   ManagerRelationship[]          @relation("DirectReport")
+  clientErrorLogs                 ClientErrorLog[]
+  activityLogs                    ActivityLog[]
+  objectiveViews                  ObjectiveView[]
+  keyResultViews                  KeyResultView[]
+  objectiveContributions          ObjectiveContributor[]
+  ownedSprints                    Sprint[]                       @relation("SprintOwner")
+  emailDigestSent                 EmailDigestState?
+  initiativeUpdates               InitiativeUpdate[]             @relation("InitiativeUpdateAuthor")
+  userPreferences                 UserPreference?
+  notificationPrefs               NotificationPreference[]
+  watchers                        Watcher[]
+  favorites                       Favorite[]
+  todoMembers                     TodoMember[]                   @relation("TodoMemberUser")
+  todoChecklistItems              TodoChecklistItem[]            @relation("TodoChecklistItemAssignee")
+  todoAttachments                 TodoAttachment[]               @relation("TodoAttachmentUploader")
+  todoComments                    TodoComment[]                  @relation("TodoCommentAuthor")
+  reportedRisks                   Risk[]                         @relation("RiskReporter")
+  sprintParticipations            SprintParticipant[]            @relation("SprintParticipantUser")
+  sprintsEnded                    Sprint[]                       @relation("SprintEndedBy")
+  sprintSummariesReopened         SprintCompletionSummary[]      @relation("SprintSummaryReopenedBy")
+  ceoOf                           OrganizationSettings?          @relation("OrgSettingsCeo")
   // Daily Trip Plan back-relations (see prisma/schema.prisma DTP block at the bottom).
-  dtpRequestedPlans           DailyTripPlan[]          @relation("DtpRequester")
-  dtpDecidedPlans             DailyTripPlan[]          @relation("DtpDecidedBy")
-  dtpEvents                   DtpEvent[]               @relation("DtpEventActor")
-  driverProfile               Driver?                  @relation("DriverUser")
+  dtpRequestedPlans               DailyTripPlan[]                @relation("DtpRequester")
+  dtpDecidedPlans                 DailyTripPlan[]                @relation("DtpDecidedBy")
+  dtpEvents                       DtpEvent[]                     @relation("DtpEventActor")
+  driverProfile                   Driver?                        @relation("DriverUser")
   // Letter Management back-relations.
-  preparedLetters             Letter[]                 @relation("LetterPreparedBy")
-  signatoryLetters            Letter[]                 @relation("LetterSignatory")
-  uploadedEnclosures          LetterEnclosure[]        @relation("LetterEnclosureUploader")
-  createdLetterTypes          LetterTypeDef[]          @relation("LetterTypeCreator")
-  letterRolePermissionsSet    LetterRolePermission[]   @relation("LetterRolePermissionUpdater")
-  letterUserPermissions       LetterUserPermission[]   @relation("LetterUserPermissionTarget")
-  letterUserPermissionsSet    LetterUserPermission[]   @relation("LetterUserPermissionUpdater")
-  userRoles              UserRole[]         @relation("UserRoles")
-  userRoleProfiles       UserRoleProfile[]  @relation("UserRoleProfiles")
-  permissionOverrides    UserPermissionOverride[] @relation("UserPermissionOverrides")
-  performanceTemplateAssignments EmployeeTemplateAssignment[] @relation("PerformanceTemplateEmployee")
-  performanceMetricMappings      MetricSourceMapping[]         @relation("PerformanceMetricEmployee")
-  performanceEvaluations         Evaluation[]                  @relation("PerformanceEvaluationEmployee")
-  performanceEvaluatorAssignments EvaluatorAssignment[]        @relation("PerformanceEvaluator")
-  performanceEvaluatorScores      EvaluatorScore[]             @relation("PerformanceScoreEvaluator")
-  performanceImprovementFocuses   ImprovementFocus[]           @relation("PerformanceFocusEmployee")
+  preparedLetters                 Letter[]                       @relation("LetterPreparedBy")
+  signatoryLetters                Letter[]                       @relation("LetterSignatory")
+  uploadedEnclosures              LetterEnclosure[]              @relation("LetterEnclosureUploader")
+  createdLetterTypes              LetterTypeDef[]                @relation("LetterTypeCreator")
+  letterRolePermissionsSet        LetterRolePermission[]         @relation("LetterRolePermissionUpdater")
+  letterUserPermissions           LetterUserPermission[]         @relation("LetterUserPermissionTarget")
+  letterUserPermissionsSet        LetterUserPermission[]         @relation("LetterUserPermissionUpdater")
+  userRoles                       UserRole[]                     @relation("UserRoles")
+  userRoleProfiles                UserRoleProfile[]              @relation("UserRoleProfiles")
+  permissionOverrides             UserPermissionOverride[]       @relation("UserPermissionOverrides")
+  performanceTemplateAssignments  EmployeeTemplateAssignment[]   @relation("PerformanceTemplateEmployee")
+  performanceMetricMappings       MetricSourceMapping[]          @relation("PerformanceMetricEmployee")
+  performanceEvaluations          Evaluation[]                   @relation("PerformanceEvaluationEmployee")
+  performanceEvaluatorAssignments EvaluatorAssignment[]          @relation("PerformanceEvaluator")
+  performanceEvaluatorScores      EvaluatorScore[]               @relation("PerformanceScoreEvaluator")
+  performanceImprovementFocuses   ImprovementFocus[]             @relation("PerformanceFocusEmployee")
   performanceManualMetricActuals  EvaluationMetricManualActual[] @relation("PerformanceManualActualEnteredBy")
-  ownedAutomations                Automation[]                  @relation("AutomationOwner")
-  automationBriefingDeliveries    AutomationBriefingRecipient[] @relation("AutomationBriefingRecipientUser")
+  ownedAutomations                Automation[]                   @relation("AutomationOwner")
+  automationBriefingDeliveries    AutomationBriefingRecipient[]  @relation("AutomationBriefingRecipientUser")
 
   @@map("users")
 }
@@ -114,12 +114,12 @@ model Favorite {
 
 /// Stores per-user UI preferences (sidebar vs modal for todo view, etc).
 model UserPreference {
-  userId       String   @id
-  todoViewMode String   @default("modal") // "modal" | "sidebar"
+  userId         String   @id
+  todoViewMode   String   @default("modal") // "modal" | "sidebar"
   /// Draw textures over label/cover colours so hue is never the only signal.
-  colorBlindMode Boolean @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  colorBlindMode Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -135,12 +135,12 @@ model Department {
   updatedAt   DateTime @updatedAt
 
   // Relationships
-  memberships DepartmentMembership[]
-  objectives  Objective[]
-  sprints     Sprint[]
-  parentId    String?
-  parent      Department?  @relation("DeptChildren", fields: [parentId], references: [id])
-  children    Department[] @relation("DeptChildren")
+  memberships                 DepartmentMembership[]
+  objectives                  Objective[]
+  sprints                     Sprint[]
+  parentId                    String?
+  parent                      Department?             @relation("DeptChildren", fields: [parentId], references: [id])
+  children                    Department[]            @relation("DeptChildren")
   performanceTemplateMappings TemplateRoleMapping[]
   performanceCycleScopes      ReviewCycleDepartment[]
 
@@ -191,26 +191,26 @@ model ManagerRelationship {
 /// Singleton row (id = "singleton") holding company-wide settings:
 /// the CEO designation and feature flags for org structure.
 model OrganizationSettings {
-  id                      String   @id @default("singleton")
-  companyName             String   @default("My Company")
-  companyCeoUserId        String?  @unique
-  allowMatrixReporting    Boolean  @default(false)
-  allowMultipleDeptHeads  Boolean  @default(false)
+  id                       String   @id @default("singleton")
+  companyName              String   @default("My Company")
+  companyCeoUserId         String?  @unique
+  allowMatrixReporting     Boolean  @default(false)
+  allowMultipleDeptHeads   Boolean  @default(false)
   /// Master switch for the AI Sprint Planning feature (see docs/AI_SPRINT_PLANNING.md).
   /// When false, /api/sprints/ai/* routes return 404 and the "AI Plan" button is hidden.
-  aiSprintPlanningEnabled Boolean  @default(false)
+  aiSprintPlanningEnabled  Boolean  @default(false)
   /// Independent master switch for AI-assisted project creation.
   /// Future /api/projects/creation-* AI routes must refuse while false.
-  aiProjectCreationEnabled Boolean @default(false)
+  aiProjectCreationEnabled Boolean  @default(false)
   /// Default AI provider when a /generate call doesn't specify one.
   /// One of "anthropic" | "openai" | "gemini".
-  aiPreferredProvider     String   @default("anthropic")
+  aiPreferredProvider      String   @default("anthropic")
   /// Server-allowlisted OpenAI model used by Project Creation AI.
-  aiProjectCreationModel  String?
+  aiProjectCreationModel   String?
   /// OKR period-close reopen window for non-admin users (days after close). Default 14.
-  okrReopenWindowDays     Int      @default(14)
-  createdAt               DateTime @default(now())
-  updatedAt               DateTime @updatedAt
+  okrReopenWindowDays      Int      @default(14)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
 
   ceo User? @relation("OrgSettingsCeo", fields: [companyCeoUserId], references: [id], onDelete: SetNull)
 
@@ -234,80 +234,80 @@ model Timeframe {
 }
 
 model Objective {
-  id                String    @id @default(cuid())
-  title             String
-  description       String?
-  level             String // COMPANY, DEPARTMENT, INDIVIDUAL
-  status            String    @default("ACTIVE") // ACTIVE, ARCHIVED, DELETED
-  goalStatus        String    @default("ON_TRACK") // ON_TRACK, AT_RISK, OFF_TRACK, CLOSED
-  progress          Float     @default(0) // Calculated from Key Results
+  id                 String    @id @default(cuid())
+  title              String
+  description        String?
+  level              String // COMPANY, DEPARTMENT, INDIVIDUAL
+  status             String    @default("ACTIVE") // ACTIVE, ARCHIVED, DELETED
+  goalStatus         String    @default("ON_TRACK") // ON_TRACK, AT_RISK, OFF_TRACK, CLOSED
+  progress           Float     @default(0) // Calculated from Key Results
   // Owner-reported objective-level confidence (0-100). Read by Apple Pro hero/right-rail.
   // NOTE: requires `prisma db push` on deploy — preflight.sql already runs in CI.
-  confidence        Int       @default(50)
-  isPrivate         Boolean   @default(false) // Visibility: false = Public, true = Private
-  startDate         DateTime?
-  endDate           DateTime?
-  ownerId           String
-  timeframeId       String
-  departmentId      String?
-  parentObjectiveId String?
-  closedById        String?
+  confidence         Int       @default(50)
+  isPrivate          Boolean   @default(false) // Visibility: false = Public, true = Private
+  startDate          DateTime?
+  endDate            DateTime?
+  ownerId            String
+  timeframeId        String
+  departmentId       String?
+  parentObjectiveId  String?
+  closedById         String?
   /// ─── Period-close lifecycle (see docs/okr_period_close_and_rollover_requirements.md) ───
   /// Authoritative close state: OPEN | CLOSING | CLOSED. `isLocked` mirrors CLOSED.
-  closureStatus     String    @default("OPEN")
-  closedAt          DateTime?
+  closureStatus      String    @default("OPEN")
+  closedAt           DateTime?
   /// ACHIEVED | PARTIAL | MISSED | ABANDONED
-  outcome           String?
-  finalGrade        Float?    // 0.0–1.0 (Google scale)
-  finalProgress     Float?    // frozen computed progress at close
-  gradeDelta        Float?    // finalGrade − finalProgress/100
-  finalConfidence   String?   // ON_TRACK | AT_RISK | OFF_TRACK at close
-  initialConfidence String?   // at first check-in
-  preCloseGoalStatus String?  // restore on reopen
-  closureNote       String?   // ≤500 chars
-  isLocked          Boolean   @default(false)
-  lockedAt          DateTime?
-  reopenCount       Int       @default(0)
-  lastReopenedAt    DateTime?
-  lastReopenedById  String?
+  outcome            String?
+  finalGrade         Float? // 0.0–1.0 (Google scale)
+  finalProgress      Float? // frozen computed progress at close
+  gradeDelta         Float? // finalGrade − finalProgress/100
+  finalConfidence    String? // ON_TRACK | AT_RISK | OFF_TRACK at close
+  initialConfidence  String? // at first check-in
+  preCloseGoalStatus String? // restore on reopen
+  closureNote        String? // ≤500 chars
+  isLocked           Boolean   @default(false)
+  lockedAt           DateTime?
+  reopenCount        Int       @default(0)
+  lastReopenedAt     DateTime?
+  lastReopenedById   String?
   /// ─── Lineage / roll-forward ───
-  rolledFromId      String?
-  lineageRootId     String?   // the original (period 1)
-  lineageDepth      Int       @default(0)
+  rolledFromId       String?
+  lineageRootId      String? // the original (period 1)
+  lineageDepth       Int       @default(0)
   /// LOOSE = visual alignment only; STRICT_DEPENDENCY = progress can roll up from active child objectives
-  alignmentType     String    @default("LOOSE")
+  alignmentType      String    @default("LOOSE")
   /// NONE | AVERAGE | SUM — used only when alignmentType is STRICT_DEPENDENCY and there are active children
-  rollupCalculation String    @default("NONE")
+  rollupCalculation  String    @default("NONE")
   /// Mandatory check-in cadence: WEEKLY | BIWEEKLY | MONTHLY | QUARTERLY
-  checkInCadence    String    @default("WEEKLY")
+  checkInCadence     String    @default("WEEKLY")
   /// Raw weight used when this objective contributes to a parent's progress.
   /// 0 = treated as auto (equal split with siblings whose weight is also 0).
   /// Otherwise, the relative weight among siblings determines contribution %.
-  weight            Float     @default(0)
-  archivedAt        DateTime?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  weight             Float     @default(0)
+  archivedAt         DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   // Relationships
-  owner            User                   @relation("ObjectiveOwner", fields: [ownerId], references: [id])
-  timeframe        Timeframe              @relation(fields: [timeframeId], references: [id])
-  department       Department?            @relation(fields: [departmentId], references: [id])
-  parentObjective  Objective?             @relation("ObjectiveHierarchy", fields: [parentObjectiveId], references: [id])
-  childObjectives  Objective[]            @relation("ObjectiveHierarchy")
-  closedBy         User?                  @relation("ObjectiveClosedBy", fields: [closedById], references: [id])
-  rolledFrom       Objective?             @relation("ObjectiveLineage", fields: [rolledFromId], references: [id])
-  rolledTo         Objective[]            @relation("ObjectiveLineage")
-  retrospective    OkrRetrospective?      @relation("ObjectiveRetro")
-  keyResults       KeyResult[]
-  comments         Comment[]
-  objectiveLabels  ObjectiveLabel[]
-  activityLogs     ActivityLog[]
-  views            ObjectiveView[]
-  todos            Todo[]                 @relation("TodoObjective")
-  contributors     ObjectiveContributor[]
-  risks            Risk[]
-  projects         Project[] // Project Management module — projects linked to this objective (K1)
-  scrumLinks       ScrumUpdateLink[]
+  owner           User                   @relation("ObjectiveOwner", fields: [ownerId], references: [id])
+  timeframe       Timeframe              @relation(fields: [timeframeId], references: [id])
+  department      Department?            @relation(fields: [departmentId], references: [id])
+  parentObjective Objective?             @relation("ObjectiveHierarchy", fields: [parentObjectiveId], references: [id])
+  childObjectives Objective[]            @relation("ObjectiveHierarchy")
+  closedBy        User?                  @relation("ObjectiveClosedBy", fields: [closedById], references: [id])
+  rolledFrom      Objective?             @relation("ObjectiveLineage", fields: [rolledFromId], references: [id])
+  rolledTo        Objective[]            @relation("ObjectiveLineage")
+  retrospective   OkrRetrospective?      @relation("ObjectiveRetro")
+  keyResults      KeyResult[]
+  comments        Comment[]
+  objectiveLabels ObjectiveLabel[]
+  activityLogs    ActivityLog[]
+  views           ObjectiveView[]
+  todos           Todo[]                 @relation("TodoObjective")
+  contributors    ObjectiveContributor[]
+  risks           Risk[]
+  projects        Project[] // Project Management module — projects linked to this objective (K1)
+  scrumLinks      ScrumUpdateLink[]
 
   @@index([departmentId])
   @@index([ownerId])
@@ -334,69 +334,69 @@ model ObjectiveContributor {
 }
 
 model KeyResult {
-  id             String    @id @default(cuid())
-  title          String
-  description    String?
-  startValue     Float     @default(0)
-  targetValue    Float
-  currentValue   Float     @default(0)
-  unit           String // e.g., "%", "users", "$"
-  confidence     String    @default("ON_TRACK") // ON_TRACK, AT_RISK, OFF_TRACK
-  progress       Float     @default(0) // Calculated from currentValue/targetValue
-  status         String    @default("ACTIVE") // ACTIVE, ARCHIVED, DELETED
-  isPrivate      Boolean   @default(false) // Visibility: false = Public, true = Private
-  ownerId        String
-  objectiveId    String
-  closedById     String?
+  id                 String    @id @default(cuid())
+  title              String
+  description        String?
+  startValue         Float     @default(0)
+  targetValue        Float
+  currentValue       Float     @default(0)
+  unit               String // e.g., "%", "users", "$"
+  confidence         String    @default("ON_TRACK") // ON_TRACK, AT_RISK, OFF_TRACK
+  progress           Float     @default(0) // Calculated from currentValue/targetValue
+  status             String    @default("ACTIVE") // ACTIVE, ARCHIVED, DELETED
+  isPrivate          Boolean   @default(false) // Visibility: false = Public, true = Private
+  ownerId            String
+  objectiveId        String
+  closedById         String?
   /// ─── Period-close lifecycle ───
-  closureStatus     String    @default("OPEN") // OPEN | CLOSING | CLOSED
-  closedAt          DateTime?
-  outcome           String?   // ACHIEVED | PARTIAL | MISSED | ABANDONED
-  finalGrade        Float?    // 0.0–1.0
-  finalValue        Float?    // frozen currentValue at close
-  finalProgress     Float?    // frozen computed progress at close
-  gradeDelta        Float?
-  finalConfidence   String?
-  initialConfidence String?
-  preCloseConfidence String?  // restore on reopen
-  closureNote       String?
-  isLocked          Boolean   @default(false)
-  lockedAt          DateTime?
-  reopenCount       Int       @default(0)
-  lastReopenedAt    DateTime?
-  lastReopenedById  String?
+  closureStatus      String    @default("OPEN") // OPEN | CLOSING | CLOSED
+  closedAt           DateTime?
+  outcome            String? // ACHIEVED | PARTIAL | MISSED | ABANDONED
+  finalGrade         Float? // 0.0–1.0
+  finalValue         Float? // frozen currentValue at close
+  finalProgress      Float? // frozen computed progress at close
+  gradeDelta         Float?
+  finalConfidence    String?
+  initialConfidence  String?
+  preCloseConfidence String? // restore on reopen
+  closureNote        String?
+  isLocked           Boolean   @default(false)
+  lockedAt           DateTime?
+  reopenCount        Int       @default(0)
+  lastReopenedAt     DateTime?
+  lastReopenedById   String?
   /// ─── Lineage / roll-forward ───
-  rolledFromId      String?
-  lineageRootId     String?
-  lineageDepth      Int       @default(0)
+  rolledFromId       String?
+  lineageRootId      String?
+  lineageDepth       Int       @default(0)
   /// ⭐ Previous period's finalValue; becomes this KR's startValue when cloned forward.
-  carriedStartValue Float?
+  carriedStartValue  Float?
   /// Mandatory check-in cadence: WEEKLY | BIWEEKLY | MONTHLY | QUARTERLY
-  checkInCadence String    @default("WEEKLY")
+  checkInCadence     String    @default("WEEKLY")
   /// Raw weight used when this KR contributes to its parent objective's progress.
   /// 0 = treated as auto (equal split with siblings whose weight is also 0).
-  weight         Float     @default(0)
-  archivedAt     DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  weight             Float     @default(0)
+  archivedAt         DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   // Relationships
-  owner            User               @relation("KeyResultOwner", fields: [ownerId], references: [id])
-  objective        Objective          @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
-  closedBy         User?              @relation("KeyResultClosedBy", fields: [closedById], references: [id])
-  todos            Todo[] // Renamed conceptually to "Initiative" in the UI; table is `initiatives`
-  comments         Comment[]
-  checkIns         KeyResultCheckIn[]
-  activityLogs     ActivityLog[]
-  views            KeyResultView[]
-  risks            Risk[]
+  owner                     User                     @relation("KeyResultOwner", fields: [ownerId], references: [id])
+  objective                 Objective                @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
+  closedBy                  User?                    @relation("KeyResultClosedBy", fields: [closedById], references: [id])
+  todos                     Todo[] // Renamed conceptually to "Initiative" in the UI; table is `initiatives`
+  comments                  Comment[]
+  checkIns                  KeyResultCheckIn[]
+  activityLogs              ActivityLog[]
+  views                     KeyResultView[]
+  risks                     Risk[]
   performanceMetricMappings MetricSourceMapping[]
   performanceMetricSources  EvaluationMetricSource[]
-  milestones       Milestone[] // Project Management module — milestones driving this KR (K1)
-  scrumLinks       ScrumUpdateLink[]
-  rolledFrom       KeyResult?         @relation("KeyResultLineage", fields: [rolledFromId], references: [id])
-  rolledTo         KeyResult[]        @relation("KeyResultLineage")
-  retrospective    OkrRetrospective?  @relation("KeyResultRetro")
+  milestones                Milestone[] // Project Management module — milestones driving this KR (K1)
+  scrumLinks                ScrumUpdateLink[]
+  rolledFrom                KeyResult?               @relation("KeyResultLineage", fields: [rolledFromId], references: [id])
+  rolledTo                  KeyResult[]              @relation("KeyResultLineage")
+  retrospective             OkrRetrospective?        @relation("KeyResultRetro")
 
   @@index([closureStatus])
   @@index([rolledFromId])
@@ -411,11 +411,11 @@ model OkrRetrospective {
   id                String   @id @default(cuid())
   objectiveId       String?  @unique
   keyResultId       String?  @unique
-  entityType        String   // OBJECTIVE | KEY_RESULT
-  whatWasAchieved   String   // rich text (TipTap HTML) — REQUIRED
+  entityType        String // OBJECTIVE | KEY_RESULT
+  whatWasAchieved   String // rich text (TipTap HTML) — REQUIRED
   whatWentWell      String?
   whatBlockedUs     String?
-  whatWeLearned     String   // REQUIRED — the point of closing
+  whatWeLearned     String // REQUIRED — the point of closing
   /// NONE|UNCLEAR_GOAL|INSUFFICIENT_RESOURCE|EXTERNAL_DEPENDENCY|SHIFTING_PRIORITY|
   /// TECHNICAL|CAPACITY|POOR_ESTIMATION|CLIENT_DELAY|SCOPE_CREEP|OTHER
   primaryBlocker    String?
@@ -423,14 +423,14 @@ model OkrRetrospective {
   wasAmbitious      Boolean?
   /// ROLL_FORWARD|ROLL_FORWARD_MODIFIED|ABANDON|COMPLETE_NO_ROLLOVER|SPLIT
   recommendedAction String
-  gradeRationale    String?  // filled when human grade diverges >0.15 from computed progress
-  autoStatsJson     Json     // evidence snapshot frozen at close (see spec §6.2)
+  gradeRationale    String? // filled when human grade diverges >0.15 from computed progress
+  autoStatsJson     Json // evidence snapshot frozen at close (see spec §6.2)
   authorId          String
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  objective         Objective? @relation("ObjectiveRetro", fields: [objectiveId], references: [id], onDelete: Cascade)
-  keyResult         KeyResult? @relation("KeyResultRetro", fields: [keyResultId], references: [id], onDelete: Cascade)
+  objective Objective? @relation("ObjectiveRetro", fields: [objectiveId], references: [id], onDelete: Cascade)
+  keyResult KeyResult? @relation("KeyResultRetro", fields: [keyResultId], references: [id], onDelete: Cascade)
 
   @@index([entityType])
   @@map("okr_retrospectives")
@@ -440,9 +440,9 @@ model OkrRetrospective {
 /// onto Objective/KeyResult.reopenCount for the permanent "scar" display.
 model OkrReopenLog {
   id           String    @id @default(cuid())
-  entityType   String    // OBJECTIVE | KEY_RESULT
+  entityType   String // OBJECTIVE | KEY_RESULT
   entityId     String
-  reason       String    // REQUIRED, min 20 chars (validated server-side)
+  reason       String // REQUIRED, min 20 chars (validated server-side)
   reopenedById String
   reopenedAt   DateTime  @default(now())
   reclosedAt   DateTime?
@@ -481,6 +481,11 @@ model KeyResultCheckIn {
 /// "To-do" on the dedicated page and "Initiative" when shown under a KR.
 model Todo {
   id                    String    @id @default(cuid())
+  /// Short, stable, human-quotable reference shown on the card as "#482".
+  /// A plain sequence rather than a prefixed code: a prefix would have to be
+  /// frozen at creation (a card that later moves sprints would keep the wrong
+  /// letters) and its meaning is not something the UI can infer.
+  cardNumber            Int       @unique @default(autoincrement())
   title                 String
   description           String?
   status                String    @default("PENDING") // PENDING, IN_PROGRESS, IN_REVIEW, STUCK, COMPLETED, CANCELLED
@@ -496,6 +501,9 @@ model Todo {
   startTime             String?
   endTime               String?
   completedAt           DateTime?
+  /// Soft archive. Non-null hides the card from the board and the to-dos list
+  /// while keeping it restorable; Delete remains the permanent option.
+  archivedAt            DateTime?
   /// Due-date reminder lead time: AT_TIME | M5 | H1 | D1 | D2. Null = no reminder.
   /// Delivered to card members + watchers by app/api/cron/todo-reminders.
   dueReminder           String?
@@ -550,11 +558,11 @@ model Todo {
   updatedAt             DateTime  @updatedAt
 
   // Relationships
-  assignee  User?      @relation("TodoAssignee", fields: [assigneeId], references: [id])
-  creator   User       @relation("TodoCreator", fields: [creatorId], references: [id])
-  keyResult KeyResult? @relation(fields: [keyResultId], references: [id], onDelete: Cascade)
-  objective Objective? @relation("TodoObjective", fields: [objectiveId], references: [id], onDelete: SetNull)
-  sprint    Sprint?    @relation(fields: [sprintId], references: [id], onDelete: SetNull)
+  assignee  User?         @relation("TodoAssignee", fields: [assigneeId], references: [id])
+  creator   User          @relation("TodoCreator", fields: [creatorId], references: [id])
+  keyResult KeyResult?    @relation(fields: [keyResultId], references: [id], onDelete: Cascade)
+  objective Objective?    @relation("TodoObjective", fields: [objectiveId], references: [id], onDelete: SetNull)
+  sprint    Sprint?       @relation(fields: [sprintId], references: [id], onDelete: SetNull)
   column    SprintColumn? @relation(fields: [columnId], references: [id], onDelete: SetNull)
 
   initiativeUpdates InitiativeUpdate[]
@@ -932,39 +940,39 @@ model ObjectiveLabel {
 /// "ARCHIVED", "UNARCHIVED", "DELETED", "CHECKIN", "VIEWED", "COMMENTED", "INITIATIVE_ADDED", ...).
 /// `changes` is a JSON string: `{ field: { from: any, to: any }, ... }`.
 model ActivityLog {
-  id          String   @id @default(cuid())
-  entityType  String // OBJECTIVE | KEY_RESULT | TODO | SPRINT | LETTER | EVALUATION | REVIEW_CYCLE | DEVELOPMENT_ACTION | PERFORMANCE_SETTINGS | USER | AI_CREDENTIAL | PROJECT_CREATION_DRAFT
-  objectiveId String?
-  keyResultId String?
-  todoId      String?
+  id           String   @id @default(cuid())
+  entityType   String // OBJECTIVE | KEY_RESULT | TODO | SPRINT | LETTER | EVALUATION | REVIEW_CYCLE | DEVELOPMENT_ACTION | PERFORMANCE_SETTINGS | USER | AI_CREDENTIAL | PROJECT_CREATION_DRAFT
+  objectiveId  String?
+  keyResultId  String?
+  todoId       String?
   /// Sprint v2 (Phase 1) — optional sprint association for sprint lifecycle events.
-  sprintId    String?
+  sprintId     String?
   /// Letter Management — optional letter association for letter lifecycle events.
-  letterId    String?
+  letterId     String?
   /// Performance module — optional evaluation association for evaluation, cycle,
   /// and development-action lifecycle events (cycle/action ids live in metadata).
   evaluationId String?
   /// Project Management module — optional project association for project, phase,
   /// milestone, activity, baseline, delay, and register lifecycle events
   /// (child entity ids live in metadata).
-  projectId   String?
-  action      String
-  actorId     String?
+  projectId    String?
+  action       String
+  actorId      String?
   /// JSONB on Postgres — `{ field: { from, to } }`. Was `String` (JSON-encoded) before
   /// the 2026-04-14 migration; existing rows were converted with `changes::jsonb`.
-  changes     Json?
+  changes      Json?
   /// JSONB on Postgres — extra context (e.g. ip, source page, snippet).
-  metadata    Json?
-  createdAt   DateTime @default(now())
+  metadata     Json?
+  createdAt    DateTime @default(now())
 
-  actor     User?      @relation(fields: [actorId], references: [id], onDelete: SetNull)
-  objective Objective? @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
-  keyResult KeyResult? @relation(fields: [keyResultId], references: [id], onDelete: Cascade)
-  todo      Todo?      @relation(fields: [todoId], references: [id], onDelete: Cascade)
-  sprint    Sprint?    @relation(fields: [sprintId], references: [id], onDelete: Cascade)
-  letter    Letter?    @relation(fields: [letterId], references: [id], onDelete: Cascade)
+  actor      User?       @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  objective  Objective?  @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
+  keyResult  KeyResult?  @relation(fields: [keyResultId], references: [id], onDelete: Cascade)
+  todo       Todo?       @relation(fields: [todoId], references: [id], onDelete: Cascade)
+  sprint     Sprint?     @relation(fields: [sprintId], references: [id], onDelete: Cascade)
+  letter     Letter?     @relation(fields: [letterId], references: [id], onDelete: Cascade)
   evaluation Evaluation? @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
-  project   Project?   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project    Project?    @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([objectiveId, createdAt])
   @@index([keyResultId, createdAt])
@@ -980,11 +988,11 @@ model ActivityLog {
 /// Persistent, creator-private workspace shared by every project-creation method.
 /// JSON fields remain provider-neutral; Story 1.2 adds their normalized schema.
 model ProjectCreationDraft {
-  id                 String   @id @default(cuid())
+  id                 String    @id @default(cuid())
   ownerUserId        String
-  sourceMethod       String   // MANUAL | FILE_IMPORT | AI_GUIDED | AI_TOR
-  status             String   @default("DRAFT") // DRAFT | PROCESSING | READY | COMMITTING | COMMITTED | FAILED | EXPIRED
-  version            Int      @default(1)
+  sourceMethod       String // MANUAL | FILE_IMPORT | AI_GUIDED | AI_TOR
+  status             String    @default("DRAFT") // DRAFT | PROCESSING | READY | COMMITTING | COMMITTED | FAILED | EXPIRED
+  version            Int       @default(1)
   projectJson        Json
   scheduleJson       Json?
   validationJson     Json?
@@ -997,8 +1005,8 @@ model ProjectCreationDraft {
   aiModelId          String?
   aiPromptVersion    String?
   committedProjectId String?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
   committedAt        DateTime?
   expiresAt          DateTime?
 
@@ -1069,14 +1077,14 @@ model Sprint {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  owner        User                @relation("SprintOwner", fields: [ownerId], references: [id])
-  columns      SprintColumn[]
-  department   Department?         @relation(fields: [departmentId], references: [id], onDelete: SetNull)
-  endedBy      User?               @relation("SprintEndedBy", fields: [endedById], references: [id], onDelete: SetNull)
-  participants SprintParticipant[]
-  todos        Todo[]
-  activityLogs ActivityLog[]
-  aiPlans      AiSprintPlan[]
+  owner             User                     @relation("SprintOwner", fields: [ownerId], references: [id])
+  columns           SprintColumn[]
+  department        Department?              @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  endedBy           User?                    @relation("SprintEndedBy", fields: [endedById], references: [id], onDelete: SetNull)
+  participants      SprintParticipant[]
+  todos             Todo[]
+  activityLogs      ActivityLog[]
+  aiPlans           AiSprintPlan[]
   completionSummary SprintCompletionSummary?
 
   @@index([ownerId, status])
@@ -1132,9 +1140,9 @@ model SprintParticipant {
 }
 
 model SprintColumn {
-  id        String   @id @default(cuid())
-  sprintId  String
-  name      String
+  id         String    @id @default(cuid())
+  sprintId   String
+  name       String
   /// Global TodoStatus this lane represents (PENDING, IN_PROGRESS, IN_REVIEW, STUCK, COMPLETED).
   /// Lane order on the board is driven by `position`.
   ///
@@ -1147,14 +1155,14 @@ model SprintColumn {
   /// Nullable at the DB level only so `prisma db push` cannot fail on legacy rows
   /// created before statusKey existed; the API requires it on every write and the
   /// preflight backfills any remaining nulls to PENDING.
-  statusKey String?
-  position  Int      @default(0)
-  color     String? // optional accent color for the column header
+  statusKey  String?
+  position   Int       @default(0)
+  color      String? // optional accent color for the column header
   /// Soft delete. Archiving keeps the row so cards that still reference it are
   /// never orphaned; the board only renders lanes where this is null.
   archivedAt DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   sprint Sprint @relation(fields: [sprintId], references: [id], onDelete: Cascade)
   todos  Todo[]
@@ -1732,41 +1740,41 @@ model TelegramBotConfig {
 /// Letter Management — formal business correspondence (Cover, Offer, Guarantee letters).
 /// See docs/letter_management_requirements.md.
 model Letter {
-  id                String    @id @default(cuid())
-  referenceNumber   String?   @unique // 360G/LT/{CL|OF|GR}/{SEQ}/{YEAR} — null while DRAFT pre-save
-  subject           String
+  id                    String    @id @default(cuid())
+  referenceNumber       String?   @unique // 360G/LT/{CL|OF|GR}/{SEQ}/{YEAR} — null while DRAFT pre-save
+  subject               String
   // Legacy single-string letter type (COVER/OFFER/GUARANTEE). Kept for
   // back-compat; the authoritative type for new letters is `letterTypeId`.
-  letterType        String
-  letterTypeId      String?
-  status            String    @default("DRAFT") // DRAFT | SUBMITTED | APPROVED | SENT | ARCHIVED
-  date              DateTime  @default(now())
+  letterType            String
+  letterTypeId          String?
+  status                String    @default("DRAFT") // DRAFT | SUBMITTED | APPROVED | SENT | ARCHIVED
+  date                  DateTime  @default(now())
   // Customer — Odoo lookup or free-text fallback.
-  odooPartnerId     String?
-  customerName      String
-  recipientAddress  String?
-  salutation        String?
-  closing           String?
-  senderDepartment  String?
-  bodyContent       String?   @db.Text
+  odooPartnerId         String?
+  customerName          String
+  recipientAddress      String?
+  salutation            String?
+  closing               String?
+  senderDepartment      String?
+  bodyContent           String?   @db.Text
   // The authoritative letter body as a .docx (OOXML) blob produced by SuperDoc.
   // `bodyContent` is kept as an HTML mirror (regenerated server-side via
   // mammoth.js) for placeholder resolution + PDF rendering, but once a letter
   // has been edited in SuperDoc the source of truth is `bodyDocx`.
-  bodyDocx          Bytes?
+  bodyDocx              Bytes?
   // Authors / signatory.
-  preparedById      String
-  signatoryId       String?
-  signatoryTitle    String?   // Job title shown below signatory name on the letter (English)
+  preparedById          String
+  signatoryId           String?
+  signatoryTitle        String? // Job title shown below signatory name on the letter (English)
   signatoryTitleAmharic String? // Job title in Amharic — used when lang=am
   // Dispatch (filled at Mark as Sent).
-  dispatchMethod    String? // EMAIL | PRINTED | COURIER
-  dispatchDate      DateTime?
-  trackingReference String?
+  dispatchMethod        String? // EMAIL | PRINTED | COURIER
+  dispatchDate          DateTime?
+  trackingReference     String?
   // Soft state.
-  archivedAt        DateTime?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  archivedAt            DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
   preparedBy    User              @relation("LetterPreparedBy", fields: [preparedById], references: [id])
   signatory     User?             @relation("LetterSignatory", fields: [signatoryId], references: [id], onDelete: SetNull)
@@ -1838,8 +1846,8 @@ model LetterTypeDef {
 /// Admins can edit rows at runtime via Settings > Letter Permissions.
 model LetterRolePermission {
   id          String   @id @default(cuid())
-  role        String   // ADMIN | EXECUTIVE | DEPARTMENT_LEAD | EMPLOYEE
-  permission  String   // LetterPermission value (e.g. "letter.read")
+  role        String // ADMIN | EXECUTIVE | DEPARTMENT_LEAD | EMPLOYEE
+  permission  String // LetterPermission value (e.g. "letter.read")
   granted     Boolean  @default(true)
   updatedById String?
   updatedAt   DateTime @updatedAt
@@ -1857,8 +1865,8 @@ model LetterRolePermission {
 model LetterUserPermission {
   id          String   @id @default(cuid())
   userId      String
-  permission  String   // LetterPermission value
-  granted     Boolean  // true = grant extra, false = revoke
+  permission  String // LetterPermission value
+  granted     Boolean // true = grant extra, false = revoke
   updatedById String?
   updatedAt   DateTime @updatedAt
 
@@ -1871,21 +1879,22 @@ model LetterUserPermission {
 }
 
 model Role {
-  id             String   @id @default(cuid())
-  name           String   @unique
-  key            String   @unique
-  description    String?
-  color          String?
-  isSystem       Boolean  @default(false)
-  hierarchyLevel Int?
-  createdById    String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                     String                       @id @default(cuid())
+  name                   String                       @unique
+  key                    String                       @unique
+  description            String?
+  color                  String?
+  isSystem               Boolean                      @default(false)
+  hierarchyLevel         Int?
+  createdById            String?
+  createdAt              DateTime                     @default(now())
+  updatedAt              DateTime                     @updatedAt
   userRoles              UserRole[]
   roleProfileMemberships RoleProfileMembership[]
   doctypePermissions     RoleDocTypePermission[]
   featurePermissions     FeaturePermission[]
   fieldPermissions       RoleDocTypeFieldPermission[]
+
   @@map("roles")
 }
 
@@ -1898,18 +1907,20 @@ model UserRole {
   expiresAt   DateTime?
   user        User      @relation("UserRoles", fields: [userId], references: [id], onDelete: Cascade)
   role        Role      @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
   @@unique([userId, roleId])
   @@map("user_roles")
 }
 
 model RoleProfile {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  description String?
-  createdById String?
-  createdAt   DateTime @default(now())
+  id           String                  @id @default(cuid())
+  name         String                  @unique
+  description  String?
+  createdById  String?
+  createdAt    DateTime                @default(now())
   memberships  RoleProfileMembership[]
   userProfiles UserRoleProfile[]
+
   @@map("role_profiles")
 }
 
@@ -1919,6 +1930,7 @@ model RoleProfileMembership {
   roleId    String
   profile   RoleProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
   role      Role        @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
   @@unique([profileId, roleId])
   @@map("role_profile_memberships")
 }
@@ -1931,60 +1943,64 @@ model UserRoleProfile {
   grantedAt   DateTime    @default(now())
   user        User        @relation("UserRoleProfiles", fields: [userId], references: [id], onDelete: Cascade)
   profile     RoleProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
   @@unique([userId, profileId])
   @@map("user_role_profiles")
 }
 
 model DocTypeRegistry {
-  key           String  @id
+  key           String                  @id
   displayName   String
   module        String
-  isSubmittable Boolean @default(false)
+  isSubmittable Boolean                 @default(false)
   description   String?
-  fields       DocTypeFieldRegistry[]
-  permissions  RoleDocTypePermission[]
-  scopeRules   RecordScopeRule[]
+  fields        DocTypeFieldRegistry[]
+  permissions   RoleDocTypePermission[]
+  scopeRules    RecordScopeRule[]
+
   @@map("doctype_registry")
 }
 
 model DocTypeFieldRegistry {
-  id           String  @id @default(cuid())
+  id           String          @id @default(cuid())
   doctypeKey   String
   fieldName    String
   displayLabel String
-  permLevel    Int     @default(0)
-  isSensitive  Boolean @default(false)
+  permLevel    Int             @default(0)
+  isSensitive  Boolean         @default(false)
   doctype      DocTypeRegistry @relation(fields: [doctypeKey], references: [key], onDelete: Cascade)
+
   @@unique([doctypeKey, fieldName])
   @@map("doctype_field_registry")
 }
 
 model RoleDocTypePermission {
-  id           String  @id @default(cuid())
+  id           String          @id @default(cuid())
   roleId       String
   doctypeKey   String
-  permLevel    Int     @default(0)
-  canRead      Boolean @default(false)
-  canWrite     Boolean @default(false)
-  canCreate    Boolean @default(false)
-  canDelete    Boolean @default(false)
-  canSubmit    Boolean @default(false)
-  canExport    Boolean @default(false)
-  canPrint     Boolean @default(false)
-  canShare     Boolean @default(false)
-  canImport    Boolean @default(false)
-  canReport    Boolean @default(false)
-  applyScoping Boolean @default(false)
+  permLevel    Int             @default(0)
+  canRead      Boolean         @default(false)
+  canWrite     Boolean         @default(false)
+  canCreate    Boolean         @default(false)
+  canDelete    Boolean         @default(false)
+  canSubmit    Boolean         @default(false)
+  canExport    Boolean         @default(false)
+  canPrint     Boolean         @default(false)
+  canShare     Boolean         @default(false)
+  canImport    Boolean         @default(false)
+  canReport    Boolean         @default(false)
+  applyScoping Boolean         @default(false)
   role         Role            @relation(fields: [roleId], references: [id], onDelete: Cascade)
   doctype      DocTypeRegistry @relation(fields: [doctypeKey], references: [key], onDelete: Cascade)
   updatedAt    DateTime        @updatedAt
   updatedById  String?
+
   @@unique([roleId, doctypeKey, permLevel])
   @@map("role_doctype_permissions")
 }
 
 model RecordScopeRule {
-  id          String   @id @default(cuid())
+  id          String          @id @default(cuid())
   targetType  String
   targetId    String
   doctypeKey  String
@@ -1992,10 +2008,11 @@ model RecordScopeRule {
   operator    String
   valueType   String
   staticValue String?
-  isActive    Boolean  @default(true)
+  isActive    Boolean         @default(true)
   createdById String?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime        @default(now())
   doctype     DocTypeRegistry @relation(fields: [doctypeKey], references: [key], onDelete: Cascade)
+
   @@map("record_scope_rules")
 }
 
@@ -2008,6 +2025,7 @@ model FeaturePermission {
   role        Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
   updatedAt   DateTime @updatedAt
   updatedById String?
+
   @@unique([roleId, featureKey])
   @@map("feature_permissions")
 }
@@ -2024,6 +2042,7 @@ model UserPermissionOverride {
   grantedAt    DateTime  @default(now())
   expiresAt    DateTime?
   user         User      @relation("UserPermissionOverrides", fields: [userId], references: [id], onDelete: Cascade)
+
   @@map("user_permission_overrides")
 }
 
@@ -2079,10 +2098,10 @@ model ScorecardTemplate {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  family     ScorecardTemplateFamily @relation(fields: [familyId], references: [id], onDelete: Cascade)
-  forkedFrom ScorecardTemplate?       @relation("ScorecardTemplateForks", fields: [forkedFromId], references: [id], onDelete: SetNull)
-  forks      ScorecardTemplate[]      @relation("ScorecardTemplateForks")
-  tiers      ScorecardTier[]
+  family      ScorecardTemplateFamily @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  forkedFrom  ScorecardTemplate?      @relation("ScorecardTemplateForks", fields: [forkedFromId], references: [id], onDelete: SetNull)
+  forks       ScorecardTemplate[]     @relation("ScorecardTemplateForks")
+  tiers       ScorecardTier[]
   evaluations Evaluation[]
 
   @@unique([familyId, version])
@@ -2091,14 +2110,14 @@ model ScorecardTemplate {
 }
 
 model ScorecardTier {
-  id        String @id @default(cuid())
+  id         String @id @default(cuid())
   templateId String
-  name      String
-  position  Int
-  maxPoints Float
+  name       String
+  position   Int
+  maxPoints  Float
 
-  template  ScorecardTemplate    @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  criteria  ScorecardCriterion[]
+  template ScorecardTemplate    @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  criteria ScorecardCriterion[]
 
   @@unique([templateId, position])
   @@map("scorecard_tiers")
@@ -2121,13 +2140,13 @@ model ScorecardCriterion {
   scoringRuleJson Json?
   krAggregation   String? // SUM | AVG | LATEST
 
-  tier          ScorecardTier         @relation(fields: [tierId], references: [id], onDelete: Cascade)
-  libraryEntry  CriterionLibraryEntry? @relation(fields: [libraryEntryId], references: [id], onDelete: SetNull)
-  metricMappings MetricSourceMapping[]
-  metricSources  EvaluationMetricSource[]
-  manualActuals  EvaluationMetricManualActual[]
-  evaluatorScores EvaluatorScore[]
-  results         CriterionResult[]
+  tier               ScorecardTier                  @relation(fields: [tierId], references: [id], onDelete: Cascade)
+  libraryEntry       CriterionLibraryEntry?         @relation(fields: [libraryEntryId], references: [id], onDelete: SetNull)
+  metricMappings     MetricSourceMapping[]
+  metricSources      EvaluationMetricSource[]
+  manualActuals      EvaluationMetricManualActual[]
+  evaluatorScores    EvaluatorScore[]
+  results            CriterionResult[]
   improvementFocuses ImprovementFocus[]
 
   @@unique([tierId, position])
@@ -2163,7 +2182,7 @@ model TemplateRoleMapping {
   priority       Int     @default(0)
   isActive       Boolean @default(true)
 
-  department Department?              @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  department Department?             @relation(fields: [departmentId], references: [id], onDelete: Cascade)
   family     ScorecardTemplateFamily @relation(fields: [familyId], references: [id], onDelete: Cascade)
 
   @@unique([designationKey, departmentId, familyId])
@@ -2267,39 +2286,39 @@ model ReviewCycleIssue {
 }
 
 model Evaluation {
-  id               String    @id @default(cuid())
-  cycleId          String
-  templateId       String
-  employeeId       String
-  status           String    @default("ASSIGNED") // ASSIGNED | IN_PROGRESS | CONSOLIDATED | CALIBRATION | DRAFT_SHARED | FINALIZED | EXCUSED
-  maxTotal         Float
-  rawTotal         Float?
-  normalized       Float?
-  gatekeeperPass   Boolean?
-  decisionBand     String?
-  startedAt        DateTime?
-  consolidatedAt   DateTime?
-  draftSharedAt    DateTime?
-  finalizedAt      DateTime?
-  excusedAt        DateTime?
-  excusedReason    String?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  id             String    @id @default(cuid())
+  cycleId        String
+  templateId     String
+  employeeId     String
+  status         String    @default("ASSIGNED") // ASSIGNED | IN_PROGRESS | CONSOLIDATED | CALIBRATION | DRAFT_SHARED | FINALIZED | EXCUSED
+  maxTotal       Float
+  rawTotal       Float?
+  normalized     Float?
+  gatekeeperPass Boolean?
+  decisionBand   String?
+  startedAt      DateTime?
+  consolidatedAt DateTime?
+  draftSharedAt  DateTime?
+  finalizedAt    DateTime?
+  excusedAt      DateTime?
+  excusedReason  String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  cycle        ReviewCycle       @relation(fields: [cycleId], references: [id], onDelete: Cascade)
-  template     ScorecardTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
-  employee     User              @relation("PerformanceEvaluationEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
-  metricSources EvaluationMetricSource[]
-  manualActuals EvaluationMetricManualActual[]
-  assignments   EvaluatorAssignment[]
-  scores        EvaluatorScore[]
-  results       CriterionResult[]
-  reports       EvaluationReport[]
-  acknowledgements EvaluationAcknowledgement[]
+  cycle              ReviewCycle                    @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  template           ScorecardTemplate              @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  employee           User                           @relation("PerformanceEvaluationEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
+  metricSources      EvaluationMetricSource[]
+  manualActuals      EvaluationMetricManualActual[]
+  assignments        EvaluatorAssignment[]
+  scores             EvaluatorScore[]
+  results            CriterionResult[]
+  reports            EvaluationReport[]
+  acknowledgements   EvaluationAcknowledgement[]
   improvementFocuses ImprovementFocus[]
   developmentActions DevelopmentAction[]
-  issues        ReviewCycleIssue[]
-  activityLogs  ActivityLog[]
+  issues             ReviewCycleIssue[]
+  activityLogs       ActivityLog[]
 
   @@unique([cycleId, employeeId])
   @@index([employeeId, status])
@@ -2309,15 +2328,15 @@ model Evaluation {
 
 /// Frozen Key Result source link for one evaluation and criterion.
 model EvaluationMetricSource {
-  id                       String @id @default(cuid())
+  id                       String  @id @default(cuid())
   evaluationId             String
   criterionId              String
-  sourceType               String @default("KEY_RESULT") // KEY_RESULT | SCRUM
+  sourceType               String  @default("KEY_RESULT") // KEY_RESULT | SCRUM
   keyResultId              String?
   keyResultTitleSnapshot   String?
   scrumMetricKey           String?
   scrumMetricLabelSnapshot String?
-  position                 Int    @default(0)
+  position                 Int     @default(0)
 
   evaluation Evaluation         @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
   criterion  ScorecardCriterion @relation(fields: [criterionId], references: [id], onDelete: Cascade)
@@ -2387,19 +2406,19 @@ model EvaluatorScore {
 }
 
 model CriterionResult {
-  id              String    @id @default(cuid())
-  evaluationId    String
-  criterionId     String
-  consolidated    Float
-  variance        Float     @default(0)
-  flagged         Boolean   @default(false)
-  actualValue     Float?
+  id               String    @id @default(cuid())
+  evaluationId     String
+  criterionId      String
+  consolidated     Float
+  variance         Float     @default(0)
+  flagged          Boolean   @default(false)
+  actualValue      Float?
   actualSourceJson Json?
-  calibrationNote String?
-  resolvedAt      DateTime?
-  resolvedById    String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  calibrationNote  String?
+  resolvedAt       DateTime?
+  resolvedById     String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   evaluation Evaluation         @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
   criterion  ScorecardCriterion @relation(fields: [criterionId], references: [id], onDelete: Cascade)
@@ -2478,17 +2497,17 @@ model PerformanceNudgeDelivery {
 }
 
 model DevelopmentAction {
-  id             String    @id @default(cuid())
+  id             String   @id @default(cuid())
   evaluationId   String
   type           String // SALARY_ADJUSTMENT | BONUS | PROMOTION | TRAINING | ROLE_CHANGE
   detailJson     Json
   recommendedBy  String
-  status         String    @default("RECOMMENDED") // RECOMMENDED | APPROVED | REJECTED | EXECUTED
+  status         String   @default("RECOMMENDED") // RECOMMENDED | APPROVED | REJECTED | EXECUTED
   decisionReason String?
   approvedById   String?
   executedById   String?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   evaluation Evaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
 
@@ -2524,77 +2543,77 @@ model RoleDocTypeFieldPermission {
 // --- 3.1 Core Schedule --------------------------------------------------------
 
 model Project {
-  id                  String    @id @default(cuid())
-  code                String    @unique // "PRJ-2026-014"
-  name                String
-  description         String?
-  clientName          String
-  clientId            String? // optional CRM link
-  projectManagerId    String // plain FK -> User
-  departmentId        String? // plain FK -> Department
-  templateId          String? // FK -> ProjectTemplate
+  id               String  @id @default(cuid())
+  code             String  @unique // "PRJ-2026-014"
+  name             String
+  description      String?
+  clientName       String
+  clientId         String? // optional CRM link
+  projectManagerId String // plain FK -> User
+  departmentId     String? // plain FK -> Department
+  templateId       String? // FK -> ProjectTemplate
 
   // Dates
-  plannedStart        DateTime
-  plannedEnd          DateTime
-  actualStart         DateTime?
-  actualEnd           DateTime?
+  plannedStart DateTime
+  plannedEnd   DateTime
+  actualStart  DateTime?
+  actualEnd    DateTime?
 
   // Baseline
   baselineCommittedAt DateTime? // NULL = not yet baselined
   baselineVersion     Int       @default(0)
 
   // Status & health
-  status              String    @default("PLANNING") // PLANNING|ACTIVE|ON_HOLD|COMPLETED|CANCELLED
-  ragStatus           String    @default("GREEN") // GREEN|AMBER|RED (computed)
-  confidence          Int       @default(100) // 0-100
-  percentComplete     Float     @default(0) // weighted rollup
-  percentPlanned      Float     @default(0) // expected % as of today
+  status          String @default("PLANNING") // PLANNING|ACTIVE|ON_HOLD|COMPLETED|CANCELLED
+  ragStatus       String @default("GREEN") // GREEN|AMBER|RED (computed)
+  confidence      Int    @default(100) // 0-100
+  percentComplete Float  @default(0) // weighted rollup
+  percentPlanned  Float  @default(0) // expected % as of today
 
   // EVM
-  spi                 Float?
-  cpi                 Float?
-  eac                 Float?
-  plannedValue        Float?
-  earnedValue         Float?
-  actualCost          Float?
-  budgetAtCompletion  Float?
+  spi                Float?
+  cpi                Float?
+  eac                Float?
+  plannedValue       Float?
+  earnedValue        Float?
+  actualCost         Float?
+  budgetAtCompletion Float?
 
   // Contract
-  contractValue       Float?
-  currency            String    @default("ETB")
+  contractValue Float?
+  currency      String @default("ETB")
 
   // Jira (OPTIONAL)
-  jiraLinked          Boolean   @default(false)
-  jiraConnectionId    String?
+  jiraLinked       Boolean @default(false)
+  jiraConnectionId String?
 
   // Client portal
-  portalEnabled       Boolean   @default(false)
-  clientEmails        String[] // report distribution list
+  portalEnabled Boolean  @default(false)
+  clientEmails  String[] // report distribution list
 
   // OKR link
-  objectiveId         String?
+  objectiveId String?
 
-  createdById         String
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
-  archivedAt          DateTime?
+  createdById String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  archivedAt  DateTime?
 
-  phases              Phase[]
-  members             ProjectMember[]
-  delayEvents         DelayEvent[]
-  changeRequests      ChangeRequest[]
-  raidItems           RaidItem[]
-  stageGates          StageGate[]
-  clientObligations   ClientObligation[]
-  coeRecords          CorrectionOfError[]
-  paymentMilestones   PaymentMilestone[]
-  reports             ProjectReport[]
-  scrumLogs           ScrumLog[]
-  activityLogs        ActivityLog[]
-  template            ProjectTemplate? @relation(fields: [templateId], references: [id])
-  jiraConnection      JiraConnection?  @relation(fields: [jiraConnectionId], references: [id])
-  objective           Objective?       @relation(fields: [objectiveId], references: [id])
+  phases            Phase[]
+  members           ProjectMember[]
+  delayEvents       DelayEvent[]
+  changeRequests    ChangeRequest[]
+  raidItems         RaidItem[]
+  stageGates        StageGate[]
+  clientObligations ClientObligation[]
+  coeRecords        CorrectionOfError[]
+  paymentMilestones PaymentMilestone[]
+  reports           ProjectReport[]
+  scrumLogs         ScrumLog[]
+  activityLogs      ActivityLog[]
+  template          ProjectTemplate?    @relation(fields: [templateId], references: [id])
+  jiraConnection    JiraConnection?     @relation(fields: [jiraConnectionId], references: [id])
+  objective         Objective?          @relation(fields: [objectiveId], references: [id])
 
   @@index([status, ragStatus])
   @@index([projectManagerId])
@@ -2602,119 +2621,119 @@ model Project {
 }
 
 model Phase {
-  id              String   @id @default(cuid())
+  id              String @id @default(cuid())
   projectId       String
   name            String
   position        Int
-  weight          Float    @default(0) // % contribution to project
-  percentComplete Float    @default(0) // rollup from milestones
-  status          String   @default("NOT_STARTED")
+  weight          Float  @default(0) // % contribution to project
+  percentComplete Float  @default(0) // rollup from milestones
+  status          String @default("NOT_STARTED")
 
-  plannedStart    DateTime?
-  plannedEnd      DateTime?
-  baselineStart   DateTime?
-  baselineEnd     DateTime?
-  currentStart    DateTime?
-  currentEnd      DateTime?
+  plannedStart  DateTime?
+  plannedEnd    DateTime?
+  baselineStart DateTime?
+  baselineEnd   DateTime?
+  currentStart  DateTime?
+  currentEnd    DateTime?
 
-  project         Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  milestones      Milestone[]
-  stageGate       StageGate?
+  project    Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  milestones Milestone[]
+  stageGate  StageGate?
 
   @@index([projectId, position])
   @@map("project_phases")
 }
 
 model Milestone {
-  id              String   @id @default(cuid())
+  id              String  @id @default(cuid())
   phaseId         String
   name            String
   position        Int
-  weight          Float    @default(0)
-  percentComplete Float    @default(0)
-  status          String   @default("NOT_STARTED")
-  isKeyMilestone  Boolean  @default(false) // shown as diamond on Gantt
+  weight          Float   @default(0)
+  percentComplete Float   @default(0)
+  status          String  @default("NOT_STARTED")
+  isKeyMilestone  Boolean @default(false) // shown as diamond on Gantt
 
-  baselineDate    DateTime?
-  currentDate     DateTime?
+  baselineDate DateTime?
+  currentDate  DateTime?
 
   // OKR link
-  keyResultId     String?
+  keyResultId String?
 
-  phase           Phase      @relation(fields: [phaseId], references: [id], onDelete: Cascade)
-  activities      Activity[]
-  keyResult       KeyResult? @relation(fields: [keyResultId], references: [id])
+  phase      Phase      @relation(fields: [phaseId], references: [id], onDelete: Cascade)
+  activities Activity[]
+  keyResult  KeyResult? @relation(fields: [keyResultId], references: [id])
 
   @@index([phaseId, position])
   @@map("project_milestones")
 }
 
 model Activity {
-  id               String   @id @default(cuid())
+  id               String  @id @default(cuid())
   milestoneId      String
   parentActivityId String? // ONE level of subtasks (Instagantt parity)
   position         Int
 
-  title            String
-  description      String? // rich text
+  title       String
+  description String? // rich text
 
   // Ownership — critical for delay attribution & client anonymization
-  assigneeId       String? // plain FK -> User. INTERNAL ONLY. Never sent to client.
-  ownerParty       String   @default("360GROUND") // 360GROUND | CLIENT | SHARED
+  assigneeId String? // plain FK -> User. INTERNAL ONLY. Never sent to client.
+  ownerParty String  @default("360GROUND") // 360GROUND | CLIENT | SHARED
 
   // Baseline (frozen at commit — NEVER edited directly)
-  baselineStart    DateTime?
-  baselineEnd      DateTime?
+  baselineStart DateTime?
+  baselineEnd   DateTime?
 
   // Current (live, editable)
-  currentStart     DateTime?
-  currentEnd       DateTime?
+  currentStart DateTime?
+  currentEnd   DateTime?
 
   // Status enum: NOT_STARTED|STARTED|FINISHED|APPROVAL_REQUESTED|APPROVED|REJECTED
-  status           String   @default("NOT_STARTED")
+  status String @default("NOT_STARTED")
 
-  percentComplete  Float    @default(0)
-  weight           Float    @default(1)
+  percentComplete Float @default(0)
+  weight          Float @default(1)
 
   // Effort & cost
-  estimatedHours   Float?
-  actualHours      Float?
-  estimatedCost    Float?
-  actualCost       Float?
+  estimatedHours Float?
+  actualHours    Float?
+  estimatedCost  Float?
+  actualCost     Float?
 
-  priority         String? // LOW|MEDIUM|HIGH|CRITICAL
-  risk             String? // LOW|MEDIUM|HIGH
-  isBlocked        Boolean  @default(false)
-  blockedSince     DateTime?
+  priority     String? // LOW|MEDIUM|HIGH|CRITICAL
+  risk         String? // LOW|MEDIUM|HIGH
+  isBlocked    Boolean   @default(false)
+  blockedSince DateTime?
 
-  isMilestone      Boolean  @default(false) // "Convert to Milestone"
+  isMilestone Boolean @default(false) // "Convert to Milestone"
 
   // Delay ledger
-  waitingSince     DateTime? // set when status -> APPROVAL_REQUESTED
-  approvalEscalationLevel Int @default(0) // C3 cron: 0=none, 1=SLA, 2=SLA+3, 3=SLA+7 fired (reset on resolution)
-  slipDays         Int      @default(0) // computed: currentEnd - baselineEnd
-  slipReason       String?
-  slipOwner        String? // 360GROUND | CLIENT | SHARED
+  waitingSince            DateTime? // set when status -> APPROVAL_REQUESTED
+  approvalEscalationLevel Int       @default(0) // C3 cron: 0=none, 1=SLA, 2=SLA+3, 3=SLA+7 fired (reset on resolution)
+  slipDays                Int       @default(0) // computed: currentEnd - baselineEnd
+  slipReason              String?
+  slipOwner               String? // 360GROUND | CLIENT | SHARED
 
   // Custom bar color override (Activity Detail Panel)
-  color            String?
+  color String?
 
   // Jira mapping
-  jiraIssueKeys    String[]
-  jiraAutoRollup   Boolean  @default(false)
+  jiraIssueKeys  String[]
+  jiraAutoRollup Boolean  @default(false)
 
-  milestone        Milestone            @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
-  parent           Activity?            @relation("ActivitySubtasks", fields: [parentActivityId], references: [id])
-  subtasks         Activity[]           @relation("ActivitySubtasks")
-  predecessors     ActivityDependency[] @relation("Successor")
-  successors       ActivityDependency[] @relation("Predecessor")
-  comments         ActivityComment[]
-  attachments      ActivityAttachment[]
-  tags             ActivityTag[]
-  delayEvents      DelayEvent[]
+  milestone    Milestone            @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+  parent       Activity?            @relation("ActivitySubtasks", fields: [parentActivityId], references: [id])
+  subtasks     Activity[]           @relation("ActivitySubtasks")
+  predecessors ActivityDependency[] @relation("Successor")
+  successors   ActivityDependency[] @relation("Predecessor")
+  comments     ActivityComment[]
+  attachments  ActivityAttachment[]
+  tags         ActivityTag[]
+  delayEvents  DelayEvent[]
 
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([milestoneId, position])
   @@index([status])
@@ -2791,33 +2810,33 @@ model ProjectMember {
 // --- 3.2 Delay Ledger (Epic C) ------------------------------------------------
 
 model DelayEvent {
-  id             String    @id @default(cuid())
-  projectId      String
-  activityId     String?
+  id         String  @id @default(cuid())
+  projectId  String
+  activityId String?
 
-  eventType      String // APPROVAL_WAIT | BASELINE_SLIP | BLOCKED
-  daysLost       Float
+  eventType String // APPROVAL_WAIT | BASELINE_SLIP | BLOCKED
+  daysLost  Float
 
   // Attribution
-  owner          String // CLIENT | 360GROUND | SHARED
-  reason         String // 9-value taxonomy (see build spec §C4)
-  reasonDetail   String?
-  phaseAtTime    String? // for Pareto analysis
+  owner        String // CLIENT | 360GROUND | SHARED
+  reason       String // 9-value taxonomy (see build spec §C4)
+  reasonDetail String?
+  phaseAtTime  String? // for Pareto analysis
 
   startedAt      DateTime
   endedAt        DateTime?
   isAutoDetected Boolean   @default(false) // true = approval clock, false = PM-tagged
 
   // Recovery plan (Delay Ledger T1)
-  recoveryPlan   String?
-  recoveryOwner  String?
-  recoveryDate   DateTime?
+  recoveryPlan  String?
+  recoveryOwner String?
+  recoveryDate  DateTime?
 
-  recordedById   String?
-  createdAt      DateTime  @default(now())
+  recordedById String?
+  createdAt    DateTime @default(now())
 
-  project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  activity       Activity? @relation(fields: [activityId], references: [id])
+  project  Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  activity Activity? @relation(fields: [activityId], references: [id])
 
   @@index([projectId, owner])
   @@index([reason])
@@ -2840,71 +2859,71 @@ model BaselineSnapshot {
 // --- 3.3 Governance Registers (Epic H) ---------------------------------------
 
 model RaidItem {
-  id             String    @id @default(cuid())
-  projectId      String
-  type           String // RISK | ASSUMPTION | ISSUE | DEPENDENCY
-  refCode        String // "R-001", "I-004"
-  title          String
-  description    String?
-  category       String?
+  id          String  @id @default(cuid())
+  projectId   String
+  type        String // RISK | ASSUMPTION | ISSUE | DEPENDENCY
+  refCode     String // "R-001", "I-004"
+  title       String
+  description String?
+  category    String?
 
   // RISK-specific
-  probability    Int? // 1-5
-  impact         Int? // 1-5
-  score          Int? // computed P x I
-  mitigation     String?
-  contingency    String?
+  probability Int? // 1-5
+  impact      Int? // 1-5
+  score       Int? // computed P x I
+  mitigation  String?
+  contingency String?
 
   // ISSUE-specific
-  severity       String? // LOW|MEDIUM|HIGH|CRITICAL
-  resolution     String?
-  daysOpen       Int? // computed
+  severity   String? // LOW|MEDIUM|HIGH|CRITICAL
+  resolution String?
+  daysOpen   Int? // computed
 
   // DEPENDENCY-specific
   dependsOnParty String? // CLIENT | 360GROUND | THIRD_PARTY
   neededByDate   DateTime?
 
   // ASSUMPTION-specific
-  validated      Boolean?  @default(false)
-  validatedAt    DateTime?
-  impactIfFalse  String?
+  validated     Boolean?  @default(false)
+  validatedAt   DateTime?
+  impactIfFalse String?
 
-  ownerId        String?
-  status         String    @default("OPEN") // OPEN|MITIGATING|CLOSED|REALISED
-  clientVisible  Boolean   @default(false)
-  reviewDate     DateTime?
-  createdAt      DateTime  @default(now())
-  closedAt       DateTime?
-  project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  ownerId       String?
+  status        String    @default("OPEN") // OPEN|MITIGATING|CLOSED|REALISED
+  clientVisible Boolean   @default(false)
+  reviewDate    DateTime?
+  createdAt     DateTime  @default(now())
+  closedAt      DateTime?
+  project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId, type, status])
   @@map("project_raid_items")
 }
 
 model ChangeRequest {
-  id                  String    @id @default(cuid())
-  projectId           String
-  crCode              String // "CR-001"
-  title               String
-  description         String
-  type                String // SCOPE_ADD | REQUIREMENT_CHANGE | DESCOPE
-  requestedBy         String // free text
-  requestedByParty    String // CLIENT | 360GROUND
-  requestDate         DateTime
+  id               String   @id @default(cuid())
+  projectId        String
+  crCode           String // "CR-001"
+  title            String
+  description      String
+  type             String // SCOPE_ADD | REQUIREMENT_CHANGE | DESCOPE
+  requestedBy      String // free text
+  requestedByParty String // CLIENT | 360GROUND
+  requestDate      DateTime
 
-  scheduleImpactDays  Float     @default(0)
-  costImpact          Float     @default(0)
+  scheduleImpactDays  Float    @default(0)
+  costImpact          Float    @default(0)
   affectedActivityIds String[]
 
-  status              String    @default("SUBMITTED") // SUBMITTED|UNDER_REVIEW|APPROVED|REJECTED|IMPLEMENTED
-  ccbDecisionDate     DateTime?
-  approvedById        String?
-  clientSignOff       Boolean   @default(false)
-  clientSignOffAt     DateTime?
-  rejectionReason     String?
+  status          String    @default("SUBMITTED") // SUBMITTED|UNDER_REVIEW|APPROVED|REJECTED|IMPLEMENTED
+  ccbDecisionDate DateTime?
+  approvedById    String?
+  clientSignOff   Boolean   @default(false)
+  clientSignOffAt DateTime?
+  rejectionReason String?
 
-  createdAt           DateTime  @default(now())
-  project             Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId, status])
   @@map("project_change_requests")
@@ -2931,18 +2950,18 @@ model StageGate {
 }
 
 model ClientObligation {
-  id                String   @id @default(cuid())
+  id                String  @id @default(cuid())
   projectId         String
   obligation        String
   type              String // APPROVAL|AVAILABILITY|DATA|ACCESS|DECISION|ENVIRONMENT
   responsiblePerson String // named client-side person
   responsibleEmail  String?
   slaBusinessDays   Int
-  isContractual     Boolean  @default(false)
-  breachCount       Int      @default(0)
+  isContractual     Boolean @default(false)
+  breachCount       Int     @default(0)
   complianceRate    Float? // computed %
   notes             String?
-  project           Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project           Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@map("project_client_obligations")
 }
@@ -3159,53 +3178,53 @@ model ScrumLog {
 // User references are plain string IDs by design; resolve names/avatars in services.
 
 model ScrumUpdate {
-  id                  String    @id @default(cuid())
-  userId              String
-  submittedById       String
-  managerId           String?
-  teamId              String?
-  projectId           String?
-  projectActivityId   String?
-  scrumDate           DateTime  @db.Date
-  status              String    @default("SUBMITTED") // DRAFT | SUBMITTED | CONFIRMED | AMENDED
+  id                String   @id @default(cuid())
+  userId            String
+  submittedById     String
+  managerId         String?
+  teamId            String?
+  projectId         String?
+  projectActivityId String?
+  scrumDate         DateTime @db.Date
+  status            String   @default("SUBMITTED") // DRAFT | SUBMITTED | CONFIRMED | AMENDED
 
-  yesterdayDone       String?   @map("yesterdayPlan")
-  yesterdayStatusJson Json?
-  todayPlan           String
-  blockers            String?
-  remarks             String?
-  contentJson         Json?
-  blockerCategory     String? // EXTERNAL_DEPENDENCY | CLIENT_APPROVAL | INTERNAL_DEPENDENCY | TECHNICAL | ENVIRONMENT_ACCESS | UNCLEAR_REQUIREMENTS | RESOURCE_CAPACITY | TOOLING | OTHER
-  blockerStatus       String?   @default("OPEN") // OPEN | RECURRING | ESCALATED | RESOLVED
-  blockerDaysOpen     Int       @default(0)
-  blockerFirstRaisedAt DateTime?
-  blockerResolvedAt   DateTime?
-  blockerResolvedById String?
-  blockerResolutionNote String? @map("blockerResolution")
-  escalatedAt         DateTime?
-  escalatedToUserId   String?
-  raidItemId          String?
-  wins                String?   @map("win")
-  mood                String? // GOOD | OKAY | STRUGGLING
+  yesterdayDone         String?   @map("yesterdayPlan")
+  yesterdayStatusJson   Json?
+  todayPlan             String
+  blockers              String?
+  remarks               String?
+  contentJson           Json?
+  blockerCategory       String? // EXTERNAL_DEPENDENCY | CLIENT_APPROVAL | INTERNAL_DEPENDENCY | TECHNICAL | ENVIRONMENT_ACCESS | UNCLEAR_REQUIREMENTS | RESOURCE_CAPACITY | TOOLING | OTHER
+  blockerStatus         String?   @default("OPEN") // OPEN | RECURRING | ESCALATED | RESOLVED
+  blockerDaysOpen       Int       @default(0)
+  blockerFirstRaisedAt  DateTime?
+  blockerResolvedAt     DateTime?
+  blockerResolvedById   String?
+  blockerResolutionNote String?   @map("blockerResolution")
+  escalatedAt           DateTime?
+  escalatedToUserId     String?
+  raidItemId            String?
+  wins                  String?   @map("win")
+  mood                  String? // GOOD | OKAY | STRUGGLING
 
-  hasBlocker          Boolean   @default(false)
-  hasWin              Boolean   @default(false)
-  isLate              Boolean   @default(false)
-  submittedAt         DateTime  @default(now())
-  amendedAt           DateTime?
-  confirmedAt         DateTime?
+  hasBlocker  Boolean   @default(false)
+  hasWin      Boolean   @default(false)
+  isLate      Boolean   @default(false)
+  submittedAt DateTime  @default(now())
+  amendedAt   DateTime?
+  confirmedAt DateTime?
 
-  isProxyEntry        Boolean   @default(false)
-  proxyReason         String? // IN_CLIENT_MEETING | TRAVELLING | SICK | ON_LEAVE | NO_CONNECTIVITY | VERBAL_UPDATE_IN_STANDUP | OTHER
-  proxyReasonDetail   String?
-  proxyConfirmedByUser Boolean  @default(false)
-  proxyConfirmedAt    DateTime?
+  isProxyEntry         Boolean   @default(false)
+  proxyReason          String? // IN_CLIENT_MEETING | TRAVELLING | SICK | ON_LEAVE | NO_CONNECTIVITY | VERBAL_UPDATE_IN_STANDUP | OTHER
+  proxyReasonDetail    String?
+  proxyConfirmedByUser Boolean   @default(false)
+  proxyConfirmedAt     DateTime?
 
-  comments            ScrumComment[]
-  links               ScrumUpdateLink[]
-  celebrations        ScrumWinCelebration[]
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  comments     ScrumComment[]
+  links        ScrumUpdateLink[]
+  celebrations ScrumWinCelebration[]
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
 
   @@unique([userId, scrumDate])
   @@index([scrumDate, teamId])
@@ -3221,15 +3240,15 @@ model ScrumUpdate {
 }
 
 model ScrumComment {
-  id          String      @id @default(cuid())
-  updateId    String
-  authorId    String
-  body        String
-  mentions    String[]    @default([])
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  id        String   @id @default(cuid())
+  updateId  String
+  authorId  String
+  body      String
+  mentions  String[] @default([])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  update      ScrumUpdate @relation(fields: [updateId], references: [id], onDelete: Cascade)
+  update ScrumUpdate @relation(fields: [updateId], references: [id], onDelete: Cascade)
 
   @@index([updateId, createdAt])
   @@index([authorId, createdAt])
@@ -3237,14 +3256,14 @@ model ScrumComment {
 }
 
 model ScrumAbsence {
-  id            String   @id @default(cuid())
-  userId        String
-  date          DateTime @db.Date
-  type          String   @default("EXCUSED") // EXCUSED | PTO | SICK | TRAVEL | HOLIDAY | OTHER
-  reason        String?
-  recordedById  String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id           String   @id @default(cuid())
+  userId       String
+  date         DateTime @db.Date
+  type         String   @default("EXCUSED") // EXCUSED | PTO | SICK | TRAVEL | HOLIDAY | OTHER
+  reason       String?
+  recordedById String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@unique([userId, date])
   @@index([date])
@@ -3253,40 +3272,40 @@ model ScrumAbsence {
 }
 
 model ScrumSettings {
-  id                    String   @id @default("default")
-  timezone              String   @default("Africa/Addis_Ababa")
-  reminderTime          String   @default("08:00")
-  cutoffTime            String   @default("08:30")
-  absentTime            String   @default("09:00")
-  managerDigestTime     String   @default("09:00")
-  nudgeTime             String   @default("09:05")
-  weeklyDigestDay       Int      @default(5)
-  weeklyDigestTime      String   @default("16:00")
-  workingDays           Int[]    @default([1, 2, 3, 4, 5])
-  holidays              String[] @default([])
-  moodEnabled           Boolean  @default(true)
-  winsEnabled           Boolean  @default(true)
-  proxyEntryEnabled     Boolean  @default(true) @map("proxyEnabled")
-  telegramEnabled       Boolean  @default(false)
-  requireTodoLink       Boolean  @default(false)
-  recurringThresholdDays Int     @default(2)
-  escalationThresholdDays Int    @default(3)
-  blockerEscalationDays Int      @default(2)
-  moodAlertDays         Int      @default(10)
-  objectiveNeglectDays  Int      @default(14)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id                      String   @id @default("default")
+  timezone                String   @default("Africa/Addis_Ababa")
+  reminderTime            String   @default("08:00")
+  cutoffTime              String   @default("08:30")
+  absentTime              String   @default("09:00")
+  managerDigestTime       String   @default("09:00")
+  nudgeTime               String   @default("09:05")
+  weeklyDigestDay         Int      @default(5)
+  weeklyDigestTime        String   @default("16:00")
+  workingDays             Int[]    @default([1, 2, 3, 4, 5])
+  holidays                String[] @default([])
+  moodEnabled             Boolean  @default(true)
+  winsEnabled             Boolean  @default(true)
+  proxyEntryEnabled       Boolean  @default(true) @map("proxyEnabled")
+  telegramEnabled         Boolean  @default(false)
+  requireTodoLink         Boolean  @default(false)
+  recurringThresholdDays  Int      @default(2)
+  escalationThresholdDays Int      @default(3)
+  blockerEscalationDays   Int      @default(2)
+  moodAlertDays           Int      @default(10)
+  objectiveNeglectDays    Int      @default(14)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
 
   @@map("scrum_settings")
 }
 
 model ScrumWinCelebration {
-  id          String      @id @default(cuid())
-  updateId    String
-  userId      String
-  createdAt   DateTime    @default(now())
+  id        String   @id @default(cuid())
+  updateId  String
+  userId    String
+  createdAt DateTime @default(now())
 
-  update      ScrumUpdate @relation(fields: [updateId], references: [id], onDelete: Cascade)
+  update ScrumUpdate @relation(fields: [updateId], references: [id], onDelete: Cascade)
 
   @@unique([updateId, userId])
   @@index([userId, createdAt])
@@ -3307,12 +3326,12 @@ model ScrumSavedView {
 }
 
 model ScrumJobRun {
-  id          String   @id @default(cuid())
-  jobKey      String
-  userId      String?
-  runDate     DateTime @db.Date
-  metadata    Json?
-  createdAt   DateTime @default(now())
+  id        String   @id @default(cuid())
+  jobKey    String
+  userId    String?
+  runDate   DateTime @db.Date
+  metadata  Json?
+  createdAt DateTime @default(now())
 
   @@unique([jobKey, userId, runDate])
   @@index([jobKey, runDate])
@@ -3320,21 +3339,21 @@ model ScrumJobRun {
 }
 
 model ScrumUpdateLink {
-  id             String       @id @default(cuid())
-  updateId       String
-  objectiveId    String?
-  keyResultId    String?
-  todoId         String?
-  linkType       String // OBJECTIVE | KEY_RESULT | TODO — derived server-side
-  context        String // TODAY | BLOCKER | WIN | YESTERDAY
-  progressNote   String?
-  createdById    String
-  createdAt      DateTime     @default(now())
+  id           String   @id @default(cuid())
+  updateId     String
+  objectiveId  String?
+  keyResultId  String?
+  todoId       String?
+  linkType     String // OBJECTIVE | KEY_RESULT | TODO — derived server-side
+  context      String // TODAY | BLOCKER | WIN | YESTERDAY
+  progressNote String?
+  createdById  String
+  createdAt    DateTime @default(now())
 
-  update         ScrumUpdate  @relation(fields: [updateId], references: [id], onDelete: Cascade)
-  objective      Objective?   @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
-  keyResult      KeyResult?   @relation(fields: [keyResultId], references: [id], onDelete: Cascade)
-  todo           Todo?        @relation(fields: [todoId], references: [id], onDelete: Cascade)
+  update    ScrumUpdate @relation(fields: [updateId], references: [id], onDelete: Cascade)
+  objective Objective?  @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
+  keyResult KeyResult?  @relation(fields: [keyResultId], references: [id], onDelete: Cascade)
+  todo      Todo?       @relation(fields: [todoId], references: [id], onDelete: Cascade)
 
   @@unique([updateId, objectiveId, context])
   @@unique([updateId, keyResultId, context])
@@ -3394,11 +3413,11 @@ model ClientPortalUser {
 /// A saved, user-authored automated task. `instructionText` is the authoring
 /// surface; `planJson` is the compiled, versioned execution surface (spec §6).
 model Automation {
-  id              String    @id @default(cuid())
-  name            String
-  description     String?
-  ownerId         String
-  departmentId    String?
+  id           String  @id @default(cuid())
+  name         String
+  description  String?
+  ownerId      String
+  departmentId String?
 
   /// The natural-language source the plan was compiled from.
   instructionText String
@@ -3408,20 +3427,20 @@ model Automation {
   compiledAt      DateTime?
   compiledModelId String?
 
-  scheduleKind    String // ONCE|HOURLY|DAILY|WEEKLY|MONTHLY|QUARTERLY|YEARLY|CUSTOM_CRON
+  scheduleKind String // ONCE|HOURLY|DAILY|WEEKLY|MONTHLY|QUARTERLY|YEARLY|CUSTOM_CRON
   /// Anchors + policies. Mirrors PlanSpec.schedule so the tick never parses the full plan.
-  scheduleJson    Json
-  timezone        String    @default("Africa/Addis_Ababa")
+  scheduleJson Json
+  timezone     String    @default("Africa/Addis_Ababa")
   /// The tick's only index. Nominal slot, recomputed from the wall-clock rule after each run.
-  nextRunAt       DateTime?
-  lastRunAt       DateTime?
+  nextRunAt    DateTime?
+  lastRunAt    DateTime?
 
-  mode            String    @default("DRY_RUN") // DRY_RUN|REVIEW|AUTO
-  status          String    @default("ENABLED") // ENABLED|PAUSED|DISABLED_ON_FAILURE|ENDED
+  mode           String @default("DRY_RUN") // DRY_RUN|REVIEW|AUTO
+  status         String @default("ENABLED") // ENABLED|PAUSED|DISABLED_ON_FAILURE|ENDED
   /// [{ tool, params }] — the security boundary. The worker refuses anything not listed.
-  toolGrants      Json      @default("[]")
+  toolGrants     Json   @default("[]")
   /// [{ userId, channels[] }]
-  recipientsJson  Json      @default("[]")
+  recipientsJson Json   @default("[]")
 
   maxCostUsdPerRun    Float @default(0.5)
   maxCostUsdMonth     Float @default(10)
@@ -3430,14 +3449,14 @@ model Automation {
   /// Counts runs actually executed, for the optional maxRuns bound.
   runCount            Int   @default(0)
 
-  createdById     String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  deletedAt       DateTime?
+  createdById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
 
-  owner           User      @relation("AutomationOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  runs            AutomationRun[]
-  briefings       AutomationBriefing[]
+  owner     User                 @relation("AutomationOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  runs      AutomationRun[]
+  briefings AutomationBriefing[]
 
   @@index([status, nextRunAt])
   @@index([ownerId, updatedAt])
@@ -3446,16 +3465,16 @@ model Automation {
 
 /// One firing of an Automation. The audit object: transcript, cost, lease state.
 model AutomationRun {
-  id             String    @id @default(cuid())
-  automationId   String
-  planVersion    Int
+  id           String    @id @default(cuid())
+  automationId String
+  planVersion  Int
   /// The nominal slot this run belongs to — not the actual start time. The unique
   /// constraint with automationId is what makes the tick exactly-once per slot.
-  scheduledFor   DateTime
-  startedAt      DateTime?
-  finishedAt     DateTime?
-  status         String    @default("QUEUED") // QUEUED|LEASED|RUNNING|SUCCEEDED|FAILED|SKIPPED|MISSED|CANCELLED
-  trigger        String    @default("SCHEDULE") // SCHEDULE|MANUAL|RETRY
+  scheduledFor DateTime
+  startedAt    DateTime?
+  finishedAt   DateTime?
+  status       String    @default("QUEUED") // QUEUED|LEASED|RUNNING|SUCCEEDED|FAILED|SKIPPED|MISSED|CANCELLED
+  trigger      String    @default("SCHEDULE") // SCHEDULE|MANUAL|RETRY
 
   /// Worker id holding the lease, and when it expires. The reaper reclaims expired rows.
   leaseOwner     String?
@@ -3463,18 +3482,18 @@ model AutomationRun {
   attempt        Int       @default(1)
 
   /// StepTrace[] — tool, redacted args, duration, result size, truncated preview, error.
-  stepsJson      Json?
+  stepsJson    Json?
   /// Finding[] with dedupeKey + contentHash; the baseline for the next run's diff.
-  findingsJson   Json?
-  costUsd        Float     @default(0)
-  inputTokens    Int       @default(0)
-  outputTokens   Int       @default(0)
-  errorMessage   String?
+  findingsJson Json?
+  costUsd      Float   @default(0)
+  inputTokens  Int     @default(0)
+  outputTokens Int     @default(0)
+  errorMessage String?
 
-  createdAt      DateTime  @default(now())
+  createdAt DateTime @default(now())
 
-  automation     Automation          @relation(fields: [automationId], references: [id], onDelete: Cascade)
-  briefing       AutomationBriefing?
+  automation Automation          @relation(fields: [automationId], references: [id], onDelete: Cascade)
+  briefing   AutomationBriefing?
 
   @@unique([automationId, scheduledFor])
   @@index([status, scheduledFor])
@@ -3509,9 +3528,9 @@ model AutomationBriefing {
   promotedJson   Json      @default("[]")
   createdAt      DateTime  @default(now())
 
-  run            AutomationRun  @relation(fields: [runId], references: [id], onDelete: Cascade)
-  automation     Automation     @relation(fields: [automationId], references: [id], onDelete: Cascade)
-  recipients     AutomationBriefingRecipient[]
+  run        AutomationRun                 @relation(fields: [runId], references: [id], onDelete: Cascade)
+  automation Automation                    @relation(fields: [automationId], references: [id], onDelete: Cascade)
+  recipients AutomationBriefingRecipient[]
 
   @@index([automationId, createdAt])
   @@index([status, createdAt])
@@ -3529,8 +3548,8 @@ model AutomationBriefingRecipient {
   openedAt    DateTime?
   error       String?
 
-  briefing    AutomationBriefing @relation(fields: [briefingId], references: [id], onDelete: Cascade)
-  user        User               @relation("AutomationBriefingRecipientUser", fields: [userId], references: [id], onDelete: Cascade)
+  briefing AutomationBriefing @relation(fields: [briefingId], references: [id], onDelete: Cascade)
+  user     User               @relation("AutomationBriefingRecipientUser", fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([briefingId, userId, channel])
   @@index([userId, status])

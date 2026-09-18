@@ -8,6 +8,7 @@ import {
   User, Calendar, Building2, Link2, Tag,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Progress } from '@/components/ui/progress'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -122,9 +123,7 @@ function KrRow({ kr, onClick }: { kr: ObjKR; onClick: () => void }) {
           </p>
         )}
         <div className="mt-1.5 flex items-center gap-2">
-          <div className="h-1 flex-1 overflow-hidden rounded-full" style={{ background: 'var(--ap-border-strong)' }}>
-            <div className="h-full rounded-full" style={{ width: `${pct}%`, background: 'var(--ap-accent)' }} />
-          </div>
+          <Progress className="flex-1" height={4} value={pct} fill="var(--ap-accent)" track="var(--ap-border-strong)" aria-label="Progress" />
           <span className="text-[10px] tabular-nums" style={{ color: 'var(--ap-fg-subtle)' }}>{pct}%</span>
         </div>
       </div>

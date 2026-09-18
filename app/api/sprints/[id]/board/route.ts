@@ -57,7 +57,9 @@ export const GET = withAuth<RouteIdParams>(async (_request, { session, params })
     // Exclude AI-draft todos (aiSuggested=true means "still in review") so they
     // don't appear on the kanban before the user accepts them via the review page.
     // Once accepted, /api/sprints/ai/:planId/accept flips aiSuggested=false.
-    where: { sprintId: id, aiSuggested: false },
+    // Archived cards stay in the database and keep their lane, but they are
+    // not on the board until restored.
+    where: { sprintId: id, aiSuggested: false, archivedAt: null },
     // Order by createdAt asc within each column so newly created todos always
     // append at the bottom of their lane (the user's expectation). Avoid sorting
     // by dueDate here — null due dates can appear above existing dated tasks

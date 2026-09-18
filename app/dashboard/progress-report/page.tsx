@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import ProgressReportWeeklyBars from './ProgressReportWeeklyBars'
 import ProgressPagePrintButton from '../progress/ProgressPagePrintButton'
+import { Progress } from '@/components/ui/progress'
 
 export const dynamic = 'force-dynamic'
 
@@ -176,9 +177,7 @@ function SummaryCard({
         <span className="text-[28px] font-semibold tabular-nums leading-none" style={{ letterSpacing: '-0.02em' }}>{completed}</span>
         <span className="text-[13px] text-muted-foreground">/ {total}</span>
       </div>
-      <div className="mt-3 h-1.5 w-full rounded-full overflow-hidden" style={{ background: 'var(--ap-kr-bar-bg)' }}>
-        <div className="h-full rounded-full" style={{ width: `${Math.min(100, completionPct)}%`, background: 'var(--ap-green)' }} />
-      </div>
+      <Progress className="mt-3" value={Math.min(100, completionPct)} fill="var(--ap-ok)" aria-label="Completion" />
       <dl className="mt-4 grid grid-cols-3 gap-2">
         <Chip label="On track" value={onTrack} bg="rgba(52,199,89,0.12)" fg="var(--ap-green)" />
         <Chip label="At risk" value={atRisk} bg="rgba(255,149,0,0.12)" fg="var(--ap-orange)" />

@@ -94,6 +94,8 @@ export default async function TodosPage() {
 
   const rows: TodoRow[] = todos.map((t) => ({
     id: t.id,
+    cardNumber: t.cardNumber,
+    archivedAt: t.archivedAt ? t.archivedAt.toISOString() : null,
     title: t.title,
     description: t.description,
     status: t.status,

@@ -2,6 +2,26 @@
 
 > **Purpose:** Log of all changes made by AI assistants. Every AI session that modifies code MUST append an entry here.
 
+## 2026-09-18 — Close out the design refresh: card references, soft archive, and the last progress bars
+
+Clears the remaining backlog from `docs/design_refresh_IMPLEMENTATION_STRATEGY.md`.
+
+**First, two things that turned out to need no work.** The security failures flagged in the previous entry were fixed by their author before committing: `features/auth/services/callback-url.ts` now supplies `safeCallbackUrl` and the sign-in page routes through it (SHR-6), and `app/api/wallpaper/route.ts` is a *documented* SEC-1 exemption rather than an oversight — it feeds the pre-login screen, its `GET()` takes no parameters at all (so there is no SSRF surface), and the invariant test requires it to carry a "Deliberately unauthenticated" marker. `test:security` is 20/20 on main.
+
+**Card references — `Todo.cardNumber`.** The design showed a `FIN-482` chip. Shipped as a plain sequence (`#482`) rather than a prefixed code, deliberately: a prefix would have to be frozen at creation, so a card that later moved sprints would carry the wrong letters forever, and the mock alone does not define what the letters mean. `Int @unique @default(autoincrement())` — Postgres backfills existing rows from the sequence on `db push`, so every card that already exists gets a number. Rendered in the modal's metadata line.
+
+**Soft archive — `Todo.archivedAt`.** `PATCH /api/todos/:id` accepts `archived: boolean` (a boolean, so no caller has to invent a timestamp and un-archiving is an explicit `false`). Archived cards are filtered out of the board query and the to-dos list; the rail's action flips between **Archive** and **Restore from archive**; and the status filter gained an **Archived** option to find and restore them. Archive is a separate axis from status — an archived card keeps whatever status it had — so every view except "Archived" hides them and the default experience is unchanged by the feature existing. The header counts (`open`/`overdue`/`due today`) exclude archived rows too. Delete remains the permanent option.
+
+**The last 6 hand-rolled progress bars** are migrated onto `components/ui/progress.tsx` — `ObjectiveNode` (3 of them), `AppleDashboard`, `ObjectiveDetailModal`, `MapObjectiveNode`, and the two progress pages. **Every progress bar in the app now exposes `role="progressbar"` and `aria-value*`**, which none of the 13 hand-rolled copies did. Three more raw hex values went with them (`#0d6efd`, `#198754`, `#fd7e14` in `ObjectiveNode`) plus a `bg-gray-200` track in `MapObjectiveNode`.
+
+**A type caught a real gap.** Adding the two fields to `TodoRow` immediately failed `tsc` in four places, including the optimistic row built by `CreateTodoModal`. Those are exactly the mismatches the `as any` casts removed in the Phase 0 work used to hide.
+
+**Verification** — `tsc --noEmit` clean; sprints 21/21, todos 28/28, cards 9/9, security 20/20, scrum 29/29, automations 206/206; `npm run build` exits 0. Exercised in a real browser against a local database: the reference chip renders `#72`, archiving removes the card from the board, the rail button flips to "Restore from archive", the default to-do view hides archived rows and the Archived filter lists them.
+
+> **Deploy note:** this ships a schema change. `scripts/deploy.sh` runs `prisma db push` after the preflight, so the two columns apply automatically. Adding `cardNumber` is a Postgres `SERIAL`-style default, which rewrites the `initiatives` table once to backfill existing rows — brief, but it is a table rewrite rather than a metadata-only change.
+
+Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+
 ## 2026-09-18 — The sign-in screen: a photograph that changes every time you log in
 
 The sign-in page was a 420px card on a flat `--ap-bg`. It is now a full-bleed photograph with a glass credentials card over it, and the photo is different on every visit.

@@ -3,6 +3,7 @@
 import { memo, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Handle, Position, NodeProps } from 'reactflow'
+import { Progress } from '@/components/ui/progress'
 import {
   Building2,
   ChevronDown,
@@ -184,37 +185,32 @@ const ObjectiveNode = memo(({ data, selected }: NodeProps<ObjectiveNodeData>) =>
         <div>
           <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Key results</p>
           <p className="text-lg font-semibold tabular-nums text-foreground">{metrics.avgKrProgress}%</p>
-          <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-            <div
-              className="h-full rounded-full bg-[#0d6efd]"
-              style={{ width: `${Math.min(metrics.avgKrProgress, 100)}%` }}
-            />
-          </div>
+          <Progress
+            className="mt-1"
+            value={Math.min(metrics.avgKrProgress, 100)}
+            fill="var(--ap-accent)"
+            aria-label="Average key-result progress"
+          />
         </div>
         <div>
           <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Initiatives</p>
           <p className="text-lg font-semibold tabular-nums text-foreground">{initiativeLabel}</p>
-          <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-            <div
-              className="h-full rounded-full bg-[#198754]"
-              style={{
-                width:
-                  metrics.initiativeTotal > 0
-                    ? `${(100 * metrics.initiativeDone) / metrics.initiativeTotal}%`
-                    : '0%',
-              }}
-            />
-          </div>
+          <Progress
+            className="mt-1"
+            value={metrics.initiativeTotal > 0 ? (100 * metrics.initiativeDone) / metrics.initiativeTotal : 0}
+            fill="var(--ap-ok)"
+            aria-label="Initiatives complete"
+          />
         </div>
         <div>
           <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Confidence</p>
           <p className="text-lg font-semibold tabular-nums text-foreground">{metrics.ncsScore} NCS</p>
-          <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-            <div
-              className="h-full rounded-full bg-[#fd7e14]"
-              style={{ width: `${Math.min(metrics.ncsScore, 100)}%` }}
-            />
-          </div>
+          <Progress
+            className="mt-1"
+            value={Math.min(metrics.ncsScore, 100)}
+            fill="var(--ap-warn)"
+            aria-label="Confidence score"
+          />
         </div>
       </div>
 

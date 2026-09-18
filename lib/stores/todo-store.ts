@@ -3,6 +3,10 @@ import toast from 'react-hot-toast'
 
 export interface TodoItem {
   id: string
+  /** Short, stable reference rendered as "#482". */
+  cardNumber: number
+  /** Non-null when soft-archived. */
+  archivedAt: string | null
   title: string
   description: string | null
   status: string

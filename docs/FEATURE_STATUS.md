@@ -1,5 +1,11 @@
 # Feature & Module Status
 
+> **2026-09-18 — To-do soft archive (new).** `Todo.archivedAt` + `PATCH /api/todos/:id { archived }`.
+> Archived cards are hidden from the sprint board and the to-dos list and restored from the
+> **Archived** status filter; the card modal's rail toggles Archive / Restore. Delete is unchanged.
+> **To-do card references (new).** `Todo.cardNumber` — an auto-increment sequence rendered as `#482`
+> in the card modal, for quoting a card in chat or a ticket.
+
 > **Purpose:** Track what's built, what's in progress, and what's planned. AI checks this before starting work. Updated after every feature change.
 
 ## Legend

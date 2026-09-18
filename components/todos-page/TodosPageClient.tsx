@@ -50,6 +50,10 @@ export interface ObjectiveOption {
 
 export interface TodoRow {
   id: string
+  /** Short, stable reference rendered as "#482". */
+  cardNumber: number
+  /** Non-null when soft-archived. Hidden unless the Archived filter is on. */
+  archivedAt: string | null
   title: string
   description: string | null
   status: string
@@ -78,7 +82,7 @@ interface Props {
   currentUserId: string
 }
 
-type StatusFilter = 'all' | 'open' | 'completed'
+type StatusFilter = 'all' | 'open' | 'completed' | 'archived'
 type ScopeFilter = 'assigned' | 'created' | 'all'
 type LinkFilter = 'all' | 'linked' | 'standalone'
 
@@ -142,11 +146,18 @@ export default function TodosPageClient({
       list = list.filter((t) => t.creator.id === currentUserId)
     }
 
-    // Status
-    if (statusFilter === 'open') {
-      list = list.filter((t) => t.status !== 'COMPLETED' && t.status !== 'CANCELLED')
-    } else if (statusFilter === 'completed') {
-      list = list.filter((t) => t.status === 'COMPLETED')
+    // Archive is a separate axis from status: an archived card keeps whatever
+    // status it had. Every view except "Archived" hides archived rows, so the
+    // default experience is unchanged by the feature existing.
+    if (statusFilter === 'archived') {
+      list = list.filter((t) => t.archivedAt)
+    } else {
+      list = list.filter((t) => !t.archivedAt)
+      if (statusFilter === 'open') {
+        list = list.filter((t) => t.status !== 'COMPLETED' && t.status !== 'CANCELLED')
+      } else if (statusFilter === 'completed') {
+        list = list.filter((t) => t.status === 'COMPLETED')
+      }
     }
 
     // Link
@@ -172,18 +183,19 @@ export default function TodosPageClient({
   }, [rows, scopeFilter, statusFilter, linkFilter, query, currentUserId])
 
   const counts = useMemo(() => {
-    const open = rows.filter((t) => t.status !== 'COMPLETED' && t.status !== 'CANCELLED').length
+    const live = rows.filter((t) => !t.archivedAt)
+    const open = live.filter((t) => t.status !== 'COMPLETED' && t.status !== 'CANCELLED').length
     // `isOverdue` treats an all-day task as due at the END of its day, so a
     // task due today no longer counts as overdue from 00:01 — which is also
     // what lib/todos/due-reminders.ts has always assumed.
-    const overdue = rows.filter((t) =>
+    const overdue = live.filter((t) =>
       isOverdue(t.dueDate, { done: t.status === 'COMPLETED' || t.status === 'CANCELLED' }),
     ).length
-    const dueToday = rows.filter((t) => {
+    const dueToday = live.filter((t) => {
       if (t.status === 'COMPLETED' || !t.dueDate) return false
       return isSameDay(new Date(t.dueDate), new Date())
     }).length
-    return { total: rows.length, open, overdue, dueToday }
+    return { total: live.length, open, overdue, dueToday }
   }, [rows])
 
   // ---------- Mutations (delegated to Zustand store) ----------
@@ -270,6 +282,7 @@ export default function TodosPageClient({
             <option value="open">Open</option>
             <option value="completed">Completed</option>
             <option value="all">All statuses</option>
+            <option value="archived">Archived</option>
           </select>
           <select
             value={linkFilter}
@@ -640,6 +653,8 @@ function CreateTodoModal({
       const t = data.data
       const row: TodoRow = {
         id: t.id,
+        cardNumber: t.cardNumber,
+        archivedAt: t.archivedAt ?? null,
         title: t.title,
         description: t.description,
         status: t.status,

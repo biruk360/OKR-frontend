@@ -5,7 +5,7 @@ import {
   X, Check, Plus, Trash2, Paperclip, Tag, Users, Calendar,
   ChevronDown, AlignLeft, MessageSquare, Activity, MoreHorizontal,
   CheckSquare, Image as ImageIcon, File as FileIcon, AlertCircle,
-  Link2, Target, Search, ExternalLink, Eye, EyeOff, Pencil, Clock,
+  Link2, Target, Search, ExternalLink, Eye, EyeOff, Pencil, Clock, Archive,
 } from 'lucide-react'
 import { format, isPast, isToday, isTomorrow, isYesterday, formatDistanceToNow, differenceInCalendarDays, startOfToday } from 'date-fns'
 import { cn } from '@/lib/utils'
@@ -32,6 +32,10 @@ import { dueTone, DUE_TONE_STYLE } from '@/lib/todos/due-tone'
 
 export interface TodoCardData {
   id: string
+  /** Short, stable reference rendered as "#482". */
+  cardNumber?: number | null
+  /** Non-null when soft-archived. */
+  archivedAt?: string | null
   title: string
   description: string | null
   status: string
@@ -1690,10 +1694,18 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
                   )}
 
                   {/* Metadata line. No card-ID chip: `Todo` has no such field and
-                      Decision 0 drops the element rather than adding the column. */}
+                      A plain sequence, not a prefixed code: a prefix would be
+                      frozen at creation, so a card that later moved sprints
+                      would carry the wrong letters forever. */}
                   <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2 text-[12.5px] text-[var(--ap-fg-subtle)]">
-                    {/* CDM-2 — the list chip is the only non-drag way to move a card
-                        between lists, which is also the mobile path. */}
+                    {todo.cardNumber != null && (
+                      <span
+                        className="rounded-[4px] bg-[var(--ap-bg-sunken)] px-1.5 py-[3px] font-mono text-[11px] tracking-[0.02em] text-[var(--ap-fg-subtle)]"
+                        title="Card reference"
+                      >
+                        #{todo.cardNumber}
+                      </span>
+                    )}
                     {lanes.length > 0 && !sprintClosed && (
                       <>
                         <span>in list</span>
@@ -2545,6 +2557,13 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
                     <Link2 className="h-[15px] w-[15px] text-[var(--ap-fg-subtle)]" /> Copy link
                   </button>
                 )}
+                <button
+                  onClick={() => patch({ archived: !todo.archivedAt })}
+                  className="flex h-[34px] w-full items-center gap-2.5 rounded-[var(--ap-radius-sm)] px-2.5 text-left text-[13px] font-medium text-[var(--ap-fg)] transition-colors hover:bg-[var(--ap-bg-hover)]"
+                >
+                  <Archive className="h-[15px] w-[15px] text-[var(--ap-fg-subtle)]" />
+                  {todo.archivedAt ? 'Restore from archive' : 'Archive'}
+                </button>
                 <button
                   onClick={() => setConfirmDelete(true)}
                   className="flex h-[34px] w-full items-center gap-2.5 rounded-[var(--ap-radius-sm)] px-2.5 text-left text-[13px] font-medium text-[var(--ap-danger-fg)] transition-colors hover:bg-[var(--ap-danger-bg)]"

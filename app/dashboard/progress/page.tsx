@@ -4,6 +4,7 @@ import { getServerSessionSafe } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import StatusPill, { normalizeStatus } from '@/components/shared/StatusPill'
 import ProgressPagePrintButton from './ProgressPagePrintButton'
+import { Progress } from '@/components/ui/progress'
 
 export default async function ProgressTrackingPage() {
   const session = await getServerSessionSafe()
@@ -111,9 +112,7 @@ export default async function ProgressTrackingPage() {
                       {Math.round(o.progress)}%
                     </span>
                   </div>
-                  <div className="mt-2 h-1.5 w-full rounded-full overflow-hidden" style={{ background: 'var(--ap-kr-bar-bg)' }}>
-                    <div className="h-full rounded-full" style={{ width: `${Math.min(100, o.progress)}%`, background: color }} />
-                  </div>
+                  <Progress className="mt-2" value={Math.min(100, o.progress)} fill={color} aria-label="Objective progress" />
                   <div className="mt-1.5 flex items-center gap-3 text-[11px] text-muted-foreground">
                     <span>{o.owner?.name ?? 'Unowned'}</span>
                     <span>·</span>

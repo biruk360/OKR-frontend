@@ -92,6 +92,7 @@ export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { sess
     labelIds,    // string[] (TodoLabelDef ids) — full replacement
     keyResultId, // string | null — link/unlink to a Key Result. Recalculates KR currentValue on change.
     objectiveId, // string | null — link/unlink to an Objective directly (work that spans the whole O).
+    archived,    // boolean — soft archive. true stamps archivedAt, false clears it.
   } = await request.json()
 
   const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/
@@ -297,6 +298,9 @@ export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { sess
         ...(startTime !== undefined && { startTime: startTime ?? null }),
         ...(endTime !== undefined && { endTime: endTime ?? null }),
         ...(completedAt !== undefined && { completedAt: completedAt ? new Date(completedAt) : null }),
+        // Soft archive. Sent as a boolean so the caller never has to invent a
+        // timestamp, and unarchiving is an explicit `false` rather than a null.
+        ...(archived !== undefined && { archivedAt: archived ? new Date() : null }),
         ...(parsedProgressValue !== undefined && { progressValue: parsedProgressValue }),
         ...(assigneeId !== undefined && { assigneeId }),
         ...(priority !== undefined && { priority }),

@@ -889,6 +889,18 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
   const commentFileInputRef = useRef<HTMLInputElement>(null)
   const [labelDefs, setLabelDefs] = useState<LabelDef[]>([])
   const [activePanel, setActivePanel] = useState<'description' | 'checklist' | 'members' | 'labels' | 'cover' | 'link' | 'dates' | null>(null)
+  /**
+   * Which trigger opened the panel. Members, Labels and Dates each have two —
+   * the attribute-grid control and the rail row — and a popover must open at
+   * the control you actually pressed. Sharing one anchor meant pressing
+   * "Labels" in the rail on the right opened the panel against the grid on the
+   * far left, which reads as a misplaced popover. */
+  const [panelAnchor, setPanelAnchor] = useState<'grid' | 'rail'>('grid')
+  /** Open `panel` anchored at `anchor`, or close it if that pair is already open. */
+  const togglePanel = useCallback((panel: typeof activePanel, anchor: 'grid' | 'rail') => (open: boolean) => {
+    setPanelAnchor(anchor)
+    setActivePanel(open ? panel : null)
+  }, [])
   const [linkQuery, setLinkQuery] = useState('')
   const [linkResults, setLinkResults] = useState<{
     objectives: { id: string; title: string; level: string; progress: number }[]
@@ -912,7 +924,6 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
   const setColorBlindMode = useUserPrefsStore((st) => st.setColorBlindMode)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const titleRef = useRef<HTMLTextAreaElement>(null)
-  const attrGridRef = useRef<HTMLDivElement>(null)
 
   // ── Fetch ──
   const fetchTodo = useCallback(async () => {
@@ -1397,11 +1408,6 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
    * in the attribute grid. Opening one from the rail therefore has to bring the
    * grid back into view, or the click looks like it did nothing on a long card.
    */
-  const openAttributePanel = (panel: 'members' | 'labels' | 'dates') => {
-    setActivePanel((cur) => (cur === panel ? null : panel))
-    attrGridRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
-  }
-
   if (!todoId) return null
 
   /**
@@ -1747,7 +1753,7 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
               </div>
 
               {/* ── Attribute grid ── */}
-              <div ref={attrGridRef} className="grid grid-cols-[repeat(auto-fit,minmax(192px,1fr))] gap-x-5 gap-y-4">
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(192px,1fr))] gap-x-5 gap-y-4">
                 {/* Members */}
                 <div>
                   <Eyebrow size="md" mono className="mb-2 text-[var(--ap-fg-subtle)]">Members</Eyebrow>
@@ -1758,8 +1764,8 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
                       ))}
                     </div>
                     <Popover
-                      open={activePanel === 'members'}
-                      onOpenChange={(o) => setActivePanel(o ? 'members' : null)}
+                      open={activePanel === 'members' && panelAnchor === 'grid'}
+                      onOpenChange={togglePanel('members', 'grid')}
                     >
                       <PopoverTrigger asChild>
                         <button
@@ -1814,8 +1820,8 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
                       </span>
                     ))}
                     <Popover
-                      open={activePanel === 'labels'}
-                      onOpenChange={(o) => setActivePanel(o ? 'labels' : null)}
+                      open={activePanel === 'labels' && panelAnchor === 'grid'}
+                      onOpenChange={togglePanel('labels', 'grid')}
                     >
                       <PopoverTrigger asChild>
                         <button
@@ -1838,8 +1844,8 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
                   <Eyebrow size="md" mono className="mb-2 text-[var(--ap-fg-subtle)]">Due date</Eyebrow>
                   <div className="relative inline-block">
                     <Popover
-                      open={activePanel === 'dates'}
-                      onOpenChange={(o) => setActivePanel(o ? 'dates' : null)}
+                      open={activePanel === 'dates' && panelAnchor === 'grid'}
+                      onOpenChange={togglePanel('dates', 'grid')}
                     >
                       <PopoverTrigger asChild>
                         <button
@@ -2392,14 +2398,54 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
 
               <Eyebrow size="md" mono className="mb-2 text-[var(--ap-fg-subtle)]">Add to card</Eyebrow>
               <div className="flex flex-col gap-0.5">
-                {/* Members, Labels and Dates open the panels anchored in the
-                    attribute grid — one panel per control, one `activePanel` slot. */}
-                <button onClick={() => openAttributePanel('members')} className="flex h-[34px] w-full items-center gap-2.5 rounded-[var(--ap-radius-sm)] px-2.5 text-left text-[13px] font-medium text-[var(--ap-fg)] transition-colors hover:bg-[var(--ap-bg-hover)]">
-                  <Users className="h-[15px] w-[15px] text-[var(--ap-fg-subtle)]" /> Members
-                </button>
-                <button onClick={() => openAttributePanel('labels')} className="flex h-[34px] w-full items-center gap-2.5 rounded-[var(--ap-radius-sm)] px-2.5 text-left text-[13px] font-medium text-[var(--ap-fg)] transition-colors hover:bg-[var(--ap-bg-hover)]">
-                  <Tag className="h-[15px] w-[15px] text-[var(--ap-fg-subtle)]" /> Labels
-                </button>
+                {/* Members, Labels and Dates each render a SECOND popover here,
+                    anchored to the rail row rather than to the attribute grid.
+                    Same content, same `activePanel` slot — `panelAnchor` decides
+                    which of the two opens, so a panel always appears at the
+                    control you pressed. `side="left"` keeps it over the card
+                    body instead of off the right edge of the modal. */}
+                <Popover
+                  open={activePanel === 'members' && panelAnchor === 'rail'}
+                  onOpenChange={togglePanel('members', 'rail')}
+                >
+                  <PopoverTrigger asChild>
+                    <button className="flex h-[34px] w-full items-center gap-2.5 rounded-[var(--ap-radius-sm)] px-2.5 text-left text-[13px] font-medium text-[var(--ap-fg)] transition-colors hover:bg-[var(--ap-bg-hover)]">
+                      <Users className="h-[15px] w-[15px] text-[var(--ap-fg-subtle)]" /> Members
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent label="Card members" heading="Card members" width={272} align="start" side="left">
+                    <div className="max-h-[300px] space-y-px overflow-y-auto">
+                      {users.map((u) => {
+                        const isMember = todo.members.some((m) => m.user.id === u.id)
+                        return (
+                          <button
+                            key={u.id}
+                            onClick={() => toggleMember(u.id)}
+                            className={cn('flex w-full items-center gap-2.5 rounded-[var(--ap-radius-sm)] px-2 py-1.5 text-left text-[13px] transition-colors', isMember ? 'bg-[var(--ap-accent-soft)] text-[var(--ap-accent-on-soft)]' : 'text-[var(--ap-fg)] hover:bg-[var(--ap-bg-hover)]')}
+                          >
+                            <Avatar id={u.id} name={u.name ?? u.email} size={26} />
+                            <span className="flex-1 truncate">{u.name ?? u.email}</span>
+                            {isMember && <Check className="h-3.5 w-3.5 shrink-0" />}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+
+                <Popover
+                  open={activePanel === 'labels' && panelAnchor === 'rail'}
+                  onOpenChange={togglePanel('labels', 'rail')}
+                >
+                  <PopoverTrigger asChild>
+                    <button className="flex h-[34px] w-full items-center gap-2.5 rounded-[var(--ap-radius-sm)] px-2.5 text-left text-[13px] font-medium text-[var(--ap-fg)] transition-colors hover:bg-[var(--ap-bg-hover)]">
+                      <Tag className="h-[15px] w-[15px] text-[var(--ap-fg-subtle)]" /> Labels
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent label="Labels" heading="Labels" width={276} align="start" side="left">
+                    <div className="max-h-[420px] overflow-y-auto">{labelsPanel}</div>
+                  </PopoverContent>
+                </Popover>
 
                 {/* Checklist — popover stays inside the rail, so it is sized to fit
                     the 232px track: the rail scrolls, and a scroll container clips
@@ -2435,9 +2481,19 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
                   </Popover>
                 </div>
 
-                <button onClick={() => openAttributePanel('dates')} className="flex h-[34px] w-full items-center gap-2.5 rounded-[var(--ap-radius-sm)] px-2.5 text-left text-[13px] font-medium text-[var(--ap-fg)] transition-colors hover:bg-[var(--ap-bg-hover)]">
-                  <Calendar className="h-[15px] w-[15px] text-[var(--ap-fg-subtle)]" /> Dates
-                </button>
+                <Popover
+                  open={activePanel === 'dates' && panelAnchor === 'rail'}
+                  onOpenChange={togglePanel('dates', 'rail')}
+                >
+                  <PopoverTrigger asChild>
+                    <button className="flex h-[34px] w-full items-center gap-2.5 rounded-[var(--ap-radius-sm)] px-2.5 text-left text-[13px] font-medium text-[var(--ap-fg)] transition-colors hover:bg-[var(--ap-bg-hover)]">
+                      <Calendar className="h-[15px] w-[15px] text-[var(--ap-fg-subtle)]" /> Dates
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent label="Dates" heading="Dates" width={340} align="start" side="left">
+                    {datesPanel}
+                  </PopoverContent>
+                </Popover>
 
                 <button onClick={() => fileInputRef.current?.click()} className="flex h-[34px] w-full items-center gap-2.5 rounded-[var(--ap-radius-sm)] px-2.5 text-left text-[13px] font-medium text-[var(--ap-fg)] transition-colors hover:bg-[var(--ap-bg-hover)]">
                   <Paperclip className="h-[15px] w-[15px] text-[var(--ap-fg-subtle)]" /> Attachment

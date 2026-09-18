@@ -5,9 +5,9 @@ import {
   X, Check, Plus, Trash2, Paperclip, Tag, Users, Calendar,
   ChevronDown, AlignLeft, MessageSquare, Activity, MoreHorizontal,
   CheckSquare, Image as ImageIcon, File as FileIcon, AlertCircle,
-  Link2, Target, Search, ExternalLink, Eye, EyeOff, Pencil,
+  Link2, Target, Search, ExternalLink, Eye, EyeOff, Pencil, Clock,
 } from 'lucide-react'
-import { format, isPast, isToday, isTomorrow, isYesterday, formatDistanceToNow } from 'date-fns'
+import { format, isPast, isToday, isTomorrow, isYesterday, formatDistanceToNow, differenceInCalendarDays, startOfToday } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { userColor, userInitials } from '@/lib/user-color'
 import { TODO_STATUS_META, BOARD_STATUSES, todoStatusMeta } from '@/lib/todo-status'
@@ -151,21 +151,26 @@ function DueDateBadge({ dueDate, endTime }: { dueDate: string | null; endTime?: 
   // the to-do row and the reminder system. It previously painted "due tomorrow"
   // GREEN, which reads as complete; green is now reserved for `done`.
   const tone = dueTone({ dueDate, endTime })
-  // The label stays richer than the tone — "Tomorrow" is useful to say even
-  // though it shares `soon`'s amber.
-  const prefix = tone === 'overdue' ? 'Overdue · '
-    : isToday(d) ? 'Today · '
-    : isTomorrow(d) ? 'Tomorrow · '
-    : ''
+
+  // The design leads with the date and trails the relative note — "May 22 ·
+  // overdue by 3 days" — which reads better than a bare "Overdue" prefix,
+  // because the date is the fact and the lateness is the commentary.
+  const days = differenceInCalendarDays(startOfToday(), d)
+  const note = tone === 'overdue'
+    ? (days === 1 ? 'overdue by 1 day' : `overdue by ${days} days`)
+    : isToday(d) ? 'due today'
+    : isTomorrow(d) ? 'due tomorrow'
+    : null
+
   return (
     <span
       className="inline-flex h-7 items-center gap-1.5 rounded-[var(--ap-radius-xs)] px-2.5 text-[12.5px] font-semibold"
       style={DUE_TONE_STYLE[tone]}
     >
       <Calendar className="h-3.5 w-3.5" />
-      {prefix}
       {format(d, 'MMM d')}
       {endTime ? `, ${to12h(endTime)}` : ''}
+      {note && <span className="font-medium opacity-85"> · {note}</span>}
     </span>
   )
 }
@@ -494,13 +499,18 @@ function ymd(d: Date): string {
 }
 function parseYmd(s: string | null): Date | null {
   if (!s) return null
-  // Accept both "YYYY-MM-DD" and full ISO datetime strings (Prisma returns the
-  // latter). Build the Date from local components so it always lands on the
-  // calendar day the user actually picked, regardless of timezone.
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s)
+  // A date-only "YYYY-MM-DD" is taken literally — it has no timezone to honour.
+  // NOTE the anchor: this regex used to be unanchored, so it also matched the
+  // first ten characters of a full ISO datetime and read the **UTC** calendar
+  // day. Everything else in the card (the due badge, due-tone) parses the same
+  // value as a Date and reads the **local** day, so east of UTC a card due at
+  // local midnight showed one day in the badge and the day before in this
+  // panel — and saving would have written that wrong day back.
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s)
   if (m) return new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10))
   const d = new Date(s)
-  return Number.isNaN(d.getTime()) ? null : d
+  // Normalise a full datetime to its LOCAL calendar day, matching the badge.
+  return Number.isNaN(d.getTime()) ? null : new Date(d.getFullYear(), d.getMonth(), d.getDate())
 }
 function sameDay(a: Date | null, b: Date | null): boolean {
   return !!a && !!b && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
@@ -512,7 +522,9 @@ function inRange(day: Date, start: Date | null, end: Date | null): boolean {
 }
 function fmtMd(s: string | null): string {
   const d = parseYmd(s)
-  return d ? `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}` : ''
+  // "Sep 14" — the design's summary format. A slashed M/D/YYYY in a row that is
+  // read, not typed into, is just noise.
+  return d ? `${MONTHS[d.getMonth()].slice(0, 3)} ${d.getDate()}` : ''
 }
 function to12h(t: string | null): string {
   if (!t) return ''
@@ -521,6 +533,100 @@ function to12h(t: string | null): string {
   const ap = h >= 12 ? 'PM' : 'AM'
   h = h % 12 || 12
   return `${h}:${mm} ${ap}`
+}
+
+/**
+ * Times offered by the date rows. A bare `<input type="time">` shows "--:-- --"
+ * until it is touched, gives no hint of the expected format, and on most
+ * browsers needs three separate keystroke groups to fill. A half-hour list is
+ * what people actually pick, and "All day" is a real answer rather than an
+ * empty field.
+ */
+const TIME_OPTIONS: { value: string; label: string }[] = [
+  { value: '', label: 'All day' },
+  ...Array.from({ length: 48 }, (_, i) => {
+    const h = Math.floor(i / 2)
+    const m = i % 2 ? '30' : '00'
+    const value = `${String(h).padStart(2, '0')}:${m}`
+    const h12 = h % 12 === 0 ? 12 : h % 12
+    return { value, label: `${h12}:${m} ${h < 12 ? 'AM' : 'PM'}` }
+  }),
+]
+
+/**
+ * One date row: a checkbox to turn the date on, a label, and a readable summary
+ * of what is currently set. Clicking the row makes it the target for the next
+ * day picked on the calendar — so the calendar is the input and there is
+ * nothing to type.
+ */
+function DateRow({
+  label, enabled, onEnabledChange, active, onActivate,
+  dateStr, time, onTimeChange, onClear,
+}: {
+  label: string
+  enabled: boolean
+  onEnabledChange: (v: boolean) => void
+  active: boolean
+  onActivate: () => void
+  dateStr: string | null
+  time: string
+  onTimeChange: (v: string) => void
+  onClear: () => void
+}) {
+  const summary = dateStr
+    ? `${fmtMd(dateStr)}${time ? ` · ${to12h(time)}` : ''}`
+    : '— —'
+  return (
+    <div
+      className={cn(
+        'rounded-[var(--ap-radius-sm)] border px-2.5 py-2 transition-colors',
+        active
+          ? 'border-[1.5px] border-[var(--ap-focus)] bg-[var(--ap-accent-soft)]'
+          : 'border-[var(--ap-border)] hover:bg-[var(--ap-bg-hover)]',
+        enabled ? 'cursor-pointer' : 'cursor-pointer opacity-70',
+      )}
+      onClick={onActivate}
+    >
+      <div className="flex items-center gap-2.5">
+        <input
+          type="checkbox"
+          checked={enabled}
+          onChange={(e) => { onEnabledChange(e.target.checked); if (e.target.checked) onActivate() }}
+          onClick={(e) => e.stopPropagation()}
+          className="size-4 shrink-0 cursor-pointer accent-[var(--ap-accent)]"
+          aria-label={`Set ${label.toLowerCase()}`}
+        />
+        <span className={cn('text-[13px]', active ? 'font-semibold text-[var(--ap-fg)]' : 'text-[var(--ap-fg-muted)]')}>
+          {label}
+        </span>
+        <span className="ml-auto font-mono text-[11px] text-[var(--ap-fg-subtle)]">{summary}</span>
+      </div>
+
+      {/* Time only becomes relevant once there is a date to attach it to. */}
+      {enabled && dateStr && (
+        <div className="mt-2 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+          <Clock className="h-3.5 w-3.5 shrink-0 text-[var(--ap-fg-subtle)]" aria-hidden />
+          <select
+            value={time}
+            onChange={(e) => onTimeChange(e.target.value)}
+            className="ap-input h-7 flex-1 py-0 text-[12px]"
+            aria-label={`${label} time`}
+          >
+            {TIME_OPTIONS.map((t) => (
+              <option key={t.value || 'all-day'} value={t.value}>{t.label}</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={onClear}
+            className="shrink-0 rounded-[var(--ap-radius-xs)] px-2 py-1 text-[11px] font-semibold text-[var(--ap-fg-muted)] transition-colors hover:bg-[var(--ap-danger-bg)] hover:text-[var(--ap-danger-fg)]"
+          >
+            Clear
+          </button>
+        </div>
+      )}
+    </div>
+  )
 }
 
 function DatesPanel({ startDate, dueDate, startTime, endTime, dueReminder, sprintWindow, onSave, onRemove, onClose }: DatesPanelProps) {
@@ -608,15 +714,7 @@ function DatesPanel({ startDate, dueDate, startTime, endTime, dueReminder, sprin
   }
 
   return (
-    <div className="absolute left-0 top-full z-[91] mt-2 w-[340px] max-w-[calc(100vw-2rem)] rounded-[var(--ap-radius-card)] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] p-3 shadow-[var(--ap-shadow-pop-panel)]">
-      {/* One close button, not two — the panel used to render an identical pair
-          flanking the title, which read as a symmetry accident rather than UI. */}
-      <div className="mb-2 flex items-center">
-        <Eyebrow size="md" mono align="center" className="flex-1 text-[var(--ap-fg-subtle)]">Dates</Eyebrow>
-        <button onClick={onClose} className="inline-flex size-[22px] items-center justify-center rounded-[var(--ap-radius-xs)] text-[var(--ap-fg-muted)] hover:bg-[var(--ap-bg-hover)]" aria-label="Close">
-          <X className="h-3.5 w-3.5" />
-        </button>
-      </div>
+    <div>
 
       <div className="flex items-center justify-between px-1">
         <div className="flex gap-0.5">
@@ -659,105 +757,36 @@ function DatesPanel({ startDate, dueDate, startTime, endTime, dueReminder, sprin
         })}
       </div>
 
-      {/* Start date row — click anywhere on the row to make it the active
-          target so calendar clicks fill this date. */}
-      <div
-        className={cn(
-          'mt-3 rounded-[var(--ap-radius-sm)] border p-2 transition-colors cursor-pointer',
-          activeTarget === 'start'
-            ? 'border-[var(--ap-accent)] bg-[var(--ap-accent-soft)]'
-            : 'border-[var(--ap-border)] hover:bg-[var(--ap-bg-hover)]',
-        )}
-        onClick={() => setActiveTarget('start')}
-      >
-        <div className="flex items-center gap-2 mb-1.5">
-          <input
-            type="checkbox"
-            checked={startEnabled}
-            onChange={(e) => setStartEnabled(e.target.checked)}
-            onClick={(e) => e.stopPropagation()}
-            className="size-4 cursor-pointer accent-[var(--ap-accent)]"
-          />
-          <p className="text-[12px] font-bold text-[var(--ap-fg)]">Start date</p>
-          {activeTarget === 'start' && (
-            <span className="ml-auto text-[10px] font-semibold text-[var(--ap-accent)]">Active</span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <input
-            type="text"
-            placeholder="M/D/YYYY"
-            value={fmtMd(startStr)}
-            onClick={(e) => e.stopPropagation()}
-            onChange={(e) => {
-              const v = e.target.value.trim()
-              if (!v) { setStartStr(null); return }
-              const d = new Date(v)
-              if (!Number.isNaN(d.getTime())) setStartStr(ymd(d))
-            }}
-            disabled={!startEnabled}
-            className="ap-input h-8 flex-1 min-w-0 text-[12px] py-0 disabled:opacity-50"
-          />
-          <input
-            type="time"
-            value={startTimeVal}
-            onClick={(e) => e.stopPropagation()}
-            onChange={(e) => setStartTimeVal(e.target.value)}
-            disabled={!startEnabled}
-            className="ap-input h-8 w-[110px] shrink-0 text-[12px] py-0 disabled:opacity-50"
-            aria-label="Start time"
-          />
-        </div>
-      </div>
-
-      {/* Due date row */}
-      <div
-        className={cn(
-          'mt-2 rounded-[var(--ap-radius-sm)] border p-2 transition-colors cursor-pointer',
-          activeTarget === 'due'
-            ? 'border-[var(--ap-accent)] bg-[var(--ap-accent-soft)]'
-            : 'border-[var(--ap-border)] hover:bg-[var(--ap-bg-hover)]',
-        )}
-        onClick={() => setActiveTarget('due')}
-      >
-        <div className="flex items-center gap-2 mb-1.5">
-          <input
-            type="checkbox"
-            checked={dueEnabled}
-            onChange={(e) => setDueEnabled(e.target.checked)}
-            onClick={(e) => e.stopPropagation()}
-            className="size-4 cursor-pointer accent-[var(--ap-accent)]"
-          />
-          <p className="text-[12px] font-bold text-[var(--ap-fg)]">Due date</p>
-          {activeTarget === 'due' && (
-            <span className="ml-auto text-[10px] font-semibold text-[var(--ap-accent)]">Active</span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <input
-            type="text"
-            placeholder="M/D/YYYY"
-            value={fmtMd(dueStr)}
-            onClick={(e) => e.stopPropagation()}
-            onChange={(e) => {
-              const v = e.target.value.trim()
-              if (!v) { setDueStr(null); return }
-              const d = new Date(v)
-              if (!Number.isNaN(d.getTime())) setDueStr(ymd(d))
-            }}
-            disabled={!dueEnabled}
-            className="ap-input h-8 flex-1 min-w-0 text-[12px] py-0 disabled:opacity-50"
-          />
-          <input
-            type="time"
-            value={endTimeVal}
-            onClick={(e) => e.stopPropagation()}
-            onChange={(e) => setEndTimeVal(e.target.value)}
-            disabled={!dueEnabled}
-            className="ap-input h-8 w-[110px] shrink-0 text-[12px] py-0 disabled:opacity-50"
-            aria-label="Due time"
-          />
-        </div>
+      {/* Date rows.
+          These used to be a free-text "M/D/YYYY" field parsed with `new Date()`
+          plus a bare <input type="time">, which renders as "--:-- --" until
+          touched and gives no hint of the expected format. The calendar above is
+          the input now: the row shows a readable summary and clicking it makes
+          it the target for the next day you pick. Time moved to an explicit
+          picker that only appears once the date is on. */}
+      <div className="mt-3 space-y-1.5">
+        <DateRow
+          label="Start date"
+          enabled={startEnabled}
+          onEnabledChange={setStartEnabled}
+          active={activeTarget === 'start'}
+          onActivate={() => setActiveTarget('start')}
+          dateStr={startStr}
+          time={startTimeVal}
+          onTimeChange={setStartTimeVal}
+          onClear={() => { setStartStr(null); setStartTimeVal('') }}
+        />
+        <DateRow
+          label="Due date"
+          enabled={dueEnabled}
+          onEnabledChange={setDueEnabled}
+          active={activeTarget === 'due'}
+          onActivate={() => setActiveTarget('due')}
+          dateStr={dueStr}
+          time={endTimeVal}
+          onTimeChange={setEndTimeVal}
+          onClear={() => { setDueStr(null); setEndTimeVal('') }}
+        />
       </div>
 
       {/* Recurring (DTE-5) — specified but deferred: it needs a recurrence engine
@@ -1101,6 +1130,9 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
   // has always supported entityType='TODO' but was never wired to any todo UI.
   // Without a way to opt in, the board's watcher badge could never light up.
   const [editingItem, setEditingItem] = useState<{ checklistId: string; itemId: string; title: string } | null>(null)
+  // Per-checklist "Hide checked" (design §Review steps). View-only and local:
+  // it filters what is rendered, never what is stored.
+  const [hideChecked, setHideChecked] = useState<Record<string, boolean>>({})
   const [isWatching, setIsWatching] = useState(false)
   const [watchPending, setWatchPending] = useState(false)
 
@@ -1434,18 +1466,6 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
    */
   const labelsPanel = todo ? (
     <>
-      <div className="fixed inset-0 z-[90]" onClick={() => setActivePanel(null)} />
-      <div className="absolute left-0 top-full z-[91] mt-2 max-h-[420px] w-[276px] max-w-[calc(100vw-2rem)] overflow-y-auto rounded-[var(--ap-radius-card)] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] p-2.5 shadow-[var(--ap-shadow-pop-panel)]">
-        <div className="mb-2 flex items-center">
-          <Eyebrow size="md" mono align="center" className="flex-1 text-[var(--ap-fg-subtle)]">Labels</Eyebrow>
-          <button
-            onClick={() => setActivePanel(null)}
-            aria-label="Close"
-            className="inline-flex size-[22px] items-center justify-center rounded-[var(--ap-radius-xs)] text-[var(--ap-fg-muted)] hover:bg-[var(--ap-bg-hover)]"
-          >
-            <X className="h-3 w-3" />
-          </button>
-        </div>
         <input
           value={labelSearch}
           onChange={(e) => setLabelSearch(e.target.value)}
@@ -1520,13 +1540,11 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
             Create
           </button>
         </div>
-      </div>
     </>
   ) : null
 
   const datesPanel = todo ? (
     <>
-      <div className="fixed inset-0 z-[90]" onClick={() => setActivePanel(null)} />
       <DatesPanel
         startDate={todo.startDate}
         dueDate={todo.dueDate}
@@ -1727,47 +1745,38 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
                         <Avatar key={m.user.id} id={m.user.id} name={m.user.name} avatar={m.user.avatar} size={28} />
                       ))}
                     </div>
-                    <button
-                      onClick={() => setActivePanel(activePanel === 'members' ? null : 'members')}
-                      className="ml-2 inline-flex h-7 w-7 items-center justify-center rounded-full border border-dashed border-[var(--ap-border-strong)] text-[var(--ap-fg-muted)] transition-colors hover:border-[var(--ap-accent)] hover:text-[var(--ap-accent)]"
-                      title="Add member"
-                      aria-label="Add member"
+                    <Popover
+                      open={activePanel === 'members'}
+                      onOpenChange={(o) => setActivePanel(o ? 'members' : null)}
                     >
-                      <Plus className="h-3.5 w-3.5" />
-                    </button>
-                    {activePanel === 'members' && (
-                      <>
-                        <div className="fixed inset-0 z-[90]" onClick={() => setActivePanel(null)} />
-                        <div className="absolute left-0 top-full z-[91] mt-2 max-h-[360px] w-[272px] overflow-y-auto rounded-[var(--ap-radius-card)] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] p-2.5 shadow-[var(--ap-shadow-pop-panel)]">
-                          <div className="mb-2 flex items-center">
-                            <Eyebrow size="md" mono align="center" className="flex-1 text-[var(--ap-fg-subtle)]">Card members</Eyebrow>
-                            <button
-                              onClick={() => setActivePanel(null)}
-                              aria-label="Close"
-                              className="inline-flex size-[22px] items-center justify-center rounded-[var(--ap-radius-xs)] text-[var(--ap-fg-muted)] hover:bg-[var(--ap-bg-hover)]"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </div>
-                          <div className="space-y-px">
-                            {users.map((u) => {
-                              const isMember = todo.members.some((m) => m.user.id === u.id)
-                              return (
-                                <button
-                                  key={u.id}
-                                  onClick={() => toggleMember(u.id)}
-                                  className={cn('flex w-full items-center gap-2.5 rounded-[var(--ap-radius-sm)] px-2 py-1.5 text-left text-[13px] transition-colors', isMember ? 'bg-[var(--ap-accent-soft)] text-[var(--ap-accent-on-soft)]' : 'text-[var(--ap-fg)] hover:bg-[var(--ap-bg-hover)]')}
-                                >
-                                  <Avatar id={u.id} name={u.name ?? u.email} size={26} />
-                                  <span className="flex-1 truncate">{u.name ?? u.email}</span>
-                                  {isMember && <Check className="h-3.5 w-3.5 shrink-0" />}
-                                </button>
-                              )
-                            })}
-                          </div>
+                      <PopoverTrigger asChild>
+                        <button
+                          className="ml-2 inline-flex h-7 w-7 items-center justify-center rounded-full border border-dashed border-[var(--ap-border-strong)] text-[var(--ap-fg-muted)] transition-colors hover:border-[var(--ap-accent)] hover:text-[var(--ap-accent)]"
+                          title="Add member"
+                          aria-label="Add member"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent label="Card members" heading="Card members" width={272} align="start">
+                        <div className="max-h-[300px] space-y-px overflow-y-auto">
+                          {users.map((u) => {
+                            const isMember = todo.members.some((m) => m.user.id === u.id)
+                            return (
+                              <button
+                                key={u.id}
+                                onClick={() => toggleMember(u.id)}
+                                className={cn('flex w-full items-center gap-2.5 rounded-[var(--ap-radius-sm)] px-2 py-1.5 text-left text-[13px] transition-colors', isMember ? 'bg-[var(--ap-accent-soft)] text-[var(--ap-accent-on-soft)]' : 'text-[var(--ap-fg)] hover:bg-[var(--ap-bg-hover)]')}
+                              >
+                                <Avatar id={u.id} name={u.name ?? u.email} size={26} />
+                                <span className="flex-1 truncate">{u.name ?? u.email}</span>
+                                {isMember && <Check className="h-3.5 w-3.5 shrink-0" />}
+                              </button>
+                            )
+                          })}
                         </div>
-                      </>
-                    )}
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 </div>
 
@@ -1792,15 +1801,23 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
                         {l.labelDef.name}
                       </span>
                     ))}
-                    <button
-                      onClick={() => setActivePanel(activePanel === 'labels' ? null : 'labels')}
-                      className="inline-flex h-[26px] w-[26px] items-center justify-center rounded-[var(--ap-radius-xs)] border border-dashed border-[var(--ap-border-strong)] text-[var(--ap-fg-muted)] transition-colors hover:border-[var(--ap-accent)] hover:text-[var(--ap-accent)]"
-                      title="Add labels"
-                      aria-label="Add labels"
+                    <Popover
+                      open={activePanel === 'labels'}
+                      onOpenChange={(o) => setActivePanel(o ? 'labels' : null)}
                     >
-                      <Plus className="h-3.5 w-3.5" />
-                    </button>
-                    {activePanel === 'labels' && labelsPanel}
+                      <PopoverTrigger asChild>
+                        <button
+                          className="inline-flex h-[26px] w-[26px] items-center justify-center rounded-[var(--ap-radius-xs)] border border-dashed border-[var(--ap-border-strong)] text-[var(--ap-fg-muted)] transition-colors hover:border-[var(--ap-accent)] hover:text-[var(--ap-accent)]"
+                          title="Add labels"
+                          aria-label="Add labels"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent label="Labels" heading="Labels" width={276} align="start">
+                        <div className="max-h-[420px] overflow-y-auto">{labelsPanel}</div>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 </div>
 
@@ -1808,22 +1825,30 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
                 <div>
                   <Eyebrow size="md" mono className="mb-2 text-[var(--ap-fg-subtle)]">Due date</Eyebrow>
                   <div className="relative inline-block">
-                    <button
-                      onClick={() => setActivePanel(activePanel === 'dates' ? null : 'dates')}
-                      className={cn(
+                    <Popover
+                      open={activePanel === 'dates'}
+                      onOpenChange={(o) => setActivePanel(o ? 'dates' : null)}
+                    >
+                      <PopoverTrigger asChild>
+                        <button
+                          className={cn(
                         'inline-flex h-7 max-w-full items-center gap-1.5 rounded-[var(--ap-radius-xs)] text-[12.5px] font-semibold transition-colors',
                         // With a date set the badge brings its own chrome and padding.
                         todo.dueDate
                           ? 'hover:opacity-80'
                           : 'border border-[var(--ap-border-strong)] bg-[var(--ap-bg-raised)] px-2.5 text-[var(--ap-fg-muted)] hover:bg-[var(--ap-bg-hover)]',
                       )}
-                      aria-label={todo.dueDate ? 'Change dates' : 'Add due date'}
-                    >
-                      {todo.dueDate
-                        ? <DueDateBadge dueDate={todo.dueDate} endTime={todo.endTime} />
-                        : <><Calendar className="h-3.5 w-3.5" /> Add due date</>}
-                    </button>
-                    {activePanel === 'dates' && datesPanel}
+                          aria-label={todo.dueDate ? 'Change dates' : 'Add due date'}
+                        >
+                          {todo.dueDate
+                            ? <DueDateBadge dueDate={todo.dueDate} endTime={todo.endTime} />
+                            : <><Calendar className="h-3.5 w-3.5" /> Add due date</>}
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent label="Dates" heading="Dates" width={340} align="start">
+                        {datesPanel}
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 </div>
 
@@ -1906,18 +1931,32 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
                       <CheckSquare className="h-[15px] w-[15px] shrink-0 text-[var(--ap-fg-subtle)]" />
-                      <h3 className="truncate text-[14px] font-semibold text-[var(--ap-fg-muted)]">{cl.title}</h3>
+                      <h3 className="truncate text-[14px] font-semibold text-[var(--ap-fg)]">{cl.title}</h3>
+                      <span className="shrink-0 font-mono text-[11px] text-[var(--ap-fg-subtle)]">
+                        {cl.items.filter((i) => i.completed).length}/{cl.items.length}
+                      </span>
                     </div>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                    {cl.items.some((i) => i.completed) && (
+                      <button
+                        onClick={() => setHideChecked((h) => ({ ...h, [cl.id]: !h[cl.id] }))}
+                        aria-pressed={!!hideChecked[cl.id]}
+                        className="inline-flex h-7 items-center rounded-[var(--ap-radius-sm)] bg-[var(--ap-bg-sunken)] px-2.5 text-[11px] font-semibold text-[var(--ap-fg-muted)] transition-colors hover:bg-[var(--ap-bg-hover)] hover:text-[var(--ap-fg)]"
+                      >
+                        {hideChecked[cl.id] ? 'Show checked' : 'Hide checked'}
+                      </button>
+                    )}
                     <button
                       onClick={() => deleteChecklist(cl.id)}
                       className="inline-flex h-7 items-center gap-1 rounded-[var(--ap-radius-sm)] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-2.5 text-[11px] font-semibold text-[var(--ap-fg-muted)] hover:border-[var(--ap-danger)] hover:bg-[var(--ap-danger-bg)] hover:text-[var(--ap-danger)] transition-all"
                     >
                       Delete
                     </button>
+                    </div>
                   </div>
                   <ChecklistProgress items={cl.items} />
                   <div className="space-y-0.5">
-                    {cl.items.map((item) => (
+                    {cl.items.filter((i) => !(hideChecked[cl.id] && i.completed)).map((item) => (
                       <div
                         key={item.id}
                         className="group flex items-center gap-2.5 rounded-[var(--ap-radius-sm)] px-2 py-1.5 hover:bg-[var(--ap-bg-hover)] transition-colors"
@@ -1970,8 +2009,12 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
                           <Avatar id={item.assignee.id} name={item.assignee.name} avatar={item.assignee.avatar} size={20} />
                         )}
                         {/* Per-item actions. Focus-within keeps them reachable by
-                            keyboard; group-hover alone would hide them from tab users. */}
-                        <div className="hidden gap-0.5 group-hover:flex group-focus-within:flex">
+                            keyboard; group-hover alone would hide them from tab users.
+                            They fade rather than mount: `hidden → flex` put three 24px
+                            buttons into the flow on hover, so every row visibly jumped
+                            as the pointer crossed it. Reserving the space costs ~80px
+                            of title width and removes the reflow entirely. */}
+                        <div className="flex shrink-0 gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
                           <Popover>
                             <PopoverTrigger asChild>
                               <button
@@ -2350,23 +2393,17 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
                     the 232px track: the rail scrolls, and a scroll container clips
                     horizontally whatever its children stick out by. */}
                 <div className="relative">
-                  <button onClick={() => setActivePanel(activePanel === 'checklist' ? null : 'checklist')} className="flex h-[34px] w-full items-center gap-2.5 rounded-[var(--ap-radius-sm)] px-2.5 text-left text-[13px] font-medium text-[var(--ap-fg)] transition-colors hover:bg-[var(--ap-bg-hover)]">
-                    <CheckSquare className="h-[15px] w-[15px] text-[var(--ap-fg-subtle)]" /> Checklist
-                  </button>
-                  {activePanel === 'checklist' && (
-                    <>
-                      <div className="fixed inset-0 z-[90]" onClick={() => setActivePanel(null)} />
-                      <div className="absolute right-0 top-full z-[91] mt-1.5 w-[212px] rounded-[var(--ap-radius-card)] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] p-2.5 shadow-[var(--ap-shadow-pop-xl)]">
-                        <div className="mb-2 flex items-center">
-                          <Eyebrow size="md" mono align="center" className="flex-1 text-[var(--ap-fg-subtle)]">New checklist</Eyebrow>
-                          <button
-                            onClick={() => setActivePanel(null)}
-                            aria-label="Close"
-                            className="inline-flex size-[22px] items-center justify-center rounded-[var(--ap-radius-xs)] text-[var(--ap-fg-muted)] hover:bg-[var(--ap-bg-hover)]"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </div>
+                  <Popover
+                    open={activePanel === 'checklist'}
+                    onOpenChange={(o) => setActivePanel(o ? 'checklist' : null)}
+                  >
+                    <PopoverTrigger asChild>
+                      <button className="flex h-[34px] w-full items-center gap-2.5 rounded-[var(--ap-radius-sm)] px-2.5 text-left text-[13px] font-medium text-[var(--ap-fg)] transition-colors hover:bg-[var(--ap-bg-hover)]">
+                        <CheckSquare className="h-[15px] w-[15px] text-[var(--ap-fg-subtle)]" /> Checklist
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent label="New checklist" heading="New checklist" width={232} align="end" side="left">
+                      <>
                         <input
                           autoFocus
                           value={newChecklistTitle}
@@ -2381,9 +2418,9 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
                         >
                           Add checklist
                         </button>
-                      </div>
-                    </>
-                  )}
+                      </>
+                    </PopoverContent>
+                  </Popover>
                 </div>
 
                 <button onClick={() => openAttributePanel('dates')} className="flex h-[34px] w-full items-center gap-2.5 rounded-[var(--ap-radius-sm)] px-2.5 text-left text-[13px] font-medium text-[var(--ap-fg)] transition-colors hover:bg-[var(--ap-bg-hover)]">
@@ -2406,13 +2443,17 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
 
                 {/* Cover — popover also sized to the rail track. */}
                 <div className="relative">
-                  <button onClick={() => setActivePanel(activePanel === 'cover' ? null : 'cover')} className="flex h-[34px] w-full items-center gap-2.5 rounded-[var(--ap-radius-sm)] px-2.5 text-left text-[13px] font-medium text-[var(--ap-fg)] transition-colors hover:bg-[var(--ap-bg-hover)]">
-                    <ImageIcon className="h-[15px] w-[15px] text-[var(--ap-fg-subtle)]" /> Cover
-                  </button>
-                  {activePanel === 'cover' && (
-                    <>
-                      <div className="fixed inset-0 z-[90]" onClick={() => setActivePanel(null)} />
-                      <div className="absolute right-0 top-full z-[91] mt-1.5 w-[212px] rounded-[var(--ap-radius-card)] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] p-2.5 shadow-[var(--ap-shadow-pop-xl)]">
+                  <Popover
+                    open={activePanel === 'cover'}
+                    onOpenChange={(o) => setActivePanel(o ? 'cover' : null)}
+                  >
+                    <PopoverTrigger asChild>
+                      <button className="flex h-[34px] w-full items-center gap-2.5 rounded-[var(--ap-radius-sm)] px-2.5 text-left text-[13px] font-medium text-[var(--ap-fg)] transition-colors hover:bg-[var(--ap-bg-hover)]">
+                        <ImageIcon className="h-[15px] w-[15px] text-[var(--ap-fg-subtle)]" /> Cover
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent label="Cover" heading="Cover" width={244} align="end" side="left">
+                      <>
                         {/* Size (CVR-1) */}
                         <Eyebrow size="md" mono className="mb-1.5 text-[var(--ap-fg-subtle)]">Size</Eyebrow>
                         <div className="mb-3 grid grid-cols-2 gap-1.5">
@@ -2482,9 +2523,9 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
                             Remove cover
                           </button>
                         )}
-                      </div>
-                    </>
-                  )}
+                      </>
+                    </PopoverContent>
+                  </Popover>
                 </div>
 
                 <button onClick={() => setActivePanel(activePanel === 'link' ? null : 'link')} className="flex h-[34px] w-full items-center gap-2.5 rounded-[var(--ap-radius-sm)] px-2.5 text-left text-[13px] font-medium text-[var(--ap-fg)] transition-colors hover:bg-[var(--ap-bg-hover)]">

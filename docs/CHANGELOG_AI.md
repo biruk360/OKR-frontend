@@ -2,6 +2,28 @@
 
 > **Purpose:** Log of all changes made by AI assistants. Every AI session that modifies code MUST append an entry here.
 
+## 2026-09-18 — Card modal: popover anchoring, a friendlier date picker, and a hover reflow
+
+Four defects reported from the running app, all in `components/todos/TodoCardModal.tsx`.
+
+**1 & 4 — Popovers opened away from their triggers (Members, Labels, Dates).** Every panel was a hand-rolled `absolute … top-full z-[91]` div inside a `relative` ancestor, with a `fixed inset-0 z-[90]` scrim. Three consequences: the panel anchored to the *container* rather than the button; it was clipped by the `overflow-y-auto` column it lived in; and it had no collision detection, so a 688px-tall dates panel simply ran off the bottom. All five (Members, Labels, Dates, and the rail's Checklist and Cover) now use `components/ui/popover.tsx`, which portals out of the scrolling column, anchors to the trigger and flips when it would overflow. Verified in a browser: date trigger at x=278 → popover at x=278; member trigger at x=286 → popover at x=286.
+
+**2 — The date and time fields were unusable.** The date was a free-text `M/D/YYYY` field parsed with `new Date()`, and the time was a bare `<input type="time">` that renders as `--:-- --` until touched. Both rows are now the design's shape: a checkbox, a label and a readable summary, with the calendar above as the only input — nothing to type. Time moved to an explicit picker (All day + half-hour steps in 12-hour labels) that appears only once a date is set.
+
+**A real bug surfaced while fixing that.** `parseYmd`'s regex was unanchored, so on a full ISO datetime it matched the first ten characters — the **UTC** calendar day — while the due badge and `due-tone` parse the same value as a `Date` and read the **local** day. East of UTC, a card due at local midnight showed one day in the badge and the day before in the panel, and saving would have written that wrong day back. The regex is now anchored to date-only strings, and a datetime is normalised to its local calendar day. Confirmed on screen: badge, calendar highlight and row summary all now read Sep 15 where the panel previously said Sep 14.
+
+**3 — Checklist rows jumped on hover.** The per-item action cluster was `hidden → group-hover:flex`, so three 24px buttons entered the flow on hover and shoved the row's contents. It now fades with `opacity`, staying in layout. Measured rather than eyeballed: the idle cluster reports `width: 76px, display: flex, opacity: 0`, so hover cannot reflow the row.
+
+**Closer to the reference design**, from the same report: the due badge leads with the date and trails the relative note ("Sep 15 · overdue by 3 days") instead of prefixing "Overdue ·"; the checklist header shows `n/total` and gained a **Hide checked** toggle (view-only and local — it filters what is rendered, never what is stored).
+
+**Still not built, and both need more than styling:** the `FIN-482` card-ID chip needs a field that does not exist on `Todo`, and the rail's **Archive** action needs an endpoint. Flagged rather than faked.
+
+**Verification** — `tsc --noEmit` clean for this file; cards 9/9, todos 28/28, sprints 21/21. Popover anchoring, the date rows and the hover reserve were each confirmed in a real browser with measurements, not just screenshots. A full local `npm run build` was deliberately **not** run: another session has uncommitted work in the tree (`features/auth/`, `app/api/wallpaper/`, plus edits to `app/auth/signin/page.tsx`, `app/globals.css`, `components/ui/input.tsx`) that does not compile, and stashing it while they were mid-edit was the riskier option. CI builds from a clean checkout, which is the authoritative gate.
+
+> **Two failures in `test:security` belong to that in-flight work, not to this change**, and both are worth their author's attention: `app/api/wallpaper/route.ts` carries **no auth wrapper** (SEC-1), and the rewritten sign-in page no longer routes `callbackUrl` through the validator, which is the open-redirect guard (SHR-6).
+
+Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+
 ## 2026-09-17 — Browser pass on the design refresh: four defects the test suite could not see
 
 First time any of this was rendered. Ran the dev server against a local Postgres and drove it with Puppeteer (sign-in, sprint board, card modal, to-dos, dashboard, light + dark). Every phase had passed `tsc`, six test suites and a production build; all four defects below survived that.

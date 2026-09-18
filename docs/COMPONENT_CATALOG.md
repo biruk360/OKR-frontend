@@ -2,6 +2,21 @@
 
 > **Purpose:** Inventory of all reusable components. AI and developers check this before creating anything new. Updated after every component change.
 
+## Auth / Sign-in (`features/auth`)
+
+> Import from the barrel: `import { SignInScreen, AuthBackdrop, AuthHero, SignInForm, useWallpaper } from '@/features/auth'`
+
+| Component | Props | Purpose |
+|-----------|-------|---------|
+| `SignInScreen` | — | Whole sign-in page: backdrop + hero column + credentials card. `app/auth/signin/page.tsx` is a thin Suspense wrapper over it. |
+| `AuthBackdrop` | `children` | Full-bleed rotating photo backdrop with crossfade, Ken Burns drift, contrast scrims, Bing-style caption chip and pause / shuffle controls. Reusable on any pre-auth screen. |
+| `AuthHero` | — | Editorial column: brand lockup, time-aware greeting, rotating tagline, product pillars, today's date. Client-only values to avoid hydration mismatch. |
+| `SignInForm` | — | Glass credentials card — `react-hook-form`, inline validation, caps-lock hint, show/hide password, remember-email, safe `callbackUrl` redirect. |
+
+Hook: `useWallpaper()` → `{ current, previous, imageReady, source, index, count, paused, togglePaused, next }`. Fetches `/api/wallpaper`, picks a frame that differs from the previous visit, preloads before swapping, auto-rotates every 20 s (off under `prefers-reduced-motion`).
+
+Services: `safeCallbackUrl(raw)` (open-redirect guard), `fetchWallpapers(signal)`, `pickStartIndex(images, lastShownId)`, `FALLBACK_SCENES`.
+
 ## OKR Period Close (`components/shared`, `components/period-close-report`)
 
 | Component | Props | Purpose |

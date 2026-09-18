@@ -2,6 +2,9 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+// The real implementation, not a copy: a mirrored version can drift from the
+// one that actually runs, which is the whole failure mode this file guards.
+import { safeCallbackUrl } from '../../features/auth/services/callback-url'
 
 /**
  * SHR-6 guards.
@@ -13,19 +16,10 @@ import { join } from 'node:path'
  */
 
 const ROOT = join(__dirname, '..', '..')
-const SIGNIN = readFileSync(join(ROOT, 'app/auth/signin/page.tsx'), 'utf8')
+// The sign-in route is a thin wrapper; the redirect lives in the feature module.
+const SIGNIN = readFileSync(join(ROOT, 'features/auth/components/SignInForm.tsx'), 'utf8')
 const LAYOUT = readFileSync(join(ROOT, 'app/dashboard/layout.tsx'), 'utf8')
 const MIDDLEWARE = readFileSync(join(ROOT, 'middleware.ts'), 'utf8')
-
-/** Mirrors safeCallbackUrl in app/auth/signin/page.tsx. */
-function safeCallbackUrl(raw: string | null): string {
-  if (!raw) return '/dashboard'
-  let decoded = raw
-  try { decoded = decodeURIComponent(raw) } catch { return '/dashboard' }
-  if (!decoded.startsWith('/dashboard')) return '/dashboard'
-  if (decoded.startsWith('//')) return '/dashboard'
-  return decoded
-}
 
 test('SHR-6: a shared card link survives sign-in', () => {
   const target = '/dashboard/sprints/s_42?card=t_918'

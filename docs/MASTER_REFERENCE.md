@@ -183,7 +183,7 @@ OKR-frontend/
 
 | Module | Status | Paths |
 |--------|--------|-------|
-| Authentication | DONE | `app/auth/`, `lib/auth.ts` |
+| Authentication | DONE | `app/auth/`, `features/auth/`, `lib/auth.ts`, `app/api/wallpaper/` |
 | Objectives CRUD | DONE (needs refactor) | `features/objectives/`, `app/api/objectives/` |
 | Objective Hierarchy | DONE | `components/objectives/NestedObjectivesList.tsx` |
 | Objective Cloning | DONE | `components/objectives/CloneObjectiveModal.tsx` |
@@ -377,7 +377,7 @@ Implementation reference: `docs/PERFORMANCE_SCORECARD_IMPLEMENTATION_PROPOSAL.md
 | Route | File | Description |
 |-------|------|-------------|
 | `/` | `app/page.tsx` | Root redirect |
-| `/auth/signin` | `app/auth/signin/page.tsx` | Sign-in |
+| `/auth/signin` | `app/auth/signin/page.tsx` | Sign-in — thin wrapper over `SignInScreen` (`features/auth`), rotating photo backdrop |
 | `/auth/signup` | `app/auth/signup/page.tsx` | Sign-up / registration |
 
 ### 5.2 Dashboard — My Work
@@ -663,6 +663,7 @@ Auth: routes use `withAuth(handler)` or `withRole(roles, handler)` from `lib/api
 | GET/POST | `/api/auth/[...nextauth]` | Public | NextAuth handler |
 | POST | `/api/auth/forgot-password` | Public | Request password reset |
 | POST | `/api/auth/reset-password` | Public | Reset password with token |
+| GET | `/api/wallpaper` | Public | Sign-in backdrop photos — Bing image-of-the-day, memoised 6 h, falls back to built-in CSS scenes (`AUTH_WALLPAPER_SOURCE=off` disables the outbound fetch) |
 
 ### 7.2 Objectives
 

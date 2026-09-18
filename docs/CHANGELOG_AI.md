@@ -2,6 +2,33 @@
 
 > **Purpose:** Log of all changes made by AI assistants. Every AI session that modifies code MUST append an entry here.
 
+## 2026-09-18 — The sign-in screen: a photograph that changes every time you log in
+
+The sign-in page was a 420px card on a flat `--ap-bg`. It is now a full-bleed photograph with a glass credentials card over it, and the photo is different on every visit.
+
+**Where the photos come from.** `GET /api/wallpaper` (new, deliberately unauthenticated — it feeds a pre-login screen and returns only public photo metadata) proxies Bing's published image-of-the-day archive, the same feed behind bing.com. Eight frames, normalised to `Wallpaper` objects with title, location, photographer and a blur-up thumbnail, memoised in-process for six hours so a burst of sign-ins costs one outbound request rather than one per visitor. Browsers fetch the image files straight from bing.com with `referrerpolicy="no-referrer"`; only the metadata goes through us.
+
+**It never depends on that working.** Six built-in CSS gradient scenes ship with the feature. They paint instantly under every photo while it decodes, and they *are* the backdrop when the archive is unreachable, when the fetch is slow, or when an operator sets `AUTH_WALLPAPER_SOURCE=off` on an egress-restricted host — in which case the page makes no outbound request at all. A stale six-hour memo is served in preference to no photo. The one thing a sign-in page may not do is fail to render.
+
+**What the screen does now.** A different frame per visit (the last one shown is remembered in `localStorage` and excluded), a 20s auto-rotation with preload-then-swap so a slow photo never blanks mid-fade, a 45s Ken Burns drift, a Bing-style caption chip that expands on hover to the location and photographer, pause and shuffle controls, and a `n / 8` counter. On `lg` and up there is an editorial column: brand lockup, a greeting that knows the hour, one of five rotating taglines, the product pillars, today's date — all resolved client-side, because the server has no idea what time it is for the visitor and guessing is a hydration mismatch.
+
+**The card.** Rebuilt on `react-hook-form` (it was raw `useState`), with inline field validation, a caps-lock hint, show/hide password, and "Remember me" that now actually does something — it stores the email so the next visit arrives pre-filled. `safeCallbackUrl` moved to `features/auth/services/callback-url.ts` unchanged; the SHR-6 open-redirect guard still runs on every sign-in.
+
+**Two real bugs found while building it.**
+
+1. **`components/ui/Input` was not a `forwardRef`.** Every `react-hook-form` field rendered through it silently read as empty: React logged "Function components cannot be given refs", validation ran against `undefined`, and a `setValue()` prefill never reached the DOM. Caught in the browser, not by `tsc` — the empty-submit screenshot showed "Enter your email address" under a field with an email in it. Now forwards its ref, which fixes it for every other consumer too.
+2. **Contrast against an unknown photograph.** The first scrim was tuned on a dusk shot and fell apart on the polar-bear frame — white-on-snow. There is now a flat 24% wash under the diagonal gradient, the hero text carries a shadow, and the card sits at 58% rather than 42%. Verified against the brightest frame in the set specifically.
+
+**Files.** New: `features/auth/` (`components/SignInScreen|AuthBackdrop|AuthHero|SignInForm`, `hooks/useWallpaper`, `services/wallpaper|bing-wallpaper|callback-url`, `types.ts`, `index.ts`), `app/api/wallpaper/route.ts`. Changed: `app/auth/signin/page.tsx` (now a thin Suspense wrapper), `components/ui/input.tsx` (forwardRef), `app/globals.css` (three auth keyframes + their `prefers-reduced-motion` overrides — the global rule collapses durations to 0.01ms, which would have snapped the drift to its end frame), `features/index.ts`, `env.example`, `lib/security/api-invariants.test.ts` (wallpaper exemption, with the guard it must prove), `lib/security/redirect-safety.test.ts` (now imports the real `safeCallbackUrl` instead of a mirrored copy that could drift), docs.
+
+**Accessibility.** Photos are `alt=""` and `aria-hidden`; the caption is real text, not baked into the image. Rotation, drift and entrance are all off under `prefers-reduced-motion` (verified with an emulated media feature). The scrim work is what keeps the text legible on an unpredictable backdrop.
+
+**Sign-up and forgot-password were left on the old centred card.** `AuthBackdrop` is exported from the barrel and takes `children`, so giving them the same treatment is a small follow-up — but it was not what was asked for.
+
+**Verification** — `tsc --noEmit` clean; `npm run build` exits 0 (`/auth/signin` 10.2 kB, `/api/wallpaper` listed); security 20/20, todos 28/28, cards 9/9, sprints 21/21, scrum 29/29, okr 9/9; and rendered in a real browser at 1512/834/390 px plus a reduced-motion pass — empty-submit validation, rejected credentials, remember-me, the caption chip, shuffle, and the worst-case bright photo all inspected. Not verified: a successful sign-in redirect (no valid local credentials were used).
+
+Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+
 ## 2026-09-18 — Card modal: popover anchoring, a friendlier date picker, and a hover reflow
 
 Four defects reported from the running app, all in `components/todos/TodoCardModal.tsx`.

@@ -42,6 +42,7 @@ const EXEMPT: { prefix: string; reason: string; mustMatch: RegExp }[] = [
   { prefix: 'app/api/cron/', reason: 'cron routes authenticate with a CRON_SECRET bearer token', mustMatch: /CRON_SECRET/ },
   { prefix: 'app/api/telegram/webhook/', reason: 'webhook authenticates with TELEGRAM_WEBHOOK_SECRET', mustMatch: /TELEGRAM_WEBHOOK_SECRET/ },
   { prefix: 'app/api/health/', reason: 'liveness probe exposes no data', mustMatch: /.*/ },
+  { prefix: 'app/api/wallpaper/', reason: 'it feeds the sign-in screen, which is pre-login by definition, and returns only public photo metadata', mustMatch: /Deliberately unauthenticated/ },
 ]
 
 function exemptionFor(route: string) {

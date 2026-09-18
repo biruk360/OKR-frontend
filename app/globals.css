@@ -1640,3 +1640,59 @@
     background-color: var(--ap-bg-sunken);
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Auth screen motion — `features/auth`.
+   The sign-in page renders outside the app shell on a full-bleed photograph,
+   so it carries its own (small) motion vocabulary: a slow drift over the
+   photo, a staggered entrance for the card and hero, and a shake on a
+   rejected credential. All three are switched off under prefers-reduced-motion
+   at the bottom of this block.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Ken Burns: a barely-perceptible push, long enough (45s) that it reads as
+   depth rather than movement. `both` holds the end frame if the photo outlives
+   the animation. */
+@keyframes ap-auth-kenburns {
+  from { transform: scale(1.06) translate3d(0, 0, 0); }
+  to   { transform: scale(1.14) translate3d(-1.2%, -1%, 0); }
+}
+.ap-auth-kenburns {
+  animation: ap-auth-kenburns 45s var(--ap-ease-out, cubic-bezier(0.16, 1, 0.3, 1)) both;
+  will-change: transform;
+}
+
+@keyframes ap-auth-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.ap-auth-rise {
+  animation: ap-auth-rise 620ms var(--ap-spring, cubic-bezier(0.32, 0.72, 0, 1)) both;
+}
+
+@keyframes ap-auth-shake {
+  0%, 100% { transform: translateX(0); }
+  20%      { transform: translateX(-5px); }
+  40%      { transform: translateX(4px); }
+  60%      { transform: translateX(-3px); }
+  80%      { transform: translateX(2px); }
+}
+.ap-auth-shake {
+  animation: ap-auth-shake 380ms var(--ap-ease-out, cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The global rule above collapses durations to 0.01ms, which would snap the
+     drift straight to its end frame. Drop it outright and leave the entrance
+     and the shake as instant state changes. */
+  .ap-auth-kenburns {
+    animation: none !important;
+    transform: scale(1.06);
+  }
+  .ap-auth-rise,
+  .ap-auth-shake {
+    animation: none !important;
+    opacity: 1;
+    transform: none;
+  }
+}

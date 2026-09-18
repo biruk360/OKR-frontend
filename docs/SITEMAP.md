@@ -7,7 +7,7 @@
 | Route | Page File | Description |
 |-------|-----------|-------------|
 | `/` | `app/page.tsx` | Root redirect |
-| `/auth/signin` | `app/auth/signin/page.tsx` | Sign-in page |
+| `/auth/signin` | `app/auth/signin/page.tsx` | Sign-in page — thin route over `SignInScreen` (`features/auth`); rotating photo backdrop |
 | `/auth/signup` | `app/auth/signup/page.tsx` | Sign-up page |
 
 ## Client Portal Routes
@@ -146,6 +146,11 @@
 | `/dashboard/settings/letter-permissions` | `app/dashboard/settings/letter-permissions/page.tsx` | settings | Letter role matrix + user overrides + letter types (ADMIN only) |
 
 ## API Routes
+
+### Auth & Sign-in
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | `/api/wallpaper` | **Unauthenticated.** Backdrop photos for the sign-in screen (Bing image-of-the-day, memoised 6 h; falls back to built-in CSS scenes) |
 
 ### Objectives
 | Method | Route | Description |

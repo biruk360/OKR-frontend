@@ -719,3 +719,29 @@ ALTER TABLE "public"."initiatives"
 
 CREATE INDEX IF NOT EXISTS "initiatives_dueReminder_dueReminderSentAt_idx"
   ON "public"."initiatives" ("dueReminder", "dueReminderSentAt");
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Recurring cards (Trello parity, DTE-5) — 2026-09-18
+-- Engine: lib/todos/recurrence.ts · Generator: app/api/cron/todo-recurrence
+--
+--   * initiatives.recurrenceRule     — DAILY | WEEKDAYS | WEEKLY | BIWEEKLY |
+--     MONTHLY | YEARLY; null = a one-off card. Only the SERIES HEAD carries it.
+--   * initiatives.recurrenceEndsAt   — inclusive last date the series generates.
+--   * initiatives.recurrenceParentId — set on each generated occurrence, points
+--     at the head. Null on the head itself, so a series cannot fan out.
+--
+-- Additive and nullable; safe to re-run. No FK on recurrenceParentId on purpose:
+-- deleting a head must not cascade away the occurrences already completed under
+-- it, and the column is only ever read as a lineage tag.
+-- ─────────────────────────────────────────────────────────────────────────────
+
+ALTER TABLE "public"."initiatives"
+  ADD COLUMN IF NOT EXISTS "recurrenceRule" TEXT,
+  ADD COLUMN IF NOT EXISTS "recurrenceEndsAt" TIMESTAMP(3),
+  ADD COLUMN IF NOT EXISTS "recurrenceParentId" TEXT;
+
+CREATE INDEX IF NOT EXISTS "initiatives_recurrenceRule_dueDate_idx"
+  ON "public"."initiatives" ("recurrenceRule", "dueDate");
+
+CREATE INDEX IF NOT EXISTS "initiatives_recurrenceParentId_idx"
+  ON "public"."initiatives" ("recurrenceParentId");

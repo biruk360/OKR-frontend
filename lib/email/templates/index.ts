@@ -431,6 +431,30 @@ export function renderTemplate(eventKey: EventKey, data: Data): RenderedEmail {
         `,
       })
 
+    // The reminder the user explicitly set on the card ("5 minutes before",
+    // "1 day before"). Distinct from TODO_DUE_TOMORROW/TODAY, which are the
+    // system's own daily sweep: this one fires exactly once, at a moment the
+    // user chose, so it leads with the lead time rather than the calendar day.
+    case 'TODO_DUE_REMINDER': {
+      const lead_ = String(data.reminder ?? '').trim()
+      const when = lead_ ? lead_.toLowerCase() : 'now'
+      return compose({
+        subject: `Reminder: ${entityTitle}`,
+        recipientName: name,
+        text: `Hi ${name},\n\nYou asked to be reminded ${when} about "${entityTitle}" (due ${fmtDate(data.dueDate)}). Open: ${absoluteUrl(deepLink)}`,
+        html: `
+          ${heading({ eyebrow: 'Reminder', title: entityTitle, badgeText: lead_ || 'Due now', badgeTone: 'warning' })}
+          ${lead(`You asked to be reminded ${when} this card is due.`)}
+          ${metaRow([
+            { label: 'Due', value: fmtDate(data.dueDate) },
+            ...(lead_ ? [{ label: 'Reminder', value: lead_ }] : []),
+          ])}
+          ${button('Open the card', deepLink, 'warning')}
+          ${actionRow([{ label: 'Open work board', href: '/dashboard/todos' }])}
+        `,
+      })
+    }
+
     case 'TODO_DUE_TOMORROW':
       return compose({
         subject: `Due tomorrow: ${entityTitle}`,

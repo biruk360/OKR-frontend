@@ -38,7 +38,8 @@
     "worker:automations": "tsx scripts/automations-worker.ts",
     "test:automations": "tsx --test lib/automations/*.test.ts lib/automations/tools/*.test.ts lib/odoo/*.test.ts",
     "db:seed:automation-permissions": "tsx scripts/seed-automation-permissions.ts",
-    "smoke:automations": "tsx scripts/smoke-automations.ts"
+    "smoke:automations": "tsx scripts/smoke-automations.ts",
+    "automations:test-schedule": "tsx scripts/create-test-automation.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.95.1",

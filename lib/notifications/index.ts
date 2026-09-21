@@ -4,3 +4,5 @@ export type { EventKey, EventCategory, EventPayload, DefaultCadence } from './ev
 export { getUserPref, getUserPrefsBulk, ensureOrgDefaults } from './preferences'
 export { resolveTodoStakeholders } from './recipients'
 export type { EffectivePref } from './preferences'
+export { toNotificationRow, notificationDeepLink } from './row'
+export type { NotificationRow } from './row'

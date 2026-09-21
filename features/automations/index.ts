@@ -10,6 +10,7 @@ export { BriefingView } from './components/BriefingView'
 export { PlanDiffView } from './components/PlanDiffView'
 export { PromoteFindingModal } from './components/PromoteFindingModal'
 export { RunTranscript } from './components/RunTranscript'
+export { TestRunPanel } from './components/TestRunPanel'
 export { ModeBadge, StatusBadge, RunStatusBadge } from './components/AutomationStatusBadges'
 export {
   useAutomation,

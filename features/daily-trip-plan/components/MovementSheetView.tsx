@@ -90,9 +90,10 @@ export function MovementSheetView({ deptId, date }: Props) {
         </table>
       </div>
 
-      {/* Map placeholder — wired to a real Google Maps render in a follow-up. */}
-      <div className="rounded-lg border border-dashed border-border bg-muted/30 h-64 flex items-center justify-center text-sm text-muted-foreground print:h-40">
-        Map snapshot (TODO: render Google Static Maps with one numbered pin per row)
+      {/* Map placeholder — see RunSheetView: hidden in print rather than shipping
+          an empty box, and no longer renders a raw "TODO:" string to the user. */}
+      <div className="rounded-lg border border-dashed border-border bg-muted/30 h-64 flex items-center justify-center text-sm text-muted-foreground print:hidden">
+        Map snapshot not available yet
       </div>
 
       <footer className="flex flex-col gap-6 sm:flex-row sm:gap-12 pt-6 print:pt-2">

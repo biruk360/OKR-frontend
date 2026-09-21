@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { signOut } from 'next-auth/react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
@@ -34,6 +34,9 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import ThemeSwitcher from '@/components/layout/ThemeSwitcher'
+import { formatDistanceToNowStrict } from 'date-fns'
+import { notificationIcon } from '@/components/shared/notification-icon'
+import { useNotificationStore } from '@/lib/stores/notification-store'
 
 interface HeaderProps {
   user: {
@@ -61,6 +64,20 @@ export default function Header({ user, onMobileNavOpen }: HeaderProps) {
 
   const [changePasswordOpen, setChangePasswordOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // Selectors rather than the whole store, so a state change in one field does
+  // not re-render the entire header.
+  const notifications = useNotificationStore((st) => st.notifications)
+  const unreadCount = useNotificationStore((st) => st.unreadCount)
+  const notificationsLoaded = useNotificationStore((st) => st.loaded)
+  const fetchNotifications = useNotificationStore((st) => st.fetch)
+  const markRead = useNotificationStore((st) => st.markRead)
+  const markAllRead = useNotificationStore((st) => st.markAllRead)
+
+  // One fetch on mount so the badge is right before the bell is ever opened;
+  // opening it refetches. No polling — the count is not worth a timer, and
+  // navigating remounts the header anyway.
+  useEffect(() => { void fetchNotifications(8) }, [fetchNotifications])
 
   const {
     register,
@@ -174,29 +191,90 @@ export default function Header({ user, onMobileNavOpen }: HeaderProps) {
           <div className="flex shrink-0 items-center gap-1 sm:gap-2">
             <ThemeSwitcher />
 
-            {/* Notifications.
-                The preview list used to be three hardcoded strings behind a
-                literal "3" badge. There is no /api/notifications list route to
-                back it (only .../preferences and the cron writer), so the
-                dropdown now says so honestly and routes to the real page, which
-                does read Notification rows server-side. Restore the badge and a
-                preview list here once that route exists. */}
-            <DropdownMenu>
+            {/* Notifications. The preview list is real: GET /api/notifications
+                backs it, and the count comes from the server rather than from
+                the loaded page, so it is right even past the 8 shown here. */}
+            <DropdownMenu onOpenChange={(open) => { if (open) void fetchNotifications(8) }}>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" aria-label="Notifications">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="relative"
+                  aria-label={unreadCount > 0 ? `Notifications (${unreadCount} unread)` : 'Notifications'}
+                >
                   <Bell className="size-4" />
+                  {unreadCount > 0 && (
+                    <span
+                      className="absolute right-0.5 top-0.5 flex h-[15px] min-w-[15px] items-center justify-center rounded-full px-[3px] font-mono text-[9px] font-semibold leading-none tabular-nums text-white"
+                      style={{ background: 'var(--ap-danger)' }}
+                    >
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-72">
-                <div className="px-3 py-2">
+              <DropdownMenuContent align="end" className="w-80">
+                <div className="flex items-center justify-between px-3 py-2">
                   <p className="font-mono text-[9.5px] font-medium uppercase tracking-[0.12em] text-[var(--ap-fg-subtle)]">
                     Notifications
                   </p>
+                  {unreadCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => void markAllRead()}
+                      className="text-[11px] font-medium text-[var(--ap-accent)] hover:underline"
+                    >
+                      Mark all read
+                    </button>
+                  )}
                 </div>
                 <DropdownMenuSeparator />
-                <p className="px-3 py-6 text-center text-[13px] text-[var(--ap-fg-subtle)]">
-                  No preview available yet.
-                </p>
+                {!notificationsLoaded ? (
+                  <p className="px-3 py-6 text-center text-[13px] text-[var(--ap-fg-subtle)]">Loading…</p>
+                ) : notifications.length === 0 ? (
+                  <p className="px-3 py-6 text-center text-[13px] text-[var(--ap-fg-subtle)]">
+                    You&apos;re all caught up.
+                  </p>
+                ) : (
+                  <ul className="max-h-[320px] overflow-y-auto py-1">
+                    {notifications.slice(0, 8).map((n) => {
+                      const { Icon, bg, fg } = notificationIcon(n.type)
+                      return (
+                        <li key={n.id}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!n.isRead) void markRead(n.id)
+                              if (n.deepLink) router.push(n.deepLink)
+                            }}
+                            className="flex w-full items-start gap-2.5 px-3 py-2 text-left hover:bg-[color:var(--ap-bg-hover)]"
+                          >
+                            <span
+                              className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full"
+                              style={{ background: bg }}
+                            >
+                              <Icon className="size-3.5" style={{ color: fg }} />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="flex items-center gap-1.5">
+                                <span className="truncate text-[12px] font-semibold text-[var(--ap-fg)]">{n.title}</span>
+                                {!n.isRead && (
+                                  <span className="size-1.5 shrink-0 rounded-full" style={{ background: 'var(--ap-accent)' }} />
+                                )}
+                              </span>
+                              <span className="mt-0.5 line-clamp-2 block text-[11px] text-[var(--ap-fg-subtle)]">
+                                {n.message}
+                              </span>
+                              <span className="mt-0.5 block text-[10px] tabular-nums text-[var(--ap-fg-subtle)]">
+                                {formatDistanceToNowStrict(new Date(n.createdAt), { addSuffix: true })}
+                              </span>
+                            </span>
+                          </button>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   className="justify-center text-[13px] font-medium text-[var(--ap-accent)]"

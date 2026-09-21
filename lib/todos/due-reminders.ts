@@ -89,8 +89,8 @@ export function shouldSendReminder(
  * moment — otherwise a card moved a week out would never remind.
  */
 export function shouldResetReminderSentAt(
-  prev: { dueDate: Date | null; dueReminder: string | null },
-  next: { dueDate?: Date | null; dueReminder?: string | null },
+  prev: { dueDate: Date | null; dueReminder: string | null; endTime?: string | null },
+  next: { dueDate?: Date | null; dueReminder?: string | null; endTime?: string | null },
 ): boolean {
   if (next.dueDate !== undefined) {
     const a = prev.dueDate ? prev.dueDate.getTime() : null
@@ -98,5 +98,11 @@ export function shouldResetReminderSentAt(
     if (a !== b) return true
   }
   if (next.dueReminder !== undefined && next.dueReminder !== prev.dueReminder) return true
+  // endTime feeds reminderFireAt just as directly as dueDate does: moving a card
+  // from 17:00 to 09:00, or clearing the time (which shifts it to 23:59), moves
+  // the moment the reminder is supposed to fire. Without this the already-sent
+  // stamp survives and the new, earlier moment is silently skipped — exactly the
+  // failure this helper exists to prevent.
+  if (next.endTime !== undefined && (next.endTime || null) !== (prev.endTime ?? null)) return true
   return false
 }

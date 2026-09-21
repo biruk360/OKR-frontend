@@ -6,6 +6,7 @@ import { buildScopeFilter } from '@/lib/apply-scope'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { recordActivity } from '@/lib/activity-log'
 import { isDueReminder, shouldResetReminderSentAt } from '@/lib/todos/due-reminders'
+import { isRecurrenceRule } from '@/lib/todos/recurrence'
 import { emit, resolveTodoStakeholders } from '@/lib/notifications'
 import { broadcastSprintEvent } from '@/lib/pusher'
 import { recalcKrFromInitiatives, recalcNodeAndAncestors } from '@/lib/objectiveProgress'
@@ -84,6 +85,7 @@ export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { sess
   const {
     title, description, status, startDate, dueDate, startTime, endTime, completedAt, progressValue,
     dueReminder,
+    recurrenceRule, recurrenceEndsAt,
     assigneeId, priority, coverColor, coverSize,
     sprintId, columnId, taskType,
     sprintPosition, // number — card position within its sprint+status lane
@@ -123,10 +125,11 @@ export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { sess
   if (!existingTodo) return apiNotFound('To-do not found')
 
   const reminderNeedsReset = shouldResetReminderSentAt(
-    { dueDate: existingTodo.dueDate, dueReminder: existingTodo.dueReminder },
+    { dueDate: existingTodo.dueDate, dueReminder: existingTodo.dueReminder, endTime: existingTodo.endTime },
     {
       ...(dueDate !== undefined && { dueDate: dueDate ? new Date(dueDate) : null }),
       ...(dueReminder !== undefined && { dueReminder: isDueReminder(dueReminder) ? dueReminder : null }),
+      ...(endTime !== undefined && { endTime: endTime || null }),
     },
   )
 
@@ -310,6 +313,17 @@ export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { sess
           // the cron would then skip forever.
           dueReminder: isDueReminder(dueReminder) ? dueReminder : null,
         }),
+        ...(recurrenceRule !== undefined && {
+          // Unrecognised rules clear the recurrence rather than persisting a
+          // cadence the generator would never act on.
+          recurrenceRule: isRecurrenceRule(recurrenceRule) ? recurrenceRule : null,
+          // Dropping the rule drops the end date too, so a later re-enable
+          // cannot silently inherit a stale cutoff.
+          ...(isRecurrenceRule(recurrenceRule) ? {} : { recurrenceEndsAt: null }),
+        }),
+        ...(recurrenceEndsAt !== undefined
+          && isRecurrenceRule(recurrenceRule ?? existingTodo.recurrenceRule)
+          && { recurrenceEndsAt: recurrenceEndsAt ? new Date(recurrenceEndsAt) : null }),
         // A rescheduled card, or a changed lead time, must be able to remind
         // again — otherwise moving a card a week out would silently never fire.
         ...(reminderNeedsReset && { dueReminderSentAt: null }),

@@ -510,6 +510,15 @@ model Todo {
   /// Set when the reminder for the CURRENT dueDate has been sent, so a cron
   /// re-run cannot double-notify. Cleared whenever dueDate or dueReminder change.
   dueReminderSentAt     DateTime?
+  /// Recurrence (DTE-5). Only the series HEAD carries a rule; each generated
+  /// occurrence is its own row with recurrenceParentId set and no rule, so a
+  /// series can never fan out. See lib/todos/recurrence.ts.
+  /// DAILY | WEEKDAYS | WEEKLY | BIWEEKLY | MONTHLY | YEARLY. Null = one-off.
+  recurrenceRule        String?
+  /// Inclusive last date the series may generate. Null = open-ended.
+  recurrenceEndsAt      DateTime?
+  /// Points at the series head for a generated occurrence; null on the head.
+  recurrenceParentId    String?
   /// Optional primary assignee (legacy — Trello-style usage relies on TodoMember
   /// instead). Kept nullable for filters/notifications/legacy queries.
   assigneeId            String?
@@ -579,6 +588,9 @@ model Todo {
   @@index([sprintId])
   @@index([columnId, sprintPosition])
   @@index([dueReminder, dueReminderSentAt])
+  /// The generator's scan predicate: heads only, cheapest possible sweep.
+  @@index([recurrenceRule, dueDate])
+  @@index([recurrenceParentId])
   @@index([taskType])
   @@index([sprintId, status])
   @@index([sprintId, status, sprintPosition])

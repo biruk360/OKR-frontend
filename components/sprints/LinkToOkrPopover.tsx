@@ -77,7 +77,10 @@ export default function LinkToOkrPopover({
     setLoading(true)
     Promise.all([
       fetch('/api/objectives?limit=200').then((r) => r.json()).catch(() => null),
-      fetch('/api/key-results?limit=500').then((r) => r.json()).catch(() => null),
+      // /api/keyresults — no hyphen. The hyphenated path does not exist; it 404'd,
+      // the .catch below swallowed it, and the picker then rendered an empty list,
+      // which reads as "you have no OKRs to link" rather than as a failure.
+      fetch('/api/keyresults?limit=500').then((r) => r.json()).catch(() => null),
     ]).then(([objRes, krRes]) => {
       const objs: any[] = Array.isArray(objRes?.data) ? objRes.data : objRes?.data?.items ?? []
       const krs: any[] = Array.isArray(krRes?.data) ? krRes.data : krRes?.data?.items ?? []

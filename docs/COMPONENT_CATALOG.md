@@ -212,6 +212,7 @@ import { Target, CheckSquare } from 'lucide-react'
 | `EntityLink` | `components/shared/EntityLink.tsx` | `entity`, `type` | Navigation link to objective/KR/todo detail |
 | `TimeframeBadge` | `components/shared/TimeframeBadge.tsx` | `timeframe` | Badge display for timeframe (Q1 2025, etc.) |
 | `LiveAnnouncer` + `announce()` | `components/shared/LiveAnnouncer.tsx` | none (mounted once in `app/layout.tsx`) | The app's only `aria-live` region. Call `announce('message')` or `announce('message', 'assertive')` from anywhere — no context, no prop drilling. Use for changes with no focus change (kanban moves, optimistic saves, bulk actions). |
+| `notificationIcon()` / `notificationTypeLabel()` | `components/shared/notification-icon.ts` | `type: string` | Icon + tone for a notification, keyed off its `type`/`eventKey`. Shared by the header bell, `/dashboard/notifications` and the sprint Inbox so one event cannot render three different ways. Not a component — a mapping. |
 
 ## Layout Components (`components/layout/`)
 
@@ -285,6 +286,12 @@ import { Target, CheckSquare } from 'lucide-react'
 | `MyOKRsPage` | Page component | User's OKR overview (has duplicate stat card markup) |
 | Various dashboard widgets | Widgets | Stats, charts, quick actions |
 
+> `ProgressOverview.tsx` was **deleted** 2026-09-18. It rendered a hardcoded
+> 7-point 2024 series behind a fake 1s loading delay as "Average progress across
+> all objectives", ignoring the `userId` prop it took. Nothing imported it, but
+> one mount would have shipped a fabricated chart. `/api/filters/progress-timeseries`
+> and `/api/my/nav-progress` return the real series if the widget is ever rebuilt.
+
 ### Goals (`components/goals/`)
 
 | Component | Type | Notes |
@@ -308,6 +315,12 @@ Import these instead of writing hex literals.
 | `resolvePattern` | `(pattern, color) => CardPattern` | Stored pattern if valid, else one derived deterministically from the colour. |
 | `readableInk` | `(hex) => '#1D1D1F' \| '#FFFFFF'` | Title ink for full-bleed covers; every palette colour is unit-tested to reach ≥4.5:1. |
 | `contrastRatio` / `relativeLuminance` | `(hex, hex) => number` / `(hex) => number` | WCAG 2.1 maths behind `readableInk`. |
+
+### Sprint board views (`features/sprints/`)
+
+| Component | File | Props | Description |
+|-----------|------|-------|-------------|
+| `SprintInboxView` | `features/sprints/components/SprintInboxView.tsx` | `dark?` | The board's Inbox tab. Renders the notification feed from `useNotificationStore` with per-row mark-read and a Mark-all-read action. Replaced a static "Inbox is coming soon" panel — a selectable dock tab that went nowhere. |
 
 ### Sprint board lists (`features/sprints/`)
 
@@ -403,7 +416,7 @@ const { users, timeframes, departments, isLoading } = useReferenceData()
 | Store | File | Description |
 |-------|------|-------------|
 | `useTodoStore` | `lib/stores/todo-store.ts` | Todo filters, selection state |
-| `useNotificationStore` | `lib/stores/notification-store.ts` | Notification toast messages |
+| `useNotificationStore` | `lib/stores/notification-store.ts` | In-app notification feed + server-supplied `unreadCount`. `fetch(limit)`, `markRead(id)`, `markAllRead()`, each with optimistic update and rollback on `!res.ok`. Mounted by the header bell and `SprintInboxView`, so marking read in one clears the badge in the other. (It is **not** toast state — toasts are `react-hot-toast`.) |
 | `useUserPrefsStore` | `lib/stores/user-prefs-store.ts` | User preferences (sidebar vs modal view) |
 
 ## API Helpers (`lib/api/`)

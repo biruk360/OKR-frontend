@@ -108,9 +108,12 @@ export function RunSheetView({ driverId, date, driverMode }: Props) {
         </table>
       </div>
 
-      {/* Map placeholder */}
-      <div className="rounded-lg border border-dashed border-border bg-muted/30 h-64 flex items-center justify-center text-sm text-muted-foreground print:h-40">
-        Route map (TODO: render Google Static Maps polyline through all leg waypoints)
+      {/* Map placeholder. `print:hidden` on purpose: an empty dashed box is noise
+          on the sheet handed to a driver, and the raw "TODO:" string this used to
+          render was going out on that printout. Drops out entirely until a Static
+          Maps key exists and a real polyline can be drawn here. */}
+      <div className="rounded-lg border border-dashed border-border bg-muted/30 h-64 flex items-center justify-center text-sm text-muted-foreground print:hidden">
+        Route map not available yet
       </div>
     </div>
   )

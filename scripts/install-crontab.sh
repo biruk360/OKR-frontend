@@ -75,6 +75,67 @@ add automations-reap   "*/5 * * * *" "/api/cron/automations-reap" \
   "Reclaims automation runs whose worker lease expired (worker crashed mid-run)."
 add automations-prune  "30 3 * * *"  "/api/cron/automations-prune" \
   "Retention: nulls old run transcripts and deletes briefings past AutomationSettings.retentionDays."
+add todo-recurrence    "0 1 * * *"   "/api/cron/todo-recurrence" \
+  "Generates the next occurrence of each recurring card (DTE-5). Daily is enough — recurrence has day-level granularity."
+
+# ── Project Management module ────────────────────────────────────────────────
+# These three were documented in docs/CRON.md from the day the module shipped
+# but were never added here, so anyone who bootstrapped with this script did not
+# get them. approval-clock matters most: CLAUDE.md lists "the Approval Clock is
+# automatic" as a critical invariant, and without this sweep the SLA-breach
+# escalations it promises never fire.
+add approval-clock     "0 8 * * *"   "/api/cron/approval-clock" \
+  "Fires CLIENT_APPROVAL_SLA_BREACH at SLA, SLA+3 and SLA+7 business days (build spec C3/5.3)."
+add project-health     "0 2 * * *"   "/api/cron/project-health" \
+  "Nightly project health recompute."
+add project-digest     "0 7 * * *"   "/api/cron/project-digest" \
+  "Daily PM digest."
+
+# ── Notifications ────────────────────────────────────────────────────────────
+# Schedules lifted from deploy/notifications-crontab.example, which nothing ever
+# installed — so the digest queue grew without ever draining and no digest email
+# was sent. Times are UTC; the comments give the Africa/Addis_Ababa (EAT, +3)
+# local time they were chosen for. Converted to the Bearer-header form the rest
+# of this script uses instead of the example's `?key=` query parameter.
+add "notifications?job=daily"        "0 4 * * *"   "/api/cron/notifications?job=daily" \
+  "Daily digest drain — 07:00 EAT. Without this, EmailDigestQueue never empties."
+add "notifications?job=weekly"       "5 4 * * 1"   "/api/cron/notifications?job=weekly" \
+  "Weekly digest drain — Monday 07:05 EAT."
+add "notifications?job=monthly"      "10 4 1 * *"  "/api/cron/notifications?job=monthly" \
+  "Monthly digest drain — 1st of month, 07:10 EAT."
+add "notifications?job=escalation"   "0 6 * * *"   "/api/cron/notifications?job=escalation" \
+  "Check-in missed escalation (7d / 14d) — 09:00 EAT."
+add "notifications?job=todos"        "0 5 * * *"   "/api/cron/notifications?job=todos" \
+  "TODO_DUE_TOMORROW + TODO_OVERDUE sweep — 08:00 EAT. Distinct from todo-reminders above, which delivers the per-card lead time the user set."
+add "notifications?job=timeframes"   "30 3 * * *"  "/api/cron/notifications?job=timeframes" \
+  "Timeframe watcher (ending 7d / closing 1d / closed) — 06:30 EAT."
+add "notifications?job=admin-weekly" "15 4 * * 1"  "/api/cron/notifications?job=admin-weekly" \
+  "Admin weekly health digest — Monday 07:15 EAT."
+add "notifications?job=admin-monthly" "20 4 1 * *" "/api/cron/notifications?job=admin-monthly" \
+  "Admin monthly exec summary — 1st of month, 07:20 EAT."
+add weekly-digest      "25 4 * * 1"  "/api/cron/weekly-digest" \
+  "Weekly per-user owner digest — Monday 07:25 EAT."
+
+# ── OKR hygiene ──────────────────────────────────────────────────────────────
+add auto-confidence    "0 0 * * *"   "/api/cron/auto-confidence" \
+  "Recompute confidence for OKRs with no check-in in 14 days — 03:00 EAT."
+add prune-activity     "30 0 * * *"  "/api/cron/prune-activity" \
+  "Retention: drops ActivityLog rows older than ~18 months — 03:30 EAT."
+add "notifications?job=prune-notifications" "45 0 * * *" "/api/cron/notifications?job=prune-notifications" \
+  "Retention: marks unread notifications older than 30d as read, deletes read ones older than 90d. Nothing pruned this table before, so it grew without bound."
+
+
+# ── Daily Scrum ──────────────────────────────────────────────────────────────
+add scrum-health       "0 23 * * *"  "/api/cron/scrum-health" \
+  "Scrum health recompute — 02:00 EAT (23:00 UTC the previous day)."
+add scrum-reminder     "0 5 * * 1-5" "/api/cron/scrum-reminder" \
+  "Standup reminder — working days, 08:00 EAT."
+add scrum-finalize     "0 6 * * 1-5" "/api/cron/scrum-finalize" \
+  "Finalize the day's updates + manager digest — working days, 09:00 EAT."
+add scrum-nudge        "5 6 * * 1-5" "/api/cron/scrum-nudge" \
+  "Single nudge for anyone who has not posted — working days, 09:05 EAT."
+add scrum-weekly       "0 13 * * 5"  "/api/cron/scrum-weekly" \
+  "Scrum weekly digest — Friday 16:00 EAT."
 
 crontab "$TMP"
 echo "Crontab updated."

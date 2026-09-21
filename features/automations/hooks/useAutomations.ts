@@ -54,11 +54,14 @@ export function useAutomationRuns(id: string, options?: { refetchInterval?: numb
   })
 }
 
-export function useRunDetail(runId: string | null) {
+export function useRunDetail(runId: string | null, options?: { refetchInterval?: number | false }) {
   return useQuery({
     queryKey: keys.run(runId ?? ''),
     queryFn: () => automationsApi.run(runId as string),
     enabled: Boolean(runId),
+    // The test-run panel polls while a run is in flight and stops once it
+    // reaches a terminal state, so a finished run is not re-fetched forever.
+    refetchInterval: options?.refetchInterval,
   })
 }
 

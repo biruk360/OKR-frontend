@@ -105,3 +105,18 @@ test('T-09: rescheduling or changing the lead time re-arms the reminder', () => 
   assert.equal(shouldResetReminderSentAt(prev, {}), false)
   assert.equal(shouldResetReminderSentAt(prev, { dueDate: dueAt(), dueReminder: 'D1' }), false)
 })
+
+test('T-10: changing the due TIME re-arms the reminder', () => {
+  // reminderFireAt depends on endTime as directly as it does on dueDate, so an
+  // edit that moves the deadline earlier must clear the already-sent stamp.
+  const prev = { dueDate: dueAt(), dueReminder: 'D1', endTime: '17:00' }
+  assert.equal(shouldResetReminderSentAt(prev, { endTime: '09:00' }), true)
+  // Clearing the time shifts the card to the 23:59 all-day rule — also a move.
+  assert.equal(shouldResetReminderSentAt(prev, { endTime: null }), true)
+  assert.equal(shouldResetReminderSentAt(prev, { endTime: '' }), true)
+  // Same time, and absent time, are both no-ops.
+  assert.equal(shouldResetReminderSentAt(prev, { endTime: '17:00' }), false)
+  assert.equal(shouldResetReminderSentAt(prev, {}), false)
+  // A card that had no time and still has none must not re-arm.
+  assert.equal(shouldResetReminderSentAt({ dueDate: dueAt(), dueReminder: 'D1' }, { endTime: null }), false)
+})

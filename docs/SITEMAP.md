@@ -66,7 +66,6 @@
 | `/dashboard/filters` | `app/dashboard/filters/page.tsx` | filters | Filters Workspace — three-tab analytical surface (Objectives / Key Results / Initiatives) with segments, filter bar, KPI tiles, histogram, grouped results |
 | `/dashboard/objectives` | `app/dashboard/objectives/page.tsx` | objectives | All objectives list |
 | `/dashboard/objectives/[id]` | `app/dashboard/objectives/[id]/page.tsx` | objectives | Objective detail view |
-| `/dashboard/objectives/cmnt25rlr000yhl7oktasxeml/design` | `app/dashboard/objectives/cmnt25rlr000yhl7oktasxeml/design/page.tsx` | objectives | Static design prototype page |
 | `/dashboard/key-results/[id]` | `app/dashboard/key-results/[id]/page.tsx` | key-results | Key result detail view |
 | `/dashboard/okrs-all/period-report/[timeframeId]` | `app/dashboard/okrs-all/period-report/[timeframeId]/page.tsx` | reports | Department/org-scoped end-of-period close report, close queue, and PDF export |
 
@@ -318,14 +317,34 @@
 | POST | `/api/cron/client-report` | Bi-weekly R2 draft generation for active projects |
 | POST | `/api/cron/wbr-pack` | Weekly WBR pack generation for CEO and PMs |
 
+### Notifications
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | `/api/notifications` | Current user's notifications + unread count. `limit` (1-100, default 20), `unreadOnly=1`, `cursor`. Returns `{ items, unreadCount, nextCursor }`. |
+| PATCH | `/api/notifications/[id]` | Mark one read/unread. Scoped to the session user via `updateMany`; 404 on a miss. |
+| DELETE | `/api/notifications/[id]` | Dismiss one. Same ownership scoping. |
+| POST | `/api/notifications/mark-all-read` | Clear the user's unread count. |
+| GET/PATCH | `/api/notifications/preferences` | Per-category in-app/email/cadence prefs. |
+
+### Account
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | `/api/me/export` | The signed-in user's own data as a JSON download (objectives, KRs, to-dos, check-ins, comments). Scoped to the caller; returns a file, not the envelope. |
+
 ### Reports & Background
 | Method | Route | Description |
 |--------|-------|-------------|
 | GET | `/api/initiative-report` | Daily initiative report data |
 | POST | `/api/cron/confidence-calc` | Bi-weekly confidence snapshots |
 | POST | `/api/cron/weekly-digest` | Weekly email digest |
+| GET/POST | `/api/cron/todo-recurrence` | Generates the next occurrence of each recurring card (DTE-5). Daily. |
+| GET/POST | `/api/cron/automations-prune` | AI Automations retention sweep. Nightly. |
 | GET | `/api/health` | Health check |
 | POST | `/api/client-errors` | Client error logging |
+
+> The full cron schedule — which routes run, when, and which exist but are
+> deliberately unscheduled — is `docs/CRON.md`, installed by
+> `scripts/install-crontab.sh`.
 
 ### Performance & Scorecard
 

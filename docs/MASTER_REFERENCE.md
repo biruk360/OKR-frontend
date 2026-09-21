@@ -1345,7 +1345,36 @@ Role tags: `poolCoordinatorIds` (CSV in DtpSettings), `operationsManagerIds` (CS
 
 ## 12. Notification System
 
-Source: `lib/notifications/` — `events.ts`, `dispatcher.ts`, `jobs.ts`, `preferences.ts`, `recipients.ts`, `redact.ts`, `deep-link.ts`.
+Source: `lib/notifications/` — `events.ts`, `dispatcher.ts`, `jobs.ts`, `preferences.ts`, `recipients.ts`, `redact.ts`, `deep-link.ts`, `row.ts`.
+
+### 12.0 Read side (added 2026-09-18)
+
+The table was write-only over HTTP until this landed — the dispatcher had been
+writing rows since it shipped, but the only reader was the server component at
+`/dashboard/notifications`.
+
+| Route | Purpose |
+|-------|---------|
+| `GET /api/notifications` | `{ items, unreadCount, nextCursor }`. `limit` (1-100, default 20), `unreadOnly=1`, `cursor`. Hits `@@index([userId, isRead, createdAt])`. |
+| `PATCH /api/notifications/[id]` | Mark read/unread. **Scoped with `updateMany({ where: { id, userId } })`** — a bare `update({ where: { id } })` would let any caller flip another user's row. 404 on a miss so it does not confirm foreign ids. |
+| `DELETE /api/notifications/[id]` | Dismiss, same scoping. |
+| `POST /api/notifications/mark-all-read` | Clear the user's unread count. |
+
+`lib/notifications/row.ts` → `toNotificationRow()` is the one place a stored row
+becomes a UI row. It exists because the four writers disagree about where the
+link goes: the dispatcher writes `entityType`/`entityId`, `lib/comments.ts`
+writes `href`, `lib/automations/delivery.ts` writes `url`, and some callers
+pre-compute `deepLink`. Only same-origin paths are accepted. Consumed by the
+page, `GET /api/notifications`, the header bell and `SprintInboxView`.
+
+**Known gaps.** `PUSHER_EVENTS.NOTIFICATION_SENT` is declared in `lib/pusher.ts`
+and never triggered or bound, so the bell is not real-time — it refreshes on
+mount and on open. Six direct `prisma.notification.create` writers bypass
+`emit()` and therefore bypass preferences entirely (`lib/comments.ts`,
+`lib/letters-notify.ts`, `lib/dtp/notifier.ts`, `lib/automations/delivery.ts`,
+and both `request-checkin` routes); `lib/dtp/notifier.ts` also writes
+`category: 'TRAVEL'`, which is not in `ALL_CATEGORIES` and so cannot be toggled
+off.
 
 ### 12.1 Flow
 
@@ -1414,6 +1443,15 @@ Entities with `isPrivate: true`: owner + owner's managers + ADMIN see real data;
 
 All cron routes secured by Bearer `CRON_SECRET`.
 
+> **`scripts/install-crontab.sh` is the single source of truth for the schedule**,
+> and `docs/CRON.md` documents what it installs. Until 2026-09-18 the installer
+> registered only 6 of the 27 intended jobs — the rest lived in
+> `deploy/notifications-crontab.example` (now superseded) or in `docs/CRON.md`
+> alone. Consequences on any host bootstrapped with the script: `EmailDigestQueue`
+> never drained, `approval-clock` never ran (breaking critical invariant #3), and a
+> scheduled `automations-prune` entry curled a route that did not exist. **Add a
+> route to the installer and to `docs/CRON.md` together.**
+
 | Job | Route | Recommended Schedule | Purpose |
 |-----|-------|---------------------|---------|
 | Confidence calc | `POST /api/cron/confidence-calc` | Bi-weekly | Objective + KR confidence snapshots |
@@ -1423,7 +1461,10 @@ All cron routes secured by Bearer `CRON_SECRET`.
 | Notification jobs | `POST /api/cron/notifications?job=` | Various | `daily`, `weekly`, `monthly`, `escalation`, `todos`, `timeframes`, `admin-weekly`, `admin-monthly` |
 | Sprint tick | `POST /api/cron/sprint-tick` | Daily | Sprint lifecycle state transitions |
 | Sprint deadlines | `POST /api/cron/sprint-deadlines` | Daily | Sprint deadline warnings |
-| Prune activity | `POST /api/cron/prune-activity` | Monthly | Remove old activity log rows |
+| Prune activity | `POST /api/cron/prune-activity` | Daily 00:30 UTC | Remove activity log rows older than ~18 months |
+| Prune notifications | `POST /api/cron/notifications?job=prune-notifications` | Daily 00:45 UTC | Mark unread >30d read, delete read >90d. Nothing pruned this table before 2026-09-18. |
+| Todo recurrence | `POST /api/cron/todo-recurrence` | Daily 01:00 UTC | Generate the next occurrence of each recurring card (DTE-5) |
+| Automations prune | `POST /api/cron/automations-prune` | Daily 03:30 UTC | Null old run transcripts, delete briefings past `AutomationSettings.retentionDays` |
 | Sprint migration check | `POST /api/cron/sprint-migration-check` | One-time | Legacy sprint migration status |
 | Project health | `POST /api/cron/project-health` | Daily 02:00 | Recompute confidence/RAG/SPI/CPI for all active projects |
 | Approval clock | `POST /api/cron/approval-clock` | Daily 08:00 | Fire `CLIENT_APPROVAL_SLA_BREACH` escalations at SLA / SLA+3 / SLA+7 business days (deduped per wait) |

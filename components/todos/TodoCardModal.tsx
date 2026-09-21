@@ -21,6 +21,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { AppleDatePicker, toIso } from '@/components/ui/date-picker'
 import { CARD_PALETTE, swatchStyle, readableInk } from '@/lib/card-visuals'
 import { DUE_REMINDERS } from '@/lib/todos/due-reminders'
+import { RECURRENCE_RULES } from '@/lib/todos/recurrence'
 import { useUserPrefsStore } from '@/lib/stores/user-prefs-store'
 import { useUsersForSelection } from '@/hooks/useUsersForSelection'
 import toast from 'react-hot-toast'
@@ -45,6 +46,8 @@ export interface TodoCardData {
   sprintId: string | null
   sprint?: { id: string; name: string; state: string; startDate?: string | null; endDate?: string | null } | null
   dueReminder?: string | null
+  recurrenceRule?: string | null
+  recurrenceEndsAt?: string | null
   columnId: string | null
   coverColor: string | null
   /** 'BAND' | 'FULL' — null behaves as BAND. */
@@ -483,12 +486,16 @@ interface DatesPanelProps {
   startTime: string | null
   endTime: string | null
   dueReminder: string | null
+  recurrenceRule: string | null
+  recurrenceEndsAt: string | null
   /** Sprint window, used only for the non-blocking out-of-range warning (DTE-7). */
   sprintWindow?: { name: string; startDate: string | null; endDate: string | null } | null
   onSave: (v: {
     startDate: string | null; dueDate: string | null
     startTime: string | null; endTime: string | null
     dueReminder: string | null
+    recurrenceRule: string | null
+    recurrenceEndsAt: string | null
   }) => void
   onRemove: () => void
   onClose: () => void
@@ -633,7 +640,7 @@ function DateRow({
   )
 }
 
-function DatesPanel({ startDate, dueDate, startTime, endTime, dueReminder, sprintWindow, onSave, onRemove, onClose }: DatesPanelProps) {
+function DatesPanel({ startDate, dueDate, startTime, endTime, dueReminder, recurrenceRule, recurrenceEndsAt, sprintWindow, onSave, onRemove, onClose }: DatesPanelProps) {
   const today = new Date()
   const initialFocus = parseYmd(dueDate) ?? parseYmd(startDate) ?? today
   const [viewYear, setViewYear] = useState(initialFocus.getFullYear())
@@ -649,6 +656,9 @@ function DatesPanel({ startDate, dueDate, startTime, endTime, dueReminder, sprin
   const [startTimeVal, setStartTimeVal] = useState<string>(startTime ?? '')
   const [endTimeVal, setEndTimeVal] = useState<string>(endTime ?? '')
   const [reminderVal, setReminderVal] = useState<string>(dueReminder ?? '')
+  const [recurrenceVal, setRecurrenceVal] = useState<string>(recurrenceRule ?? '')
+  const initEndsAt = parseYmd(recurrenceEndsAt)
+  const [recurrenceEndsVal, setRecurrenceEndsVal] = useState<string>(initEndsAt ? ymd(initEndsAt) : '')
   // Which date input the calendar populates on click. Defaults to "due" for
   // typical add-a-deadline flow; user can switch by clicking the Start row.
   const [activeTarget, setActiveTarget] = useState<'start' | 'due'>(dueDate || !startDate ? 'due' : 'start')
@@ -714,6 +724,10 @@ function DatesPanel({ startDate, dueDate, startTime, endTime, dueReminder, sprin
       endTime: dueEnabled ? (endTimeVal || null) : null,
       // A reminder without a due date has nothing to count back from.
       dueReminder: dueEnabled ? (reminderVal || null) : null,
+      // Same for recurrence: the next occurrence is computed from the due date,
+      // so a repeating card with no due date could never advance.
+      recurrenceRule: dueEnabled ? (recurrenceVal || null) : null,
+      recurrenceEndsAt: dueEnabled && recurrenceVal ? (recurrenceEndsVal || null) : null,
     })
   }
 
@@ -793,21 +807,45 @@ function DatesPanel({ startDate, dueDate, startTime, endTime, dueReminder, sprin
         />
       </div>
 
-      {/* Recurring (DTE-5) — specified but deferred: it needs a recurrence engine
-          and a generator cron that no module has yet. Rendered disabled so the
-          capability is visible and honestly labelled, matching how
-          GenerateSprintModal handles its unbuilt MANUAL scope. */}
+      {/* Recurring (DTE-5). Engine: lib/todos/recurrence.ts, generated nightly by
+          app/api/cron/todo-recurrence. Requires a due date — the next occurrence
+          is computed from it. */}
       <div className="mt-3">
         <label htmlFor="recurring" className="mb-1 block text-[11px] font-bold text-[var(--ap-fg)]">Recurring</label>
         <select
           id="recurring"
-          disabled
-          value="never"
+          value={recurrenceVal}
+          disabled={!dueEnabled}
+          onChange={(e) => setRecurrenceVal(e.target.value)}
           className="ap-input h-8 w-full text-[12px] py-0 disabled:opacity-50"
-          title="Recurring tasks are not available yet"
         >
-          <option value="never">Never — coming soon</option>
+          <option value="">Never</option>
+          {RECURRENCE_RULES.map((r) => (
+            <option key={r.value} value={r.value}>{r.label}</option>
+          ))}
         </select>
+        {recurrenceVal && dueEnabled && (
+          <div className="mt-2">
+            <label htmlFor="recurring-ends" className="mb-1 block text-[11px] font-semibold text-[var(--ap-fg-muted)]">
+              Ends on <span className="font-normal">(optional)</span>
+            </label>
+            <input
+              id="recurring-ends"
+              type="date"
+              value={recurrenceEndsVal}
+              min={dueStr ?? undefined}
+              onChange={(e) => setRecurrenceEndsVal(e.target.value)}
+              className="ap-input h-8 w-full text-[12px] py-0"
+            />
+          </div>
+        )}
+        <p className="mt-1 text-[10px] text-[var(--ap-fg-subtle)]">
+          {!dueEnabled
+            ? 'Set a due date to repeat this card.'
+            : recurrenceVal
+              ? 'A fresh card is created before each occurrence is due, carrying the members, labels and checklist across.'
+              : 'This card does not repeat.'}
+        </p>
       </div>
 
       {/* Reminder (DTE-4) */}
@@ -1561,6 +1599,8 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
         startTime={todo.startTime}
         endTime={todo.endTime}
         dueReminder={todo.dueReminder ?? null}
+        recurrenceRule={todo.recurrenceRule ?? null}
+        recurrenceEndsAt={todo.recurrenceEndsAt ?? null}
         sprintWindow={sprintWindow}
         onSave={(v) => { patch(v); setActivePanel(null) }}
         // DTE-8 — Remove clears both dates, both times and the reminder in one
@@ -1569,6 +1609,9 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
           startDate: null, dueDate: null,
           startTime: null, endTime: null,
           dueReminder: null,
+          // Recurrence is anchored to the due date, so clearing dates must
+          // clear it too rather than leaving a series that can never advance.
+          recurrenceRule: null, recurrenceEndsAt: null,
         })}
         onClose={() => setActivePanel(null)}
       />

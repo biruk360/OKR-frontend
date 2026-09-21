@@ -2,6 +2,74 @@
 
 > **Purpose:** Log of all changes made by AI assistants. Every AI session that modifies code MUST append an entry here.
 
+## 2026-09-18 — Pending features: notifications read API, recurring cards, and 21 cron jobs nobody installed
+
+Swept the app for stubs, dead ends and half-wired features, then built the ones that were genuinely missing. Three audits (notifications, reminders, a full stub inventory) plus a cron audit.
+
+### The notification bell had no API behind it
+
+`Notification` rows have been written since the dispatcher shipped — 58 modules call `emit()` — but nothing could read them over HTTP. The only reader was the server component at `/dashboard/notifications`. So: the header bell said "No preview available yet", the page's "Mark all as read" button was rendered **without an `onClick`**, individual rows never marked read (`isRead` only ever flipped via the 30-day prune job), and `lib/stores/notification-store.ts` targeted three routes that returned 404 — which its own comment documented, and which was harmless only because nothing mounted it.
+
+Added `GET /api/notifications` (`{ items, unreadCount, nextCursor }`; `limit`, `unreadOnly`, `cursor`), `PATCH /api/notifications/[id]`, `DELETE /api/notifications/[id]` and `POST /api/notifications/mark-all-read`. The PATCH/DELETE scope with `updateMany({ where: { id, userId } })` rather than `update({ where: { id } })` — the bare form is an IDOR, letting anyone who can guess a cuid flip someone else's row — and return 404 on a miss so the endpoint does not confirm that a foreign id exists. `unreadCount` comes from the server, not from counting the loaded page: the bell holds 8 rows, so a local count would show "3" to someone with thirty unread.
+
+`lib/notifications/row.ts` is new and is now the single place a stored row becomes a UI row. It exists because the four writers disagree about where the link lives — the dispatcher writes `entityType`/`entityId`, `lib/comments.ts` writes `href`, `lib/automations/delivery.ts` writes `url`, some callers pre-compute `deepLink` — and the page's inline parser read only the first and last, so comment and automation rows rendered unclickable. It also fixes a quieter one: the page's `TODO` branch returned `/dashboard/todos` with the card id dropped, landing on an unfiltered list instead of the open card. Verified against the 19 real rows in the dev DB — all 4 with metadata resolve, including `PROJECT`, which the old parser had no branch for at all.
+
+Rewrote the store against the real routes (rollback now also fires on `!res.ok`, not just on a thrown error — a 404 resolves), wired the bell with a badge and preview list, gave the page working per-row and mark-all-read, and hoisted `iconFor` into `components/shared/notification-icon.ts` so the three surfaces cannot drift.
+
+### Recurring cards (DTE-5) — the thing that said "coming soon"
+
+Was a `disabled` `<select>` with one option. Built all four layers:
+
+- `lib/todos/recurrence.ts` — pure, `now` injected, matching `due-reminders.ts`. Six cadences. `MONTHLY` **clamps** rather than rolling over: naive month addition turns Jan 31 into Mar 3, silently skipping February for a month-end card. `YEARLY` clamps Feb 29 the same way. 12 tests.
+- Schema: `recurrenceRule`, `recurrenceEndsAt`, `recurrenceParentId` on `Todo`, plus idempotent DDL in `preflight.sql` (no migrations dir in this repo). Only the **series head** carries a rule; each occurrence is its own row pointing back at the head with no rule of its own, so a series cannot fan out.
+- `lib/todos/recurrence-generator.ts` + `app/api/cron/todo-recurrence` (daily — recurrence is day-level, unlike the 5-minute reminder sweep). Copies the parts that describe the *work* (title, priority, OKR link, board placement, members, labels, checklist structure) and not the parts that describe one run of it. Two details that matter: `dueReminderSentAt` is left null, which is what arms the new card's reminder with no extra logic; and members/labels are copied because the reminder cron derives recipients from `TodoMember` + `Watcher` + assignee, so an occurrence without members would have nobody to notify. A new row rather than pushing one row's `dueDate` forward — the latter destroys per-occurrence completion history, which is the point of a recurring task. Catch-up is capped per series so a card left dormant for a month does not spawn 30.
+
+**Verified against the dev DB**, not just unit tests: a weekly head due 6 days ago generated exactly 1 occurrence, an immediate re-run generated 0 (idempotent), the child came back with `dueReminderSentAt: null`, `recurrenceRule: null`, 1 member, 2 checklist items with 0 checked, and the head's cursor advanced. A daily head dormant 30 days generated 5, the cap.
+
+### Reminders were being delivered, but blank
+
+`TODO_DUE_REMINDER` is emitted by a cron that runs every 5 minutes and has no `case` in `renderTemplate` — so every reminder fell to `default:` and went out as subject "Notification", body "Event: TODO_DUE_REMINDER.", discarding the card title, due date and lead time the cron had carefully assembled. The in-app row inherited the same, since it is built from `rendered.subject`/`rendered.text`. Added the template case.
+
+Also in that pipeline:
+
+- **Forced immediate.** There was a `FORCE_DIGEST_EVENTS` set and no converse, so a user on a DAILY cadence had their "5 minutes before" reminder queued into a digest and delivered hours after the deadline. Added `FORCE_IMMEDIATE_EVENTS`. Safe here precisely because this event fires once per card, guarded by `dueReminderSentAt` — the reason the recurring sweeps are forced the *other* way.
+- **Archived cards still reminded.** Status was filtered, `archivedAt` was not.
+- **Double-send race.** The stamp was a plain `update` *after* the emit, so two overlapping runs could both select a row and both notify. Now a conditional `updateMany({ where: { id, dueReminderSentAt: null } })` claim before the emit; exactly one run wins.
+- **Broken deep link.** The cron hand-rolled `/dashboard/sprints/<id>?card=<id>`; nothing under `app/dashboard/sprints/` reads `?card=`. Dropped it so the dispatcher's `buildDeepLink` supplies `/dashboard/todos?open=<id>`, which the page does read.
+- **`endTime` did not re-arm the reminder.** `shouldResetReminderSentAt` watched `dueDate` and `dueReminder` but not `endTime`, which feeds `reminderFireAt` just as directly — so moving a card from 17:00 to 09:00 after its reminder fired silently suppressed the new, earlier moment. That is the exact failure the helper exists to prevent. Test T-10.
+- N+1 watcher query batched; `POST /api/todos` now accepts `dueReminder` (it was previously only settable by creating a card and then editing it).
+
+### 21 cron jobs that were never installed
+
+`scripts/install-crontab.sh` registered 6 jobs. `deploy/notifications-crontab.example` listed 18 more that nothing installed, and `docs/CRON.md` documented 3 project-module jobs that were in neither. On any host bootstrapped with the script:
+
+- **`automations-prune` was scheduled at 03:30 nightly against a route that did not exist** — a 404 every night since the module shipped. Written now (`pruneAutomationHistory`), and it returns a real summary. `findingsJson` is deliberately not cleared: it is the baseline the next run diffs against, so nulling it would report every finding as new.
+- **`approval-clock` never ran.** CLAUDE.md lists "the Approval Clock is automatic" as critical invariant #3; without the sweep the SLA-breach escalations it promises never fired.
+- **The digest drain never ran**, so `EmailDigestQueue` grew without bound and no digest email was ever sent.
+- **Nothing pruned the notifications table.**
+
+The installer now carries all 27 and is the single source of truth; `docs/CRON.md` documents what it installs and, importantly, which routes exist but are *deliberately* unscheduled and why. All 19 distinct endpoints verified to exist and export a `GET` handler.
+
+### Things that told the user something happened when it did not
+
+- **Account settings** had three handlers that `setTimeout(…, 1000)` to fake latency and then fired a **success** toast without making any request — including the password change, whose endpoint (`POST /api/auth/change-password`, bcrypt, tested) was already built and already wired into the header three files away. Real form now. Built `GET /api/me/export` for the export button (the user's own objectives, KRs, to-dos, check-ins and comments as a JSON download, every query scoped to the caller). Account deletion is shown disabled and labelled: it needs an ownership policy for the OKRs and audit rows the deleted user owns, which is a policy call, not a missing handler.
+- **The OKR-link picker on the sprint board fetched `/api/key-results`.** The route is `/api/keyresults`, no hyphen. It 404'd, `.catch(() => null)` swallowed it, and the picker rendered an empty list — which reads as "you have no OKRs to link", not as a failure.
+- **Two printed travel sheets rendered a raw `TODO:` string** — "Route map (TODO: render Google Static Maps polyline…)" — inside a `print:` block, so it was going out on the sheet handed to a driver. Honest copy, and `print:hidden`, since an empty dashed box has no value on paper.
+- **Deleted `components/dashboard/ProgressOverview.tsx`**: a hardcoded 7-point 2024 series behind a fake 1s loading delay, presented as "Average progress across all objectives" with a computed "+13.0%" trend, ignoring the `userId` prop it accepted. Nothing imported it, but one mount ships a fabricated chart.
+- **Deleted `app/dashboard/objectives/cmnt25rlr000yhl7oktasxeml/design/`** — a 417-line design mock committed as a literal route segment with a hardcoded CUID, serving invented key results owned by invented people at a real authenticated dashboard URL.
+
+### The Inbox tab went nowhere
+
+The sprint dock's Inbox was fully selectable and rendered "Inbox is coming soon — your unread mentions, reviews, and assignments will land here". That description is the notification feed, which only lacked a read API. Now that it has one, `SprintInboxView` renders it, and `SprintFloatingBar`'s `inboxCount` prop — declared, badge-rendered, and never once passed, so the badge was unreachable — is fed from the shared store.
+
+**Verification** — `tsc --noEmit` clean; `npm run build` clean with all new routes registered; `npm run test:todos` 41/41 (28 existing + T-10 + 12 recurrence). Recurrence generator and the row serializer exercised end-to-end against the dev Postgres, results above. Routes probed on the built server: the four notification endpoints and `/api/me/export` return 401 rather than the 404 they returned before; `automations-prune` returns a real summary; `todo-recurrence` matches `todo-reminders`' stricter auth convention exactly (500 when `CRON_SECRET` is unset rather than falling open).
+
+**Deploy note:** `scripts/preflight.sql` gained the three `recurrence*` columns, so this needs `prisma db push` — `scripts/deploy.sh` runs preflight first, so the ordering is already handled. After deploying, re-run `scripts/install-crontab.sh` on the VPS to pick up the 21 new entries; it is idempotent and adds only what is missing.
+
+**Not done, deliberately:** self-service account deletion (policy). Pusher real-time for the bell — `PUSHER_EVENTS.NOTIFICATION_SENT` exists and is unused, but private channels need a channel-auth route that does not exist yet. The six direct `prisma.notification.create` writers still bypass `emit()` and therefore preferences, and `lib/dtp/notifier.ts` writes `category: 'TRAVEL'`, which is not in `ALL_CATEGORIES` and so can never be switched off. Bulk actions on the all-OKRs table, "Move" on objectives/KRs, and the KR data-source connector remain honestly-labelled stubs.
+
+Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+
 ## 2026-09-18 — Card modal: open each panel at the control you actually pressed
 
 Deferred entry for `e2ff503`, which shipped without one — `docs/CHANGELOG_AI.md` was held by another session at the time, carrying an entry for their own then-unshipped sign-in work, so staging it would have published a log entry for code that commit did not contain. Their work has since landed as `32608bf`.

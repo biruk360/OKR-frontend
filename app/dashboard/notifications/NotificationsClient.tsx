@@ -1,10 +1,11 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { formatDistanceToNowStrict } from 'date-fns'
-import { Bell, AtSign, CheckCircle2, AlertTriangle, MessageSquare, ChevronRight } from 'lucide-react'
+import { Bell, ChevronRight } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { notificationIcon, notificationTypeLabel } from '@/components/shared/notification-icon'
 import { cn } from '@/lib/utils'
 
 export interface NotificationRow {
@@ -19,17 +20,38 @@ export interface NotificationRow {
 
 type Tab = 'all' | 'unread' | 'mentions'
 
-function iconFor(type: string) {
-  const t = type.toUpperCase()
-  if (t.includes('MENTION')) return { Icon: AtSign, bg: 'rgba(88,86,214,0.12)', fg: 'rgb(88,86,214)' }
-  if (t.includes('COMMENT')) return { Icon: MessageSquare, bg: 'var(--ap-accent-soft)', fg: 'var(--ap-accent)' }
-  if (t.includes('RISK') || t.includes('OFF')) return { Icon: AlertTriangle, bg: 'rgba(255,149,0,0.12)', fg: 'var(--ap-orange)' }
-  if (t.includes('COMPLETE') || t.includes('DONE')) return { Icon: CheckCircle2, bg: 'rgba(52,199,89,0.12)', fg: 'var(--ap-green)' }
-  return { Icon: Bell, bg: 'rgba(120,120,128,0.15)', fg: 'var(--ap-fg-muted)' }
-}
-
-export default function NotificationsClient({ notifications }: { notifications: NotificationRow[] }) {
+export default function NotificationsClient({ notifications: initial }: { notifications: NotificationRow[] }) {
   const [tab, setTab] = useState<Tab>('all')
+
+  // The server component supplies the first render; read state is then mutated
+  // here so marking read does not need a full round trip through the page.
+  const [notifications, setNotifications] = useState(initial)
+  useEffect(() => { setNotifications(initial) }, [initial])
+
+  const markRead = useCallback(async (id: string) => {
+    setNotifications((rows) => rows.map((n) => (n.id === id ? { ...n, isRead: true } : n)))
+    try {
+      const res = await fetch(`/api/notifications/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isRead: true }),
+      })
+      if (!res.ok) throw new Error()
+    } catch {
+      setNotifications((rows) => rows.map((n) => (n.id === id ? { ...n, isRead: false } : n)))
+    }
+  }, [])
+
+  const markAllRead = useCallback(async () => {
+    const snapshot = notifications
+    setNotifications((rows) => rows.map((n) => ({ ...n, isRead: true })))
+    try {
+      const res = await fetch('/api/notifications/mark-all-read', { method: 'POST' })
+      if (!res.ok) throw new Error()
+    } catch {
+      setNotifications(snapshot)
+    }
+  }, [notifications])
 
   const unreadCount = useMemo(() => notifications.filter((n) => !n.isRead).length, [notifications])
   const mentionsCount = useMemo(
@@ -65,6 +87,7 @@ export default function NotificationsClient({ notifications }: { notifications: 
           {unreadCount > 0 && (
             <button
               type="button"
+              onClick={markAllRead}
               className="rounded-[var(--ap-radius-sm)] border px-3 py-1.5 text-[12px] font-medium hover:bg-[color:var(--ap-bg-hover)]"
               style={{ borderColor: 'var(--ap-border)' }}
             >
@@ -102,7 +125,7 @@ export default function NotificationsClient({ notifications }: { notifications: 
       ) : (
         <ul className="space-y-2">
           {filtered.map((n) => {
-            const { Icon, bg, fg } = iconFor(n.type)
+            const { Icon, bg, fg } = notificationIcon(n.type)
             const inner = (
               <>
                 <div
@@ -120,7 +143,7 @@ export default function NotificationsClient({ notifications }: { notifications: 
                   </div>
                   <p className="mt-0.5 text-[12px] text-muted-foreground line-clamp-2">{n.message}</p>
                   <p className="mt-1 text-[11px] uppercase tracking-wide text-muted-foreground">
-                    {n.type.replace(/_/g, ' ').toLowerCase()}
+                    {notificationTypeLabel(n.type)}
                   </p>
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1">
@@ -141,9 +164,27 @@ export default function NotificationsClient({ notifications }: { notifications: 
             return (
               <li key={n.id} style={{ borderColor: 'var(--ap-border)' }} className="contents">
                 {n.deepLink ? (
-                  <Link href={n.deepLink} className={className} style={{ borderColor: 'var(--ap-border)' }}>
+                  <Link
+                    href={n.deepLink}
+                    // Following the link is an acknowledgement — mark it read on
+                    // the way out rather than leaving the badge stuck until the
+                    // 30-day prune job flips it.
+                    onClick={() => { if (!n.isRead) void markRead(n.id) }}
+                    className={className}
+                    style={{ borderColor: 'var(--ap-border)' }}
+                  >
                     {inner}
                   </Link>
+                ) : !n.isRead ? (
+                  <button
+                    type="button"
+                    onClick={() => void markRead(n.id)}
+                    aria-label={`Mark "${n.title}" as read`}
+                    className={cn(className, 'w-full cursor-pointer text-left')}
+                    style={{ borderColor: 'var(--ap-border)' }}
+                  >
+                    {inner}
+                  </button>
                 ) : (
                   <div className={className} style={{ borderColor: 'var(--ap-border)' }}>{inner}</div>
                 )}

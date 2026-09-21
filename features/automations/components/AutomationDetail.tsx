@@ -20,6 +20,7 @@ import {
   useSetStatus,
 } from '../hooks/useAutomations'
 import { RunTranscript } from './RunTranscript'
+import { TestRunPanel } from './TestRunPanel'
 import { MODE_STYLE, ModeBadge, RunStatusBadge, StatusBadge } from './AutomationStatusBadges'
 import { useRouter } from 'next/navigation'
 
@@ -84,6 +85,12 @@ export function AutomationDetail({ id }: { id: string }) {
         }
         actions={
           <>
+            <TestRunPanel
+              automationId={automation.id}
+              automationName={automation.name}
+              mode={automation.mode}
+              disabled={inFlight}
+            />
             <Link href={`/dashboard/automations/${automation.id}/edit`}>
               <Button variant="outline">
                 <Pencil className="mr-1.5 h-4 w-4" />

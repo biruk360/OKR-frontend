@@ -37,6 +37,8 @@ import SprintBackgroundPicker from './SprintBackgroundPicker'
 import SprintFloatingBar, { type SprintBoardView } from './SprintFloatingBar'
 import SprintSwitcher from './SprintSwitcher'
 import SprintPlannerView from './SprintPlannerView'
+import SprintInboxView from './SprintInboxView'
+import { useNotificationStore } from '@/lib/stores/notification-store'
 import { Progress } from '@/components/ui/progress'
 import {
   getBackgroundStyle,
@@ -283,6 +285,9 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
   const searchParams = useSearchParams()
   const qc = useQueryClient()
   const [openTodoId, setOpenTodoId] = useState<string | null>(null)
+  // Drives the Inbox tab's badge. Shared with the header bell and the Inbox
+  // view, so reading something in one place clears it everywhere.
+  const inboxUnread = useNotificationStore((st) => st.unreadCount)
   const [showEnd, setShowEnd] = useState(false)
   const [scheduleMode, setScheduleMode] = useState<'edit' | 'start' | null>(null)
   const [starting, setStarting] = useState(false)
@@ -1071,22 +1076,7 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
           dark={dark}
         />
       ) : (
-        <div
-          className={cn(
-            'rounded-[var(--ap-radius-card)] border p-8 text-center backdrop-blur-md',
-            dark && 'text-white',
-          )}
-          style={{
-            background: dark ? 'oklch(0.28 0.02 262 / 0.62)' : 'color-mix(in oklab, var(--ap-bg-raised) 72%, transparent)',
-            borderColor: dark ? 'oklch(1 0 0 / 0.14)' : 'color-mix(in oklab, var(--ap-bg-raised) 80%, transparent)',
-            boxShadow: 'var(--ap-shadow-sm)',
-          }}
-        >
-          <p className="text-[13px] font-semibold">Inbox is coming soon</p>
-          <p className="mt-1 text-[12px] text-muted-foreground">
-            Your unread mentions, reviews, and assignments will land here.
-          </p>
-        </div>
+        <SprintInboxView dark={dark} />
       )}
 
       {/* Centered task detail modal (Trello-style) */}
@@ -1130,6 +1120,7 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
         view={view}
         onViewChange={setView}
         onSwitchBoards={() => setShowSwitcher(true)}
+        inboxCount={inboxUnread}
         dark={dark}
       />
     </div>

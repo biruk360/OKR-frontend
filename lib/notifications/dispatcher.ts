@@ -35,6 +35,18 @@ const FORCE_DIGEST_EVENTS: ReadonlySet<EventKey> = new Set<EventKey>([
   'TODO_DUE_TOMORROW', 'TODO_DUE_TODAY', 'TODO_OVERDUE',
 ])
 
+/**
+ * The mirror of the above: time-critical events that must NEVER be coalesced
+ * into a digest, whatever the user's cadence pref. A lead-time reminder the user
+ * set for themselves ("5 minutes before") is worthless once batched into a daily
+ * or weekly send — it would arrive hours or days after the deadline it exists to
+ * warn about. Unlike FORCE_DIGEST_EVENTS these fire exactly once per entity
+ * (guarded by Todo.dueReminderSentAt), so forcing IMMEDIATE cannot spam.
+ */
+const FORCE_IMMEDIATE_EVENTS: ReadonlySet<EventKey> = new Set<EventKey>([
+  'TODO_DUE_REMINDER',
+])
+
 interface ResolvedRecipient {
   userId: string
   tags: RecipientRoleTag[]
@@ -421,7 +433,9 @@ export async function emit(eventKey: EventKey, payload: EventPayload): Promise<v
       // see FORCE_DIGEST_EVENTS for rationale.
       const effectiveCadence = FORCE_DIGEST_EVENTS.has(eventKey)
         ? 'DAILY'
-        : pref.emailCadence
+        : FORCE_IMMEDIATE_EVENTS.has(eventKey)
+          ? 'IMMEDIATE'
+          : pref.emailCadence
       if (effectiveCadence === 'IMMEDIATE') {
         const res = await sendMail({
           to: user.email,

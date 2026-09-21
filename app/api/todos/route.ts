@@ -6,6 +6,7 @@ import { emit } from '@/lib/notifications'
 import { broadcastSprintEvent } from '@/lib/pusher'
 import { buildScopeFilter } from '@/lib/apply-scope'
 import { getSprintLanes } from '@/lib/sprints/columns'
+import { isDueReminder } from '@/lib/todos/due-reminders'
 import {
   apiSuccess,
   apiBadRequest,
@@ -154,6 +155,13 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
     endTime = body.endTime
   }
 
+  // A card could previously only get a reminder by being created and then
+  // edited; the Dates popover offers it on the create form too.
+  const dueReminder = isDueReminder(body.dueReminder) ? body.dueReminder : null
+  if (dueReminder && !dueDate) {
+    return apiBadRequest('dueReminder requires a dueDate')
+  }
+
   let progressValue: number | null = null
   if (body.progressValue !== undefined && body.progressValue !== null) {
     const n = typeof body.progressValue === 'number' ? body.progressValue : parseFloat(body.progressValue)
@@ -254,6 +262,7 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
       dueDate,
       startTime,
       endTime,
+      dueReminder,
       status: 'PENDING',
       assigneeId,
       creatorId: session.user.id,

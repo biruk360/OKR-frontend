@@ -1,20 +1,22 @@
 import { create } from 'zustand'
+import type { NotificationRow } from '@/lib/notifications/row'
 
-interface NotificationItem {
-  id: string
-  type: string
-  title: string
-  message: string
-  isRead: boolean
-  createdAt: string
-}
+/**
+ * Header bell + notifications page read state.
+ *
+ * `unreadCount` comes from the server rather than being counted off the loaded
+ * page: the bell only holds the newest ~10 rows, so counting locally would show
+ * "3" to someone with thirty unread.
+ */
+export type NotificationItem = NotificationRow
 
 interface NotificationState {
   notifications: NotificationItem[]
   unreadCount: number
+  loading: boolean
   loaded: boolean
 
-  fetch: () => Promise<void>
+  fetch: (limit?: number) => Promise<void>
   markRead: (id: string) => Promise<void>
   markAllRead: () => Promise<void>
 }
@@ -22,57 +24,67 @@ interface NotificationState {
 export const useNotificationStore = create<NotificationState>((set, get) => ({
   notifications: [],
   unreadCount: 0,
+  loading: false,
   loaded: false,
 
-  fetch: async () => {
+  fetch: async (limit = 20) => {
+    if (get().loading) return
+    set({ loading: true })
     try {
-      const res = await fetch('/api/notifications?limit=20')
+      const res = await fetch(`/api/notifications?limit=${limit}`)
       const data = await res.json()
-      // Standard envelope `{ success, data }`. This read `data.notifications`, which the
-      // envelope never carries — the same defect as todo-store had.
-      // NOTE: `/api/notifications` (list) and `PATCH /api/notifications/:id` do not exist
-      // yet; only `/api/notifications/preferences` does. This store has no consumers, so
-      // nothing is currently broken by that — but wiring the header's notification
-      // dropdown (docs/design_refresh_IMPLEMENTATION_STRATEGY.md §6.2) means building
-      // those routes first. Do not mount this store until they exist.
-      if (data.success && Array.isArray(data.data)) {
-        const items: NotificationItem[] = data.data
+      // Standard envelope `{ success, data }`; `data` is `{ items, unreadCount, nextCursor }`.
+      if (data?.success && Array.isArray(data.data?.items)) {
         set({
-          notifications: items,
-          unreadCount: items.filter((n) => !n.isRead).length,
+          notifications: data.data.items as NotificationItem[],
+          unreadCount: Number(data.data.unreadCount) || 0,
           loaded: true,
         })
+      } else {
+        set({ loaded: true })
       }
     } catch {
       set({ loaded: true })
+    } finally {
+      set({ loading: false })
     }
   },
 
   markRead: async (id) => {
     const snapshot = get().notifications
-    const updated = snapshot.map((n) => (n.id === id ? { ...n, isRead: true } : n))
-    set({ notifications: updated, unreadCount: updated.filter((n) => !n.isRead).length })
+    const snapshotCount = get().unreadCount
+    const target = snapshot.find((n) => n.id === id)
+    if (!target || target.isRead) return
+
+    set({
+      notifications: snapshot.map((n) => (n.id === id ? { ...n, isRead: true } : n)),
+      unreadCount: Math.max(0, snapshotCount - 1),
+    })
     try {
-      await fetch(`/api/notifications/${id}`, {
+      // A 404/403 resolves rather than throwing, so the optimistic update has to
+      // be rolled back on !ok too — not only in the catch.
+      const res = await fetch(`/api/notifications/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isRead: true }),
       })
+      if (!res.ok) throw new Error('mark read failed')
     } catch {
-      set({ notifications: snapshot, unreadCount: snapshot.filter((n) => !n.isRead).length })
+      set({ notifications: snapshot, unreadCount: snapshotCount })
     }
   },
 
   markAllRead: async () => {
     const snapshot = get().notifications
-    set({
-      notifications: snapshot.map((n) => ({ ...n, isRead: true })),
-      unreadCount: 0,
-    })
+    const snapshotCount = get().unreadCount
+    if (snapshotCount === 0 && snapshot.every((n) => n.isRead)) return
+
+    set({ notifications: snapshot.map((n) => ({ ...n, isRead: true })), unreadCount: 0 })
     try {
-      await fetch('/api/notifications/mark-all-read', { method: 'POST' })
+      const res = await fetch('/api/notifications/mark-all-read', { method: 'POST' })
+      if (!res.ok) throw new Error('mark all read failed')
     } catch {
-      set({ notifications: snapshot, unreadCount: snapshot.filter((n) => !n.isRead).length })
+      set({ notifications: snapshot, unreadCount: snapshotCount })
     }
   },
 }))

@@ -302,3 +302,53 @@ export async function refreshNextRunAt(automationId: string, from = new Date()):
 export function scheduleFromPlan(plan: PlanSpec): ScheduleSpec {
   return plan.schedule
 }
+
+/**
+ * Step transcripts are the bulky part of a run row — redacted tool args, result
+ * previews, per-step timings — and stop being useful once nobody is debugging
+ * that run any more. They are dropped well before the briefing retention window
+ * so run history stays queryable (cost, tokens, status) without carrying the
+ * payload. `findingsJson` is deliberately NOT touched: it is the baseline the
+ * next run diffs against, so nulling it would report every finding as new.
+ */
+const TRANSCRIPT_RETENTION_DAYS = 30
+
+export interface PruneSummary {
+  transcriptsCleared: number
+  briefingsDeleted: number
+  retentionDays: number
+}
+
+/**
+ * Nightly retention sweep. Scheduled by scripts/install-crontab.sh at 03:30.
+ */
+export async function pruneAutomationHistory(now = new Date()): Promise<PruneSummary> {
+  const { retentionDays } = await getAutomationSettings()
+
+  const transcriptCutoff = new Date(now.getTime() - TRANSCRIPT_RETENTION_DAYS * 86_400_000)
+  const briefingCutoff = new Date(now.getTime() - retentionDays * 86_400_000)
+
+  // Only finished runs: a QUEUED/LEASED/RUNNING row older than the cutoff is a
+  // stuck run, and the reaper — not the pruner — is what should resolve it.
+  const transcripts = await prisma.automationRun.updateMany({
+    where: {
+      finishedAt: { lt: transcriptCutoff },
+      // Already-cleared rows are excluded so the reported count is the number
+      // actually cleared by this run rather than every old row.
+      stepsJson: { not: Prisma.DbNull },
+    },
+    data: { stepsJson: Prisma.DbNull },
+  })
+
+  // The run row survives; only the rendered briefing (blocks + three HTML/text
+  // bodies) is dropped, which is what actually grows the table.
+  const briefings = await prisma.automationBriefing.deleteMany({
+    where: { createdAt: { lt: briefingCutoff } },
+  })
+
+  return {
+    transcriptsCleared: transcripts.count,
+    briefingsDeleted: briefings.count,
+    retentionDays,
+  }
+}

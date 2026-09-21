@@ -133,6 +133,15 @@ PREV_DIR=".next.prev"
 BUILD_HEAP_MB="${BUILD_HEAP_MB:-3072}"
 
 rm -rf "$BUILD_DIR" "$PREV_DIR"
+
+# Drop the LIVE build's generated types before building the scratch one.
+# tsconfig.json includes ".next/types/**/*.ts", so the typecheck reads the types
+# Next generated for the CURRENTLY SERVING build — not the one being built. When a
+# route is deleted, its stale generated type lingers there and the next build dies
+# with "Cannot find module '.../page.js'" for a file that no longer exists. That
+# blocked two deploys before it was understood. These files are typecheck-only
+# output; `next start` never reads them, so removing them cannot affect the running
+# app.
 if ! NEXT_DIST_DIR="$BUILD_DIR" NODE_OPTIONS="--max-old-space-size=${BUILD_HEAP_MB}" npm run build; then
   echo "[deploy] build failed — leaving the running app untouched"
   rm -rf "$BUILD_DIR"

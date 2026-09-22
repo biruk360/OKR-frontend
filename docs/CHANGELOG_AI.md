@@ -2,6 +2,19 @@
 
 > **Purpose:** Log of all changes made by AI assistants. Every AI session that modifies code MUST append an entry here.
 
+## 2026-09-22 — Board backlog: skeletons, filter persistence, empty-filter state, label names
+
+Five items from `docs/trello_parity_sprint_board_REQUIREMENTS.md` that had been pending since the original audit.
+
+- **STA-1** — the board rendered the literal sentence "Loading sprint…" where CLAUDE.md asks for skeletons. Now a board-shaped skeleton (header card + three lanes) so the layout does not jump when real lanes arrive, with an `sr-only` label and `aria-busy` so the wait is announced rather than silent.
+- **BRD-3** — assignee and OKR-link filters now persist per sprint in `localStorage`. The write is gated on the initial read having completed, or mount would clobber the saved value with the default.
+- **BRD-2 (partial)** — the filter row gained an active-filter count badge and a "Clear filters" action. The full popover consolidation is still open; this is the part that was making the current filters hard to notice.
+- **STA-4** — a lane emptied by a filter now says "No cards match your filters" with a clear action, instead of rendering identically to a genuinely empty lane. Those two states looked the same, so a filtered board read as "there is no work here".
+- **FLB-4** — the floating dock is hidden below the `md` breakpoint, where it sat on top of the mobile lane tabs and the quick-add composer. A CSS breakpoint rather than a JS check, so there is no hydration flash.
+- **CRD-1** — clicking a label chip expands every chip on that card to show its name, as Trello does, with `stopPropagation` so it does not also open the card. Ink colour comes from `readableInk`, so names stay legible on yellow and lime.
+
+**Verification** — `tsc --noEmit` clean; sprints 21/21, cards 9/9, todos 41/41, security 20/20, notifications 8/8, attachments 12/12; build exits 0. Not re-checked in a browser.
+
 ## 2026-09-22 — Comment attachments: files and photos, with preview
 
 Spec: `docs/comment_attachments_REQUIREMENTS.md`.

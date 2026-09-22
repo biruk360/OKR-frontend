@@ -20,6 +20,7 @@ import {
 import { TodoCardModal } from '@/components/todos/TodoCardModal'
 import StatusPill from '@/components/shared/StatusPill'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton'
 import EndSprintModal from '@/components/sprints/EndSprintModal'
 import ScheduleSprintModal from '@/components/sprints/ScheduleSprintModal'
 import LinkToOkrPopover, { type OkrLinkValue } from '@/components/sprints/LinkToOkrPopover'
@@ -291,8 +292,35 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
   const [showEnd, setShowEnd] = useState(false)
   const [scheduleMode, setScheduleMode] = useState<'edit' | 'start' | null>(null)
   const [starting, setStarting] = useState(false)
+  // BRD-3 — filters persist per sprint. Losing them on every reload made the
+  // board feel like it forgot what you were doing.
+  const FILTER_KEY = `sprint-filters-${sprintId}`
   const [filterAssignee, setFilterAssignee] = useState<string | null>(null)
   const [filterLinked, setFilterLinked] = useState<'all' | 'linked' | 'unlinked'>('all')
+  const [filtersLoaded, setFiltersLoaded] = useState(false)
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(FILTER_KEY)
+      if (raw) {
+        const saved = JSON.parse(raw) as { assignee?: string | null; linked?: 'all' | 'linked' | 'unlinked' }
+        if (saved.assignee !== undefined) setFilterAssignee(saved.assignee)
+        if (saved.linked) setFilterLinked(saved.linked)
+      }
+    } catch { /* private mode — filters just start clean */ }
+    setFiltersLoaded(true)
+  }, [FILTER_KEY])
+
+  useEffect(() => {
+    // Only write after the initial read, or mount would clobber the saved value.
+    if (!filtersLoaded) return
+    try {
+      window.localStorage.setItem(FILTER_KEY, JSON.stringify({ assignee: filterAssignee, linked: filterLinked }))
+    } catch { /* ignore */ }
+  }, [FILTER_KEY, filterAssignee, filterLinked, filtersLoaded])
+
+  const filtersActive = (filterAssignee ? 1 : 0) + (filterLinked !== 'all' ? 1 : 0)
+  const clearFilters = () => { setFilterAssignee(null); setFilterLinked('all') }
   const isMobile = useIsMobile()
   // Lane id, not a status — several lanes can share a status now.
   const [mobileCol, setMobileCol] = useState<string | null>(null)
@@ -565,7 +593,28 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
   useEffect(() => { localColumnsRef.current = localColumns }, [localColumns])
 
   if (isLoading || !data) {
-    return <div className="p-6 text-[13px] text-muted-foreground">Loading sprint…</div>
+    // STA-1 — a board-shaped skeleton rather than the words "Loading sprint…",
+    // so the layout does not jump when real lanes arrive.
+    return (
+      <div className="space-y-3 p-4" aria-busy="true" aria-live="polite">
+        <span className="sr-only">Loading sprint…</span>
+        <SkeletonCard className="h-[132px]" />
+        <div className="flex gap-3 overflow-hidden">
+          {[0, 1, 2].map((lane) => (
+            <div
+              key={lane}
+              className="flex w-[272px] shrink-0 flex-col gap-2 rounded-[12px] border p-2"
+              style={{ borderColor: 'var(--ap-border)' }}
+            >
+              <Skeleton className="h-4 w-24" />
+              {Array.from({ length: 3 - lane }).map((_, card) => (
+                <Skeleton key={card} className="h-[84px] w-full rounded-[8px]" />
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    )
   }
 
   const { sprint, aggregates, participants } = data
@@ -756,6 +805,15 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
             }}
           >
             <Filter className="h-[13px] w-[13px] opacity-60" />
+            {filtersActive > 0 && (
+              <span
+                className="rounded-full px-1.5 text-[10px] font-bold leading-[16px] text-white"
+                style={{ background: 'var(--ap-accent)' }}
+                aria-label={`${filtersActive} filters active`}
+              >
+                {filtersActive}
+              </span>
+            )}
             <select
               value={filterAssignee ?? ''}
               onChange={(e) => setFilterAssignee(e.target.value || null)}
@@ -792,6 +850,16 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
               )
             })}
           </div>
+          {filtersActive > 0 && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="text-[12px] font-semibold underline-offset-2 hover:underline"
+              style={{ color: 'var(--ap-accent)' }}
+            >
+              Clear filters
+            </button>
+          )}
           <div className="ml-auto flex -space-x-1">
             {participants.slice(0, 5).map((u) => <Avatar key={u.id} user={u} size={22} />)}
             {participants.length > 5 && (
@@ -972,7 +1040,21 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
                     height 0→10 — deliberate anti-jank, see updateIndicator. */}
                 <KanbanDropLine active={!!indicator && indicator.colId === col.id && indicator.afterIndex === -1} />
 
-                {isEmpty && indicator?.colId === col.id && !isClosed ? (
+                {isEmpty && filtersActive > 0 && indicator?.colId !== col.id ? (
+                  // STA-4 — distinct from a genuinely empty lane. Without this
+                  // a filtered-out lane reads as "nothing to do here".
+                  <div className="px-2 py-6 text-center">
+                    <p className="text-[11px] text-muted-foreground">No cards match your filters</p>
+                    <button
+                      type="button"
+                      onClick={clearFilters}
+                      className="mt-1 text-[11px] font-semibold underline-offset-2 hover:underline"
+                      style={{ color: 'var(--ap-accent)' }}
+                    >
+                      Clear filters
+                    </button>
+                  </div>
+                ) : isEmpty && indicator?.colId === col.id && !isClosed ? (
                   <div
                     className="flex min-h-[60px] items-center justify-center rounded-[10px] border border-dashed text-[12.5px] font-semibold"
                     style={{

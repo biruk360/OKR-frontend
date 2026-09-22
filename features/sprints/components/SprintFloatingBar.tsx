@@ -46,7 +46,10 @@ const TABS: TabDef[] = [
 
 export default function SprintFloatingBar({ view, onViewChange, onSwitchBoards, inboxCount, dark }: Props) {
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-[18px] z-40 flex justify-center px-4">
+    // FLB-4 — hidden below the mobile breakpoint, where it sat on top of the
+    // lane tab strip and the quick-add composer. A CSS breakpoint rather than
+    // a JS check, so there is no hydration flash.
+    <div className="pointer-events-none fixed inset-x-0 bottom-[18px] z-40 hidden justify-center px-4 md:flex">
       <div
         className={cn(
           'pointer-events-auto flex items-center gap-[3px] rounded-[var(--ap-radius-pill)] border p-[5px] backdrop-blur-lg',

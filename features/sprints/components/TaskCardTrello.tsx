@@ -1,5 +1,7 @@
 'use client'
 
+import { useState } from 'react'
+
 /**
  * TaskCardTrello — Trello-style card for the per-sprint kanban board.
  *
@@ -119,6 +121,7 @@ export default function TaskCardTrello({ todo, onClick, onDragStart, onDragEnd, 
       : []
 
   const colorBlind = useUserPrefsStore((st) => st.colorBlindMode)
+  const [labelsExpanded, setLabelsExpanded] = useState(false)
   const attachmentCount = todo._count?.attachments ?? 0
   const hasDescription = Boolean(todo.description && todo.description.trim())
   const labels = todo.labels ?? []
@@ -207,17 +210,34 @@ export default function TaskCardTrello({ todo, onClick, onDragStart, onDragEnd, 
         {labels.length > 0 && (
           <div className="mb-[7px] flex flex-wrap gap-1">
             {labels.map((l) => (
-              <span
+              <button
                 key={l.labelDef.id}
+                type="button"
                 title={l.labelDef.name}
-                aria-label={`Label: ${l.labelDef.name}`}
-                className="h-[6px] w-[22px] rounded-[var(--ap-radius-pill)]"
+                aria-label={`Label: ${l.labelDef.name}. Click to ${labelsExpanded ? 'collapse' : 'show names'}.`}
+                aria-pressed={labelsExpanded}
+                // CRD-1 — clicking any chip toggles names for the whole card,
+                // as Trello does. stopPropagation so it does not open the card.
+                onClick={(e) => { e.stopPropagation(); setLabelsExpanded((v) => !v) }}
+                className={cn(
+                  'flex items-center overflow-hidden rounded-[var(--ap-radius-pill)] transition-all',
+                  labelsExpanded ? 'h-[15px] min-w-[22px] px-1.5' : 'h-[6px] w-[22px]',
+                )}
                 style={swatchStyle(l.labelDef.color, {
                   colorBlind,
                   pattern: l.labelDef.pattern,
                   ink: 'rgba(255,255,255,0.55)',
                 })}
-              />
+              >
+                {labelsExpanded && (
+                  <span
+                    className="truncate text-[9px] font-semibold leading-none"
+                    style={{ color: readableInk(l.labelDef.color) }}
+                  >
+                    {l.labelDef.name}
+                  </span>
+                )}
+              </button>
             ))}
           </div>
         )}

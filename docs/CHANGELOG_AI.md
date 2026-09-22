@@ -2,6 +2,22 @@
 
 > **Purpose:** Log of all changes made by AI assistants. Every AI session that modifies code MUST append an entry here.
 
+## 2026-09-22 — Mention picker was unusable; To-dos table hid half its columns
+
+Two defects reported from the running app with screenshots.
+
+**@-mention picker: neither keyboard nor mouse could select anyone.** Two independent causes, both in `components/todos/MentionEditor.tsx`.
+
+- *Keyboard never worked.* The suggestion handler was `onKeyDown: ({ event }) => event.key === 'Escape'` — it consumed Escape and nothing else, so Arrow keys moved the caret and Enter inserted a newline. There was no selection state at all. Added `selectedIndex` with Arrow/Enter/Tab/Escape handling, returning `true` so TipTap stops the key reaching the editor. The handler reads live values through refs because TipTap registers it once and it would otherwise close over the first render.
+- *Mouse stopped working when the card modal became a Radix dialog.* The list portals to `document.body`; a Radix modal `Dialog` sets `pointer-events: none` on the body while open, so the list rendered but no click could reach it. This was a regression from CDM-1 (moving `TodoCardModal` onto the shared `Modal`). Fixed with `pointer-events-auto` on the portalled container.
+- Also: the highlighted row follows the mouse so Enter picks what you are looking at, the list scrolls the selected row into view, flips above the caret when there is no room below, clamps to the viewport, and carries `role="listbox"`/`option` + `aria-selected`.
+
+**To-dos list hid Timeframe, Due, Who and Status.** The table used the default `table-layout: auto`, which ignores a declared `w-[200px]` whenever a cell's content is wider. One long OKR title stretched the Linked-to column, pushed the table past its wrapper, and the wrapper's `overflow-hidden` clipped every column to its right off the screen. Set `table-fixed` so the widths are real, gave the free To-do column a `min-w`, and switched the wrapper to `overflow-x-auto` so narrow screens scroll rather than silently hide columns.
+
+**Truncation never engaged in three places.** `truncate` inside a flex item needs `min-w-0`, otherwise `min-width: auto` stops the item shrinking below its content: the two Linked-to links here and both label rows in `TodoTreeView`. Added.
+
+**Verification** — `tsc --noEmit` clean; sprints 21/21, cards 9/9, todos 41/41, security 20/20; isolated build exits 0. Not re-checked in a browser.
+
 ## 2026-09-18 — Pending features: notifications read API, recurring cards, and 21 cron jobs nobody installed
 
 Swept the app for stubs, dead ends and half-wired features, then built the ones that were genuinely missing. Three audits (notifications, reminders, a full stub inventory) plus a cron audit.

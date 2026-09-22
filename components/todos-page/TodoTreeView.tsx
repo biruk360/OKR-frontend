@@ -177,7 +177,7 @@ function TreeNodeRow({
           <span className="w-3.5" />
         )}
         <span className="text-muted-foreground flex-shrink-0">{icon}</span>
-        <span className="text-[13px] font-medium text-foreground truncate flex-1">
+        <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">
           {node.label}
         </span>
         {levelBadge && (
@@ -267,7 +267,7 @@ function TodoLeafRow({
         onClick={(e) => e.stopPropagation()}
       />
       <span
-        className={`flex-1 text-[13px] truncate cursor-pointer ${
+        className={`min-w-0 flex-1 cursor-pointer truncate text-[13px] ${
           isDone ? 'text-muted-foreground line-through' : 'text-foreground'
         }`}
         onClick={() => onOpen(todo.id)}

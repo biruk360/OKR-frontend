@@ -33,28 +33,64 @@ function MentionList({
   items,
   command,
   anchorRect,
+  selectedIndex,
+  onHover,
 }: {
   items: SuggestionItem[]
   command: (item: SuggestionItem) => void
   anchorRect: DOMRect | null
+  selectedIndex: number
+  onHover: (index: number) => void
 }) {
+  const listRef = useRef<HTMLDivElement | null>(null)
+
+  // Keep the keyboard-selected row visible when the list scrolls.
+  useEffect(() => {
+    const el = listRef.current?.querySelector<HTMLElement>(`[data-index="${selectedIndex}"]`)
+    el?.scrollIntoView({ block: 'nearest' })
+  }, [selectedIndex])
+
   if (!anchorRect || items.length === 0) return null
+
+  // Flip above the caret when there is not enough room below, so the list is
+  // never cut off at the bottom of the viewport.
+  const ESTIMATED_ROW = 40
+  const height = Math.min(items.length, 8) * ESTIMATED_ROW
+  const openUp = anchorRect.bottom + 4 + height > window.innerHeight
+  const top = openUp ? Math.max(8, anchorRect.top - 4 - height) : anchorRect.bottom + 4
+
   return createPortal(
     <div
-      className="fixed z-[200] w-56 overflow-hidden rounded-xl border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] shadow-[var(--ap-shadow-lg)]"
-      style={{ top: anchorRect.bottom + 4, left: anchorRect.left }}
+      ref={listRef}
+      role="listbox"
+      aria-label="Mention a person"
+      // `pointer-events: auto` is required, not cosmetic: this portals to
+      // document.body, and the card modal is a Radix modal Dialog, which sets
+      // `pointer-events: none` on the body while open. Without this the list
+      // renders but no click ever reaches it.
+      className="pointer-events-auto fixed z-[200] max-h-[320px] w-56 overflow-y-auto rounded-xl border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] shadow-[var(--ap-shadow-lg)]"
+      style={{ top, left: Math.min(anchorRect.left, window.innerWidth - 240) }}
     >
-      {items.map((item) => (
+      {items.map((item, index) => (
         <button
           key={item.id}
           type="button"
+          data-index={index}
+          role="option"
+          aria-selected={index === selectedIndex}
+          // mousedown, not click: the editor would lose focus first and the
+          // suggestion would close before a click ever landed.
           onMouseDown={(e) => { e.preventDefault(); command(item) }}
-          className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-[var(--ap-fg)] hover:bg-[var(--ap-bg-hover)] transition-colors"
+          onMouseEnter={() => onHover(index)}
+          className={cn(
+            'flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-[var(--ap-fg)] transition-colors',
+            index === selectedIndex ? 'bg-[var(--ap-bg-hover)]' : 'hover:bg-[var(--ap-bg-hover)]',
+          )}
         >
           <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--ap-accent-soft)] text-[10px] font-semibold text-[var(--ap-accent)]">
             {item.label.slice(0, 2).toUpperCase()}
           </span>
-          {item.label}
+          <span className="truncate">{item.label}</span>
         </button>
       ))}
     </div>,
@@ -65,7 +101,28 @@ function MentionList({
 export function MentionEditor({ value, onChange, placeholder, users = [], onSubmit, minHeight = 80, autoFocus, className }: Props) {
   const [suggestions, setSuggestions] = useState<SuggestionItem[]>([])
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null)
+  const [selectedIndex, setSelectedIndex] = useState(0)
   const commandRef = useRef<((item: SuggestionItem) => void) | null>(null)
+  // TipTap's onKeyDown is registered once and closes over the first render, so
+  // it cannot read state directly — these refs give it the live values.
+  const suggestionsRef = useRef<SuggestionItem[]>([])
+  const selectedIndexRef = useRef(0)
+
+  const applySuggestions = (items: SuggestionItem[]) => {
+    suggestionsRef.current = items
+    setSuggestions(items)
+    // Re-filtering changes what is under the cursor, so selection restarts.
+    selectedIndexRef.current = 0
+    setSelectedIndex(0)
+  }
+
+  const moveSelection = (delta: number) => {
+    const count = suggestionsRef.current.length
+    if (count === 0) return
+    const next = (selectedIndexRef.current + delta + count) % count
+    selectedIndexRef.current = next
+    setSelectedIndex(next)
+  }
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -86,21 +143,40 @@ export function MentionEditor({ value, onChange, placeholder, users = [], onSubm
           render: () => {
             return {
               onStart: (props) => {
-                setSuggestions(props.items as SuggestionItem[])
+                applySuggestions(props.items as SuggestionItem[])
                 commandRef.current = props.command
                 const { from } = props.editor.state.selection
                 const coords = props.editor.view.coordsAtPos(from)
                 setAnchorRect(new DOMRect(coords.left, coords.top, 0, coords.bottom - coords.top))
               },
               onUpdate: (props) => {
-                setSuggestions(props.items as SuggestionItem[])
+                applySuggestions(props.items as SuggestionItem[])
                 commandRef.current = props.command
                 const { from } = props.editor.state.selection
                 const coords = props.editor.view.coordsAtPos(from)
                 setAnchorRect(new DOMRect(coords.left, coords.top, 0, coords.bottom - coords.top))
               },
-              onExit: () => { setSuggestions([]); setAnchorRect(null) },
-              onKeyDown: ({ event }) => event.key === 'Escape',
+              onExit: () => {
+                applySuggestions([])
+                setAnchorRect(null)
+              },
+              // Previously this only returned true for Escape, so Arrow keys
+              // moved the caret and Enter inserted a newline — the list could
+              // be opened but never navigated. Returning true tells TipTap the
+              // key was consumed and stops it reaching the editor.
+              onKeyDown: ({ event }) => {
+                if (event.key === 'Escape') return true
+                if (suggestionsRef.current.length === 0) return false
+                if (event.key === 'ArrowDown') { moveSelection(1); return true }
+                if (event.key === 'ArrowUp') { moveSelection(-1); return true }
+                if (event.key === 'Enter' || event.key === 'Tab') {
+                  const item = suggestionsRef.current[selectedIndexRef.current]
+                  if (!item) return false
+                  commandRef.current?.(item)
+                  return true
+                }
+                return false
+              },
             }
           },
         },
@@ -166,10 +242,17 @@ export function MentionEditor({ value, onChange, placeholder, users = [], onSubm
           items={suggestions}
           command={(item) => {
             commandRef.current?.({ id: item.id, label: item.label } as unknown as SuggestionItem)
-            setSuggestions([])
+            applySuggestions([])
             setAnchorRect(null)
           }}
           anchorRect={anchorRect}
+          selectedIndex={selectedIndex}
+          onHover={(index) => {
+            // Keep mouse and keyboard on the same row, so Enter after hovering
+            // picks what the user is looking at.
+            selectedIndexRef.current = index
+            setSelectedIndex(index)
+          }}
         />
       )}
     </div>

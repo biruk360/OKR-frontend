@@ -322,11 +322,18 @@ export default function TodosPageClient({
         {/* Views */}
         {viewType === 'list' && (
           <div className="mt-3.5 overflow-hidden rounded-[var(--ap-radius-card)] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)]">
-            <table className="w-full border-collapse text-[13px]">
+            {/* `table-fixed` is load-bearing: with the default auto layout the
+                browser ignores the w-[…] on each <th> whenever a cell's content
+                is wider, so one long OKR title stretched the Linked-to column,
+                pushed the table past its wrapper, and the wrapper's
+                overflow-hidden clipped Timeframe/Due/Who/Status off the right
+                edge entirely. Fixed layout makes the widths real and lets the
+                per-cell truncation actually take effect. */}
+            <table className="w-full table-fixed border-collapse text-[13px]">
               <thead>
                 <tr className="h-[42px] border-b border-[var(--ap-border)] bg-[var(--ap-bg-sunken)]">
                   <th className="w-9 px-3 py-2.5"></th>
-                  <th className="px-3.5 text-left font-mono text-[9.5px] font-medium uppercase tracking-[0.11em] text-[var(--ap-fg-subtle)]">To-do</th>
+                  <th className="min-w-[220px] px-3.5 text-left font-mono text-[9.5px] font-medium uppercase tracking-[0.11em] text-[var(--ap-fg-subtle)]">To-do</th>
                   <th className="px-3.5 text-left font-mono text-[9.5px] font-medium uppercase tracking-[0.11em] text-[var(--ap-fg-subtle)] w-[200px]">Linked to</th>
                   <th className="px-3.5 text-left font-mono text-[9.5px] font-medium uppercase tracking-[0.11em] text-[var(--ap-fg-subtle)] w-[100px]">Timeframe</th>
                   <th className="px-3.5 text-left font-mono text-[9.5px] font-medium uppercase tracking-[0.11em] text-[var(--ap-fg-subtle)] w-[110px]">Due</th>
@@ -497,11 +504,11 @@ function TodoTableRow({
             <Link
               href={`/dashboard/key-results/${row.keyResult.id}`}
               onClick={(e) => e.stopPropagation()}
-              className="inline-flex items-center gap-1 text-[12px] text-[var(--ap-accent)] hover:underline max-w-full"
+              className="flex w-full min-w-0 items-center gap-1 text-[12px] text-[var(--ap-accent)] hover:underline"
               title={row.keyResult.objective.title}
             >
               <Link2 className="h-3 w-3 flex-shrink-0" />
-              <span className="truncate">{row.keyResult.title}</span>
+              <span className="min-w-0 truncate">{row.keyResult.title}</span>
             </Link>
             <div className="text-[11px] text-[var(--ap-fg-muted)] truncate mt-0.5">{row.keyResult.objective.title}</div>
           </div>
@@ -509,10 +516,10 @@ function TodoTableRow({
           <Link
             href={`/dashboard/objectives/${row.objective.id}`}
             onClick={(e) => e.stopPropagation()}
-            className="inline-flex items-center gap-1 text-[12px] text-[var(--ap-accent)] hover:underline max-w-full"
+            className="flex w-full min-w-0 items-center gap-1 text-[12px] text-[var(--ap-accent)] hover:underline"
           >
             <Target className="h-3 w-3 flex-shrink-0" />
-            <span className="truncate">{row.objective.title}</span>
+            <span className="min-w-0 truncate">{row.objective.title}</span>
           </Link>
         ) : (
           <span className="text-[12px] text-[var(--ap-fg-muted)]">—</span>

@@ -25,7 +25,10 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  Archive,
+  ArchiveRestore,
 } from 'lucide-react'
+import toast from 'react-hot-toast'
 import SideDrawer from '@/components/ui/SideDrawer'
 import { StatCard, StatGrid } from '@/components/ui'
 import { Button } from '@/components/ui/button'
@@ -606,6 +609,7 @@ export default function OkrsAllClient({ currentUser }: { currentUser: CurrentUse
   const [view, setView] = useState<ViewMode>('compact')
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir } | null>(null)
   const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set())
+  const [bulkBusy, setBulkBusy] = useState<null | { done: number; total: number }>(null)
   const [page, setPage] = useState(1)
   const PAGE_SIZE = 50
   const router = useRouter()
@@ -731,6 +735,88 @@ export default function OkrsAllClient({ currentUser }: { currentUser: CurrentUse
     })
     return arr
   }, [listRows, sort])
+
+  /**
+   * Bulk archive / restore.
+   *
+   * Fans out to the existing per-entity routes rather than going through a new
+   * batch endpoint. Each of those routes already runs its own permission check,
+   * its own lock guard and — for key results — the rollup inside the mutation's
+   * transaction; a batch endpoint would have to reimplement all three, and get
+   * every one of them right, to save a few round trips. A small concurrency
+   * limit keeps the fan-out from opening 50 connections at once.
+   *
+   * Partial success is the normal outcome, not an error case: selection spans
+   * rows the user may not be allowed to touch. Each row is reported.
+   */
+  const runBulk = useCallback(async (action: 'archive' | 'unarchive') => {
+    const targets = enrichedRows.filter((r) => bulkSelected.has(r.rowId))
+    if (targets.length === 0) return
+
+    setBulkBusy({ done: 0, total: targets.length })
+    let ok = 0
+    const failures: string[] = []
+
+    const endpointFor = (row: Row): { url: string; init: RequestInit } | null => {
+      const id = row.data?.id
+      if (!id) return null
+      if (row.kind === 'OBJ') {
+        return { url: `/api/objectives/${id}/${action}`, init: { method: 'POST' } }
+      }
+      if (row.kind === 'KR') {
+        return { url: `/api/keyresults/${id}/${action}`, init: { method: 'POST' } }
+      }
+      // Initiatives are to-dos; soft archive is a PATCH flag, not a sub-route.
+      return {
+        url: `/api/todos/${id}`,
+        init: {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ archived: action === 'archive' }),
+        },
+      }
+    }
+
+    const queue = [...targets]
+    const CONCURRENCY = 4
+    await Promise.all(
+      Array.from({ length: Math.min(CONCURRENCY, queue.length) }, async () => {
+        for (;;) {
+          const row = queue.shift()
+          if (!row) return
+          const ep = endpointFor(row)
+          if (!ep) {
+            failures.push(`${row.data?.title ?? row.rowId}: no id`)
+          } else {
+            try {
+              const res = await fetch(ep.url, ep.init)
+              const body = await res.json().catch(() => null)
+              if (res.ok && body?.success !== false) ok++
+              else failures.push(`${row.data?.title ?? row.rowId}: ${body?.error ?? res.status}`)
+            } catch {
+              failures.push(`${row.data?.title ?? row.rowId}: network error`)
+            }
+          }
+          setBulkBusy((b) => (b ? { ...b, done: b.done + 1 } : b))
+        }
+      }),
+    )
+
+    setBulkBusy(null)
+    setBulkSelected(new Set())
+    await fetchData(filters)
+
+    const verb = action === 'archive' ? 'Archived' : 'Restored'
+    if (failures.length === 0) {
+      toast.success(`${verb} ${ok} item${ok === 1 ? '' : 's'}`)
+    } else if (ok === 0) {
+      toast.error(`Could not ${action} any of the ${failures.length} selected — ${failures[0]}`)
+    } else {
+      // Say what did not work, not just how many: the reason is almost always
+      // a permission the user can act on.
+      toast(`${verb} ${ok}, ${failures.length} failed — ${failures[0]}`, { icon: '⚠️' })
+    }
+  }, [enrichedRows, bulkSelected, fetchData, filters])
 
   const pagedRows = useMemo(() => sortedRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [sortedRows, page])
   const pageCount = Math.max(1, Math.ceil(sortedRows.length / PAGE_SIZE))
@@ -952,8 +1038,42 @@ export default function OkrsAllClient({ currentUser }: { currentUser: CurrentUse
             style={{ borderColor: 'var(--ap-border)', background: 'var(--ap-accent-soft)', color: 'var(--ap-accent)' }}
           >
             <span className="font-semibold tabular-nums">{bulkSelected.size} selected</span>
-            <button type="button" onClick={() => setBulkSelected(new Set())} className="hover:underline">Clear</button>
-            <span className="ml-auto text-muted-foreground">Bulk actions are coming soon.</span>
+            <button
+              type="button"
+              onClick={() => setBulkSelected(new Set())}
+              disabled={!!bulkBusy}
+              className="hover:underline disabled:opacity-50"
+            >
+              Clear
+            </button>
+            <div className="ml-auto flex items-center gap-2">
+              {bulkBusy ? (
+                <span className="tabular-nums text-muted-foreground">
+                  Working… {bulkBusy.done}/{bulkBusy.total}
+                </span>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => runBulk('archive')}
+                    className="inline-flex items-center gap-1.5 rounded-[var(--ap-radius-sm)] border px-2.5 py-1 font-medium hover:bg-[color:var(--ap-bg-hover)]"
+                    style={{ borderColor: 'var(--ap-border)', color: 'var(--ap-fg)' }}
+                  >
+                    <Archive className="size-3.5" />
+                    Archive
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => runBulk('unarchive')}
+                    className="inline-flex items-center gap-1.5 rounded-[var(--ap-radius-sm)] border px-2.5 py-1 font-medium hover:bg-[color:var(--ap-bg-hover)]"
+                    style={{ borderColor: 'var(--ap-border)', color: 'var(--ap-fg)' }}
+                  >
+                    <ArchiveRestore className="size-3.5" />
+                    Restore
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         )}
 

@@ -22,6 +22,8 @@ import {
 } from './recipients'
 import { renderTemplate } from '@/lib/email/templates'
 import { buildDeepLink } from './deep-link'
+import { broadcastUserNotification } from '@/lib/pusher'
+import { toNotificationRow } from './row'
 
 type RecipientRoleTag = 'OWNER' | 'MANAGER' | 'PARENT_OWNER' | 'ADMIN' | 'WATCHER' | 'TEAM' | 'EXPLICIT' | 'ASSIGNEE'
 
@@ -406,7 +408,7 @@ export async function emit(eventKey: EventKey, payload: EventPayload): Promise<v
 
       // In-app row
       if (pref.inApp) {
-        await prisma.notification.create({
+        const created = await prisma.notification.create({
           data: {
             type: eventKey,
             eventKey,
@@ -425,6 +427,10 @@ export async function emit(eventKey: EventKey, payload: EventPayload): Promise<v
             emailMode: pref.email ? (pref.emailCadence === 'IMMEDIATE' ? 'IMMEDIATE' : `DIGEST_${pref.emailCadence}`) : 'DISABLED',
           },
         })
+        // Push it to the recipient's open tabs. Awaited but never fatal — the
+        // row is already persisted, so a websocket failure must not surface as
+        // a failed notification.
+        await broadcastUserNotification(uid, { ...toNotificationRow(created) })
       }
 
       // Email

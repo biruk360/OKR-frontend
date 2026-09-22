@@ -87,6 +87,9 @@ export const PUT = withAuth<RouteIdParams>(async (request: NextRequest, { sessio
     unit,
     isPrivate,
     checkInCadence: rawCadence,
+    // Reparent ("Move"). Undefined = leave where it is; the route previously
+    // ignored this field entirely, so the Move menu item had nothing to call.
+    objectiveId: rawTargetObjectiveId,
   } = await request.json()
   const cadencePatch = rawCadence !== undefined ? { checkInCadence: normalizeCadence(rawCadence) } : null
 
@@ -133,6 +136,45 @@ export const PUT = withAuth<RouteIdParams>(async (request: NextRequest, { sessio
   const owner = await prisma.user.findUnique({ where: { id: ownerId } })
   if (!owner) return apiBadRequest('Invalid owner')
 
+  // ── Move to another objective ──────────────────────────────────────────────
+  // Permission is checked against BOTH ends: being allowed to edit a key result
+  // where it currently sits does not imply being allowed to file it under an
+  // objective you could not otherwise touch.
+  const targetObjectiveId =
+    rawTargetObjectiveId === undefined || rawTargetObjectiveId === null || rawTargetObjectiveId === ''
+      ? null
+      : String(rawTargetObjectiveId)
+  const isMove = targetObjectiveId !== null && targetObjectiveId !== existingKeyResult.objectiveId
+
+  if (isMove) {
+    const target = await prisma.objective.findUnique({
+      where: { id: targetObjectiveId },
+      select: {
+        id: true, status: true, level: true, ownerId: true,
+        departmentId: true, timeframeId: true,
+      },
+    })
+    if (!target) return apiBadRequest('Invalid target objective')
+    if (target.status !== 'ACTIVE') {
+      return apiBadRequest('Target objective must be active (not archived or closed)')
+    }
+    // Mirrors the constraint the objective route applies to re-parenting: a key
+    // result that jumped timeframes would move its progress out of the period it
+    // was committed in, and the rollup it feeds is per-timeframe.
+    if (target.timeframeId !== existingKeyResult.objective.timeframeId) {
+      return apiBadRequest('Target objective must be in the same timeframe')
+    }
+    const canEditTarget = await canEditKeyResultWithObjectiveContext(
+      session.user.role as any,
+      session.user.id,
+      { ownerId: existingKeyResult.ownerId, objectiveId: target.id },
+      { level: target.level, ownerId: target.ownerId, departmentId: target.departmentId },
+    )
+    if (!canEditTarget) {
+      return apiForbidden('Insufficient permissions on the target objective')
+    }
+  }
+
   const result = await prisma.$transaction(async (tx) => {
     const updatedKeyResult = await tx.keyResult.update({
       where: { id: keyResultId },
@@ -145,13 +187,19 @@ export const PUT = withAuth<RouteIdParams>(async (request: NextRequest, { sessio
         unit: unit || '%',
         ...(isPrivate !== undefined && { isPrivate }),
         ...(cadencePatch && cadencePatch),
+        ...(isMove && { objectiveId: targetObjectiveId as string }),
       },
       include: {
         owner: { select: { id: true, name: true, avatar: true } },
       },
     })
 
+    // Invariant #9 — rollup runs in the same transaction as the mutation. A move
+    // changes two trees, so BOTH must be recalculated here: recomputing only the
+    // old parent would leave the new one showing a percentage that does not
+    // include the key result it now owns.
     await recalcNodeAndAncestors(tx, existingKeyResult.objectiveId)
+    if (isMove) await recalcNodeAndAncestors(tx, targetObjectiveId as string)
     return updatedKeyResult
   })
 

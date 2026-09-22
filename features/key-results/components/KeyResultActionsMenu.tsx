@@ -22,6 +22,7 @@ import { ActionsMenu, ConfirmDialog } from '@/components/ui'
 import type { ActionsMenuItem } from '@/components/ui'
 import CloseKeyResultModal from './CloseKeyResultModal'
 import OkrReopenDialog from '@/components/shared/OkrReopenDialog'
+import MoveOkrModal from '@/components/shared/MoveOkrModal'
 
 function useWatcher(entityType: string, entityId: string) {
   const [watching, setWatching] = useState(false)
@@ -101,6 +102,7 @@ export default function KeyResultActionsMenu({
   const [archiveOpen, setArchiveOpen] = useState(false)
   const [closeOpen, setCloseOpen] = useState(false)
   const [reopenOpen, setReopenOpen] = useState(false)
+  const [moveOpen, setMoveOpen] = useState(false)
   const [achievedShortcut, setAchievedShortcut] = useState(false)
   const [isArchiving, setIsArchiving] = useState(false)
   const { watching, loading: watchLoading, toggle: toggleWatch } = useWatcher('KEY_RESULT', keyResult.id)
@@ -196,11 +198,10 @@ export default function KeyResultActionsMenu({
     },
     {
       key: 'move',
-      label: 'Move (coming soon)',
+      label: 'Move to another objective',
       icon: MoveRight,
-      disabled: true,
-      onSelect: () => {},
-      hidden: isArchived || isClosed,
+      onSelect: () => setMoveOpen(true),
+      hidden: isArchived || isClosed || !canEdit,
     },
     {
       key: 'reopen',
@@ -298,6 +299,23 @@ export default function KeyResultActionsMenu({
         keyResult={keyResult}
         achievedShortcut={achievedShortcut}
         onInitiated={() => { onChanged?.(); router.refresh() }}
+      />
+
+      <MoveOkrModal
+        open={moveOpen}
+        onClose={() => setMoveOpen(false)}
+        kind="KEY_RESULT"
+        entity={{
+          id: keyResult.id,
+          title: keyResult.title,
+          currentParentId: keyResult.objectiveId ?? keyResult.objective?.id ?? null,
+          ownerId: keyResult.ownerId,
+          description: keyResult.description,
+          startValue: keyResult.startValue,
+          targetValue: keyResult.targetValue,
+          unit: keyResult.unit,
+        }}
+        onMoved={() => { onChanged?.(); router.refresh() }}
       />
 
       <OkrReopenDialog

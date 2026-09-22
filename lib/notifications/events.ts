@@ -20,6 +20,17 @@ export type EventCategory =
   | 'PERFORMANCE'
   | 'PROJECT'
   | 'SCRUM'
+  // Written by lib/dtp/notifier.ts. It had been writing category 'TRAVEL' all
+  // along — a value not in this union, so it never appeared in the preferences
+  // UI and travel notifications could not be switched off by anyone.
+  | 'TRAVEL'
+  // Written by lib/letters-notify.ts, which had been filing letters under
+  // 'ADMIN' with a comment saying "until LETTER category is added".
+  | 'LETTER'
+  // Written by lib/automations/delivery.ts for briefing delivery and review
+  // nudges — previously also 'ADMIN', which meant muting admin digests muted
+  // your own automations too.
+  | 'AUTOMATION'
 
 export type EventKey =
   // Account
@@ -263,6 +274,7 @@ export const EVENT_META: Record<EventKey, EventMeta> = {
 
 export const ALL_CATEGORIES: EventCategory[] = [
   'ACCOUNT', 'OBJECTIVE', 'KEY_RESULT', 'CHECK_IN', 'TODO', 'TIMEFRAME', 'ALIGNMENT', 'COMMENT', 'ADMIN', 'PERFORMANCE', 'PROJECT', 'SCRUM',
+  'TRAVEL', 'LETTER', 'AUTOMATION',
 ]
 
 /** Categories the user may NOT disable (account/security emails bypass prefs). */

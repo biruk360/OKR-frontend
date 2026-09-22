@@ -18,6 +18,7 @@
  */
 
 import { prisma } from '@/lib/prisma'
+import { writeDirectNotifications } from '@/lib/notifications/direct'
 import type { Letter } from '@prisma/client'
 
 interface NotifyArgs {
@@ -33,25 +34,24 @@ async function insert(args: NotifyArgs): Promise<void> {
   const recipients = Array.from(new Set(args.recipientIds.filter((id): id is string => Boolean(id))))
     .filter((id) => id !== args.actorId) // don't self-notify
   if (recipients.length === 0) return
-  try {
-    await prisma.notification.createMany({
-      data: recipients.map((userId) => ({
-        userId,
-        type: args.eventKey,
-        eventKey: args.eventKey,
-        category: 'ADMIN', // until LETTER category is added to EventCategory enum
-        title: args.title,
-        message: args.message,
-        metadata: JSON.stringify({
-          letterId: args.letter.id,
-          referenceNumber: args.letter.referenceNumber,
-          actorId: args.actorId,
-        }),
-      })),
-    })
-  } catch (err) {
-    console.error('[letters-notify] failed to create notifications', err)
-  }
+  // `LETTER` now exists as a real category — these rows used to be filed under
+  // `ADMIN` with a comment saying "until LETTER category is added", which meant
+  // muting admin digests also muted letters. The shared gate applies the user's
+  // preference; the direct write here applied none at all.
+  await writeDirectNotifications({
+    category: 'LETTER',
+    type: args.eventKey,
+    eventKey: args.eventKey,
+    recipientIds: recipients,
+    title: args.title,
+    message: args.message,
+    metadata: {
+      letterId: args.letter.id,
+      referenceNumber: args.letter.referenceNumber,
+      actorId: args.actorId,
+      deepLink: `/dashboard/letters/${args.letter.id}`,
+    },
+  })
 }
 
 async function resolveApprovers(): Promise<string[]> {

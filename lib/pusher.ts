@@ -55,7 +55,14 @@ export function getPusherClient(): PusherClient | null {
     }
     return null
   }
-  _client = new PusherClient(key, { cluster, forceTLS: true })
+  _client = new PusherClient(key, {
+    cluster,
+    forceTLS: true,
+    // Needed for `private-*` channels. The notification channel is per-user and
+    // must be private: a public channel named after a user id would let anyone
+    // who knows the id subscribe to that person's notifications.
+    authEndpoint: '/api/pusher/auth',
+  })
   return _client
 }
 
@@ -98,6 +105,34 @@ export const PUSHER_EVENTS = {
   COMMENT_ADDED: 'comment-added',
   NOTIFICATION_SENT: 'notification-sent',
 } as const
+
+/** The private channel carrying one user's notifications. */
+export function userNotificationChannel(userId: string): string {
+  return `private-user-${userId}`
+}
+
+/**
+ * Push a freshly written notification to the recipient's open tabs.
+ *
+ * PUSHER_EVENTS.NOTIFICATION_SENT was declared when the constant table was
+ * written and never triggered or bound by anything, so the bell only ever
+ * updated on mount or on open. Failures are swallowed: realtime is an
+ * enhancement, and a notification that is already persisted must not be
+ * reported as failed because a websocket was unreachable.
+ */
+export async function broadcastUserNotification(
+  userId: string,
+  payload: Record<string, unknown>,
+): Promise<void> {
+  if (!userId) return
+  const s = getPusherServer()
+  if (!s) return
+  try {
+    await s.trigger(userNotificationChannel(userId), PUSHER_EVENTS.NOTIFICATION_SENT, payload)
+  } catch (error) {
+    console.error('[broadcastUserNotification] failed:', error)
+  }
+}
 
 /**
  * Sprint v2 realtime — broadcast events on the per-sprint channel.

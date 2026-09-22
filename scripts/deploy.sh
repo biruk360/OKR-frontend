@@ -142,6 +142,14 @@ rm -rf "$BUILD_DIR" "$PREV_DIR"
 # blocked two deploys before it was understood. These files are typecheck-only
 # output; `next start` never reads them, so removing them cannot affect the running
 # app.
+#
+# The comment above landed in fff59ae without the command it describes, so the
+# very next deploy failed the same way: deleting
+# app/dashboard/objectives/<id>/design/ left .next/types importing a page.js that
+# no longer exists, and the typecheck phase died. CI cannot catch this — it builds
+# from an empty checkout and never has a stale .next to read.
+rm -rf .next/types
+
 if ! NEXT_DIST_DIR="$BUILD_DIR" NODE_OPTIONS="--max-old-space-size=${BUILD_HEAP_MB}" npm run build; then
   echo "[deploy] build failed — leaving the running app untouched"
   rm -rf "$BUILD_DIR"

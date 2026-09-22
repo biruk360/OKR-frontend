@@ -23,6 +23,7 @@ import type { ActionsMenuItem } from '@/components/ui'
 import EditWeightsModal from './EditWeightsModal'
 import CloseObjectiveModal from './CloseObjectiveModal'
 import OkrReopenDialog from '@/components/shared/OkrReopenDialog'
+import MoveOkrModal from '@/components/shared/MoveOkrModal'
 
 function useWatcher(entityType: string, entityId: string) {
   const [watching, setWatching] = useState(false)
@@ -80,7 +81,7 @@ interface ObjectiveActionsMenuProps {
 /**
  * Single dropdown with every per-objective action. Edit/Delete are delegated to
  * the parent (they already have their own modal components); everything else
- * talks to the API directly. Move is stubbed — product direction TBD.
+ * talks to the API directly.
  */
 export default function ObjectiveActionsMenu({
   objective,
@@ -94,6 +95,7 @@ export default function ObjectiveActionsMenu({
   const [weightsOpen, setWeightsOpen] = useState(false)
   const [closeOpen, setCloseOpen] = useState(false)
   const [reopenOpen, setReopenOpen] = useState(false)
+  const [moveOpen, setMoveOpen] = useState(false)
   const [achievedShortcut, setAchievedShortcut] = useState(false)
   const [isArchiving, setIsArchiving] = useState(false)
   const { watching, loading: watchLoading, toggle: toggleWatch } = useWatcher('OBJECTIVE', objective.id)
@@ -190,10 +192,9 @@ export default function ObjectiveActionsMenu({
     },
     {
       key: 'move',
-      label: 'Move (coming soon)',
+      label: 'Move under another objective',
       icon: MoveRight,
-      disabled: true,
-      onSelect: () => {},
+      onSelect: () => setMoveOpen(true),
       hidden: isArchived || isClosed,
     },
     {
@@ -303,6 +304,23 @@ export default function ObjectiveActionsMenu({
         entity={objective}
         entityType="objective"
         onReopened={() => router.refresh()}
+      />
+
+      <MoveOkrModal
+        open={moveOpen}
+        onClose={() => setMoveOpen(false)}
+        kind="OBJECTIVE"
+        entity={{
+          id: objective.id,
+          title: objective.title,
+          currentParentId: objective.parentObjectiveId ?? null,
+        }}
+        // Direct children only. The server runs the full cycle check
+        // (wouldCreateAlignmentCycle) across the whole tree; this just removes
+        // the obvious ones from the list rather than letting the user pick a
+        // target that is guaranteed to be rejected.
+        disabledIds={(objective.childObjectives ?? []).map((c: { id: string }) => c.id)}
+        onMoved={() => router.refresh()}
       />
 
       <EditWeightsModal

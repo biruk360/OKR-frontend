@@ -16,6 +16,7 @@
  */
 
 import { prisma } from '@/lib/prisma'
+import { writeDirectNotifications } from '@/lib/notifications/direct'
 import { isBlockedRecipient, sendMail } from '@/lib/email'
 import { absoluteUrl } from '@/lib/notifications/deep-link'
 import type { AutomationRecipient, DeliveryChannel } from '@/types/automations'
@@ -139,23 +140,31 @@ export async function deliverBriefing(
 
       if (channel === 'IN_APP') {
         try {
-          await prisma.notification.create({
-            data: {
-              userId: user.id,
-              type: 'REMINDER',
-              eventKey: 'AUTOMATION_BRIEFING_PUBLISHED',
-              category: 'ADMIN',
-              title: briefing.title,
-              message: briefing.summary.slice(0, 500),
-              metadata: JSON.stringify({
-                automationId: briefing.automationId,
-                briefingId: briefing.id,
-                url: `/dashboard/automations/briefings/${briefing.id}`,
-              }),
+          // Gated on the recipient's AUTOMATION preference. These rows used to
+          // be written directly under category 'ADMIN', so they honoured no
+          // preference at all and muting admin digests muted your automations.
+          const delivery = await writeDirectNotifications({
+            category: 'AUTOMATION',
+            type: 'REMINDER',
+            eventKey: 'AUTOMATION_BRIEFING_PUBLISHED',
+            recipientIds: [user.id],
+            title: briefing.title,
+            message: briefing.summary,
+            metadata: {
+              automationId: briefing.automationId,
+              briefingId: briefing.id,
+              deepLink: `/dashboard/automations/briefings/${briefing.id}`,
+              url: `/dashboard/automations/briefings/${briefing.id}`,
             },
           })
-          await markRecipient(briefing.id, user.id, channel, 'SENT')
-          outcome.inApp++
+          if (delivery.notified.length > 0) {
+            await markRecipient(briefing.id, user.id, channel, 'SENT')
+            outcome.inApp++
+          } else {
+            // The recipient switched this category off. That is not a failure —
+            // recording it as SENT would claim a delivery that did not happen.
+            await markRecipient(briefing.id, user.id, channel, 'SUPPRESSED', 'Recipient has in-app automation notifications turned off')
+          }
         } catch (error) {
           await markRecipient(briefing.id, user.id, channel, 'FAILED', asMessage(error))
           outcome.failed++
@@ -199,19 +208,18 @@ export async function notifyOwnerForReview(
   ownerId: string,
   briefing: { id: string; title: string; automationId: string; newCount: number; changedCount: number }
 ): Promise<void> {
-  await prisma.notification.create({
-    data: {
-      userId: ownerId,
-      type: 'REMINDER',
-      eventKey: 'AUTOMATION_REVIEW_PENDING',
-      category: 'ADMIN',
-      title: `Review: ${briefing.title}`,
-      message: `${briefing.newCount} new and ${briefing.changedCount} changed items are ready to send.`,
-      metadata: JSON.stringify({
-        automationId: briefing.automationId,
-        briefingId: briefing.id,
-        url: `/dashboard/automations/briefings/${briefing.id}`,
-      }),
+  await writeDirectNotifications({
+    category: 'AUTOMATION',
+    type: 'REMINDER',
+    eventKey: 'AUTOMATION_REVIEW_PENDING',
+    recipientIds: [ownerId],
+    title: `Review: ${briefing.title}`,
+    message: `${briefing.newCount} new and ${briefing.changedCount} changed items are ready to send.`,
+    metadata: {
+      automationId: briefing.automationId,
+      briefingId: briefing.id,
+      deepLink: `/dashboard/automations/briefings/${briefing.id}`,
+      url: `/dashboard/automations/briefings/${briefing.id}`,
     },
   })
 }
@@ -223,24 +231,23 @@ export async function notifyOwnerOfFailure(
   errorMessage: string
 ): Promise<void> {
   const disabled = automation.consecutiveFailures >= 3
-  await prisma.notification.create({
-    data: {
-      userId: ownerId,
-      type: 'REMINDER',
-      eventKey: disabled ? 'AUTOMATION_DISABLED_ON_FAILURE' : 'AUTOMATION_RUN_FAILED',
-      category: 'ADMIN',
-      title: disabled
-        ? `Automation disabled: ${automation.name}`
-        : `Automation run failed: ${automation.name}`,
-      message: disabled
-        ? `Three consecutive failures — the automation has been disabled. Last error: ${errorMessage}`.slice(0, 500)
-        : errorMessage.slice(0, 500),
-      metadata: JSON.stringify({
-        automationId: automation.id,
-        url: `/dashboard/automations/${automation.id}/runs`,
-      }),
+  await writeDirectNotifications({
+    category: 'AUTOMATION',
+    type: 'REMINDER',
+    eventKey: disabled ? 'AUTOMATION_DISABLED_ON_FAILURE' : 'AUTOMATION_RUN_FAILED',
+    recipientIds: [ownerId],
+    title: disabled
+      ? `Automation disabled: ${automation.name}`
+      : `Automation run failed: ${automation.name}`,
+    message: disabled
+      ? `Three consecutive failures — the automation has been disabled. Last error: ${errorMessage}`
+      : errorMessage,
+    metadata: {
+      automationId: automation.id,
+      deepLink: `/dashboard/automations/${automation.id}/runs`,
+      url: `/dashboard/automations/${automation.id}/runs`,
     },
-  }).catch(() => undefined)
+  })
 
   if (!disabled) return
 

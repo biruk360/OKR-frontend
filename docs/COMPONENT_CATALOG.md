@@ -65,12 +65,13 @@ Services exported from the same barrel: working-day utilities and `serializeScru
 | Component | Props | Notes |
 |---|---|---|
 | `AutomationList` | — | Automations the caller owns: mode badge, schedule summary, next/last run, consecutive-failure warning. Links to detail. |
-| `AutomationDetail` | `id` | Distribution-mode control (DRY_RUN / REVIEW / AUTO), Run now, pause/resume, run timeline with cost and duration. Promotion to AUTO opens a `ConfirmDialog` naming the recipient count. Polls the timeline only while a run is in flight. |
+| `AutomationDetail` | `id` | Distribution-mode control (DRY_RUN / REVIEW / AUTO), Run now, **Run test run**, pause/resume, run timeline with cost and duration. Promotion to AUTO opens a `ConfirmDialog` naming the recipient count. Polls the timeline only while a run is in flight. |
 | `AutomationEditPage` | `id` | Loads an automation, then renders `AutomationForm` in edit mode. |
 | `AutomationForm` | `automation?` | Creates **or edits** an automation by form (one component for both, so the plan is always built by the same code): basics, schedule preset + anchors, internal entities/scope, optional Odoo record type + staleness window, briefing objective, recipients. Builds the `PlanSpec` and the tool grants the worker executes. Renders the Odoo section disabled with a reason when Odoo is unconfigured (`GET /api/automations/tools`). A **Compile into a plan** button fills every field from a natural-language instruction and shows what the model assumed. When editing, widening changes are confirmed against a grouped plan diff before saving. `react-hook-form`. |
 | `BriefingView` | `id` | Renders the server-produced Briefing HTML (escaped server-side in `lib/automations/render.ts`), with dry-run / pending-review / published banners and Approve-and-send. |
 | `BriefingList` | `automationId?` | Every briefing the caller owns or was sent, with new/changed counts and status. |
 | `RunTranscript` | `runId`, `onClose` | Modal showing one run's per-step trace — tool, resolved args, duration, rows, preview, error. Refused steps are styled distinctly from failed ones. Owner/admin only. |
+| `TestRunPanel` | `automationId`, `mode` | **Run test run**: triggers a run, polls the run detail every 2s, renders each step as it lands, then drops the finished briefing inline — so verifying an automation does not mean navigating away and guessing when it finished. Polling stops at the terminal status rather than on a timer. Warns before running when the automation is in `AUTO`, because a test run there emails real people. |
 | `PromoteFindingModal` | `briefingId`, `finding`, `onClose` | Turns a Finding into a Todo or Risk (FR-12), pre-filled, with a back-link to the briefing. Always manual. |
 | `PlanDiffView` | `diff` | Grouped plan-version diff (FR-03). Widening changes — more often, more sources, more recipients, higher cap — are marked and sorted first. |
 | `AutomationSettingsForm` | — | Admin org settings (FR-18). The global pause sits outside the form so the kill switch never waits on a Save. |
@@ -213,6 +214,7 @@ import { Target, CheckSquare } from 'lucide-react'
 | `TimeframeBadge` | `components/shared/TimeframeBadge.tsx` | `timeframe` | Badge display for timeframe (Q1 2025, etc.) |
 | `LiveAnnouncer` + `announce()` | `components/shared/LiveAnnouncer.tsx` | none (mounted once in `app/layout.tsx`) | The app's only `aria-live` region. Call `announce('message')` or `announce('message', 'assertive')` from anywhere — no context, no prop drilling. Use for changes with no focus change (kanban moves, optimistic saves, bulk actions). |
 | `notificationIcon()` / `notificationTypeLabel()` | `components/shared/notification-icon.ts` | `type: string` | Icon + tone for a notification, keyed off its `type`/`eventKey`. Shared by the header bell, `/dashboard/notifications` and the sprint Inbox so one event cannot render three different ways. Not a component — a mapping. |
+| `MoveOkrModal` | `components/shared/MoveOkrModal.tsx` | `open`, `onClose`, `kind: 'OBJECTIVE' \| 'KEY_RESULT'`, `entity`, `disabledIds?`, `onMoved?` | Re-parent an objective or re-file a key result. One modal for both because the interaction is identical; they differ only in the field name and in what the picker refuses. Built on `EntityPicker` + `useOkrOptions`. Surfaces the server's rejection verbatim — "would create a circular dependency", "must be in the same timeframe" — rather than a generic failure. |
 
 ## Layout Components (`components/layout/`)
 
@@ -370,7 +372,7 @@ Strangler-pattern barrels. Import from these for new code:
 
 | Feature | Path | Contents |
 |---|---|---|
-| AI Automations | `features/automations/index.ts` | `AutomationList`, `AutomationDetail`, `AutomationForm`, `BriefingView`, `ModeBadge`, `StatusBadge`, `RunStatusBadge`, `automationsApi`, `useAutomations`, `useAutomation`, `useAutomationRuns`, `useAutomationSettings`, `useAutomationTools`, `useBriefing`, `useBriefings`, `useCompileInstruction`, `useCreateAutomation`, `useRunAutomationNow`, `useRunDetail`, `useSetMode`, `useSetStatus`, `useApproveBriefing`, `useDeleteAutomation`, `usePromoteFinding`, `useUpdateAutomation`, `useUpdateAutomationSettings` |
+| AI Automations | `features/automations/index.ts` | `AutomationList`, `AutomationDetail`, `AutomationForm`, `BriefingView`, `ModeBadge`, `StatusBadge`, `RunStatusBadge`, `TestRunPanel`, `automationsApi`, `useAutomations`, `useAutomation`, `useAutomationRuns`, `useAutomationSettings`, `useAutomationTools`, `useBriefing`, `useBriefings`, `useCompileInstruction`, `useCreateAutomation`, `useRunAutomationNow`, `useRunDetail`, `useSetMode`, `useSetStatus`, `useApproveBriefing`, `useDeleteAutomation`, `usePromoteFinding`, `useUpdateAutomation`, `useUpdateAutomationSettings` |
 | Objectives | `@/features/objectives` | 18 exports: modals, buttons, lists, `OKRLevelView`, + shared form/filter types |
 | Key Results | `@/features/key-results` | 16 exports: modals, buttons, chart, `KeyResultsList`, + confidence/form types |
 | Todos | `@/features/todos` | 11 exports: modals, buttons, `ToDoList`, `MyTasksList`, + form types |

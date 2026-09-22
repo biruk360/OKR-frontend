@@ -324,6 +324,7 @@
 | PATCH | `/api/notifications/[id]` | Mark one read/unread. Scoped to the session user via `updateMany`; 404 on a miss. |
 | DELETE | `/api/notifications/[id]` | Dismiss one. Same ownership scoping. |
 | POST | `/api/notifications/mark-all-read` | Clear the user's unread count. |
+| POST | `/api/pusher/auth` | Pusher private-channel authorization. Only authorizes `private-user-<your own id>`; any other channel is 403. Returns 503 when Pusher is unconfigured so the client degrades to polling. |
 | GET/PATCH | `/api/notifications/preferences` | Per-category in-app/email/cadence prefs. |
 
 ### Account
@@ -345,6 +346,13 @@
 > The full cron schedule — which routes run, when, and which exist but are
 > deliberately unscheduled — is `docs/CRON.md`, installed by
 > `scripts/install-crontab.sh`.
+
+> AI Automations is not driven by a `/api/cron/*` route for the work itself: the
+> tick only enqueues `AutomationRun` rows, and the long-lived pm2 worker
+> (`npm run worker:automations`, `okr-automations-worker` in `ecosystem.config.cjs`)
+> claims them. A permanent self-test fixture lives on production — re-arm or
+> remove it with `npm run automations:test-schedule -- --minutes N` / `--remove`
+> (`scripts/create-test-automation.ts`).
 
 ### Performance & Scorecard
 

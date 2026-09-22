@@ -15,6 +15,7 @@
  */
 
 import { prisma } from '@/lib/prisma'
+import { writeDirectNotifications } from '@/lib/notifications/direct'
 import { sendMail } from '@/lib/email'
 
 export type DtpEventKey =
@@ -51,24 +52,26 @@ export async function notifyDtpEvent(input: NotifyInput): Promise<void> {
   const recipients = Array.from(new Set(input.recipientIds.filter(Boolean)))
   if (recipients.length === 0) return
   try {
-    const users = await prisma.user.findMany({
-      where: { id: { in: recipients }, isActive: true },
-      select: { id: true, email: true, name: true },
+    // 1. In-app rows, gated on the user's TRAVEL preference.
+    //
+    // This wrote `category: 'TRAVEL'` from the start, but TRAVEL was not in
+    // EventCategory/ALL_CATEGORIES, so the switch never appeared in the
+    // preferences UI and travel notifications could not be turned off by
+    // anyone. TRAVEL is a real category now and the gate below honours it.
+    const delivery = await writeDirectNotifications({
+      category: 'TRAVEL',
+      type: input.eventKey,
+      eventKey: input.eventKey,
+      recipientIds: recipients,
+      title: input.subject,
+      message: input.message,
+      metadata: {
+        ...(input.metadata ?? {}),
+        ...(input.deepLinkPath ? { deepLink: input.deepLinkPath } : {}),
+      },
+      emailMode: 'IMMEDIATE',
     })
-
-    // 1. In-app rows
-    await prisma.notification.createMany({
-      data: users.map((u) => ({
-        type: input.eventKey,
-        eventKey: input.eventKey,
-        category: 'TRAVEL',
-        title: input.subject,
-        message: input.message.slice(0, 280),
-        userId: u.id,
-        metadata: input.metadata ? JSON.stringify(input.metadata) : null,
-        emailMode: 'IMMEDIATE',
-      })),
-    })
+    const users = delivery.emailable
 
     // 2. Emails (best-effort, parallel)
     const baseUrl = process.env.NEXTAUTH_URL ?? ''

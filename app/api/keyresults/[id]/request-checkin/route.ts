@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { writeDirectNotifications } from '@/lib/notifications/direct'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { keyResultLockResponse } from '@/lib/okr/lock-guard'
 import { recordActivity } from '@/lib/activity-log'
@@ -46,18 +47,22 @@ export const POST = withAuth<RouteIdParams>(async (_request, { session, params }
   })
 
   if (!existing) {
-    await prisma.notification.create({
-      data: {
-        userId: kr.ownerId,
-        type: 'REMINDER',
-        title: 'Check-in requested',
-        message: `${session.user.name || 'A teammate'} requested a check-in on "${kr.title}".`,
-        metadata: JSON.stringify({
-          kind: 'CHECKIN_REQUEST',
-          keyResultId,
-          objectiveId: kr.objectiveId,
-          requestedBy: session.user.id,
-        }),
+    // Through the shared gate so the owner's CHECK_IN preference is honoured —
+    // this used to write the row directly and respected no preference at all.
+    await writeDirectNotifications({
+      category: 'CHECK_IN',
+      type: 'REMINDER',
+      eventKey: 'CHECKIN_REQUESTED',
+      recipientIds: [kr.ownerId],
+      title: 'Check-in requested',
+      message: `${session.user.name || 'A teammate'} requested a check-in on "${kr.title}".`,
+      metadata: {
+        kind: 'CHECKIN_REQUEST',
+        keyResultId,
+        objectiveId: kr.objectiveId,
+        requestedBy: session.user.id,
+        entityType: 'KEY_RESULT',
+        entityId: keyResultId,
       },
     })
   }

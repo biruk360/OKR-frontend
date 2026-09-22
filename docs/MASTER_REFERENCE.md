@@ -291,25 +291,28 @@ Three layers: **Automation** (config + compiled plan) → **AutomationRun** (aud
 
 | Module | Status | Paths |
 |--------|--------|-------|
-| Schema | IN PROGRESS | `prisma/schema.prisma` (`Automation`, `AutomationRun`, `AutomationBriefing`, `AutomationBriefingRecipient`, `AutomationCredential`, `AutomationSettings`) |
-| Schedule engine (8 presets, tz, catch-up, jitter, cron) | IN PROGRESS | `lib/automations/schedule.ts` + 31 tests |
-| Plan validation + template resolution | IN PROGRESS | `lib/automations/plan.ts` + 16 tests |
-| Tool layer (`okr.query`, `odoo.search`, grant-gated registry) | IN PROGRESS | `lib/automations/tools/` |
-| AI synthesis (OpenAI structured output) | IN PROGRESS | `lib/automations/synthesis.ts` |
-| Findings + run-to-run diffing | IN PROGRESS | `lib/automations/findings.ts` + 12 tests |
-| Briefing assembly + 3 renderers (app / email / text) | IN PROGRESS | `lib/automations/briefing.ts`, `lib/automations/render.ts` + 22 tests |
-| Run executor | IN PROGRESS | `lib/automations/runner.ts` |
-| Queue: tick, claim (`FOR UPDATE SKIP LOCKED`), lease reaper | IN PROGRESS | `lib/automations/service.ts`, `app/api/cron/automations-{tick,reap}/` |
-| Worker process | IN PROGRESS | `scripts/automations-worker.ts` — `npm run worker:automations` (pm2) |
-| End-to-end smoke harness (34 checks vs a live Postgres) | IN PROGRESS | `scripts/smoke-automations.ts` — `npm run smoke:automations` |
-| Distribution + delivery ledger | IN PROGRESS | `lib/automations/delivery.ts` |
-| Access control + permission seed | IN PROGRESS | `lib/automations/access.ts`, `scripts/seed-automation-permissions.ts` |
-| UI (list, create/edit form, detail, briefing viewer, briefings list, run transcript, admin settings) | IN PROGRESS | `features/automations/`, `app/dashboard/automations/`, `app/dashboard/settings/automations/` |
-| Finding promotion (FR-12), export to PDF/DOCX (FR-13), month-to-date spend (FR-17) | IN PROGRESS | `app/api/automations/briefings/[id]/{promote,export}/`, `lib/automations/crud.ts` |
-| NL → plan compiler (two-attempt repair, grouped plan diff) | IN PROGRESS | `lib/automations/compiler.ts`, `lib/automations/plan-diff.ts` + 28 tests |
-| Shared Odoo XML-RPC client (read-only by construction) | IN PROGRESS | `lib/odoo/client.ts` + 13 tests; `lib/odoo-contacts.ts` now consumes it |
-| `web.search` / `web.fetch` + source registry | PLANNED | P2 |
+| Schema | DONE | `prisma/schema.prisma` (`Automation`, `AutomationRun`, `AutomationBriefing`, `AutomationBriefingRecipient`, `AutomationCredential`, `AutomationSettings`) |
+| Schedule engine (8 presets, tz, catch-up, jitter, cron) | DONE | `lib/automations/schedule.ts` + 31 tests |
+| Plan validation + template resolution | DONE | `lib/automations/plan.ts` + 16 tests |
+| Tool layer (`okr.query`, `odoo.search`, grant-gated registry) | DONE | `lib/automations/tools/` |
+| AI synthesis (OpenAI structured output) | DONE | `lib/automations/synthesis.ts` |
+| Findings + run-to-run diffing | DONE | `lib/automations/findings.ts` + 12 tests |
+| Briefing assembly + 3 renderers (app / email / text) | DONE | `lib/automations/briefing.ts`, `lib/automations/render.ts` + 22 tests |
+| Run executor | DONE | `lib/automations/runner.ts` |
+| Queue: tick, claim (`FOR UPDATE SKIP LOCKED`), lease reaper | DONE | `lib/automations/service.ts`, `app/api/cron/automations-{tick,reap}/` |
+| Worker process | DONE | `scripts/automations-worker.ts` — `npm run worker:automations` (pm2) |
+| End-to-end smoke harness (34 checks vs a live Postgres) | DONE | `scripts/smoke-automations.ts` — `npm run smoke:automations` |
+| Distribution + delivery ledger | DONE | `lib/automations/delivery.ts` |
+| Access control + permission seed | DONE | `lib/automations/access.ts`, `scripts/seed-automation-permissions.ts` |
+| UI (list, create/edit form, detail, briefing viewer, briefings list, run transcript, admin settings) | DONE | `features/automations/`, `app/dashboard/automations/`, `app/dashboard/settings/automations/` |
+| Test-run affordance + permanent self-test fixture | DONE | `features/automations/components/TestRunPanel.tsx`, `scripts/create-test-automation.ts` — `npm run automations:test-schedule` |
+| Finding promotion (FR-12), export to PDF/DOCX (FR-13), month-to-date spend (FR-17) | DONE | `app/api/automations/briefings/[id]/{promote,export}/`, `lib/automations/crud.ts` |
+| NL → plan compiler (two-attempt repair, grouped plan diff) | DONE | `lib/automations/compiler.ts`, `lib/automations/plan-diff.ts` + 28 tests |
+| Shared Odoo XML-RPC client (read-only by construction) | DONE | `lib/odoo/client.ts` + 13 tests; `lib/odoo-contacts.ts` now consumes it |
+| `web.search` / `web.fetch` + source registry | PLANNED | P2b. Provider chosen (Tavily). The tools stay out of `AVAILABLE_TOOL_IDS` in `types/automations.ts` until their SSRF review closes — an unwired tool cannot be granted. |
 | Credential vault, site login, mailbox | PLANNED | P3 |
+
+**Proven in production 2026-09-21.** The whole chain ran unattended on the VPS: cron tick → enqueue → worker claim (`FOR UPDATE SKIP LOCKED`) → RBAC-scoped `okr.query` → OpenAI → finding diff → three renderings → DRY_RUN suppression. Trigger was `SCHEDULE`, not `MANUAL`; the slot fired exactly where `computeNextRunAt` predicted; the query returned 20 real rows in 26 ms; the model call cost $0.0628 and its summary was grounded in those rows; and `automation_briefing_recipients` held **zero** rows, which is the safety model working rather than a test asserting it would. Twenty seconds end to end. A permanent fixture — automation "Self-test — scheduler health check", ENABLED, DRY_RUN, `nextRunAt: null` so the tick (which indexes only non-null `nextRunAt`) never picks it up — stays on production for manual re-testing via **Run test run**. **Still unexercised:** a real Odoo call, and browser QA of the authoring form.
 
 **Key invariants.** The compiler runs **once, interactively** — the instruction is the authoring surface, the compiled PlanSpec is the execution surface, and the worker never re-interprets free text. The model never chooses recipients or cost caps, and its grants are derived from the steps it produced. `odoo.search` narrows in three layers, outermost first: `lib/odoo/client.ts` refuses any non-read method before doing I/O; `ODOO_ALLOWED_MODELS` is the outer bound; the grant's `models` list narrows that per automation — intersected, never unioned. An automation executes **as its owner** — every read passes that user's RBAC, and adding a recipient never widens it. Tools are granted, never ambient. Every automation starts in `DRY_RUN`; the `DRY_RUN → REVIEW → AUTO` graduation gates *distribution*, and promotion to AUTO is refused until one run has succeeded. `nextRunAt` is always recomputed from the wall-clock rule in the automation's timezone, never by adding a delta. `@@unique([automationId, scheduledFor])` makes the tick exactly-once per slot.
 
@@ -1367,14 +1370,39 @@ writes `href`, `lib/automations/delivery.ts` writes `url`, and some callers
 pre-compute `deepLink`. Only same-origin paths are accepted. Consumed by the
 page, `GET /api/notifications`, the header bell and `SprintInboxView`.
 
-**Known gaps.** `PUSHER_EVENTS.NOTIFICATION_SENT` is declared in `lib/pusher.ts`
-and never triggered or bound, so the bell is not real-time — it refreshes on
-mount and on open. Six direct `prisma.notification.create` writers bypass
-`emit()` and therefore bypass preferences entirely (`lib/comments.ts`,
-`lib/letters-notify.ts`, `lib/dtp/notifier.ts`, `lib/automations/delivery.ts`,
-and both `request-checkin` routes); `lib/dtp/notifier.ts` also writes
-`category: 'TRAVEL'`, which is not in `ALL_CATEGORIES` and so cannot be toggled
-off.
+### 12.0.1 Realtime (added 2026-09-21)
+
+`POST /api/pusher/auth` authorizes private channels. The check that matters is
+that a caller may only subscribe to `private-user-<their own id>`; without it,
+any signed-in user could subscribe to anyone else's notification feed. Both
+write paths — `dispatcher.ts` and `notifications/direct.ts` — call
+`broadcastUserNotification()` after the row is persisted, and `Header.tsx`
+binds the event and refetches (the payload is only a signal; the server's
+unread count is authoritative). Every failure path is silent: realtime is an
+enhancement, and `getPusherServer()` returns null under the placeholder
+credentials in `env.example`, so dev degrades to the mount-and-open refresh.
+
+### 12.0.2 The preference gate for direct writers (added 2026-09-21)
+
+`emit()` is the path for anything with a declared `EventKey`. Six writers have
+their own vocabularies and called `prisma.notification.create*` directly, which
+meant they honoured **no** preference at all: `lib/comments.ts`,
+`lib/letters-notify.ts`, `lib/dtp/notifier.ts`, `lib/automations/delivery.ts`
+and both `request-checkin` routes. They now share
+`lib/notifications/direct.ts` → `writeDirectNotifications()`, which applies the
+same `inApp` gate `emit()` applies and reports which recipients may still be
+emailed so each caller keeps owning its own delivery.
+
+Three categories were added at the same time so those writers have a switch to
+respect: **`TRAVEL`** (written all along by `lib/dtp/notifier.ts` as a value
+that was not in `ALL_CATEGORIES`, so it never appeared in the preferences UI
+and could not be turned off by anyone), **`LETTER`** and **`AUTOMATION`** (both
+previously filed under `ADMIN`, so muting admin digests muted them too).
+`ensureOrgDefaults()` maps over `ALL_CATEGORIES`, so the new ones seed to
+`inApp: true, email: true` and behaviour is unchanged until a user opts out.
+
+`grep -rn "prisma.notification.create" lib/ app/` outside `lib/notifications/`
+now returns nothing. Keep it that way.
 
 ### 12.1 Flow
 

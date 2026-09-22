@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { signOut } from 'next-auth/react'
+import { signOut, useSession } from 'next-auth/react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
@@ -37,6 +37,7 @@ import ThemeSwitcher from '@/components/layout/ThemeSwitcher'
 import { formatDistanceToNowStrict } from 'date-fns'
 import { notificationIcon } from '@/components/shared/notification-icon'
 import { useNotificationStore } from '@/lib/stores/notification-store'
+import { getPusherClient, userNotificationChannel, PUSHER_EVENTS } from '@/lib/pusher'
 
 interface HeaderProps {
   user: {
@@ -75,9 +76,35 @@ export default function Header({ user, onMobileNavOpen }: HeaderProps) {
   const markAllRead = useNotificationStore((st) => st.markAllRead)
 
   // One fetch on mount so the badge is right before the bell is ever opened;
-  // opening it refetches. No polling — the count is not worth a timer, and
-  // navigating remounts the header anyway.
+  // opening it refetches.
   useEffect(() => { void fetchNotifications(8) }, [fetchNotifications])
+
+  // Live updates. The user id comes from the session rather than a new prop so
+  // DashboardShell's contract is unchanged.
+  const { data: session } = useSession()
+  const sessionUserId = (session?.user as { id?: string } | undefined)?.id
+
+  useEffect(() => {
+    if (!sessionUserId) return
+    // Null whenever Pusher is unconfigured — which is the default in dev, where
+    // isUsableCred rejects the placeholder credentials in env.example. The bell
+    // then just keeps its mount-and-open refresh; nothing here throws.
+    const client = getPusherClient()
+    if (!client) return
+
+    const name = userNotificationChannel(sessionUserId)
+    const channel = client.subscribe(name)
+    // The payload is only a signal. Refetching gets the authoritative list and,
+    // more importantly, the server's unread count — a count incremented locally
+    // would drift from the truth after a mark-read in another tab.
+    const onNotification = () => { void fetchNotifications(8) }
+    channel.bind(PUSHER_EVENTS.NOTIFICATION_SENT, onNotification)
+
+    return () => {
+      channel.unbind(PUSHER_EVENTS.NOTIFICATION_SENT, onNotification)
+      client.unsubscribe(name)
+    }
+  }, [sessionUserId, fetchNotifications])
 
   const {
     register,

@@ -56,6 +56,10 @@ export type ActivityAction =
   | 'INITIATIVE_CHECKLIST_CREATED'
   | 'INITIATIVE_CHECKLIST_ITEM_TOGGLED'
   | 'INITIATIVE_ATTACHMENT_ADDED'
+  // Comment attachments — distinct from INITIATIVE_ATTACHMENT_ADDED, which is
+  // a file on the card itself rather than on one of its comments.
+  | 'COMMENT_ATTACHMENT_ADDED'
+  | 'COMMENT_ATTACHMENT_REMOVED'
   | 'INITIATIVE_COMMENTED'
   | 'VIEWED'
   | 'RISK_REPORTED'

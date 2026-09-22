@@ -93,6 +93,8 @@ model User {
   ownedAutomations                Automation[]                   @relation("AutomationOwner")
   automationBriefingDeliveries    AutomationBriefingRecipient[]  @relation("AutomationBriefingRecipientUser")
 
+  commentAttachments CommentAttachment[] @relation("CommentAttachmentUploader")
+
   @@map("users")
 }
 
@@ -886,6 +888,45 @@ model EmailDigestQueue {
   @@index([userId, cadence, sentAt])
   @@index([sentAt])
   @@map("email_digest_queue")
+}
+
+/// Files attached to a comment, on any surface (to-do, OKR, project activity,
+/// scrum). Polymorphic because those four live in four different comment
+/// models; a per-surface table each would mean four uploaders and four
+/// viewers.
+///
+/// `storedName` is generated server-side and is the only name touching the
+/// filesystem — `filename` is a display label and is never used as a path.
+/// Files live OUTSIDE public/ and are served by GET /api/comment-attachments/[id],
+/// which re-runs the permission check for the parent entity. Nothing is
+/// reachable by URL alone.
+model CommentAttachment {
+  id           String   @id @default(cuid())
+  /// TODO | OKR | ACTIVITY | SCRUM
+  commentType  String
+  /// Null while the file is staged in a composer and the comment does not exist yet.
+  commentId    String?
+  /// Parent entity (todo/objective/activity/…), used for the permission check
+  /// while staged and for cleanup of never-posted drafts.
+  entityId     String
+  uploadedById String
+  /// Original name, shown to people. Never used to build a path.
+  filename     String
+  /// Server-generated name on disk.
+  storedName   String   @unique
+  mimeType     String
+  size         Int
+  width        Int?
+  height       Int?
+  createdAt    DateTime @default(now())
+
+  uploadedBy User @relation("CommentAttachmentUploader", fields: [uploadedById], references: [id], onDelete: Cascade)
+
+  @@index([commentType, commentId])
+  @@index([entityId])
+  /// Finds abandoned staged uploads for the cleanup job.
+  @@index([commentId, createdAt])
+  @@map("comment_attachments")
 }
 
 model SystemSettings {

@@ -2,6 +2,25 @@
 
 > **Purpose:** Log of all changes made by AI assistants. Every AI session that modifies code MUST append an entry here.
 
+## 2026-09-22 — Comment attachments: files and photos, with preview
+
+Spec: `docs/comment_attachments_REQUIREMENTS.md`.
+
+**No upload library, on purpose.** Next's App Router already parses multipart via `request.formData()`, so `multer`/`formidable` (Express middleware) would add nothing, and `uploadthing` ships files to a third party. Zero new dependencies. The security comes from *not serving files statically*, which no package would have given us.
+
+**Two live defects the survey found in the existing to-do uploader, both now closed [V].** It accepted any file, kept the caller's extension, and wrote into `public/uploads/`, which Next serves from the app's own origin — an uploaded `.html` or `.svg` therefore executed with access to the session cookie. And it checked only that the to-do *existed*, so any signed-in user could attach to any to-do by id, and every file was readable by anyone with the URL.
+
+- `lib/attachments/file-types.ts` — allowlist keyed on extension **and** declared MIME **and** magic bytes, all three having to agree. Script-bearing formats (`.html`, `.svg`, `.js`, executables…) are rejected before the allowlist is even consulted, so the rejection reason is accurate. Image dimensions are read straight from the header, so no image library either.
+- `lib/attachments/storage.ts` — bytes live under `var/uploads/` (override with `UPLOAD_DIR`), never `public/`. Stored names are server-generated; the caller's filename is a display label and never touches a path.
+- `lib/attachments/access.ts` — `canAccessAttachmentScope` re-runs the parent entity's visibility rule. `GET /api/comment-attachments/[id]` calls it on **every request**, so a leaked link grants nothing to someone who could not already open the item. Missing and forbidden return the same response, so ids cannot be probed.
+- `ACTIVITY` and `SCRUM` scopes deliberately return **false** for now: `Activity` reaches a project only via Milestone→Phase and project reads have client-portal rules that must not be loosely re-implemented (project invariant 4), and there is no scrum team-membership model to check at all. Attachments are simply not offered there, which is the safe failure rather than a guessed permission rule.
+
+**A bug the tests caught before it shipped.** The first forbidden-MIME check was a substring regex including `/xml/i` — which also matches `application/vnd.openxmlformats-officedocument…`, so every legitimate `.docx`, `.xlsx` and `.pptx` would have been rejected as dangerous. Replaced with exact matching plus a `+xml` suffix rule. Also fixed a `> 24` / `>= 24` off-by-one that made PNG dimensions always null.
+
+**UI** — one `AttachmentPicker` (click, drag-drop, paste-from-clipboard) and one `AttachmentList`, shared rather than copied per surface. Images render as thumbnails sized from the stored dimensions so the thread does not reflow; clicking opens an `AttachmentLightbox` built on `components/ui/Modal` (so it inherits the focus trap) with ←/→ between the images of that comment. PDFs embed with a new-tab fallback; everything else opens in a tab as a download. Wired into OKR and key-result comments, which had **no** attachment support at all before.
+
+**Verification** — `prisma validate` passes; `tsc --noEmit` clean; sprints 21/21, cards 9/9, todos 41/41, security 20/20, notifications 8/8, new attachments 12/12; build exits 0. The 12 attachment tests cover the attacks specifically: `.html` upload, every script extension while lying about the MIME, a PNG renamed `.pdf`, HTML renamed `.png`, and the double-extension `evil.png.html`. **Not verified:** no file has been uploaded through the running app, and the to-do card modal still uses its own older attachment flow — migrating it (ATT-4) is not done.
+
 ## 2026-09-22 — Mention emails never fired; notification email now batches every 10 minutes
 
 Asked for: tagging someone or assigning them a task should email them a link, and emails should consolidate every ~10 minutes instead of firing per event. Investigating turned up more than a cadence problem. Spec: `docs/notification_email_batching_REQUIREMENTS.md`.

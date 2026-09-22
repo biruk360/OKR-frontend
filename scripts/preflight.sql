@@ -745,3 +745,50 @@ CREATE INDEX IF NOT EXISTS "initiatives_recurrenceRule_dueDate_idx"
 
 CREATE INDEX IF NOT EXISTS "initiatives_recurrenceParentId_idx"
   ON "public"."initiatives" ("recurrenceParentId");
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Comment attachments — 2026-09-22
+-- Spec: docs/comment_attachments_REQUIREMENTS.md ATT-1..ATT-3
+--
+-- Polymorphic attachment rows for every comment surface. Files themselves live
+-- OUTSIDE public/ and are served only by GET /api/comment-attachments/[id],
+-- which re-runs the parent entity's permission check.
+--
+-- Additive; safe to re-run.
+-- ─────────────────────────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS "public"."comment_attachments" (
+  "id"           TEXT PRIMARY KEY,
+  "commentType"  TEXT NOT NULL,
+  "commentId"    TEXT,
+  "entityId"     TEXT NOT NULL,
+  "uploadedById" TEXT NOT NULL,
+  "filename"     TEXT NOT NULL,
+  "storedName"   TEXT NOT NULL,
+  "mimeType"     TEXT NOT NULL,
+  "size"         INTEGER NOT NULL,
+  "width"        INTEGER,
+  "height"       INTEGER,
+  "createdAt"    TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "comment_attachments_storedName_key"
+  ON "public"."comment_attachments" ("storedName");
+CREATE INDEX IF NOT EXISTS "comment_attachments_commentType_commentId_idx"
+  ON "public"."comment_attachments" ("commentType", "commentId");
+CREATE INDEX IF NOT EXISTS "comment_attachments_entityId_idx"
+  ON "public"."comment_attachments" ("entityId");
+CREATE INDEX IF NOT EXISTS "comment_attachments_commentId_createdAt_idx"
+  ON "public"."comment_attachments" ("commentId", "createdAt");
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'comment_attachments_uploadedById_fkey'
+  ) THEN
+    EXECUTE 'ALTER TABLE "public"."comment_attachments"
+             ADD CONSTRAINT "comment_attachments_uploadedById_fkey"
+             FOREIGN KEY ("uploadedById") REFERENCES "public"."users"("id")
+             ON DELETE CASCADE ON UPDATE CASCADE';
+  END IF;
+END $$;

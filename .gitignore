@@ -40,3 +40,8 @@ npm-debug.log*
 # IDE
 .idea/
 .vscode/
+
+# User-uploaded comment attachments — never committed.
+/var/uploads/
+# Legacy upload location (pre-authenticated-serve).
+/public/uploads/

@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { claimAttachments, attachmentsForComments } from '@/lib/attachments/claim'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { apiSuccess, apiBadRequest, apiNotFound, withAuth } from '@/lib/api'
 import { recordActivity } from '@/lib/activity-log'
@@ -13,14 +14,16 @@ export const GET = withAuth<RouteIdParams>(async (_req, { params }) => {
     orderBy: { createdAt: 'asc' },
     include: { author: { select: { id: true, name: true, avatar: true, email: true } } },
   })
-  return apiSuccess(comments)
+  // One query for the whole thread rather than one per comment.
+  const byComment = await attachmentsForComments('OKR', comments.map((c) => c.id))
+  return apiSuccess(comments.map((c) => ({ ...c, attachments: byComment.get(c.id) ?? [] })))
 })
 
 export const POST = withAuth<RouteIdParams>(async (req, { session, params }) => {
   const { id } = await resolveParams(params)
   if (!id) return apiBadRequest('Invalid id')
 
-  const body = await req.json().catch(() => ({})) as { content?: string }
+  const body = await req.json().catch(() => ({})) as { content?: string; attachmentIds?: unknown }
   const content = (body.content ?? '').trim()
   if (!content) return apiBadRequest('Comment cannot be empty')
 
@@ -91,5 +94,15 @@ export const POST = withAuth<RouteIdParams>(async (req, { session, params }) => 
     },
   })
 
-  return apiSuccess(comment, { message: 'Comment added.' })
+  // Staged uploads are claimed only now, scoped to this uploader and entity,
+  // so a caller cannot attach someone else's file to their comment.
+  const attachments = await claimAttachments({
+    ids: Array.isArray(body.attachmentIds) ? (body.attachmentIds as unknown[]).filter((x): x is string => typeof x === 'string') : [],
+    commentType: 'OKR',
+    commentId: comment.id,
+    entityId: id,
+    uploaderId: session.user.id,
+  })
+
+  return apiSuccess({ ...comment, attachments }, { message: 'Comment added.' })
 })

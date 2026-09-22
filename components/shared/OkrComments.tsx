@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import { formatRelativeTime } from '@/lib/utils'
 import RichTextEditor from './RichTextEditor'
+import { AttachmentPicker, AttachmentList, type CommentAttachmentDto } from './CommentAttachments'
 import RichTextContent from './RichTextContent'
 
 interface CommentAuthor {
@@ -18,6 +19,7 @@ interface CommentRecord {
   content: string
   createdAt: string
   author: CommentAuthor
+  attachments?: CommentAttachmentDto[]
 }
 
 interface UserOption {
@@ -43,6 +45,7 @@ export default function OkrComments({ endpoint, entityId }: Props) {
   const [loading, setLoading] = useState(true)
   const [value, setValue] = useState('')
   const [saving, setSaving] = useState(false)
+  const [staged, setStaged] = useState<CommentAttachmentDto[]>([])
 
   useEffect(() => {
     let cancelled = false
@@ -61,18 +64,20 @@ export default function OkrComments({ endpoint, entityId }: Props) {
 
   const submit = async () => {
     const content = value.trim()
-    if (!content) return
+    // An attachment on its own is a legitimate comment — a screenshot with no words.
+    if (!content && staged.length === 0) return
     setSaving(true)
     try {
       const res = await fetch(`/api/${endpoint}/${entityId}/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ content, attachmentIds: staged.map((a) => a.id) }),
       })
       const data = await res.json()
       if (!res.ok || !data.success) throw new Error(data.error || 'Failed to comment')
       setComments((prev) => [...prev, data.data])
       setValue('')
+      setStaged([])
       toast.success('Comment posted')
     } catch (err: any) {
       toast.error(err.message || 'Failed to post comment')
@@ -105,6 +110,7 @@ export default function OkrComments({ endpoint, entityId }: Props) {
                   <span className="text-xs text-muted-foreground">{formatRelativeTime(new Date(c.createdAt))}</span>
                 </div>
                 <RichTextContent html={c.content} className="text-sm text-foreground" />
+                <AttachmentList attachments={c.attachments ?? []} />
               </div>
             </li>
           ))}
@@ -118,10 +124,17 @@ export default function OkrComments({ endpoint, entityId }: Props) {
           placeholder="Write a comment — Cmd/Ctrl+Enter to post."
           onSubmit={submit}
         />
-        <div className="flex justify-end mt-2">
+        <div className="mt-2 flex items-center justify-between gap-3">
+          <AttachmentPicker
+            scope="OKR"
+            entityId={entityId}
+            staged={staged}
+            onStagedChange={setStaged}
+            disabled={saving}
+          />
           <button
             type="button"
-            disabled={saving || !value.trim()}
+            disabled={saving || (!value.trim() && staged.length === 0)}
             onClick={submit}
             className="px-4 py-1.5 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700 disabled:opacity-60"
           >

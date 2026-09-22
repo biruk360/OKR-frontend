@@ -25,18 +25,13 @@ export interface MoveOkrModalProps {
   open: boolean
   onClose: () => void
   kind: MoveKind
-  /** The entity being moved. */
+  /** The entity being moved. Only identity is needed — for a key result the
+   *  fields the PATCH route insists on are read back from the server. */
   entity: {
     id: string
     title: string
-    /** Current parent objective id — pre-selects the picker and is excluded as a no-op. */
+    /** Current parent objective id — excluded from the picker as a no-op. */
     currentParentId?: string | null
-    /** KEY_RESULT only: the PATCH route requires these alongside the move. */
-    ownerId?: string
-    startValue?: number | null
-    targetValue?: number | null
-    unit?: string | null
-    description?: string | null
   }
   /** Ids the picker must refuse — for an objective, itself and its descendants. */
   disabledIds?: string[]
@@ -68,17 +63,38 @@ export default function MoveOkrModal({
       // The key-result PATCH validates title/ownerId/targetValue as required on
       // every call, so a move has to resend them unchanged. That is the route's
       // shape, not something this modal chose.
-      const body = isObjective
-        ? { parentObjectiveId: target.id }
-        : {
-            objectiveId: target.id,
-            title: entity.title,
-            ownerId: entity.ownerId,
-            description: entity.description ?? '',
-            startValue: entity.startValue,
-            targetValue: entity.targetValue,
-            unit: entity.unit,
-          }
+      //
+      // Those values are read back from the server rather than taken from props:
+      // KeyResultActionsMenu types its `keyResult` as `any` and its one call site
+      // passes whatever the list endpoint returned, so a caller that happens not
+      // to carry `targetValue` would fail validation with "Title, owner, and
+      // target value are required" on what the user asked to be a move. One extra
+      // GET on a rare action buys certainty.
+      let body: Record<string, unknown>
+      if (isObjective) {
+        body = { parentObjectiveId: target.id }
+      } else {
+        const current = await fetch(`/api/keyresults/${entity.id}`).then((r) => r.json()).catch(() => null)
+        const kr = current?.success ? current.data : null
+        if (!kr) throw new Error('Could not read the key result to move')
+        // GET runs the response through redactKeyResult and filterFieldsByPermLevel,
+        // either of which can drop a field. Without this the move would go out as a
+        // PATCH missing a required value and come back as "Title, owner, and target
+        // value are required", which reads like a bug rather than a permission.
+        if (kr.title == null || kr.ownerId == null || kr.targetValue == null) {
+          throw new Error('You do not have full access to this key result, so it cannot be moved')
+        }
+        body = {
+          objectiveId: target.id,
+          title: kr.title,
+          ownerId: kr.ownerId,
+          description: kr.description ?? '',
+          startValue: kr.startValue,
+          targetValue: kr.targetValue,
+          unit: kr.unit,
+          isPrivate: kr.isPrivate,
+        }
+      }
 
       const res = await fetch(url, {
         method: 'PATCH',

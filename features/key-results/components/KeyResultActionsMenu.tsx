@@ -309,11 +309,6 @@ export default function KeyResultActionsMenu({
           id: keyResult.id,
           title: keyResult.title,
           currentParentId: keyResult.objectiveId ?? keyResult.objective?.id ?? null,
-          ownerId: keyResult.ownerId,
-          description: keyResult.description,
-          startValue: keyResult.startValue,
-          targetValue: keyResult.targetValue,
-          unit: keyResult.unit,
         }}
         onMoved={() => { onChanged?.(); router.refresh() }}
       />

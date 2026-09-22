@@ -16,7 +16,11 @@ export interface EffectivePref {
 const HARDCODED_DEFAULT: EffectivePref = {
   inApp: true,
   email: true,
-  emailCadence: 'IMMEDIATE',
+  // BAT-2 — was IMMEDIATE, i.e. one email per event. Users with an active board
+  // received a continuous drip. BATCHED collapses a window's worth into one
+  // email; in-app notifications are unaffected and still arrive instantly.
+  // Existing explicit user/org preference rows override this and are untouched.
+  emailCadence: 'BATCHED',
   mandatory: false,
 }
 

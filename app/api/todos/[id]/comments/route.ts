@@ -1,19 +1,11 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { resolveMentions } from '@/lib/comments'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { emit, resolveTodoStakeholders } from '@/lib/notifications'
 import { sendMail } from '@/lib/email'
 import { apiSuccess, apiBadRequest, apiNotFound, withAuth } from '@/lib/api'
 import { recordActivity } from '@/lib/activity-log'
-
-// Extract @mention user ids from Tiptap HTML (data-mention-id attribute)
-function extractMentions(html: string): string[] {
-  const re = /data-mention-id="([^"]+)"/g
-  const ids: string[] = []
-  let m: RegExpExecArray | null
-  while ((m = re.exec(html)) !== null) { if (!ids.includes(m[1])) ids.push(m[1]) }
-  return ids
-}
 
 export const GET = withAuth<RouteIdParams>(async (_req, { params }) => {
   const { id: todoId } = await resolveParams(params)
@@ -109,7 +101,10 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
   })
 
   // @mention notifications + email
-  const mentionedIds = extractMentions(content).filter((uid) => uid !== session.user.id)
+  // Shared with every other comment surface (lib/comments.ts). The local regex
+  // this replaced only read `data-mention-id`, which the editor wrote empty, so
+  // it always returned [] and USER_MENTIONED never fired.
+  const mentionedIds = (await resolveMentions(content)).filter((uid) => uid !== session.user.id)
   if (mentionedIds.length > 0) {
     const mentionedUsers = await prisma.user.findMany({
       where: { id: { in: mentionedIds }, isActive: true },

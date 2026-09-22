@@ -2,6 +2,22 @@
 
 > **Purpose:** Log of all changes made by AI assistants. Every AI session that modifies code MUST append an entry here.
 
+## 2026-09-22 — Mention emails never fired; notification email now batches every 10 minutes
+
+Asked for: tagging someone or assigning them a task should email them a link, and emails should consolidate every ~10 minutes instead of firing per event. Investigating turned up more than a cadence problem. Spec: `docs/notification_email_batching_REQUIREMENTS.md`.
+
+**Tagging someone in a to-do comment has never notified anyone [V].** `MentionEditor` configured `HTMLAttributes: { 'data-mention-id': '' }` — a static empty string on every mention — while the comment route's extractor required one-or-more characters (`data-mention-id="([^"]+)"`). It never matched, so `USER_MENTIONED` never fired: no in-app row, no email. The real id was in TipTap's own `data-id` all along. Proven by running the extractor against the editor's own output before fixing it.
+
+**A second, different mention bug on OKRs.** Objective / key-result / project comments use `resolveMentions()`, which matches `@token` against the email local part, the hyphenated name and the condensed name. A picker renders `@Biruk Hailu`; the token regex stops at the space, giving `biruk`, which matches none of those. Added first-name matching, and those surfaces have no mention picker at all — noted as a follow-on (A4), not fixed here.
+
+**One extractor now, shared.** `lib/comments.ts` reads `data-id`, legacy `data-mention-id`, and the plain-text `@token` fallback, filters to active users, excludes nothing silently, and caps at 25 per comment so a pasted wall of mentions cannot fan out. `MentionEditor` gained a `renderHTML` that writes the id per node. The to-do route's private regex is gone.
+
+**BATCHED cadence.** New `DefaultCadence` value meaning "at most one email per user per window", and now the **default** — `IMMEDIATE` was the old default, i.e. one email per event. `runDigestDrain` (which already grouped by user and rendered one email) accepts it, and `/api/cron/notifications?job=batch` drains it every 10 minutes. In-app notifications are untouched and still instant.
+
+**Two things the batch default forced.** `runDigestDrain` marked rows sent *after* sending, so two overlapping 10-minute runs would both pass the `sentAt: null` filter and email twice — it now claims rows with a conditional `updateMany` before sending and releases the claim if the send throws. And the queue dedupe was scoped to the UTC day, which was harmless when almost nobody used digests but would now silently swallow a second comment on the same to-do for the rest of the day; the day bound is kept only for cron reminders, which re-fire for the same entity by design.
+
+**Verification** — `tsc --noEmit` clean; sprints 21/21, cards 9/9, todos 41/41, security 20/20, new notifications 8/8; build exits 0. The mention tests were mutation-checked: restoring the original `data-mention-id`-only read turns 2 of them red. **Not verified:** no email has actually been sent through the new cadence, and the batch cron only proves itself once `install-crontab.sh` runs on the VPS.
+
 ## 2026-09-22 — Mention picker was unusable; To-dos table hid half its columns
 
 Two defects reported from the running app with screenshots.

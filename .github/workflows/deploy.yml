@@ -46,6 +46,7 @@ jobs:
           npm run test:sprints
           npm run test:cards
           npm run test:todos
+          npm run test:notifications
           npm run test:automations
 
       - name: Security invariants

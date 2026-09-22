@@ -131,7 +131,25 @@ export function MentionEditor({ value, onChange, placeholder, users = [], onSubm
       Link.configure({ openOnClick: false }),
       Placeholder.configure({ placeholder: placeholder ?? 'Write something…' }),
       Mention.configure({
-        HTMLAttributes: { class: 'mention', 'data-mention-id': '' },
+        // `data-mention-id` used to be a hardcoded empty string here, so every
+        // saved mention rendered `data-mention-id=""` and the server-side
+        // extractor (which required one-or-more characters) never matched —
+        // tagging someone in a to-do comment notified nobody. TipTap keeps the
+        // id in node.attrs.id; renderHTML writes it out per node so it survives
+        // into the stored HTML.
+        HTMLAttributes: { class: 'mention' },
+        // v3 hands this { options, node, suggestion } — no HTMLAttributes arg.
+        renderHTML: ({ node }) => [
+          'span',
+          {
+            class: 'mention',
+            'data-type': 'mention',
+            'data-id': String(node.attrs.id ?? ''),
+            'data-mention-id': String(node.attrs.id ?? ''),
+            'data-label': String(node.attrs.label ?? ''),
+          },
+          `@${node.attrs.label ?? ''}`,
+        ],
         renderLabel: ({ node }) => `@${node.attrs.label}`,
         suggestion: {
           items: ({ query }) => {

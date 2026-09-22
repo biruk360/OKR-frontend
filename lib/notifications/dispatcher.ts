@@ -459,17 +459,27 @@ export async function emit(eventKey: EventKey, payload: EventPayload): Promise<v
           })
         }
       } else {
-        // Dedupe: if a row for the same user+event+entity is already queued and
-        // unsent within the current UTC day, skip — prevents the same overdue
-        // item from accumulating one queue row per cron run.
-        const dayStart = new Date()
-        dayStart.setUTCHours(0, 0, 0, 0)
+        // Dedupe against rows that are still queued for the same user+event+entity.
+        //
+        // Cron-driven reminders re-fire for the same entity every run, so they
+        // keep the original UTC-day bound — one row per item per day however
+        // often the cron ticks.
+        //
+        // Everything else dedupes only against UNSENT rows with no time bound.
+        // That collapses duplicates inside a window while still allowing a new
+        // notification once the batch has gone out. Keeping the day bound here
+        // would have been actively wrong now that BATCHED is the default: a
+        // second comment on the same to-do later in the day would be silently
+        // dropped.
+        const dedupeFrom = FORCE_DIGEST_EVENTS.has(eventKey)
+          ? (() => { const d = new Date(); d.setUTCHours(0, 0, 0, 0); return d })()
+          : undefined
         const existing = await prisma.emailDigestQueue.findFirst({
           where: {
             userId: uid,
             eventKey,
             sentAt: null,
-            queuedAt: { gte: dayStart },
+            ...(dedupeFrom ? { queuedAt: { gte: dedupeFrom } } : {}),
             metadata: payload.entityId ? { contains: `"entityId":"${payload.entityId}"` } : undefined,
           },
           select: { id: true },

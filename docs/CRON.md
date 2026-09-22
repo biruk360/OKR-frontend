@@ -53,6 +53,7 @@ flood the board.
 
 | Schedule (UTC) | Endpoint | Purpose |
 |---|---|---|
+| `*/10 * * * *` | `/api/cron/notifications?job=batch` | **Batched drain — the one most users depend on.** `BATCHED` is the default cadence, so if this stops, most notification email stops. Keep in step with `NOTIFICATION_BATCH_MINUTES` (default 10). Claims rows before sending, so overlapping runs cannot double-send. |
 | `0 4 * * *` | `/api/cron/notifications?job=daily` | Daily digest drain — 07:00 EAT. **Without this `EmailDigestQueue` never empties.** |
 | `5 4 * * 1` | `/api/cron/notifications?job=weekly` | Weekly digest drain — Mon 07:05 EAT. |
 | `10 4 1 * *` | `/api/cron/notifications?job=monthly` | Monthly digest drain — 1st, 07:10 EAT. |

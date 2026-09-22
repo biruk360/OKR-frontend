@@ -145,7 +145,12 @@ export type EventKey =
   | 'SCRUM_LOW_SUBMISSION_RATE'
   | 'SCRUM_OBJECTIVE_NEGLECTED'
 
-export type DefaultCadence = 'IMMEDIATE' | 'DAILY' | 'WEEKLY' | 'MONTHLY'
+/**
+ * BATCHED = "at most one email per user per batch window" (default 10 minutes,
+ * NOTIFICATION_BATCH_MINUTES). It is the default cadence: IMMEDIATE sent one
+ * email per event, which for an active board meant a steady drip all day.
+ */
+export type DefaultCadence = 'IMMEDIATE' | 'BATCHED' | 'DAILY' | 'WEEKLY' | 'MONTHLY'
 
 export interface EventMeta {
   key: EventKey

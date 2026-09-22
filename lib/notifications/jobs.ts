@@ -13,7 +13,9 @@ import { renderDigest, type DigestItem } from '@/lib/email/templates/digest'
  * Drain EmailDigestQueue rows for a given cadence. Groups pending rows by user
  * and sends one bundled email per user.
  */
-export async function runDigestDrain(cadence: 'DAILY' | 'WEEKLY' | 'MONTHLY'): Promise<{ users: number; sent: number; errors: number }> {
+export type DrainCadence = 'BATCHED' | 'DAILY' | 'WEEKLY' | 'MONTHLY'
+
+export async function runDigestDrain(cadence: DrainCadence): Promise<{ users: number; sent: number; errors: number }> {
   const rows = await prisma.emailDigestQueue.findMany({
     where: { cadence, sentAt: null },
     orderBy: { queuedAt: 'asc' },
@@ -67,16 +69,34 @@ export async function runDigestDrain(cadence: 'DAILY' | 'WEEKLY' | 'MONTHLY'): P
             entityId: m.entityId,
           }
         })
+        // BAT-6 — claim BEFORE sending. The batch drain runs every ~10 minutes,
+        // so two runs can overlap on a slow send; marking sentAt afterwards
+        // would let both pass the `sentAt: null` filter and email twice. The
+        // conditional updateMany is atomic: whichever run flips the rows first
+        // gets a non-zero count, the other gets 0 and backs off.
+        const ids = items.map((item: QueueRow) => item.id)
+        const claim = await prisma.emailDigestQueue.updateMany({
+          where: { id: { in: ids }, sentAt: null },
+          data: { sentAt: new Date() },
+        })
+        if (claim.count === 0) return   // another drain already took these
+
         const { subject, text, html } = await renderDigest({
           recipientName: user.name,
           cadence,
           items: digestItems,
         })
-        await sendMail({ to: user.email, toName: user.name, subject, text, html, template: `digest-${cadence.toLowerCase()}` })
-        await prisma.emailDigestQueue.updateMany({
-          where: { id: { in: items.map((item: QueueRow) => item.id) } },
-          data: { sentAt: new Date() },
-        })
+        try {
+          await sendMail({ to: user.email, toName: user.name, subject, text, html, template: `digest-${cadence.toLowerCase()}` })
+        } catch (err) {
+          // Release the claim so the next window retries rather than silently
+          // dropping the batch.
+          await prisma.emailDigestQueue.updateMany({
+            where: { id: { in: ids } },
+            data: { sentAt: null },
+          })
+          throw err
+        }
         sent++
       } catch (err) {
         console.error('[digest-drain] error for', userId, err)

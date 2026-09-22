@@ -17,6 +17,7 @@
     "test:sprints": "tsx --test lib/sprints/*.test.ts",
     "test:cards": "tsx --test lib/card-visuals.test.ts",
     "test:todos": "tsx --test lib/todos/*.test.ts",
+    "test:notifications": "tsx --test lib/comments.test.ts",
     "test:security": "tsx --test lib/security/*.test.ts",
     "postinstall": "prisma generate",
     "db:generate": "prisma generate",

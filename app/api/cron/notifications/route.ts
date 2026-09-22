@@ -20,6 +20,9 @@ export async function POST(request: NextRequest) {
   const job = new URL(request.url).searchParams.get('job') || 'daily'
   try {
     switch (job) {
+      // Runs every NOTIFICATION_BATCH_MINUTES (default 10). This is the drain
+      // most users are on — BATCHED is the default cadence.
+      case 'batch': return NextResponse.json({ success: true, ...(await runDigestDrain('BATCHED')) })
       case 'daily': return NextResponse.json({ success: true, ...(await runDigestDrain('DAILY')) })
       case 'weekly': return NextResponse.json({ success: true, ...(await runDigestDrain('WEEKLY')) })
       case 'monthly': return NextResponse.json({ success: true, ...(await runDigestDrain('MONTHLY')) })

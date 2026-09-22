@@ -97,6 +97,8 @@ add project-digest     "0 7 * * *"   "/api/cron/project-digest" \
 # was sent. Times are UTC; the comments give the Africa/Addis_Ababa (EAT, +3)
 # local time they were chosen for. Converted to the Bearer-header form the rest
 # of this script uses instead of the example's `?key=` query parameter.
+add "notifications?job=batch"        "*/10 * * * *" "/api/cron/notifications?job=batch" \
+  "Batched notification emails. BATCHED is the default cadence, so this is the drain most users depend on — keep the interval in step with NOTIFICATION_BATCH_MINUTES."
 add "notifications?job=daily"        "0 4 * * *"   "/api/cron/notifications?job=daily" \
   "Daily digest drain — 07:00 EAT. Without this, EmailDigestQueue never empties."
 add "notifications?job=weekly"       "5 4 * * 1"   "/api/cron/notifications?job=weekly" \

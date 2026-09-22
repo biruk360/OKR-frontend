@@ -46,7 +46,33 @@ const CATEGORY_LABEL: Record<string, string> = {
   ADMIN: 'Admin',
 }
 const CADENCE_LABEL: Record<string, string> = {
-  DAILY: 'daily', WEEKLY: 'weekly', MONTHLY: 'monthly',
+  BATCHED: 'latest', DAILY: 'daily', WEEKLY: 'weekly', MONTHLY: 'monthly',
+}
+
+/** Entity-type counts for the subject line, e.g. "2 to-dos, 1 objective" (EML-3). */
+const ENTITY_NOUN: Record<string, [string, string]> = {
+  TODO: ['to-do', 'to-dos'],
+  OBJECTIVE: ['objective', 'objectives'],
+  KEY_RESULT: ['key result', 'key results'],
+  PROJECT: ['project', 'projects'],
+  SCRUM_UPDATE: ['scrum update', 'scrum updates'],
+}
+
+function entityBreakdown(items: DigestItem[]): string {
+  const counts = new Map<string, number>()
+  for (const i of items) {
+    if (!i.entityType) continue
+    counts.set(i.entityType, (counts.get(i.entityType) ?? 0) + 1)
+  }
+  const parts = Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([type, n]) => {
+      const noun = ENTITY_NOUN[type]
+      if (!noun) return null
+      return `${n} ${n === 1 ? noun[0] : noun[1]}`
+    })
+    .filter(Boolean) as string[]
+  return parts.join(', ')
 }
 
 // Map event keys to a short context line shown above the card title.
@@ -74,12 +100,18 @@ const CONTEXT_BY_EVENT: Record<string, string> = {
 
 export async function renderDigest(args: {
   recipientName: string
-  cadence: 'DAILY' | 'WEEKLY' | 'MONTHLY'
+  cadence: 'BATCHED' | 'DAILY' | 'WEEKLY' | 'MONTHLY'
   items: DigestItem[]
 }): Promise<DigestEmail> {
   const { recipientName, cadence, items } = args
   const cadenceLabel = CADENCE_LABEL[cadence] ?? cadence.toLowerCase()
-  const subject = `Your ${cadenceLabel} OKR digest — ${items.length} update${items.length === 1 ? '' : 's'}`
+  // A batch can arrive minutes after the event, so its subject leads with what
+  // changed rather than calling itself a "digest", which reads as end-of-day.
+  const plural = `update${items.length === 1 ? '' : 's'}`
+  const breakdown = entityBreakdown(items)
+  const subject = cadence === 'BATCHED'
+    ? `${items.length} ${plural}${breakdown ? ` — ${breakdown}` : ''}`
+    : `Your ${cadenceLabel} OKR digest — ${items.length} ${plural}`
 
   // Bulk-fetch entity data so we can render rich cards.
   const entities = await fetchEntities(items)

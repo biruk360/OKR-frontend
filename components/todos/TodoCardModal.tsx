@@ -1113,6 +1113,7 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
 
   // ── Share + delete ────────────────────────────────────────────────────────
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [brokenThumbs, setBrokenThumbs] = useState<Set<string>>(new Set())
   const [deleting, setDeleting] = useState(false)
   const [confirmLabel, setConfirmLabel] = useState<LabelDef | null>(null)
 
@@ -1447,6 +1448,13 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
    * grid back into view, or the click looks like it did nothing on a long card.
    */
   if (!todoId) return null
+
+  // Card attachments are read through the API rather than their stored
+  // /uploads/... path: that path is served statically with no session check,
+  // and was also where the broken thumbnails came from. Derived from the id,
+  // so rows written before this change work without a data migration.
+  const attachmentUrl = (attachmentId: string) =>
+    todo ? `/api/todos/${todo.id}/attachments/${attachmentId}` : ''
 
   /**
    * Watch · more · close. The design parks these at the top of the right rail,
@@ -2198,11 +2206,18 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     {todo.attachments.map((att) => {
-                      const isImage = att.mimeType.startsWith('image/')
+                      // A thumbnail that fails falls back to the file icon
+                      // rather than the browser's broken-image glyph (PRV-7).
+                      const isImage = att.mimeType.startsWith('image/') && !brokenThumbs.has(att.id)
                       return (
                         <div key={att.id} className="group relative flex items-center gap-2 rounded-[var(--ap-radius-sm)] border border-[var(--ap-border)] bg-[var(--ap-bg-sunken)] p-2 overflow-hidden">
                           {isImage ? (
-                            <img src={att.url} alt={att.filename} className="h-10 w-10 rounded-[var(--ap-radius-xs)] object-cover shrink-0" />
+                            <img
+                              src={attachmentUrl(att.id)}
+                              alt={att.filename}
+                              onError={() => setBrokenThumbs((prev) => new Set(prev).add(att.id))}
+                              className="h-10 w-10 rounded-[var(--ap-radius-xs)] object-cover shrink-0"
+                            />
                           ) : (
                             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--ap-radius-xs)] bg-[var(--ap-bg-hover)]">
                               <FileIcon className="h-5 w-5 text-[var(--ap-fg-subtle)]" />
@@ -2320,7 +2335,11 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
                       {comments.length === 0 && (
                         <p className="text-[12px] text-[var(--ap-fg-subtle)]">No comments yet.</p>
                       )}
-                      {comments.map((c) => (
+                      {/* Newest first: the useful comment on a long thread is the
+                          last one, and scrolling to the bottom to find it is the
+                          wrong default. Reversed here rather than in the query so
+                          the API stays ascending for replies and attachments. */}
+                      {[...comments].reverse().map((c) => (
                         <div key={c.id} className="flex gap-2.5">
                           <Avatar id={c.author.id} name={c.author.name} avatar={c.author.avatar} size={30} />
                           <div className="flex-1 min-w-0">
@@ -2389,13 +2408,13 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
                                 {c.attachments.map((att) => {
                                   const isImage = att.mimeType?.startsWith('image/')
                                   return isImage ? (
-                                    <a key={att.id} href={att.url} target="_blank" rel="noreferrer" className="block">
-                                      <img src={att.url} alt={att.filename} className="max-h-48 rounded-[var(--ap-radius-sm)] border border-[var(--ap-border)] object-cover" />
+                                    <a key={att.id} href={attachmentUrl(att.id)} target="_blank" rel="noreferrer" className="block">
+                                      <img src={attachmentUrl(att.id)} alt={att.filename} className="max-h-48 rounded-[var(--ap-radius-sm)] border border-[var(--ap-border)] object-cover" />
                                     </a>
                                   ) : (
                                     <a
                                       key={att.id}
-                                      href={att.url}
+                                      href={attachmentUrl(att.id)}
                                       target="_blank"
                                       rel="noreferrer"
                                       className="inline-flex items-center gap-1.5 rounded-full border border-[var(--ap-border)] bg-[var(--ap-bg-sunken)] px-2.5 py-1 text-[11px] text-[var(--ap-fg)] hover:bg-[var(--ap-bg-hover)] transition-colors"

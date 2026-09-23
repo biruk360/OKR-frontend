@@ -99,7 +99,8 @@ export default function OkrComments({ endpoint, entityId }: Props) {
         <p className="text-sm text-muted-foreground">No comments yet. Start the conversation.</p>
       ) : (
         <ul className="space-y-3">
-          {comments.map((c) => (
+          {/* Newest first — see TodoCardModal for the same reasoning. */}
+          {[...comments].reverse().map((c) => (
             <li key={c.id} className="flex gap-3">
               <div className="h-8 w-8 rounded-full bg-blue-500 text-white text-xs font-semibold flex items-center justify-center shrink-0">
                 {(c.author.name ?? '?').slice(0, 1).toUpperCase()}

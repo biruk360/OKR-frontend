@@ -2,6 +2,20 @@
 
 > **Purpose:** Log of all changes made by AI assistants. Every AI session that modifies code MUST append an entry here.
 
+## 2026-09-23 — Broken attachment thumbnails, and newest comments first
+
+Two issues reported from the running app.
+
+**Thumbnails rendered as a broken-image glyph.** Card attachments were served from their stored `/uploads/todos/<name>` path — i.e. straight out of `public/`, statically, with no session check. I could not reproduce the 404 remotely (an unrelated `public/` asset serves fine, PM2's `cwd` is correct, and the deploy does no `git clean`), so I have not pinned the exact cause. What I could do is remove the dependency on `public/` static-serving entirely, which fixes it whichever way that was failing **and** closes two holes the attachments survey had already flagged: those files were readable by anyone with the URL, signed in or not, and an uploaded `.html`/`.svg` would execute on the app's own origin.
+
+- New authenticated `GET /api/todos/[id]/attachments/[attachmentId]` streams the bytes after re-running `canAccessAttachmentScope('TODO', …)`, serves the validated content type rather than the uploader's claim, sends non-images as downloads, and sets `nosniff`. Missing and forbidden return the same response so ids cannot be probed. Only the basename of the stored path is used, so a doctored `url` value cannot walk out of the upload directory.
+- The card modal now derives attachment URLs from the attachment id instead of the stored path, so rows written before this change work with no data migration.
+- A thumbnail that still fails falls back to the file icon rather than the browser's broken-image glyph (PRV-7 applied to the card grid).
+
+**Newest comments first.** Long threads put the comment you want at the bottom, which is the wrong default. Both the card modal and OKR/key-result comments now render newest-first. Reversed at render rather than in the query, because the API's ascending order is what reply threading and attachment hydration are built on.
+
+**Verification** — `tsc --noEmit` clean; sprints 21/21, cards 9/9, todos 41/41, security 20/20, notifications 8/8, attachments 12/12; build exits 0. **Not verified in a browser** — and because the root cause of the 404 was never pinned down, the thumbnail fix should be confirmed against a real upload.
+
 ## 2026-09-22 — Board backlog: skeletons, filter persistence, empty-filter state, label names
 
 Five items from `docs/trello_parity_sprint_board_REQUIREMENTS.md` that had been pending since the original audit.

@@ -17,7 +17,7 @@
 
 import { useState } from 'react'
 import toast from 'react-hot-toast'
-import { Plus, X, Pencil, ArrowRightLeft, Archive } from 'lucide-react'
+import { Plus, X, Pencil, ArrowRightLeft, Archive, ArrowDownWideNarrow } from 'lucide-react'
 import { ActionsMenu } from '@/components/ui/ActionsMenu'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/button'
@@ -62,19 +62,24 @@ function StatusSelect({
 // ─── Lane header menu ───────────────────────────────────────────────────────
 
 export function ListHeaderMenu({
-  sprintId, lane, lanes, disabled, onChanged,
+  sprintId, lane, lanes, disabled, onChanged, onAddCard, onSort,
 }: {
   sprintId: string
   lane: LaneSummary
   lanes: LaneSummary[]
   disabled?: boolean
   onChanged: () => void
+  /** LST-3 — opens the lane's quick-add composer; the board owns it. */
+  onAddCard?: () => void
+  /** LST-3 — reorders the lane's cards and persists the new order. */
+  onSort?: (by: 'due' | 'priority' | 'created') => void
 }) {
   const [renaming, setRenaming] = useState(false)
   const [name, setName] = useState(lane.name)
   const [remapping, setRemapping] = useState(false)
   const [nextStatus, setNextStatus] = useState<TodoStatus>(lane.statusKey ?? 'PENDING')
   const [archiving, setArchiving] = useState(false)
+  const [movingAll, setMovingAll] = useState(false)
   const [moveTo, setMoveTo] = useState<string>('')
   const [busy, setBusy] = useState(false)
 
@@ -108,13 +113,27 @@ export function ListHeaderMenu({
         label={`List actions for ${lane.name}`}
         className="rounded-[var(--ap-radius-xs)] p-0.5 opacity-60 hover:bg-muted hover:opacity-100"
         items={[
+          { key: 'add', label: 'Add card', icon: Plus, hidden: !onAddCard, onSelect: () => onAddCard?.() },
           { key: 'rename', label: 'Rename list', icon: Pencil, onSelect: () => { setName(lane.name); setRenaming(true) } },
           { key: 'remap', label: 'Change status mapping', icon: ArrowRightLeft, onSelect: () => { setNextStatus(lane.statusKey ?? 'PENDING'); setRemapping(true) } },
+          {
+            key: 'move-all',
+            label: 'Move all cards…',
+            icon: ArrowRightLeft,
+            // Nothing to move, or nowhere to move it to.
+            disabled: lane.cardCount === 0 || others.length === 0,
+            onSelect: () => { setMoveTo(others[0]?.id ?? ''); setMovingAll(true) },
+          },
+          { key: 'sort-divider', label: '', divider: true, onSelect: () => {} },
+          { key: 'sort-due', label: 'Sort by due date', icon: ArrowDownWideNarrow, hidden: !onSort, onSelect: () => onSort?.('due') },
+          { key: 'sort-priority', label: 'Sort by priority', icon: ArrowDownWideNarrow, hidden: !onSort, onSelect: () => onSort?.('priority') },
+          { key: 'sort-created', label: 'Sort by date created', icon: ArrowDownWideNarrow, hidden: !onSort, onSelect: () => onSort?.('created') },
           {
             key: 'archive',
             label: 'Archive list',
             icon: Archive,
             destructive: true,
+            divider: false,
             disabled: isLastLane || isLastDoneLane,
             onSelect: () => { setMoveTo(others[0]?.id ?? ''); setArchiving(true) },
           },
@@ -198,6 +217,46 @@ export function ListHeaderMenu({
               This will change the status of {lane.cardCount} card{lane.cardCount === 1 ? '' : 's'}.
             </div>
           )}
+        </div>
+      </Modal>
+
+      <Modal
+        open={movingAll}
+        onClose={() => setMovingAll(false)}
+        title={`Move all cards out of “${lane.name}”`}
+        footer={
+          <>
+            <Button variant="outline" size="sm" onClick={() => setMovingAll(false)} disabled={busy}>Cancel</Button>
+            <Button
+              size="sm"
+              disabled={busy || !moveTo}
+              onClick={() => run(
+                () => callApi(`/api/sprints/${sprintId}/columns/${lane.id}/move-all?moveTo=${moveTo}`, { method: 'POST' }),
+                `${lane.cardCount} card${lane.cardCount === 1 ? '' : 's'} moved`,
+              )}
+            >
+              {busy ? 'Moving…' : `Move ${lane.cardCount} card${lane.cardCount === 1 ? '' : 's'}`}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3 text-[13px]">
+          <p className="text-muted-foreground">
+            Cards take the destination list&rsquo;s status, exactly as they would if you dragged them.
+          </p>
+          <label htmlFor="move-all-to" className="block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Move to
+          </label>
+          <select
+            id="move-all-to"
+            value={moveTo}
+            onChange={(e) => setMoveTo(e.target.value)}
+            className="w-full rounded-[8px] border bg-card px-2 py-1.5 text-[13px] outline-none"
+            style={{ borderColor: 'var(--ap-border)' }}
+          >
+            <option value="">Select a list…</option>
+            {others.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+          </select>
         </div>
       </Modal>
 

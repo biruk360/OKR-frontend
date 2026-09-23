@@ -37,26 +37,62 @@ function iconFor(mimeType: string) {
   return FileIcon
 }
 
+
+// ─── Reusable viewer for any attachment group ───────────────────────────────
+
+/**
+ * Everything a surface needs to show attachments the same way: what to do on
+ * click, which items the arrow keys rotate through, and the lightbox element
+ * to render.
+ *
+ * Exists because three surfaces each had their own answer — one did nothing on
+ * click, one opened the raw file in a tab, one opened the lightbox. See
+ * docs/attachment_viewer_REQUIREMENTS.md.
+ */
+export function useAttachmentViewer(attachments: CommentAttachmentDto[]) {
+  const [openId, setOpenId] = useState<string | null>(null)
+  const [broken, setBroken] = useState<Set<string>>(new Set())
+
+  // Arrows rotate through previewable items only, so a .docx in the middle of
+  // a group does not interrupt browsing screenshots.
+  const previewable: LightboxItem[] = attachments.filter((a) => isPreviewable(a.mimeType))
+
+  const open = (a: CommentAttachmentDto) => {
+    if (isPreviewable(a.mimeType) && !broken.has(a.id)) {
+      setOpenId(a.id)
+      return
+    }
+    // AVW-2 — not previewable (or its bytes are gone): let the serve route's
+    // Content-Disposition turn it into a download.
+    window.open(a.url, '_blank', 'noopener,noreferrer')
+  }
+
+  const markBroken = (id: string) => setBroken((prev) => new Set(prev).add(id))
+
+  const viewer = (
+    <AttachmentLightbox items={previewable} startId={openId} onClose={() => setOpenId(null)} />
+  )
+
+  return { open, markBroken, isBroken: (id: string) => broken.has(id), viewer }
+}
+
 // ─── Rendering a posted comment's attachments ───────────────────────────────
 
 export function AttachmentList({ attachments }: { attachments: CommentAttachmentDto[] }) {
-  const [openId, setOpenId] = useState<string | null>(null)
+  const { open, markBroken, isBroken, viewer } = useAttachmentViewer(attachments)
   if (attachments.length === 0) return null
-
-  // Arrows in the lightbox move between the previewable ones only.
-  const previewable: LightboxItem[] = attachments.filter((a) => isPreviewable(a.mimeType))
 
   return (
     <>
       <div className="mt-2 flex flex-wrap gap-2">
         {attachments.map((a) => {
           const Icon = iconFor(a.mimeType)
-          if (isImage(a.mimeType)) {
+          if (isImage(a.mimeType) && !isBroken(a.id)) {
             return (
               <button
                 key={a.id}
                 type="button"
-                onClick={() => setOpenId(a.id)}
+                onClick={() => open(a)}
                 title={a.filename}
                 aria-label={`Open ${a.filename}`}
                 className="group relative overflow-hidden rounded-[10px] border transition hover:brightness-95"
@@ -66,35 +102,36 @@ export function AttachmentList({ attachments }: { attachments: CommentAttachment
                   src={a.url}
                   alt={a.filename}
                   // Reserving the box from the stored dimensions stops the
-                  // comment reflowing as images arrive (ATT-5).
+                  // comment reflowing as images arrive (ATT-5 / AVW-7).
                   width={a.width ?? undefined}
                   height={a.height ?? undefined}
+                  onError={() => markBroken(a.id)}
                   className="max-h-48 w-auto object-cover"
                 />
               </button>
             )
           }
-          const previewInModal = isPreviewable(a.mimeType)
-          const common = 'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition-colors hover:bg-[var(--ap-bg-hover)]'
-          return previewInModal ? (
-            <button key={a.id} type="button" onClick={() => setOpenId(a.id)} className={common} style={{ borderColor: 'var(--ap-border)' }} title={a.filename}>
+          // Everything else — and any image whose bytes are gone — is a chip.
+          // One button for all of them; the hook decides lightbox vs new tab.
+          return (
+            <button
+              key={a.id}
+              type="button"
+              onClick={() => open(a)}
+              className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition-colors hover:bg-[var(--ap-bg-hover)]"
+              style={{ borderColor: 'var(--ap-border)' }}
+              title={a.filename}
+              aria-label={`Open ${a.filename}`}
+            >
               <Icon className="h-3 w-3 text-[var(--ap-fg-subtle)]" />
               <span className="max-w-[180px] truncate">{a.filename}</span>
               <span className="text-[var(--ap-fg-subtle)]">{formatBytes(a.size)}</span>
             </button>
-          ) : (
-            // PRV-5 — not previewable, so a new tab (the route sends it as a
-            // download for these types).
-            <a key={a.id} href={a.url} target="_blank" rel="noreferrer" className={common} style={{ borderColor: 'var(--ap-border)' }} title={a.filename}>
-              <Icon className="h-3 w-3 text-[var(--ap-fg-subtle)]" />
-              <span className="max-w-[180px] truncate">{a.filename}</span>
-              <span className="text-[var(--ap-fg-subtle)]">{formatBytes(a.size)}</span>
-            </a>
           )
         })}
       </div>
 
-      <AttachmentLightbox items={previewable} startId={openId} onClose={() => setOpenId(null)} />
+      {viewer}
     </>
   )
 }

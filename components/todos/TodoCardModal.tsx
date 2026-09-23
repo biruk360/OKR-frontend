@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
   X, Check, Plus, Trash2, Paperclip, Tag, Users, Calendar,
   ChevronDown, AlignLeft, MessageSquare, Activity, MoreHorizontal,
   CheckSquare, Image as ImageIcon, File as FileIcon, AlertCircle,
-  Link2, Target, Search, ExternalLink, Eye, EyeOff, Pencil, Clock, Archive,
+  Link2, Target, Search, ExternalLink, Eye, EyeOff, Pencil, Copy, Clock, Archive,
 } from 'lucide-react'
 import { format, isPast, isToday, isTomorrow, isYesterday, formatDistanceToNow, differenceInCalendarDays, startOfToday } from 'date-fns'
 import { cn } from '@/lib/utils'
@@ -13,6 +13,9 @@ import { userColor, userInitials } from '@/lib/user-color'
 import { TODO_STATUS_META, BOARD_STATUSES, todoStatusMeta } from '@/lib/todo-status'
 import { MentionEditor } from './MentionEditor'
 import RichTextContent from '@/components/shared/RichTextContent'
+import { useAttachmentViewer } from '@/components/shared/CommentAttachments'
+import type { CommentAttachmentDto } from '@/components/shared/CommentAttachments'
+import { copyToClipboard } from '@/components/shared/CopyLinkButton'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ActionsMenu } from '@/components/ui/ActionsMenu'
 import { Modal } from '@/components/ui/Modal'
@@ -1064,6 +1067,8 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
   const HIDE_DETAILS_KEY = 'card-hide-activity-details-v1'
   const [hideDetails, setHideDetails] = useState(false)
   const [editingComment, setEditingComment] = useState<{ id: string; content: string } | null>(null)
+  const [replyingTo, setReplyingTo] = useState<string | null>(null)
+  const [replyDraft, setReplyDraft] = useState('')
 
   // Per-viewer preference, so the rail opens the way they left it.
   useEffect(() => {
@@ -1081,6 +1086,65 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
    *  UI never offers an action the API will refuse. */
   const canModerate = (authorId: string) =>
     authorId === currentUserId || sessionRole === 'ADMIN' || sessionRole === 'EXECUTIVE'
+
+  const postReply = async (parentId: string) => {
+    if (!todo) return
+    const content = replyDraft.trim()
+    if (!content) return
+    const res = await fetch(`/api/todos/${todo.id}/comments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content, parentId }),
+    })
+    const json = await res.json()
+    if (!res.ok || !json.success) { toast.error(json.error || 'Could not post the reply'); return }
+    // The API returns the reply; nest it under its parent so the thread does
+    // not need a refetch to show it.
+    setComments((list) => list.map((c) =>
+      c.id === parentId ? { ...c, replies: [...(c.replies ?? []), json.data] } : c,
+    ))
+    setReplyingTo(null)
+    setReplyDraft('')
+    announce('Reply posted')
+  }
+
+  // Card attachments are read through the API rather than their stored
+  // /uploads/... path: that path is served statically with no session check,
+  // and was also where the broken thumbnails came from. Derived from the id,
+  // so rows written before this change work without a data migration.
+  const attachmentUrl = (attachmentId: string) =>
+    todo ? `/api/todos/${todo.id}/attachments/${attachmentId}` : ''
+
+  // Legacy TodoAttachment rows carry no width/height, so thumbnails here cannot
+  // reserve their box; everything else matches the shared viewer's shape.
+  const toViewerDto = (a: { id: string; filename: string; mimeType: string; size: number }) => ({
+    id: a.id,
+    filename: a.filename,
+    mimeType: a.mimeType,
+    size: a.size,
+    url: attachmentUrl(a.id),
+  })
+  // Declared here, above the `if (!todoId) return null` below: a hook after an
+  // early return is a conditional hook call and React will throw.
+  const cardAttachmentViewer = useAttachmentViewer((todo?.attachments ?? []).map(toViewerDto))
+
+  // One viewer for the whole thread rather than one per comment, so ←/→ pages
+  // through every image in the conversation. Built in the order the rail
+  // renders them (newest comment first, replies under their parent) so the
+  // lightbox counter matches what the reader just clicked.
+  const commentAttachmentDtos = useMemo(() => {
+    const out: CommentAttachmentDto[] = []
+    const walk = (list: CommentData[]) => {
+      for (const c of list) {
+        for (const a of c.attachments ?? []) out.push(toViewerDto(a))
+        if (c.replies?.length) walk(c.replies)
+      }
+    }
+    walk([...comments].reverse())
+    return out
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [comments, todo?.id])
+  const commentAttachmentViewer = useAttachmentViewer(commentAttachmentDtos)
 
   const saveCommentEdit = async () => {
     if (!editingComment || !todo) return
@@ -1113,7 +1177,6 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
 
   // ── Share + delete ────────────────────────────────────────────────────────
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const [brokenThumbs, setBrokenThumbs] = useState<Set<string>>(new Set())
   const [deleting, setDeleting] = useState(false)
   const [confirmLabel, setConfirmLabel] = useState<LabelDef | null>(null)
 
@@ -1128,7 +1191,10 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
       const res = await fetch(`/api/todos/${todo.id}/share`, { method: 'POST' })
       const json = await res.json()
       if (!res.ok || !json.success) throw new Error(json.error || 'Could not share this card')
-      await navigator.clipboard.writeText(`${window.location.origin}${json.data.path}`)
+      const ok = await copyToClipboard(`${window.location.origin}${json.data.path}`)
+      // navigator.clipboard is undefined outside a secure context, so a silent
+      // failure here used to still report success.
+      if (!ok) throw new Error('Could not copy the link')
       toast.success('Card link copied')
       announce('Card link copied to clipboard')
     } catch (err) {
@@ -1449,13 +1515,6 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
    */
   if (!todoId) return null
 
-  // Card attachments are read through the API rather than their stored
-  // /uploads/... path: that path is served statically with no session check,
-  // and was also where the broken thumbnails came from. Derived from the id,
-  // so rows written before this change work without a data migration.
-  const attachmentUrl = (attachmentId: string) =>
-    todo ? `/api/todos/${todo.id}/attachments/${attachmentId}` : ''
-
   /**
    * Watch · more · close. The design parks these at the top of the right rail,
    * which is removed wholesale on a closed sprint — so the same cluster is also
@@ -1492,6 +1551,22 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
             icon: Link2,
             hidden: !todo.sprintId,
             onSelect: () => copyCardLink(),
+          },
+          {
+            key: 'duplicate',
+            label: 'Duplicate card',
+            icon: Copy,
+            hidden: sprintClosed,
+            onSelect: async () => {
+              if (!todo) return
+              const res = await fetch(`/api/todos/${todo.id}/duplicate`, { method: 'POST' })
+              const json = await res.json()
+              if (!res.ok || !json.success) { toast.error(json.error || 'Could not duplicate the card'); return }
+              toast.success('Card duplicated')
+              announce('Card duplicated')
+              onUpdated?.()
+              onClose()
+            },
           },
           {
             key: 'delete',
@@ -2208,27 +2283,42 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
                     {todo.attachments.map((att) => {
                       // A thumbnail that fails falls back to the file icon
                       // rather than the browser's broken-image glyph (PRV-7).
-                      const isImage = att.mimeType.startsWith('image/') && !brokenThumbs.has(att.id)
+                      const isImage = att.mimeType.startsWith('image/') && !cardAttachmentViewer.isBroken(att.id)
                       return (
                         <div key={att.id} className="group relative flex items-center gap-2 rounded-[var(--ap-radius-sm)] border border-[var(--ap-border)] bg-[var(--ap-bg-sunken)] p-2 overflow-hidden">
                           {isImage ? (
-                            <img
-                              src={attachmentUrl(att.id)}
-                              alt={att.filename}
-                              onError={() => setBrokenThumbs((prev) => new Set(prev).add(att.id))}
-                              className="h-10 w-10 rounded-[var(--ap-radius-xs)] object-cover shrink-0"
-                            />
+                            <button
+                              type="button"
+                              onClick={() => cardAttachmentViewer.open(toViewerDto(att))}
+                              aria-label={`Open ${att.filename}`}
+                              title={att.filename}
+                              className="shrink-0 overflow-hidden rounded-[var(--ap-radius-xs)] transition hover:brightness-95"
+                            >
+                              <img
+                                src={attachmentUrl(att.id)}
+                                alt={att.filename}
+                                onError={() => cardAttachmentViewer.markBroken(att.id)}
+                                className="h-10 w-10 object-cover"
+                              />
+                            </button>
                           ) : (
                             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--ap-radius-xs)] bg-[var(--ap-bg-hover)]">
                               <FileIcon className="h-5 w-5 text-[var(--ap-fg-subtle)]" />
                             </div>
                           )}
-                          <div className="min-w-0 flex-1">
+                          <button
+                            type="button"
+                            onClick={() => cardAttachmentViewer.open(toViewerDto(att))}
+                            aria-label={`Open ${att.filename}`}
+                            className="min-w-0 flex-1 text-left"
+                          >
                             <p className="truncate text-[12px] font-medium text-[var(--ap-fg)]">{att.filename}</p>
                             <p className="text-[11px] text-[var(--ap-fg-subtle)]">{(att.size / 1024).toFixed(0)} KB</p>
-                          </div>
+                          </button>
                           <button
+                            type="button"
                             onClick={() => deleteAttachment(att.id)}
+                            aria-label={`Remove ${att.filename}`}
                             className="absolute right-1 top-1 hidden rounded-[var(--ap-radius-xs)] p-0.5 text-[var(--ap-fg-faint)] hover:text-[var(--ap-danger)] group-hover:flex transition-colors"
                           >
                             <Trash2 className="h-3 w-3" />
@@ -2346,8 +2436,17 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
                             <div className="flex items-baseline gap-2">
                               <span className="text-[13px] font-semibold text-[var(--ap-fg)]">{c.author.name}</span>
                               <span className="text-[11.5px] text-[var(--ap-fg-subtle)]">{format(new Date(c.createdAt), 'MMM d, h:mm a')}</span>
+                              {editingComment?.id !== c.id && !sprintClosed && (
+                                <button
+                                  type="button"
+                                  onClick={() => { setReplyingTo(replyingTo === c.id ? null : c.id); setReplyDraft('') }}
+                                  className="ml-auto text-[11px] text-[var(--ap-fg-muted)] underline-offset-2 hover:underline"
+                                >
+                                  {replyingTo === c.id ? 'Cancel reply' : 'Reply'}
+                                </button>
+                              )}
                               {canModerate(c.author.id) && editingComment?.id !== c.id && (
-                                <span className="ml-auto flex gap-2">
+                                <span className="flex gap-2">
                                   <button
                                     type="button"
                                     onClick={() => setEditingComment({ id: c.id, content: c.content })}
@@ -2403,25 +2502,89 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
                                 className="mt-1.5 rounded-[var(--ap-radius-md)] bg-[var(--ap-bg-sunken)] px-3.5 py-2.5 text-[13.5px] leading-[1.6] text-[var(--ap-fg-muted)] [&_.mention]:font-medium [&_.mention]:text-[var(--ap-accent)]"
                               />
                             )}
+                            {/* Replies, then the reply composer (CDM-6). */}
+                            {(c.replies ?? []).length > 0 && (
+                              <div
+                                className="mt-2 space-y-2 border-l pl-3"
+                                style={{ borderColor: 'var(--ap-border)' }}
+                              >
+                                {(c.replies ?? []).map((r) => (
+                                  <div key={r.id} className="flex gap-2">
+                                    <Avatar id={r.author.id} name={r.author.name} avatar={r.author.avatar} size={20} />
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex items-baseline gap-2">
+                                        <span className="text-[11px] font-600 text-[var(--ap-fg)]">{r.author.name}</span>
+                                        <span className="text-[10px] text-[var(--ap-fg-faint)]">
+                                          {format(new Date(r.createdAt), 'MMM d, h:mm a')}
+                                        </span>
+                                      </div>
+                                      <RichTextContent
+                                        html={r.content}
+                                        className="mt-0.5 text-[12px] text-[var(--ap-fg)] [&_.mention]:text-[var(--ap-accent)] [&_.mention]:font-medium"
+                                      />
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {replyingTo === c.id && (
+                              <div className="mt-2">
+                                <MentionEditor
+                                  value={replyDraft}
+                                  onChange={setReplyDraft}
+                                  users={users}
+                                  placeholder={`Reply to ${c.author.name}…`}
+                                  onSubmit={() => postReply(c.id)}
+                                  minHeight={56}
+                                  autoFocus
+                                />
+                                <div className="mt-1.5 flex gap-1.5">
+                                  <button type="button" onClick={() => postReply(c.id)} className="ap-btn ap-btn-primary ap-btn-sm">
+                                    Reply
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => { setReplyingTo(null); setReplyDraft('') }}
+                                    className="ap-btn ap-btn-secondary ap-btn-sm"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            )}
                             {c.attachments && c.attachments.length > 0 && (
                               <div className="mt-2 flex flex-wrap gap-2">
                                 {c.attachments.map((att) => {
-                                  const isImage = att.mimeType?.startsWith('image/')
-                                  return isImage ? (
-                                    <a key={att.id} href={attachmentUrl(att.id)} target="_blank" rel="noreferrer" className="block">
-                                      <img src={attachmentUrl(att.id)} alt={att.filename} className="max-h-48 rounded-[var(--ap-radius-sm)] border border-[var(--ap-border)] object-cover" />
-                                    </a>
-                                  ) : (
-                                    <a
+                                  // A thumbnail that 404s is not a preview, so a
+                                  // broken one falls back to the filename chip
+                                  // instead of leaving a dead image box.
+                                  const showImage =
+                                    att.mimeType?.startsWith('image/') && !commentAttachmentViewer.isBroken(att.id)
+                                  return showImage ? (
+                                    <button
                                       key={att.id}
-                                      href={attachmentUrl(att.id)}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="inline-flex items-center gap-1.5 rounded-full border border-[var(--ap-border)] bg-[var(--ap-bg-sunken)] px-2.5 py-1 text-[11px] text-[var(--ap-fg)] hover:bg-[var(--ap-bg-hover)] transition-colors"
+                                      type="button"
+                                      onClick={() => commentAttachmentViewer.open(toViewerDto(att))}
+                                      aria-label={`Preview ${att.filename}`}
+                                      className="block rounded-[var(--ap-radius-sm)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ap-accent)]"
+                                    >
+                                      <img
+                                        src={attachmentUrl(att.id)}
+                                        alt={att.filename}
+                                        onError={() => commentAttachmentViewer.markBroken(att.id)}
+                                        className="max-h-48 rounded-[var(--ap-radius-sm)] border border-[var(--ap-border)] object-cover"
+                                      />
+                                    </button>
+                                  ) : (
+                                    <button
+                                      key={att.id}
+                                      type="button"
+                                      onClick={() => commentAttachmentViewer.open(toViewerDto(att))}
+                                      className="inline-flex items-center gap-1.5 rounded-full border border-[var(--ap-border)] bg-[var(--ap-bg-sunken)] px-2.5 py-1 text-[11px] text-[var(--ap-fg)] hover:bg-[var(--ap-bg-hover)] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ap-accent)]"
                                     >
                                       <FileIcon className="h-3 w-3 text-[var(--ap-fg-subtle)]" />
                                       <span className="max-w-[160px] truncate">{att.filename}</span>
-                                    </a>
+                                    </button>
                                   )
                                 })}
                               </div>
@@ -2746,6 +2909,13 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
             }
           }}
         />
+
+        {/* Both lightboxes live inside `body`, so the drawer and the modal
+            render path each get them. They portal to document.body and stack
+            above this dialog as their own Radix layer, so Escape closes the
+            preview first and the card stays open. */}
+        {cardAttachmentViewer.viewer}
+        {commentAttachmentViewer.viewer}
       </div>
   )
 

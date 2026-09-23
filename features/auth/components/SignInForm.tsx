@@ -30,7 +30,7 @@ interface SignInValues {
  * edge — so the global ring is suppressed rather than duplicated.
  */
 const INPUT_CLASS =
-  'h-auto w-full rounded-none border-0 bg-transparent p-0 text-[14.5px] leading-tight text-white caret-[color:var(--ap-accent)] placeholder:text-white/30 shadow-none outline-none focus-visible:border-0 focus-visible:ring-0 focus-visible:!shadow-none md:text-[14.5px] dark:bg-transparent'
+  'ap-auth-input h-auto w-full rounded-none border-0 bg-transparent p-0 text-[14.5px] leading-tight text-white caret-[color:var(--ap-accent)] placeholder:text-white/30 shadow-none outline-none focus-visible:border-0 focus-visible:ring-0 focus-visible:!shadow-none md:text-[14.5px] dark:bg-transparent'
 
 /** A row of the grouped field block: mono micro-label over the value. */
 function FieldRow({

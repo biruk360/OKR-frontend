@@ -2,83 +2,171 @@
 
 > **Purpose:** Log of all changes made by AI assistants. Every AI session that modifies code MUST append an entry here.
 
-## 2026-09-23 — Broken attachment thumbnails, and newest comments first
+## 2026-09-23 — One attachment viewer for every surface
 
-Two issues reported from the running app.
+`docs/attachment_viewer_REQUIREMENTS.md` (AVW/APL/NRG).
 
-**Thumbnails rendered as a broken-image glyph.** Card attachments were served from their stored `/uploads/todos/<name>` path — i.e. straight out of `public/`, statically, with no session check. I could not reproduce the 404 remotely (an unrelated `public/` asset serves fine, PM2's `cwd` is correct, and the deploy does no `git clean`), so I have not pinned the exact cause. What I could do is remove the dependency on `public/` static-serving entirely, which fixes it whichever way that was failing **and** closes two holes the attachments survey had already flagged: those files were readable by anyone with the URL, signed in or not, and an uploaded `.html`/`.svg` would execute on the app's own origin.
+The report was narrow — "the image preview is now working however i cant click it to prevew the image" — so the first step was finding out how many places that was true of. Four surfaces render an attachment, and they had four different behaviours:
 
-- New authenticated `GET /api/todos/[id]/attachments/[attachmentId]` streams the bytes after re-running `canAccessAttachmentScope('TODO', …)`, serves the validated content type rather than the uploader's claim, sends non-images as downloads, and sets `nosniff`. Missing and forbidden return the same response so ids cannot be probed. Only the basename of the stored path is used, so a doctored `url` value cannot walk out of the upload directory.
-- The card modal now derives attachment URLs from the attachment id instead of the stored path, so rows written before this change work with no data migration.
-- A thumbnail that still fails falls back to the file icon rather than the browser's broken-image glyph (PRV-7 applied to the card grid).
+| | Surface | Before |
+|---|---|---|
+| 1 | Card **Attachments** grid (`TodoCardModal`) | a `<div>` with no click handler and no tab stop — unreachable by keyboard, inert by mouse |
+| 2 | To-do **comment** attachments (`TodoCardModal`) | `<a target="_blank">` onto the raw file |
+| 3 | OKR comment attachments (`CommentAttachments`) | correct — lightbox, arrows, download, failure placeholder |
+| 4 | Project activity files (`ActivityDetailPanel`) | links `storagePath` directly |
 
-**Newest comments first.** Long threads put the comment you want at the bottom, which is the wrong default. Both the card modal and OKR/key-result comments now render newest-first. Reversed at render rather than in the query, because the API's ascending order is what reply threading and attachment hydration are built on.
+Surface 3 was already right, so it became the reference rather than the thing to rewrite. Its open/broken/lightbox logic came out of `AttachmentList` into `useAttachmentViewer(attachments)`, which returns `open`, `markBroken`, `isBroken` and the `viewer` element; `AttachmentList` now consumes its own hook, so surface 3 is exercised by every change to it and cannot silently diverge.
 
-**Verification** — `tsc --noEmit` clean; sprints 21/21, cards 9/9, todos 41/41, security 20/20, notifications 8/8, attachments 12/12; build exits 0. **Not verified in a browser** — and because the root cause of the 404 was never pinned down, the thumbnail fix should be confirmed against a real upload.
+Surfaces 1 and 2 adopt it (APL-1, APL-2). Two details worth stating:
 
-## 2026-09-22 — Board backlog: skeletons, filter persistence, empty-filter state, label names
+- **The comment thread gets one viewer, not one per comment.** Arrows page through every image in the conversation, built in the rail's display order (newest comment first, replies under their parent) so the "2 of 7" counter matches what the reader just clicked.
+- **The card grid's `brokenThumbs` state was deleted.** It duplicated the hook's broken set, which meant a thumbnail could be visibly broken while the click path still believed it was previewable. One set now decides both.
 
-Five items from `docs/trello_parity_sprint_board_REQUIREMENTS.md` that had been pending since the original audit.
+Surface 4 is **not** changed (assumption A1). Its files are served from `storagePath` and carry client-portal visibility rules; AVW-1 would have meant touching that path, and loosening portal visibility to fix a click target is the wrong trade. Flagged in the spec, left alone.
 
-- **STA-1** — the board rendered the literal sentence "Loading sprint…" where CLAUDE.md asks for skeletons. Now a board-shaped skeleton (header card + three lanes) so the layout does not jump when real lanes arrive, with an `sr-only` label and `aria-busy` so the wait is announced rather than silent.
-- **BRD-3** — assignee and OKR-link filters now persist per sprint in `localStorage`. The write is gated on the initial read having completed, or mount would clobber the saved value with the default.
-- **BRD-2 (partial)** — the filter row gained an active-filter count badge and a "Clear filters" action. The full popover consolidation is still open; this is the part that was making the current filters hard to notice.
-- **STA-4** — a lane emptied by a filter now says "No cards match your filters" with a clear action, instead of rendering identically to a genuinely empty lane. Those two states looked the same, so a filtered board read as "there is no work here".
-- **FLB-4** — the floating dock is hidden below the `md` breakpoint, where it sat on top of the mobile lane tabs and the quick-add composer. A CSS breakpoint rather than a JS check, so there is no hydration flash.
-- **CRD-1** — clicking a label chip expands every chip on that card to show its name, as Trello does, with `stopPropagation` so it does not also open the card. Ink colour comes from `readableInk`, so names stay legible on yellow and lime.
+### Tests
 
-**Verification** — `tsc --noEmit` clean; sprints 21/21, cards 9/9, todos 41/41, security 20/20, notifications 8/8, attachments 12/12; build exits 0. Not re-checked in a browser.
+`lib/attachments/viewer-invariants.test.ts` asserts over the checked-in source, because the two properties being protected are not visible from inside any one module: that nothing renders an attachment from a statically-served `/uploads/` path (NRG-AC-1 — that path has no session check and is where the broken thumbnails came from), and that nothing outside the hook decides how an attachment opens (AVW-1). Both were mutation-verified: a scratch component doing each violation was added, both tests failed, and it was removed.
 
-## 2026-09-22 — Comment attachments: files and photos, with preview
+Files: `components/shared/CommentAttachments.tsx`, `components/todos/TodoCardModal.tsx`, `lib/attachments/viewer-invariants.test.ts`, `docs/attachment_viewer_REQUIREMENTS.md`.
 
-Spec: `docs/comment_attachments_REQUIREMENTS.md`.
+### Also in this commit — the remaining Trello-parity batch
 
-**No upload library, on purpose.** Next's App Router already parses multipart via `request.formData()`, so `multer`/`formidable` (Express middleware) would add nothing, and `uploadthing` ships files to a third party. Zero new dependencies. The security comes from *not serving files statically*, which no package would have given us.
+Written earlier in the same session and not yet logged:
 
-**Two live defects the survey found in the existing to-do uploader, both now closed [V].** It accepted any file, kept the caller's extension, and wrote into `public/uploads/`, which Next serves from the app's own origin — an uploaded `.html` or `.svg` therefore executed with access to the session cookie. And it checked only that the to-do *existed*, so any signed-in user could attach to any to-do by id, and every file was readable by anyone with the URL.
+- **SHR-8 — `components/shared/CopyLinkButton.tsx`.** The clipboard pattern was re-implemented at seven call sites with different wording, no feedback on the button itself, and no handling for `navigator.clipboard` being unavailable (older Safari, any non-HTTPS origin), where the copy failed silently but still showed a success toast. One component now, with a document.execCommand fallback and a real failure path.
+- **BRD-1 — board header Share + overflow.** Uses `CopyLinkButton`; the control is guarded on `session` (SHR-2) even though `/dashboard/*` is already gated, so it cannot render in a future unauthenticated embed.
+- **LST-3 — list overflow menu**, including **Move all cards in this list** → `POST /api/sprints/[id]/columns/[colId]/move-all`. A per-card PATCH from the client would have worked but would not renumber `sprintPosition`, so the cards would arrive interleaved with whatever was already in the destination. The endpoint shares the archive route's re-home semantics — cards adopt the destination's `statusKey` and are appended in order — in one transaction, behind `sprintEditGuard`.
+- **CDM-3 — `POST /api/todos/[id]/duplicate`.** Copies what describes the work (title, description, priority, cover, labels, members, checklists unticked, OKR link) and deliberately not what describes its history (comments, attachments, activity, carryover lineage, completion). A duplicate is a fresh piece of work, not a clone of a conversation.
+- **CDM-6 — comment replies** in the card rail, on the `parentId` the API already supported.
+- **API-8 / API-9 — `POST|DELETE /api/todos/[id]/members` and `/labels`.** The array form is a full replace, so two people editing one card concurrently lose each other's change. Single add/remove closes that; the array form stays for back-compat.
+- **Sign-in autofill.** Chrome and Safari paint a pale wash behind an autofilled input — invisible on the app's white forms, a white slab on the sign-in card's transparent fields. The usual `box-shadow: inset` trick paints a solid rectangle and would defeat the panel blur, so the fix refuses the transition the browser paints that background through.
 
-- `lib/attachments/file-types.ts` — allowlist keyed on extension **and** declared MIME **and** magic bytes, all three having to agree. Script-bearing formats (`.html`, `.svg`, `.js`, executables…) are rejected before the allowlist is even consulted, so the rejection reason is accurate. Image dimensions are read straight from the header, so no image library either.
-- `lib/attachments/storage.ts` — bytes live under `var/uploads/` (override with `UPLOAD_DIR`), never `public/`. Stored names are server-generated; the caller's filename is a display label and never touches a path.
-- `lib/attachments/access.ts` — `canAccessAttachmentScope` re-runs the parent entity's visibility rule. `GET /api/comment-attachments/[id]` calls it on **every request**, so a leaked link grants nothing to someone who could not already open the item. Missing and forbidden return the same response, so ids cannot be probed.
-- `ACTIVITY` and `SCRUM` scopes deliberately return **false** for now: `Activity` reaches a project only via Milestone→Phase and project reads have client-portal rules that must not be loosely re-implemented (project invariant 4), and there is no scrum team-membership model to check at all. Attachments are simply not offered there, which is the safe failure rather than a guessed permission rule.
+Not included: `tsconfig.json` (reformatted by `next build`, with a dist-dir entry from a concurrent session), and two files belonging to that other session.
 
-**A bug the tests caught before it shipped.** The first forbidden-MIME check was a substring regex including `/xml/i` — which also matches `application/vnd.openxmlformats-officedocument…`, so every legitimate `.docx`, `.xlsx` and `.pptx` would have been rejected as dangerous. Replaced with exact matching plus a `+xml` suffix rule. Also fixed a `> 24` / `>= 24` off-by-one that made PNG dimensions always null.
+Tests run: `test:sprints` 21, `test:cards` 9, `test:todos` 41, `test:security` 20, `test:notifications` 8, `test:attachments` 16 — all pass. `tsc --noEmit` clean, production build clean.
 
-**UI** — one `AttachmentPicker` (click, drag-drop, paste-from-clipboard) and one `AttachmentList`, shared rather than copied per surface. Images render as thumbnails sized from the stored dimensions so the thread does not reflow; clicking opens an `AttachmentLightbox` built on `components/ui/Modal` (so it inherits the focus trap) with ←/→ between the images of that comment. PDFs embed with a new-tab fallback; everything else opens in a tab as a download. Wired into OKR and key-result comments, which had **no** attachment support at all before.
+## 2026-09-22 — Move, bulk archive, a preference gate for six direct writers, and a live bell
 
-**Verification** — `prisma validate` passes; `tsc --noEmit` clean; sprints 21/21, cards 9/9, todos 41/41, security 20/20, notifications 8/8, new attachments 12/12; build exits 0. The 12 attachment tests cover the attacks specifically: `.html` upload, every script extension while lying about the MIME, a PNG renamed `.pdf`, HTML renamed `.png`, and the double-extension `evil.png.html`. **Not verified:** no file has been uploaded through the running app, and the to-do card modal still uses its own older attachment flow — migrating it (ATT-4) is not done.
+Shipped as `7a2a14a`. The four follow-ups chosen off the pending-work list, plus the deploy fix that `fff59ae` described but did not write.
 
-## 2026-09-22 — Mention emails never fired; notification email now batches every 10 minutes
+### Move (objectives and key results)
 
-Asked for: tagging someone or assigning them a task should email them a link, and emails should consolidate every ~10 minutes instead of firing per event. Investigating turned up more than a cadence problem. Spec: `docs/notification_email_batching_REQUIREMENTS.md`.
+Both action menus carried a `disabled` "Move (coming soon)" item. The objective side needed no API work — `PATCH /api/objectives/[id]` already accepted `parentObjectiveId`, validated that the parent is active and in the same timeframe, and ran `wouldCreateAlignmentCycle`. The key-result side had been reported as equally ready; it was not. `PATCH /api/keyresults/[id]` never read `objectiveId` from the body — it only ever read `existingKeyResult.objectiveId` — so there was nothing for the menu item to call.
 
-**Tagging someone in a to-do comment has never notified anyone [V].** `MentionEditor` configured `HTMLAttributes: { 'data-mention-id': '' }` — a static empty string on every mention — while the comment route's extractor required one-or-more characters (`data-mention-id="([^"]+)"`). It never matched, so `USER_MENTIONED` never fired: no in-app row, no email. The real id was in TipTap's own `data-id` all along. Proven by running the extractor against the editor's own output before fixing it.
+Extended it, with three things the naive version would have got wrong:
 
-**A second, different mention bug on OKRs.** Objective / key-result / project comments use `resolveMentions()`, which matches `@token` against the email local part, the hyphenated name and the condensed name. A picker renders `@Biruk Hailu`; the token regex stops at the space, giving `biruk`, which matches none of those. Added first-name matching, and those surfaces have no mention picker at all — noted as a follow-on (A4), not fixed here.
+- **Permission on both ends.** Being allowed to edit a key result where it currently sits does not imply being allowed to file it under an objective you could not otherwise touch. `canEditKeyResultWithObjectiveContext` now runs against the target as well as the source.
+- **Same timeframe.** Mirrors the constraint the objective route already applies. A key result that jumped timeframes would move its progress out of the period it was committed in, and the rollup it feeds is per-timeframe.
+- **Both rollups, one transaction.** Invariant #9 says rollup runs in the same transaction as the mutation. A move changes two trees, so `recalcNodeAndAncestors` runs for the old *and* the new parent — recomputing only the old one leaves the new objective showing a percentage that excludes the key result it now owns.
 
-**One extractor now, shared.** `lib/comments.ts` reads `data-id`, legacy `data-mention-id`, and the plain-text `@token` fallback, filters to active users, excludes nothing silently, and caps at 25 per comment so a pasted wall of mentions cannot fan out. `MentionEditor` gained a `renderHTML` that writes the id per node. The to-do route's private regex is gone.
+`components/shared/MoveOkrModal.tsx` serves both, because the interaction is identical and they differ only in the field name and in what the picker refuses. Built on the existing `EntityPicker` (`selectable="objective"`, `disabledIds`) and `useOkrOptions`. It surfaces the server's rejection verbatim — "would create a circular dependency", "must be in the same timeframe" — rather than a generic failure, because those messages are the actionable part.
 
-**BATCHED cadence.** New `DefaultCadence` value meaning "at most one email per user per window", and now the **default** — `IMMEDIATE` was the old default, i.e. one email per event. `runDigestDrain` (which already grouped by user and rendered one email) accepts it, and `/api/cron/notifications?job=batch` drains it every 10 minutes. In-app notifications are untouched and still instant.
+Auditing needed no work: `parentObjectiveId` and `objectiveId` are both already in `TRACKED_OBJECTIVE_FIELDS` / `TRACKED_KEY_RESULT_FIELDS`, so `recordUpdateIfChanged` picks a move up on its own.
 
-**Two things the batch default forced.** `runDigestDrain` marked rows sent *after* sending, so two overlapping 10-minute runs would both pass the `sentAt: null` filter and email twice — it now claims rows with a conditional `updateMany` before sending and releases the claim if the send throws. And the queue dedupe was scoped to the UTC day, which was harmless when almost nobody used digests but would now silently swallow a second comment on the same to-do for the rest of the day; the day bound is kept only for cron reminders, which re-fire for the same entity by design.
+### Six writers that honoured no preference at all
 
-**Verification** — `tsc --noEmit` clean; sprints 21/21, cards 9/9, todos 41/41, security 20/20, new notifications 8/8; build exits 0. The mention tests were mutation-checked: restoring the original `data-mention-id`-only read turns 2 of them red. **Not verified:** no email has actually been sent through the new cadence, and the batch cron only proves itself once `install-crontab.sh` runs on the VPS.
+`emit()` gates the in-app row on `pref.inApp` and the email on `pref.email` + cadence. Six writers have their own event vocabularies and called `prisma.notification.create*` directly, which meant they bypassed that gate entirely: `lib/comments.ts`, `lib/letters-notify.ts`, `lib/dtp/notifier.ts`, `lib/automations/delivery.ts`, and both `request-checkin` routes. Switch a category off and you still received every one of them.
 
-## 2026-09-22 — Mention picker was unusable; To-dos table hid half its columns
+Forcing those vocabularies into `EventKey` would have been a large refactor for no behavioural payoff, so `lib/notifications/direct.ts` applies the gate they were missing and reports which recipients may still be emailed, leaving each caller owning its own delivery. `grep -rn "prisma.notification.create" lib/ app/` outside `lib/notifications/` now returns nothing.
 
-Two defects reported from the running app with screenshots.
+Three categories were added so those writers have something to respect:
 
-**@-mention picker: neither keyboard nor mouse could select anyone.** Two independent causes, both in `components/todos/MentionEditor.tsx`.
+- **`TRAVEL`** — `lib/dtp/notifier.ts` has been writing `category: 'TRAVEL'` since it was built, but `TRAVEL` was not in `EventCategory`/`ALL_CATEGORIES`. The preferences page maps over `ALL_CATEGORIES`, so the switch never rendered and travel notifications could not be turned off by anyone.
+- **`LETTER`** — the source had the comment `category: 'ADMIN', // until LETTER category is added to EventCategory enum`. Added.
+- **`AUTOMATION`** — also filed under `ADMIN`, so muting admin digests muted your own automations too.
 
-- *Keyboard never worked.* The suggestion handler was `onKeyDown: ({ event }) => event.key === 'Escape'` — it consumed Escape and nothing else, so Arrow keys moved the caret and Enter inserted a newline. There was no selection state at all. Added `selectedIndex` with Arrow/Enter/Tab/Escape handling, returning `true` so TipTap stops the key reaching the editor. The handler reads live values through refs because TipTap registers it once and it would otherwise close over the first render.
-- *Mouse stopped working when the card modal became a Radix dialog.* The list portals to `document.body`; a Radix modal `Dialog` sets `pointer-events: none` on the body while open, so the list rendered but no click could reach it. This was a regression from CDM-1 (moving `TodoCardModal` onto the shared `Modal`). Fixed with `pointer-events-auto` on the portalled container.
-- Also: the highlighted row follows the mouse so Enter picks what you are looking at, the list scrolls the selected row into view, flips above the caret when there is no room below, clamps to the viewport, and carries `role="listbox"`/`option` + `aria-selected`.
+`ensureOrgDefaults()` maps over `ALL_CATEGORIES`, so the three seed to `inApp: true, email: true` and nothing changes for anyone until they opt out.
 
-**To-dos list hid Timeframe, Due, Who and Status.** The table used the default `table-layout: auto`, which ignores a declared `w-[200px]` whenever a cell's content is wider. One long OKR title stretched the Linked-to column, pushed the table past its wrapper, and the wrapper's `overflow-hidden` clipped every column to its right off the screen. Set `table-fixed` so the widths are real, gave the free To-do column a `min-w`, and switched the wrapper to `overflow-x-auto` so narrow screens scroll rather than silently hide columns.
+One behavioural correction fell out of it: `lib/automations/delivery.ts` used to mark the recipient `SENT` after writing the in-app row. When the recipient has the category off, no row is written, and recording `SENT` would claim a delivery that did not happen — it now marks `SUPPRESSED`, which that table already has a value for.
 
-**Truncation never engaged in three places.** `truncate` inside a flex item needs `min-w-0`, otherwise `min-width: auto` stops the item shrinking below its content: the two Linked-to links here and both label rows in `TodoTreeView`. Added.
+**Verified against the dev database.** Three calls with the same payload: default prefs → 1 row written and emailable; `inApp: false` → 0 rows, still emailable; both off → 0 rows, reported suppressed. Exactly one row written across the three, category `TRAVEL`, `deepLink` preserved.
 
-**Verification** — `tsc --noEmit` clean; sprints 21/21, cards 9/9, todos 41/41, security 20/20; isolated build exits 0. Not re-checked in a browser.
+### The bell is live
+
+`PUSHER_EVENTS.NOTIFICATION_SENT` was declared when the constant table was written and never triggered or bound by anything. The missing piece was structural: private channels need a channel-authorization endpoint, and there wasn't one.
+
+`POST /api/pusher/auth` is that route. The check that matters is the last one — a caller may only subscribe to `private-user-<their own id>`. Without it, `private-user-<someone-else's-id>` would authorize for any signed-in user and hand them a live feed of another person's notifications. It returns 503 rather than 500 when Pusher is unconfigured, so the client can treat it as "degraded, poll instead" rather than as a bug.
+
+Both write paths broadcast after the row is persisted. The Header binds the event and **refetches** rather than trusting the payload: the server's unread count is authoritative, and a locally incremented count would drift the moment another tab marked something read. Every failure path is silent — the notification is already persisted, so an unreachable websocket must not surface as a failed notification. `getPusherServer()` returns null under the placeholder credentials in `env.example`, so dev keeps the mount-and-open refresh with no code change.
+
+### Bulk actions
+
+The checkboxes and select-all already worked; the bar then said "Bulk actions are coming soon", which is the conspicuous kind of gap — the user does the work of selecting and gets nothing.
+
+Archive and Restore now fan out to the existing per-entity routes (`/archive`, `/unarchive`, and `PATCH /api/todos/[id]` with `archived` for initiatives) at concurrency 4. Deliberately not a batch endpoint: each of those routes already runs its own permission check, its own lock guard and — for key results — the rollup inside the mutation's transaction, and a batch endpoint would have to reimplement all three and get every one of them right to save a few round trips.
+
+Partial success is the normal outcome rather than an error case, because a selection spans rows the user may not be allowed to touch. The toast names the first failure rather than only counting them, since the reason is almost always a permission the user can act on.
+
+### deploy.sh
+
+`fff59ae` added the nine-line comment explaining the stale-generated-types trap — `tsconfig.json` includes `.next/types/**/*.ts`, the deploy builds into a scratch dir, so the typecheck reads the types Next generated for the *currently serving* build, and a deleted route leaves an import of a `page.js` that no longer exists. It did not add the `rm -rf .next/types` the comment describes, so the very next deploy failed in exactly the documented way. Added. CI cannot catch this class of failure: it builds from an empty checkout and never has a stale `.next` to read.
+
+**Verification** — `tsc --noEmit` clean; todos 41/41, sprints 21/21, cards 9/9, security 20/20, okr 9/9; production build clean with `/api/pusher/auth` registered. The preference gate and the key-result move were both exercised end to end against the dev Postgres, with results above; the move recalculated both objectives (source 42→97 on losing a KR, target 65→69 on gaining it) and restored cleanly.
+
+**Still open, deliberately:** self-service account deletion (needs an ownership/retention policy for the OKRs and audit rows a deleted user owns — a policy call, not a missing handler). The KR data-source connector and DOCX import template remain honestly-labelled stubs.
+
+Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+
+## 2026-09-22 — Sprint import: "Business & Ops Sep 14 - 25" from the Admin & Ops meeting notes
+
+One-shot data import into production. No app code changed.
+
+- **`scripts/import-business-ops-sprint.ts`** (new, one-shot) — creates the sprint with the standard `DEFAULT_LANES` board, one card per agenda item, and the per-meeting discussion/decision text as `TodoComment` rows on each card. Self-contained (plain `PrismaClient`, no `@/` aliases) so it runs on the VPS without a deploy; idempotent via a sprint-name guard; supports `--dry-run`.
+- Source: *Operation & HR Meeting Note.pdf* — Admin & Operations meetings of **Sep 7, 2026** and **Sep 17, 2026** (chair: Biruk Hailu, venue: 360 Ground). Items appearing in both meetings were merged into one card carrying both updates as separate comments, back-dated to the meeting dates so the thread reads chronologically.
+- Result on prod: sprint `cmucduf3m0001jre7d9x0fjpb`, **17 cards** (#284–#300), **20 comments**, 4 participants, department *Operations*, state `ACTIVE`, Sep 14 → Sep 25.
+- Comment/`TodoMember` writes went through Prisma directly rather than `POST /api/todos/[id]/comments`, deliberately: the route fans out `USER_MENTIONED` / `COMMENT_ON_OWNED_ENTITY` notifications and `sendMail`, which would have emailed every participant 20 times for a backfill. `ActivityLog` rows (`SPRINT_CREATED`, `INITIATIVE_CREATED`) were written explicitly so the audit trail is not lost.
+- The script was scp'd to the VPS, run, then removed from `/var/www/okr` so an untracked file cannot collide with the deploy's `git pull`. Tests run: none (one-shot data import, not a code-path change); verified by querying prod for sprint/card/comment counts and the status distribution.
+
+## 2026-09-21 — AI Automations: the first real scheduled run, a Run-test-run button, and a deploy script that stops lying
+
+Two strands, one session. The module went from "type-checked and smoke-tested" to "fired on its own schedule in production" — and getting there took the site down twice, which is the more instructive half of this entry.
+
+### The pipeline ran, unattended, on the VPS
+
+Everything before this was exercised by `npm run smoke:automations` against a throwaway database with an injected synthesizer. This was the real thing: a `ONCE` automation left on the VPS with a slot five minutes out, then nobody touching it.
+
+- Run `cmuay0pfh000dqmblegctg8jb`, trigger **`SCHEDULE`** (not `MANUAL`) — the cron tick enqueued it and the long-lived pm2 worker claimed it.
+- The slot fired at `07:47:27.453`, exactly where `computeNextRunAt` said it would.
+- `okr.query` returned **20 real rows in 26 ms**, RBAC-scoped.
+- A **real OpenAI call**: 4,481 in / 1,995 out, **$0.062796**, logged to `AiGenerationLog` under `AUTOMATION_RUN`.
+- Briefing `cmuay15ek0002do7j7dyk6kfu` rendered all three ways — 10,633 app / 17,066 email / 1,923 plain-text characters — with 5 NEW findings.
+- **Zero rows in `automation_briefing_recipients`.** DRY_RUN held. This is the one that mattered: the whole safety model is that the gate sits on distribution, not on producing the document, and it now has evidence rather than a unit test.
+- The summary was accurate and grounded in the rows it was given: *"10 objectives and 10 key results. Statuses were 10 OFF_TRACK, 8 AT_RISK, and 2 ON_TRACK."* No invented numbers.
+
+Twenty seconds wall clock, end to end.
+
+### Run test run
+
+`features/automations/components/TestRunPanel.tsx`, in the detail header. Triggers a run, polls the run detail every 2s, renders each step as it lands, and drops the finished briefing inline — so the answer to "did my automation do anything sensible" no longer requires navigating to a second page after guessing when it finished.
+
+Two details worth keeping:
+
+- **Polling stops at the terminal status**, not on a timer. `useRunDetail` gained a `refetchInterval` option; the panel sets it to `false` the moment the status leaves the in-flight set, so a finished run is not still being polled in a background tab.
+- **It warns when the automation is in AUTO.** A test run on an AUTO automation emails real people. The panel says so before you press it, rather than after.
+
+`scripts/create-test-automation.ts` (`npm run automations:test-schedule`) creates or re-arms the fixture: `--minutes N` for the slot, `--remove` to drop it. It builds a DRY_RUN automation with no recipients, `jitterSeconds: 0` and `catchUpPolicy: RUN_LATE`, so re-running it is always safe. The fixture now lives permanently on production as **"Self-test — scheduler health check"**, ENABLED with `nextRunAt: null` — the tick only selects non-null `nextRunAt`, so it never self-fires, but **Run test run** stays available.
+
+### The deploy script exited 0 having produced nothing
+
+Production crash-looped twice in this session, ~440 restarts the first time. Four commits, each for a distinct failure:
+
+- **`908f13d`** — three things had to line up. `next build` OOM'd at ~1950 MB against Node's ~2006 MB default heap; **the OOM killed a static-generation worker, not the parent, so npm exited 0** and `if ! npm run build` was satisfied; and two deploys raced because GitHub's `cancel-in-progress` cancels the *job* while the ssh-action's remote `deploy.sh` keeps running. Fixed with `--max-old-space-size=3072` (overridable via `BUILD_HEAP_MB`), a **BUILD_ID existence gate** on the swap, and `flock`. Exit code alone is not evidence of a usable build; BUILD_ID is the last artifact `next build` writes, so its absence is now treated as failure despite exit 0.
+- **`d058264`** — the fix above *did not run on the push that added it*. The action executes the `deploy.sh` already on disk, which then pulls; bash carries on running the old code, so every change to the deploy script took effect one deploy late. It now hashes itself across the pull and re-execs when changed, guarded by `DEPLOY_REEXEC` so it can happen only once. This is why the site went down a second time with the exact failure the previous commit had just fixed.
+- **`addaf05`** — "Loading chunk 8900 failed" on `/dashboard/automations` after a deploy. Two independent gaps: `lib/stale-chunk-reload.ts` listens on `window`, but a chunk failing during render is caught by React's error boundary first, so the listeners never fired and the user got a "Try again" that re-renders against the same stale chunk map and cannot succeed. Both boundaries now detect the error and call `reloadOnceForStaleChunks()`. Separately, the swap deleted the content-hashed chunks that already-open tabs were still requesting; it now carries the previous build's static assets forward with `cp -rn` (never overwriting, so the new build always wins on shared paths).
+- **`fff59ae`** — two deploys failed on `Cannot find module '.../cmnt25rlr000yhl7oktasxeml/design/page.js'`, a route that exists nowhere. `tsconfig.json` includes `.next/types/**/*.ts` — the **currently serving** build — while `deploy.sh` builds into `.next.build`. Delete a route and its generated type lingers in `.next/types` forever, poisoning every later server build. CI never saw it because CI starts from an empty checkout. `deploy.sh` now prunes `.next/types` before each build.
+
+The build-failure guard from `908f13d` behaved correctly through both `fff59ae` failures: the previous build kept serving and the site stayed up. That is the guard working, not the guard being untested.
+
+Also in this pass: `ecosystem.config.cjs` gained the `okr-automations-worker` app (768 MB cap, `--only okr,okr-automations-worker` on restart); `scripts/install-crontab.sh` was rewritten to declare `CRON_SECRET` as a crontab variable using **double** quotes, since the single-quoted version installed the literal `$CRON_SECRET` and every cron job authenticated as nobody — it now curl-verifies after installing; and the deploy runs `npm run db:seed:automation-permissions`.
+
+### The spec was never in the repository
+
+`docs/AI_Automations_Requirements_v1.0.md` has been cited by `MASTER_REFERENCE.md`, `FEATURE_STATUS.md` and every changelog entry about this module since it shipped, but it lived in `../docs/` — one directory above the git root, so it was never tracked, never pushed, and every one of those references was dangling for anyone who cloned the repo. Copied in.
+
+**Verification** — the production run above is the verification for the first strand; `tsc --noEmit` clean and `npm run test:automations` passing for the second. **Still unexercised:** a real Odoo call, and browser QA of the authoring form.
+
+Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
 
 ## 2026-09-18 — Pending features: notifications read API, recurring cards, and 21 cron jobs nobody installed
 
@@ -161,6 +249,18 @@ Deferred entry for `e2ff503`, which shipped without one — `docs/CHANGELOG_AI.m
 **Verification** — measured in a browser, both anchors independently: rail trigger x=1009 → popover right=1003 (a 6px gap) with dY=0 for all three; grid trigger x=316 → popover x=316, dY=34, directly below. `tsc` clean; cards 9/9, todos 28/28, sprints 21/21, security 20/20.
 
 > **Deploy note:** the first attempt failed on `dial tcp ***:22: i/o timeout` — the SSH step could not reach the VPS, so `deploy.sh` never ran and production was left untouched rather than half-updated. A straight re-run succeeded, so it was a transient blip. If it recurs it is worth checking the host rather than retrying: `VPS_HOST` is a repo secret, and a changed IP would fail in exactly this way.
+
+Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+
+## 2026-09-18 — Sign-in: the autofill slab
+
+Reported from production: a white block behind the email and password values. That is Chrome's `:-webkit-autofill` wash — invisible on the app's white forms, a slab on the sign-in card's deliberately transparent fields.
+
+The usual fix (`box-shadow: 0 0 0 1000px <colour> inset`) is not available here: it paints a solid rectangle, and these fields are transparent so the panel's blur shows through. What works is refusing the transition the browser paints that background through — the colour is applied as a transition target, so a duration long enough never to arrive leaves the field transparent. Text and caret are set separately (`-webkit-text-fill-color`), since `color` alone is ignored on an autofilled input. Firefox's `:autofill` takes its own rule.
+
+Scoped to `.ap-auth-input` rather than applied app-wide: on the light forms the default wash is the familiar, correct affordance.
+
+**Verification** — reproduced headlessly by forcing the pseudo-class over CDP (`CSS.forcePseudoState`, `['autofill']`) on both fields: computed background comes back `rgba(232, 240, 254, 0)` — Chrome's own autofill colour at zero alpha — with `-webkit-text-fill-color: rgb(255,255,255)` and a 100000s transition, and the card renders with no slab. `tsc --noEmit` clean.
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
 

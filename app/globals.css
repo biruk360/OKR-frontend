@@ -1696,3 +1696,35 @@
     transform: none;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Autofill on the sign-in fields
+   ---------------------------------------------------------------------------
+   Chrome and Safari paint a pale wash behind an autofilled input — fine on the
+   app's white forms, a white slab on the sign-in card's transparent fields.
+
+   The usual `box-shadow: 0 0 0 1000px <colour> inset` trick cannot be used
+   here: it paints a SOLID rectangle, and these fields are deliberately
+   transparent so the panel's blur shows through. What does work is refusing
+   the transition the browser paints that background through — the colour is
+   applied as a transition target, so a duration long enough never to arrive
+   leaves the field transparent. The text and caret are set separately, since
+   `color` alone is ignored on an autofilled input.
+--------------------------------------------------------------------------- */
+.ap-auth-input:-webkit-autofill,
+.ap-auth-input:-webkit-autofill:hover,
+.ap-auth-input:-webkit-autofill:focus,
+.ap-auth-input:-webkit-autofill:active {
+  -webkit-text-fill-color: #fff;
+  caret-color: var(--ap-accent);
+  -webkit-transition: background-color 100000s ease-in-out 0s;
+  transition: background-color 100000s ease-in-out 0s;
+}
+
+/* Firefox marks autofill with its own background; it takes a different key. */
+.ap-auth-input:autofill {
+  background-color: transparent !important;
+  background-image: none !important;
+  color: #fff;
+  filter: none;
+}

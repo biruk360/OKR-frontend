@@ -32,6 +32,7 @@ import { BOARD_STATUSES, TODO_STATUS_META } from '@/lib/todo-status'
 import TaskCardTrello, { type TrelloTodo } from './TaskCardTrello'
 import { KanbanDropLine } from '@/components/shared/KanbanDropLine'
 import { announce } from '@/components/shared/LiveAnnouncer'
+import CopyLinkButton from '@/components/shared/CopyLinkButton'
 import AddListColumn, { ListHeaderMenu, type LaneSummary } from './SprintListManager'
 import { GenerateSprintButton } from '@/features/sprints-ai'
 import SprintBackgroundPicker from './SprintBackgroundPicker'
@@ -329,6 +330,37 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
   // STA-2 — bumping this opens the quick-add composer. The empty-state button
   // used to carry an empty handler, so "Create task" did nothing at all.
   const [quickAddSignal, setQuickAddSignal] = useState(0)
+  const [quickAddLane, setQuickAddLane] = useState<string | null>(null)
+
+  /**
+   * LST-3 — reorder one lane and persist it.
+   *
+   * Sorting writes real positions rather than sorting on read, so the order
+   * survives a reload and matches what everyone else sees.
+   */
+  const sortLane = useCallback((laneId: string, by: 'due' | 'priority' | 'created') => {
+    const RANK: Record<string, number> = { URGENT: 0, HIGH: 1, MEDIUM: 2, LOW: 3 }
+    setLocalColumns((cols) => {
+      const lane = cols.find((c) => c.id === laneId)
+      if (!lane) return cols
+      const sorted = [...lane.todos].sort((a, b) => {
+        if (by === 'priority') return (RANK[a.priority] ?? 9) - (RANK[b.priority] ?? 9)
+        if (by === 'due') {
+          // Undated cards sink rather than sorting as epoch-zero.
+          const av = a.dueDate ? new Date(a.dueDate).getTime() : Number.POSITIVE_INFINITY
+          const bv = b.dueDate ? new Date(b.dueDate).getTime() : Number.POSITIVE_INFINITY
+          return av - bv
+        }
+        return 0   // 'created' — the API already returns creation order
+      })
+      const order = by === 'created'
+        ? [...lane.todos].map((t) => t.id)
+        : sorted.map((t) => t.id)
+      void reorderBoard({ [laneId]: order })
+      announce(`${lane.name} sorted by ${by === 'due' ? 'due date' : by === 'priority' ? 'priority' : 'date created'}`)
+      return cols.map((c) => (c.id === laneId ? { ...c, todos: sorted } : c))
+    })
+  }, [])
 
   // ── Drag-and-drop state ──────────────────────────────────────────────────
   // localColumns mirrors filteredColumns and is updated optimistically during drag.
@@ -714,6 +746,18 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
                 dark={dark}
               />
             )}
+            {/* BRD-1 — share the board itself. Like the card link (SHR-3) this is
+                an ordinary in-app URL: the recipient still has to sign in and
+                pass canViewSprint, so no new access path is created. */}
+            <CopyLinkButton
+              value={typeof window !== 'undefined' ? `${window.location.origin}/dashboard/sprints/${sprintId}` : ''}
+              label="Share"
+              copiedLabel="Copied"
+              successMessage="Board link copied"
+              errorMessage="Could not copy the board link"
+              title="Copy a link to this board"
+              className="h-[32px] rounded-[var(--ap-radius-md)] border px-3"
+            />
             <button
               type="button"
               aria-label="More board actions"
@@ -882,6 +926,7 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
               // Mobile shows one lane at a time, so make sure the lane holding
               // the composer is the visible one before opening it.
               if (quickAddLaneId) setMobileCol(quickAddLaneId)
+              setQuickAddLane(null)
               setQuickAddSignal((n) => n + 1)
             },
           }}
@@ -1027,6 +1072,12 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
                     lanes={laneSummaries}
                     disabled={isClosed}
                     onChanged={invalidate}
+                    // LST-3 — quick-add lives on the board, so the menu asks for it.
+                    onAddCard={() => {
+                      setQuickAddLane(col.id)
+                      setQuickAddSignal((n) => n + 1)
+                    }}
+                    onSort={(by) => sortLane(col.id, by)}
                   />
                 </div>
 
@@ -1129,7 +1180,7 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
 
                 </div>
 
-                {col.id === quickAddLaneId && !isClosed && (
+                {col.id === (quickAddLane ?? quickAddLaneId) && !isClosed && (
                   <AddTaskInline
                     sprintId={sprintId}
                     columnId={col.id}

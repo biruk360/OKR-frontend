@@ -542,6 +542,7 @@ Database: **PostgreSQL** (production). All enums stored as `String` for portabil
 | `TodoChecklist` | `todo_checklists` | `todoId`, `title`, `position` | Named checklist group |
 | `TodoChecklistItem` | `todo_checklist_items` | `checklistId`, `title`, `completed`, `assigneeId`, `dueDate` | |
 | `TodoAttachment` | `todo_attachments` | `todoId`, `filename`, `url`, `mimeType`, `size` | |
+| `CommentAttachment` | `comment_attachments` | `scope`, `entityId`, `commentId`, `filename`, `storedName`, `mimeType`, `size`, `width`, `height` | Polymorphic; files live outside `public/` and are served only through the API |
 | `TodoComment` | `todo_comments` | `todoId`, `authorId`, `content` (HTML), `parentId` | WYSIWYG threaded comments |
 | `InitiativeUpdate` | `initiative_updates` | `initiativeId`, `authorId`, `updateDate`, `content`, `status`, `blockers` | One per (initiative, date) |
 | `Sprint` | `sprints` | `name`, `ownerId`, `startDate`, `endDate`, `state`, `goal`, `departmentId`, `background` | States: PLANNING / ACTIVE / COMPLETED / CANCELLED |
@@ -743,7 +744,9 @@ Auth: routes use `withAuth(handler)` or `withRole(roles, handler)` from `lib/api
 | GET/POST | `/api/todos/[id]/checklists/[checklistId]/items` | Auth | Checklist items |
 | GET/PUT/DELETE | `/api/todos/[id]/checklists/[checklistId]/items/[itemId]` | Auth | Item CRUD |
 | GET/POST | `/api/todos/[id]/attachments` | Auth | Attachments |
-| DELETE | `/api/todos/[id]/attachments/[attachmentId]` | Auth | Remove attachment |
+| GET/DELETE | `/api/todos/[id]/attachments/[attachmentId]` | Auth + `canAccessAttachmentScope` | Stream or remove one attachment. **GET is the only read path** — `public/uploads/**` is served with no session check, so nothing in the UI may link it directly (enforced by `lib/attachments/viewer-invariants.test.ts`). |
+| POST/GET | `/api/comment-attachments` | Auth + scope check | Upload (magic-byte validated, allowlisted) and list |
+| GET/DELETE | `/api/comment-attachments/[id]` | Auth + scope check | Stream or remove one |
 | GET/POST | `/api/initiatives/[id]/updates` | Auth | Daily initiative updates |
 | GET/POST | `/api/todo-labels` | Auth | Label definitions |
 | GET/PUT/DELETE | `/api/todo-labels/[id]` | Auth | Label def CRUD |
@@ -1664,6 +1667,7 @@ TELEGRAM_BOT_SECRET
 | Confidence snapshots (bi-weekly + cron) | ✅ DONE |
 | Todos / Initiatives CRUD | ✅ DONE (needs refactor) |
 | Todo comments, checklists, attachments | ✅ DONE |
+| Comment attachments + shared attachment viewer (`useAttachmentViewer`) | ✅ DONE (project activity files excluded pending portal-visibility review) |
 | Initiative daily updates | ✅ DONE |
 | Sprint board (kanban) | ✅ DONE |
 | AI Sprint Planning | 🔄 IN PROGRESS |

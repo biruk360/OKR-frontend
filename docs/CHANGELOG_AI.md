@@ -76,6 +76,10 @@ Next 14 is EOL — the remaining advisories are fixed only in 15.5.x (major upgr
 
 Docs updated by H1, completed by H7 (every "Pending: G4–G7 / H2–H5" marker resolved against the code): `docs/CHANGELOG_AI.md`, `docs/FEATURE_STATUS.md`, `docs/SITEMAP.md`, `docs/COMPONENT_CATALOG.md`, `docs/MASTER_REFERENCE.md`.
 
+## 2026-09-27 — Release 9dbaefa, and why its first deploy failed
+
+`9dbaefa` (both sessions' 2026-09-25 work) passed CI but the VPS step aborted at `git pull --ff-only`: `next build` on the server adds its dist dir to `tsconfig.json`'s `include`, and `9dbaefa` was the first commit to change `tsconfig.json`, so the pull refused to overwrite the local edit. Fixed in `156ce08`: the workflow discards `tsconfig.json`/`next-env.d.ts` in `$APP_DIR` before invoking `deploy.sh` (necessary because the pull runs inside the server's *old* copy of `deploy.sh`), `deploy.sh` does the same for manual runs, and `tsconfig.json` lists `.next.build` so builds stop editing it. The `deploy.sh`/`tsconfig.json` halves were written by a concurrent session; the workflow half and the commit by this one. The re-run then got past the pull but was killed at the ssh-action's default 10-minute `command_timeout` mid-`next build` (the build now lints and type-checks, and the release is large); the old build kept serving, since `deploy.sh` only swaps after a completed build. Timeout raised to 30m (job 40m).
+
 ## 2026-09-25 (evening) — Invite-only sprint boards, employee to-do scope, card access, recurrence anchor, button colours
 
 User decisions: (1) employees see their own cards + cards on sprints they're invited to, and sprint boards are invite-only except ADMIN/EXECUTIVE; (2) fix button colours; (3) restrict opening a card by link; (4) sprint participants edit every card in their sprint; (5) add the anchor column; (6) recurring sub-task questions delegated (answers in `docs/recurring_subtasks_REQUIREMENTS.md` §8); (7) calendar approved, after this release.

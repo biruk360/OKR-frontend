@@ -9,13 +9,14 @@ import {
   withRoleOrFeature,
 } from '@/lib/api'
 import { emit } from '@/lib/notifications'
+import { liveTimeframeWhere } from '@/lib/okr/active-timeframe'
 
 export const GET = withAuth(async (request: NextRequest) => {
   const { searchParams } = new URL(request.url)
   const activeOnly = searchParams.get('activeOnly') === 'true'
 
   const timeframes = await prisma.timeframe.findMany({
-    where: activeOnly ? { isActive: true } : undefined,
+    where: activeOnly ? liveTimeframeWhere() : undefined,
     orderBy: { startDate: 'desc' },
   })
   return apiSuccess(timeframes)

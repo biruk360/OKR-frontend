@@ -215,7 +215,13 @@ export async function runTodoReminders(): Promise<{ dueTomorrow: number; overdue
  */
 export async function runTimeframeWatcher(): Promise<{ ending7: number; closing1: number; closed: number }> {
   const now = new Date()
-  const timeframes = await prisma.timeframe.findMany({ where: { isActive: true } })
+  // The selected timeframe, or any timeframe ending around now (ENDING_7D … CLOSED
+  // window): `isActive` is often unset, which silenced every period-end notice.
+  const horizonStart = new Date(now.getTime() - 2 * 86400000)
+  const horizonEnd = new Date(now.getTime() + 8 * 86400000)
+  const timeframes = await prisma.timeframe.findMany({
+    where: { OR: [{ isActive: true }, { endDate: { gte: horizonStart, lte: horizonEnd } }] },
+  })
   let ending7 = 0, closing1 = 0, closed = 0
 
   for (const tf of timeframes) {

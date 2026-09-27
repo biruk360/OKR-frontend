@@ -32,5 +32,15 @@ export async function resolveDefaultTimeframe(): Promise<DefaultTimeframe | null
   return picked ? { id: picked.id, name: picked.name, startDate: picked.startDate, endDate: picked.endDate } : null
 }
 
+/**
+ * Prisma `where` for "the live period": the admin-selected timeframe (`isActive`,
+ * an exclusive toggle) OR any timeframe whose dates cover `now`. `isActive` alone
+ * is not enough — new timeframes are created inactive and production has run with
+ * none flagged (2026-09-27), which emptied every surface that filtered on it.
+ */
+export function liveTimeframeWhere(now: Date = new Date()) {
+  return { OR: [{ isActive: true }, { startDate: { lte: now }, endDate: { gte: now } }] }
+}
+
 /** Sentinel value for `?period=` / `?timeframeId=` that opts out of the default. */
 export const ALL_TIMEFRAMES = 'all'

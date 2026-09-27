@@ -9,6 +9,7 @@ import { getScrumPrefill } from './prefill'
 import { escalateScrumBlocker, findChainEscalation, listScrumCeoRecipientIds } from './blocker-actions'
 import { decideAutoEscalation } from './blocker-lifecycle'
 import { decideNeglectAlert, neglectWindowStart, objectiveMentionsFromContent, OBJECTIVE_NEGLECT_JOB_KEY, MAX_NEGLECT_ALERTS_PER_RUN } from './neglect'
+import { liveTimeframeWhere } from '@/lib/okr/active-timeframe'
 
 export async function runScrumReminder(now = new Date()) {
   return notifyMissing('SCRUM_REMINDER', now, 'scrum-reminder')
@@ -140,7 +141,7 @@ async function runObjectiveNeglectAlerts(now: Date, settings: Awaited<ReturnType
 
   // Objectives created inside the window have not had the full window to be mentioned.
   const objectives = await prisma.objective.findMany({
-    where: { status: 'ACTIVE', timeframe: { isActive: true }, createdAt: { lt: windowStart } },
+    where: { status: 'ACTIVE', timeframe: liveTimeframeWhere(), createdAt: { lt: windowStart } },
     select: { id: true, title: true, ownerId: true, keyResults: { select: { id: true } } },
   })
   if (objectives.length === 0) return { neglected: 0, sent: 0 }

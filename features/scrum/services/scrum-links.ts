@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { SUBMITTED_SCRUM_UPDATE_WHERE } from './drafts'
 import { SCRUM_LINK_CONTEXTS } from '@/types/scrum'
+import { liveTimeframeWhere } from '@/lib/okr/active-timeframe'
 
 export const scrumLinkInputSchema = z.object({
   objectiveId: z.string().min(1).optional().nullable(),
@@ -47,7 +48,7 @@ export async function getLinkableEntities(subjectUserId: string, ownerOnly = fal
 
   const objectiveWhere: any = {
     status: 'ACTIVE',
-    timeframe: { isActive: true },
+    timeframe: liveTimeframeWhere(),
   }
   if (ownerOnly) {
     objectiveWhere.ownerId = subjectUserId
@@ -61,7 +62,7 @@ export async function getLinkableEntities(subjectUserId: string, ownerOnly = fal
 
   const keyResultWhere: any = {
     status: 'ACTIVE',
-    objective: { status: 'ACTIVE', timeframe: { isActive: true } },
+    objective: { status: 'ACTIVE', timeframe: liveTimeframeWhere() },
   }
   if (ownerOnly) {
     keyResultWhere.ownerId = subjectUserId

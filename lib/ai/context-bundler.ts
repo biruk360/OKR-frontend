@@ -15,6 +15,7 @@
 
 import { prisma } from '@/lib/prisma'
 import type { CarryoverTodoInput } from './carryover'
+import { resolveDefaultTimeframe } from '@/lib/okr/active-timeframe'
 
 export type GenerationMode = 'AUTO' | 'MANUAL'
 
@@ -205,7 +206,10 @@ export async function buildContextBundle(params: BuildContextBundleParams): Prom
 async function resolveTimeframe(timeframeId?: string): Promise<BundleTimeframe | null> {
   const tf = timeframeId
     ? await prisma.timeframe.findUnique({ where: { id: timeframeId } })
-    : await prisma.timeframe.findFirst({ where: { isActive: true }, orderBy: { startDate: 'desc' } })
+    : await (async () => {
+        const d = await resolveDefaultTimeframe()
+        return d ? prisma.timeframe.findUnique({ where: { id: d.id } }) : null
+      })()
   if (!tf) return null
   return {
     id: tf.id,

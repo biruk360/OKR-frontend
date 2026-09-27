@@ -102,7 +102,8 @@ export async function loadAlignmentMapData(
 ) {
   const ctx = await loadViewerContext({ id: viewer.id, role: viewer.role })
   const [timeframes, perTimeframeCounts] = await Promise.all([
-    prisma.timeframe.findMany({ where: { isActive: true }, orderBy: { startDate: 'desc' } }),
+    // Every timeframe: `isActive` is an optional admin flag and is often unset.
+    prisma.timeframe.findMany({ orderBy: { startDate: 'desc' } }),
     prisma.objective.groupBy({
       by: ['timeframeId'],
       where: { AND: [buildObjectiveVisibilityWhere(ctx), { status: 'ACTIVE' }] },

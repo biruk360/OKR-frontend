@@ -126,4 +126,9 @@ jobs:
               echo "Missing APP_DIR (set secret VPS_APP_DIR to the repo path on the VPS)"
               exit 1
             fi
+            # `next build` on the VPS rewrites tsconfig.json / next-env.d.ts. The
+            # pull inside deploy.sh runs from the copy of deploy.sh already on the
+            # server, so a fix there can't help until one pull succeeds — discard
+            # the generated edits here first (they aborted the 2026-09-27 deploy).
+            git -C "$APP_DIR" checkout -- tsconfig.json next-env.d.ts 2>/dev/null || true
             bash "$APP_DIR/scripts/deploy.sh"

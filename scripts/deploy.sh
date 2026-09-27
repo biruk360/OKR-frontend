@@ -58,6 +58,10 @@ if [ -z "${DEPLOY_REEXEC:-}" ] && command -v sha256sum >/dev/null 2>&1; then
 fi
 
 git fetch origin
+# `next build` rewrites tsconfig.json / next-env.d.ts (it adds the dist dir's
+# types to "include"). Those edits are generated, never intentional, and a dirty
+# tsconfig.json made `git pull --ff-only` abort the 2026-09-27 deploy — discard them.
+git checkout -- tsconfig.json next-env.d.ts 2>/dev/null || true
 git checkout "$BRANCH"
 git pull --ff-only origin "$BRANCH"
 

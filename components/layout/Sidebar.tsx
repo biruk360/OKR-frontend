@@ -13,7 +13,7 @@ import {
   type NavGroup,
 } from '@/lib/dashboard-navigation'
 import { useEffectivePermissions } from '@/hooks/useEffectivePermissions'
-import { Target, X, ChevronDown, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
+import { Target, X, ChevronDown, ChevronRight, ChevronsLeft, ChevronsRight, type LucideIcon } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetClose, SheetContent, SheetTitle } from '@/components/ui/sheet'
@@ -69,13 +69,16 @@ const NAV_ROW_ACTIVE = 'bg-[var(--ap-accent-soft)] font-semibold text-[var(--ap-
 const NAV_EYEBROW =
   'flex w-full items-center justify-between gap-2 px-2.5 pb-1.5 pt-4 text-left font-mono text-[9.5px] font-medium uppercase tracking-[0.12em] text-[var(--ap-fg-subtle)] transition-colors hover:text-[var(--ap-fg-secondary)]'
 
-/** 5px dot marker — replaces the per-item Lucide icon inside grouped nav. */
-function NavDot({ active }: { active: boolean }) {
+/** SF-Symbols-weight stroke for every nav glyph (docs: "Lucide ~1.75px"). */
+const NAV_ICON_STROKE = 1.75
+
+/** Per-destination icon; accent-tinted on the active row. */
+function NavIcon({ icon: Icon, active }: { icon: LucideIcon; active: boolean }) {
   return (
-    <span
+    <Icon
       aria-hidden
-      className="size-[5px] shrink-0 rounded-full"
-      style={{ background: active ? 'var(--ap-accent)' : 'var(--ap-none)' }}
+      strokeWidth={NAV_ICON_STROKE}
+      className={cn('size-[15px] shrink-0', active ? 'text-[var(--ap-accent)]' : 'text-[var(--ap-fg-subtle)] group-hover:text-[var(--ap-fg-muted)]')}
     />
   )
 }
@@ -147,10 +150,7 @@ function renderExpandedGroupNav({ navigationGroups, pathname, openGroups, toggle
           aria-current={active ? 'page' : undefined}
           className={cn(NAV_ROW, active ? NAV_ROW_ACTIVE : NAV_ROW_IDLE)}
         >
-          <group.icon
-            className={cn('size-[15px] shrink-0', active ? 'text-[var(--ap-accent)]' : 'text-[var(--ap-fg-subtle)]')}
-            aria-hidden
-          />
+          <NavIcon icon={group.icon} active={active} />
           <span className="truncate">{group.name}</span>
         </Link>
       )
@@ -163,9 +163,10 @@ function renderExpandedGroupNav({ navigationGroups, pathname, openGroups, toggle
           type="button"
           aria-expanded={false}
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleGroup(group.name) }}
-          className={cn(NAV_ROW, 'cursor-pointer justify-between', groupHasActive ? NAV_ROW_ACTIVE : NAV_ROW_IDLE)}
+          className={cn(NAV_ROW, 'cursor-pointer', groupHasActive ? NAV_ROW_ACTIVE : NAV_ROW_IDLE)}
         >
-          <span className="truncate">{group.name}</span>
+          <NavIcon icon={group.icon} active={groupHasActive} />
+          <span className="flex-1 truncate">{group.name}</span>
           <ChevronRight className="size-[13px] shrink-0 text-[var(--ap-fg-faint)]" aria-hidden />
         </button>
       )
@@ -193,7 +194,7 @@ function renderExpandedGroupNav({ navigationGroups, pathname, openGroups, toggle
                 aria-current={active ? 'page' : undefined}
                 className={cn(NAV_ROW, active ? NAV_ROW_ACTIVE : NAV_ROW_IDLE)}
               >
-                <NavDot active={active} />
+                <NavIcon icon={item.icon} active={active} />
                 <span className="truncate">{item.name}</span>
               </Link>
             )
@@ -253,7 +254,7 @@ function CollapsedNavFlyout({ navigationGroups, flyout, pathname, onClose, onNav
                     className={cn(NAV_ROW, active ? NAV_ROW_ACTIVE : NAV_ROW_IDLE)}
                     onClick={() => { onNavigate?.(); onClose() }}
                   >
-                    <NavDot active={active} />
+                    <NavIcon icon={item.icon} active={active} />
                     <span className="truncate">{item.name}</span>
                   </Link>
                 </li>
@@ -294,7 +295,7 @@ function CollapsedSidebarNav({ navigationGroups, pathname, flyout, setFlyout }: 
                   : 'text-[var(--ap-fg-subtle)] hover:bg-[var(--ap-bg-hover)] hover:text-[var(--ap-fg)]'
               )}
             >
-              <item.icon className="size-[18px] shrink-0" />
+              <item.icon className="size-[18px] shrink-0" strokeWidth={NAV_ICON_STROKE} aria-hidden />
               <span className="sr-only">{item.name}</span>
             </Link>
           )
@@ -316,7 +317,7 @@ function CollapsedSidebarNav({ navigationGroups, pathname, flyout, setFlyout }: 
                 : 'text-[var(--ap-fg-subtle)] hover:bg-[var(--ap-bg-hover)] hover:text-[var(--ap-fg)]'
             )}
           >
-            <group.icon className="size-[18px] shrink-0" />
+            <group.icon className="size-[18px] shrink-0" strokeWidth={NAV_ICON_STROKE} aria-hidden />
             <span className="sr-only">{group.name} submenu</span>
           </button>
         )

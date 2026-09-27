@@ -2,6 +2,12 @@
 
 > **Purpose:** Log of all changes made by AI assistants. Every AI session that modifies code MUST append an entry here.
 
+## 2026-09-27 — Contextual icons on every sidebar destination
+
+- `lib/dashboard-navigation.ts`: every nav item and group now has a distinct, contextual Lucide glyph (the app's SF-Symbols-style set at ~1.75 stroke). Before, many items shared one icon: three Letters items used `FileText`, Activity Feed and Comments used `MessageSquare`, and Users and Teams used `Users`. Examples: My OKRs → `Crosshair`, Sprints → `Timer`, Projects → `FolderKanban`, OKR Explorer → `Compass`, Automations → `Workflow`, Branding → `Palette`, Integrations → `Plug`, Audit Logs → `ScrollText`.
+- `components/layout/Sidebar.tsx`: the expanded nav and the collapsed-rail flyout render each item's icon in place of the 5px dot (`NavIcon`, accent-tinted when active). Closed group rows now lead with their group icon. All nav glyphs use `strokeWidth={1.75}`.
+- Verification: tsc 0 · eslint 0 errors (2 existing warnings) · `route-consolidation.test.ts` 9/9. Not run: browser check.
+
 ## 2026-09-27 — OKR quick-view modals rebuilt + private-OKR API leaks closed
 
 **Why:** the Objective / Key Result modals opened from `/dashboard/key-results?…` (Filters workspace) were design mock-ups wired to the wrong fields: check-ins read `createdAt`/`author`/`note` (API: `asOfDate`/`createdBy`/`analysis`), KR % used a different formula than the full page (28% vs 35%), objective status compared the **Int** `confidence` to `'ON_TRACK'` (always "Pending", NCS always 0), the initiatives donut was fabricated, Quick AI / Relationships / Tags were inert placeholders, nothing linked anywhere, and there were no comments. Spec: `docs/okr_quick_view_modals_REQUIREMENTS.md` (QV-1…QV-6).

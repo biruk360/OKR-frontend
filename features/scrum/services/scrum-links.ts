@@ -154,3 +154,42 @@ export async function getSuggestedLinks(subjectUserId: string) {
   }
   return [...counts.values()].sort((a, b) => b.count - a.count).slice(0, 8)
 }
+
+const ITEM_SECTION_CONTEXTS = [
+  ['yesterdayItems', 'YESTERDAY'],
+  ['todayItems', 'TODAY'],
+  ['blockerItems', 'BLOCKER'],
+  ['winItems', 'WIN'],
+] as const
+
+type LinkableItem = { objectiveId?: string | null; keyResultId?: string | null }
+type LinkableContent = Partial<Record<(typeof ITEM_SECTION_CONTEXTS)[number][0], LinkableItem[] | undefined>>
+
+/**
+ * Spec S11: every item picked against an Objective or KR — in any section —
+ * becomes a `ScrumUpdateLink` with its section as `context`. (To-dos that the
+ * scrum form itself creates are not link rows; their OKR ties live on the Todo.)
+ */
+export function deriveItemLinks(content: LinkableContent): ScrumLinkInput[] {
+  const links: ScrumLinkInput[] = []
+  for (const [section, context] of ITEM_SECTION_CONTEXTS) {
+    for (const item of content[section] ?? []) {
+      if (item.objectiveId) links.push({ context, objectiveId: item.objectiveId, keyResultId: null, todoId: null, progressNote: null })
+      if (item.keyResultId) links.push({ context, objectiveId: null, keyResultId: item.keyResultId, todoId: null, progressNote: null })
+    }
+  }
+  return links
+}
+
+/** One row per (context, entity) — mirrors the table's unique constraints; the first occurrence wins. */
+export function dedupeScrumLinks(links: ScrumLinkInput[]): ScrumLinkInput[] {
+  const seen = new Set<string>()
+  const out: ScrumLinkInput[] = []
+  for (const link of links) {
+    const key = `${link.context}:${deriveLinkType(link)}:${link.objectiveId ?? link.keyResultId ?? link.todoId}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(link)
+  }
+  return out
+}

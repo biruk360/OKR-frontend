@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { reportClientError } from '@/lib/client-error-report'
+import { isStaleChunkRejection, reloadOnceForStaleChunks } from '@/lib/stale-chunk-reload'
 
 export default function GlobalError({
   error,
@@ -10,6 +11,12 @@ export default function GlobalError({
   error: Error & { digest?: string }
   reset: () => void
 }) {
+  // Replaces the root layout, so Providers' window listeners are gone too. A
+  // stale chunk after a deploy can only be recovered by a document reload.
+  useEffect(() => {
+    if (isStaleChunkRejection(error)) reloadOnceForStaleChunks()
+  }, [error])
+
   useEffect(() => {
     reportClientError({
       source: 'react-error-boundary.global',

@@ -21,12 +21,17 @@ import EntityPicker, { type EntityPickerValue } from '@/components/ui/EntityPick
 
 export type MoveKind = 'OBJECTIVE' | 'KEY_RESULT'
 
+/** HTTP method both `/api/objectives/[id]` and `/api/keyresults/[id]` implement
+ *  the move under. Exported so a regression test can assert it matches a
+ *  handler the routes actually export. */
+export const MOVE_OKR_METHOD = 'PUT' as const
+
 export interface MoveOkrModalProps {
   open: boolean
   onClose: () => void
   kind: MoveKind
   /** The entity being moved. Only identity is needed — for a key result the
-   *  fields the PATCH route insists on are read back from the server. */
+   *  fields the PUT route insists on are read back from the server. */
   entity: {
     id: string
     title: string
@@ -60,7 +65,11 @@ export default function MoveOkrModal({
         ? `/api/objectives/${entity.id}`
         : `/api/keyresults/${entity.id}`
 
-      // The key-result PATCH validates title/ownerId/targetValue as required on
+      // Both routes carry the move logic in PUT (they export GET/PUT/DELETE only;
+      // a PATCH here was a live 405). MOVE_OKR_METHOD is pinned by a regression
+      // test against the routes' exports.
+      //
+      // The key-result PUT validates title/ownerId/targetValue as required on
       // every call, so a move has to resend them unchanged. That is the route's
       // shape, not something this modal chose.
       //
@@ -79,7 +88,7 @@ export default function MoveOkrModal({
         if (!kr) throw new Error('Could not read the key result to move')
         // GET runs the response through redactKeyResult and filterFieldsByPermLevel,
         // either of which can drop a field. Without this the move would go out as a
-        // PATCH missing a required value and come back as "Title, owner, and target
+        // PUT missing a required value and come back as "Title, owner, and target
         // value are required", which reads like a bug rather than a permission.
         if (kr.title == null || kr.ownerId == null || kr.targetValue == null) {
           throw new Error('You do not have full access to this key result, so it cannot be moved')
@@ -97,7 +106,7 @@ export default function MoveOkrModal({
       }
 
       const res = await fetch(url, {
-        method: 'PATCH',
+        method: MOVE_OKR_METHOD,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })

@@ -30,6 +30,7 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
   const result = await saveScrumUpdate(session, parsed.data)
   if ('notFound' in result && result.notFound) return apiNotFound('Scrum update not found')
   if ('forbidden' in result && result.forbidden) return result.forbidden
+  if ('conflict' in result && result.conflict) return result.conflict
   if ('error' in result && result.error) return apiBadRequest(result.error)
   const isDraft = 'draft' in result && result.draft
   return apiSuccess(result.update, { status: isDraft ? 200 : 201, message: isDraft ? 'Draft saved' : 'Scrum update saved' })

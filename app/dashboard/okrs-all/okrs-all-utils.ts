@@ -4,7 +4,7 @@
  */
 
 import { Building2, Target, User } from 'lucide-react'
-import { normalizeStatus } from '@/components/shared/StatusPill'
+import { normalizeStatus } from '@/lib/status-key'
 import { applyExplorerScope, type ExplorerScope } from '@/lib/okr/explorer-params'
 
 export interface CurrentUser {

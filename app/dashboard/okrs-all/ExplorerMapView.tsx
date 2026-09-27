@@ -26,7 +26,7 @@ export default async function ExplorerMapView({
   if (data.kind === 'no-timeframes') {
     return (
       <EmptyState
-        icon={AlertCircle}
+        icon={<AlertCircle className="size-8 text-muted-foreground" aria-hidden="true" />}
         title="No timeframes"
         description="Create a timeframe to view the strategy map."
       />
@@ -68,7 +68,7 @@ export default async function ExplorerMapView({
             objectives.length === 0 ? (
               <EmptyState
                 bare
-                icon={AlertCircle}
+                icon={<AlertCircle className="size-8 text-muted-foreground" aria-hidden="true" />}
                 title={`No objectives in ${currentTimeframe.name}`}
                 description="Use the timeframe dropdown above to pick another period, or create an objective for this cycle."
               />

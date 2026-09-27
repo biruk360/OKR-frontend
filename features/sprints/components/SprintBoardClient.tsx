@@ -157,26 +157,32 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
    */
   const sortLane = useCallback((laneId: string, by: 'due' | 'priority' | 'created') => {
     const RANK: Record<string, number> = { URGENT: 0, HIGH: 1, MEDIUM: 2, LOW: 3 }
-    setLocalColumns((cols) => {
-      const lane = cols.find((c) => c.id === laneId)
-      if (!lane) return cols
-      const sorted = [...lane.todos].sort((a, b) => {
-        if (by === 'priority') return (RANK[a.priority] ?? 9) - (RANK[b.priority] ?? 9)
-        if (by === 'due') {
-          // Undated cards sink rather than sorting as epoch-zero.
-          const av = a.dueDate ? new Date(a.dueDate).getTime() : Number.POSITIVE_INFINITY
-          const bv = b.dueDate ? new Date(b.dueDate).getTime() : Number.POSITIVE_INFINITY
-          return av - bv
-        }
-        return 0   // 'created' — the API already returns creation order
-      })
-      const order = by === 'created'
-        ? [...lane.todos].map((t) => t.id)
-        : sorted.map((t) => t.id)
-      void reorderBoard({ [laneId]: order })
-      announce(`${lane.name} sorted by ${by === 'due' ? 'due date' : by === 'priority' ? 'priority' : 'date created'}`)
-      return cols.map((c) => (c.id === laneId ? { ...c, todos: sorted } : c))
+    // Side effects stay out of the setLocalColumns updater: updaters run during
+    // render, and announce() there triggered React's "Cannot update a
+    // component (LiveAnnouncer) while rendering" warning. localColumnsRef is
+    // the keyboard-move hook's live mirror of localColumns (declared below;
+    // only read when the callback runs).
+    const cols = localColumnsRef.current
+    const lane = cols.find((c) => c.id === laneId)
+    if (!lane) return
+    const sorted = [...lane.todos].sort((a, b) => {
+      if (by === 'priority') return (RANK[a.priority] ?? 9) - (RANK[b.priority] ?? 9)
+      if (by === 'due') {
+        // Undated cards sink rather than sorting as epoch-zero.
+        const av = a.dueDate ? new Date(a.dueDate).getTime() : Number.POSITIVE_INFINITY
+        const bv = b.dueDate ? new Date(b.dueDate).getTime() : Number.POSITIVE_INFINITY
+        return av - bv
+      }
+      return 0   // 'created' — the API already returns creation order
     })
+    const order = by === 'created'
+      ? [...lane.todos].map((t) => t.id)
+      : sorted.map((t) => t.id)
+    const next = cols.map((c) => (c.id === laneId ? { ...c, todos: sorted } : c))
+    localColumnsRef.current = next
+    setLocalColumns(next)
+    void reorderBoard({ [laneId]: order })
+    announce(`${lane.name} sorted by ${by === 'due' ? 'due date' : by === 'priority' ? 'priority' : 'date created'}`)
   }, [])
 
   // ── Drag-and-drop state ──────────────────────────────────────────────────

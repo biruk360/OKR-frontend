@@ -12,35 +12,55 @@ function Select({
   return <SelectPrimitive.Root data-slot="select" {...props} />
 }
 
-function SelectGroup({
-  className,
-  ...props
-}: React.ComponentProps<typeof SelectPrimitive.Group>) {
+const SelectGroup = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.Group>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Group>
+>(function SelectGroup(
+  {
+    className,
+    ...props
+  },
+  ref,
+) {
   return (
     <SelectPrimitive.Group
+      ref={ref}
       data-slot="select-group"
       className={cn("scroll-my-1 p-1", className)}
       {...props}
     />
   )
-}
+})
 
-function SelectValue({
-  ...props
-}: React.ComponentProps<typeof SelectPrimitive.Value>) {
-  return <SelectPrimitive.Value data-slot="select-value" {...props} />
-}
+const SelectValue = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.Value>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Value>
+>(function SelectValue(
+  {
+    ...props
+  },
+  ref,
+) {
+  return <SelectPrimitive.Value ref={ref} data-slot="select-value" {...props} />
+})
 
-function SelectTrigger({
-  className,
-  size = "default",
-  children,
-  ...props
-}: React.ComponentProps<typeof SelectPrimitive.Trigger> & {
-  size?: "sm" | "default"
-}) {
+const SelectTrigger = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.Trigger>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger> & {
+    size?: "sm" | "default"
+  }
+>(function SelectTrigger(
+  {
+    className,
+    size = "default",
+    children,
+    ...props
+  },
+  ref,
+) {
   return (
     <SelectPrimitive.Trigger
+      ref={ref}
       data-slot="select-trigger"
       data-size={size}
       className={cn(
@@ -55,18 +75,25 @@ function SelectTrigger({
       </SelectPrimitive.Icon>
     </SelectPrimitive.Trigger>
   )
-}
+})
 
-function SelectContent({
-  className,
-  children,
-  position = "item-aligned",
-  align = "center",
-  ...props
-}: React.ComponentProps<typeof SelectPrimitive.Content>) {
+const SelectContent = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.Content>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Content>
+>(function SelectContent(
+  {
+    className,
+    children,
+    position = "item-aligned",
+    align = "center",
+    ...props
+  },
+  ref,
+) {
   return (
     <SelectPrimitive.Portal>
       <SelectPrimitive.Content
+        ref={ref}
         data-slot="select-content"
         data-align-trigger={position === "item-aligned"}
         // Tailwind v3: `max-h-(--x)`/`origin-(--x)` are v4 shorthands → `[var(--x)]`,
@@ -94,28 +121,42 @@ function SelectContent({
       </SelectPrimitive.Content>
     </SelectPrimitive.Portal>
   )
-}
+})
 
-function SelectLabel({
-  className,
-  ...props
-}: React.ComponentProps<typeof SelectPrimitive.Label>) {
+const SelectLabel = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.Label>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Label>
+>(function SelectLabel(
+  {
+    className,
+    ...props
+  },
+  ref,
+) {
   return (
     <SelectPrimitive.Label
+      ref={ref}
       data-slot="select-label"
       className={cn("px-1.5 py-1 text-xs text-muted-foreground", className)}
       {...props}
     />
   )
-}
+})
 
-function SelectItem({
-  className,
-  children,
-  ...props
-}: React.ComponentProps<typeof SelectPrimitive.Item>) {
+const SelectItem = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.Item>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Item>
+>(function SelectItem(
+  {
+    className,
+    children,
+    ...props
+  },
+  ref,
+) {
   return (
     <SelectPrimitive.Item
+      ref={ref}
       data-slot="select-item"
       className={cn(
         // v4 `focus:**:text-accent-foreground` is intentionally not ported: the
@@ -134,27 +175,41 @@ function SelectItem({
       <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
     </SelectPrimitive.Item>
   )
-}
+})
 
-function SelectSeparator({
-  className,
-  ...props
-}: React.ComponentProps<typeof SelectPrimitive.Separator>) {
+const SelectSeparator = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.Separator>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Separator>
+>(function SelectSeparator(
+  {
+    className,
+    ...props
+  },
+  ref,
+) {
   return (
     <SelectPrimitive.Separator
+      ref={ref}
       data-slot="select-separator"
       className={cn("pointer-events-none -mx-1 my-1 h-px bg-border", className)}
       {...props}
     />
   )
-}
+})
 
-function SelectScrollUpButton({
-  className,
-  ...props
-}: React.ComponentProps<typeof SelectPrimitive.ScrollUpButton>) {
+const SelectScrollUpButton = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.ScrollUpButton>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.ScrollUpButton>
+>(function SelectScrollUpButton(
+  {
+    className,
+    ...props
+  },
+  ref,
+) {
   return (
     <SelectPrimitive.ScrollUpButton
+      ref={ref}
       data-slot="select-scroll-up-button"
       className={cn(
         "z-10 flex cursor-default items-center justify-center bg-popover py-1 [&_svg:not([class*='size-'])]:size-4",
@@ -166,14 +221,21 @@ function SelectScrollUpButton({
       />
     </SelectPrimitive.ScrollUpButton>
   )
-}
+})
 
-function SelectScrollDownButton({
-  className,
-  ...props
-}: React.ComponentProps<typeof SelectPrimitive.ScrollDownButton>) {
+const SelectScrollDownButton = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.ScrollDownButton>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.ScrollDownButton>
+>(function SelectScrollDownButton(
+  {
+    className,
+    ...props
+  },
+  ref,
+) {
   return (
     <SelectPrimitive.ScrollDownButton
+      ref={ref}
       data-slot="select-scroll-down-button"
       className={cn(
         "z-10 flex cursor-default items-center justify-center bg-popover py-1 [&_svg:not([class*='size-'])]:size-4",
@@ -185,7 +247,7 @@ function SelectScrollDownButton({
       />
     </SelectPrimitive.ScrollDownButton>
   )
-}
+})
 
 export {
   Select,

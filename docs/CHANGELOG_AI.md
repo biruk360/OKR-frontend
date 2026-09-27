@@ -2,6 +2,28 @@
 
 > **Purpose:** Log of all changes made by AI assistants. Every AI session that modifies code MUST append an entry here.
 
+## 2026-09-27 — Validation pass + production hotfixes (session okr-mgt-af)
+
+**Why:** the 2026-09-25 remediation went live on 2026-09-27 (deploy `a130061`). A post-deploy validation (8 requirement-traceability agents → `docs/verification/*_TRACEABILITY.md`, `UI_UX_CONFORMANCE.md`; 4 headless-browser agents against a local copy) found live crashes and a login regression.
+
+### Hotfixes
+- **Login** (`features/auth/components/*Form.tsx`, `AuthCard`, `app/portal/{signin,accept-invite}`, `hooks/useHydrated.ts`): every auth form is `method="post"` with a fixed action (credentials can never land in a URL on a pre-hydration submit); submit disabled until hydrated; wrong-password copy now "Incorrect email or password." with the activation hint secondary. `lib/stale-chunk-reload.ts` + inline pre-hydration script in `app/layout.tsx` + `global-error`/settings error boundaries: a stale tab after a deploy reloads once instead of breaking. CSP allows the Cloudflare beacon (`static.cloudflareinsights.com` / `cloudflareinsights.com`).
+- **Crashes**: Move KR/objective sent PATCH to PUT-only routes (405) → `MOVE_OKR_METHOD = 'PUT'`; Explorer Map + portal home passed Lucide components to client `EmptyState`; Insights → Tracking imported `normalizeStatus` from a `'use client'` module (moved to `lib/status-key.ts`); Initiatives report crashed on unassigned rows. Guard: `lib/security/rsc-boundary-invariants.test.ts` walks the server module graph for both RSC mistakes.
+- **Forms ignored input**: `components/ui/*` primitives were React-19-style (ref as prop) on React 18 — `Textarea` dropped `register()` refs (scrum resolve/comment/absence broken). All ref-capable primitives now use `React.forwardRef`.
+- **Sprint board**: keyboard move keeps focus on the moved card (Space can drop); no setState-during-render; single empty state per filtered lane; card comment delete asks for confirmation.
+- **Scrum crons** (paused on the VPS until this deploy): a blocker escalates once per blocker chain (idempotent re-runs); `SCRUM_OBJECTIVE_NEGLECTED` uses a 14-working-day window, fires once per neglect period (dedupe in `ScrumJobRun`), capped 25/run; OKR picks in every section saved as links; CEO/executives notified on escalation; edits keep `submittedAt`/`isLate`; proxy can't overwrite the subject's submitted update (409).
+
+### Ops (VPS)
+- Deploy failure 2026-09-27: `next build` rewrites `tsconfig.json`; `scripts/deploy.sh` now discards it before `git pull` (commit `156ce08`).
+- Crontab reinstalled with `scripts/install-crontab.sh` (12 legacy `?key=` jobs were being rejected by the fail-closed cron auth); `scrum-health` / `scrum-finalize` paused pending this fix — re-run the installer after deploy to restore them.
+- Two real users (betty@, eden@) have no password and can no longer sign in (the "any password" demo branch was the closed critical hole) — admin must send reset links.
+
+### Verification
+tsc 0 · lint 0 errors · 15 suites green (1,705 tests: projects 431, project-creation 158, scrum 108, okr 97, performance 4, sprints 71, cards 16, todos 179, notifications 34, attachments 68, security 108, link-preview 95, letters 22, automations 206, core 109) · `next build` passes. Browser: E2 24/29 and E3 45/48 before these fixes (all fails addressed above except items listed as open in `docs/verification/`).
+
+### Still open (from `docs/verification/`)
+Portal steering/client reports include internal risks/CRs; Jira "Test Connection" sends the stored token to a caller-supplied host; performance raw scores visible via `variance` and ActivityLog; closed-OKR lock bypasses (KR create/clone, todo edits, confidence cron); private-OKR leaks via `/objectives/[id]/children`, `/keyresults`, `/dashboards/me`; AI sprint-plan Discard deletes the whole team sprint; DTP approve crash (`decidedById`) + UTC cutoff; letter number allocation not atomic; automation monthly/daily cost caps not enforced; ~60% overall requirement coverage — see the traceability matrices.
+
 ## 2026-09-25 — Full-project remediation (session okr-mgt-75)
 
 A 9-agent read-only audit (security, projects, work management, scrum/performance/OKR close, letters/DTP/automations/infra, UI/UX, OKR pages, performance, docs) produced `docs/REMEDIATION_PLAN_2026-09-25.md`. Work ran in waves of parallel agents with disjoint file ownership in the same working tree as session okr-mgt-e6 (its entries are below; overlaps were merged, not overwritten). User decisions: public sign-up stays but creates inactive EMPLOYEE accounts; EMPLOYEE to-do scope = own + invited sprints (done by okr-mgt-e6); page consolidation approved; **no self-service account deletion** — only ADMIN creates/deletes users, and delete anonymises. H1 wrote this entry while G4–G7 and H2–H5 were still running; H7 (final docs pass, same day) completed it after every remediation agent had landed — Wave 4 G4–G7, follow-ups H2–H6, fixes C1–C6, bug fixes B1–B2 and the lead's dependency upgrade are all below, verified against the code.

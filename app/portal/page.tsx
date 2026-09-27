@@ -45,7 +45,7 @@ function PortalShell({ title, subtitle, children, signOut = false }: { title: st
 
 function ProjectList({ projects }: { projects: PortalProjectRow[] }) {
   if (projects.length === 0) {
-    return <EmptyState icon={FolderOpen} title="No projects yet" description="No portal-enabled projects are available." />
+    return <EmptyState icon={<FolderOpen className="size-8 text-muted-foreground" aria-hidden="true" />} title="No projects yet" description="No portal-enabled projects are available." />
   }
   return (
     <div className="grid gap-3">

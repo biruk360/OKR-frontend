@@ -89,7 +89,9 @@ export default function ForgotPasswordForm() {
       description="Enter the email you sign in with and we will send you a link to choose a new password."
       footer={backLink}
     >
-      <form onSubmit={onSubmit} noValidate>
+      {/* method/action: no-JS fallback only (onSubmit prevents it). Never a
+          native GET — that would put the form fields in the URL. */}
+      <form method="post" action="/auth/forgot-password" onSubmit={onSubmit} noValidate>
         {errors.root?.message && (
           <div className="mb-4">
             <AuthAlert tone="error">{errors.root.message}</AuthAlert>

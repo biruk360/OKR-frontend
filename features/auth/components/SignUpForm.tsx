@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useForm, type FieldErrors, type Resolver } from 'react-hook-form'
 import { Eye, EyeOff, Mail, Lock, User, Target, ShieldCheck } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { useHydrated } from '@/hooks/useHydrated'
 import { signUpFormSchema, PASSWORD_MIN_LENGTH, type SignUpFormValues } from '../services/signup-schema'
 
 /**
@@ -46,6 +47,8 @@ export default function SignUpForm() {
   const [submitted, setSubmitted] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  // Submit stays disabled until hydration, so it can never fire the native submit.
+  const hydrated = useHydrated()
   const {
     register,
     handleSubmit,
@@ -122,7 +125,9 @@ export default function SignUpForm() {
             </Link>
           </div>
         ) : (
-        <form className="mt-6 space-y-4" onSubmit={onSubmit} noValidate>
+        // method/action: no-JS fallback only (onSubmit prevents it). Never a
+        // native GET — that would put the password in the URL.
+        <form className="mt-6 space-y-4" method="post" action="/auth/signup" onSubmit={onSubmit} noValidate>
           {errors.root?.message && (
             <div className="rounded-[var(--ap-radius-sm)] px-3 py-2 text-[12px] font-medium"
               style={{ background: 'var(--ap-danger-bg)', color: 'var(--ap-danger-fg)' }} role="alert">
@@ -184,7 +189,7 @@ export default function SignUpForm() {
             <FieldError message={errors.confirmPassword?.message} />
           </div>
 
-          <button type="submit" disabled={isSubmitting}
+          <button type="submit" disabled={!hydrated || isSubmitting}
             className="w-full rounded-[var(--ap-radius-sm)] py-2.5 text-[13px] font-semibold text-white transition disabled:opacity-60"
             style={{ background: 'var(--ap-accent)' }}>
             {isSubmitting ? 'Creating account…' : 'Create account'}

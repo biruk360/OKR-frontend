@@ -20,6 +20,9 @@ const isDev = process.env.NODE_ENV === 'development'
  *    no nonce plumbing yet. 'unsafe-eval' is DEV ONLY (webpack/Turbopack HMR).
  *    No production dependency needs eval (checked: SuperDoc's bundled jszip only
  *    uses `new Function` for string callbacks it never receives).
+ *    static.cloudflareinsights.com: the site is behind Cloudflare, which injects
+ *    its Web Analytics beacon (beacon.min.js) into every page; blocking it only
+ *    logged a CSP violation on every page load.
  *  - style-src 'unsafe-inline': React style props, next/font, SuperDoc/Konva.
  *    fonts.googleapis.com: the letter editor (SuperDocEditorClient) injects a
  *    Google Fonts stylesheet for the letterhead faces.
@@ -30,7 +33,9 @@ const isDev = process.env.NODE_ENV === 'development'
  *    canvas/blob exports. Images cannot execute, so a broad https: is accepted.
  *  - connect-src 'self' + Pusher (lib/pusher.ts; pusher-js talks to
  *    wss://ws-<cluster>.pusher.com and the https://sockjs-<cluster>.pusher.com
- *    fallback). OpenAI, Odoo, Jira, Telegram, Slack are all server-side.
+ *    fallback). https://cloudflareinsights.com is where the Cloudflare beacon
+ *    (see script-src) reports. OpenAI, Odoo, Jira, Telegram, Slack are all
+ *    server-side.
  *    SuperDoc's default telemetry beacon (ingest.superdoc.dev) is deliberately
  *    NOT allowed — letters should not report document opens to a third party.
  *  - frame-src 'self' blob: — the letter preview iframes /api/letters/[id]/html.
@@ -41,12 +46,12 @@ const isDev = process.env.NODE_ENV === 'development'
  */
 const CSP_DIRECTIVES = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}`,
+  `script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com${isDev ? " 'unsafe-eval'" : ''}`,
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
   "img-src 'self' data: blob: https:",
   "media-src 'self' data: blob:",
-  `connect-src 'self' https://*.pusher.com wss://*.pusher.com${isDev ? ' ws: wss:' : ''}`,
+  `connect-src 'self' https://*.pusher.com wss://*.pusher.com https://cloudflareinsights.com${isDev ? ' ws: wss:' : ''}`,
   "frame-src 'self' blob:",
   "worker-src 'self' blob:",
   "object-src 'self'",

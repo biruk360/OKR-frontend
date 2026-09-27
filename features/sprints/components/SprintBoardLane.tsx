@@ -141,6 +141,7 @@ export default function SprintBoardLane({
           <div
             key={t.id}
             data-sprint-card
+            data-id={t.id}
             role="listitem"
             onKeyDown={(e) => onCardKeyDown(e, t.id, col.id)}
             aria-label={
@@ -183,8 +184,9 @@ export default function SprintBoardLane({
       )}
 
       {/* Empty lane (§4.1) — dashed panel, not a bare gap. Only when
-          nothing is being dragged over it; a drag shows "Drop here". */}
-      {isEmpty && !(indicator?.colId === col.id && !isClosed) && (
+          nothing is being dragged over it; a drag shows "Drop here". A lane
+          emptied by filters already shows "No cards match your filters". */}
+      {isEmpty && filtersActive === 0 && !(indicator?.colId === col.id && !isClosed) && (
         <div
           className="rounded-[10px] border border-dashed px-3 py-[18px] text-center text-[12.5px] leading-[1.5]"
           style={{

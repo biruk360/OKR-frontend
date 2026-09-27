@@ -119,7 +119,15 @@ export default function ResetPasswordForm() {
       description={`Choose a password of at least ${PASSWORD_MIN_LENGTH} characters. Any other signed-in sessions will be signed out.`}
       footer={backLink}
     >
-      <form onSubmit={onSubmit} noValidate>
+      {/* method/action: no-JS fallback only (onSubmit prevents it). Never a
+          native GET — that would put the new password in the URL. The token is
+          already in this page's URL, so keeping it costs nothing. */}
+      <form
+        method="post"
+        action={`/auth/reset-password?token=${encodeURIComponent(token)}`}
+        onSubmit={onSubmit}
+        noValidate
+      >
         {errors.root?.message && (
           <div className="mb-4">
             <AuthAlert tone="error">

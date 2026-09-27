@@ -1,19 +1,6 @@
 'use client'
 
-type StatusKey =
-  | 'on-track'
-  | 'at-risk'
-  | 'off-track'
-  | 'completed'
-  | 'closed'
-  | 'pending'
-  | 'in-progress'
-  | 'in-review'
-  | 'stuck'
-  | 'cancelled'
-  | 'no-owner'
-  | 'planning'
-  | 'active'
+import { normalizeStatus, type StatusKey } from '@/lib/status-key'
 
 const MAP: Record<StatusKey, { label: string; bg: string; fg: string; dot: string }> = {
   'on-track':    { label: 'On track',  bg: 'rgba(52,199,89,0.12)', fg: 'var(--ap-green)',  dot: 'var(--ap-green)' },
@@ -32,26 +19,9 @@ const MAP: Record<StatusKey, { label: string; bg: string; fg: string; dot: strin
   'active':      { label: 'Active',    bg: 'rgba(52,199,89,0.14)', fg: 'var(--ap-green)', dot: 'var(--ap-green)' },
 }
 
-export function normalizeStatus(raw: string | null | undefined): StatusKey {
-  if (!raw) return 'pending'
-  const v = String(raw).toUpperCase().replace(/-/g, '_')
-  switch (v) {
-    case 'ON_TRACK': return 'on-track'
-    case 'AT_RISK': return 'at-risk'
-    case 'OFF_TRACK': return 'off-track'
-    case 'COMPLETED': return 'completed'
-    case 'CLOSED': return 'closed'
-    case 'PENDING': return 'pending'
-    case 'IN_PROGRESS': return 'in-progress'
-    case 'IN_REVIEW': return 'in-review'
-    case 'STUCK': return 'stuck'
-    case 'CANCELLED': return 'cancelled'
-    case 'NO_OWNER': return 'no-owner'
-    case 'PLANNING': return 'planning'
-    case 'ACTIVE': return 'active'
-    default: return 'pending'
-  }
-}
+// normalizeStatus lives in lib/status-key.ts so server components can call it
+// (a function exported from this 'use client' module is only a client
+// reference on the server). Import it from there, not from here.
 
 export default function StatusPill({
   status,

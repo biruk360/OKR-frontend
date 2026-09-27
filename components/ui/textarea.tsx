@@ -2,9 +2,12 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-function Textarea({ className, ...props }: React.ComponentProps<"textarea">) {
+// forwardRef, not a plain function: on React 18 `ref` is not a prop, so
+// react-hook-form's register() never saw what was typed into this field.
+const Textarea = React.forwardRef<HTMLTextAreaElement, React.ComponentProps<"textarea">>(function Textarea({ className, ...props }, ref) {
   return (
     <textarea
+      ref={ref}
       data-slot="textarea"
       // The v4 `field-sizing-content` utility is deliberately not ported as
       // an arbitrary field-sizing property: it overrides the `rows` many call sites set.
@@ -15,6 +18,6 @@ function Textarea({ className, ...props }: React.ComponentProps<"textarea">) {
       {...props}
     />
   )
-}
+})
 
 export { Textarea }

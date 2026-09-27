@@ -6,7 +6,9 @@ import { getScrumSettings } from './settings'
 import { dateFromDateKey, isScrumWorkingDay, scrumWorkingDaysInRange, toScrumDateKey } from './working-days'
 import { shouldSendTeamMoodAlert, trailingRedMoodStreak, type MoodReport } from './mood-alert'
 import { getScrumPrefill } from './prefill'
-import { escalateScrumBlocker } from './blocker-actions'
+import { escalateScrumBlocker, findChainEscalation, listScrumCeoRecipientIds } from './blocker-actions'
+import { decideAutoEscalation } from './blocker-lifecycle'
+import { decideNeglectAlert, neglectWindowStart, objectiveMentionsFromContent, OBJECTIVE_NEGLECT_JOB_KEY, MAX_NEGLECT_ALERTS_PER_RUN } from './neglect'
 
 export async function runScrumReminder(now = new Date()) {
   return notifyMissing('SCRUM_REMINDER', now, 'scrum-reminder')
@@ -59,12 +61,28 @@ export async function runScrumFinalize(now = new Date()) {
       blockerDaysOpen: { gte: settings.escalationThresholdDays },
       escalatedAt: null,
     },
-    select: { id: true, submittedById: true },
+    select: { id: true, userId: true, submittedById: true, escalatedAt: true, blockerFirstRaisedAt: true },
   })
+  let escalated = 0
+  let inherited = 0
   for (const update of recurring) {
+    // Once per blocker lifecycle: if an earlier day of this chain was already
+    // escalated, adopt that escalation silently (no new RAID/DelayEvent/notify).
+    const chain = await findChainEscalation(update)
+    const decision = decideAutoEscalation({ rowEscalatedAt: update.escalatedAt, chainEscalation: chain })
+    if (decision === 'skip') continue
+    if (decision === 'inherit' && chain) {
+      await prisma.scrumUpdate.updateMany({
+        where: { id: update.id, escalatedAt: null },
+        data: { blockerStatus: 'ESCALATED', escalatedAt: chain.escalatedAt, escalatedToUserId: chain.escalatedToUserId, raidItemId: chain.raidItemId },
+      })
+      inherited++
+      continue
+    }
     await escalateScrumBlocker({ user: { id: update.submittedById, role: 'ADMIN' } } as any, update.id)
+    escalated++
   }
-  return { skipped: false, digests, escalated: recurring.length }
+  return { skipped: false, digests, escalated, inherited }
 }
 
 export async function runScrumWeekly(now = new Date()) {
@@ -100,22 +118,115 @@ export async function runScrumWeekly(now = new Date()) {
 export async function runScrumHealth(now = new Date()) {
   const settings = await getScrumSettings()
   const ceoId = await prisma.organizationSettings.findUnique({ where: { id: 'singleton' }, select: { companyCeoUserId: true } })
-  const staleObjectives = await prisma.objective.findMany({
-    where: { status: 'ACTIVE', scrumLinks: { none: {} } },
-    select: { id: true, title: true, ownerId: true },
-    take: 50,
+  const neglect = await runObjectiveNeglectAlerts(now, settings, ceoId?.companyCeoUserId ?? null)
+  const moodAlerts = settings.moodEnabled ? await runTeamMoodAlerts(now, settings, ceoId?.companyCeoUserId ?? null) : 0
+  return { checkedAt: now.toISOString(), neglectedObjectives: neglect.neglected, neglectAlertsSent: neglect.sent, moodAlerts }
+}
+
+/**
+ * SCRUM_OBJECTIVE_NEGLECTED (spec S11.3 SC12): an ACTIVE objective (active
+ * timeframe) with zero scrum mentions — direct link, one of its KRs, or a to-do
+ * tied to it/its KRs, in any section — for `objectiveNeglectDays` completed
+ * working days alerts the owner + CEO. Once per neglect period: a
+ * `ScrumJobRun` marker (jobKey + objectiveId) is written per alert, and the
+ * objective only alerts again after it has been mentioned since that alert.
+ */
+async function runObjectiveNeglectAlerts(now: Date, settings: Awaited<ReturnType<typeof getScrumSettings>>, ceoUserId: string | null) {
+  const days = Math.max(1, settings.objectiveNeglectDays ?? 14)
+  const todayKey = toScrumDateKey(now, settings)
+  const windowStart = neglectWindowStart(todayKey, days, settings)
+  if (!windowStart) return { neglected: 0, sent: 0 }
+  const runDate = dateFromDateKey(todayKey)
+
+  // Objectives created inside the window have not had the full window to be mentioned.
+  const objectives = await prisma.objective.findMany({
+    where: { status: 'ACTIVE', timeframe: { isActive: true }, createdAt: { lt: windowStart } },
+    select: { id: true, title: true, ownerId: true, keyResults: { select: { id: true } } },
   })
-  for (const objective of staleObjectives) {
+  if (objectives.length === 0) return { neglected: 0, sent: 0 }
+  const objectiveIds = objectives.map((o) => o.id)
+  const keyResultIds = objectives.flatMap((o) => o.keyResults.map((kr) => kr.id))
+  const krToObjective = new Map<string, string>()
+  for (const o of objectives) for (const kr of o.keyResults) krToObjective.set(kr.id, o.id)
+
+  const mentioned = new Set<string>()
+  const markTarget = (objectiveId?: string | null, keyResultId?: string | null) => {
+    if (objectiveId) mentioned.add(objectiveId)
+    const viaKr = keyResultId ? krToObjective.get(keyResultId) : undefined
+    if (viaKr) mentioned.add(viaKr)
+  }
+  const okrOrTodoLinked = (objIds: string[], krIds: string[]) => [
+    { objectiveId: { in: objIds } },
+    { keyResultId: { in: krIds } },
+    { todo: { OR: [{ objectiveId: { in: objIds } }, { keyResultId: { in: krIds } }] } },
+  ]
+
+  // 1) Stored link rows (all contexts) on submitted updates in the window.
+  const links = await prisma.scrumUpdateLink.findMany({
+    where: { update: { ...SUBMITTED_SCRUM_UPDATE_WHERE, scrumDate: { gte: windowStart } }, OR: okrOrTodoLinked(objectiveIds, keyResultIds) },
+    select: { objectiveId: true, keyResultId: true, todo: { select: { objectiveId: true, keyResultId: true } } },
+  })
+  for (const link of links) {
+    markTarget(link.objectiveId, link.keyResultId)
+    markTarget(link.todo?.objectiveId, link.todo?.keyResultId)
+  }
+
+  // 2) Item-level references in contentJson (covers updates saved before every
+  //    section's picks were persisted as link rows).
+  const windowUpdates = await prisma.scrumUpdate.findMany({
+    where: { scrumDate: { gte: windowStart }, ...SUBMITTED_SCRUM_UPDATE_WHERE },
+    select: { contentJson: true },
+  })
+  const todoIds = new Set<string>()
+  for (const update of windowUpdates) {
+    const refs = objectiveMentionsFromContent(update.contentJson)
+    refs.objectiveIds.forEach((id) => markTarget(id, null))
+    refs.keyResultIds.forEach((id) => markTarget(null, id))
+    refs.todoIds.forEach((id) => todoIds.add(id))
+  }
+  if (todoIds.size) {
+    const todos = await prisma.todo.findMany({ where: { id: { in: [...todoIds] } }, select: { objectiveId: true, keyResultId: true } })
+    for (const todo of todos) markTarget(todo.objectiveId, todo.keyResultId)
+  }
+
+  const neglected = objectives.filter((o) => !mentioned.has(o.id))
+  let sent = 0
+  for (const objective of neglected) {
+    if (sent >= MAX_NEGLECT_ALERTS_PER_RUN) break
+    const lastAlert = await prisma.scrumJobRun.findFirst({
+      where: { jobKey: OBJECTIVE_NEGLECT_JOB_KEY, userId: objective.id },
+      orderBy: { runDate: 'desc' },
+      select: { runDate: true },
+    })
+    let mentionedSinceLastAlert = false
+    if (lastAlert && lastAlert.runDate < windowStart) {
+      const krIds = objective.keyResults.map((kr) => kr.id)
+      const since = await prisma.scrumUpdateLink.findFirst({
+        where: { update: { ...SUBMITTED_SCRUM_UPDATE_WHERE, scrumDate: { gt: lastAlert.runDate } }, OR: okrOrTodoLinked([objective.id], krIds) },
+        select: { id: true },
+      })
+      mentionedSinceLastAlert = !!since
+    }
+    const decision = decideNeglectAlert({ mentionedInWindow: false, lastAlertDate: lastAlert?.runDate ?? null, windowStart, mentionedSinceLastAlert })
+    if (!decision) continue
+    // Claim the marker first: the unique (jobKey, userId, runDate) makes a
+    // concurrent or repeated same-day run a no-op.
+    try {
+      await prisma.scrumJobRun.create({ data: { jobKey: OBJECTIVE_NEGLECT_JOB_KEY, userId: objective.id, runDate, metadata: { thresholdDays: days } } })
+    } catch (error: any) {
+      if (error?.code === 'P2002') continue
+      throw error
+    }
     await emitNow('SCRUM_OBJECTIVE_NEGLECTED', {
       entityType: 'OBJECTIVE',
       entityId: objective.id,
       entityTitle: objective.title,
-      explicitRecipients: [objective.ownerId, ceoId?.companyCeoUserId].filter(Boolean) as string[],
-      data: { objectiveId: objective.id, thresholdDays: settings.objectiveNeglectDays },
+      explicitRecipients: [...new Set([objective.ownerId, ceoUserId].filter(Boolean) as string[])],
+      data: { objectiveId: objective.id, thresholdDays: days },
     })
+    sent++
   }
-  const moodAlerts = settings.moodEnabled ? await runTeamMoodAlerts(now, settings, ceoId?.companyCeoUserId ?? null) : 0
-  return { checkedAt: now.toISOString(), neglectedObjectives: staleObjectives.length, moodAlerts }
+  return { neglected: neglected.length, sent }
 }
 
 /**
@@ -133,9 +244,7 @@ async function runTeamMoodAlerts(now: Date, settings: Awaited<ReturnType<typeof 
     .map((date) => toScrumDateKey(date, settings))
     .filter((key) => key < todayKey)
   if (dayKeys.length < threshold) return 0
-  const recipients = ceoUserId
-    ? [ceoUserId]
-    : (await prisma.user.findMany({ where: { role: 'EXECUTIVE', isActive: true }, select: { id: true } })).map((u) => u.id)
+  const recipients = ceoUserId ? [ceoUserId] : await listScrumCeoRecipientIds()
   if (recipients.length === 0) return 0
 
   const departments = await prisma.department.findMany({ where: { isActive: true }, select: { id: true, name: true } })

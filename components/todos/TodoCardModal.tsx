@@ -398,6 +398,12 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
     announce('Comment updated')
   }
 
+  // Comment delete goes through ConfirmDialog (project standard for deletes);
+  // the thread's Delete button only asks, the dialog's confirm performs it.
+  const [confirmCommentId, setConfirmCommentId] = useState<string | null>(null)
+  const [deletingComment, setDeletingComment] = useState(false)
+  const requestDeleteComment = (commentId: string) => setConfirmCommentId(commentId)
+
   const deleteComment = async (commentId: string) => {
     if (!todo) return
     const prev = comments
@@ -1000,7 +1006,7 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
                 editingComment={editingComment}
                 setEditingComment={setEditingComment}
                 saveCommentEdit={saveCommentEdit}
-                deleteComment={deleteComment}
+                deleteComment={requestDeleteComment}
                 canModerate={canModerate}
                 replyingTo={replyingTo}
                 setReplyingTo={setReplyingTo}
@@ -1071,6 +1077,27 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
             if (!confirmLabel) return
             await deleteLabel(confirmLabel.id)
             setConfirmLabel(null)
+          }}
+        />
+
+        <ConfirmDialog
+          open={!!confirmCommentId}
+          onClose={() => { if (!deletingComment) setConfirmCommentId(null) }}
+          title="Delete comment"
+          message="Delete this comment?"
+          description="This cannot be undone."
+          variant="danger"
+          confirmLabel="Delete comment"
+          isLoading={deletingComment}
+          onConfirm={async () => {
+            if (!confirmCommentId) return
+            setDeletingComment(true)
+            try {
+              await deleteComment(confirmCommentId)
+            } finally {
+              setDeletingComment(false)
+              setConfirmCommentId(null)
+            }
           }}
         />
 

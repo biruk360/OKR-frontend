@@ -18,6 +18,7 @@ export const PATCH = withAuth<{ id: string }>(async (request: NextRequest, { ses
   const result = await saveScrumUpdate(session, parsed.data, params.id)
   if ('notFound' in result && result.notFound) return apiNotFound('Scrum update not found')
   if ('forbidden' in result && result.forbidden) return result.forbidden
+  if ('conflict' in result && result.conflict) return result.conflict
   if ('error' in result && result.error) return apiValidationError(result.error)
   const isDraft = 'draft' in result && result.draft
   return apiSuccess(result.update, { message: isDraft ? 'Draft saved' : 'Scrum update updated' })

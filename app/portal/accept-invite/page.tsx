@@ -90,7 +90,14 @@ export default function AcceptPortalInvitePage() {
           </div>
         )}
         {state.kind === 'ready' && (
-          <form className="mt-4 space-y-4" onSubmit={submit}>
+          // Rendered only after the client-side invite check, so it is always
+          // hydrated; method/action still rule out a native GET of the password.
+          <form
+            className="mt-4 space-y-4"
+            method="post"
+            action={`/portal/accept-invite?token=${encodeURIComponent(token)}`}
+            onSubmit={submit}
+          >
             <p className="text-body-sm text-ink-secondary">Welcome, {state.name}. Choose a password for <strong className="text-ink-primary">{state.email}</strong>.</p>
             {error && <div className="rounded-md bg-danger-50 px-3 py-2 text-body-sm font-medium text-danger-700">{error}</div>}
             <label className="block">

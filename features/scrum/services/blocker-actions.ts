@@ -6,6 +6,43 @@ import { createRaidIssue, createScrumDelayEvent, flagProjectActivityBlocked } fr
 import { getScrumSettings } from './settings'
 import { canActOnScrumUpdate } from './access'
 import { stripHtml } from './prefill'
+import { SUBMITTED_SCRUM_UPDATE_WHERE } from './drafts'
+import type { BlockerEscalationState } from './blocker-lifecycle'
+
+/**
+ * Spec §12: SCRUM_BLOCKER_ESCALATED / SCRUM_TEAM_MOOD_ALERT go to the CEO
+ * (`organizationSettings.companyCeoUserId`); fallback: active EXECUTIVEs.
+ */
+export async function listScrumCeoRecipientIds(): Promise<string[]> {
+  const org = await prisma.organizationSettings.findUnique({ where: { id: 'singleton' }, select: { companyCeoUserId: true } })
+  if (org?.companyCeoUserId) return [org.companyCeoUserId]
+  const executives = await prisma.user.findMany({ where: { role: 'EXECUTIVE', isActive: true }, select: { id: true } })
+  return executives.map((user) => user.id)
+}
+
+/**
+ * The escalation already recorded on another row of the same blocker chain
+ * (same owner + same `blockerFirstRaisedAt`), e.g. yesterday's row of a blocker
+ * that is still open today. Covers rows saved before escalation was carried.
+ */
+export async function findChainEscalation(update: {
+  id: string
+  userId: string
+  blockerFirstRaisedAt: Date | null
+}): Promise<BlockerEscalationState | null> {
+  if (!update.blockerFirstRaisedAt) return null
+  return prisma.scrumUpdate.findFirst({
+    where: {
+      userId: update.userId,
+      blockerFirstRaisedAt: update.blockerFirstRaisedAt,
+      escalatedAt: { not: null },
+      id: { not: update.id },
+      ...SUBMITTED_SCRUM_UPDATE_WHERE,
+    },
+    orderBy: { scrumDate: 'desc' },
+    select: { escalatedAt: true, escalatedToUserId: true, raidItemId: true },
+  })
+}
 
 /** Owner, their manager/department lead/PM, or ADMIN may resolve (see access.ts). */
 export async function resolveScrumBlocker(session: Session, updateId: string, resolutionNote: string) {
@@ -49,7 +86,11 @@ export async function escalateScrumBlocker(session: Session, updateId: string, e
     if (!target) return { status: 'invalid', reason: 'Escalation target not found' } as const
   }
   const settings = await getScrumSettings()
-  let raidItemId = update.raidItemId
+  // Once per blocker lifecycle: a chain escalated on an earlier day keeps its
+  // RAID issue and DelayEvent — re-escalating never duplicates them.
+  const chain = update.escalatedAt ? null : await findChainEscalation(update)
+  const firstEscalation = !update.escalatedAt && !chain
+  let raidItemId = update.raidItemId ?? chain?.raidItemId ?? null
   if (update.projectId && !raidItemId) {
     const issue = await createRaidIssue(prisma, {
       projectId: update.projectId,
@@ -65,13 +106,13 @@ export async function escalateScrumBlocker(session: Session, updateId: string, e
     where: { id: updateId },
     data: {
       blockerStatus: 'ESCALATED',
-      escalatedAt: new Date(),
-      escalatedToUserId: escalatedToUserId ?? null,
+      escalatedAt: update.escalatedAt ?? chain?.escalatedAt ?? new Date(),
+      escalatedToUserId: escalatedToUserId ?? update.escalatedToUserId ?? chain?.escalatedToUserId ?? null,
       raidItemId,
       blockerDaysOpen: Math.max(update.blockerDaysOpen, settings.escalationThresholdDays),
     },
   })
-  if (saved.projectId && ['CLIENT_APPROVAL', 'EXTERNAL_DEPENDENCY'].includes(saved.blockerCategory ?? '')) {
+  if (firstEscalation && saved.projectId && ['CLIENT_APPROVAL', 'EXTERNAL_DEPENDENCY'].includes(saved.blockerCategory ?? '')) {
     await createScrumDelayEvent(prisma, {
       projectId: saved.projectId,
       activityId: saved.projectActivityId,
@@ -90,11 +131,12 @@ export async function escalateScrumBlocker(session: Session, updateId: string, e
     actorId: session.user.id,
     metadata: { updateId, raidItemId },
   })
+  const ceoIds = await listScrumCeoRecipientIds()
   await emit('SCRUM_BLOCKER_ESCALATED', {
     actorId: session.user.id,
     entityType: 'SCRUM_UPDATE',
     entityId: updateId,
-    explicitRecipients: [escalatedToUserId, saved.managerId].filter(Boolean) as string[],
+    explicitRecipients: [...new Set([escalatedToUserId, saved.managerId, ...ceoIds].filter(Boolean) as string[])],
     data: { raidItemId, deepLink: `/dashboard/scrum?update=${updateId}` },
   })
   return { status: 'ok', update: saved } as const

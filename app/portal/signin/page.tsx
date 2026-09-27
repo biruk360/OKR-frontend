@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Eye, EyeOff, Lock, Mail } from 'lucide-react'
 import { safePortalCallbackUrl } from '@/lib/portal-callback-url'
+import { useHydrated } from '@/hooks/useHydrated'
 
 export default function PortalSignInPage() {
   const [email, setEmail] = useState('')
@@ -13,6 +14,8 @@ export default function PortalSignInPage() {
   const [error, setError] = useState('')
   const router = useRouter()
   const search = useSearchParams()
+  // Submit stays disabled until hydration, so it can never fire the native submit.
+  const hydrated = useHydrated()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -56,7 +59,9 @@ export default function PortalSignInPage() {
           <p className="mt-1 text-body-sm text-ink-secondary">Sign in to view your project status.</p>
         </div>
 
-        <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
+        {/* method/action: no-JS fallback only (handleSubmit prevents it). Never
+            a native GET — that would put the credentials in the URL. */}
+        <form className="mt-6 space-y-4" method="post" action="/portal/signin" onSubmit={handleSubmit}>
           {error && <div className="rounded-md bg-danger-50 px-3 py-2 text-body-sm font-medium text-danger-700">{error}</div>}
           <label className="block">
             <span className="text-body-sm font-medium text-ink-primary">Email</span>
@@ -98,7 +103,7 @@ export default function PortalSignInPage() {
             </div>
           </label>
 
-          <button type="submit" disabled={isLoading} className="btn btn-primary w-full">
+          <button type="submit" disabled={!hydrated || isLoading} className="btn btn-primary w-full">
             {isLoading ? 'Signing in...' : 'Sign in'}
           </button>
         </form>

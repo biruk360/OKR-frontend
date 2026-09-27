@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import StatusPill, { normalizeStatus } from '@/components/shared/StatusPill'
+import StatusPill from '@/components/shared/StatusPill'
+import { normalizeStatus } from '@/lib/status-key'
 import { Progress } from '@/components/ui/progress'
 import { getProgressBarColor } from '@/lib/utils'
 import type { ProgressTrackingData } from '@/lib/okr/insights-data'

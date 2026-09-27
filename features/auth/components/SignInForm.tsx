@@ -9,10 +9,21 @@ import { Check, Eye, EyeOff, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
+import { useHydrated } from '@/hooks/useHydrated'
 import { safeCallbackUrl } from '../services/callback-url'
 
 /** Set when "Remember me" is ticked, so the next visit arrives pre-filled. */
 const REMEMBERED_EMAIL_KEY = 'okr.auth.rememberedEmail'
+
+/**
+ * Wrong password, unknown email and not-yet-activated account all get this —
+ * the server returns the same failure for all three (no enumeration). The
+ * primary line is what nearly everyone hit (a typo); the activation note is a
+ * quieter second line so a mistyped password does not read as "blocked".
+ */
+const CREDENTIALS_ERROR = 'Incorrect email or password.'
+const CREDENTIALS_ERROR_HINT = 'New accounts need administrator activation before first sign-in.'
+const RATE_LIMITED_ERROR = 'Too many sign-in attempts. Please wait a few minutes and try again.'
 
 interface SignInValues {
   email: string
@@ -86,6 +97,9 @@ export default function SignInForm() {
   const [showPassword, setShowPassword] = useState(false)
   const [capsLock, setCapsLock] = useState(false)
   const [host, setHost] = useState('')
+  // Until hydration the submit button is disabled: a click would otherwise run
+  // the browser's native form submit (see the form tag below), not onSubmit.
+  const hydrated = useHydrated()
 
   const {
     register,
@@ -123,13 +137,12 @@ export default function SignInForm() {
       const result = await signIn('credentials', { email, password, redirect: false })
       if (result?.error) {
         // lib/auth.ts authorize() throws RATE_LIMITED when the IP/account limit is hit.
-        setError('root', {
-          message: result.error === 'RATE_LIMITED'
-            ? 'Too many sign-in attempts. Please wait a few minutes and try again.'
-            // One message for wrong password, unknown email and not-yet-activated
-            // accounts — the server returns the same failure for all three.
-            : 'We couldn’t sign you in. Check your email and password. New accounts need administrator activation before first sign-in.',
-        })
+        setError(
+          'root',
+          result.error === 'RATE_LIMITED'
+            ? { type: 'rate-limited', message: RATE_LIMITED_ERROR }
+            : { type: 'credentials', message: CREDENTIALS_ERROR }
+        )
         return
       }
 
@@ -193,7 +206,12 @@ export default function SignInForm() {
         </h2>
       </header>
 
-      <form className="mt-7" onSubmit={onSubmit} noValidate>
+      {/* method/action are the no-JS fallback only — onSubmit always calls
+          preventDefault once hydrated. Without them a pre-hydration submit (slow
+          network, or chunks 404ing after a deploy) was a native GET that put
+          the email AND password in the URL and did nothing. POST keeps them in
+          the body; the page answers a plain POST by rendering itself again. */}
+      <form className="mt-7" method="post" action="/auth/signin" onSubmit={onSubmit} noValidate>
         {errors.root?.message && (
           <div
             role="alert"
@@ -203,7 +221,12 @@ export default function SignInForm() {
               boxShadow: 'inset 2px 0 0 oklch(0.74 0.17 25)',
             }}
           >
-            <span className="text-white/90">{errors.root.message}</span>
+            <span className="min-w-0">
+              <span className="block text-white/90">{errors.root.message}</span>
+              {errors.root.type === 'credentials' && (
+                <span className="mt-1 block text-[11.5px] text-white/55">{CREDENTIALS_ERROR_HINT}</span>
+              )}
+            </span>
           </div>
         )}
 
@@ -307,7 +330,7 @@ export default function SignInForm() {
 
         <Button
           type="submit"
-          disabled={isSubmitting}
+          disabled={!hydrated || isSubmitting}
           className="relative mt-6 h-[46px] w-full rounded-[11px] text-[14px] font-semibold tracking-[-0.01em] text-white transition-[filter,transform] hover:brightness-[1.08] disabled:opacity-80"
           style={{
             background: 'var(--ap-accent)',

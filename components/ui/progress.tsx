@@ -18,7 +18,7 @@ import { Progress as ProgressPrimitive } from "radix-ui"
 import { cn } from "@/lib/utils"
 
 interface ProgressProps
-  extends React.ComponentProps<typeof ProgressPrimitive.Root> {
+  extends React.ComponentPropsWithoutRef<typeof ProgressPrimitive.Root> {
   /** Bar height in px. 6 is the design default. */
   height?: number
   /** CSS colour for the filled portion. Defaults to `var(--ap-ok)`. */
@@ -27,7 +27,10 @@ interface ProgressProps
   track?: string
 }
 
-function Progress({
+const Progress = React.forwardRef<
+  React.ElementRef<typeof ProgressPrimitive.Root>,
+  ProgressProps
+>(function Progress({
   className,
   value,
   height = 6,
@@ -35,11 +38,12 @@ function Progress({
   track = "var(--ap-kr-bar-bg)",
   style,
   ...props
-}: ProgressProps) {
+}, ref) {
   const pct = Math.min(100, Math.max(0, value ?? 0))
 
   return (
     <ProgressPrimitive.Root
+      ref={ref}
       data-slot="progress"
       value={value}
       className={cn(
@@ -56,7 +60,7 @@ function Progress({
       />
     </ProgressPrimitive.Root>
   )
-}
+})
 
 export { Progress }
 export type { ProgressProps }

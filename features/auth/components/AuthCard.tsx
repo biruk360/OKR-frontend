@@ -3,6 +3,7 @@
 import { forwardRef } from 'react'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useHydrated } from '@/hooks/useHydrated'
 import { cn } from '@/lib/utils'
 
 /**
@@ -158,16 +159,20 @@ export function AuthAlert({ tone, children }: { tone: 'error' | 'success'; child
   )
 }
 
-/** Full-width primary action in the sign-in card's style. */
+/**
+ * Full-width primary action in the sign-in card's style. Disabled until
+ * hydration so a click can never trigger the form's native submit.
+ */
 export const AuthSubmitButton = forwardRef<
   HTMLButtonElement,
   { pending: boolean; pendingLabel: string; children: React.ReactNode; className?: string }
 >(function AuthSubmitButton({ pending, pendingLabel, children, className }, ref) {
+  const hydrated = useHydrated()
   return (
     <Button
       ref={ref}
       type="submit"
-      disabled={pending}
+      disabled={!hydrated || pending}
       className={cn(
         'relative h-[46px] w-full rounded-[11px] text-[14px] font-semibold tracking-[-0.01em] text-white transition-[filter,transform] hover:brightness-[1.08] disabled:opacity-80',
         className,

@@ -20,11 +20,17 @@ interface ReportRow {
   id: string
   title: string
   status: string
-  assignee: { id: string; name: string; avatar: string | null }
+  /** Null for an unassigned initiative (the API returns `assignee: null`). */
+  assignee: { id: string; name: string | null; avatar: string | null } | null
   krTitle: string | null
   objectiveTitle: string | null
   compliancePct: number
   days: DayCell[]
+}
+
+/** Display name for a row's assignee; unassigned initiatives are common. */
+function assigneeLabel(row: ReportRow): string {
+  return row.assignee?.name || 'Unassigned'
 }
 
 function defaultFrom(): string {
@@ -93,7 +99,7 @@ export default function InitiativeReportClient() {
     return rows.filter(
       (r) =>
         r.title.toLowerCase().includes(q) ||
-        r.assignee.name.toLowerCase().includes(q) ||
+        assigneeLabel(r).toLowerCase().includes(q) ||
         (r.objectiveTitle?.toLowerCase().includes(q) ?? false)
     )
   }, [rows, query])
@@ -253,7 +259,7 @@ export default function InitiativeReportClient() {
                               {row.title}
                             </div>
                             <div className="truncate text-xs text-muted-foreground">
-                              {row.assignee.name}
+                              {assigneeLabel(row)}
                               {row.objectiveTitle && <> · {row.objectiveTitle}</>}
                             </div>
                           </div>

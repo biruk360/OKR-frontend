@@ -30,11 +30,13 @@ export interface BlockerDecision {
   firstRaisedAt: Date | null
   similarity: number
   shouldAskSameBlocker: boolean
+  /** True when this blocker continues the previous working day's open blocker (same lifecycle chain). */
+  continuesPrevious: boolean
 }
 
 export function decideBlockerLifecycle(input: BlockerDecisionInput): BlockerDecision {
   if (!input.text?.trim()) {
-    return { hasBlocker: false, status: null, daysOpen: 0, firstRaisedAt: null, similarity: 0, shouldAskSameBlocker: false }
+    return { hasBlocker: false, status: null, daysOpen: 0, firstRaisedAt: null, similarity: 0, shouldAskSameBlocker: false, continuesPrevious: false }
   }
 
   const similarity = blockerSimilarity(input.previousText ?? '', input.text)
@@ -62,7 +64,65 @@ export function decideBlockerLifecycle(input: BlockerDecisionInput): BlockerDeci
     firstRaisedAt,
     similarity,
     shouldAskSameBlocker: sameCategory && similarity >= 0.65 && similarity < 0.8,
+    continuesPrevious: confirmed,
   }
+}
+
+/** Escalation facts that belong to a blocker's lifecycle chain, not to a single day's row. */
+export interface BlockerEscalationState {
+  escalatedAt: Date | null
+  escalatedToUserId: string | null
+  raidItemId: string | null
+}
+
+export const CLEARED_BLOCKER_ESCALATION: BlockerEscalationState = { escalatedAt: null, escalatedToUserId: null, raidItemId: null }
+
+/**
+ * Which escalation columns a (re-)submitted update should carry, so a blocker is
+ * escalated at most once per lifecycle (RAID issue, DelayEvent, notifications).
+ *
+ * - The same blocker as the previous working day inherits that row's escalation.
+ * - A same-day re-save keeps today's escalation, unless the submitter now says a
+ *   carried-over blocker is a *new* one (then the new blocker may escalate again).
+ * - A new blocker (resolved then reopened, or "not the same blocker") starts clean.
+ *
+ * Returns `null` when the stored columns should be left untouched.
+ */
+export function carryBlockerEscalation(input: {
+  hasBlocker: boolean
+  continuesPrevious: boolean
+  previous?: BlockerEscalationState | null
+  existingSameDay?: (BlockerEscalationState & { chainStartedBeforeToday: boolean }) | null
+}): BlockerEscalationState | null {
+  if (!input.hasBlocker) return null
+  const existing = input.existingSameDay
+  if (existing?.escalatedAt) {
+    if (!input.continuesPrevious && existing.chainStartedBeforeToday) return { ...CLEARED_BLOCKER_ESCALATION }
+    return null
+  }
+  if (input.continuesPrevious && input.previous?.escalatedAt) {
+    return {
+      escalatedAt: input.previous.escalatedAt,
+      escalatedToUserId: input.previous.escalatedToUserId ?? null,
+      raidItemId: input.previous.raidItemId ?? null,
+    }
+  }
+  if (existing && (existing.raidItemId || existing.escalatedToUserId)) return { ...CLEARED_BLOCKER_ESCALATION }
+  return null
+}
+
+/**
+ * Finalize-cron decision for one candidate blocker: escalate (side-effects run),
+ * inherit an escalation already done earlier in the same chain (no side-effects),
+ * or skip because this row is already escalated (same-day re-run).
+ */
+export function decideAutoEscalation(input: {
+  rowEscalatedAt: Date | null
+  chainEscalation: BlockerEscalationState | null
+}): 'skip' | 'inherit' | 'escalate' {
+  if (input.rowEscalatedAt) return 'skip'
+  if (input.chainEscalation?.escalatedAt) return 'inherit'
+  return 'escalate'
 }
 
 /** Similarity at/above which the submit form asks "Is this the same blocker as yesterday?". */

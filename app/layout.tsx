@@ -7,6 +7,7 @@ import ThemeBodyClass from './theme-body-class'
 import AppleToaster from '@/components/layout/AppleToaster'
 import { CommandPalette } from '@/components/cmdk/CommandPalette'
 import LiveAnnouncer from '@/components/shared/LiveAnnouncer'
+import { STALE_CHUNK_BOOT_SCRIPT } from '@/lib/stale-chunk-reload'
 
 // next/font rather than the design's <link> tags — same faces, no
 // render-blocking round trip. The weights are the ones the designs actually
@@ -58,6 +59,9 @@ export default async function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className={fontVars}>
       <body className={`${fontVars} apple-pro-surface theme-apple-full`} suppressHydrationWarning>
+        {/* First child on purpose: recovers a tab whose chunks 404 after a
+            deploy even when hydration never happens (lib/stale-chunk-reload.ts). */}
+        <script dangerouslySetInnerHTML={{ __html: STALE_CHUNK_BOOT_SCRIPT }} />
         <Providers session={session}>
           <ThemeBodyClass baseClassName={fontVars} />
           {children}

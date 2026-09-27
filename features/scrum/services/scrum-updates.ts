@@ -2,7 +2,7 @@ import type { Session } from 'next-auth'
 import { prisma } from '@/lib/prisma'
 import { recordActivity } from '@/lib/activity-log'
 import { emit } from '@/lib/notifications'
-import { apiForbidden } from '@/lib/api'
+import { apiConflict, apiForbidden } from '@/lib/api'
 import {
   canEditScrumUpdateResolved,
   canProxyFor,
@@ -13,9 +13,10 @@ import {
 import { sanitizeScrumRichTextOrNull } from './html'
 import { getScrumSettings } from './settings'
 import { dateFromDateKey, isLateSubmission, toScrumDateKey } from './working-days'
-import { replaceUpdateLinks, validateLinkOwnership, type ScrumLinkInput } from './scrum-links'
+import { dedupeScrumLinks, deriveItemLinks, replaceUpdateLinks, validateLinkOwnership, type ScrumLinkInput } from './scrum-links'
+import { attendanceSafeUpdateData, decideProxyOverwrite } from './attendance'
 import { serializeScrumUpdate, serializeScrumUpdates } from './scrum-serializer'
-import { decideBlockerLifecycle, shouldNotifyRecurringBlocker } from './blocker-lifecycle'
+import { carryBlockerEscalation, decideBlockerLifecycle, shouldNotifyRecurringBlocker } from './blocker-lifecycle'
 import {
   SCRUM_DRAFT_STATUS,
   SUBMITTED_SCRUM_UPDATE_WHERE,
@@ -119,8 +120,22 @@ export async function saveScrumUpdate(session: Session, input: SaveScrumUpdateIn
   // (or, for a draft, refuse to overwrite a real submission).
   const existing = await prisma.scrumUpdate.findUnique({
     where: { userId_scrumDate: { userId: subjectUserId, scrumDate } },
-    select: { id: true, contentJson: true, isProxyEntry: true, blockerStatus: true, status: true },
+    select: {
+      id: true,
+      contentJson: true,
+      isProxyEntry: true,
+      blockerStatus: true,
+      status: true,
+      blockerFirstRaisedAt: true,
+      escalatedAt: true,
+      escalatedToUserId: true,
+      raidItemId: true,
+    },
   })
+
+  // A proxy never replaces (or converts) a report the subject submitted themselves.
+  const proxyOverwrite = decideProxyOverwrite({ isProxy, existing: existing ? { status: existing.status, isProxyEntry: existing.isProxyEntry } : null })
+  if (!proxyOverwrite.ok) return { conflict: apiConflict(proxyOverwrite.message) }
 
   if (input.asDraft) {
     const decision = decideScrumDraftSave({ isProxy, existingStatus: existing?.status })
@@ -171,6 +186,9 @@ export async function saveScrumUpdate(session: Session, input: SaveScrumUpdateIn
       blockerCategory: true,
       blockerStatus: true,
       blockerFirstRaisedAt: true,
+      escalatedAt: true,
+      escalatedToUserId: true,
+      raidItemId: true,
     },
   })
   const blockersHtml = serializeItemsToHtml(content.blockerItems)
@@ -227,6 +245,28 @@ export async function saveScrumUpdate(session: Session, input: SaveScrumUpdateIn
       remarks: sanitizeScrumRichTextOrNull(input.remarks?.trim()),
     }
 
+    // Escalation belongs to the blocker's lifecycle chain: carry it so the
+    // finalize cron escalates a persisting blocker once, not every day.
+    const existingSubmitted = existing && !baseline.fromDraft ? existing : null
+    const escalation = carryBlockerEscalation({
+      hasBlocker,
+      continuesPrevious: blockerDecision.continuesPrevious,
+      previous: previousDayUpdate,
+      existingSameDay: existingSubmitted
+        ? {
+            escalatedAt: existingSubmitted.escalatedAt,
+            escalatedToUserId: existingSubmitted.escalatedToUserId,
+            raidItemId: existingSubmitted.raidItemId,
+            chainStartedBeforeToday: !!existingSubmitted.blockerFirstRaisedAt
+              && toScrumDateKey(existingSubmitted.blockerFirstRaisedAt, settings) < scrumDateKey,
+          }
+        : null,
+    })
+    if (escalation) {
+      Object.assign(data, escalation)
+      if (escalation.escalatedAt) data.blockerStatus = 'ESCALATED'
+    }
+
     // Editing a proxy entry (owner amend, or self-submit over a proxy row) must
     // not erase who physically entered it.
     const updateData: any = { ...data }
@@ -234,27 +274,18 @@ export async function saveScrumUpdate(session: Session, input: SaveScrumUpdateIn
       for (const field of PROXY_ATTRIBUTION_FIELDS) delete updateData[field]
     }
 
-    const amendStamp = baseline.isAmend ? { amendedAt: new Date() } : {}
+    // Attendance stamp (submittedAt/isLate/status) is set on the first submit
+    // only; an amendment records amendedAt + AMENDED instead (invariant #3).
+    const amendData = attendanceSafeUpdateData(updateData, baseline.isAmend)
     const update = existingId
-      ? await tx.scrumUpdate.update({
-          where: { id: existingId },
-          data: { ...updateData, ...amendStamp, ...(baseline.isAmend ? { status: 'AMENDED' } : {}) },
-        })
+      ? await tx.scrumUpdate.update({ where: { id: existingId }, data: amendData })
       : await tx.scrumUpdate.upsert({
           where: { userId_scrumDate: { userId: subjectUserId, scrumDate } },
           create: data,
-          update: { ...updateData, ...amendStamp },
+          update: amendData,
         })
-    const linksFromWinItems = (syncedContent.winItems ?? [])
-      .filter((item) => item.objectiveId || item.keyResultId)
-      .map((item) => ({
-        context: 'WIN' as const,
-        objectiveId: item.objectiveId ?? null,
-        keyResultId: item.keyResultId ?? null,
-        todoId: null,
-        progressNote: null,
-      }))
-    await replaceUpdateLinks(update.id, actorId, [...(input.links ?? []), ...linksFromWinItems], tx)
+    // Spec S11: OKR picks in every section (yesterday/today/blocker/win) are link rows.
+    await replaceUpdateLinks(update.id, actorId, dedupeScrumLinks([...(input.links ?? []), ...deriveItemLinks(syncedContent)]), tx)
     return tx.scrumUpdate.findUnique({
       where: { id: update.id },
       include: { links: true, comments: true, celebrations: true },

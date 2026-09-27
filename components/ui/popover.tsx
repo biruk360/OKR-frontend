@@ -30,23 +30,41 @@ function Popover({ ...props }: React.ComponentProps<typeof PopoverPrimitive.Root
   return <PopoverPrimitive.Root data-slot="popover" {...props} />
 }
 
-function PopoverTrigger({
-  ...props
-}: React.ComponentProps<typeof PopoverPrimitive.Trigger>) {
-  return <PopoverPrimitive.Trigger data-slot="popover-trigger" {...props} />
-}
+const PopoverTrigger = React.forwardRef<
+  React.ElementRef<typeof PopoverPrimitive.Trigger>,
+  React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Trigger>
+>(function PopoverTrigger(
+  {
+    ...props
+  },
+  ref,
+) {
+  return <PopoverPrimitive.Trigger ref={ref} data-slot="popover-trigger" {...props} />
+})
 
-function PopoverAnchor({
-  ...props
-}: React.ComponentProps<typeof PopoverPrimitive.Anchor>) {
-  return <PopoverPrimitive.Anchor data-slot="popover-anchor" {...props} />
-}
+const PopoverAnchor = React.forwardRef<
+  React.ElementRef<typeof PopoverPrimitive.Anchor>,
+  React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Anchor>
+>(function PopoverAnchor(
+  {
+    ...props
+  },
+  ref,
+) {
+  return <PopoverPrimitive.Anchor ref={ref} data-slot="popover-anchor" {...props} />
+})
 
-function PopoverClose({
-  ...props
-}: React.ComponentProps<typeof PopoverPrimitive.Close>) {
-  return <PopoverPrimitive.Close data-slot="popover-close" {...props} />
-}
+const PopoverClose = React.forwardRef<
+  React.ElementRef<typeof PopoverPrimitive.Close>,
+  React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Close>
+>(function PopoverClose(
+  {
+    ...props
+  },
+  ref,
+) {
+  return <PopoverPrimitive.Close ref={ref} data-slot="popover-close" {...props} />
+})
 
 /** Elevation steps. Tokens live in app/globals.css (light + dark). */
 export type PopoverShadow = "sm" | "md" | "lg" | "xl" | "panel" | "none"
@@ -93,7 +111,7 @@ const variantRadius: Record<PopoverVariant, string> = {
 }
 
 interface PopoverContentProps
-  extends Omit<React.ComponentProps<typeof PopoverPrimitive.Content>, "title"> {
+  extends Omit<React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Content>, "title"> {
   /** Accessible name for the popover dialog. Required — icon-only triggers
    *  otherwise leave the surface unnamed for screen readers. */
   label: string
@@ -112,7 +130,10 @@ interface PopoverContentProps
   shadow?: PopoverShadow
 }
 
-function PopoverContent({
+const PopoverContent = React.forwardRef<
+  React.ElementRef<typeof PopoverPrimitive.Content>,
+  PopoverContentProps
+>(function PopoverContent({
   className,
   align = "start",
   sideOffset = 6,
@@ -125,7 +146,7 @@ function PopoverContent({
   style,
   children,
   ...props
-}: PopoverContentProps) {
+}, ref) {
   // Only emit an inline width when one was asked for: existing call sites size
   // themselves with a `w-[260px]` className, and an inline style would beat it.
   const resolvedShadow: PopoverShadow =
@@ -135,6 +156,7 @@ function PopoverContent({
   return (
     <PopoverPrimitive.Portal>
       <PopoverPrimitive.Content
+        ref={ref}
         data-slot="popover-content"
         data-variant={variant}
         role="dialog"
@@ -184,7 +206,7 @@ function PopoverContent({
       </PopoverPrimitive.Content>
     </PopoverPrimitive.Portal>
   )
-}
+})
 
 export { Popover, PopoverTrigger, PopoverAnchor, PopoverClose, PopoverContent, shadowForWidth }
 export type { PopoverContentProps }

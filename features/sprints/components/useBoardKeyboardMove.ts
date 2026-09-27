@@ -57,64 +57,101 @@ export function useBoardKeyboardMove({
     return null
   }, [])
 
-  const cancelLift = useCallback(() => {
-    if (preLiftRef.current) setLocalColumns(preLiftRef.current)
-    preLiftRef.current = null
-    setLifted(null)
-    announce('Move cancelled')
+  // Side effects (announce, the reorder request) never run inside a
+  // setLocalColumns updater: updaters run during render, and calling
+  // announce() there made React warn "Cannot update a component
+  // (LiveAnnouncer) while rendering a different component" on every move
+  // (StrictMode would also double-fire the request). Instead each handler
+  // computes the next columns from localColumnsRef, which it also advances
+  // synchronously so held-down arrow keys chain correctly before the
+  // re-render's effect re-syncs it.
+  const applyColumns = useCallback((next: BoardColumn[]) => {
+    localColumnsRef.current = next
+    setLocalColumns(next)
   }, [setLocalColumns])
 
-  const commitLift = useCallback((todoId: string) => {
-    preLiftRef.current = null
-    setLifted(null)
-    setLocalColumns((cols) => {
-      const pos = findCard(cols, todoId)
-      if (pos) {
-        const lane = cols[pos.colIdx]
-        // Persist the destination lane, and the source lane too when it changed.
-        const orders: Record<string, string[]> = { [lane.id]: lane.todos.map((t) => t.id) }
-        const origin = preLiftOriginRef.current
-        if (origin && origin !== lane.id) {
-          const src = cols.find((c) => c.id === origin)
-          if (src) orders[src.id] = src.todos.map((t) => t.id)
-        }
-        void reorderRef.current(orders)
-        announce(`Dropped in ${lane.name}, position ${pos.cardIdx + 1} of ${lane.todos.length}`)
+  // A move to another lane re-parents the card, so React remounts it and
+  // focus falls to <body> — leaving a keyboard user unable to press Space to
+  // drop. After the re-render commits, put focus back on the moved card.
+  const refocusCard = useCallback((todoId: string) => {
+    if (typeof window === 'undefined') return
+    const selector = `[data-sprint-card][data-id="${CSS.escape(todoId)}"]`
+    const attempt = (triesLeft: number) => {
+      const wrapper = document.querySelector<HTMLElement>(selector)
+      if (!wrapper) {
+        if (triesLeft > 0) requestAnimationFrame(() => attempt(triesLeft - 1))
+        return
       }
-      return cols
-    })
+      if (wrapper.contains(document.activeElement)) return
+      const target = wrapper.querySelector<HTMLElement>('[role="button"][tabindex]') ?? wrapper
+      target.focus({ preventScroll: false })
+      target.scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
+    }
+    requestAnimationFrame(() => attempt(2))
+  }, [])
+
+  const cancelLift = useCallback(() => {
+    const liftedId = liftedRef.current
+    if (preLiftRef.current) applyColumns(preLiftRef.current)
+    preLiftRef.current = null
     preLiftOriginRef.current = null
-  }, [findCard, setLocalColumns])
+    setLifted(null)
+    announce('Move cancelled')
+    // Reverting may move the card back to its original lane.
+    if (liftedId) refocusCard(liftedId)
+  }, [applyColumns, refocusCard])
+
+  const commitLift = useCallback((todoId: string) => {
+    const cols = localColumnsRef.current
+    const origin = preLiftOriginRef.current
+    preLiftRef.current = null
+    preLiftOriginRef.current = null
+    setLifted(null)
+    const pos = findCard(cols, todoId)
+    if (!pos) return
+    const lane = cols[pos.colIdx]
+    // Persist the destination lane, and the source lane too when it changed.
+    const orders: Record<string, string[]> = { [lane.id]: lane.todos.map((t) => t.id) }
+    if (origin && origin !== lane.id) {
+      const src = cols.find((c) => c.id === origin)
+      if (src) orders[src.id] = src.todos.map((t) => t.id)
+    }
+    void reorderRef.current(orders)
+    announce(`Dropped in ${lane.name}, position ${pos.cardIdx + 1} of ${lane.todos.length}`)
+  }, [findCard])
 
   const moveLifted = useCallback((todoId: string, dir: 'up' | 'down' | 'left' | 'right') => {
-    setLocalColumns((cols) => {
-      const pos = findCard(cols, todoId)
-      if (!pos) return cols
-      const next = cols.map((c) => ({ ...c, todos: [...c.todos] }))
-      const card = next[pos.colIdx].todos[pos.cardIdx]
+    const cols = localColumnsRef.current
+    const pos = findCard(cols, todoId)
+    if (!pos) return
+    const next = cols.map((c) => ({ ...c, todos: [...c.todos] }))
+    const card = next[pos.colIdx].todos[pos.cardIdx]
+    let message: string
 
-      if (dir === 'up' || dir === 'down') {
-        const target = pos.cardIdx + (dir === 'up' ? -1 : 1)
-        if (target < 0 || target >= next[pos.colIdx].todos.length) return cols
-        next[pos.colIdx].todos.splice(pos.cardIdx, 1)
-        next[pos.colIdx].todos.splice(target, 0, card)
-        announce(`Position ${target + 1} of ${next[pos.colIdx].todos.length} in ${next[pos.colIdx].name}`)
-      } else {
-        const targetCol = pos.colIdx + (dir === 'left' ? -1 : 1)
-        if (targetCol < 0 || targetCol >= next.length) return cols
-        next[pos.colIdx].todos.splice(pos.cardIdx, 1)
-        const insertAt = Math.min(pos.cardIdx, next[targetCol].todos.length)
-        // Status follows the destination lane, matching what a pointer drop does.
-        next[targetCol].todos.splice(insertAt, 0, {
-          ...card,
-          status: (next[targetCol].statusKey ?? card.status) as TodoStatus,
-          columnId: next[targetCol].id,
-        })
-        announce(`${next[targetCol].name}, position ${insertAt + 1} of ${next[targetCol].todos.length}`)
-      }
-      return next
-    })
-  }, [findCard, setLocalColumns])
+    if (dir === 'up' || dir === 'down') {
+      const target = pos.cardIdx + (dir === 'up' ? -1 : 1)
+      if (target < 0 || target >= next[pos.colIdx].todos.length) return
+      next[pos.colIdx].todos.splice(pos.cardIdx, 1)
+      next[pos.colIdx].todos.splice(target, 0, card)
+      message = `Position ${target + 1} of ${next[pos.colIdx].todos.length} in ${next[pos.colIdx].name}`
+    } else {
+      const targetCol = pos.colIdx + (dir === 'left' ? -1 : 1)
+      if (targetCol < 0 || targetCol >= next.length) return
+      next[pos.colIdx].todos.splice(pos.cardIdx, 1)
+      const insertAt = Math.min(pos.cardIdx, next[targetCol].todos.length)
+      // Status follows the destination lane, matching what a pointer drop does.
+      next[targetCol].todos.splice(insertAt, 0, {
+        ...card,
+        status: (next[targetCol].statusKey ?? card.status) as TodoStatus,
+        columnId: next[targetCol].id,
+      })
+      message = `${next[targetCol].name}, position ${insertAt + 1} of ${next[targetCol].todos.length}`
+    }
+    applyColumns(next)
+    announce(message)
+    // The card stays lifted (lifted is keyed by id); only focus needs restoring.
+    refocusCard(todoId)
+  }, [findCard, applyColumns, refocusCard])
 
   const onCardKeyDown = useCallback((e: KeyboardEvent, todoId: string, laneId: string) => {
     if (isClosedRef.current) return

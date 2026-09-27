@@ -18,6 +18,8 @@ export { useMediaQuery, useIsMobile } from './useMediaQuery'
 
 export { useIdleTimeout } from './useIdleTimeout'
 
+export { useHydrated } from './useHydrated'
+
 export { useOkrOptions, okrOptionsQueryKey } from './useOkrOptions'
 export type {
   OkrObjectiveOption,

@@ -6,12 +6,19 @@ import { Checkbox as CheckboxPrimitive } from "radix-ui"
 import { cn } from "@/lib/utils"
 import { CheckIcon } from "lucide-react"
 
-function Checkbox({
-  className,
-  ...props
-}: React.ComponentProps<typeof CheckboxPrimitive.Root>) {
+const Checkbox = React.forwardRef<
+  React.ElementRef<typeof CheckboxPrimitive.Root>,
+  React.ComponentPropsWithoutRef<typeof CheckboxPrimitive.Root>
+>(function Checkbox(
+  {
+    className,
+    ...props
+  },
+  ref,
+) {
   return (
     <CheckboxPrimitive.Root
+      ref={ref}
       data-slot="checkbox"
       className={cn(
         // Tailwind v3: Radix sets data-state="checked" (no bare data-checked
@@ -32,6 +39,6 @@ function Checkbox({
       </CheckboxPrimitive.Indicator>
     </CheckboxPrimitive.Root>
   )
-}
+})
 
 export { Checkbox }

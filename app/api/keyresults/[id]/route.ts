@@ -65,7 +65,9 @@ export const GET = withAuth<RouteIdParams>(async (_request, { session, params })
 
   let processedKeyResult = keyResult
   if (visibility.isRedacted) {
-    processedKeyResult = redactKeyResult(keyResult) as any
+    // Initiative titles are KR content — a redacted viewer must not get them
+    // (the full page hides them too; see key-result-detail.server.ts).
+    processedKeyResult = { ...redactKeyResult(keyResult), todos: [] } as any
   }
 
   const filtered = await filterFieldsByPermLevel(
@@ -73,7 +75,8 @@ export const GET = withAuth<RouteIdParams>(async (_request, { session, params })
     'key_result',
     session.user.id,
   )
-  return apiSuccess(filtered)
+  // `isRedacted` lets clients (quick-view modal) hide private-only sections.
+  return apiSuccess({ ...filtered, isRedacted: visibility.isRedacted })
 })
 
 export const PUT = withAuth<RouteIdParams>(async (request: NextRequest, { session, params }) => {

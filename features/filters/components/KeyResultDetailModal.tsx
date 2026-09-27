@@ -1,455 +1,370 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import {
-  X, ExternalLink, ChevronRight, Target,
-  User, Calendar, Tag, Zap, TrendingUp, CheckSquare,
-} from 'lucide-react'
-import { cn } from '@/lib/utils'
+/**
+ * Key-result quick view (Filters workspace). A trimmed, read-mostly mirror of
+ * /dashboard/key-results/[id] — same numbers, same check-in timeline, same
+ * comment thread — with "View full page" for editing and check-ins.
+ * Spec: docs/okr_quick_view_modals_REQUIREMENTS.md (QV-2).
+ */
+
+import { useCallback, useMemo } from 'react'
+import { useSession } from 'next-auth/react'
 import { format } from 'date-fns'
-import { Modal } from '@/components/ui/Modal'
-import { Skeleton } from '@/components/ui/Skeleton'
-import { PersonTooltip } from '@/components/shared/UserAvatar'
+import { Calendar, ChevronRight, Gauge, Target, User } from 'lucide-react'
+import { formatRelativeTime } from '@/lib/utils'
+import { formatAxisValue } from '@/lib/keyResultChart'
+import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh'
+import { OKR_REALTIME_EVENT_NAMES, keyResultRealtimeChannel } from '@/lib/okr/realtime'
+import { useInitiativeDetailStore } from '@/lib/stores/initiative-detail-store'
+import { UserAvatar } from '@/components/shared/UserAvatar'
+import OkrComments from '@/components/shared/OkrComments'
+import CheckInTimeline from '@/components/key-result-detail/CheckInTimeline'
+import KrProgressConfidenceCard from '@/components/key-result-detail/KrProgressConfidenceCard'
+import {
+  Chip, Crumb, LEVEL_LABEL, MetaRow, PersonLink, PrivateNotice, ProgressRing, QuickLink,
+  QuickViewError, QuickViewShell, QuickViewSkeleton, RailCard, Section, StatCell, StatStrip,
+  TierPill, ViewAllLink, asAvatarUser, clampPct, fetchEnvelope, scoreColor, useQuickViewData,
+} from './quick-view-parts'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── Types (shape of GET /api/keyresults/[id] and /check-ins) ────────────────
 
-interface KrOwner { id: string; name: string | null; avatar?: string | null }
-interface KrObjective { id: string; title: string; level: string }
+interface Person { id: string; name: string | null; avatar?: string | null }
+
 interface KrCheckIn {
-  id: string; value: number; note?: string | null; createdAt: string
-  author?: { id: string; name: string | null }
+  id: string
+  asOfDate: string
+  value: number
+  confidence: string | null
+  confidenceScore?: number | null
+  analysis?: string | null
+  createdBy?: Person | null
 }
-interface KrTodo {
-  id: string; title: string; status: string
-  assignee?: { id: string; name: string | null }
-}
+
+interface KrTodo { id: string; title: string; status: string; assignee?: Person | null }
 
 interface KrDetail {
-  id: string; title: string; description?: string | null
-  startValue: number; targetValue: number; currentValue: number; unit?: string | null
-  confidence?: string; progress: number
-  owner: KrOwner
-  objective: KrObjective & { timeframe?: { name: string; startDate?: string; endDate?: string } }
+  id: string
+  title: string
+  description?: string | null
+  startValue: number
+  targetValue: number
+  currentValue: number
+  unit?: string | null
+  confidence?: string | null
+  progress: number
+  status?: string
+  isPrivate?: boolean
+  updatedAt?: string
+  owner?: Person | null
+  objective?: {
+    id: string
+    title: string
+    level?: string
+    timeframe?: { name: string; startDate?: string | null; endDate?: string | null } | null
+  } | null
   todos?: KrTodo[]
-  checkIns?: KrCheckIn[]
+  isRedacted?: boolean
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const CONF_TONE: Record<string, string> = { ON_TRACK: 'ontrack', AT_RISK: 'atrisk', OFF_TRACK: 'offtrack' }
-const CONF_LABEL: Record<string, string> = { ON_TRACK: 'On Track', AT_RISK: 'At Risk', OFF_TRACK: 'Off Track' }
-const TODO_TONE: Record<string, string> = {
-  COMPLETED: 'ontrack', IN_PROGRESS: 'accent', PENDING: 'none', CANCELLED: 'none',
+/** Initiative status → dot colour + pill colours (tokens only). */
+const WORK_STYLE: Record<string, { label: string; dot: string; bg: string; fg: string }> = {
+  COMPLETED:   { label: 'Done',        dot: 'var(--ap-green)',     bg: 'var(--ap-ok-bg)',      fg: 'var(--ap-ok-fg)' },
+  IN_PROGRESS: { label: 'In progress', dot: 'var(--ap-accent)',    bg: 'var(--ap-accent-soft)', fg: 'var(--ap-accent)' },
+  IN_REVIEW:   { label: 'In review',   dot: 'var(--ap-accent)',    bg: 'var(--ap-accent-soft)', fg: 'var(--ap-accent)' },
+  STUCK:       { label: 'Stuck',       dot: 'var(--ap-red)',       bg: 'var(--ap-danger-bg)',  fg: 'var(--ap-danger-fg)' },
+  PENDING:     { label: 'To do',       dot: 'var(--ap-fg-subtle)', bg: 'var(--ap-none-bg)',    fg: 'var(--ap-none-fg)' },
 }
-const TODO_LABEL: Record<string, string> = {
-  COMPLETED: 'Done', IN_PROGRESS: 'In Progress', PENDING: 'Pending', CANCELLED: 'Cancelled',
-}
+const TIER_PROXY: Record<string, number> = { ON_TRACK: 85, AT_RISK: 55, OFF_TRACK: 25 }
 
-function StatusPill({ confidence }: { confidence?: string }) {
-  return (
-    <span className="ap-status-pill" data-tone={CONF_TONE[confidence ?? ''] ?? 'none'}>
-      {CONF_LABEL[confidence ?? ''] ?? 'Pending'}
-    </span>
-  )
-}
-
-/** `detail` turns on the full-name hover card — pass it only where the name is
- *  not printed beside the avatar (docs/user_name_hover_REQUIREMENTS.md UNH-6). */
-function Avatar({ name, size = 'sm', detail }: { name: string | null | undefined; size?: 'sm' | 'md'; detail?: string }) {
-  const sz = size === 'sm' ? 'size-6 text-caption' : 'size-8 text-body-sm'
-  const face = (
-    <span
-      role={detail ? 'img' : undefined}
-      aria-label={detail ? (name ?? undefined) : undefined}
-      className={cn('flex shrink-0 items-center justify-center rounded-full font-bold', sz)}
-      style={{ background: 'var(--ap-accent-soft)', color: 'var(--ap-accent)' }}
-    >
-      {(name ?? '?').charAt(0).toUpperCase()}
-    </span>
-  )
-  if (!detail || !name) return face
-  return <PersonTooltip person={{ name }} detail={detail}>{face}</PersonTooltip>
+/** Numeric confidence: prefer the check-in slider score, else the tier proxy
+ *  (same rule as KeyResultDetailClient). */
+function confidenceOf(c: { confidenceScore?: number | null; confidence?: string | null } | undefined): number {
+  if (typeof c?.confidenceScore === 'number') return c.confidenceScore
+  return TIER_PROXY[c?.confidence ?? ''] ?? 50
 }
 
-function SectionCard({ title, children }: { title?: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-[var(--ap-radius-md)]" style={{ border: '1px solid var(--ap-border)', background: 'var(--ap-bg-raised)' }}>
-      {title && (
-        <div className="border-b px-4 py-2.5" style={{ borderColor: 'var(--ap-border)' }}>
-          <p className="text-micro font-bold uppercase tracking-widest" style={{ color: 'var(--ap-fg-subtle)' }}>{title}</p>
-        </div>
-      )}
-      <div className="p-4">{children}</div>
-    </div>
-  )
-}
+const CHECKINS_SHOWN = 3
+const INITIATIVES_SHOWN = 5
 
-function MetaRow({ icon: Icon, label, children }: { icon: any; label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex items-start gap-3 py-2" style={{ borderBottom: '1px solid var(--ap-border)' }}>
-      <Icon className="mt-0.5 size-4 shrink-0" style={{ color: 'var(--ap-fg-subtle)' }} />
-      <span className="w-24 shrink-0 text-xs font-medium" style={{ color: 'var(--ap-fg-subtle)' }}>{label}</span>
-      <div className="flex-1 text-body-sm" style={{ color: 'var(--ap-fg)' }}>{children}</div>
-    </div>
-  )
-}
-
-// ─── Progress bar with goal labels ───────────────────────────────────────────
-
-function GoalBar({ start, current, target, unit }: { start: number; current: number; target: number; unit?: string | null }) {
-  const range = Math.max(target - start, 1)
-  const pct = Math.min(Math.max(((current - start) / range) * 100, 0), 100)
-  const u = unit ?? ''
-  return (
-    <div className="space-y-2">
-      <div className="flex justify-between text-caption" style={{ color: 'var(--ap-fg-subtle)' }}>
-        <span>Start: {start}{u}</span>
-        <span>Current: <span style={{ color: 'var(--ap-accent)', fontWeight: 600 }}>{current}{u}</span></span>
-        <span>Target: {target}{u}</span>
-      </div>
-      <div className="relative h-2 overflow-hidden rounded-full" style={{ background: 'var(--ap-border-strong)' }}>
-        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: 'var(--ap-accent)' }} />
-      </div>
-      <div className="text-right text-caption font-semibold" style={{ color: 'var(--ap-accent)' }}>{Math.round(pct)}% complete</div>
-    </div>
-  )
-}
-
-// ─── Sparkline chart (SVG) ────────────────────────────────────────────────────
-
-function ProgressSparkline({ checkIns, target }: { checkIns: KrCheckIn[]; target: number }) {
-  if (checkIns.length < 2) {
-    return (
-      <div className="flex h-24 items-center justify-center">
-        <p className="text-xs" style={{ color: 'var(--ap-fg-subtle)' }}>Not enough check-ins to show a trend.</p>
-      </div>
-    )
-  }
-  const W = 400; const H = 80; const PAD = 8
-  const vals = checkIns.map((c) => c.value)
-  const min = 0; const max = Math.max(target, ...vals)
-  const range = Math.max(max - min, 1)
-  const pts = checkIns.map((c, i) => {
-    const x = PAD + (i / (checkIns.length - 1)) * (W - PAD * 2)
-    const y = H - PAD - ((c.value - min) / range) * (H - PAD * 2)
-    return `${x},${y}`
-  })
-  const targetY = H - PAD - ((target - min) / range) * (H - PAD * 2)
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 80 }}>
-      <line x1={PAD} y1={targetY} x2={W - PAD} y2={targetY} stroke="var(--ap-border-strong)" strokeWidth="1" strokeDasharray="4 3" />
-      <polyline fill="none" stroke="var(--ap-accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" points={pts.join(' ')} />
-      {checkIns.map((c, i) => {
-        const [x, y] = pts[i].split(',').map(Number)
-        return <circle key={c.id} cx={x} cy={y} r="3" fill="var(--ap-accent)" />
-      })}
-    </svg>
-  )
-}
-
-// ─── Initiative (Todo) row ────────────────────────────────────────────────────
-
-function InitiativeRow({ todo }: { todo: KrTodo }) {
-  const tone = TODO_TONE[todo.status] ?? 'none'
-  const label = TODO_LABEL[todo.status] ?? todo.status
-  return (
-    <div
-      className="flex items-center gap-3 py-2.5"
-      style={{ borderBottom: '1px solid var(--ap-border)' }}
-    >
-      <span className="ap-status-dot shrink-0" data-tone={tone} />
-      <p className="min-w-0 flex-1 truncate text-body-sm" style={{ color: 'var(--ap-fg)' }}>{todo.title}</p>
-      {todo.assignee && <Avatar name={todo.assignee.name} size="sm" detail="Assignee" />}
-      <span className="ap-status-pill shrink-0" data-tone={tone}>{label}</span>
-    </div>
-  )
-}
-
-// ─── Check-in row ─────────────────────────────────────────────────────────────
-
-function CheckInRow({ ci }: { ci: KrCheckIn }) {
-  const dateStr = (() => { try { return format(new Date(ci.createdAt), 'MMM d, yyyy') } catch { return ci.createdAt } })()
-  return (
-    <div className="flex items-start gap-3 py-2.5" style={{ borderBottom: '1px solid var(--ap-border)' }}>
-      {ci.author && <Avatar name={ci.author.name} size="sm" detail="Checked in" />}
-      <div className="min-w-0 flex-1">
-        {ci.note && <p className="text-body-sm leading-snug" style={{ color: 'var(--ap-fg)' }}>{ci.note}</p>}
-        <p className="mt-0.5 text-caption" style={{ color: 'var(--ap-fg-subtle)' }}>{dateStr} · value: {ci.value}</p>
-      </div>
-    </div>
-  )
-}
-
-// ─── AI Quick Mode ────────────────────────────────────────────────────────────
-
-const AI_PROMPTS = [
-  'Summarize progress',
-  'Identify blockers',
-  'Suggest next steps',
-  'Compare to targets',
-]
-
-function QuickAiMode() {
-  return (
-    <SectionCard title="Quick AI Mode">
-      <div className="flex flex-wrap gap-1.5">
-        {AI_PROMPTS.map((p) => (
-          <button
-            key={p}
-            type="button"
-            className="rounded-full px-2.5 py-1 text-caption font-medium transition-colors hover:opacity-80"
-            style={{ background: 'var(--ap-accent-soft)', color: 'var(--ap-accent)', border: '1px solid color-mix(in oklch, var(--ap-accent) 20%, transparent)' }}
-          >
-            <Zap className="mr-1 inline size-2.5" aria-hidden />
-            {p}
-          </button>
-        ))}
-      </div>
-    </SectionCard>
-  )
-}
-
-// ─── Main Modal ───────────────────────────────────────────────────────────────
+// ─── Component ────────────────────────────────────────────────────────────────
 
 interface Props {
   krId: string | null
   onClose: () => void
+  /** Swap to the objective quick view (breadcrumb / "Aligned to"). */
+  onOpenObjective?: (objectiveId: string) => void
 }
 
-export function KeyResultDetailModal({ krId, onClose }: Props) {
-  const router = useRouter()
-  const [data, setData] = useState<KrDetail | null>(null)
-  const [checkIns, setCheckIns] = useState<KrCheckIn[]>([])
-  const [loading, setLoading] = useState(false)
+export function KeyResultDetailModal({ krId, onClose, onOpenObjective }: Props) {
+  const { data: session } = useSession()
+  const currentUserId = (session?.user as { id?: string } | undefined)?.id ?? null
 
-  useEffect(() => {
-    if (!krId) { setData(null); setCheckIns([]); return }
-    setLoading(true)
-    Promise.all([
-      fetch(`/api/keyresults/${krId}`).then((r) => r.json()),
-      fetch(`/api/keyresults/${krId}/check-ins`).then((r) => r.json()),
+  const load = useCallback(async (signal: AbortSignal) => {
+    const [kr, checkIns] = await Promise.all([
+      fetchEnvelope<KrDetail>(`/api/keyresults/${krId}`, signal),
+      fetchEnvelope<KrCheckIn[]>(`/api/keyresults/${krId}/check-ins`, signal).catch(() => [] as KrCheckIn[]),
     ])
-      .then(([krRes, ciRes]) => {
-        setData(krRes.data ?? null)
-        setCheckIns(Array.isArray(ciRes.data) ? ciRes.data : [])
-      })
-      .catch(() => { setData(null); setCheckIns([]) })
-      .finally(() => setLoading(false))
+    return { kr, checkIns: Array.isArray(checkIns) ? checkIns : [] }
   }, [krId])
+  const { data, error, loading, reload } = useQuickViewData(krId, load)
 
+  const kr = data?.kr ?? null
+  const redacted = !!kr?.isRedacted
 
-  const todos = data?.todos ?? []
-  const recentCheckIns = [...checkIns].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5)
+  // Another user's check-in / edit on this KR refreshes the view silently.
+  const silentReload = useCallback(() => reload(true), [reload])
+  useRealtimeRefresh({
+    channel: krId && kr && !redacted ? keyResultRealtimeChannel(krId) : null,
+    events: OKR_REALTIME_EVENT_NAMES,
+    onRefresh: silentReload,
+    ignoreActorId: currentUserId,
+  })
+
+  const checkIns = useMemo(
+    () => [...(data?.checkIns ?? [])].sort((a, b) => new Date(a.asOfDate).getTime() - new Date(b.asOfDate).getTime()),
+    [data?.checkIns],
+  )
+
+  // Falls back to the loaded id so the header holds steady while the dialog animates out.
+  const fullHrefId = krId ?? data?.kr?.id ?? null
+  const fullHref = fullHrefId ? `/dashboard/key-results/${fullHrefId}` : null
+  const objective = kr?.objective ?? null
+  const timeframe = objective?.timeframe ?? null
+
+  const breadcrumb = (
+    <>
+      {objective && (
+        <>
+          <Crumb
+            icon={Target}
+            label={redacted ? 'Objective' : objective.title}
+            onClick={onOpenObjective ? () => onOpenObjective(objective.id) : undefined}
+          />
+          <ChevronRight className="size-3 shrink-0" aria-hidden />
+        </>
+      )}
+      <span className="shrink-0 font-medium" style={{ color: 'var(--ap-fg-muted)' }}>Key result</span>
+    </>
+  )
+
+  let body: React.ReactNode
+  let rail: React.ReactNode = null
+
+  if (loading) {
+    body = <QuickViewSkeleton label="Loading key result" />
+  } else if (error || !kr) {
+    body = <QuickViewError message={error ?? 'Could not load this key result.'} onRetry={() => reload()} fullHref={fullHref} onClose={onClose} />
+  } else {
+    const unit = kr.unit ?? ''
+    const target = Number(kr.targetValue) || 0
+    const current = Number(kr.currentValue) || 0
+    const start = Number(kr.startValue) || 0
+    // Same formula as the full page and the result list: current / target.
+    const pct = clampPct(target > 0 ? (current / target) * 100 : kr.progress)
+    const latest = checkIns[checkIns.length - 1]
+    const previous = checkIns[checkIns.length - 2]
+    const confidence = latest ? confidenceOf(latest) : confidenceOf(kr)
+    const todos = (kr.todos ?? []).filter((t) => t.status !== 'CANCELLED')
+    const doneCount = todos.filter((t) => t.status === 'COMPLETED').length
+    const recentCheckIns = checkIns.slice(-CHECKINS_SHOWN)
+
+    const end = timeframe?.endDate ? new Date(timeframe.endDate) : null
+    const daysLeft = end ? Math.ceil((end.getTime() - Date.now()) / 86_400_000) : null
+
+    body = (
+      <div className="space-y-4">
+        {/* Hero */}
+        <div>
+          <div className="mb-2 flex flex-wrap items-center gap-1.5">
+            {objective?.level && LEVEL_LABEL[objective.level] && <Chip>{LEVEL_LABEL[objective.level]}</Chip>}
+            <Chip accent>KR</Chip>
+            {timeframe?.name && <Chip><Calendar className="size-3" aria-hidden />{timeframe.name}</Chip>}
+            {kr.isPrivate && <Chip>Private</Chip>}
+            {kr.status === 'ARCHIVED' && <Chip>Archived</Chip>}
+          </div>
+          <h2 className="text-xl font-semibold leading-snug" style={{ color: 'var(--ap-fg)', letterSpacing: '-0.02em', textWrap: 'balance' } as React.CSSProperties}>
+            {kr.title}
+          </h2>
+          {objective && !redacted && (
+            <p className="mt-1.5 flex items-center gap-1.5 text-xs" style={{ color: 'var(--ap-fg-subtle)' }}>
+              <Target className="size-3.5 shrink-0" aria-hidden />
+              <span className="shrink-0">Aligned to</span>
+              {onOpenObjective ? (
+                <button type="button" onClick={() => onOpenObjective(objective.id)} className="truncate font-medium hover:underline" style={{ color: 'var(--ap-accent)' }}>
+                  {objective.title}
+                </button>
+              ) : (
+                <QuickLink href={`/dashboard/objectives/${objective.id}`} onNavigate={onClose} className="truncate">{objective.title}</QuickLink>
+              )}
+            </p>
+          )}
+          {kr.description && !redacted && (
+            <p className="mt-2 line-clamp-3 text-body-sm" style={{ color: 'var(--ap-fg-muted)' }}>{kr.description}</p>
+          )}
+          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs" style={{ color: 'var(--ap-fg-subtle)' }}>
+            <PersonLink person={kr.owner} role="KR owner" onNavigate={onClose} />
+            {end && (
+              <span className="inline-flex items-center gap-1.5">
+                <Calendar className="size-3.5" aria-hidden />
+                Due {format(end, 'MMM d, yyyy')} · {daysLeft !== null && daysLeft > 0 ? `${daysLeft}d left` : 'past due'}
+              </span>
+            )}
+            {kr.updatedAt && <span className="sm:ml-auto">Updated {formatRelativeTime(kr.updatedAt)}</span>}
+          </div>
+        </div>
+
+        {/* Stat strip */}
+        <StatStrip>
+          <StatCell label="Progress">
+            <div className="flex items-center gap-3">
+              <ProgressRing value={pct} tier={kr.confidence} />
+              {!redacted && (
+                <span className="text-caption tabular-nums" style={{ color: 'var(--ap-fg-muted)' }}>
+                  {formatAxisValue(current)}/{formatAxisValue(target)} {unit}
+                </span>
+              )}
+            </div>
+          </StatCell>
+          <StatCell label="Status"><span><TierPill tier={kr.confidence} /></span></StatCell>
+          <StatCell label="Confidence">
+            <p className="text-lg font-semibold leading-none tabular-nums">
+              {confidence}<span className="text-xs font-normal" style={{ color: 'var(--ap-fg-subtle)' }}>/100</span>
+            </p>
+            <div className="h-1.5 w-full overflow-hidden rounded-full" style={{ background: 'var(--ap-kr-bar-bg)' }}>
+              <div className="h-full rounded-full" style={{ width: `${confidence}%`, background: scoreColor(confidence) }} />
+            </div>
+          </StatCell>
+          <StatCell label="Last check-in">
+            {latest ? (
+              <>
+                <p className="text-sm font-semibold leading-none">{formatRelativeTime(latest.asOfDate)}</p>
+                <p className="truncate text-caption" style={{ color: 'var(--ap-fg-subtle)' }}>by {latest.createdBy?.name ?? 'Unknown'}</p>
+              </>
+            ) : (
+              <p className="text-xs" style={{ color: 'var(--ap-fg-subtle)' }}>{redacted ? 'Hidden' : 'No check-ins yet'}</p>
+            )}
+          </StatCell>
+        </StatStrip>
+
+        {redacted ? (
+          <PrivateNotice what="key result" />
+        ) : (
+          <>
+            {/* Check-ins */}
+            <Section
+              title="Check-in history"
+              count={checkIns.length}
+              action={checkIns.length > CHECKINS_SHOWN && fullHref
+                ? <ViewAllLink href={fullHref} label={`View all ${checkIns.length}`} onNavigate={onClose} />
+                : undefined}
+            >
+              <CheckInTimeline checkIns={recentCheckIns} unit={unit} />
+            </Section>
+
+            {/* Initiatives */}
+            <Section
+              title="Initiatives"
+              count={todos.length > 0 ? `${doneCount}/${todos.length} done` : 0}
+              action={todos.length > INITIATIVES_SHOWN && fullHref
+                ? <ViewAllLink href={fullHref} label={`View all ${todos.length}`} onNavigate={onClose} />
+                : undefined}
+            >
+              {todos.length === 0 ? (
+                <p className="text-xs" style={{ color: 'var(--ap-fg-subtle)' }}>No initiatives linked to this key result yet.</p>
+              ) : (
+                <ul className="-my-1">
+                  {todos.slice(0, INITIATIVES_SHOWN).map((t) => (
+                    <li key={t.id}>
+                      <button
+                        type="button"
+                        // Close first — the initiative drawer is its own dialog at layout level.
+                        onClick={() => { onClose(); useInitiativeDetailStore.getState().open(t.id) }}
+                        className="flex w-full items-center gap-3 rounded-[var(--ap-radius-sm)] px-2 py-2 text-left transition-colors hover:bg-[var(--ap-bg-hover)]"
+                      >
+                        <span className="size-2 shrink-0 rounded-full" style={{ background: (WORK_STYLE[t.status] ?? WORK_STYLE.PENDING).dot }} aria-hidden />
+                        <span className="min-w-0 flex-1 truncate text-body-sm" style={{ color: 'var(--ap-fg)' }}>{t.title}</span>
+                        {t.assignee && <UserAvatar user={asAvatarUser(t.assignee)} size={22} tooltipDetail="Assignee" />}
+                        <span
+                          className="shrink-0 rounded-full px-2 py-0.5 text-micro font-semibold"
+                          style={{ background: (WORK_STYLE[t.status] ?? WORK_STYLE.PENDING).bg, color: (WORK_STYLE[t.status] ?? WORK_STYLE.PENDING).fg }}
+                        >
+                          {WORK_STYLE[t.status]?.label ?? t.status}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Section>
+
+            {/* Comments — same thread as the full page (rich text, attachments, realtime). */}
+            <OkrComments endpoint="keyresults" entityId={kr.id} users={[]} currentUserId={currentUserId} />
+          </>
+        )}
+      </div>
+    )
+
+    rail = (
+      <>
+        {!redacted && timeframe?.startDate && timeframe?.endDate && (
+          <KrProgressConfidenceCard
+            checkIns={checkIns}
+            startValue={start}
+            targetValue={target}
+            currentValue={current}
+            currentConfidence={confidence}
+            previousConfidence={previous ? confidenceOf(previous) : null}
+            timeframeStart={timeframe.startDate}
+            timeframeEnd={timeframe.endDate}
+          />
+        )}
+        <RailCard title="Details">
+          <MetaRow icon={User} label="Owner">{kr.owner?.name ?? '—'}</MetaRow>
+          {timeframe && (
+            <MetaRow icon={Calendar} label="Timeframe">
+              <p>{timeframe.name}</p>
+              {timeframe.startDate && timeframe.endDate && (
+                <p className="mt-0.5" style={{ color: 'var(--ap-fg-subtle)' }}>
+                  {format(new Date(timeframe.startDate), 'MMM yyyy')} → {format(new Date(timeframe.endDate), 'MMM yyyy')}
+                </p>
+              )}
+            </MetaRow>
+          )}
+          {objective && !redacted && (
+            <MetaRow icon={Target} label="Objective">
+              <QuickLink href={`/dashboard/objectives/${objective.id}`} onNavigate={onClose} className="line-clamp-2">
+                {objective.title}
+              </QuickLink>
+            </MetaRow>
+          )}
+          {!redacted && (
+            <MetaRow icon={Gauge} label="Measure">
+              <p className="tabular-nums">
+                {formatAxisValue(start)} → {formatAxisValue(target)} {unit}
+              </p>
+              <p className="mt-0.5 tabular-nums" style={{ color: 'var(--ap-fg-subtle)' }}>
+                Current {formatAxisValue(current)} {unit}
+              </p>
+            </MetaRow>
+          )}
+        </RailCard>
+      </>
+    )
+  }
 
   return (
-    <Modal
+    <QuickViewShell
       open={!!krId}
       onClose={onClose}
-      // Accessible name only — the visible header below carries the breadcrumb + actions.
-      title={data?.title ?? 'Key result'}
-      hideHeader
-      showCloseButton={false}
-      size="2xl"
-      className="!gap-0 overflow-hidden !p-0 sm:max-w-5xl"
+      title={kr?.title ?? 'Key result'}
+      breadcrumb={breadcrumb}
+      fullHref={fullHref}
+      fullLabel="View full page"
+      rail={rail}
     >
-      <div
-        className="relative flex max-h-[92vh] w-full flex-col overflow-hidden"
-        style={{ background: 'var(--ap-bg)', borderRadius: 'var(--ap-radius-lg)' }}
-      >
-        {/* ── Header ── */}
-        <div
-          className="flex shrink-0 items-center gap-3 border-b px-5 py-3.5"
-          style={{ borderColor: 'var(--ap-border)', background: 'var(--ap-bg-raised)' }}
-        >
-          {/* Breadcrumb */}
-          <div className="min-w-0 flex-1 flex items-center gap-1.5 text-xs" style={{ color: 'var(--ap-fg-subtle)' }}>
-            {data?.objective && (
-              <>
-                <Target className="size-3.5 shrink-0" style={{ color: 'var(--ap-accent)' }} />
-                <span className="truncate max-w-[200px]">{data.objective.title}</span>
-                <ChevronRight className="size-3 shrink-0" />
-              </>
-            )}
-            <span className="font-medium" style={{ color: 'var(--ap-fg-muted)' }}>Key Result</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => router.push(`/dashboard/key-results/${krId}`)}
-              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-85"
-              style={{ background: 'var(--ap-accent)', color: 'var(--ap-accent-fg)' }}
-            >
-              <ExternalLink className="size-3.5" aria-hidden />
-              Open full page
-            </button>
-            <button type="button" aria-label="Close" className="rounded-lg p-1.5 transition-colors hover:bg-[var(--ap-bg-hover)]" onClick={onClose}>
-              <X className="size-4" style={{ color: 'var(--ap-fg-muted)' }} aria-hidden />
-            </button>
-          </div>
-        </div>
-
-        {/* ── Body ── */}
-        <div className="flex min-h-0 flex-1 overflow-hidden">
-          {/* Left main */}
-          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 py-5">
-            {loading ? (
-              <div className="space-y-5" aria-busy="true" aria-label="Loading key result">
-                <Skeleton className="h-5 w-24 rounded-full" />
-                <Skeleton className="h-7 w-2/3" />
-                <Skeleton className="h-24 w-full" />
-                <Skeleton className="h-24 w-full" />
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-12 w-full" />
-              </div>
-            ) : data ? (
-              <div className="space-y-5">
-                {/* Title + status */}
-                <div className="flex items-start gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <StatusPill confidence={data.confidence} />
-                    </div>
-                    <h2 className="text-xl font-semibold leading-snug tracking-tight" style={{ color: 'var(--ap-fg)' }}>
-                      {data.title}
-                    </h2>
-                    {data.description && (
-                      <p className="mt-2 text-body-sm leading-relaxed" style={{ color: 'var(--ap-fg-muted)' }}>
-                        {data.description}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Goal bar */}
-                <div
-                  className="rounded-[var(--ap-radius-md)] p-4"
-                  style={{ border: '1px solid var(--ap-border)', background: 'var(--ap-bg-raised)' }}
-                >
-                  <p className="mb-3 text-caption font-bold uppercase tracking-widest" style={{ color: 'var(--ap-fg-subtle)' }}>
-                    Goal Progress
-                  </p>
-                  <GoalBar
-                    start={data.startValue}
-                    current={data.currentValue}
-                    target={data.targetValue}
-                    unit={data.unit}
-                  />
-                </div>
-
-                {/* Progress chart */}
-                {checkIns.length > 0 && (
-                  <div
-                    className="rounded-[var(--ap-radius-md)] p-4"
-                    style={{ border: '1px solid var(--ap-border)', background: 'var(--ap-bg-raised)' }}
-                  >
-                    <p className="mb-2 text-caption font-bold uppercase tracking-widest" style={{ color: 'var(--ap-fg-subtle)' }}>
-                      Progress Over Time
-                    </p>
-                    <ProgressSparkline checkIns={[...checkIns].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())} target={data.targetValue} />
-                  </div>
-                )}
-
-                {/* Initiatives */}
-                {todos.length > 0 && (
-                  <div>
-                    <p className="mb-2 text-caption font-bold uppercase tracking-widest" style={{ color: 'var(--ap-fg-subtle)' }}>
-                      Initiatives ({todos.length})
-                    </p>
-                    <div
-                      className="rounded-[var(--ap-radius-md)] overflow-hidden"
-                      style={{ border: '1px solid var(--ap-border)', background: 'var(--ap-bg-raised)' }}
-                    >
-                      {todos.map((t) => (
-                        <div key={t.id} className="px-4">
-                          <InitiativeRow todo={t} />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Check-in timeline */}
-                {recentCheckIns.length > 0 && (
-                  <div>
-                    <p className="mb-2 text-caption font-bold uppercase tracking-widest" style={{ color: 'var(--ap-fg-subtle)' }}>
-                      Recent Check-ins
-                    </p>
-                    <div
-                      className="rounded-[var(--ap-radius-md)] overflow-hidden"
-                      style={{ border: '1px solid var(--ap-border)', background: 'var(--ap-bg-raised)' }}
-                    >
-                      {recentCheckIns.map((ci) => (
-                        <div key={ci.id} className="px-4">
-                          <CheckInRow ci={ci} />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="flex items-center justify-center py-20">
-                <p className="text-sm" style={{ color: 'var(--ap-fg-subtle)' }}>Failed to load key result.</p>
-              </div>
-            )}
-          </div>
-
-          {/* Right sidebar */}
-          <div
-            className="flex w-72 shrink-0 flex-col gap-4 overflow-y-auto border-l p-4"
-            style={{ borderColor: 'var(--ap-border)', background: 'var(--ap-bg)' }}
-          >
-            {data && (
-              <>
-                {/* Quick AI */}
-                <QuickAiMode />
-
-                {/* Details */}
-                <SectionCard title="Details">
-                  <div className="space-y-0">
-                    <MetaRow icon={User} label="Owner">
-                      <span className="flex items-center gap-1.5">
-                        <Avatar name={data.owner?.name} size="sm" />
-                        {data.owner?.name ?? '—'}
-                      </span>
-                    </MetaRow>
-                    <MetaRow icon={Target} label="Objective">
-                      <span className="truncate text-xs">{data.objective?.title ?? '—'}</span>
-                    </MetaRow>
-                    {data.objective?.timeframe && (
-                      <MetaRow icon={Calendar} label="Timeframe">
-                        {data.objective.timeframe.name}
-                      </MetaRow>
-                    )}
-                    <MetaRow icon={TrendingUp} label="Confidence">
-                      <StatusPill confidence={data.confidence} />
-                    </MetaRow>
-                    <div className="flex items-center gap-3 py-2">
-                      <CheckSquare className="size-4 shrink-0" style={{ color: 'var(--ap-fg-subtle)' }} />
-                      <span className="w-24 shrink-0 text-xs font-medium" style={{ color: 'var(--ap-fg-subtle)' }}>Initiatives</span>
-                      <span className="text-body-sm" style={{ color: 'var(--ap-fg)' }}>{todos.length}</span>
-                    </div>
-                  </div>
-                </SectionCard>
-
-                {/* Relationships */}
-                <SectionCard title="Relationships">
-                  <p className="text-xs" style={{ color: 'var(--ap-fg-subtle)' }}>No dependencies.</p>
-                </SectionCard>
-
-                {/* Tags */}
-                <SectionCard title="Tags">
-                  <div className="flex items-center gap-1.5">
-                    <Tag className="size-3.5" style={{ color: 'var(--ap-fg-subtle)' }} />
-                    <span className="text-xs" style={{ color: 'var(--ap-fg-subtle)' }}>None</span>
-                  </div>
-                </SectionCard>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-    </Modal>
+      {body}
+    </QuickViewShell>
   )
 }

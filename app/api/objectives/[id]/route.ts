@@ -90,7 +90,9 @@ export const GET = withAuth<RouteIdParams>(async (_request, { session, params })
 
   let processedObjective = objective
   if (visibility.isRedacted) {
-    processedObjective = redactObjective(objective) as any
+    // The comment thread is objective content — never ship it to a redacted
+    // viewer (the comments API refuses them too; see lib/okr/comment-access.ts).
+    processedObjective = { ...redactObjective(objective), comments: [] } as any
 
     if (processedObjective.keyResults) {
       processedObjective.keyResults = processedObjective.keyResults.map((kr: any) => ({
@@ -102,6 +104,8 @@ export const GET = withAuth<RouteIdParams>(async (_request, { session, params })
         currentValue: 0,
         unit: '',
         progress: kr.progress,
+        todos: [],
+        isRedacted: true,
       }))
     }
   } else {
@@ -117,7 +121,7 @@ export const GET = withAuth<RouteIdParams>(async (_request, { session, params })
               isPrivate: kr.isPrivate,
             }
           )
-          if (krVisibility.isRedacted) return redactKeyResult(kr)
+          if (krVisibility.isRedacted) return { ...redactKeyResult(kr), todos: [], isRedacted: true }
           return kr
         })
       )
@@ -129,7 +133,8 @@ export const GET = withAuth<RouteIdParams>(async (_request, { session, params })
     'objective',
     session.user.id,
   )
-  return apiSuccess(filtered)
+  // `isRedacted` lets clients (quick-view modal) hide private-only sections.
+  return apiSuccess({ ...filtered, isRedacted: visibility.isRedacted })
 })
 
 export const PUT = withAuth<RouteIdParams>(async (request: NextRequest, { session, params }) => {

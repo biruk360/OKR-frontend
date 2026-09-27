@@ -56,6 +56,9 @@ export const GET = withAuth<RouteIdParams>(async (_request, { session, params })
     isPrivate: keyResult.isPrivate,
   })
   if (!visibility.canView) return apiForbidden('Access denied')
+  // Check-in history (values + analysis) is private content; a redacted viewer
+  // sees only that the KR exists — same as the full page.
+  if (visibility.isRedacted) return apiSuccess([])
 
   const checkIns = await prisma.keyResultCheckIn.findMany({
     where: { keyResultId: id },

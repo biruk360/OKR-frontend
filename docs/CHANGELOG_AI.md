@@ -2,6 +2,14 @@
 
 > **Purpose:** Log of all changes made by AI assistants. Every AI session that modifies code MUST append an entry here.
 
+## 2026-09-27 — OKR quick-view modals rebuilt + private-OKR API leaks closed
+
+**Why:** the Objective / Key Result modals opened from `/dashboard/key-results?…` (Filters workspace) were design mock-ups wired to the wrong fields: check-ins read `createdAt`/`author`/`note` (API: `asOfDate`/`createdBy`/`analysis`), KR % used a different formula than the full page (28% vs 35%), objective status compared the **Int** `confidence` to `'ON_TRACK'` (always "Pending", NCS always 0), the initiatives donut was fabricated, Quick AI / Relationships / Tags were inert placeholders, nothing linked anywhere, and there were no comments. Spec: `docs/okr_quick_view_modals_REQUIREMENTS.md` (QV-1…QV-6).
+
+- **Quick views** (`features/filters/components/{KeyResultDetailModal,ObjectiveDetailModal,quick-view-parts}.tsx`): trimmed mirrors of the full pages built from the same shared parts (`CheckInTimeline`, `KrProgressConfidenceCard`, `OkrComments`, `UserAvatar`). Primary action "View full page" (real `<Link>`), "View all N" on trimmed sections, objective ↔ KR swap in place (`ResultsList`), initiative rows open the global initiative drawer, owner/objective links, responsive rail (stacks below `lg`), abortable loads + error state with Retry, silent realtime refetch on the entity's private channel. Status dots now use token colours (`.ap-status-dot` has no tone rules, so the old dots were invisible).
+- **Security (QV-6):** `GET /api/keyresults/[id]/check-ins` returns `[]` to a redacted viewer (it returned full history + analysis); `GET /api/keyresults/[id]` drops `todos` when redacted; `GET /api/objectives/[id]` drops `comments` and every KR's `todos` when redacted, and drops `todos` from individually private KRs. Both detail routes add `isRedacted` (additive).
+- **Tests:** `lib/okr/quick-view-modals.test.ts` (redaction guards + modal field contracts). tsc 0 · eslint clean on touched files · `test:okr` 104/104 · `test:security` 108/108. Not run: browser check (no local Postgres running).
+
 ## 2026-09-27 — Validation pass + production hotfixes (session okr-mgt-af)
 
 **Why:** the 2026-09-25 remediation went live on 2026-09-27 (deploy `a130061`). A post-deploy validation (8 requirement-traceability agents → `docs/verification/*_TRACEABILITY.md`, `UI_UX_CONFORMANCE.md`; 4 headless-browser agents against a local copy) found live crashes and a login regression.

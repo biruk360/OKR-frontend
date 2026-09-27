@@ -379,14 +379,17 @@ export function ResultsList({ results, tab, onReset }: ResultsListProps) {
         <div className="h-12" />
       </div>
 
+      {/* Quick views swap in place (objective ↔ KR, KR → parent) — never stacked. */}
       <ObjectiveDetailModal
         objectiveId={selectedObjId}
         onClose={() => setSelectedObjId(null)}
         onOpenKr={(krId) => { setSelectedObjId(null); setSelectedKrId(krId) }}
+        onOpenObjective={setSelectedObjId}
       />
       <KeyResultDetailModal
         krId={selectedKrId}
         onClose={() => setSelectedKrId(null)}
+        onOpenObjective={(objId) => { setSelectedKrId(null); setSelectedObjId(objId) }}
       />
     </>
   )

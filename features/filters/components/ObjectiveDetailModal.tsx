@@ -1,364 +1,305 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import {
-  X, Share2, MoreHorizontal, Flag, ExternalLink,
-  Target, CheckSquare, TrendingUp, ChevronRight,
-  User, Calendar, Building2, Link2, Tag,
-} from 'lucide-react'
-import { cn } from '@/lib/utils'
+/**
+ * Objective quick view (Filters workspace). A trimmed, read-mostly mirror of
+ * /dashboard/objectives/[id] — real status (goalStatus), real confidence
+ * (0–100 int), clickable key results, the same comment thread — with
+ * "View full page" for everything else.
+ * Spec: docs/okr_quick_view_modals_REQUIREMENTS.md (QV-3).
+ */
+
+import { useCallback } from 'react'
+import { useSession } from 'next-auth/react'
+import { format } from 'date-fns'
+import { Building2, Calendar, CheckSquare, ChevronRight, Flag, Layers, Lock, Target, User } from 'lucide-react'
+import { formatAxisValue } from '@/lib/keyResultChart'
+import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh'
+import { OKR_REALTIME_EVENT_NAMES, objectiveRealtimeChannel } from '@/lib/okr/realtime'
 import { Progress } from '@/components/ui/progress'
-import { Modal } from '@/components/ui/Modal'
-import { Skeleton } from '@/components/ui/Skeleton'
-import { PersonTooltip } from '@/components/shared/UserAvatar'
+import { UserAvatar, UserAvatarStack } from '@/components/shared/UserAvatar'
+import OkrComments from '@/components/shared/OkrComments'
+import {
+  Chip, Crumb, LEVEL_LABEL, MetaRow, PersonLink, PrivateNotice, ProgressRing, QuickLink,
+  QuickViewError, QuickViewShell, QuickViewSkeleton, RailCard, Section, StatCell, StatStrip,
+  TierPill, asAvatarUser, clampPct, fetchEnvelope, scoreColor, useQuickViewData,
+} from './quick-view-parts'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── Types (shape of GET /api/objectives/[id]) ────────────────────────────────
 
-interface ObjOwner { id: string; name: string | null; avatar?: string | null }
-interface ObjTimeframe { id: string; name: string; startDate?: string; endDate?: string }
-interface ObjDepartment { id: string; name: string }
-interface ObjParent { id: string; title: string; progress?: number }
+interface Person { id: string; name: string | null; avatar?: string | null; email?: string | null }
+
 interface ObjKR {
-  id: string; title: string; progress: number; confidence?: string
-  currentValue?: number; targetValue?: number; unit?: string
-  owner?: ObjOwner
+  id: string
+  title: string
+  progress: number
+  confidence?: string | null
+  currentValue?: number
+  targetValue?: number
+  unit?: string | null
+  owner?: Person | null
+  _count?: { todos?: number }
+  isRedacted?: boolean
 }
-interface ObjContributor { user: ObjOwner }
 
 interface ObjectiveDetail {
-  id: string; title: string; level: string; status: string
-  progress: number; confidence?: string; description?: string
-  owner: ObjOwner; timeframe: ObjTimeframe; department?: ObjDepartment
-  parentObjective?: ObjParent; contributors?: ObjContributor[]
+  id: string
+  title: string
+  description?: string | null
+  level: string
+  status?: string
+  goalStatus?: string | null
+  progress: number
+  /** Owner-reported objective confidence, 0–100. */
+  confidence?: number | null
+  isPrivate?: boolean
+  owner?: Person | null
+  timeframe?: { id: string; name: string; startDate?: string | null; endDate?: string | null } | null
+  department?: { id: string; name: string } | null
+  parentObjective?: { id: string; title: string } | null
+  contributors?: Array<{ user: Person }>
   keyResults?: ObjKR[]
-  _count?: { keyResults: number }
+  isRedacted?: boolean
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+const TIER_DOT: Record<string, string> = {
+  ON_TRACK: 'var(--ap-green)', AT_RISK: 'var(--ap-orange)', OFF_TRACK: 'var(--ap-red)',
+}
 
-const CONF_TONE: Record<string, string> = { ON_TRACK: 'ontrack', AT_RISK: 'atrisk', OFF_TRACK: 'offtrack' }
-const CONF_LABEL: Record<string, string> = { ON_TRACK: 'On Track', AT_RISK: 'At Risk', OFF_TRACK: 'Off Track' }
+/** KR % the way the list and KR page compute it: current / target. */
+function krPct(kr: ObjKR): number {
+  const target = Number(kr.targetValue) || 0
+  return clampPct(target > 0 && !kr.isRedacted ? ((Number(kr.currentValue) || 0) / target) * 100 : kr.progress)
+}
 
-function StatusPill({ confidence }: { confidence?: string }) {
+// ─── KR row ───────────────────────────────────────────────────────────────────
+
+function KrRow({ kr, onOpen }: { kr: ObjKR; onOpen: () => void }) {
+  const pct = Math.round(krPct(kr))
   return (
-    <span className="ap-status-pill" data-tone={CONF_TONE[confidence ?? ''] ?? 'none'}>
-      {CONF_LABEL[confidence ?? ''] ?? 'Pending'}
-    </span>
-  )
-}
-
-/** `detail` turns on the full-name hover card — pass it only where the name is
- *  not printed beside the avatar (docs/user_name_hover_REQUIREMENTS.md UNH-6). */
-function Avatar({ name, size = 'sm', detail }: { name: string | null | undefined; size?: 'sm' | 'md'; detail?: string }) {
-  const sz = size === 'sm' ? 'size-6 text-caption' : 'size-8 text-body-sm'
-  const face = (
-    <span
-      role={detail ? 'img' : undefined}
-      aria-label={detail ? (name ?? undefined) : undefined}
-      className={cn('flex shrink-0 items-center justify-center rounded-full font-bold', sz)}
-      style={{ background: 'var(--ap-accent-soft)', color: 'var(--ap-accent)' }}
-    >
-      {(name ?? '?').charAt(0).toUpperCase()}
-    </span>
-  )
-  if (!detail || !name) return face
-  return <PersonTooltip person={{ name }} detail={detail}>{face}</PersonTooltip>
-}
-
-function CircleProgress({ value, label, sublabel }: { value: number; label: string; sublabel?: string }) {
-  const r = 36; const circ = 2 * Math.PI * r
-  const filled = (value / 100) * circ
-  return (
-    <div className="flex flex-col items-center gap-1.5">
-      <div className="relative flex items-center justify-center">
-        <svg width="88" height="88" viewBox="0 0 88 88">
-          <circle cx="44" cy="44" r={r} fill="none" stroke="var(--ap-border-strong)" strokeWidth="6" />
-          <circle cx="44" cy="44" r={r} fill="none" stroke="var(--ap-accent)" strokeWidth="6"
-            strokeDasharray={`${filled} ${circ}`} strokeLinecap="round"
-            transform="rotate(-90 44 44)" />
-        </svg>
-        <span className="absolute text-lg font-bold" style={{ color: 'var(--ap-fg)' }}>
-          {value}%
-        </span>
-      </div>
-      <span className="text-micro font-semibold uppercase tracking-widest" style={{ color: 'var(--ap-fg-subtle)' }}>{label}</span>
-      {sublabel && <span className="text-xs" style={{ color: 'var(--ap-fg-muted)' }}>{sublabel}</span>}
-    </div>
-  )
-}
-
-function SectionCard({ title, children }: { title?: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-[var(--ap-radius-md)]" style={{ border: '1px solid var(--ap-border)', background: 'var(--ap-bg-raised)' }}>
-      {title && (
-        <div className="border-b px-4 py-2.5" style={{ borderColor: 'var(--ap-border)' }}>
-          <p className="text-micro font-bold uppercase tracking-widest" style={{ color: 'var(--ap-fg-subtle)' }}>{title}</p>
-        </div>
-      )}
-      <div className="p-4">{children}</div>
-    </div>
-  )
-}
-
-function MetaRow({ icon: Icon, label, children }: { icon: any; label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex items-start gap-3 py-2" style={{ borderBottom: '1px solid var(--ap-border)' }}>
-      <Icon className="mt-0.5 size-4 shrink-0" style={{ color: 'var(--ap-fg-subtle)' }} />
-      <span className="w-24 shrink-0 text-xs font-medium" style={{ color: 'var(--ap-fg-subtle)' }}>{label}</span>
-      <div className="flex-1 text-body-sm" style={{ color: 'var(--ap-fg)' }}>{children}</div>
-    </div>
-  )
-}
-
-// ─── KR Row ───────────────────────────────────────────────────────────────────
-
-function KrRow({ kr, onClick }: { kr: ObjKR; onClick: () => void }) {
-  const pct = Math.round(kr.progress ?? 0)
-  const tone = CONF_TONE[kr.confidence ?? ''] ?? 'none'
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="ap-hover-lift flex w-full items-start gap-3 rounded-[var(--ap-radius-sm)] p-3 text-left transition-all"
-      style={{ border: '1px solid var(--ap-border)', background: 'var(--ap-bg-raised)', marginBottom: 8 }}
-    >
-      <span className="ap-status-dot mt-1 shrink-0" data-tone={tone} />
-      <div className="min-w-0 flex-1">
-        <p className="text-body-sm font-medium leading-snug" style={{ color: 'var(--ap-fg)' }}>{kr.title}</p>
-        {kr.targetValue !== undefined && (
-          <p className="mt-0.5 text-xs" style={{ color: 'var(--ap-fg-subtle)' }}>
-            {kr.currentValue ?? 0} / {kr.targetValue} {kr.unit ?? '%'}
+    <li>
+      <button
+        type="button"
+        onClick={onOpen}
+        className="flex w-full items-center gap-3 rounded-[var(--ap-radius-sm)] px-2 py-2.5 text-left transition-colors hover:bg-[var(--ap-bg-hover)]"
+      >
+        <span className="size-2 shrink-0 rounded-full" style={{ background: TIER_DOT[kr.confidence ?? ''] ?? 'var(--ap-fg-subtle)' }} aria-hidden />
+        <div className="min-w-0 flex-1">
+          <p className="flex items-center gap-1.5 text-body-sm font-medium leading-snug" style={{ color: 'var(--ap-fg)' }}>
+            {kr.isRedacted && <Lock className="size-3 shrink-0" style={{ color: 'var(--ap-fg-subtle)' }} aria-hidden />}
+            <span className="line-clamp-2">{kr.isRedacted ? 'Private key result' : kr.title}</span>
           </p>
-        )}
-        <div className="mt-1.5 flex items-center gap-2">
-          <Progress className="flex-1" height={4} value={pct} fill="var(--ap-accent)" track="var(--ap-border-strong)" aria-label="Progress" />
-          <span className="text-micro tabular-nums" style={{ color: 'var(--ap-fg-subtle)' }}>{pct}%</span>
+          <div className="mt-1.5 flex items-center gap-2">
+            <Progress className="flex-1" height={4} value={pct} fill="var(--ap-accent)" track="var(--ap-kr-bar-bg)" aria-label="Progress" />
+            <span className="w-9 text-right text-micro tabular-nums" style={{ color: 'var(--ap-fg-subtle)' }}>{pct}%</span>
+          </div>
+          {!kr.isRedacted && kr.targetValue !== undefined && (
+            <p className="mt-0.5 text-caption tabular-nums" style={{ color: 'var(--ap-fg-subtle)' }}>
+              {formatAxisValue(Number(kr.currentValue) || 0)} / {formatAxisValue(Number(kr.targetValue) || 0)} {kr.unit ?? ''}
+            </p>
+          )}
         </div>
-      </div>
-      {kr.owner && <Avatar name={kr.owner.name} detail="Key result owner" />}
-      <ChevronRight className="size-3.5 shrink-0 self-center" style={{ color: 'var(--ap-fg-subtle)' }} />
-    </button>
+        <span className="hidden sm:inline"><TierPill tier={kr.confidence} /></span>
+        {kr.owner && <UserAvatar user={asAvatarUser(kr.owner)} size={24} tooltipDetail="Key result owner" />}
+        <ChevronRight className="size-3.5 shrink-0" style={{ color: 'var(--ap-fg-subtle)' }} aria-hidden />
+      </button>
+    </li>
   )
 }
 
-// ─── Main Modal ───────────────────────────────────────────────────────────────
+// ─── Component ────────────────────────────────────────────────────────────────
 
 interface Props {
   objectiveId: string | null
   onClose: () => void
+  /** Swap to a key result's quick view. */
   onOpenKr?: (krId: string) => void
+  /** Swap to another objective's quick view (parent breadcrumb). */
+  onOpenObjective?: (objectiveId: string) => void
 }
 
-export function ObjectiveDetailModal({ objectiveId, onClose, onOpenKr }: Props) {
-  const router = useRouter()
-  const [data, setData] = useState<ObjectiveDetail | null>(null)
-  const [loading, setLoading] = useState(false)
+export function ObjectiveDetailModal({ objectiveId, onClose, onOpenKr, onOpenObjective }: Props) {
+  const { data: session } = useSession()
+  const currentUserId = (session?.user as { id?: string } | undefined)?.id ?? null
 
-  useEffect(() => {
-    if (!objectiveId) { setData(null); return }
-    setLoading(true)
-    fetch(`/api/objectives/${objectiveId}`)
-      .then((r) => r.json())
-      .then((j) => setData(j.data ?? null))
-      .catch(() => setData(null))
-      .finally(() => setLoading(false))
-  }, [objectiveId])
+  const load = useCallback(
+    (signal: AbortSignal) => fetchEnvelope<ObjectiveDetail>(`/api/objectives/${objectiveId}`, signal),
+    [objectiveId],
+  )
+  const { data: obj, error, loading, reload } = useQuickViewData(objectiveId, load)
+  const redacted = !!obj?.isRedacted
 
+  const silentReload = useCallback(() => reload(true), [reload])
+  useRealtimeRefresh({
+    channel: objectiveId && obj && !redacted ? objectiveRealtimeChannel(objectiveId) : null,
+    events: OKR_REALTIME_EVENT_NAMES,
+    onRefresh: silentReload,
+    ignoreActorId: currentUserId,
+  })
 
-  const krCount = data?.keyResults?.length ?? 0
-  const initCount = data?.keyResults?.reduce((s, kr) => s + ((kr as any)._count?.todos ?? 0), 0) ?? 0
-  const avgProgress = data?.progress ?? 0
-  const ncs = data?.confidence === 'ON_TRACK' ? 85 : data?.confidence === 'AT_RISK' ? 45 : data?.confidence === 'OFF_TRACK' ? 15 : 0
+  // Falls back to the loaded id so the header holds steady while the dialog animates out.
+  const fullHrefId = objectiveId ?? obj?.id ?? null
+  const fullHref = fullHrefId ? `/dashboard/objectives/${fullHrefId}` : null
+  const parent = !redacted ? obj?.parentObjective ?? null : null
+
+  const breadcrumb = (
+    <>
+      {parent && (
+        <>
+          <Crumb
+            icon={Target}
+            label={parent.title}
+            onClick={onOpenObjective ? () => onOpenObjective(parent.id) : undefined}
+          />
+          <ChevronRight className="size-3 shrink-0" aria-hidden />
+        </>
+      )}
+      {!parent && obj?.timeframe?.name && (
+        <>
+          <Crumb icon={Calendar} label={obj.timeframe.name} />
+          <ChevronRight className="size-3 shrink-0" aria-hidden />
+        </>
+      )}
+      <span className="shrink-0 font-medium" style={{ color: 'var(--ap-fg-muted)' }}>Objective</span>
+    </>
+  )
+
+  let body: React.ReactNode
+  let rail: React.ReactNode = null
+
+  if (loading) {
+    body = <QuickViewSkeleton label="Loading objective" />
+  } else if (error || !obj) {
+    body = <QuickViewError message={error ?? 'Could not load this objective.'} onRetry={() => reload()} fullHref={fullHref} onClose={onClose} />
+  } else {
+    const krs = obj.keyResults ?? []
+    const onTrack = krs.filter((k) => k.confidence === 'ON_TRACK').length
+    const initiatives = krs.reduce((s, k) => s + (k._count?.todos ?? 0), 0)
+    const confidence = typeof obj.confidence === 'number' ? Math.round(clampPct(obj.confidence)) : null
+    const tf = obj.timeframe
+
+    body = (
+      <div className="space-y-4">
+        {/* Hero */}
+        <div>
+          <div className="mb-2 flex flex-wrap items-center gap-1.5">
+            {LEVEL_LABEL[obj.level] && <Chip>{LEVEL_LABEL[obj.level]}</Chip>}
+            {tf?.name && <Chip><Calendar className="size-3" aria-hidden />{tf.name}</Chip>}
+            {obj.department?.name && <Chip><Building2 className="size-3" aria-hidden />{obj.department.name}</Chip>}
+            {obj.isPrivate && <Chip>Private</Chip>}
+            {obj.status === 'ARCHIVED' && <Chip>Archived</Chip>}
+          </div>
+          <div className="flex items-start gap-2.5">
+            <Flag className="mt-1 size-4 shrink-0" style={{ color: 'var(--ap-accent)' }} aria-hidden />
+            <h2 className="text-xl font-semibold leading-snug" style={{ color: 'var(--ap-fg)', letterSpacing: '-0.02em', textWrap: 'balance' } as React.CSSProperties}>
+              {obj.title}
+            </h2>
+          </div>
+          {obj.description && !redacted && (
+            <p className="mt-2 line-clamp-3 text-body-sm" style={{ color: 'var(--ap-fg-muted)' }}>{obj.description}</p>
+          )}
+          <div className="mt-3 text-xs">
+            <PersonLink person={obj.owner} role="Objective owner" onNavigate={onClose} />
+          </div>
+        </div>
+
+        {/* Stat strip */}
+        <StatStrip>
+          <StatCell label="Progress">
+            <ProgressRing value={obj.progress} tier={obj.goalStatus} />
+          </StatCell>
+          <StatCell label="Status"><span><TierPill tier={obj.goalStatus} /></span></StatCell>
+          <StatCell label="Confidence">
+            {confidence !== null ? (
+              <>
+                <p className="text-lg font-semibold leading-none tabular-nums">
+                  {confidence}<span className="text-xs font-normal" style={{ color: 'var(--ap-fg-subtle)' }}>/100</span>
+                </p>
+                <div className="h-1.5 w-full overflow-hidden rounded-full" style={{ background: 'var(--ap-kr-bar-bg)' }}>
+                  <div className="h-full rounded-full" style={{ width: `${confidence}%`, background: scoreColor(confidence) }} />
+                </div>
+              </>
+            ) : (
+              <p className="text-xs" style={{ color: 'var(--ap-fg-subtle)' }}>—</p>
+            )}
+          </StatCell>
+          <StatCell label="Key results">
+            <p className="text-lg font-semibold leading-none tabular-nums">{krs.length}</p>
+            <p className="text-caption" style={{ color: 'var(--ap-fg-subtle)' }}>{onTrack} on track</p>
+          </StatCell>
+        </StatStrip>
+
+        {redacted ? (
+          <PrivateNotice what="objective" />
+        ) : (
+          <>
+            <Section title="Key results" count={krs.length}>
+              {krs.length === 0 ? (
+                <p className="text-xs" style={{ color: 'var(--ap-fg-subtle)' }}>No key results yet.</p>
+              ) : (
+                <ul className="-my-1">
+                  {krs.map((kr) => (
+                    <KrRow key={kr.id} kr={kr} onOpen={() => onOpenKr?.(kr.id)} />
+                  ))}
+                </ul>
+              )}
+            </Section>
+
+            {/* Comments — same thread as the full page (rich text, attachments, realtime). */}
+            <OkrComments endpoint="objectives" entityId={obj.id} users={[]} currentUserId={currentUserId} />
+          </>
+        )}
+      </div>
+    )
+
+    const contributors = (obj.contributors ?? []).map((c) => c.user).filter(Boolean).map(asAvatarUser)
+    rail = (
+      <>
+        <RailCard title="Details">
+          <MetaRow icon={User} label="Owner">{obj.owner?.name ?? '—'}</MetaRow>
+          {tf && (
+            <MetaRow icon={Calendar} label="Timeframe">
+              <p>{tf.name}</p>
+              {tf.startDate && tf.endDate && (
+                <p className="mt-0.5" style={{ color: 'var(--ap-fg-subtle)' }}>
+                  {format(new Date(tf.startDate), 'MMM d, yyyy')} → {format(new Date(tf.endDate), 'MMM d, yyyy')}
+                </p>
+              )}
+            </MetaRow>
+          )}
+          {obj.department && <MetaRow icon={Building2} label="Team">{obj.department.name}</MetaRow>}
+          {parent && (
+            <MetaRow icon={Target} label="Parent">
+              <QuickLink href={`/dashboard/objectives/${parent.id}`} onNavigate={onClose} className="line-clamp-2">
+                {parent.title}
+              </QuickLink>
+            </MetaRow>
+          )}
+          <MetaRow icon={Layers} label="Level">{LEVEL_LABEL[obj.level] ?? obj.level}</MetaRow>
+          {!redacted && <MetaRow icon={CheckSquare} label="Initiatives">{initiatives}</MetaRow>}
+        </RailCard>
+
+        {!redacted && contributors.length > 0 && (
+          <RailCard title={`Contributors (${contributors.length})`}>
+            <div className="py-2">
+              <UserAvatarStack users={contributors} size={26} max={6} detail={() => 'Contributor'} />
+            </div>
+          </RailCard>
+        )}
+      </>
+    )
+  }
 
   return (
-    <Modal
+    <QuickViewShell
       open={!!objectiveId}
       onClose={onClose}
-      // Accessible name only — the visible header below carries the timeframe + actions.
-      title={data?.title ?? 'Objective'}
-      hideHeader
-      showCloseButton={false}
-      size="2xl"
-      className="!gap-0 overflow-hidden !p-0 sm:max-w-5xl"
+      title={obj?.title ?? 'Objective'}
+      breadcrumb={breadcrumb}
+      fullHref={fullHref}
+      fullLabel="View full page"
+      rail={rail}
     >
-      <div
-        className="relative flex max-h-[92vh] w-full flex-col overflow-hidden"
-        style={{ background: 'var(--ap-bg)', borderRadius: 'var(--ap-radius-lg)' }}
-      >
-        {/* ── Header ── */}
-        <div
-          className="flex shrink-0 items-center gap-3 border-b px-5 py-3.5"
-          style={{ borderColor: 'var(--ap-border)', background: 'var(--ap-bg-raised)' }}
-        >
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-medium" style={{ color: 'var(--ap-fg-subtle)' }}>
-              {data?.timeframe?.name ?? 'Objective'}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => router.push(`/dashboard/objectives/${objectiveId}`)}
-              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-85"
-              style={{ background: 'var(--ap-accent)', color: 'var(--ap-accent-fg)' }}
-            >
-              <ExternalLink className="size-3.5" aria-hidden />
-              Open full page
-            </button>
-            <button type="button" aria-label="Close" className="rounded-lg p-1.5 transition-colors hover:bg-[var(--ap-bg-hover)]" onClick={onClose}>
-              <X className="size-4" style={{ color: 'var(--ap-fg-muted)' }} aria-hidden />
-            </button>
-          </div>
-        </div>
-
-        {/* ── Body: 2 col ── */}
-        <div className="flex min-h-0 flex-1 overflow-hidden">
-          {/* Left (main) */}
-          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 py-5">
-            {loading ? (
-              <div className="space-y-5" aria-busy="true" aria-label="Loading objective">
-                <Skeleton className="h-7 w-2/3" />
-                <div className="grid grid-cols-3 gap-3">
-                  <Skeleton className="h-32" />
-                  <Skeleton className="h-32" />
-                  <Skeleton className="h-32" />
-                </div>
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-16 w-full" />
-                <Skeleton className="h-16 w-full" />
-              </div>
-            ) : data ? (
-              <div className="space-y-5">
-                {/* Title */}
-                <div className="flex items-start gap-2.5">
-                  <Flag className="mt-0.5 size-5 shrink-0" style={{ color: 'var(--ap-accent)' }} />
-                  <h2 className="text-xl font-semibold leading-snug tracking-tight" style={{ color: 'var(--ap-fg)' }}>
-                    {data.title}
-                  </h2>
-                </div>
-
-                {/* KPI donuts */}
-                <div className="grid grid-cols-3 gap-3">
-                  {[
-                    { value: avgProgress, label: 'Key Results', sublabel: `${krCount} total` },
-                    { value: initCount > 0 ? Math.round((initCount / Math.max(krCount * 3, 1)) * 100) : 0, label: 'Initiatives', sublabel: `${initCount}/—` },
-                    { value: ncs, label: 'Net Confidence Score', sublabel: `${ncs} NCS` },
-                  ].map((item) => (
-                    <div
-                      key={item.label}
-                      className="flex items-center justify-center rounded-[var(--ap-radius-md)] py-5"
-                      style={{ border: '1px solid var(--ap-border)', background: 'var(--ap-bg-raised)' }}
-                    >
-                      <CircleProgress value={item.value} label={item.label} sublabel={item.sublabel} />
-                    </div>
-                  ))}
-                </div>
-
-                {/* Description */}
-                {data.description && (
-                  <p className="text-body-sm leading-relaxed" style={{ color: 'var(--ap-fg-muted)' }}>
-                    {data.description}
-                  </p>
-                )}
-
-                {/* Key Results */}
-                {data.keyResults && data.keyResults.length > 0 && (
-                  <div>
-                    <p className="mb-3 text-caption font-bold uppercase tracking-widest" style={{ color: 'var(--ap-fg-subtle)' }}>
-                      Key Results ({krCount})
-                    </p>
-                    <div>
-                      {data.keyResults.map((kr) => (
-                        <KrRow
-                          key={kr.id}
-                          kr={kr}
-                          onClick={() => onOpenKr?.(kr.id)}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="flex items-center justify-center py-20">
-                <p className="text-sm" style={{ color: 'var(--ap-fg-subtle)' }}>Failed to load objective.</p>
-              </div>
-            )}
-          </div>
-
-          {/* Right sidebar */}
-          <div
-            className="flex w-72 shrink-0 flex-col gap-4 overflow-y-auto border-l p-4"
-            style={{ borderColor: 'var(--ap-border)', background: 'var(--ap-bg)' }}
-          >
-            {data && (
-              <>
-                {/* Details */}
-                <SectionCard title="Details">
-                  <div className="space-y-0">
-                    <MetaRow icon={User} label="Owner">
-                      <span className="flex items-center gap-1.5">
-                        <Avatar name={data.owner?.name} size="sm" />
-                        {data.owner?.name ?? '—'}
-                      </span>
-                    </MetaRow>
-                    <MetaRow icon={Calendar} label="Timeframe">
-                      {data.timeframe?.name ?? '—'}
-                    </MetaRow>
-                    {data.department && (
-                      <MetaRow icon={Building2} label="Team">
-                        {data.department.name}
-                      </MetaRow>
-                    )}
-                    {data.parentObjective && (
-                      <MetaRow icon={Target} label="Parent">
-                        <span className="truncate">{data.parentObjective.title}</span>
-                      </MetaRow>
-                    )}
-                    <MetaRow icon={TrendingUp} label="Level">
-                      <span className="capitalize">{data.level?.toLowerCase()}</span>
-                    </MetaRow>
-                    <div className="flex items-center gap-3 py-2">
-                      <TrendingUp className="size-4 shrink-0" style={{ color: 'var(--ap-fg-subtle)' }} />
-                      <span className="w-24 shrink-0 text-xs font-medium" style={{ color: 'var(--ap-fg-subtle)' }}>Status</span>
-                      <StatusPill confidence={data.confidence} />
-                    </div>
-                  </div>
-                </SectionCard>
-
-                {/* Contributors */}
-                {data.contributors && data.contributors.length > 0 && (
-                  <SectionCard title="Contributors">
-                    <div className="flex flex-wrap gap-2">
-                      {data.contributors.map((c) => (
-                        <span key={c.user.id} className="flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs"
-                          style={{ background: 'var(--ap-border)', color: 'var(--ap-fg-muted)' }}>
-                          <Avatar name={c.user.name} size="sm" />
-                          {c.user.name}
-                        </span>
-                      ))}
-                    </div>
-                  </SectionCard>
-                )}
-
-                {/* Relationships */}
-                <SectionCard title="Relationships">
-                  <p className="text-xs" style={{ color: 'var(--ap-fg-subtle)' }}>There are no dependencies.</p>
-                </SectionCard>
-
-                {/* Tags */}
-                <SectionCard title="Tags">
-                  <div className="flex items-center gap-1.5">
-                    <Tag className="size-3.5" style={{ color: 'var(--ap-fg-subtle)' }} />
-                    <span className="text-xs" style={{ color: 'var(--ap-fg-subtle)' }}>None</span>
-                  </div>
-                </SectionCard>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-    </Modal>
+      {body}
+    </QuickViewShell>
   )
 }

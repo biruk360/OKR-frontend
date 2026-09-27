@@ -1233,8 +1233,9 @@ Import: `import { Modal, ConfirmDialog, EmptyState, StatCard, StatGrid, PageHead
 
 | Component | Notes |
 |-----------|-------|
-| `ObjectiveDetailModal` | Objective detail panel in filters view |
-| `KeyResultDetailModal` | KR detail panel in filters view |
+| `ObjectiveDetailModal` | Objective **quick view** (2026-09-27, QV-3): hero, stat strip (progress · `goalStatus` · confidence 0–100 · KRs), clickable KR list (swaps to KR quick view), `OkrComments`, Details rail; "View full page" → `/dashboard/objectives/[id]`. Props `{ objectiveId, onClose, onOpenKr?, onOpenObjective? }` |
+| `KeyResultDetailModal` | KR **quick view** (2026-09-27, QV-2): hero, stat strip (same `cur/target` % as the full page), last 3 check-ins (`CheckInTimeline`), up to 5 initiatives (open the initiative drawer), `OkrComments`, `KrProgressConfidenceCard` + Details rail; "View full page" → `/dashboard/key-results/[id]`. Props `{ krId, onClose, onOpenObjective? }` |
+| `quick-view-parts` | Shared shell/pieces for both quick views (`QuickViewShell`, `useQuickViewData` with abort + silent realtime refetch, `StatStrip`, `Section`, `RailCard`, `ViewAllLink`…). Spec `docs/okr_quick_view_modals_REQUIREMENTS.md` |
 | `ResultsList` | Grouped results list |
 | `FiltersWorkspace` | The workspace itself (Explorer Analyze view, `/dashboard/key-results`); per-tab sort (`features/filters/sort.ts`) and More options menu (2026-09-25) |
 

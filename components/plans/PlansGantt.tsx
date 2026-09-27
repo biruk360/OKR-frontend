@@ -12,6 +12,7 @@ import { STATUS_CHART_COLOR, chartColors } from '@/lib/chart-colors'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { useTimeframes } from '@/hooks/useTimeframes'
 import { pickCurrentTimeframe } from '@/lib/timeframe-utils'
+import { differenceInCalendarDays, format as formatDate } from 'date-fns'
 
 /** `/api/gantt?timeframeId=all` — every timeframe (the API defaults to the active one). */
 const ALL_TIMEFRAMES = 'all'
@@ -110,7 +111,7 @@ export default function PlansGantt() {
               : task.level
               ? `<span style="display:inline-block;font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px;background:var(--ap-bg-sunken);color:var(--ap-fg-secondary);margin-right:6px;vertical-align:middle;">${task.level.slice(0, 3)}</span>`
               : ''
-          return `${prefix}<span title="${escapeHtml(task.text)}">${escapeHtml(task.text)}</span>`
+          return `${prefix}<span>${escapeHtml(task.text)}</span>`
         },
       },
       {
@@ -186,23 +187,37 @@ export default function PlansGantt() {
       return `${escapeHtml(t.text)} — ${pct}%`
     }
 
-    g.templates.tooltip_text = (_start: Date, _end: Date, task: unknown) => {
+    g.templates.tooltip_text = (start: Date, end: Date, task: unknown) => {
       const t = task as GanttTask
-      const lines: string[] = []
-      lines.push(`<b>${escapeHtml(t.text)}</b>`)
-      lines.push(`Type: ${t.entityType === 'objective' ? 'Objective' : 'Key Result'}`)
-      if (t.level) lines.push(`Level: ${t.level}`)
-      if (t.department) lines.push(`Department: ${escapeHtml(t.department)}`)
-      lines.push(`Owner: ${escapeHtml(t.owner)}`)
-      lines.push(`Progress: ${Math.round((t.progress || 0) * 100)}%`)
-      if (t.goalStatus) lines.push(`Status: ${t.goalStatus.replace(/_/g, ' ')}`)
-      if (t.confidence) lines.push(`Confidence: ${t.confidence.replace(/_/g, ' ')}`)
-      if (t.entityType === 'keyresult' && t.unit && t.targetValue != null) {
-        lines.push(`Target: ${t.currentValue ?? 0} / ${t.targetValue} ${t.unit}`)
+      const pct = Math.round((t.progress || 0) * 100)
+      const status = (t.goalStatus || t.confidence || '') as string
+      const tone =
+        status === 'ON_TRACK' ? 'on' :
+        status === 'AT_RISK' ? 'risk' :
+        status === 'OFF_TRACK' ? 'off' :
+        status === 'CLOSED' ? 'closed' : 'none'
+      const kind = t.entityType === 'objective' ? (t.level ? t.level.slice(0, 3) : 'OBJ') : 'KR'
+      const sameYear = start.getFullYear() === end.getFullYear()
+      const range = `${formatDate(start, sameYear ? 'MMM d' : 'MMM d, yyyy')} – ${formatDate(end, 'MMM d, yyyy')}`
+      const days = Math.max(1, differenceInCalendarDays(end, start))
+      const rows: string[] = [`<div class="ap-tt-row"><span>Owner</span><b>${escapeHtml(t.owner)}</b></div>`]
+      if (t.department) rows.push(`<div class="ap-tt-row"><span>Team</span><b>${escapeHtml(t.department)}</b></div>`)
+      if (t.entityType === 'keyresult' && t.targetValue != null) {
+        rows.push(`<div class="ap-tt-row"><span>Target</span><b>${t.currentValue ?? 0} / ${t.targetValue}${t.unit ? ` ${escapeHtml(t.unit)}` : ''}</b></div>`)
       }
-      lines.push(`${t.start_date} → ${t.end_date}`)
-      return lines.join('<br/>')
+      rows.push(`<div class="ap-tt-row"><span>Dates</span><b>${range} · ${days}d</b></div>`)
+      return `<div class="ap-tt">
+        <div class="ap-tt-head"><span class="ap-tt-kind">${kind}</span>${status ? `<span class="ap-tt-status ap-tt-${tone}">${escapeHtml(status.replace(/_/g, ' ').toLowerCase())}</span>` : ''}</div>
+        <div class="ap-tt-title">${escapeHtml(t.text)}</div>
+        <div class="ap-tt-progress"><div class="ap-tt-bar"><i class="ap-tt-${tone}" style="width:${pct}%"></i></div><b>${pct}%</b></div>
+        ${rows.join('')}
+      </div>`
     }
+
+    // Small delay so sweeping the cursor across rows doesn't flash a card per row.
+    ;(g.config as unknown as { tooltip_timeout: number; tooltip_offset_x: number; tooltip_offset_y: number }).tooltip_timeout = 250
+    ;(g.config as unknown as { tooltip_offset_x: number }).tooltip_offset_x = 14
+    ;(g.config as unknown as { tooltip_offset_y: number }).tooltip_offset_y = 18
 
     g.plugins({ tooltip: true, marker: true })
 
@@ -224,6 +239,14 @@ export default function PlansGantt() {
       {}
     )
 
+    // dhtmlx sets a native `title` on grid cells; with the tooltip plugin that
+    // showed two tooltips at once (the gray "KRMaintain…" one). Remove them.
+    const stripTitles = () => {
+      containerRef.current?.querySelectorAll('.gantt_grid [title], .gantt_task_line[title]').forEach((el) => el.removeAttribute('title'))
+    }
+    const onRender = g.attachEvent('onGanttRender', stripTitles, {})
+    const onDataRender = g.attachEvent('onDataRender', stripTitles, {})
+
     const markerId = g.addMarker?.({
       start_date: new Date(),
       css: 'today-marker',
@@ -234,6 +257,9 @@ export default function PlansGantt() {
     return () => {
       if (typeof onTaskClick === 'string' || typeof onTaskClick === 'number') {
         g.detachEvent(String(onTaskClick))
+      }
+      for (const ev of [onRender, onDataRender]) {
+        if (typeof ev === 'string' || typeof ev === 'number') g.detachEvent(String(ev))
       }
       if (markerId) g.deleteMarker?.(markerId)
       g.clearAll()
@@ -455,15 +481,46 @@ export default function PlansGantt() {
         }
 
         .gantt_tooltip {
+          max-width: 320px !important;
+          width: max-content !important;
+          white-space: normal !important;
           background: var(--ap-bg-raised) !important;
           color: var(--ap-fg) !important;
           border: 1px solid var(--ap-border) !important;
-          border-radius: 10px !important;
-          box-shadow: 0 6px 20px rgba(0, 0, 0, 0.10) !important;
-          padding: 10px 12px !important;
+          border-radius: 12px !important;
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.14) !important;
+          padding: 12px 14px !important;
           font-size: 12px !important;
-          line-height: 1.5 !important;
+          line-height: 1.4 !important;
+          font-style: normal !important;
+          z-index: 60 !important;
         }
+        .ap-tt { display: flex; flex-direction: column; gap: 6px; }
+        .ap-tt-head { display: flex; align-items: center; gap: 6px; }
+        .ap-tt-kind {
+          font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
+          padding: 1px 6px; border-radius: 5px;
+          background: var(--ap-accent-soft); color: var(--ap-accent-on-soft);
+        }
+        .ap-tt-status {
+          font-size: 10px; font-weight: 600; text-transform: capitalize;
+          padding: 1px 8px; border-radius: 999px; color: var(--ap-accent-fg);
+        }
+        .ap-tt-title {
+          font-size: 13px; font-weight: 600; color: var(--ap-fg);
+          display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+        }
+        .ap-tt-progress { display: flex; align-items: center; gap: 8px; }
+        .ap-tt-progress b { font-size: 12px; font-variant-numeric: tabular-nums; }
+        .ap-tt-bar { flex: 1; height: 6px; border-radius: 999px; background: var(--ap-bg-sunken); overflow: hidden; }
+        .ap-tt-bar i { display: block; height: 100%; border-radius: 999px; }
+        .ap-tt-row { display: flex; justify-content: space-between; gap: 12px; font-size: 11.5px; }
+        .ap-tt-row span { color: var(--ap-fg-subtle); flex-shrink: 0; }
+        .ap-tt-row b { font-weight: 500; text-align: right; color: var(--ap-fg-secondary); }
+        .ap-tt-on { background: var(--ap-green); }
+        .ap-tt-risk { background: var(--ap-orange); }
+        .ap-tt-off { background: var(--ap-red); }
+        .ap-tt-closed, .ap-tt-none { background: var(--ap-fg-subtle); }
       `}</style>
     </div>
   )

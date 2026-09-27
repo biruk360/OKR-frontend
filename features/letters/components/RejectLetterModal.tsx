@@ -45,7 +45,7 @@ export default function RejectLetterModal({ open, onClose, onSubmit }: Props) {
           onChange={(e) => setReason(e.target.value)}
           placeholder={t('reject.reason.placeholder')}
         />
-        {error && <p className="text-xs text-red-600">{error}</p>}
+        {error && <p className="text-xs text-danger-600">{error}</p>}
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="outline" onClick={onClose} disabled={submitting}>{t('reject.cancel')}</Button>
           <Button onClick={handle} disabled={submitting || !reason.trim()}>

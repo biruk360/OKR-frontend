@@ -31,8 +31,9 @@ export default function DeleteTodoButton({ todo, onDelete, className = '' }: Del
     <>
       <button
         onClick={() => setIsModalOpen(true)}
-        className={`inline-flex items-center px-2 py-1 text-sm text-muted-foreground hover:text-red-600 hover:bg-red-50 rounded ${className}`}
+        className={`inline-flex items-center px-2 py-1 text-sm text-muted-foreground hover:text-danger-600 hover:bg-danger-50 rounded ${className}`}
         title="Delete initiative"
+        aria-label="Delete initiative"
       >
         <Trash2 className="h-4 w-4" />
       </button>

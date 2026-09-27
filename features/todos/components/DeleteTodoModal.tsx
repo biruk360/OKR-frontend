@@ -59,10 +59,10 @@ export default function DeleteTodoModal({ isOpen, onClose, todo, onConfirm }: De
         </>
       }
       extraContent={
-        <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+        <div className="p-3 bg-danger-50 border border-danger-200 rounded-md">
           <div className="flex items-center">
-            <AlertTriangle className="h-4 w-4 text-red-600 mr-2" />
-            <p className="text-sm text-red-700">
+            <AlertTriangle className="h-4 w-4 text-danger-600 mr-2" />
+            <p className="text-sm text-danger-700">
               <strong>Warning:</strong> This will permanently delete the initiative and cannot be undone.
             </p>
           </div>

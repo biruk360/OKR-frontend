@@ -1,7 +1,8 @@
 import { redirect } from 'next/navigation'
 import { getServerSessionSafe } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { PageHeader } from '@/components/ui/PageHeader'
 import { NestedObjectivesList } from '@/features/objectives'
+import { loadArchivedObjectivesPage } from '@/features/objectives/services/archived-objectives.server'
 
 export default async function ArchivedObjectivesPage() {
   const session = await getServerSessionSafe()
@@ -10,77 +11,7 @@ export default async function ArchivedObjectivesPage() {
     redirect('/auth/signin')
   }
 
-  let where: Record<string, unknown> = { status: 'ARCHIVED' }
-
-  if (session.user.role === 'EMPLOYEE') {
-    where = { ...where, ownerId: session.user.id }
-  } else if (session.user.role === 'DEPARTMENT_LEAD') {
-    const userDepartments = await prisma.departmentMembership.findMany({
-      where: { userId: session.user.id },
-      select: { departmentId: true },
-    })
-    const departmentIds = userDepartments.map((d) => d.departmentId)
-
-    where = {
-      ...where,
-      OR: [{ ownerId: session.user.id }, { departmentId: { in: departmentIds } }],
-    }
-  }
-
-  const objectives = await prisma.objective.findMany({
-    where,
-    include: {
-      owner: {
-        select: { id: true, name: true, avatar: true },
-      },
-      timeframe: true,
-      department: {
-        select: { id: true, name: true },
-      },
-      parentObjective: {
-        select: { id: true, title: true, level: true },
-      },
-      childObjectives: {
-        where: { status: 'ACTIVE' },
-        include: {
-          owner: {
-            select: { id: true, name: true, avatar: true },
-          },
-          department: {
-            select: { id: true, name: true },
-          },
-          _count: {
-            select: { keyResults: true, childObjectives: true },
-          },
-        },
-        orderBy: { level: 'asc' },
-      },
-      keyResults: {
-        include: {
-          owner: {
-            select: { id: true, name: true, avatar: true },
-          },
-        },
-      },
-      _count: {
-        select: { keyResults: true, childObjectives: true },
-      },
-    },
-    orderBy: { updatedAt: 'desc' },
-  })
-
-  const timeframes = await prisma.timeframe.findMany({
-    where: { isActive: true },
-    orderBy: { startDate: 'desc' },
-  })
-
-  const departments =
-    session.user.role === 'ADMIN' || session.user.role === 'EXECUTIVE'
-      ? await prisma.department.findMany({
-          where: { isActive: true },
-          orderBy: { name: 'asc' },
-        })
-      : []
+  const { objectives, timeframes, departments } = await loadArchivedObjectivesPage(session.user)
 
   return (
     <div className="space-y-4">
@@ -88,24 +19,19 @@ export default async function ArchivedObjectivesPage() {
         className="rounded-[var(--ap-radius-md)] border bg-card px-5 pt-5 pb-4"
         style={{ borderColor: 'var(--ap-border)' }}
       >
-        <div className="flex items-center gap-1.5 mb-2">
-          <span
-            className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
-            style={{ background: 'var(--ap-bg-sunken)', color: 'var(--ap-fg-muted)' }}
-          >
-            Archived
-          </span>
-        </div>
-        <h1
-          className="text-[24px] font-semibold leading-tight"
-          style={{ letterSpacing: '-0.02em' }}
-        >
-          Archived Objectives
-        </h1>
-        <p className="mt-1 text-[13px] text-muted-foreground" style={{ maxWidth: 720 }}>
-          Objectives that have been archived. Restore them from each objective&apos;s detail page when
-          permitted.
-        </p>
+        <PageHeader
+          className="mb-0"
+          breadcrumb={
+            <span
+              className="inline-flex items-center rounded-full px-2 py-0.5 text-micro font-bold uppercase tracking-wide"
+              style={{ background: 'var(--ap-bg-sunken)', color: 'var(--ap-fg-muted)' }}
+            >
+              Archived
+            </span>
+          }
+          title="Archived Objectives"
+          description="Objectives that have been archived. Restore them from each objective's detail page when permitted."
+        />
       </div>
 
       <NestedObjectivesList

@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { getAiOrgConfig } from '@/lib/ai/config'
 import { z } from 'zod'
 import type { UserRole } from '@/types'
+import { inviteToSprint } from '@/lib/sprints/participants'
 
 const BodyZ = z.object({
   todoIds: z.array(z.string()).min(0),
@@ -74,6 +75,9 @@ export const POST = withAuth(async (req, { session, params }) => {
         where: { id: { in: toKeep.map((t) => t.id) } },
         data: { aiSuggested: false },
       })
+      // Invite-only sprints: the accepted cards are real board cards now, and
+      // their assignee (the plan's subject) is invited to the board with them.
+      await inviteToSprint(tx, plan.sprint.id, toKeep.map((t) => t.assigneeId))
     }
 
     // Apply carryover dispositions on existing todos.

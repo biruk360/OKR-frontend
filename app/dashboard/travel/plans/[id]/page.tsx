@@ -7,10 +7,9 @@
 
 import { redirect } from 'next/navigation'
 import { getServerSessionSafe } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { PlanEditor } from '@/features/daily-trip-plan'
-import { canActAsCoordinator } from '@/lib/dtp/permissions'
+import { loadPlanDetailPage } from '@/features/daily-trip-plan/services/travel-pages.server'
 import { CoordinatorActionsBar } from './CoordinatorActionsBar'
 
 interface Props { params: { id: string } }
@@ -19,11 +18,9 @@ export default async function PlanDetailPage({ params }: Props) {
   const session = await getServerSessionSafe()
   if (!session) redirect('/auth/signin')
 
-  const plan = await prisma.dailyTripPlan.findUnique({ where: { id: params.id } })
-  if (!plan) redirect('/dashboard/travel')
-
-  const isRequester = plan.requesterId === session.user.id
-  const isCoord = await canActAsCoordinator(session, plan.departmentId)
+  const data = await loadPlanDetailPage(params.id, session)
+  if (!data) redirect('/dashboard/travel')
+  const { plan, isRequester, isCoord } = data
 
   return (
     <div className="space-y-4">

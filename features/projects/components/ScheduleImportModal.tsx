@@ -103,7 +103,7 @@ export function ScheduleImportModal({ open, onClose, projectId, hasSchedule }: P
               setErrors([])
             }}
           />
-          <button type="button" className="mt-2 flex w-full items-center justify-center gap-2 rounded-card border border-dashed border-black/20 px-4 py-8 text-body text-ink-secondary hover:bg-surface-hover" onClick={() => inputRef.current?.click()}>
+          <button type="button" className="mt-2 flex w-full items-center justify-center gap-2 rounded-card border border-dashed border-ink-primary/20 px-4 py-8 text-body text-ink-secondary hover:bg-surface-hover" onClick={() => inputRef.current?.click()}>
             <Upload className="size-5" />
             {file ? file.name : 'Choose CSV, XLS, or XLSX file (maximum 5 MB)'}
           </button>
@@ -113,12 +113,12 @@ export function ScheduleImportModal({ open, onClose, projectId, hasSchedule }: P
           <div>
             <div className="font-medium text-ink-primary">3. Import behavior</div>
             <div className="mt-2 grid grid-cols-2 gap-3">
-              <label className={`cursor-pointer rounded-card border p-3 ${mode === 'append' ? 'border-primary-400 bg-primary-50' : 'border-black/10'}`}>
+              <label className={`cursor-pointer rounded-card border p-3 ${mode === 'append' ? 'border-primary-400 bg-primary-50' : 'border-ink-primary/10'}`}>
                 <input className="mr-2" type="radio" checked={mode === 'append'} onChange={() => { setMode('append'); setSummary(null) }} />
                 <span className="font-medium">Add to schedule</span>
                 <span className="mt-1 block text-body-sm text-ink-secondary">Keep existing phases and append imported phases.</span>
               </label>
-              <label className={`cursor-pointer rounded-card border p-3 ${mode === 'replace' ? 'border-danger-400 bg-danger-50' : 'border-black/10'}`}>
+              <label className={`cursor-pointer rounded-card border p-3 ${mode === 'replace' ? 'border-danger-400 bg-danger-50' : 'border-ink-primary/10'}`}>
                 <input className="mr-2" type="radio" checked={mode === 'replace'} onChange={() => { setMode('replace'); setSummary(null) }} />
                 <span className="font-medium">Replace schedule</span>
                 <span className="mt-1 block text-body-sm text-ink-secondary">Delete the current unbaselined schedule and import this file.</span>
@@ -142,7 +142,7 @@ export function ScheduleImportModal({ open, onClose, projectId, hasSchedule }: P
           </div>
         )}
 
-        <div className="flex justify-end gap-2 border-t border-black/[0.06] pt-4">
+        <div className="flex justify-end gap-2 border-t border-ink-primary/[0.06] pt-4">
           <button type="button" className="btn btn-ghost" onClick={close} disabled={busy}>Cancel</button>
           <button type="button" className="btn btn-outline" onClick={() => void send(true)} disabled={!file || busy}>{busy ? 'Checking…' : 'Validate File'}</button>
           <button type="button" className={mode === 'replace' ? 'btn btn-danger' : 'btn btn-primary'} onClick={() => void send(false)} disabled={!file || !summary || errors.length > 0 || busy}>

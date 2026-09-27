@@ -1,10 +1,11 @@
 import { getServerSessionSafe } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { loadProfileSettings } from '@/lib/settings/settings-pages.server'
 import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Button } from '@/components/ui/button'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { Building2, Users, UserCheck } from 'lucide-react'
 
 export default async function ProfileSettingsPage() {
@@ -14,20 +15,7 @@ export default async function ProfileSettingsPage() {
     redirect('/auth/signin')
   }
 
-  const [userDepartments, managerRelationships, directReports] = await Promise.all([
-    prisma.departmentMembership.findMany({
-      where: { userId: session.user.id },
-      include: { department: { select: { id: true, name: true } } },
-    }),
-    prisma.managerRelationship.findMany({
-      where: { directReportId: session.user.id },
-      include: { manager: { select: { id: true, name: true, email: true } } },
-    }),
-    prisma.managerRelationship.findMany({
-      where: { managerId: session.user.id },
-      include: { directReport: { select: { id: true, name: true, email: true } } },
-    }),
-  ])
+  const { userDepartments, managerRelationships, directReports } = await loadProfileSettings(session.user.id)
 
   return (
     <div className="space-y-6">
@@ -52,7 +40,7 @@ export default async function ProfileSettingsPage() {
             </div>
             <div className="space-y-1">
               <p className="text-sm font-medium text-muted-foreground">Status</p>
-              <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-700">Active</Badge>
+              <Badge variant="secondary" className="bg-success-500/10 text-success-700">Active</Badge>
             </div>
           </div>
           <Separator className="my-6" />
@@ -70,7 +58,7 @@ export default async function ProfileSettingsPage() {
         </CardHeader>
         <CardContent>
           {userDepartments.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No department memberships.</p>
+            <EmptyState bare icon={<Building2 className="size-8 text-muted-foreground" aria-hidden="true" />} title="No department memberships." className="py-6" />
           ) : (
             <div className="space-y-3">
               {userDepartments.map((membership) => (
@@ -108,7 +96,7 @@ export default async function ProfileSettingsPage() {
                 Your Manager
               </h4>
               {managerRelationships.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No manager assigned.</p>
+                <EmptyState bare icon={<UserCheck className="size-8 text-muted-foreground" aria-hidden="true" />} title="No manager assigned." className="py-6" />
               ) : (
                 <div className="space-y-2">
                   {managerRelationships.map((relationship) => (
@@ -126,7 +114,7 @@ export default async function ProfileSettingsPage() {
                 Direct Reports
               </h4>
               {directReports.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No direct reports.</p>
+                <EmptyState bare icon={<Users className="size-8 text-muted-foreground" aria-hidden="true" />} title="No direct reports." className="py-6" />
               ) : (
                 <div className="space-y-2">
                   {directReports.map((relationship) => (

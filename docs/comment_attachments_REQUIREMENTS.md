@@ -1,6 +1,6 @@
 # Comment Attachments — Files and Photos, with Preview
 
-> Status: SPECIFIED, NOT STARTED. Owner: TBD. Last updated: 2026-09-22.
+> Status: IMPLEMENTED for TODO, OKR, ACTIVITY and SCRUM comments (2026-09-25). All four scopes are open in `lib/attachments/access.ts` (ACTIVITY = project read rule, SCRUM = submitted update + `canViewScrumUser`; drafts refused) and every composer is wired to `AttachmentPicker`/`AttachmentList` (card, OKR, activity detail panel, scrum update thread). Card comments stage/claim/serve on `CommentAttachment` (ATT-4); legacy JSON still rendered until `scripts/migrate-todo-comment-attachments.ts --apply` runs. Abandoned staged uploads are swept daily (`/api/cron/attachment-staging-cleanup`, 24h TTL). Deleting a to-do, scrum update or project activity removes its comment attachment rows and files after the delete (`lib/attachments/todo-delete.ts`, `lib/attachments/parent-delete.ts`). Activity comment files stay internal-only (never shown in the client portal). Owner: TBD. Last updated: 2026-09-25.
 >
 > Legend: **[V]** verified against code in this repo · **[A]** assumption needing confirmation.
 

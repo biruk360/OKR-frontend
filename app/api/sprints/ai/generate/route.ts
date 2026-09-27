@@ -10,6 +10,7 @@ import { InvalidScopeError } from '@/lib/ai/context-bundler'
 import { AI_FEATURE_KEYS } from '@/lib/ai/config'
 import type { UserRole } from '@/types'
 import { prisma } from '@/lib/prisma'
+import { canViewSprint } from '@/lib/permissions'
 
 const BodyZ = z.object({
   subjectUserId: z.string().min(1),
@@ -81,9 +82,18 @@ export const POST = withAuth(async (req: NextRequest, { session }) => {
   // Sprint must exist and be PLANNING with dates.
   const targetSprint = await prisma.sprint.findUnique({
     where: { id: data.sprintId },
-    select: { id: true, state: true, startDate: true, endDate: true },
+    select: {
+      id: true, state: true, startDate: true, endDate: true,
+      ownerId: true, participants: { select: { userId: true } },
+    },
   })
   if (!targetSprint) return apiNotFound('Sprint not found')
+  // Invite-only sprints: planning into a board requires being able to see it
+  // (accepting the plan invites its subject, so this must not be a way in).
+  const canViewTarget = await canViewSprint(requesterRole, requesterId, targetSprint, {
+    userType: session.user.userType,
+  })
+  if (!canViewTarget) return apiNotFound('Sprint not found')
   if (targetSprint.state !== 'PLANNING') {
     return apiBadRequest('AI generation only allowed on sprints in PLANNING state')
   }

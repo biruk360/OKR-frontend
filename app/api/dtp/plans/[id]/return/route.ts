@@ -7,7 +7,7 @@
 import type { NextRequest } from 'next/server'
 import { apiSuccess, apiBadRequest, apiForbidden } from '@/lib/api'
 import { withAuth } from '@/lib/api/withAuth'
-import { transitionPlan, loadReadablePlan, readJson, badStatus } from '@/lib/dtp/api-helpers'
+import { tryTransitionPlan, transitionFailure, loadReadablePlan, readJson, badStatus } from '@/lib/dtp/api-helpers'
 import { canActAsCoordinator } from '@/lib/dtp/permissions'
 import { notifyDtpEvent } from '@/lib/dtp/notifier'
 import type { DtpStatus } from '@/types/dtp'
@@ -25,7 +25,7 @@ export const POST = withAuth<{ id: string }>(async (req: NextRequest, { session,
   if (status !== 'SUBMITTED' && status !== 'MANAGER_ENDORSED' && status !== 'UNDER_REVIEW' && status !== 'ADJUSTED') {
     return badStatus()
   }
-  const updated = await transitionPlan({
+  const transition = await tryTransitionPlan({
     planId: plan.id,
     from: status,
     to: 'RETURNED',
@@ -34,7 +34,8 @@ export const POST = withAuth<{ id: string }>(async (req: NextRequest, { session,
     payload: { note: body.note },
     patch: { decisionNote: body.note, decisionById: session.user.id, decisionAt: new Date() },
   })
-  if (!updated) return badStatus()
+  if (!transition.ok) return transitionFailure(transition.reason)
+  const updated = transition.plan
   await notifyDtpEvent({
     eventKey: 'TRAVEL_PLAN_RETURNED',
     recipientIds: [plan.requesterId],

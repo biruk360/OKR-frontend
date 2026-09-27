@@ -125,8 +125,8 @@ function SummaryCard({ label, value, tone }: { label: string; value: string | nu
 
   return (
     <div className={cn('rounded-card border p-4', toneClass)}>
-      <div className="text-body-xs font-medium opacity-80">{label}</div>
-      <div className="mt-1 text-[28px] font-semibold">{value}</div>
+      <div className="text-xs font-medium opacity-80">{label}</div>
+      <div className="mt-1 text-page-title">{value}</div>
     </div>
   )
 }

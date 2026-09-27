@@ -1,19 +1,18 @@
 import { getServerSessionSafe } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { loadUserProfile } from '@/features/admin-org/services/org-pages.server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Building2, HelpCircle, UserCircle } from 'lucide-react'
-import { canViewObjective, canManageUsers, type UserRole } from '@/lib/permissions'
+import { ArrowLeft, Building2, HelpCircle, UserCircle, Activity, ListChecks, Target } from 'lucide-react'
 import { PageTitleSetter } from '@/components/layout/DashboardTitleContext'
 import ProfileOrgMinimap from '@/components/profile/ProfileOrgMinimap'
 import UserProgressTimeline from '@/components/profile/UserProgressTimeline'
-import { computeProfilePlanMetrics } from '@/lib/profileMetrics'
 import {
   getKrDisplayStatus,
   statusLabel,
   type KrDisplayStatus,
 } from '@/lib/reportDashboard'
 import { cn } from '@/lib/utils'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { resolveParams } from '@/lib/resolve-route-params'
 
 interface PageProps {
@@ -23,13 +22,13 @@ interface PageProps {
 function confidenceDot(status: KrDisplayStatus) {
   switch (status) {
     case 'on_track':
-      return 'bg-emerald-500'
+      return 'bg-success-500'
     case 'at_risk':
-      return 'bg-[#fd7e14]'
+      return 'bg-warning-500'
     case 'off_track':
-      return 'bg-red-500'
+      return 'bg-danger-500'
     default:
-      return 'bg-gray-400'
+      return 'bg-ink-secondary'
   }
 }
 
@@ -40,247 +39,24 @@ export default async function UserProfilePage({ params }: PageProps) {
   const { id } = await resolveParams(params)
   if (!id) notFound()
 
-  const profileUser = await prisma.user.findUnique({
-    where: { id, isActive: true },
-    include: {
-      departmentMemberships: {
-        where: { endedAt: null },
-        include: { department: { select: { id: true, name: true } } },
-      },
-    },
-  })
-
-  if (!profileUser) notFound()
-
-  const [managerRels, directReportRels] = await Promise.all([
-    prisma.managerRelationship.findMany({
-      where: { directReportId: profileUser.id, endedAt: null },
-      include: {
-        manager: { select: { id: true, name: true, email: true, avatar: true } },
-      },
-      take: 1,
-    }),
-    prisma.managerRelationship.findMany({
-      where: { managerId: profileUser.id, endedAt: null },
-      include: {
-        directReport: { select: { id: true, name: true, email: true, avatar: true } },
-      },
-    }),
-  ])
-
-  const manager = managerRels[0]?.manager ?? null
-  const directReports = directReportRels.map((r) => r.directReport)
-
-  const ownedKeyResultsRaw = await prisma.keyResult.findMany({
-    where: { ownerId: profileUser.id, status: 'ACTIVE' },
-    include: {
-      objective: {
-        select: {
-          id: true,
-          title: true,
-          level: true,
-          ownerId: true,
-          departmentId: true,
-          isPrivate: true,
-          timeframe: { select: { startDate: true, endDate: true } },
-        },
-      },
-      todos: { select: { status: true } },
-      _count: { select: { checkIns: true } },
-    },
-    orderBy: { updatedAt: 'desc' },
-  })
-
-  const visibleKeyResults: typeof ownedKeyResultsRaw = []
-  for (const kr of ownedKeyResultsRaw) {
-    const { canView } = await canViewObjective(
-      session.user.role as UserRole,
-      session.user.id,
-      {
-        level: kr.objective.level,
-        ownerId: kr.objective.ownerId,
-        departmentId: kr.objective.departmentId,
-        isPrivate: kr.objective.isPrivate,
-      }
-    )
-    if (canView) visibleKeyResults.push(kr)
-  }
-
-  const metrics = computeProfilePlanMetrics(visibleKeyResults)
-
-  const assignedTodosRaw = await prisma.todo.findMany({
-    where: {
-      assigneeId: profileUser.id,
-      status: { not: 'CANCELLED' },
-    },
-    include: {
-      keyResult: {
-        include: {
-          objective: {
-            select: {
-              id: true,
-              level: true,
-              ownerId: true,
-              departmentId: true,
-              isPrivate: true,
-              title: true,
-            },
-          },
-        },
-      },
-    },
-    orderBy: { updatedAt: 'desc' },
-    take: 50,
-  })
-
-  const visibleTodos: typeof assignedTodosRaw = []
-  for (const t of assignedTodosRaw) {
-    // Standalone todos (no KR link) are only visible to the assignee/creator on
-    // their own profile page — viewing someone else's profile filters them out.
-    if (!t.keyResult) {
-      if (session.user.id === t.assigneeId || session.user.id === t.creatorId) {
-        visibleTodos.push(t)
-      }
-      continue
-    }
-    const obj = t.keyResult.objective
-    const { canView } = await canViewObjective(
-      session.user.role as UserRole,
-      session.user.id,
-      {
-        level: obj.level,
-        ownerId: obj.ownerId,
-        departmentId: obj.departmentId,
-        isPrivate: obj.isPrivate,
-      }
-    )
-    if (canView) visibleTodos.push(t)
-  }
-
-  const latestStandup = await prisma.keyResultCheckIn.findFirst({
-    where: { createdById: profileUser.id },
-    orderBy: { createdAt: 'desc' },
-    include: {
-      keyResult: { select: { id: true, title: true } },
-    },
-  })
-
-  // Full check-in / KR update feed for the bottom section of the profile.
-  const recentCheckIns = await prisma.keyResultCheckIn.findMany({
-    where: { createdById: profileUser.id },
-    orderBy: { createdAt: 'desc' },
-    take: 20,
-    include: {
-      keyResult: {
-        select: {
-          id: true,
-          title: true,
-          unit: true,
-          targetValue: true,
-          objective: { select: { id: true, title: true } },
-        },
-      },
-    },
-  })
-
-  const isOwnProfile = session.user.id === profileUser.id
-  const canManage = canManageUsers(session.user.role as UserRole)
-  const manageOrgHref =
-    isOwnProfile || canManage
-      ? isOwnProfile
-        ? '/dashboard/settings/profile'
-        : '/dashboard/settings/users'
-      : undefined
-  const addReportsHref = canManage ? '/dashboard/settings/users' : undefined
-
-  // Group KRs by their parent objective for the nested view.
-  const krsByObjective = new Map<
-    string,
-    { objectiveTitle: string; objectiveId: string; krs: typeof visibleKeyResults }
-  >()
-  for (const kr of visibleKeyResults) {
-    const key = kr.objectiveId
-    const bucket = krsByObjective.get(key)
-    if (bucket) bucket.krs.push(kr)
-    else
-      krsByObjective.set(key, {
-        objectiveTitle: kr.objective.title,
-        objectiveId: kr.objectiveId,
-        krs: [kr],
-      })
-  }
-
-  const krsWithStatus = visibleKeyResults.map((kr) => {
-    const displayStatus = getKrDisplayStatus({
-      unit: kr.unit,
-      targetValue: kr.targetValue,
-      startValue: kr.startValue,
-      currentValue: kr.currentValue,
-      progress: kr.progress,
-      confidence: kr.confidence,
-    })
-    return { kr, displayStatus }
-  })
-
-  krsWithStatus.sort((a, b) => {
-    const order = (s: KrDisplayStatus) =>
-      s === 'pending' || s === 'not_measurable' ? 0 : s === 'at_risk' ? 1 : 2
-    return order(a.displayStatus) - order(b.displayStatus)
-  })
-
-  const pendingCount = krsWithStatus.filter(
-    (x) => x.displayStatus === 'pending' || x.displayStatus === 'not_measurable'
-  ).length
-
-  // Timeline: bucket user's KR check-ins by ISO week and average per-checkin progress.
-  const krIds = visibleKeyResults.map((kr) => kr.id)
-  const timelineCheckIns =
-    krIds.length > 0
-      ? await prisma.keyResultCheckIn.findMany({
-          where: { keyResultId: { in: krIds } },
-          orderBy: { createdAt: 'asc' },
-          select: { createdAt: true, value: true, keyResultId: true },
-        })
-      : []
-  const krMeta = new Map(
-    visibleKeyResults.map((kr) => [kr.id, { start: kr.startValue, target: kr.targetValue }]),
-  )
-  function weekKey(d: Date) {
-    const copy = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
-    const day = copy.getUTCDay() || 7
-    copy.setUTCDate(copy.getUTCDate() - day + 1)
-    return copy.toISOString().slice(0, 10)
-  }
-  const byWeek = new Map<string, { sum: number; n: number }>()
-  for (const ci of timelineCheckIns) {
-    const meta = krMeta.get(ci.keyResultId)
-    if (!meta) continue
-    const span = meta.target - meta.start
-    if (span <= 0) continue
-    const pct = Math.max(0, Math.min(100, ((ci.value - meta.start) / span) * 100))
-    const key = weekKey(ci.createdAt)
-    const bucket = byWeek.get(key) ?? { sum: 0, n: 0 }
-    bucket.sum += pct
-    bucket.n += 1
-    byWeek.set(key, bucket)
-  }
-  const timelineSnapshots = Array.from(byWeek.entries())
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([periodStart, v]) => ({ periodStart, score: v.sum / v.n }))
-
-  // Pick widest timeframe among owned KRs' objectives; fall back to last 90 days.
-  const tfBounds = visibleKeyResults
-    .map((kr) => kr.objective.timeframe)
-    .filter((t): t is { startDate: Date; endDate: Date } => Boolean(t?.startDate && t?.endDate))
-  let tfStart: Date
-  let tfEnd: Date
-  if (tfBounds.length > 0) {
-    tfStart = new Date(Math.min(...tfBounds.map((t) => t.startDate.getTime())))
-    tfEnd = new Date(Math.max(...tfBounds.map((t) => t.endDate.getTime())))
-  } else {
-    tfEnd = new Date()
-    tfStart = new Date(Date.now() - 90 * 24 * 3600 * 1000)
-  }
+  const data = await loadUserProfile(session.user, id)
+  if (!data) notFound()
+  const {
+    profileUser,
+    manager,
+    directReports,
+    metrics,
+    visibleTodos,
+    latestStandup,
+    recentCheckIns,
+    manageOrgHref,
+    addReportsHref,
+    krsByObjective,
+    pendingCount,
+    timelineSnapshots,
+    tfStart,
+    tfEnd,
+  } = data
 
   return (
     <>
@@ -305,7 +81,7 @@ export default async function UserProfilePage({ params }: PageProps) {
                   className="mx-auto h-20 w-20 rounded-full object-cover"
                 />
               ) : (
-                <div className="mx-auto h-20 w-20 rounded-full bg-blue-500 flex items-center justify-center text-white text-2xl font-semibold">
+                <div className="mx-auto h-20 w-20 rounded-full bg-primary-500 flex items-center justify-center text-primary-foreground text-2xl font-semibold">
                   {(profileUser.name || '?').slice(0, 1).toUpperCase()}
                 </div>
               )}
@@ -317,21 +93,21 @@ export default async function UserProfilePage({ params }: PageProps) {
             <div className="bg-card rounded-lg border border-border shadow-sm p-4">
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  <p className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">
                     Key results
                   </p>
                   <p className="text-lg font-semibold tabular-nums text-foreground mt-1">
                     {metrics.avgKrProgress}%
                   </p>
-                  <div className="mt-1 h-1.5 w-full rounded-full bg-sky-100 overflow-hidden">
+                  <div className="mt-1 h-1.5 w-full rounded-full bg-primary-100 overflow-hidden">
                     <div
-                      className="h-full rounded-full bg-sky-500"
+                      className="h-full rounded-full bg-primary-500"
                       style={{ width: `${Math.min(metrics.avgKrProgress, 100)}%` }}
                     />
                   </div>
                 </div>
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  <p className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">
                     Initiatives
                   </p>
                   <p className="text-lg font-semibold tabular-nums text-foreground mt-1">
@@ -341,7 +117,7 @@ export default async function UserProfilePage({ params }: PageProps) {
                   </p>
                 </div>
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center justify-center gap-0.5">
+                  <p className="text-micro font-semibold uppercase tracking-wide text-muted-foreground flex items-center justify-center gap-0.5">
                     Confidence
                     <span title="Approximate score from key result confidence (NCS-style)">
                       <HelpCircle className="h-3 w-3 text-muted-foreground" />
@@ -350,9 +126,9 @@ export default async function UserProfilePage({ params }: PageProps) {
                   <p className="text-lg font-semibold tabular-nums text-foreground mt-1">
                     {metrics.ncsScore} NCS
                   </p>
-                  <div className="mt-1 h-1.5 w-full rounded-full bg-amber-100 overflow-hidden">
+                  <div className="mt-1 h-1.5 w-full rounded-full bg-warning-100 overflow-hidden">
                     <div
-                      className="h-full rounded-full bg-amber-500"
+                      className="h-full rounded-full bg-warning-500"
                       style={{ width: `${Math.min(metrics.ncsScore, 100)}%` }}
                     />
                   </div>
@@ -366,7 +142,7 @@ export default async function UserProfilePage({ params }: PageProps) {
                 {manageOrgHref && (
                   <Link
                     href={manageOrgHref}
-                    className="text-xs font-medium text-blue-600 hover:text-blue-800"
+                    className="text-xs font-medium text-primary-600 hover:text-primary-800"
                   >
                     Manage
                   </Link>
@@ -378,7 +154,7 @@ export default async function UserProfilePage({ params }: PageProps) {
                   <span>
                     <span className="text-muted-foreground">Manager</span>{' '}
                     {manager ? (
-                      <Link href={`/dashboard/org/users/${manager.id}`} className="font-medium text-foreground hover:text-blue-600">
+                      <Link href={`/dashboard/org/users/${manager.id}`} className="font-medium text-foreground hover:text-primary-600">
                         {manager.name}
                       </Link>
                     ) : (
@@ -397,7 +173,7 @@ export default async function UserProfilePage({ params }: PageProps) {
                             {i > 0 ? ', ' : null}
                             <Link
                               href={`/dashboard/org/users/${u.id}`}
-                              className="font-medium hover:text-blue-600"
+                              className="font-medium hover:text-primary-600"
                             >
                               {u.name}
                             </Link>
@@ -422,16 +198,16 @@ export default async function UserProfilePage({ params }: PageProps) {
                           <Link
                             key={m.id}
                             href={`/dashboard/org/teams/${m.department.id}`}
-                            className="font-medium hover:text-blue-600 mr-1"
+                            className="font-medium hover:text-primary-600 mr-1"
                           >
                             {m.department.name}
                             {m.role === 'HEAD' && (
-                              <span className="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest text-amber-700">
+                              <span className="ml-1 rounded bg-warning-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest text-warning-700">
                                 Head
                               </span>
                             )}
                             {m.isPrimary && (
-                              <span className="ml-1 text-[10px] text-muted-foreground">★</span>
+                              <span className="ml-1 text-micro text-muted-foreground">★</span>
                             )}
                           </Link>
                         ))}
@@ -456,7 +232,7 @@ export default async function UserProfilePage({ params }: PageProps) {
                   </p>
                   <Link
                     href={`/dashboard/key-results/${latestStandup.keyResultId}`}
-                    className="font-medium text-blue-600 hover:underline mt-1 block"
+                    className="font-medium text-primary-600 hover:underline mt-1 block"
                   >
                     {latestStandup.keyResult.title}
                   </Link>
@@ -482,20 +258,20 @@ export default async function UserProfilePage({ params }: PageProps) {
             <section className="bg-card rounded-lg border border-border shadow-sm">
               <div className="px-4 py-3 border-b border-border">
                 <h2 className="text-base font-semibold text-foreground">Objectives & key results</h2>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mt-1">
+                <p className="text-micro font-semibold uppercase tracking-wider text-muted-foreground mt-1">
                   Grouped by objective
                   {pendingCount > 0 ? ` · ${pendingCount} need attention` : ''}
                 </p>
               </div>
               {krsByObjective.size === 0 ? (
-                <p className="p-6 text-sm text-muted-foreground">No visible key results for this person.</p>
+                <EmptyState bare className="py-6 px-4" icon={<Target className="size-5 text-muted-foreground" />} title="No visible key results for this person" />
               ) : (
                 <ul className="divide-y divide-border">
                   {Array.from(krsByObjective.values()).map((group) => (
                     <li key={group.objectiveId} className="px-4 py-3">
                       <Link
                         href={`/dashboard/objectives/${group.objectiveId}`}
-                        className="text-sm font-semibold text-foreground hover:text-blue-600"
+                        className="text-sm font-semibold text-foreground hover:text-primary-600"
                       >
                         {group.objectiveTitle}
                       </Link>
@@ -520,14 +296,14 @@ export default async function UserProfilePage({ params }: PageProps) {
                               />
                               <Link
                                 href={`/dashboard/key-results/${kr.id}`}
-                                className="text-foreground hover:text-blue-600 flex-1 min-w-0 truncate"
+                                className="text-foreground hover:text-primary-600 flex-1 min-w-0 truncate"
                               >
                                 {kr.title}
                               </Link>
                               <span className="text-xs tabular-nums text-muted-foreground">
                                 {Math.round(kr.progress)}%
                               </span>
-                              <span className="text-[11px] text-muted-foreground w-20 text-right truncate">
+                              <span className="text-caption text-muted-foreground w-20 text-right truncate">
                                 {statusLabel(ds)}
                               </span>
                             </li>
@@ -545,7 +321,7 @@ export default async function UserProfilePage({ params }: PageProps) {
                 <h2 className="text-base font-semibold text-foreground">Active initiatives</h2>
               </div>
               {visibleTodos.length === 0 ? (
-                <p className="p-6 text-sm text-muted-foreground">No initiatives owned</p>
+                <EmptyState bare className="py-6 px-4" icon={<ListChecks className="size-5 text-muted-foreground" />} title="No initiatives owned" />
               ) : (
                 <ul className="divide-y divide-border">
                   {visibleTodos.map((t) => (
@@ -582,14 +358,12 @@ export default async function UserProfilePage({ params }: PageProps) {
             <section className="bg-card rounded-lg border border-border shadow-sm">
               <div className="px-4 py-3 border-b border-border">
                 <h2 className="text-base font-semibold text-foreground">Check-ins & updates</h2>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mt-1">
+                <p className="text-micro font-semibold uppercase tracking-wider text-muted-foreground mt-1">
                   {recentCheckIns.length === 0 ? 'No activity yet' : `Last ${recentCheckIns.length} entries`}
                 </p>
               </div>
               {recentCheckIns.length === 0 ? (
-                <p className="p-6 text-sm text-muted-foreground">
-                  No check-ins or updates from this person yet.
-                </p>
+                <EmptyState bare className="py-6 px-4" icon={<Activity className="size-5 text-muted-foreground" />} title="No check-ins or updates from this person yet" />
               ) : (
                 <ul className="divide-y divide-border">
                   {recentCheckIns.map((ci) => (
@@ -606,7 +380,7 @@ export default async function UserProfilePage({ params }: PageProps) {
                         </p>
                         <Link
                           href={`/dashboard/key-results/${ci.keyResultId}`}
-                          className="text-sm font-medium text-foreground hover:text-blue-600 line-clamp-1"
+                          className="text-sm font-medium text-foreground hover:text-primary-600 line-clamp-1"
                         >
                           {ci.keyResult.title}
                         </Link>
@@ -624,7 +398,7 @@ export default async function UserProfilePage({ params }: PageProps) {
                             </span>
                           ) : null}
                           {ci.confidence ? (
-                            <span className="ml-2 text-[11px] uppercase tracking-wide text-muted-foreground">
+                            <span className="ml-2 text-caption uppercase tracking-wide text-muted-foreground">
                               {ci.confidence}
                             </span>
                           ) : null}

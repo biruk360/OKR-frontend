@@ -1,22 +1,18 @@
 import type { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
-import { apiSuccess, apiBadRequest, apiForbidden, withAuth } from '@/lib/api'
+import { apiSuccess, apiBadRequest, withAuth } from '@/lib/api'
 import { recordActivity } from '@/lib/activity-log'
-import type { UserRole } from '@/types'
-import { canAccessAttachmentScope } from '@/lib/attachments/access'
+import { todoWriteGuard } from '@/lib/todos/access'
 
 /**
  * Single-label add/remove (API-9). Same reasoning as members: the `labelIds`
  * full-array PATCH loses concurrent edits, because each client sends the whole
  * list as it last saw it.
  */
-async function guard(todoId: string, session: { user: { id: string; role: string } }) {
-  const allowed = await canAccessAttachmentScope('TODO', todoId, {
-    id: session.user.id,
-    role: session.user.role as UserRole,
-  })
-  return allowed ? null : apiForbidden('You do not have access to this card')
+async function guard(todoId: string, session: { user: { id: string; role: string; userType?: string | null } }) {
+  // A card write: 404 without read, 403 without canWriteTodo, 409 SPRINT_CLOSED.
+  return todoWriteGuard(todoId, session.user, 'You do not have access to this card')
 }
 
 export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { session, params }) => {

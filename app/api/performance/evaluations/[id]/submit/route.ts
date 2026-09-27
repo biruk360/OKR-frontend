@@ -42,6 +42,19 @@ export const POST = withAuth<RouteIdParams>(async (_request, { session, params }
       data: { status: 'SUBMITTED', submittedAt: new Date() },
     }),
   ])
+  await recordActivity({
+    entityType: 'EVALUATION',
+    evaluationId: id,
+    action: 'STATUS_CHANGED',
+    actorId: session.user.id,
+    changes: {
+      evaluatorAssignment: {
+        from: evaluation.assignments.find((row) => row.evaluatorId === session.user.id)?.status ?? null,
+        to: 'SUBMITTED',
+      },
+    },
+    metadata: { kind: 'EVALUATOR_SUBMITTED', scoredCriteria: scoreIds.size },
+  })
   const pending = await prisma.evaluatorAssignment.count({ where: { evaluationId: id, status: 'PENDING' } })
   if (pending > 0) return apiSuccess({ submitted: true, consolidated: null })
   try {

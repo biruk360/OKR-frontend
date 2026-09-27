@@ -11,6 +11,8 @@ import {
   apiNotFound,
   withAuth,
 } from '@/lib/api'
+import { broadcastKeyResultEvent } from '@/lib/pusher'
+import { OKR_REALTIME_EVENTS } from '@/lib/okr/realtime'
 
 export const POST = withAuth<RouteIdParams>(async (_request, { session, params }) => {
   const { id: keyResultId } = await resolveParams(params)
@@ -77,5 +79,6 @@ export const POST = withAuth<RouteIdParams>(async (_request, { session, params }
     actorId: session.user.id,
   })
 
+  broadcastKeyResultEvent(keyResultId, existingKeyResult.objectiveId, OKR_REALTIME_EVENTS.UNARCHIVED, session.user.id)
   return apiSuccess(result, { message: 'Key Result restored.' })
 })

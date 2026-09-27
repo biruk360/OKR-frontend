@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { withAuth } from '@/lib/api/withAuth'
 import { apiSuccess, apiBadRequest, apiNotFound, apiForbidden, apiError, handleApiError } from '@/lib/api'
 import { resolveParams } from '@/lib/resolve-route-params'
-import { canEditSprint, type UserRole } from '@/lib/permissions'
+import { canMoveSprintCards, type UserRole } from '@/lib/permissions'
 import { getSprintLanes } from '@/lib/sprints/columns'
 
 type Params = { id: string }
@@ -29,7 +29,8 @@ type Params = { id: string }
  * Only the ids explicitly listed are updated. Cards absent from the payload
  * keep their existing positions.
  *
- * BR-06: rejects on closed sprints (409 SPRINT_CLOSED) and requires edit rights.
+ * BR-06: rejects on closed sprints (409 SPRINT_CLOSED) and requires edit rights
+ * (`canMoveSprintCards`: sprint owner/participant, or `canEditSprint`).
  */
 export const POST = withAuth<Params>(async (req: NextRequest, { session, params }) => {
   try {
@@ -46,7 +47,9 @@ export const POST = withAuth<Params>(async (req: NextRequest, { session, params 
       return apiError('This sprint is closed and read-only', { status: 409, code: 'SPRINT_CLOSED' })
     }
 
-    const allowed = await canEditSprint(session.user.role as UserRole, session.user.id, {
+    // Sprint participants may edit every card in their sprint (decision 4), so
+    // they may reorder its board too; otherwise the sprint edit rule applies.
+    const allowed = await canMoveSprintCards(session.user.role as UserRole, session.user.id, {
       ownerId: sprint.ownerId,
       departmentId: sprint.departmentId,
       participants: sprint.participants,

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { Skeleton, SkeletonAvatar } from '@/components/ui/Skeleton'
 
 type EntityType = 'objective' | 'key-result' | 'letter'
 
@@ -108,26 +109,30 @@ export function ActivityLogPanel({ entityType, entityId, embedded = false }: Pro
   }, [entityType, entityId])
 
   return (
-    <section className={embedded ? '' : 'rounded-md border border-neutral-200 bg-card'}>
+    <section className={embedded ? '' : 'rounded-md border border-border bg-card'}>
       <header
         className={
           embedded
             ? 'flex items-center gap-1 pb-3'
-            : 'flex items-center justify-between border-b border-neutral-200 px-4 py-3'
+            : 'flex items-center justify-between border-b border-border px-4 py-3'
         }
       >
         <div className="flex items-center gap-4">
-          {!embedded && <h3 className="text-sm font-semibold text-neutral-900">Activity</h3>}
+          {!embedded && <h3 className="text-sm font-semibold text-foreground">Activity</h3>}
           <div className="flex gap-1 text-xs">
             <button
+              type="button"
+              aria-pressed={tab === 'activity'}
               onClick={() => setTab('activity')}
-              className={`rounded px-2 py-1 ${tab === 'activity' ? 'bg-neutral-900 text-white' : 'text-neutral-600 hover:bg-neutral-100'}`}
+              className={`rounded px-2 py-1 ${tab === 'activity' ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted'}`}
             >
               Changes ({logs.length})
             </button>
             <button
+              type="button"
+              aria-pressed={tab === 'viewers'}
               onClick={() => setTab('viewers')}
-              className={`rounded px-2 py-1 ${tab === 'viewers' ? 'bg-neutral-900 text-white' : 'text-neutral-600 hover:bg-neutral-100'}`}
+              className={`rounded px-2 py-1 ${tab === 'viewers' ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted'}`}
             >
               Viewers ({views.length})
             </button>
@@ -137,46 +142,56 @@ export function ActivityLogPanel({ entityType, entityId, embedded = false }: Pro
 
       <div className={embedded ? '' : 'px-4 py-3'}>
         {loading ? (
-          <p className="text-sm text-neutral-500">Loading…</p>
+          <div className="space-y-3" aria-busy="true" aria-label="Loading activity">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="flex gap-3">
+                <SkeletonAvatar size={28} />
+                <div className="flex-1 space-y-1.5">
+                  <Skeleton className="h-3.5 w-2/3" />
+                  <Skeleton className="h-3 w-1/4" />
+                </div>
+              </div>
+            ))}
+          </div>
         ) : tab === 'activity' ? (
           logs.length === 0 ? (
-            <p className="text-sm text-neutral-500">No activity yet.</p>
+            <p className="text-sm text-muted-foreground">No activity yet.</p>
           ) : (
             <ol className="space-y-3">
               {logs.map((log) => (
                 <li key={log.id} className="flex gap-3 text-sm">
                   <Avatar name={log.actor?.name} avatar={log.actor?.avatar} />
                   <div className="min-w-0 flex-1">
-                    <p className="text-neutral-800">
+                    <p className="text-foreground">
                       {log.actor ? (
                         <Link
                           href={`/dashboard/org/users/${log.actor.id}`}
-                          className="font-medium text-neutral-900 hover:text-blue-600 hover:underline"
+                          className="font-medium text-foreground hover:text-primary hover:underline"
                         >
                           {log.actor.name}
                         </Link>
                       ) : (
                         <span className="font-medium">System</span>
                       )}{' '}
-                      <span className="text-neutral-600">{ACTION_LABEL[log.action] || log.action.toLowerCase()}</span>
+                      <span className="text-muted-foreground">{ACTION_LABEL[log.action] || log.action.toLowerCase()}</span>
                     </p>
                     {log.changes && <ChangeList changes={log.changes} />}
-                    <p className="mt-0.5 text-xs text-neutral-400">{relativeTime(log.createdAt)}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{relativeTime(log.createdAt)}</p>
                   </div>
                 </li>
               ))}
             </ol>
           )
         ) : views.length === 0 ? (
-          <p className="text-sm text-neutral-500">No views recorded yet.</p>
+          <p className="text-sm text-muted-foreground">No views recorded yet.</p>
         ) : (
           <ol className="space-y-2">
             {views.map((v) => (
               <li key={v.id} className="flex items-center gap-3 text-sm">
                 <Avatar name={v.user?.name} avatar={v.user?.avatar} />
                 <div className="flex-1">
-                  <p className="text-neutral-800">{v.user?.name || 'Unknown user'}</p>
-                  <p className="text-xs text-neutral-500">
+                  <p className="text-foreground">{v.user?.name || 'Unknown user'}</p>
+                  <p className="text-xs text-muted-foreground">
                     {v.viewCount} view{v.viewCount === 1 ? '' : 's'} · last seen {relativeTime(v.lastViewAt)}
                   </p>
                 </div>
@@ -196,7 +211,7 @@ function Avatar({ name, avatar }: { name?: string | null; avatar?: string | null
   }
   const initials = (name || '?').split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase()
   return (
-    <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-neutral-200 text-xs font-medium text-neutral-700">
+    <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-foreground">
       {initials}
     </div>
   )
@@ -206,12 +221,12 @@ function ChangeList({ changes }: { changes: Record<string, { from: unknown; to: 
   const entries = Object.entries(changes)
   if (entries.length === 0) return null
   return (
-    <ul className="mt-1 space-y-0.5 text-xs text-neutral-600">
+    <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
       {entries.map(([field, { from, to }]) => (
         <li key={field}>
-          <span className="font-medium text-neutral-700">{humanField(field)}</span>:{' '}
+          <span className="font-medium text-foreground">{humanField(field)}</span>:{' '}
           <ValueCell value={from} tone="muted" />
-          <span className="mx-1 text-neutral-400">→</span>
+          <span className="mx-1 text-muted-foreground">→</span>
           <ValueCell value={to} tone="strong" />
         </li>
       ))}
@@ -234,10 +249,10 @@ function isRef(v: unknown): v is Ref {
 
 /** Renders one side of a change. Hydrated refs become clickable links to the entity. */
 function ValueCell({ value, tone }: { value: unknown; tone: 'muted' | 'strong' }) {
-  const cls = tone === 'muted' ? 'text-neutral-500' : 'text-neutral-800'
+  const cls = tone === 'muted' ? 'text-muted-foreground' : 'text-foreground'
   if (isRef(value)) {
     return (
-      <Link href={value.href} className="font-medium text-blue-600 hover:underline">
+      <Link href={value.href} className="font-medium text-primary hover:underline">
         {value.label}
       </Link>
     )

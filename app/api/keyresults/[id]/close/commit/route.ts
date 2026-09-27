@@ -6,6 +6,8 @@ import { buildKeyResultEvidence } from '@/lib/okr/evidence'
 import { validateRetrospectiveForCommit } from '@/lib/okr/period-close'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { apiBadRequest, apiConflict, apiForbidden, apiNotFound, apiSuccess, withAuth } from '@/lib/api'
+import { broadcastKeyResultEvent } from '@/lib/pusher'
+import { OKR_REALTIME_EVENTS } from '@/lib/okr/realtime'
 
 export const POST = withAuth<RouteIdParams>(async (_request, { session, params }) => {
   const { id } = await resolveParams(params)
@@ -49,5 +51,6 @@ export const POST = withAuth<RouteIdParams>(async (_request, { session, params }
     return updated
   })
   await recordActivity({ entityType: 'KEY_RESULT', keyResultId: id, objectiveId: keyResult.objectiveId, action: 'CLOSED', actorId: session.user.id, metadata: { outcome: keyResult.outcome, finalGrade: keyResult.finalGrade } })
+  broadcastKeyResultEvent(id, keyResult.objectiveId, OKR_REALTIME_EVENTS.CLOSED, session.user.id)
   return apiSuccess(result, { message: 'Key Result closed and locked.' })
 })

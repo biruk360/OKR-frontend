@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
-import { apiBadRequest, apiSuccess } from '@/lib/api/apiResponse'
+import { apiBadRequest, apiNotFound, apiSuccess } from '@/lib/api/apiResponse'
 import { withAuth } from '@/lib/api/withAuth'
+import { canReadTodo } from '@/lib/todos/access'
 
 const ENTITY_TYPES = ['OBJECTIVE', 'KEY_RESULT', 'TODO'] as const
 
@@ -15,6 +16,8 @@ export const GET = withAuth(async (req, { session }) => {
   const entityType = url.searchParams.get('entityType')
   const entityId = url.searchParams.get('entityId')
   if (!entityType || !entityId || !ENTITY_TYPES.includes(entityType as any)) return apiBadRequest('entityType and entityId required')
+  // A card's watcher list is part of the card: card read rule, 404 like a missing card.
+  if (entityType === 'TODO' && !(await canReadTodo(session.user, entityId))) return apiNotFound('To-do not found')
   const rows = await prisma.watcher.findMany({ where: { entityType, entityId } })
   return apiSuccess(rows)
 })
@@ -25,6 +28,9 @@ export const POST = withAuth(async (req, { session }) => {
   const entityType = String(body?.entityType ?? '')
   const entityId = String(body?.entityId ?? '')
   if (!ENTITY_TYPES.includes(entityType as any) || !entityId) return apiBadRequest('invalid entityType or entityId')
+  // Watching a card means receiving its notifications, so only someone who may
+  // read it can watch it (404 like a missing card — no id probing).
+  if (entityType === 'TODO' && !(await canReadTodo(session.user, entityId))) return apiNotFound('To-do not found')
   const row = await prisma.watcher.upsert({
     where: { userId_entityType_entityId: { userId: session.user.id, entityType, entityId } },
     create: { userId: session.user.id, entityType, entityId },

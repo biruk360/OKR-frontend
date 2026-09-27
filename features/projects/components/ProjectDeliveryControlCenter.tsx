@@ -5,6 +5,8 @@ import { useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { Archive, BarChart3, BookOpenCheck, Link2, Settings, ShieldAlert, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { Skeleton } from '@/components/ui/Skeleton'
 import { cn } from '@/lib/utils'
 import { useUsersForSelection } from '@/hooks/useUsersForSelection'
 import { projectKeys } from '../hooks/useProjects'
@@ -22,6 +24,7 @@ import { ManagementReportsPanel } from './reports/ManagementReportsPanel'
 import { PerformanceReportsPanel } from './reports/PerformanceReportsPanel'
 import { JiraIntegrationPanel } from './integrations/JiraIntegrationPanel'
 import { ScrumLogWidget } from './ScrumLogWidget'
+import { PortalAccessPanel } from './portal/PortalAccessPanel'
 
 type ControlTab = 'team' | 'governance' | 'delivery' | 'reports' | 'integrations' | 'settings'
 
@@ -72,16 +75,16 @@ export function ProjectDeliveryControlCenter({
   }
 
   return (
-    <div className="grid min-h-0 flex-1 grid-cols-[190px_minmax(0,1fr)] overflow-hidden border-t border-black/[0.08]">
-      <nav className="space-y-1 border-r border-black/[0.08] bg-[#f7f8fa] p-2" aria-label="Project delivery controls">
+    <div className="grid min-h-0 flex-1 grid-cols-[190px_minmax(0,1fr)] overflow-hidden border-t border-ink-primary/[0.08]">
+      <nav className="space-y-1 border-r border-ink-primary/[0.08] bg-surface-sidebar p-2" aria-label="Project delivery controls">
         {TABS.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
             type="button"
             onClick={() => setActiveTab(id)}
             className={cn(
-              'flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-[13px] font-medium',
-              activeTab === id ? 'bg-white text-primary-700 shadow-sm' : 'text-ink-secondary hover:bg-white/70 hover:text-ink-primary'
+              'flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium',
+              activeTab === id ? 'bg-surface-card text-primary-700 shadow-sm' : 'text-ink-secondary hover:bg-surface-card/70 hover:text-ink-primary'
             )}
           >
             <Icon className="size-4" /> {label}
@@ -89,12 +92,12 @@ export function ProjectDeliveryControlCenter({
         ))}
       </nav>
 
-      <div className="min-w-0 overflow-y-auto bg-white p-5">
+      <div className="min-w-0 overflow-y-auto bg-surface-card p-5">
         {activeTab === 'team' && (
           <ControlSection title="Team and project alignment" description="Project membership, allocation and OKR linkage remain connected to the existing access model.">
             <ProjectObjectiveLinker projectId={project.id} objectiveId={project.objectiveId} canEdit={canEdit} />
             {canEdit && (
-              <div className="mt-5 rounded-card border border-black/[0.08] bg-surface-muted/30 p-3">
+              <div className="mt-5 rounded-card border border-ink-primary/[0.08] bg-surface-muted/30 p-3">
                 <div className="mb-2 text-body-sm font-semibold text-ink-primary">Invite or update a member</div>
                 <div className="grid gap-2 md:grid-cols-[minmax(180px,1fr)_150px_110px_auto]">
                   <select className="input h-9" value={memberUserId} onChange={(event) => setMemberUserId(event.target.value)}>
@@ -104,22 +107,22 @@ export function ProjectDeliveryControlCenter({
                   <select className="input h-9" value={memberRole} onChange={(event) => setMemberRole(event.target.value)}>
                     <option value="DEVELOPER">Developer</option><option value="QA">QA</option><option value="DESIGNER">Designer</option><option value="BA">Business analyst</option><option value="PM">Project manager</option><option value="CLIENT_CONTACT">Client contact</option>
                   </select>
-                  <label className="flex h-9 items-center gap-1 rounded-md border border-black/[0.08] bg-white px-2 text-[12px] text-ink-secondary"><input className="w-12 bg-transparent text-right outline-none" type="number" min={0} max={100} value={allocationPct} onChange={(event) => setAllocationPct(Math.max(0, Math.min(100, Number(event.target.value) || 0)))} />%</label>
+                  <label className="flex h-9 items-center gap-1 rounded-md border border-ink-primary/[0.08] bg-surface-card px-2 text-xs text-ink-secondary"><input className="w-12 bg-transparent text-right outline-none" type="number" min={0} max={100} value={allocationPct} onChange={(event) => setAllocationPct(Math.max(0, Math.min(100, Number(event.target.value) || 0)))} />%</label>
                   <button className="btn btn-primary btn-sm" disabled={!memberUserId || savingMember} onClick={() => void mutateMember('POST', { userId: memberUserId, role: memberRole, allocationPct })}>Save member</button>
                 </div>
               </div>
             )}
-            <div className="mt-5 overflow-hidden rounded-card border border-black/[0.08]">
-              <div className="grid grid-cols-[1fr_150px_120px] bg-surface-muted/60 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-ink-tertiary">
+            <div className="mt-5 overflow-hidden rounded-card border border-ink-primary/[0.08]">
+              <div className="grid grid-cols-[1fr_150px_120px] bg-surface-muted/60 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-ink-tertiary">
                 <span>Member</span><span>Role</span><span>Allocation</span>
               </div>
               {project.members.length === 0 ? (
                 <div className="px-3 py-5 text-body-sm text-ink-tertiary">No additional project members. The project manager still has full delivery access.</div>
               ) : project.members.map((member) => (
-                <div key={member.id} className="grid grid-cols-[1fr_150px_120px] border-t border-black/[0.05] px-3 py-2 text-body-sm text-ink-secondary">
+                <div key={member.id} className="grid grid-cols-[1fr_150px_120px] border-t border-ink-primary/[0.05] px-3 py-2 text-body-sm text-ink-secondary">
                   <span className="font-medium text-ink-primary">{names.get(member.userId) ?? member.userId}</span>
                   <span>{member.role.replace(/_/g, ' ')}</span>
-                  <span className="flex items-center justify-between gap-2">{member.allocationPct}%{canEdit && <button type="button" disabled={savingMember} className="text-[11px] text-danger-600 hover:underline" onClick={() => void mutateMember('DELETE', { userId: member.userId })}>Remove</button>}</span>
+                  <span className="flex items-center justify-between gap-2">{member.allocationPct}%{canEdit && <button type="button" disabled={savingMember} className="text-xs text-danger-600 hover:underline" onClick={() => void mutateMember('DELETE', { userId: member.userId })}>Remove</button>}</span>
                 </div>
               ))}
             </div>
@@ -161,6 +164,10 @@ export function ProjectDeliveryControlCenter({
         )}
 
         {activeTab === 'settings' && (
+          <div className="space-y-8">
+          <ControlSection title="Client portal" description="Turn the client portal on for this project and manage who at the client can sign in. Clients only ever see anonymized, client-visible data.">
+            <PortalAccessPanel projectId={project.id} projectClientName={project.clientName} canEdit={canEdit} />
+          </ControlSection>
           <ControlSection title="Project settings" description="Manage this project's lifecycle and visibility.">
             <div className="rounded-card border border-danger-500/25 bg-danger-50 p-4">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -183,6 +190,7 @@ export function ProjectDeliveryControlCenter({
               {!canEdit && <p className="mt-3 text-body-sm text-danger-700">Only a project manager or authorized management role can archive this project.</p>}
             </div>
           </ControlSection>
+          </div>
         )}
       </div>
     </div>
@@ -195,6 +203,7 @@ function ProjectSnapshotsPanel({ projectId, canEdit }: { projectId: string; canE
   const [snapshots, setSnapshots] = useState<PublicSnapshot[]>([])
   const [loading, setLoading] = useState(true)
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [deleteSnapshotId, setDeleteSnapshotId] = useState<string | null>(null)
 
   const load = async () => {
     setLoading(true)
@@ -231,15 +240,31 @@ function ProjectSnapshotsPanel({ projectId, canEdit }: { projectId: string; canE
   }
 
   return (
-    <div className="overflow-hidden rounded-card border border-black/[0.08]">
+    <div className="overflow-hidden rounded-card border border-ink-primary/[0.08]">
       <div className="flex items-center justify-between bg-surface-muted/40 px-3 py-2"><span className="text-body-sm text-ink-secondary">{snapshots.length} published snapshot{snapshots.length === 1 ? '' : 's'}</span>{canEdit && <button className="btn btn-primary btn-sm" disabled={busyId === 'NEW'} onClick={() => void mutate('POST')}>Publish snapshot</button>}</div>
-      {loading ? <div className="p-3 text-body-sm text-ink-tertiary">Loading snapshots…</div> : snapshots.length === 0 ? <div className="p-3 text-body-sm text-ink-tertiary">No public snapshots have been published.</div> : snapshots.map((snapshot) => (
-        <div key={snapshot.id} className="flex items-center gap-3 border-t border-black/[0.05] px-3 py-2 text-body-sm">
+      {loading ? <div className="space-y-2 p-3" role="status" aria-label="Loading snapshots"><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /></div> : snapshots.length === 0 ? <div className="p-3 text-body-sm text-ink-tertiary">No public snapshots have been published.</div> : snapshots.map((snapshot) => (
+        <div key={snapshot.id} className="flex items-center gap-3 border-t border-ink-primary/[0.05] px-3 py-2 text-body-sm">
           <span className="font-medium text-ink-primary">Captured {new Date(snapshot.generatedAt).toLocaleString()}</span>
           <button className="ml-auto text-primary-700 hover:underline" onClick={() => void navigator.clipboard?.writeText(`${window.location.origin}/projects/snapshots/${snapshot.id}`).then(() => toast.success('Snapshot link copied'))}>Copy link</button>
-          {canEdit && <><button disabled={busyId === snapshot.id} className="text-primary-700 hover:underline" onClick={() => void mutate('PATCH', snapshot.id)}>Refresh</button><button disabled={busyId === snapshot.id} className="text-danger-600 hover:underline" onClick={() => { if (window.confirm('Delete this public snapshot?')) void mutate('DELETE', snapshot.id) }}>Delete</button></>}
+          {canEdit && <><button disabled={busyId === snapshot.id} className="text-primary-700 hover:underline" onClick={() => void mutate('PATCH', snapshot.id)}>Refresh</button><button disabled={busyId === snapshot.id} className="text-danger-600 hover:underline" onClick={() => setDeleteSnapshotId(snapshot.id)}>Delete</button></>}
         </div>
       ))}
+      <ConfirmDialog
+        open={deleteSnapshotId !== null}
+        onClose={() => setDeleteSnapshotId(null)}
+        onConfirm={async () => {
+          const id = deleteSnapshotId
+          if (!id) return
+          await mutate('DELETE', id)
+          setDeleteSnapshotId(null)
+        }}
+        title="Delete public snapshot"
+        message="Delete this public snapshot?"
+        description="Anyone holding its link will get a not-found page. This cannot be undone."
+        variant="danger"
+        confirmLabel="Delete snapshot"
+        isLoading={deleteSnapshotId !== null && busyId === deleteSnapshotId}
+      />
     </div>
   )
 }

@@ -43,7 +43,7 @@ export function ClientReportsPanel({ projectId, canEdit }: { projectId: string; 
       ) : (
         <div className="grid gap-4 lg:grid-cols-[1fr_280px]">
           <ReportEditor report={latest} canEdit={canEdit} onUpdate={(body) => update.mutate({ reportId: latest.id, ...body })} isPending={update.isPending} />
-          <div className="rounded-card border border-black/[0.08] p-3">
+          <div className="rounded-card border border-ink-primary/[0.08] p-3">
             <div className="mb-2 flex items-center justify-between">
               <span className={cn('rounded-pill px-2.5 py-1 text-body-sm font-medium', STATUS_TONE[latest.status])}>{labelize(latest.status)}</span>
               {latest.aiSummaryEdited && <span className="text-body-sm text-ink-tertiary">PM edited</span>}

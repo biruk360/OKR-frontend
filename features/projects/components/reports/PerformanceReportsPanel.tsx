@@ -100,7 +100,7 @@ function TeamReportCard({ projectId, report, canEdit, saving, onSave }: {
   const [insight, setInsight] = useState(content.aiInsight)
   useEffect(() => setInsight(content.aiInsight), [report.id, content.aiInsight])
   return (
-    <div className="rounded-card border border-black/[0.08] p-3">
+    <div className="rounded-card border border-ink-primary/[0.08] p-3">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="text-body-sm font-medium text-ink-primary">R4 Team Report</div>
         <a className="btn btn-outline btn-sm" href={`/api/projects/${projectId}/performance-reports/${report.id}/pdf`}><Download className="mr-1 size-3.5" /> PDF</a>
@@ -131,7 +131,7 @@ function IndividualReportTable({ projectId, report, canEdit, saving, onSave }: {
   useEffect(() => setInsights(initial), [initial])
   const changed = JSON.stringify(insights) !== JSON.stringify(initial)
   return (
-    <div className="rounded-card border border-black/[0.08] p-3">
+    <div className="rounded-card border border-ink-primary/[0.08] p-3">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="text-body-sm font-medium text-ink-primary">R3 Individual Report</div>
         <div className="flex gap-2">
@@ -142,11 +142,11 @@ function IndividualReportTable({ projectId, report, canEdit, saving, onSave }: {
       <div className="overflow-x-auto">
         <table className="w-full text-body-sm">
           <thead>
-            <tr className="border-b border-black/[0.08] text-left text-ink-tertiary">
+            <tr className="border-b border-ink-primary/[0.08] text-left text-ink-tertiary">
               {['Developer', 'Assigned', 'Estimate', 'Buffer', 'Done', 'Blocked', 'Perf', 'Idle', 'Accuracy', 'Cycle', 'Blocked days', 'Scrum', 'AI insight'].map((h) => <th key={h} className="px-2 py-1.5 font-medium">{h}</th>)}
             </tr>
           </thead>
-          <tbody className="divide-y divide-black/[0.04]">
+          <tbody className="divide-y divide-ink-primary/[0.04]">
             {content.rows.map((row) => {
               const key = row.userId ?? row.email ?? row.developerName
               return (
@@ -198,7 +198,7 @@ function InsightEditor({ value, disabled, saving, changed, onChange, onSave }: {
 }
 
 function Kpi({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
-  return <div className="rounded-md border border-black/[0.08] p-2"><div className="text-[11px] uppercase text-ink-tertiary">{label}</div><div className="text-section-title text-ink-primary">{value}</div>{sub && <div className="text-[12px] text-ink-tertiary">{sub}</div>}</div>
+  return <div className="rounded-md border border-ink-primary/[0.08] p-2"><div className="text-xs uppercase text-ink-tertiary">{label}</div><div className="text-section-title text-ink-primary">{value}</div>{sub && <div className="text-xs text-ink-tertiary">{sub}</div>}</div>
 }
 
 function labelize(value: string): string {

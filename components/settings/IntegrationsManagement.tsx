@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Save, Mail, MessageSquare, Key } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
 import AiProviderSettingsPanel from './AiProviderSettingsPanel'
+import { PageHeader } from '@/components/ui/PageHeader'
 
 interface FormData {
   emailApiKey?: string
@@ -12,20 +13,58 @@ interface FormData {
   slackApiKey?: string
 }
 
+type Field = keyof FormData
+
+/**
+ * GET /api/settings/integrations never returns a secret — each value arrives
+ * masked (`••••••••` + last four) with a `configured` flag. The inputs start
+ * empty and the mask is shown as a hint; an empty field is saved as
+ * "unchanged" server-side, so a secret can be replaced but never echoed back.
+ */
+interface MaskedSettings {
+  masked: Record<Field, string>
+  configured: Record<Field, boolean>
+}
+
+const EMPTY_FORM: FormData = { emailApiKey: '', slackWebhookUrl: '', slackApiKey: '' }
+
+function keepHint(settings: MaskedSettings | null, field: Field, fallback: string): string {
+  if (!settings?.configured[field]) return fallback
+  return `Saved (${settings.masked[field] || '••••••••'}) — leave blank to keep`
+}
+
 export default function IntegrationsManagement({ showAiProviderSettings = false }: { showAiProviderSettings?: boolean }) {
   const [isLoading, setIsLoading] = useState(false)
-  const { register, handleSubmit, reset } = useForm<FormData>()
+  const [settings, setSettings] = useState<MaskedSettings | null>(null)
+  const [forbidden, setForbidden] = useState(false)
+  const { register, handleSubmit, reset } = useForm<FormData>({ defaultValues: EMPTY_FORM })
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch('/api/settings/integrations')
+      if (res.status === 403) {
+        setForbidden(true)
+        return
+      }
+      const data = await res.json()
+      if (data.success && data.data) {
+        setSettings({
+          masked: {
+            emailApiKey: data.data.emailApiKey ?? '',
+            slackWebhookUrl: data.data.slackWebhookUrl ?? '',
+            slackApiKey: data.data.slackApiKey ?? '',
+          },
+          configured: data.data.configured ?? { emailApiKey: false, slackWebhookUrl: false, slackApiKey: false },
+        })
+      }
+    } catch {
+      /* leave the form usable with empty hints */
+    }
+  }, [])
 
   useEffect(() => {
-    fetch('/api/settings/integrations')
-      .then(res => res.json())
-      .then(data => {
-        if (data.success && data.data) {
-          reset(data.data)
-        }
-      })
-      .catch(() => {})
-  }, [reset])
+    void load()
+  }, [load])
 
   const onSubmit = async (data: FormData) => {
     setIsLoading(true)
@@ -40,6 +79,9 @@ export default function IntegrationsManagement({ showAiProviderSettings = false 
 
       if (response.ok) {
         toast.success('Integration settings updated successfully')
+        // Never keep a typed secret in the form after it has been saved.
+        reset(EMPTY_FORM)
+        void load()
       } else {
         toast.error(result.error || 'Failed to update integration settings')
       }
@@ -52,14 +94,19 @@ export default function IntegrationsManagement({ showAiProviderSettings = false 
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Integrations & API Keys</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Configure approved external services and server-side credentials.
-        </p>
-      </div>
+      <PageHeader
+        className="mb-0"
+        title="Integrations & API Keys"
+        description="Configure approved external services and server-side credentials."
+      />
 
       {showAiProviderSettings && <AiProviderSettingsPanel />}
+
+      {forbidden && (
+        <div className="rounded-lg border border-border bg-muted/40 p-4 text-sm text-muted-foreground" role="status">
+          Only administrators can view or change integration credentials.
+        </div>
+      )}
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         {/* Email Integration */}
@@ -75,8 +122,10 @@ export default function IntegrationsManagement({ showAiProviderSettings = false 
             <input
               {...register('emailApiKey')}
               type="password"
+              autoComplete="new-password"
               className="input"
-              placeholder="Enter email service API key"
+              disabled={forbidden}
+              placeholder={keepHint(settings, 'emailApiKey', 'Enter email service API key')}
             />
             <p className="mt-1 text-xs text-muted-foreground">
               API key for sending email reminders and notifications.
@@ -98,8 +147,10 @@ export default function IntegrationsManagement({ showAiProviderSettings = false 
               <input
                 {...register('slackWebhookUrl')}
                 type="url"
+                autoComplete="off"
                 className="input"
-                placeholder="https://hooks.slack.com/services/..."
+                disabled={forbidden}
+                placeholder={keepHint(settings, 'slackWebhookUrl', 'https://hooks.slack.com/services/...')}
               />
               <p className="mt-1 text-xs text-muted-foreground">
                 Webhook URL for sending Slack notifications.
@@ -112,8 +163,10 @@ export default function IntegrationsManagement({ showAiProviderSettings = false 
               <input
                 {...register('slackApiKey')}
                 type="password"
+                autoComplete="new-password"
                 className="input"
-                placeholder="xoxb-..."
+                disabled={forbidden}
+                placeholder={keepHint(settings, 'slackApiKey', 'xoxb-...')}
               />
               <p className="mt-1 text-xs text-muted-foreground">
                 Slack Bot Token for advanced integrations.
@@ -126,8 +179,8 @@ export default function IntegrationsManagement({ showAiProviderSettings = false 
         <div className="flex items-center justify-end">
           <button
             type="submit"
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
-            disabled={isLoading}
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-primary-foreground bg-primary-600 hover:bg-primary-700"
+            disabled={isLoading || forbidden}
           >
             <Save className="h-4 w-4 mr-2" />
             {isLoading ? 'Saving...' : 'Save Settings'}

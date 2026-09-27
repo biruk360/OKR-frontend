@@ -53,6 +53,9 @@ export function wrapHtml(body: string): string {
 </body></html>`
 }
 
+/** Home page with the check-in picker opened (see AppleDashboard `?checkin=1`). */
+const CHECK_IN_PATH = '/dashboard?checkin=1'
+
 const DEFAULT_FOOTER_LINKS = [
   { label: 'Open in app', href: '/dashboard' },
   { label: 'Manage notifications', href: '/dashboard/settings/notifications' },
@@ -88,6 +91,440 @@ function fmtDate(v: unknown): string {
   return d.toISOString().slice(0, 10)
 }
 
+/** True for a present, non-blank value (0 counts as present). */
+function has(v: unknown): boolean {
+  return v !== undefined && v !== null && String(v).trim() !== ''
+}
+
+/** A printable string, or `fallback` when missing / not meaningfully printable. */
+function str(v: unknown, fallback = ''): string {
+  if (!has(v)) return fallback
+  const s = String(v)
+  return s === '[object Object]' ? fallback : s
+}
+
+/** A finite number as a string, or `fallback`. */
+function num(v: unknown, fallback = '—'): string {
+  if (!has(v)) return fallback
+  const n = Number(v)
+  return Number.isFinite(n) ? String(Math.round(n * 100) / 100) : fallback
+}
+
+function plural(n: unknown, word: string): string {
+  const v = Number(n)
+  return `${num(n)} ${word}${v === 1 ? '' : 's'}`
+}
+
+type Tone = 'neutral' | 'success' | 'warning' | 'danger' | 'primary'
+
+function ragTone(rag: unknown): Tone {
+  const r = String(rag ?? '').toUpperCase()
+  return r === 'RED' ? 'danger' : r === 'AMBER' ? 'warning' : r === 'GREEN' ? 'success' : 'neutral'
+}
+
+interface NoticeArgs {
+  name: string
+  subject: string
+  eyebrow: string
+  title: string
+  badgeText?: string
+  badgeTone?: Tone
+  lead: string
+  alert?: { tone: 'info' | 'success' | 'warning' | 'danger'; title: string; body?: string }
+  kpis?: Array<{ label: string; value: string; tone?: 'neutral' | 'success' | 'warning' | 'danger' }>
+  /** Key/value facts; rows with an empty value are dropped. */
+  details?: Array<{ label: string; value: string }>
+  note?: string
+  cta: string
+  ctaVariant?: 'primary' | 'success' | 'warning' | 'danger'
+  /** Relative app path or absolute URL of the page the CTA opens. */
+  link: string
+  secondary?: Array<{ label: string; href: string }>
+}
+
+/**
+ * Single-entity notice: heading, lead, optional alert / KPIs / facts, one CTA
+ * and secondary links — with a plain-text twin carrying the same facts and an
+ * absolute link. Used by the project-delivery and scrum-workflow events.
+ */
+function notice(a: NoticeArgs): RenderedEmail {
+  const url = absoluteUrl(a.link)
+  const details = (a.details ?? []).filter((d) => d.value)
+  const kpis = a.kpis ?? []
+  const facts = [...kpis.map((k) => `${k.label}: ${k.value}`), ...details.map((d) => `${d.label}: ${d.value}`)]
+  const text = [
+    `Hi ${a.name},`,
+    '',
+    a.lead,
+    ...(a.alert ? ['', a.alert.body ? `${a.alert.title} — ${a.alert.body}` : a.alert.title] : []),
+    ...(facts.length ? ['', ...facts] : []),
+    ...(a.note ? ['', a.note] : []),
+    '',
+    `${a.cta}: ${url}`,
+  ].join('\n')
+  return compose({
+    subject: a.subject,
+    recipientName: a.name,
+    text,
+    html: `
+      ${heading({ eyebrow: a.eyebrow, title: a.title, badgeText: a.badgeText, badgeTone: a.badgeTone })}
+      ${lead(a.lead)}
+      ${a.alert ? alert(a.alert.tone, a.alert.title, a.alert.body) : ''}
+      ${kpis.length ? kpiRow(kpis) : ''}
+      ${details.length ? metaRow(details) : ''}
+      ${button(a.cta, url, a.ctaVariant)}
+      ${a.note ? muted(a.note) : ''}
+      ${actionRow(a.secondary ?? [])}
+    `,
+  })
+}
+
+const PROJECT_LINKS = [
+  { label: 'All projects', href: '/dashboard/projects' },
+  { label: 'Notification settings', href: '/dashboard/settings/notifications' },
+]
+
+const SCRUM_LINKS = [
+  { label: 'Daily scrum', href: '/dashboard/scrum' },
+  { label: 'Notification settings', href: '/dashboard/settings/notifications' },
+]
+
+/**
+ * Project-delivery and scrum-workflow emails (none of these events is
+ * `redactable`: project and scrum-workflow content is shared with everyone the
+ * dispatcher routes them to, so they print titles as given). Returns null for
+ * keys it does not handle.
+ */
+function renderProjectOrScrumEvent(eventKey: EventKey, data: Data, name: string): RenderedEmail | null {
+  const rawTitle = str(data.entityTitle)
+  // The dispatcher substitutes '(untitled)' when an emitter passes no title.
+  const known = rawTitle !== '' && rawTitle !== '(untitled)' && rawTitle !== '(item)'
+  /** For subjects / facts. */
+  const project = known ? rawTitle : 'a project'
+  /** For sentences. */
+  const projectQ = known ? `"${rawTitle}"` : 'your project'
+  const projectFact = { label: 'Project', value: known ? rawTitle : '' }
+  const actor = str(data.actorName, '')
+  const projectLink = str(data.deepLink, '/dashboard/projects')
+  const scrumLink = str(data.deepLink, '/dashboard/scrum')
+  const activity = str(data.activityTitle)
+  const phase = str(data.phase)
+  const reason = str(data.reason)
+  const base = { name, eyebrow: 'Project delivery', link: projectLink, secondary: PROJECT_LINKS }
+
+  switch (eventKey) {
+    case 'PROJECT_CREATED':
+      return notice({
+        ...base,
+        subject: known ? `New project: ${rawTitle}` : 'A new project was created',
+        title: 'A project was created',
+        badgeText: 'New', badgeTone: 'primary',
+        lead: `${actor ? `${actor} created` : 'A new project was created'}${known ? ` the project ${projectQ}` : actor ? ' a new project' : ''}. Review the plan, team and client obligations before the baseline is committed.`,
+        details: [projectFact, { label: 'Code', value: str(data.projectCode ?? data.code) }],
+        cta: 'Open project',
+      })
+
+    case 'PROJECT_BASELINE_COMMITTED':
+      return notice({
+        ...base,
+        subject: `Baseline committed: ${project}`,
+        title: 'Baseline committed',
+        badgeText: `v${num(data.version, '1')}`, badgeTone: 'success',
+        lead: `The schedule baseline for ${projectQ} is now locked. Any later date change needs a slip reason and owner.`,
+        kpis: [{ label: 'Baselined activities', value: num(data.activityCount) }],
+        details: [{ label: 'Baseline version', value: num(data.version, '1') }],
+        cta: 'Open project',
+      })
+
+    case 'PROJECT_REBASELINED':
+      return notice({
+        ...base,
+        subject: `Project re-baselined: ${project}`,
+        title: 'Project re-baselined',
+        badgeText: `v${num(data.version, '?')}`, badgeTone: 'warning',
+        lead: `A new schedule baseline was committed for ${projectQ}. Earlier baselines remain available as snapshots.`,
+        kpis: [{ label: 'Activities changed', value: num(data.changeCount) }],
+        details: [{ label: 'Baseline version', value: has(data.version) ? num(data.version) : '' }, { label: 'Reason', value: reason }],
+        cta: 'Review changes',
+      })
+
+    case 'PROJECT_RAG_CHANGED': {
+      const from = str(data.from, 'previous').toUpperCase()
+      const to = str(data.to, 'new').toUpperCase()
+      return notice({
+        ...base,
+        subject: `${project} is now ${to}`,
+        title: 'Project health changed',
+        badgeText: to, badgeTone: ragTone(to),
+        lead: `The health of ${projectQ} moved from ${from} to ${to} after the latest recompute.`,
+        details: [{ label: 'From', value: from }, { label: 'To', value: to }],
+        cta: 'Open project',
+      })
+    }
+
+    case 'PROJECT_WENT_RED':
+      return notice({
+        ...base,
+        subject: `Project went RED: ${project}`,
+        title: 'Project went RED',
+        badgeText: 'RED', badgeTone: 'danger',
+        lead: `${known ? `"${rawTitle}"` : 'A project you follow'} has turned RED. Review the schedule, blockers and open risks and agree a recovery plan.`,
+        alert: { tone: 'danger', title: 'Delivery at risk', body: 'Overdue work, blocked activities or high risks have pushed this project into the red.' },
+        kpis: has(data.confidence) ? [{ label: 'Delivery confidence', value: fmtPct(data.confidence), tone: 'danger' }] : [],
+        cta: 'Open project', ctaVariant: 'danger',
+      })
+
+    case 'CLIENT_APPROVAL_PENDING':
+      return notice({
+        ...base,
+        subject: `Awaiting client approval: ${activity || project}`,
+        title: 'Deliverable sent for client approval',
+        badgeText: 'Approval clock started', badgeTone: 'primary',
+        lead: `${activity ? `"${activity}"` : 'A deliverable'} on ${projectQ} is now waiting for client approval. Days the client takes are logged to the delay ledger automatically.`,
+        details: [projectFact, { label: 'Activity', value: activity }, { label: 'Phase', value: phase }],
+        cta: 'Open project',
+      })
+
+    case 'CLIENT_APPROVAL_SLA_BREACH':
+      return notice({
+        ...base,
+        subject: `Client approval SLA breached: ${activity || project}`,
+        title: 'Client approval is past its SLA',
+        badgeText: str(data.threshold, 'SLA breach'), badgeTone: 'danger',
+        lead: `The client has not yet approved ${activity ? `"${activity}"` : 'a deliverable'} on ${projectQ} within the agreed SLA. Follow up with the client contact.`,
+        kpis: [
+          { label: 'Business days waited', value: num(data.daysWaited) },
+          { label: 'Days over SLA', value: num(data.daysOverSla), tone: 'danger' },
+          { label: 'SLA (business days)', value: num(data.slaBusinessDays) },
+        ],
+        details: [{ label: 'Activity', value: activity }, { label: 'Phase', value: phase }],
+        cta: 'Open project', ctaVariant: 'danger',
+      })
+
+    case 'ACTIVITY_BLOCKED':
+      return notice({
+        ...base,
+        subject: `Activity blocked: ${activity || project}`,
+        title: 'An activity is blocked',
+        badgeText: 'Blocked', badgeTone: 'warning',
+        lead: `${activity ? `"${activity}"` : 'An activity'} on ${projectQ} is blocked${actor ? ` (flagged by ${actor})` : ''}. Clear the blocker or re-plan dependent work.`,
+        details: [projectFact, { label: 'Phase', value: phase }, { label: 'Blocker', value: str(data.blockerReason ?? data.reason) }],
+        cta: 'Open activity', ctaVariant: 'warning',
+      })
+
+    case 'ACTIVITY_OVERDUE':
+      return notice({
+        ...base,
+        subject: `Activity overdue: ${activity || project}`,
+        title: 'An activity is overdue',
+        badgeText: 'Overdue', badgeTone: 'danger',
+        lead: `${activity ? `"${activity}"` : 'An activity'} on ${projectQ} has passed its planned end date without being completed.`,
+        details: [projectFact, { label: 'Due', value: has(data.dueDate) ? fmtDate(data.dueDate) : '' }, { label: 'Days overdue', value: str(data.daysOverdue) }],
+        cta: 'Update activity', ctaVariant: 'danger',
+      })
+
+    case 'BASELINE_SLIPPED':
+      return notice({
+        ...base,
+        subject: `Baseline slipped: ${activity || project}`,
+        title: 'Work slipped against the baseline',
+        badgeText: has(data.slipDays) ? `+${num(data.slipDays)} days` : 'Slip', badgeTone: 'warning',
+        lead: `${activity ? `"${activity}"` : 'An activity'} on ${projectQ} now finishes later than its committed baseline.`,
+        details: [projectFact, { label: 'Reason', value: reason }, { label: 'Owner', value: str(data.slipOwner ?? data.owner) }],
+        cta: 'Open project', ctaVariant: 'warning',
+      })
+
+    case 'STAGE_GATE_PENDING':
+      return notice({
+        ...base,
+        subject: `Stage gate awaiting review: ${project}`,
+        title: 'A stage gate needs your review',
+        badgeText: 'Pending', badgeTone: 'warning',
+        lead: `${has(data.gateName) ? `The "${str(data.gateName)}" gate` : 'A stage gate'} on ${projectQ} is ready for review. The next phase can't start until it is passed or waived.`,
+        details: [projectFact, { label: 'Phase', value: phase }],
+        cta: 'Review gate',
+      })
+
+    case 'STAGE_GATE_BYPASSED':
+      return notice({
+        ...base,
+        subject: `Stage gate bypassed: ${project}`,
+        title: 'A stage gate was bypassed',
+        badgeText: 'Bypassed', badgeTone: 'danger',
+        lead: `${has(data.gateName) ? `The "${str(data.gateName)}" gate` : 'A stage gate'} on ${projectQ} was bypassed${actor ? ` by ${actor}` : ''} without a pass decision.`,
+        details: [projectFact, { label: 'Reason', value: reason }],
+        cta: 'Review gate', ctaVariant: 'danger',
+      })
+
+    case 'CHANGE_REQUEST_SUBMITTED':
+    case 'CHANGE_REQUEST_APPROVED': {
+      const approved = eventKey === 'CHANGE_REQUEST_APPROVED'
+      const cr = str(data.crCode, 'A change request')
+      const impact = has(data.scheduleImpactDays) ? plural(data.scheduleImpactDays, 'day') : ''
+      return notice({
+        ...base,
+        subject: `${approved ? 'Change request approved' : 'Change request submitted'}: ${str(data.crCode, project)}`,
+        title: approved ? 'Change request approved' : 'Change request awaiting decision',
+        badgeText: approved ? 'Approved' : 'Submitted', badgeTone: approved ? 'success' : 'primary',
+        lead: approved
+          ? `${cr} on ${projectQ} was approved${actor ? ` by ${actor}` : ''}. Its schedule impact has been applied and project health recomputed.`
+          : `${cr} on ${projectQ} was submitted${actor ? ` by ${actor}` : ''} and needs a decision.`,
+        details: [projectFact, { label: 'Change request', value: str(data.crCode) }, { label: 'Schedule impact', value: impact }],
+        cta: approved ? 'Open project' : 'Review change request',
+        ctaVariant: approved ? 'success' : 'primary',
+      })
+    }
+
+    case 'RAID_HIGH_RISK_ADDED':
+      return notice({
+        ...base,
+        subject: `High risk on ${project}${has(data.refCode) ? ` (${str(data.refCode)})` : ''}`,
+        title: 'A high risk was logged',
+        badgeText: has(data.score) ? `Score ${num(data.score)}` : 'High risk', badgeTone: 'danger',
+        lead: `A risk scoring 15 or more was added to the RAID log of ${projectQ}. Agree a mitigation and an owner.`,
+        details: [projectFact, { label: 'Reference', value: str(data.refCode) }, { label: 'Score', value: has(data.score) ? num(data.score) : '' }],
+        cta: 'Open RAID log', ctaVariant: 'danger',
+      })
+
+    case 'CLIENT_REPORT_READY':
+      return notice({
+        ...base,
+        subject: `Client report draft ready: ${project}`,
+        title: 'Client report draft ready',
+        badgeText: 'Needs review', badgeTone: 'primary',
+        lead: `A client status report draft for ${projectQ} is ready. Review and approve it before it is shared — nothing is sent to the client automatically.`,
+        cta: 'Review draft',
+      })
+
+    case 'CLIENT_COMMENT_POSTED':
+      return notice({
+        ...base,
+        subject: `Client comment on ${rawTitle && rawTitle !== '(untitled)' ? rawTitle : 'a project activity'}`,
+        title: 'The client posted a comment',
+        badgeText: 'Client portal', badgeTone: 'primary',
+        lead: `The client commented on ${rawTitle && rawTitle !== '(untitled)' ? `"${rawTitle}"` : 'a project activity'} in the client portal. Replies you mark client-visible are shown to them.`,
+        cta: 'Open conversation',
+      })
+
+    case 'JIRA_SYNC_FAILED':
+      return notice({
+        ...base,
+        subject: `Jira sync failed: ${project}`,
+        title: 'Jira sync failed',
+        badgeText: 'Integration', badgeTone: 'warning',
+        lead: `The latest Jira sync for ${projectQ} failed. The project schedule is unaffected; Jira-linked progress may be stale until the connection is fixed.`,
+        details: [{ label: 'Error', value: str(data.error ?? data.errorMessage) }],
+        cta: 'Open project', ctaVariant: 'warning',
+      })
+
+    case 'PAYMENT_MILESTONE_READY': {
+      const amount = has(data.amount) ? `${str(data.currency)} ${str(data.amount)}`.trim() : ''
+      return notice({
+        ...base,
+        eyebrow: 'Project finance',
+        subject: `Ready to invoice: ${str(data.paymentMilestoneName, project)}`,
+        title: 'Payment milestone ready to invoice',
+        badgeText: 'Ready', badgeTone: 'success',
+        lead: `${has(data.paymentMilestoneName) ? `"${str(data.paymentMilestoneName)}"` : 'A payment milestone'} on ${projectQ} is ready to invoice${activity ? ` — "${activity}" is complete` : ''}.`,
+        details: [projectFact, { label: 'Milestone', value: str(data.paymentMilestoneName) }, { label: 'Amount', value: amount }],
+        cta: 'Open project', ctaVariant: 'success',
+      })
+    }
+
+    case 'COE_REQUIRED':
+      return notice({
+        ...base,
+        subject: `Correction of Errors required: ${project}`,
+        title: 'Correction of Errors required',
+        badgeText: 'COE', badgeTone: 'danger',
+        lead: `A Correction of Errors (COE) write-up is required for ${projectQ}. Document what happened, the root cause and the actions that prevent a repeat.`,
+        details: [{ label: 'Trigger', value: reason }, { label: 'Due', value: has(data.dueDate) ? fmtDate(data.dueDate) : '' }],
+        cta: 'Open project', ctaVariant: 'danger',
+      })
+
+    case 'WBR_PACK_READY':
+      return notice({
+        ...base,
+        eyebrow: 'Portfolio',
+        subject: 'Weekly Business Review pack ready',
+        title: 'Weekly Business Review pack ready',
+        badgeText: 'Weekly', badgeTone: 'primary',
+        lead: "This week's portfolio review pack is ready — health, slips, approvals and risks across active projects.",
+        cta: 'Open portfolio',
+        link: str(data.deepLink, '/dashboard/projects/portfolio'),
+      })
+
+    case 'SCRUM_NOT_LOGGED':
+      return notice({
+        name,
+        eyebrow: 'Daily scrum',
+        subject: 'Daily scrum not logged',
+        title: 'No daily scrum was logged',
+        badgeText: str(data.dayLabel, 'Missing'), badgeTone: 'warning',
+        lead: `No daily scrum update was logged${has(data.dayLabel) ? ` for ${str(data.dayLabel)}` : ''}${known ? ` on ${projectQ}` : ''}. Log it so the team and project status stay current.`,
+        cta: 'Log update', ctaVariant: 'warning',
+        link: scrumLink,
+        secondary: SCRUM_LINKS,
+      })
+
+    case 'SCRUM_PROXY_SUBMITTED':
+      return notice({
+        name,
+        eyebrow: 'Daily scrum',
+        subject: `${actor || 'A teammate'} submitted your daily scrum on your behalf`,
+        title: 'Your update was submitted by proxy',
+        badgeText: 'Needs confirmation', badgeTone: 'warning',
+        lead: `${actor || 'A teammate'} submitted today's daily scrum update for you. Check it and confirm or amend it.`,
+        details: [{ label: 'Reason given', value: str(data.proxyReason) }],
+        cta: 'Review update', ctaVariant: 'warning',
+        link: scrumLink,
+        secondary: SCRUM_LINKS,
+      })
+
+    case 'SCRUM_PROXY_CONFIRMED':
+      return notice({
+        name,
+        eyebrow: 'Daily scrum',
+        subject: 'Your proxy scrum update was confirmed',
+        title: 'Proxy update confirmed',
+        badgeText: 'Confirmed', badgeTone: 'success',
+        lead: `${actor || 'Your teammate'} reviewed the daily scrum update you submitted on their behalf and confirmed it.`,
+        cta: 'Open update', ctaVariant: 'success',
+        link: scrumLink,
+        secondary: SCRUM_LINKS,
+      })
+
+    case 'SCRUM_UPDATE_AMENDED':
+      return notice({
+        name,
+        eyebrow: 'Daily scrum',
+        subject: 'A daily scrum update was amended',
+        title: 'Update amended',
+        badgeText: 'Amended', badgeTone: 'primary',
+        lead: `${actor || 'The author'} amended a daily scrum update you follow. Open it to see the latest version.`,
+        cta: 'Open update',
+        link: scrumLink,
+        secondary: SCRUM_LINKS,
+      })
+
+    case 'SCRUM_WIN_CELEBRATED':
+      return notice({
+        name,
+        eyebrow: 'Daily scrum',
+        subject: `${actor || 'A teammate'} celebrated your win`,
+        title: 'Your win was celebrated',
+        badgeText: 'Win', badgeTone: 'success',
+        lead: `${actor || 'A teammate'} celebrated a win from your daily scrum update. Nice work!`,
+        cta: 'See the update', ctaVariant: 'success',
+        link: scrumLink,
+        secondary: [{ label: 'Team wins', href: '/dashboard/scrum/wins' }, SCRUM_LINKS[1]],
+      })
+
+    default:
+      return null
+  }
+}
+
 export function renderTemplate(eventKey: EventKey, data: Data): RenderedEmail {
   const name = String(data.recipientName ?? 'there')
   const entityTitle = String(data.entityTitle ?? '(item)')
@@ -97,7 +534,7 @@ export function renderTemplate(eventKey: EventKey, data: Data): RenderedEmail {
   switch (eventKey) {
     // ─── Account / security ───────────────────────────────────────────────
     case 'ACCOUNT_INVITE': {
-      const url = String(data.activationUrl ?? appUrl('/auth/activate'))
+      const url = String(data.activationUrl ?? appUrl('/auth/reset-password'))
       return compose({
         subject: 'Welcome to the OKR Management System — set up your account',
         recipientName: name,
@@ -114,7 +551,7 @@ export function renderTemplate(eventKey: EventKey, data: Data): RenderedEmail {
     }
 
     case 'ACCOUNT_VERIFY_EMAIL': {
-      const url = String(data.verifyUrl ?? appUrl('/auth/verify'))
+      const url = String(data.verifyUrl ?? appUrl('/auth/signin'))
       return compose({
         subject: 'Verify your email',
         recipientName: name,
@@ -204,7 +641,7 @@ export function renderTemplate(eventKey: EventKey, data: Data): RenderedEmail {
           ${button('Open objective', deepLink)}
           ${actionRow([
             { label: 'Add key results', href: deepLink },
-            { label: 'View alignment map', href: '/dashboard/alignment' },
+            { label: 'View alignment map', href: '/dashboard/okrs-all?view=map' },
           ])}
         `,
       })
@@ -218,7 +655,7 @@ export function renderTemplate(eventKey: EventKey, data: Data): RenderedEmail {
           ${heading({ eyebrow: 'Team activity', title: entityTitle })}
           ${lead(`${actorName} added a new objective to your team. Take a look so you can align your own goals to it if needed.`)}
           ${button('Review objective', deepLink)}
-          ${actionRow([{ label: 'Open team page', href: '/dashboard/team' }, { label: 'Align my OKR', href: '/dashboard/alignment' }])}
+          ${actionRow([{ label: 'Open team page', href: '/dashboard/org/teams' }, { label: 'Align my OKR', href: '/dashboard/okrs-all?view=map' }])}
         `,
       })
 
@@ -245,7 +682,7 @@ export function renderTemplate(eventKey: EventKey, data: Data): RenderedEmail {
           ${lead(`${actorName} archived this objective. It is no longer counted toward active OKR progress.`)}
           ${button('View archive', deepLink)}
           ${muted('Aligned children may now be orphaned. Check the alignment map and re-parent them if they are still active.')}
-          ${actionRow([{ label: 'Open alignment map', href: '/dashboard/alignment' }])}
+          ${actionRow([{ label: 'Open alignment map', href: '/dashboard/okrs-all?view=map' }])}
         `,
       })
 
@@ -327,7 +764,7 @@ export function renderTemplate(eventKey: EventKey, data: Data): RenderedEmail {
           ${button('Open and act', deepLink, 'warning')}
           ${actionRow([
             { label: 'Add a comment', href: deepLink },
-            { label: 'Talk to manager', href: '/dashboard/team' },
+            { label: 'Talk to manager', href: '/dashboard/org/users' },
           ])}
         `,
       })
@@ -365,12 +802,12 @@ export function renderTemplate(eventKey: EventKey, data: Data): RenderedEmail {
       return compose({
         subject: `Weekly check-in due — ${data.count ?? 0} item${Number(data.count) === 1 ? '' : 's'}`,
         recipientName: name,
-        text: `Hi ${name},\n\nIt's time for your weekly check-in. ${data.count ?? 0} item(s) need an update.\n\nDo it now: ${appUrl('/dashboard/my')}`,
+        text: `Hi ${name},\n\nIt's time for your weekly check-in. ${data.count ?? 0} item(s) need an update.\n\nDo it now: ${appUrl(CHECK_IN_PATH)}`,
         html: `
           ${heading({ eyebrow: 'Weekly cadence', title: 'Time for your check-in' })}
           ${lead(`Your team relies on this rhythm. Take 2 minutes to update progress and confidence.`)}
           ${kpiRow([{ label: 'Items waiting', value: String(data.count ?? 0), tone: 'warning' }])}
-          ${button('Do my check-in', '/dashboard/my', 'primary')}
+          ${button('Do my check-in', CHECK_IN_PATH, 'primary')}
           ${actionRow([{ label: 'Snooze 1 day', href: '/dashboard/settings/notifications' }])}
         `,
       })
@@ -384,7 +821,7 @@ export function renderTemplate(eventKey: EventKey, data: Data): RenderedEmail {
           ${heading({ eyebrow: 'Missed check-in', title: entityTitle, badgeText: '7 days', badgeTone: 'warning' })}
           ${alert('warning', 'No update in 7+ days', 'Even a quick "no change" check-in keeps stakeholders aligned and prevents auto-escalation at 14 days.')}
           ${button('Log a check-in now', deepLink, 'warning')}
-          ${actionRow([{ label: 'Open my OKRs', href: '/dashboard/my' }, { label: 'Adjust cadence', href: '/dashboard/settings/notifications' }])}
+          ${actionRow([{ label: 'Open my OKRs', href: '/dashboard/my-okrs' }, { label: 'Adjust cadence', href: '/dashboard/settings/notifications' }])}
         `,
       })
 
@@ -397,7 +834,7 @@ export function renderTemplate(eventKey: EventKey, data: Data): RenderedEmail {
           ${heading({ eyebrow: 'Escalation', title: entityTitle, badgeText: '14 days · escalated', badgeTone: 'danger' })}
           ${alert('danger', 'This is an escalation', 'After 14 days without an update, admins and your manager have been notified. Act now to keep the OKR active.')}
           ${button('Update now', deepLink, 'danger')}
-          ${actionRow([{ label: 'Reach out to manager', href: '/dashboard/team' }, { label: 'Re-scope or archive', href: deepLink }])}
+          ${actionRow([{ label: 'Reach out to manager', href: '/dashboard/org/users' }, { label: 'Re-scope or archive', href: deepLink }])}
         `,
       })
 
@@ -606,7 +1043,7 @@ export function renderTemplate(eventKey: EventKey, data: Data): RenderedEmail {
             { label: 'Ends', value: fmtDate(data.endDate) },
           ])}
           ${button('Plan my OKRs', '/dashboard')}
-          ${actionRow([{ label: 'See alignment map', href: '/dashboard/alignment' }])}
+          ${actionRow([{ label: 'See alignment map', href: '/dashboard/okrs-all?view=map' }])}
         `,
       })
 
@@ -614,11 +1051,11 @@ export function renderTemplate(eventKey: EventKey, data: Data): RenderedEmail {
       return compose({
         subject: `Timeframe ending in 7 days`,
         recipientName: name,
-        text: `Hi ${name},\n\n${data.timeframeName ?? 'The current timeframe'} ends in 7 days. Finalize your OKR scores.\n\nOpen: ${appUrl('/dashboard/my')}`,
+        text: `Hi ${name},\n\n${data.timeframeName ?? 'The current timeframe'} ends in 7 days. Finalize your OKR scores.\n\nOpen: ${appUrl('/dashboard/my-okrs')}`,
         html: `
           ${heading({ eyebrow: 'Wrap-up week', title: `${String(data.timeframeName ?? 'Current timeframe')} ends in 7 days`, badgeText: '7 days left', badgeTone: 'warning' })}
           ${lead(`Make sure every active KR has a final value, a confidence rating, and a closing note. Cleaner data = better retro.`)}
-          ${button('Finalize my OKRs', '/dashboard/my', 'warning')}
+          ${button('Finalize my OKRs', '/dashboard/my-okrs', 'warning')}
         `,
       })
 
@@ -626,11 +1063,11 @@ export function renderTemplate(eventKey: EventKey, data: Data): RenderedEmail {
       return compose({
         subject: `Timeframe closes tomorrow`,
         recipientName: name,
-        text: `Hi ${name},\n\n${data.timeframeName ?? 'The current timeframe'} closes tomorrow. Last chance to update scores.\n\nOpen: ${appUrl('/dashboard/my')}`,
+        text: `Hi ${name},\n\n${data.timeframeName ?? 'The current timeframe'} closes tomorrow. Last chance to update scores.\n\nOpen: ${appUrl('/dashboard/my-okrs')}`,
         html: `
           ${heading({ eyebrow: 'Last call', title: `${String(data.timeframeName ?? 'Timeframe')} closes tomorrow`, badgeText: '1 day left', badgeTone: 'danger' })}
           ${alert('danger', 'Final values lock tomorrow', 'After close, KR values are read-only for the timeframe. Get your last update in now.')}
-          ${button('Update now', '/dashboard/my', 'danger')}
+          ${button('Update now', '/dashboard/my-okrs', 'danger')}
         `,
       })
 
@@ -657,7 +1094,7 @@ export function renderTemplate(eventKey: EventKey, data: Data): RenderedEmail {
           ${heading({ eyebrow: 'Awaiting your decision', title: entityTitle, badgeText: 'Approval needed', badgeTone: 'primary' })}
           ${lead(`${actorName} is asking to align this objective under one of yours. Review the rationale and approve or send back with feedback.`)}
           ${button('Review request', deepLink)}
-          ${actionRow([{ label: 'See alignment map', href: '/dashboard/alignment' }])}
+          ${actionRow([{ label: 'See alignment map', href: '/dashboard/okrs-all?view=map' }])}
         `,
       })
 
@@ -738,7 +1175,7 @@ export function renderTemplate(eventKey: EventKey, data: Data): RenderedEmail {
             { label: 'Department', value: String(data.newUserDepartment ?? '—') },
           ])}
           ${button('Open user profile', deepLink)}
-          ${actionRow([{ label: 'Open user list', href: '/dashboard/admin/users' }])}
+          ${actionRow([{ label: 'Open user list', href: '/dashboard/settings/users' }])}
         `,
       })
 
@@ -787,7 +1224,7 @@ export function renderTemplate(eventKey: EventKey, data: Data): RenderedEmail {
             { label: 'Off track', value: String(offTrack), tone: offTrack > 0 ? 'danger' : 'neutral' },
           ])}
           ${button('Open reports', deepLink)}
-          ${actionRow([{ label: 'Drill down by team', href: '/dashboard/team' }])}
+          ${actionRow([{ label: 'Drill down by team', href: '/dashboard/org/teams' }])}
         `,
       })
     }
@@ -1079,7 +1516,12 @@ export function renderTemplate(eventKey: EventKey, data: Data): RenderedEmail {
       })
     }
 
-    default:
+    default: {
+      // Project-delivery + scrum-workflow events (see renderProjectOrScrumEvent).
+      const specific = renderProjectOrScrumEvent(eventKey, data, name)
+      if (specific) return specific
+      // Last resort for an event key with no template — the render test keeps
+      // this unreachable for every key in EVENT_META.
       return compose({
         subject: `Notification`,
         recipientName: name,
@@ -1090,5 +1532,6 @@ export function renderTemplate(eventKey: EventKey, data: Data): RenderedEmail {
           ${button('Open inbox', '/dashboard/notifications')}
         `,
       })
+    }
   }
 }

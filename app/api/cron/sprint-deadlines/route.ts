@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { emit } from '@/lib/notifications'
+import { emitNow } from '@/lib/notifications'
+import { withCronAuth } from '@/lib/cron-auth'
 
 /**
  * Daily sprint-deadline notifications. Hit once per day from VPS cron with
  * `Authorization: Bearer $CRON_SECRET`.
  */
-export async function POST(request: NextRequest) { return handle(request) }
-export async function GET(request: NextRequest) { return handle(request) }
 
 function dayBounds(offsetDays: number) {
   const start = new Date()
@@ -19,15 +18,6 @@ function dayBounds(offsetDays: number) {
 }
 
 async function handle(request: NextRequest) {
-  const secret = process.env.CRON_SECRET
-  if (!secret) {
-    return NextResponse.json({ success: false, error: 'CRON_SECRET not configured' }, { status: 500 })
-  }
-  const auth = request.headers.get('authorization') || ''
-  if (auth !== `Bearer ${secret}`) {
-    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
-  }
-
   // Sprints starting tomorrow (PLANNING)
   const tom = dayBounds(1)
   const startingTomorrowSprints = await prisma.sprint.findMany({
@@ -38,7 +28,7 @@ async function handle(request: NextRequest) {
   for (const s of startingTomorrowSprints) {
     const recipients = Array.from(new Set([s.ownerId, ...s.participants.map(p => p.userId)]))
     if (recipients.length === 0) continue
-    await emit('SPRINT_STARTING_TOMORROW', {
+    await emitNow('SPRINT_STARTING_TOMORROW', {
       entityType: 'TODO',
       explicitRecipients: recipients,
       data: { sprintName: s.name, startDate: s.startDate?.toISOString().slice(0, 10) ?? '', deepLink: `/dashboard/sprints/${s.id}` },
@@ -56,7 +46,7 @@ async function handle(request: NextRequest) {
   for (const s of endingSoonSprints) {
     const recipients = Array.from(new Set([s.ownerId, ...s.participants.map(p => p.userId)]))
     if (recipients.length === 0) continue
-    await emit('SPRINT_ENDING_SOON', {
+    await emitNow('SPRINT_ENDING_SOON', {
       entityType: 'TODO',
       explicitRecipients: recipients,
       data: { sprintName: s.name, endDate: s.endDate?.toISOString().slice(0, 10) ?? '', deepLink: `/dashboard/sprints/${s.id}` },
@@ -77,7 +67,7 @@ async function handle(request: NextRequest) {
   })
   for (const t of dueSoonTodos) {
     if (!t.assigneeId) continue
-    await emit('TODO_DUE_TOMORROW', {
+    await emitNow('TODO_DUE_TOMORROW', {
       entityType: 'TODO', entityId: t.id, entityTitle: t.title,
       data: { dueDate: t.dueDate?.toISOString().slice(0, 10) ?? '', deepLink: `/dashboard/todos?open=${t.id}` },
     })
@@ -93,7 +83,7 @@ async function handle(request: NextRequest) {
   })
   for (const t of dueTodayTodos) {
     if (!t.assigneeId) continue
-    await emit('TODO_DUE_TODAY', {
+    await emitNow('TODO_DUE_TODAY', {
       entityType: 'TODO', entityId: t.id, entityTitle: t.title,
       explicitRecipients: [t.assigneeId],
       data: { dueDate: t.dueDate?.toISOString().slice(0, 10) ?? '', deepLink: `/dashboard/todos?open=${t.id}` },
@@ -110,7 +100,7 @@ async function handle(request: NextRequest) {
   })
   for (const t of overdueTodos) {
     if (!t.assigneeId) continue
-    await emit('TODO_OVERDUE', {
+    await emitNow('TODO_OVERDUE', {
       entityType: 'TODO', entityId: t.id, entityTitle: t.title,
       data: { dueDate: t.dueDate?.toISOString().slice(0, 10) ?? '', deepLink: `/dashboard/todos?open=${t.id}` },
     })
@@ -127,3 +117,6 @@ async function handle(request: NextRequest) {
     },
   })
 }
+
+export const POST = withCronAuth(handle)
+export const GET = POST

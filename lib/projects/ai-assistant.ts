@@ -1,7 +1,6 @@
 import type { Prisma, Project } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { AI_SUMMARY_MAX_BULLETS, AI_SUMMARY_MAX_CHARS, SLIP_REASON_LABEL } from '@/features/projects/types'
-import { recordGenerationLog } from '@/lib/ai/generation-log'
 import { AI_FEATURE_KEYS } from '@/lib/ai/config'
 import { businessDaysBetween } from './business-days'
 
@@ -158,15 +157,23 @@ export async function generateAssistantOutput(
 
   const groundedIn = buildGroundedIn(intent, facts)
 
-  await recordGenerationLog({
-    userId: actorId,
-    feature: AI_FEATURE_KEYS.PROJECT_AI_ASSISTANT,
-    provider: 'openai',
-    modelId: 'deterministic-constrained-assistant',
-    inputTokens: JSON.stringify({ intent, context: request.context, facts }).length,
-    outputTokens: output.length,
-    status: 'OK',
-    responseJson: { intent, output, groundedIn, capped: true, approved: false },
+  // The assistant output is built deterministically from project facts — no
+  // model is called — so it is logged as provider 'deterministic' at zero cost
+  // (remediation F5). Written directly because recordGenerationLog only admits
+  // real AI provider ids.
+  await prisma.aiGenerationLog.create({
+    data: {
+      userId: actorId,
+      feature: AI_FEATURE_KEYS.PROJECT_AI_ASSISTANT,
+      provider: 'deterministic',
+      modelId: 'deterministic-constrained-assistant',
+      inputTokens: JSON.stringify({ intent, context: request.context, facts }).length,
+      outputTokens: output.length,
+      cachedTokens: 0,
+      costUsd: 0,
+      status: 'OK',
+      responseJson: { intent, output, groundedIn, capped: true, approved: false } as unknown as Prisma.InputJsonValue,
+    },
   })
 
   return {

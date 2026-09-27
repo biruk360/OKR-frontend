@@ -3,109 +3,77 @@
 /**
  * SprintBoardClient — Phase 3 Todo-backed sprint board (Sprints v2 §4.3).
  *
- * Reads /api/sprints/[id]/board (Todo single-source-of-truth) and renders three
- * status columns (PENDING / IN_PROGRESS / COMPLETED). Drag-drop updates Todo.status
- * via PATCH /api/todos/[id]. Click a card → opens TodoCardModal (a centred modal;
- * drawer mode was removed in the design refresh, §6.4).
+ * Reads /api/sprints/[id]/board (Todo single-source-of-truth) and renders the
+ * board's lanes. Drag-drop updates Todo.status via the reorder endpoint. Click
+ * a card → opens TodoCardModal (a centred modal; drawer mode was removed in the
+ * design refresh, §6.4).
+ *
+ * This file owns the board's data, filter and drag state. The pieces it
+ * renders live beside it:
+ *   SprintBoardHeader      sticky header, sprint actions, progress, filter row
+ *   SprintBoardLane        one lane: header, cards, empty states, quick-add
+ *   SprintAddTaskInline    the quick-add composer
+ *   useBoardKeyboardMove   keyboard card movement (A11Y-2)
  */
 
 import { useMemo, useState, useEffect, useRef, useCallback } from 'react'
-import Link from 'next/link'
 import toast from 'react-hot-toast'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import {
-  ArrowLeft, Plus, MoreHorizontal, Calendar, Filter, CheckCircle2,
-} from 'lucide-react'
-import { TodoCardModal } from '@/components/todos/TodoCardModal'
-import StatusPill from '@/components/shared/StatusPill'
+import { AlertCircle, CalendarClock, CalendarRange, CalendarX2, Tag, UserX } from 'lucide-react'
+import { LazyTodoCardModal } from '@/components/todos/LazyTodoCardModal'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton'
 import EndSprintModal from '@/components/sprints/EndSprintModal'
 import ScheduleSprintModal from '@/components/sprints/ScheduleSprintModal'
-import LinkToOkrPopover, { type OkrLinkValue } from '@/components/sprints/LinkToOkrPopover'
-import { AppleDatePicker } from '@/components/ui/date-picker'
+import { type FilterMultiSelectOption } from '@/components/ui/FilterMultiSelect'
+import { UserAvatar } from '@/components/shared/UserAvatar'
 import { useIsMobile } from '@/hooks'
 import { cn } from '@/lib/utils'
 import type { TodoStatus } from '@/types'
-import { BOARD_STATUSES, TODO_STATUS_META } from '@/lib/todo-status'
-import TaskCardTrello, { type TrelloTodo } from './TaskCardTrello'
-import { KanbanDropLine } from '@/components/shared/KanbanDropLine'
+import {
+  UNASSIGNED_FILTER_ID,
+  countUnassignedCards,
+  deriveBoardPeople,
+  pruneSelection,
+} from '@/lib/sprints/board-people'
+import {
+  DUE_FILTERS,
+  DUE_FILTER_LABELS,
+  NO_LABEL_FILTER_ID,
+  compileBoardFilter,
+  countActiveFilters,
+  countDueBuckets,
+  countUnlabelledCards,
+  deriveBoardLabels,
+  emptyBoardFilters,
+  pruneLabelSelection,
+  readSavedBoardFilters,
+  serializeBoardFilters,
+  type BoardFilterState,
+  type DueFilter,
+} from '@/lib/sprints/board-filters'
+import { SPRINT_REALTIME_EVENTS, sprintRealtimeChannel } from '@/lib/sprints/realtime'
+import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh'
+import { swatchStyle } from '@/lib/card-visuals'
+import { useUserPrefsStore } from '@/lib/stores/user-prefs-store'
 import { announce } from '@/components/shared/LiveAnnouncer'
-import CopyLinkButton from '@/components/shared/CopyLinkButton'
-import AddListColumn, { ListHeaderMenu, type LaneSummary } from './SprintListManager'
-import { GenerateSprintButton } from '@/features/sprints-ai'
-import SprintBackgroundPicker from './SprintBackgroundPicker'
+import AddListColumn, { type LaneSummary } from './SprintListManager'
 import SprintFloatingBar, { type SprintBoardView } from './SprintFloatingBar'
 import SprintSwitcher from './SprintSwitcher'
+import SprintMembersDialog from './SprintMembersDialog'
 import SprintPlannerView from './SprintPlannerView'
 import SprintInboxView from './SprintInboxView'
+import SprintBoardHeader from './SprintBoardHeader'
+import SprintBoardLane from './SprintBoardLane'
+import { useBoardKeyboardMove } from './useBoardKeyboardMove'
+import type { BoardColumn, BoardData } from './sprintBoardTypes'
 import { useNotificationStore } from '@/lib/stores/notification-store'
-import { Progress } from '@/components/ui/progress'
 import {
   getBackgroundStyle,
   isDarkBackground,
   type SprintBackgroundKey,
 } from '@/lib/sprint-backgrounds'
-
-// ─── Types matching /api/sprints/[id]/board ─────────────────────────────────
-
-interface BoardUser { id: string; name: string; avatar: string | null }
-interface BoardTodo {
-  id: string
-  title: string
-  status: TodoStatus
-  priority: string
-  sprintPosition: number
-  columnId: string | null
-  taskType?: string | null
-  startDate: string | null
-  dueDate: string | null
-  startTime: string | null
-  endTime: string | null
-  assigneeId: string | null
-  assignee: BoardUser | null
-  members?: { user: BoardUser }[]
-  keyResult: { id: string; title: string; objective?: { id: string; title: string } } | null
-  objective: { id: string; title: string } | null
-  checklists?: { items?: { done: boolean }[] }[]
-  todoComments?: { id: string }[]
-}
-interface BoardColumn {
-  /** SprintColumn id — no longer the status string. Several lanes may share a status. */
-  id: string
-  name: string
-  /** The TodoStatus this lane represents. Null only for legacy rows mid-backfill. */
-  status: TodoStatus | null
-  statusKey: TodoStatus | null
-  color: string | null
-  position: number
-  todos: BoardTodo[]
-  cardCount: number
-}
-interface BoardSprint {
-  id: string
-  name: string
-  description: string | null
-  state: 'PLANNING' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED'
-  status: string
-  startDate: string | null
-  endDate: string | null
-  endedAt?: string | null
-  goal: string | null
-  goalLabel: string | null
-  goalTarget: number | null
-  goalCurrent: number | null
-  goalUnit: string | null
-  background?: string | null
-  owner: BoardUser
-}
-interface BoardData {
-  sprint: BoardSprint
-  columns: BoardColumn[]
-  participants: BoardUser[]
-  aggregates: { taskTotal: number; taskDone: number; taskPercent: number; goalPercent: number | null }
-}
 
 // ─── Re-export legacy SprintBoardData type for back-compat ─────────────────
 
@@ -114,169 +82,6 @@ export type SprintBoardData = BoardData
 interface Props {
   sprintId: string
   currentUserId: string
-}
-
-function Avatar({ user, size = 22 }: { user: BoardUser; size?: number }) {
-  const initials = user.name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
-  return user.avatar ? (
-    <img src={user.avatar} alt={user.name} title={user.name} className="rounded-full object-cover"
-      style={{ width: size, height: size }} />
-  ) : (
-    <span title={user.name}
-      className="inline-flex shrink-0 items-center justify-center rounded-full font-semibold text-white"
-      style={{ width: size, height: size, fontSize: size * 0.38, background: 'var(--ap-accent)' }}>
-      {initials}
-    </span>
-  )
-}
-
-function ProgressBar({ percent, color }: { percent: number; color?: string }) {
-  return <Progress value={percent} fill={color ?? 'var(--ap-accent)'} />
-}
-
-// ─── Add Task inline form (Sprints v2 §4.3 / D) ─────────────────────────────
-
-function AddTaskInline({
-  sprintId, columnId, currentUserId, defaultDueDate, onCreated, openSignal, dark,
-}: {
-  sprintId: string
-  /** Lane the card is created in. Without it the server would guess by status. */
-  columnId: string | null
-  currentUserId: string
-  defaultDueDate: string | null
-  onCreated: () => void
-  /** Dark board ground (`graphite`). */
-  dark?: boolean
-  /** Incremented by the board to open and focus this composer from elsewhere
-   *  (STA-2: the empty-state CTA). A counter rather than a boolean so repeat
-   *  presses re-open it after the user cancels. */
-  openSignal?: number
-}) {
-  const [open, setOpen] = useState(false)
-  const [title, setTitle] = useState('')
-  const formRef = useRef<HTMLFormElement | null>(null)
-  const [more, setMore] = useState(false)
-  const [priority, setPriority] = useState('MEDIUM')
-  const [dueDate, setDueDate] = useState<string>(defaultDueDate?.slice(0, 10) ?? '')
-  const [okr, setOkr] = useState<OkrLinkValue | null>(null)
-  const [submitting, setSubmitting] = useState(false)
-
-  useEffect(() => {
-    if (!openSignal) return
-    setOpen(true)
-    // Scroll it into view — on an empty board the composer sits below the
-    // empty state, so opening it off-screen would look like nothing happened.
-    requestAnimationFrame(() => {
-      formRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })
-    })
-  }, [openSignal])
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!title.trim()) return
-    setSubmitting(true)
-    try {
-      const res = await fetch('/api/todos', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          // No assigneeId — Trello-style cards start unassigned. Members are
-          // added via the card's Members popover.
-          title: title.trim(),
-          sprintId,
-          ...(columnId && { columnId }),
-          priority,
-          dueDate: dueDate || null,
-          keyResultId: okr?.keyResultId ?? null,
-          objectiveId: okr?.objectiveId ?? null,
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok || !data.success) throw new Error(data.error || 'Failed')
-      toast.success('Task added')
-      setTitle('')
-      setOkr(null)
-      setMore(false)
-      setOpen(false)
-      onCreated()
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to add task')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  if (!open) {
-    // Lane-footer affordance from the design: 32px ghost row, not a dashed box.
-    // (The per-lane `+` in the lane HEADER stays deferred — Decision 0.)
-    return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className={cn(
-          'flex h-[32px] w-full items-center gap-2 rounded-[var(--ap-radius-md)] px-2 text-left text-[12.5px] font-semibold transition-colors',
-          dark
-            ? 'text-white/80 hover:bg-white/15 hover:text-white'
-            : 'text-[var(--ap-fg-secondary)] hover:bg-[var(--ap-bg-sunken)] hover:text-[var(--ap-fg)]',
-        )}
-      >
-        <Plus className="h-3.5 w-3.5" /> Add a card
-      </button>
-    )
-  }
-
-  return (
-    <form
-      ref={formRef}
-      onSubmit={submit}
-      className="rounded-[10px] border p-2"
-      style={{ borderColor: 'var(--ap-border)', background: 'var(--ap-bg-raised)', boxShadow: 'var(--ap-shadow-card)' }}
-    >
-      <input
-        autoFocus
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        placeholder="Task title…"
-        className="w-full rounded-[var(--ap-radius-sm)] border px-2 py-1.5 text-[12px] outline-none"
-        style={{ borderColor: 'var(--ap-border-strong)', background: 'var(--ap-bg-raised)', color: 'var(--ap-fg)' }}
-      />
-      {more && (
-        <div className="mt-2 space-y-2">
-          <div className="flex items-center gap-2">
-            <select value={priority} onChange={(e) => setPriority(e.target.value)}
-              className="rounded-[var(--ap-radius-sm)] border bg-card px-2 py-1 text-[11px]"
-              style={{ borderColor: 'var(--ap-border-strong)' }}>
-              {['LOW', 'MEDIUM', 'HIGH', 'URGENT'].map((p) => <option key={p} value={p}>{p}</option>)}
-            </select>
-            <div className="flex-1">
-              <AppleDatePicker
-                value={dueDate || null}
-                onChange={(iso) => setDueDate(iso ?? '')}
-                placeholder="Due date"
-              />
-            </div>
-          </div>
-          <LinkToOkrPopover value={okr} onChange={setOkr} />
-        </div>
-      )}
-      <div className="mt-2 flex items-center justify-between">
-        <button type="button" onClick={() => setMore((m) => !m)} className="text-[11px] text-muted-foreground hover:underline">
-          {more ? 'Less' : 'More options'}
-        </button>
-        <div className="flex items-center gap-1">
-          <button type="button" onClick={() => { setOpen(false); setTitle('') }}
-            className="rounded-[var(--ap-radius-sm)] px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted">
-            Cancel
-          </button>
-          <button type="submit" disabled={!title.trim() || submitting}
-            className="rounded-[var(--ap-radius-sm)] px-2 py-1 text-[11px] font-semibold disabled:opacity-50"
-            style={{ background: 'var(--ap-accent)', color: 'var(--ap-accent-fg)' }}>
-            {submitting ? 'Adding…' : 'Add'}
-          </button>
-        </div>
-      </div>
-    </form>
-  )
 }
 
 // ─── Main board ─────────────────────────────────────────────────────────────
@@ -291,24 +96,26 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
   // view, so reading something in one place clears it everywhere.
   const inboxUnread = useNotificationStore((st) => st.unreadCount)
   const [showEnd, setShowEnd] = useState(false)
+  // Invite-only boards: who can open this board, and (for its managers) invite/remove.
+  const [showMembers, setShowMembers] = useState(false)
   const [scheduleMode, setScheduleMode] = useState<'edit' | 'start' | null>(null)
   const [starting, setStarting] = useState(false)
   // BRD-3 — filters persist per sprint. Losing them on every reload made the
   // board feel like it forgot what you were doing.
   const FILTER_KEY = `sprint-filters-${sprintId}`
-  const [filterAssignee, setFilterAssignee] = useState<string | null>(null)
-  const [filterLinked, setFilterLinked] = useState<'all' | 'linked' | 'unlinked'>('all')
+  // BRD-2 facets (lib/sprints/board-filters): assignee (AFL), label, due,
+  // watching and OKR linkage — OR within a facet, AND across facets.
+  const [filters, setFilters] = useState<BoardFilterState>(emptyBoardFilters)
   const [filtersLoaded, setFiltersLoaded] = useState(false)
+  const colorBlind = useUserPrefsStore((st) => st.colorBlindMode)
 
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(FILTER_KEY)
-      if (raw) {
-        const saved = JSON.parse(raw) as { assignee?: string | null; linked?: 'all' | 'linked' | 'unlinked' }
-        if (saved.assignee !== undefined) setFilterAssignee(saved.assignee)
-        if (saved.linked) setFilterLinked(saved.linked)
-      }
-    } catch { /* private mode — filters just start clean */ }
+      // Reads every shape the board has written: legacy `assignee: string`
+      // (AFL-6), `{ assignees, linked }`, and the full facet object.
+      setFilters(raw ? readSavedBoardFilters(JSON.parse(raw)) : emptyBoardFilters())
+    } catch { /* private mode or bad JSON — filters just start clean */ }
     setFiltersLoaded(true)
   }, [FILTER_KEY])
 
@@ -316,12 +123,22 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
     // Only write after the initial read, or mount would clobber the saved value.
     if (!filtersLoaded) return
     try {
-      window.localStorage.setItem(FILTER_KEY, JSON.stringify({ assignee: filterAssignee, linked: filterLinked }))
+      window.localStorage.setItem(FILTER_KEY, JSON.stringify(serializeBoardFilters(filters)))
     } catch { /* ignore */ }
-  }, [FILTER_KEY, filterAssignee, filterLinked, filtersLoaded])
+  }, [FILTER_KEY, filters, filtersLoaded])
 
-  const filtersActive = (filterAssignee ? 1 : 0) + (filterLinked !== 'all' ? 1 : 0)
-  const clearFilters = () => { setFilterAssignee(null); setFilterLinked('all') }
+  const patchFilters = useCallback(
+    (patch: Partial<BoardFilterState>) => setFilters((cur) => ({ ...cur, ...patch })),
+    [],
+  )
+  // BRD-2 badge — each facet counts once however many values are picked (AFL-5).
+  const filtersActive = countActiveFilters(filters)
+  const clearFilters = () => setFilters(emptyBoardFilters())
+  const toggleAssignee = (id: string) =>
+    setFilters((cur) => ({
+      ...cur,
+      assignees: cur.assignees.includes(id) ? cur.assignees.filter((x) => x !== id) : [...cur.assignees, id],
+    }))
   const isMobile = useIsMobile()
   // Lane id, not a status — several lanes can share a status now.
   const [mobileCol, setMobileCol] = useState<string | null>(null)
@@ -390,121 +207,15 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
     setIndicator(null)
   }, [])
 
+
   // ── Keyboard card movement (A11Y-2) ───────────────────────────────────────
-  //
-  // HTML5 drag-and-drop exposes nothing to the keyboard, so before this a
-  // keyboard-only user could not move a card at all.
-  //
-  // Deliberate deviation from the spec: the spec called for replacing HTML5 DnD
-  // with @dnd-kit. A wholesale swap of working pointer-drag — which cannot be
-  // exercised in a browser here — risked breaking the board's primary
-  // interaction to fix a secondary one. Instead this is a PARALLEL keyboard
-  // path over the same reorder endpoint; pointer drag is untouched. Migrating
-  // both onto dnd-kit remains the right long-term move.
-  //
-  // Model: Space/Enter lifts, arrows move the lifted card (optimistically, no
-  // requests), Space commits, Escape reverts to the snapshot taken on lift.
-  const [lifted, setLifted] = useState<string | null>(null)
-  const preLiftRef = useRef<BoardColumn[] | null>(null)
-  const preLiftOriginRef = useRef<string | null>(null)
+  // A PARALLEL keyboard path over the same reorder endpoint; pointer drag is
+  // untouched. See useBoardKeyboardMove for the model.
+  const { lifted, onCardKeyDown, localColumnsRef, isClosedRef } = useBoardKeyboardMove({
+    setLocalColumns,
+    reorderBoard,
+  })
 
-  // The key handler is created before `isClosed` and `localColumns` exist in
-  // render order, so it reads them through refs kept in sync below.
-  const liftedRef = useRef<string | null>(null)
-  const localColumnsRef = useRef<BoardColumn[]>([])
-  const isClosedRef = useRef(false)
-  useEffect(() => { liftedRef.current = lifted }, [lifted])
-
-  const findCard = useCallback((cols: BoardColumn[], todoId: string) => {
-    for (let c = 0; c < cols.length; c++) {
-      const i = cols[c].todos.findIndex((t) => t.id === todoId)
-      if (i !== -1) return { colIdx: c, cardIdx: i }
-    }
-    return null
-  }, [])
-
-  const cancelLift = useCallback(() => {
-    if (preLiftRef.current) setLocalColumns(preLiftRef.current)
-    preLiftRef.current = null
-    setLifted(null)
-    announce('Move cancelled')
-  }, [])
-
-  const commitLift = useCallback((todoId: string) => {
-    preLiftRef.current = null
-    setLifted(null)
-    setLocalColumns((cols) => {
-      const pos = findCard(cols, todoId)
-      if (pos) {
-        const lane = cols[pos.colIdx]
-        // Persist the destination lane, and the source lane too when it changed.
-        const orders: Record<string, string[]> = { [lane.id]: lane.todos.map((t) => t.id) }
-        const origin = preLiftOriginRef.current
-        if (origin && origin !== lane.id) {
-          const src = cols.find((c) => c.id === origin)
-          if (src) orders[src.id] = src.todos.map((t) => t.id)
-        }
-        void reorderBoard(orders)
-        announce(`Dropped in ${lane.name}, position ${pos.cardIdx + 1} of ${lane.todos.length}`)
-      }
-      return cols
-    })
-    preLiftOriginRef.current = null
-  }, [findCard])
-
-  const moveLifted = useCallback((todoId: string, dir: 'up' | 'down' | 'left' | 'right') => {
-    setLocalColumns((cols) => {
-      const pos = findCard(cols, todoId)
-      if (!pos) return cols
-      const next = cols.map((c) => ({ ...c, todos: [...c.todos] }))
-      const card = next[pos.colIdx].todos[pos.cardIdx]
-
-      if (dir === 'up' || dir === 'down') {
-        const target = pos.cardIdx + (dir === 'up' ? -1 : 1)
-        if (target < 0 || target >= next[pos.colIdx].todos.length) return cols
-        next[pos.colIdx].todos.splice(pos.cardIdx, 1)
-        next[pos.colIdx].todos.splice(target, 0, card)
-        announce(`Position ${target + 1} of ${next[pos.colIdx].todos.length} in ${next[pos.colIdx].name}`)
-      } else {
-        const targetCol = pos.colIdx + (dir === 'left' ? -1 : 1)
-        if (targetCol < 0 || targetCol >= next.length) return cols
-        next[pos.colIdx].todos.splice(pos.cardIdx, 1)
-        const insertAt = Math.min(pos.cardIdx, next[targetCol].todos.length)
-        // Status follows the destination lane, matching what a pointer drop does.
-        next[targetCol].todos.splice(insertAt, 0, {
-          ...card,
-          status: (next[targetCol].statusKey ?? card.status) as TodoStatus,
-          columnId: next[targetCol].id,
-        })
-        announce(`${next[targetCol].name}, position ${insertAt + 1} of ${next[targetCol].todos.length}`)
-      }
-      return next
-    })
-  }, [findCard])
-
-  const onCardKeyDown = useCallback((e: React.KeyboardEvent, todoId: string, laneId: string) => {
-    if (isClosedRef.current) return
-    const isLifted = liftedRef.current === todoId
-
-    if (e.key === ' ' || e.key === 'Spacebar') {
-      e.preventDefault()
-      if (isLifted) commitLift(todoId)
-      else {
-        preLiftRef.current = localColumnsRef.current
-        preLiftOriginRef.current = laneId
-        setLifted(todoId)
-        announce('Card lifted. Use arrow keys to move, space to drop, escape to cancel.')
-      }
-      return
-    }
-    if (!isLifted) return
-    if (e.key === 'Escape') { e.preventDefault(); cancelLift(); return }
-    const dirs: Record<string, 'up' | 'down' | 'left' | 'right'> = {
-      ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
-    }
-    const dir = dirs[e.key]
-    if (dir) { e.preventDefault(); moveLifted(todoId, dir) }
-  }, [commitLift, cancelLift, moveLifted])
 
   const { data, isLoading } = useQuery({
     queryKey: ['sprint-board', sprintId],
@@ -517,7 +228,25 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
     refetchOnWindowFocus: false,
   })
 
-  const invalidate = () => qc.invalidateQueries({ queryKey: ['sprint-board', sprintId] })
+  const invalidate = useCallback(
+    () => qc.invalidateQueries({ queryKey: ['sprint-board', sprintId] }),
+    [qc, sprintId],
+  )
+
+  // Realtime: other people's moves/edits on this board refetch it. The event
+  // is only a signal — the refetch goes through the board API and its
+  // canViewSprint gate. Own actions are skipped (this tab already invalidated
+  // after its optimistic update) and a refresh waits while a card is being
+  // dragged or keyboard-lifted. With placeholder Pusher credentials this is a
+  // no-op (see hooks/useRealtimeRefresh).
+  const boardBusyRef = useRef(false)
+  useRealtimeRefresh({
+    channel: sprintRealtimeChannel(sprintId),
+    events: SPRINT_REALTIME_EVENTS,
+    onRefresh: invalidate,
+    ignoreActorId: currentUserId,
+    shouldDefer: () => boardBusyRef.current,
+  })
 
   // SHR-4/5 — a shared link (?card=<id>) opens that card once the board has
   // loaded, then strips the param so a refresh does not reopen it. A card that
@@ -596,18 +325,122 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
     [data],
   )
 
+  // AFL-1/2/8 — the people on the board: card assignees + card members +
+  // participants + owner. Counts are over ALL cards, not the filtered view.
+  const boardPeople = useMemo(
+    () => (data
+      ? deriveBoardPeople({
+          columns: data.columns,
+          participants: data.participants,
+          owner: data.sprint.owner,
+          currentUserId,
+        })
+      : []),
+    [data, currentUserId],
+  )
+  const unassignedCount = useMemo(() => (data ? countUnassignedCards(data.columns) : 0), [data])
+
+  // AFL-7 — once the board has loaded, drop saved ids that are no longer on it,
+  // so a stale selection can never silently hide every card. pruneSelection
+  // returns the same array when nothing changed, which makes this a no-op.
+  const boardLabels = useMemo(() => (data ? deriveBoardLabels(data.columns) : []), [data])
+  const unlabelledCount = useMemo(() => (data ? countUnlabelledCards(data.columns) : 0), [data])
+  // Due counts use the same clock as the filter below, recomputed per board load.
+  const dueCounts = useMemo(
+    () => (data ? countDueBuckets(data.columns, new Date()) : { overdue: 0, today: 0, week: 0, none: 0 }),
+    [data],
+  )
+
+  useEffect(() => {
+    if (!data || !filtersLoaded) return
+    // Same rule for labels: a label removed from every card stops filtering.
+    setFilters((cur) => {
+      const assignees = pruneSelection(cur.assignees, boardPeople)
+      const labels = pruneLabelSelection(cur.labels, boardLabels)
+      return assignees === cur.assignees && labels === cur.labels ? cur : { ...cur, assignees, labels }
+    })
+  }, [data, filtersLoaded, boardPeople, boardLabels])
+
+  const assigneeOptions: FilterMultiSelectOption[] = useMemo(
+    () => [
+      ...boardPeople.map((p) => ({
+        value: p.id,
+        label: p.id === currentUserId ? `Me (${p.name})` : p.name,
+        hint: String(p.cardCount),
+        // The option label already shows the full name (UNH-6).
+        leading: <UserAvatar user={p} size={20} tooltip={false} />,
+      })),
+      {
+        value: UNASSIGNED_FILTER_ID,
+        label: 'Unassigned',
+        hint: String(unassignedCount),
+        leading: (
+          <span
+            aria-hidden
+            className="inline-flex h-5 w-5 items-center justify-center rounded-full"
+            style={{ background: 'var(--ap-bg-sunken)', color: 'var(--ap-fg-subtle)' }}
+          >
+            <UserX className="h-3 w-3" />
+          </span>
+        ),
+      },
+    ],
+    [boardPeople, currentUserId, unassignedCount],
+  )
+
+  const labelOptions: FilterMultiSelectOption[] = useMemo(
+    () => [
+      ...boardLabels.map((l) => ({
+        value: l.id,
+        label: l.name || 'Untitled label',
+        hint: String(l.cardCount),
+        leading: (
+          <span
+            aria-hidden
+            className="inline-block h-3 w-5 rounded-[3px]"
+            style={swatchStyle(l.color, { colorBlind, pattern: l.pattern })}
+          />
+        ),
+      })),
+      {
+        value: NO_LABEL_FILTER_ID,
+        label: 'No label',
+        hint: String(unlabelledCount),
+        leading: (
+          <span
+            aria-hidden
+            className="inline-flex h-3 w-5 items-center justify-center rounded-[3px] border border-dashed"
+            style={{ borderColor: 'var(--ap-border-strong)', color: 'var(--ap-fg-subtle)' }}
+          >
+            <Tag className="h-2 w-2" />
+          </span>
+        ),
+      },
+    ],
+    [boardLabels, unlabelledCount, colorBlind],
+  )
+
+  const dueOptions: FilterMultiSelectOption[] = useMemo(() => {
+    const ICON: Record<DueFilter, React.ReactNode> = {
+      overdue: <AlertCircle className="h-3.5 w-3.5" style={{ color: 'var(--ap-danger-fg)' }} />,
+      today: <CalendarClock className="h-3.5 w-3.5" style={{ color: 'var(--ap-warn-fg)' }} />,
+      week: <CalendarRange className="h-3.5 w-3.5" style={{ color: 'var(--ap-fg-muted)' }} />,
+      none: <CalendarX2 className="h-3.5 w-3.5" style={{ color: 'var(--ap-fg-subtle)' }} />,
+    }
+    return DUE_FILTERS.map((d) => ({
+      value: d,
+      label: DUE_FILTER_LABELS[d],
+      hint: String(dueCounts[d]),
+      leading: <span aria-hidden className="inline-flex">{ICON[d]}</span>,
+    }))
+  }, [dueCounts])
+
   const filteredColumns = useMemo(() => {
     if (!data) return []
-    return data.columns.map((c) => ({
-      ...c,
-      todos: c.todos.filter((t) => {
-        if (filterAssignee && t.assigneeId !== filterAssignee) return false
-        if (filterLinked === 'linked' && !t.keyResult) return false
-        if (filterLinked === 'unlinked' && t.keyResult) return false
-        return true
-      }),
-    }))
-  }, [data, filterAssignee, filterLinked])
+    // AND across facets, OR within each (BRD-2 / AFL-4).
+    const matches = compileBoardFilter(filters, { currentUserId, now: new Date() })
+    return data.columns.map((c) => ({ ...c, todos: c.todos.filter(matches) }))
+  }, [data, filters, currentUserId])
 
   // Keep localColumns in sync with server data (backfill zero-positions so midpoints work).
   useEffect(() => {
@@ -622,7 +455,8 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
     )
   }, [filteredColumns])
 
-  useEffect(() => { localColumnsRef.current = localColumns }, [localColumns])
+  useEffect(() => { localColumnsRef.current = localColumns }, [localColumns, localColumnsRef])
+  useEffect(() => { boardBusyRef.current = draggedId !== null || lifted !== null }, [draggedId, lifted])
 
   if (isLoading || !data) {
     // STA-1 — a board-shaped skeleton rather than the words "Loading sprint…",
@@ -649,7 +483,7 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
     )
   }
 
-  const { sprint, aggregates, participants } = data
+  const { sprint, aggregates } = data
   const daysLeft = sprint.endDate ? Math.max(0, Math.ceil((new Date(sprint.endDate).getTime() - Date.now()) / 86400000)) : null
 
   // FR-04 — closed sprints render read-only (banner, no drag, no quick-add).
@@ -659,261 +493,104 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
   const bgKey = (sprint.background as SprintBackgroundKey | null) ?? 'none'
   const dark = isDarkBackground(bgKey)
 
+
+  // ── Pointer drag-and-drop (lane handlers) ────────────────────────────────
+  // Unchanged logic; SprintBoardLane wires these to each lane element.
+  const handleLaneDragOver = (e: React.DragEvent<HTMLDivElement>, col: BoardColumn) => {
+    e.preventDefault()
+    if (isClosed) return
+    // Find insertion point by scanning card rects
+    const cardEls = Array.from(
+      e.currentTarget.querySelectorAll<HTMLElement>('[data-sprint-card]')
+    )
+    let afterIndex = col.todos.length - 1 // default: end of column
+    for (let i = 0; i < cardEls.length; i++) {
+      const rect = cardEls[i].getBoundingClientRect()
+      if (e.clientY < rect.top + rect.height / 2) {
+        afterIndex = i - 1
+        break
+      }
+    }
+    updateIndicator(col.id, afterIndex)
+  }
+
+  const handleLaneDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    if (isClosed) return
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) clearIndicator()
+  }
+
+  const handleLaneDrop = (e: React.DragEvent<HTMLDivElement>, col: BoardColumn) => {
+    e.preventDefault()
+    if (isClosed) return
+    if (!draggedId) return
+    const ind = indicatorRef.current
+    clearIndicator()
+    setDraggedId(null)
+
+    // Rebuild target column order with the card inserted at the right position
+    const targetCol = localColumns.find((c) => c.id === col.id)!
+    const insertAfter = ind?.colId === col.id ? ind.afterIndex : targetCol.todos.length - 1
+    const destTodos = targetCol.todos.filter((t) => t.id !== draggedId)
+    const sourceCard = localColumns.flatMap((c) => c.todos).find((t) => t.id === draggedId)
+    if (!sourceCard) return
+    const insertIdx = insertAfter + 1
+    const sourceCol = localColumns.find((c) => c.todos.some((t) => t.id === draggedId))
+    const newOrder = [
+      ...destTodos.slice(0, insertIdx),
+      { ...sourceCard, status: (col.statusKey ?? sourceCard.status) as TodoStatus, columnId: col.id },
+      ...destTodos.slice(insertIdx),
+    ]
+    // Optimistic UI update
+    setLocalColumns((prev) =>
+      prev.map((c) => {
+        if (c.id === col.id) return { ...c, todos: newOrder }
+        return { ...c, todos: c.todos.filter((t) => t.id !== draggedId) }
+      })
+    )
+    // One request: the reorder endpoint keys on lane id and writes
+    // the lane's status in the same transaction, so a cross-lane
+    // move can no longer half-apply the way two calls could.
+    const columnOrders: Record<string, string[]> = {
+      [col.id]: newOrder.map((t) => t.id),
+    }
+    if (sourceCol && sourceCol.id !== col.id) {
+      columnOrders[sourceCol.id] = sourceCol.todos
+        .filter((t) => t.id !== draggedId)
+        .map((t) => t.id)
+    }
+    void reorderBoard(columnOrders)
+    announce(`${sourceCard.title} moved to ${col.name}, position ${insertIdx + 1} of ${newOrder.length}`)
+  }
+
   return (
     <div
       className={cn('-mx-4 -my-4 min-h-[calc(100vh-64px)] space-y-3 px-4 py-4 pb-24 transition-colors', dark && 'text-white')}
       style={getBackgroundStyle(bgKey)}
     >
-      {/* Sticky header (spec §4.3) */}
-      <div
-        className={cn(
-          'sticky top-0 z-20 -mx-4 border-b px-4 py-3 backdrop-blur-md',
-          dark && 'text-white',
-        )}
-        style={{
-          background: dark ? 'oklch(0.22 0.02 262 / 0.62)' : 'color-mix(in oklab, var(--ap-bg-raised) 70%, transparent)',
-          borderColor: dark ? 'oklch(1 0 0 / 0.14)' : 'var(--ap-border)',
-        }}
-      >
-        <div className="flex flex-wrap items-center gap-3">
-          <Link
-            href="/dashboard/sprints"
-            className="inline-flex items-center gap-1 text-[12px] font-semibold hover:underline"
-            style={{ color: dark ? 'oklch(0.94 0.005 262)' : 'var(--ap-fg-secondary)' }}
-          >
-            <ArrowLeft className="h-3.5 w-3.5" /> Sprints
-          </Link>
-          <h1 className="text-[18px] font-semibold leading-tight" style={{ letterSpacing: '-0.01em' }}>{sprint.name}</h1>
-          <StatusPill status={sprint.state.toLowerCase().replace('_', '-')} />
-          <div className="ml-auto flex items-center gap-2">
-            {sprint.state === 'PLANNING' && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setScheduleMode('edit')}
-                  className="h-[32px] rounded-[var(--ap-radius-md)] border px-3 text-[12.5px] font-semibold"
-                  style={{
-                    borderColor: dark ? 'oklch(1 0 0 / 0.2)' : 'var(--ap-border-strong)',
-                    background: dark ? 'oklch(1 0 0 / 0.1)' : 'var(--ap-bg-raised)',
-                    color: dark ? 'oklch(1 0 0)' : 'var(--ap-fg-muted)',
-                  }}
-                >
-                  {sprint.startDate && sprint.endDate ? 'Edit dates' : 'Schedule'}
-                </button>
-                {sprint.startDate && sprint.endDate && (
-                  <GenerateSprintButton sprintId={sprintId} variant="subtle" />
-                )}
-                <button
-                  type="button"
-                  onClick={handleStartSprintClick}
-                  disabled={starting}
-                  className="rounded-[var(--ap-radius-sm)] bg-primary px-3 py-1 text-[12px] font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
-                >
-                  {starting ? 'Starting…' : 'Start sprint'}
-                </button>
-              </>
-            )}
-            {sprint.state === 'ACTIVE' && (
-              <button
-                type="button"
-                onClick={() => setShowEnd(true)}
-                className="rounded-[var(--ap-radius-sm)] px-3 py-1 text-[12px] font-semibold transition-colors"
-                style={{
-                  border: '0.5px solid var(--ap-accent)',
-                  color: 'var(--ap-accent)',
-                  background: 'var(--ap-accent-soft)',
-                }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'var(--ap-accent)', e.currentTarget.style.color = 'var(--ap-accent-fg)')}
-                onMouseLeave={e => (e.currentTarget.style.background = 'var(--ap-accent-soft)', e.currentTarget.style.color = 'var(--ap-accent)')}
-              >
-                Complete sprint
-              </button>
-            )}
-            {isClosed && (
-              <Link
-                href={`/dashboard/sprints/${sprintId}/report`}
-                className="rounded-[var(--ap-radius-sm)] px-3 py-1 text-[12px] font-semibold"
-                style={{ background: 'var(--ap-accent)', color: 'var(--ap-accent-fg)' }}
-              >
-                View sprint report
-              </Link>
-            )}
-            {!isClosed && (
-              <SprintBackgroundPicker
-                sprintId={sprintId}
-                current={(sprint.background as SprintBackgroundKey | null) ?? 'none'}
-                onChanged={() => invalidate()}
-                dark={dark}
-              />
-            )}
-            {/* BRD-1 — share the board itself. Like the card link (SHR-3) this is
-                an ordinary in-app URL: the recipient still has to sign in and
-                pass canViewSprint, so no new access path is created. */}
-            <CopyLinkButton
-              value={typeof window !== 'undefined' ? `${window.location.origin}/dashboard/sprints/${sprintId}` : ''}
-              label="Share"
-              copiedLabel="Copied"
-              successMessage="Board link copied"
-              errorMessage="Could not copy the board link"
-              title="Copy a link to this board"
-              className="h-[32px] rounded-[var(--ap-radius-md)] border px-3"
-            />
-            <button
-              type="button"
-              aria-label="More board actions"
-              title="More board actions"
-              className="grid h-[32px] w-[32px] place-items-center rounded-[var(--ap-radius-md)] border"
-              style={{
-                borderColor: dark ? 'oklch(1 0 0 / 0.2)' : 'var(--ap-border-strong)',
-                background: dark ? 'oklch(1 0 0 / 0.1)' : 'var(--ap-bg-raised)',
-                color: dark ? 'oklch(1 0 0)' : 'var(--ap-fg-secondary)',
-              }}
-            >
-              <MoreHorizontal className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-
-        {/* Read-only banner (FR-04 / UX-05) */}
-        {isClosed && (
-          <div
-            className="mt-3 flex items-center gap-2 rounded-[var(--ap-radius-sm)] px-3 py-2 text-[12px]"
-            style={{
-              background: 'var(--ap-bg-sunken)',
-              border: '0.5px solid var(--ap-border)',
-              color: 'var(--ap-fg-muted)',
-            }}
-          >
-            <CheckCircle2 className="h-3.5 w-3.5" style={{ color: 'var(--ap-green)' }} />
-            <span>
-              Sprint {sprint.state === 'COMPLETED' ? 'completed' : 'cancelled'}
-              {sprint.endedAt && <> on {new Date(sprint.endedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</>}
-              {' '}· read-only
-            </span>
-          </div>
-        )}
-
-        <div
-          className="mt-2 flex items-center gap-3 text-[11px]"
-          style={{ color: dark ? 'oklch(0.9 0.006 262)' : 'var(--ap-fg-subtle)' }}
-        >
-          {sprint.startDate && sprint.endDate && (
-            <span className="inline-flex items-center gap-1">
-              <Calendar className="h-3 w-3" />
-              {new Date(sprint.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-              {' → '}
-              {new Date(sprint.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-            </span>
-          )}
-          {daysLeft !== null && <span>{daysLeft} days remaining</span>}
-        </div>
-
-        {/* Dual progress bars */}
-        <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
-          <div>
-            <div className="flex items-center justify-between text-[11px]">
-              <span className="font-semibold">Tasks</span>
-              <span
-                className="font-mono tabular-nums"
-                style={{ color: dark ? 'oklch(0.9 0.006 262)' : 'var(--ap-fg-subtle)' }}
-              >
-                {aggregates.taskDone}/{aggregates.taskTotal} done · {aggregates.taskPercent}%
-              </span>
-            </div>
-            <div className="mt-1"><ProgressBar percent={aggregates.taskPercent} color="var(--ap-green)" /></div>
-          </div>
-          {sprint.goalTarget != null && sprint.goalTarget > 0 && (
-            <div>
-              <div className="flex items-center justify-between text-[11px]">
-                <span className="font-semibold">{sprint.goalLabel ?? 'Goal'}</span>
-                <span
-                  className="font-mono tabular-nums"
-                  style={{ color: dark ? 'oklch(0.9 0.006 262)' : 'var(--ap-fg-subtle)' }}
-                >
-                  {sprint.goalUnit ? `${sprint.goalUnit} ` : ''}{(sprint.goalCurrent ?? 0).toLocaleString()} / {sprint.goalTarget.toLocaleString()} · {aggregates.goalPercent ?? 0}%
-                </span>
-              </div>
-              <div className="mt-1"><ProgressBar percent={aggregates.goalPercent ?? 0} color="var(--ap-accent)" /></div>
-            </div>
-          )}
-        </div>
-
-        {/* Action row */}
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <div
-            className="flex h-[32px] items-center gap-1.5 rounded-[var(--ap-radius-md)] border px-[11px] text-[12.5px] font-semibold"
-            style={{
-              borderColor: dark ? 'oklch(1 0 0 / 0.2)' : 'var(--ap-border-strong)',
-              background: dark ? 'oklch(1 0 0 / 0.1)' : 'var(--ap-bg-raised)',
-              color: dark ? 'oklch(1 0 0)' : 'var(--ap-fg-muted)',
-            }}
-          >
-            <Filter className="h-[13px] w-[13px] opacity-60" />
-            {filtersActive > 0 && (
-              <span
-                className="rounded-full px-1.5 text-[10px] font-bold leading-[16px] text-white"
-                style={{ background: 'var(--ap-accent)' }}
-                aria-label={`${filtersActive} filters active`}
-              >
-                {filtersActive}
-              </span>
-            )}
-            <select
-              value={filterAssignee ?? ''}
-              onChange={(e) => setFilterAssignee(e.target.value || null)}
-              aria-label="Filter cards by assignee"
-              className="bg-transparent outline-none"
-              style={{ color: 'inherit' }}
-            >
-              <option value="">All assignees</option>
-              {participants.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
-          </div>
-          {/* Segmented control (§4.1): 3px track, 2px gap, 26px pills. */}
-          <div
-            className="flex items-center gap-[2px] rounded-[var(--ap-radius-md)] p-[3px]"
-            style={{ background: dark ? 'oklch(1 0 0 / 0.14)' : 'var(--ap-bg-sunken)' }}
-          >
-            {(['all', 'linked', 'unlinked'] as const).map((f) => {
-              const active = filterLinked === f
-              return (
-                <button
-                  key={f}
-                  type="button"
-                  onClick={() => setFilterLinked(f)}
-                  aria-pressed={active}
-                  className="h-[26px] rounded-[var(--ap-radius-sm)] px-[11px] text-[12.5px] font-semibold capitalize transition-colors"
-                  style={
-                    active
-                      ? { background: 'var(--ap-bg-raised)', color: 'var(--ap-fg)' }
-                      : { background: 'transparent', color: dark ? 'oklch(0.94 0.005 262)' : 'var(--ap-fg-secondary)' }
-                  }
-                >
-                  {f}
-                </button>
-              )
-            })}
-          </div>
-          {filtersActive > 0 && (
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="text-[12px] font-semibold underline-offset-2 hover:underline"
-              style={{ color: 'var(--ap-accent)' }}
-            >
-              Clear filters
-            </button>
-          )}
-          <div className="ml-auto flex -space-x-1">
-            {participants.slice(0, 5).map((u) => <Avatar key={u.id} user={u} size={22} />)}
-            {participants.length > 5 && (
-              <span className="inline-flex h-[22px] w-[22px] items-center justify-center rounded-full bg-muted text-[10px] font-semibold">
-                +{participants.length - 5}
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
+      <SprintBoardHeader
+        sprintId={sprintId}
+        currentUserId={currentUserId}
+        data={data}
+        dark={dark}
+        isClosed={isClosed}
+        daysLeft={daysLeft}
+        starting={starting}
+        setScheduleMode={setScheduleMode}
+        handleStartSprintClick={handleStartSprintClick}
+        setShowEnd={setShowEnd}
+        setShowMembers={setShowMembers}
+        onSwitchBoards={() => setShowSwitcher(true)}
+        invalidate={invalidate}
+        filters={filters}
+        patchFilters={patchFilters}
+        assigneeOptions={assigneeOptions}
+        labelOptions={labelOptions}
+        dueOptions={dueOptions}
+        filtersActive={filtersActive}
+        clearFilters={clearFilters}
+        boardPeople={boardPeople}
+        toggleAssignee={toggleAssignee}
+      />
 
       {/* Columns */}
       {aggregates.taskTotal === 0 ? (
@@ -967,233 +644,41 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
           className="flex items-start gap-2 overflow-x-auto pb-2"
           style={isClosed ? { filter: 'saturate(0.6)' } : undefined}
         >
-          {localColumns.map((col) => {
-            const isEmpty = col.todos.length === 0
-            return (
-              <div
-                key={col.id}
-                onDragOver={(e) => {
-                  e.preventDefault()
-                  if (isClosed) return
-                  // Find insertion point by scanning card rects
-                  const cardEls = Array.from(
-                    e.currentTarget.querySelectorAll<HTMLElement>('[data-sprint-card]')
-                  )
-                  let afterIndex = col.todos.length - 1 // default: end of column
-                  for (let i = 0; i < cardEls.length; i++) {
-                    const rect = cardEls[i].getBoundingClientRect()
-                    if (e.clientY < rect.top + rect.height / 2) {
-                      afterIndex = i - 1
-                      break
-                    }
-                  }
-                  updateIndicator(col.id, afterIndex)
-                }}
-                onDragLeave={(e) => {
-                  if (isClosed) return
-                  if (!e.currentTarget.contains(e.relatedTarget as Node)) clearIndicator()
-                }}
-                onDrop={(e) => {
-                  e.preventDefault()
-                  if (isClosed) return
-                  if (!draggedId) return
-                  const ind = indicatorRef.current
-                  clearIndicator()
-                  setDraggedId(null)
-
-                  // Rebuild target column order with the card inserted at the right position
-                  const targetCol = localColumns.find((c) => c.id === col.id)!
-                  const insertAfter = ind?.colId === col.id ? ind.afterIndex : targetCol.todos.length - 1
-                  const destTodos = targetCol.todos.filter((t) => t.id !== draggedId)
-                  const sourceCard = localColumns.flatMap((c) => c.todos).find((t) => t.id === draggedId)
-                  if (!sourceCard) return
-                  const insertIdx = insertAfter + 1
-                  const sourceCol = localColumns.find((c) => c.todos.some((t) => t.id === draggedId))
-                  const newOrder = [
-                    ...destTodos.slice(0, insertIdx),
-                    { ...sourceCard, status: (col.statusKey ?? sourceCard.status) as TodoStatus, columnId: col.id },
-                    ...destTodos.slice(insertIdx),
-                  ]
-                  // Optimistic UI update
-                  setLocalColumns((prev) =>
-                    prev.map((c) => {
-                      if (c.id === col.id) return { ...c, todos: newOrder }
-                      return { ...c, todos: c.todos.filter((t) => t.id !== draggedId) }
-                    })
-                  )
-                  // One request: the reorder endpoint keys on lane id and writes
-                  // the lane's status in the same transaction, so a cross-lane
-                  // move can no longer half-apply the way two calls could.
-                  const columnOrders: Record<string, string[]> = {
-                    [col.id]: newOrder.map((t) => t.id),
-                  }
-                  if (sourceCol && sourceCol.id !== col.id) {
-                    columnOrders[sourceCol.id] = sourceCol.todos
-                      .filter((t) => t.id !== draggedId)
-                      .map((t) => t.id)
-                  }
-                  void reorderBoard(columnOrders)
-                  announce(`${sourceCard.title} moved to ${col.name}, position ${insertIdx + 1} of ${newOrder.length}`)
-                }}
-                className={cn(
-                  'flex w-[286px] shrink-0 flex-col gap-2 rounded-[var(--ap-radius-card)] border p-[10px] backdrop-blur-md',
-                  dark && 'text-white',
-                  isMobile && activeMobileCol !== col.id && 'hidden',
-                )}
-                style={{
-                  background: dark ? 'oklch(0.28 0.02 262 / 0.62)' : 'color-mix(in oklab, var(--ap-bg-raised) 72%, transparent)',
-                  borderColor: dark ? 'oklch(1 0 0 / 0.14)' : 'color-mix(in oklab, var(--ap-bg-raised) 80%, transparent)',
-                  boxShadow: 'var(--ap-shadow-sm)',
-                }}
-              >
-                <div className="flex items-center gap-2 px-[2px] pt-[2px]">
-                  {col.color && (
-                    <span
-                      aria-hidden
-                      className="h-2 w-2 shrink-0 rounded-full"
-                      style={{ background: col.color }}
-                    />
-                  )}
-                  <span className="truncate text-[13.5px] font-bold tracking-[-0.01em]">{col.name}</span>
-                  <span
-                    className="shrink-0 rounded-[5px] px-1.5 py-px font-mono text-[10.5px] tabular-nums"
-                    style={
-                      dark
-                        ? { background: 'oklch(1 0 0 / 0.16)', color: 'oklch(1 0 0)' }
-                        : { background: 'var(--ap-bg-sunken)', color: 'var(--ap-fg-secondary)' }
-                    }
-                  >
-                    {col.todos.length}
-                  </span>
-                  <span className="flex-1" />
-                  <ListHeaderMenu
-                    sprintId={sprintId}
-                    lane={{ id: col.id, name: col.name, statusKey: col.statusKey, cardCount: col.cardCount }}
-                    lanes={laneSummaries}
-                    disabled={isClosed}
-                    onChanged={invalidate}
-                    // LST-3 — quick-add lives on the board, so the menu asks for it.
-                    onAddCard={() => {
-                      setQuickAddLane(col.id)
-                      setQuickAddSignal((n) => n + 1)
-                    }}
-                    onSort={(by) => sortLane(col.id, by)}
-                  />
-                </div>
-
-                <div
-                  role="list"
-                  aria-label={`${col.name}, ${col.todos.length} card${col.todos.length === 1 ? '' : 's'}`}
-                  className="flex flex-col overflow-y-auto p-[2px]"
-                  style={{ maxHeight: 'calc(100vh - 340px)' }}
-                >
-                {/* Drop indicator before first card. Stays mounted and animates
-                    height 0→10 — deliberate anti-jank, see updateIndicator. */}
-                <KanbanDropLine active={!!indicator && indicator.colId === col.id && indicator.afterIndex === -1} />
-
-                {isEmpty && filtersActive > 0 && indicator?.colId !== col.id ? (
-                  // STA-4 — distinct from a genuinely empty lane. Without this
-                  // a filtered-out lane reads as "nothing to do here".
-                  <div className="px-2 py-6 text-center">
-                    <p className="text-[11px] text-muted-foreground">No cards match your filters</p>
-                    <button
-                      type="button"
-                      onClick={clearFilters}
-                      className="mt-1 text-[11px] font-semibold underline-offset-2 hover:underline"
-                      style={{ color: 'var(--ap-accent)' }}
-                    >
-                      Clear filters
-                    </button>
-                  </div>
-                ) : isEmpty && indicator?.colId === col.id && !isClosed ? (
-                  <div
-                    className="flex min-h-[60px] items-center justify-center rounded-[10px] border border-dashed text-[12.5px] font-semibold"
-                    style={{
-                      borderColor: 'var(--ap-focus)',
-                      background: 'var(--ap-accent-soft)',
-                      color: 'var(--ap-accent-on-soft)',
-                    }}
-                  >
-                    Drop here
-                  </div>
-                ) : (
-                  col.todos.map((t, cardIdx) => (
-                    <div
-                      key={t.id}
-                      data-sprint-card
-                      role="listitem"
-                      onKeyDown={(e) => onCardKeyDown(e, t.id, col.id)}
-                      aria-label={
-                        lifted === t.id
-                          ? `${t.title}, lifted. Arrow keys to move, space to drop, escape to cancel.`
-                          : `${t.title}, in ${col.name}, position ${cardIdx + 1} of ${col.todos.length}. Press space to move.`
-                      }
-                      className={cn(
-                        'rounded-[10px] transition-shadow',
-                        // 8px between cards (design). Carried by the wrapper, not
-                        // a flex `gap` — see the scroller comment above.
-                        cardIdx < col.todos.length - 1 && 'pb-2',
-                        // A lifted card needs to stay visually identifiable while
-                        // the eye follows the arrow keys.
-                        lifted === t.id && 'ring-2 ring-[var(--ap-focus)] ring-offset-2',
-                      )}
-                    >
-                      <TaskCardTrello
-                        todo={t as unknown as TrelloTodo}
-                        isDragging={draggedId === t.id}
-                        readOnly={isClosed}
-                        dark={dark}
-                        onClick={() => setOpenTodoId(t.id)}
-                        onDragStart={(e) => {
-                          if (isClosed) return
-                          e.dataTransfer.effectAllowed = 'move'
-                          e.dataTransfer.setData('todoId', t.id)
-                          setDraggedId(t.id)
-                        }}
-                        onDragEnd={() => {
-                          clearIndicator()
-                          setDraggedId(null)
-                        }}
-                      />
-                      {!isClosed && (
-                        <KanbanDropLine active={!!indicator && indicator.colId === col.id && indicator.afterIndex === cardIdx} />
-                      )}
-                    </div>
-                  ))
-                )}
-
-                {/* Empty lane (§4.1) — dashed panel, not a bare gap. Only when
-                    nothing is being dragged over it; a drag shows "Drop here". */}
-                {isEmpty && !(indicator?.colId === col.id && !isClosed) && (
-                  <div
-                    className="rounded-[10px] border border-dashed px-3 py-[18px] text-center text-[12.5px] leading-[1.5]"
-                    style={{
-                      borderColor: dark ? 'oklch(1 0 0 / 0.28)' : 'var(--ap-border-strong)',
-                      color: dark ? 'oklch(0.88 0.006 262)' : 'var(--ap-fg-subtle)',
-                    }}
-                  >
-                    {col.statusKey === 'STUCK'
-                      ? 'Nothing stuck right now. Drag a card here when it needs help.'
-                      : 'Nothing here yet. Drag a card here.'}
-                  </div>
-                )}
-
-                </div>
-
-                {col.id === (quickAddLane ?? quickAddLaneId) && !isClosed && (
-                  <AddTaskInline
-                    sprintId={sprintId}
-                    columnId={col.id}
-                    openSignal={quickAddSignal}
-                    currentUserId={currentUserId}
-                    defaultDueDate={sprint.endDate}
-                    onCreated={invalidate}
-                    dark={dark}
-                  />
-                )}
-              </div>
-            )
-          })}
+          {localColumns.map((col) => (
+            <SprintBoardLane
+              key={col.id}
+              col={col}
+              sprintId={sprintId}
+              currentUserId={currentUserId}
+              dark={dark}
+              isClosed={isClosed}
+              isMobile={isMobile}
+              activeMobileCol={activeMobileCol}
+              laneSummaries={laneSummaries}
+              indicator={indicator}
+              filtersActive={filtersActive}
+              clearFilters={clearFilters}
+              lifted={lifted}
+              draggedId={draggedId}
+              setDraggedId={setDraggedId}
+              clearIndicator={clearIndicator}
+              onCardKeyDown={onCardKeyDown}
+              onOpenCard={setOpenTodoId}
+              onLaneDragOver={handleLaneDragOver}
+              onLaneDragLeave={handleLaneDragLeave}
+              onLaneDrop={handleLaneDrop}
+              invalidate={invalidate}
+              // LST-3 — quick-add lives on the board, so the menu asks for it.
+              onAddCard={() => {
+                setQuickAddLane(col.id)
+                setQuickAddSignal((n) => n + 1)
+              }}
+              onSort={(by) => sortLane(col.id, by)}
+              showQuickAdd={col.id === (quickAddLane ?? quickAddLaneId)}
+              quickAddSignal={quickAddSignal}
+              defaultDueDate={sprint.endDate}
+            />
+          ))}
 
           {/* LST-2 — trailing add-list column. Hidden on closed sprints and on
               mobile, where lanes are a single-select tab strip. */}
@@ -1212,13 +697,24 @@ export default function SprintBoardClient({ sprintId, currentUserId }: Props) {
         <SprintInboxView dark={dark} />
       )}
 
-      {/* Centered task detail modal (Trello-style) */}
-      <TodoCardModal
-        todoId={openTodoId}
-        currentUserId={currentUserId}
-        onClose={() => setOpenTodoId(null)}
-        onUpdated={invalidate}
-        mode="modal"
+
+      {/* Centered task detail modal (Trello-style). Code-split: the card
+          modal chunk loads the first time a card is opened. */}
+      {openTodoId && (
+        <LazyTodoCardModal
+          todoId={openTodoId}
+          currentUserId={currentUserId}
+          onClose={() => setOpenTodoId(null)}
+          onUpdated={invalidate}
+        />
+      )}
+
+      {/* Board members (invite-only boards) */}
+      <SprintMembersDialog
+        sprintId={sprintId}
+        open={showMembers}
+        onClose={() => setShowMembers(false)}
+        onChanged={invalidate}
       />
 
       {/* Schedule / start sprint modal */}

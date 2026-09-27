@@ -24,6 +24,7 @@ import LetterStatusBadge from './LetterStatusBadge'
 import LetterStatusBar from './LetterStatusBar'
 import CustomerLookup from './CustomerLookup'
 import PdfPreviewPanel from './PdfPreviewPanel'
+import EnclosuresPanel from './EnclosuresPanel'
 import MarkAsSentModal from './MarkAsSentModal'
 import RejectLetterModal from './RejectLetterModal'
 import SuperDocEditorClient from './SuperDocEditorClient'
@@ -44,6 +45,8 @@ import {
 interface Props {
   initial: LetterDetail
   viewer: { id: string; role: string }
+  /** Letter admin (ADMIN-only `button.letter.admin`), resolved on the server. */
+  canAdminister?: boolean
 }
 
 function canEditDraft(viewer: Props['viewer'], letter: LetterDetail): boolean {
@@ -65,7 +68,7 @@ export default function LetterFormClient(props: Props) {
   )
 }
 
-function LetterFormInner({ initial, viewer }: Props) {
+function LetterFormInner({ initial, viewer, canAdminister = false }: Props) {
   const t = useT()
   const router = useRouter()
   const { lang, setLang, font, setFont } = useContext(LetterLangContext)
@@ -261,7 +264,7 @@ function LetterFormInner({ initial, viewer }: Props) {
       </ApCard>
 
       {saveError && (
-        <div className="rounded-[12px] border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700 dark:border-red-900/30 dark:bg-red-900/15 dark:text-red-300">
+        <div className="rounded-card border border-danger-200 bg-danger-50 px-3 py-2 text-body-sm text-danger-700">
           {saveError}
         </div>
       )}
@@ -294,7 +297,7 @@ function LetterFormInner({ initial, viewer }: Props) {
             label={
               <>
                 {t('create.customer')}{' '}
-                <span className="text-[11px] font-normal text-muted-foreground">{t('create.customer.optional')}</span>
+                <span className="text-caption font-normal text-muted-foreground">{t('create.customer.optional')}</span>
               </>
             }
           >
@@ -334,7 +337,7 @@ function LetterFormInner({ initial, viewer }: Props) {
                 setSignatoryId(newId)
                 if (editable) void saveWith({ signatoryId: newId }, { silent: true })
               }}
-              className="flex h-10 w-full rounded-[var(--ap-radius-md)] border bg-card px-3 text-[13px] focus:outline-none focus:ring-2 focus:ring-[color:var(--ap-accent)] focus:ring-offset-1 disabled:opacity-60"
+              className="flex h-10 w-full rounded-[var(--ap-radius-md)] border bg-card px-3 text-body-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--ap-accent)] focus:ring-offset-1 disabled:opacity-60"
               style={{ borderColor: 'var(--ap-border)' }}
             >
               <option value="">{t('form.signatory.empty')}</option>
@@ -372,23 +375,27 @@ function LetterFormInner({ initial, viewer }: Props) {
       {/* Body / Preview tabs */}
       <Tabs defaultValue="body" className="w-full">
         <TabsList
-          className="rounded-[12px] border bg-card p-1 shadow-sm"
+          className="rounded-card border bg-card p-1 shadow-sm"
           style={{ borderColor: 'var(--ap-border)' } as any}
         >
           <TabsTrigger value="body">{t('form.tabs.body')}</TabsTrigger>
+          <TabsTrigger value="enclosures">
+            {t('form.tabs.enclosures')}{enclosures.length > 0 ? ` (${enclosures.length})` : ''}
+          </TabsTrigger>
           <TabsTrigger value="preview">{t('form.tabs.preview')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="body" className="mt-3">
           <ApCard padding="md">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-              <p className="text-[12px] text-muted-foreground">{t('form.body.help')}</p>
+              <p className="text-xs text-muted-foreground">{t('form.body.help')}</p>
               <div className="flex items-center gap-2">
-                <label className="text-[12px] font-medium text-muted-foreground">PDF Font</label>
+                <label htmlFor="letter-pdf-font" className="text-xs font-medium text-muted-foreground">PDF Font</label>
                 <select
+                  id="letter-pdf-font"
                   value={font}
                   onChange={(e) => setFont(e.target.value as LetterFontId)}
-                  className="h-7 rounded-md border border-input bg-background px-2 text-[12px] text-foreground shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  className="h-7 rounded-md border border-input bg-background px-2 text-xs text-foreground shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
                 >
                   {LETTER_FONTS.map((f) => (
                     <option key={f.id} value={f.id}>{f.label}</option>
@@ -401,6 +408,19 @@ function LetterFormInner({ initial, viewer }: Props) {
               docxUrl={`/api/letters/${letter.id}/docx`}
               editable={editable}
               user={{ id: viewer.id, name: letter.preparedBy.name, email: letter.preparedBy.email }}
+            />
+          </ApCard>
+        </TabsContent>
+
+        <TabsContent value="enclosures" className="mt-3">
+          <ApCard padding="lg">
+            <EnclosuresPanel
+              letterId={letter.id}
+              enclosures={enclosures}
+              canEdit={canAdminister || (editable && status === 'DRAFT')}
+              canAdminister={canAdminister}
+              viewerId={viewer.id}
+              onChange={setEnclosures}
             />
           </ApCard>
         </TabsContent>
@@ -453,7 +473,7 @@ function ApCard({
   const pad = padding === 'sm' ? 'p-3' : padding === 'lg' ? 'p-5' : 'p-4'
   return (
     <div
-      className="rounded-[var(--ap-radius-card)] border bg-card shadow-card"
+      className="rounded-card border bg-card shadow-card"
       style={{ borderColor: 'var(--ap-border)' }}
     >
       {header && (
@@ -468,7 +488,7 @@ function ApCard({
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <h3 className="text-[13px] font-semibold tracking-tight text-foreground">{children}</h3>
+    <h3 className="text-body-sm font-semibold tracking-tight text-foreground">{children}</h3>
   )
 }
 
@@ -485,7 +505,7 @@ function Field({
 }) {
   return (
     <div className={cn('space-y-1', className)}>
-      <Label htmlFor={htmlFor} className="text-[12px]">{label}</Label>
+      <Label htmlFor={htmlFor} className="text-xs">{label}</Label>
       {children}
     </div>
   )
@@ -494,7 +514,7 @@ function Field({
 function LangSwitch({ lang, onChange }: { lang: LetterLang; onChange: (l: LetterLang) => void }) {
   return (
     <div
-      className="inline-flex h-10 overflow-hidden rounded-[var(--ap-radius-sm)] border bg-card text-[12px] shadow-sm"
+      className="inline-flex h-10 overflow-hidden rounded-[var(--ap-radius-sm)] border bg-card text-xs shadow-sm"
       style={{ borderColor: 'var(--ap-border)' }}
     >
       {(['en', 'am'] as LetterLang[]).map((l) => (

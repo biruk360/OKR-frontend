@@ -49,7 +49,7 @@ export function MiniBadge({ color, tone = 'neutral', mono = false, className, ch
     <span
       data-slot="mini-badge"
       className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold',
+        'inline-flex items-center rounded-full px-2 py-0.5 text-micro font-semibold',
         mono && 'font-mono tabular-nums tracking-tight',
         className,
       )}

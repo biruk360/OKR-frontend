@@ -30,18 +30,38 @@ export function generateStoredName(validatedExtension: string): string {
   return `${Date.now()}-${randomBytes(12).toString('hex')}${validatedExtension}`
 }
 
-/** Absolute path for a stored name, guarding against traversal. */
-export function resolveStoredPath(storedName: string): string {
-  // storedName is server-generated, but this is the function that turns a
-  // database value into a filesystem path — worth being certain.
-  if (storedName.includes('/') || storedName.includes('\\') || storedName.includes('..')) {
+/**
+ * Join a single path segment onto `root` and prove the result is still a
+ * direct child of it. Throws on anything else.
+ *
+ * This is the one place a database value becomes a filesystem path, for both
+ * comment and card attachments. A name must be one plain segment: no
+ * separators, no `..`, no NUL, not `.`. The containment check after
+ * `path.resolve` is the backstop in case a future caller forgets that.
+ */
+export function resolveInside(root: string, name: string): string {
+  if (
+    !name || name === '.' || name === '..' ||
+    name.includes('/') || name.includes('\\') || name.includes('..') || name.includes('\0')
+  ) {
     throw new Error('Invalid stored name')
   }
-  const full = path.join(UPLOAD_ROOT, storedName)
-  if (!full.startsWith(path.resolve(UPLOAD_ROOT) + path.sep) && full !== path.join(UPLOAD_ROOT, storedName)) {
+  const base = path.resolve(root)
+  const full = path.resolve(base, name)
+  if (!full.startsWith(base + path.sep) || path.dirname(full) !== base) {
     throw new Error('Path escapes the upload root')
   }
   return full
+}
+
+/** Absolute path for a stored name, guarding against traversal. */
+export function resolveStoredPath(storedName: string): string {
+  // storedName is server-generated, but this is the function that turns a
+  // database value into a filesystem path — worth being certain. (The
+  // containment check used to be `!startsWith(...) && full !== join(...)`,
+  // whose second half is always false, so it never fired; resolveInside
+  // does it properly.)
+  return resolveInside(UPLOAD_ROOT, storedName)
 }
 
 export async function persistFile(storedName: string, bytes: Buffer): Promise<void> {

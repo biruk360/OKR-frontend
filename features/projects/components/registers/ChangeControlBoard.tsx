@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { CheckCircle2, FileText, Plus, Trash2, XCircle } from 'lucide-react'
+import { CheckCircle2, Eye, EyeOff, FileText, Plus, Trash2, XCircle } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { cn } from '@/lib/utils'
@@ -21,6 +21,10 @@ const TYPE_LABEL: Record<string, string> = {
   REQUIREMENT_CHANGE: 'Requirement change',
   DESCOPE: 'Descope',
 }
+
+/** Portal visibility (invariant 5): CRs are INTERNAL until the PM explicitly shares one. */
+type ChangeRequestVisibility = 'INTERNAL' | 'CLIENT_VISIBLE'
+type ChangeRequestRowData = ChangeRequestNode & { visibility?: ChangeRequestVisibility }
 
 const STATUS_TONE: Record<string, string> = {
   SUBMITTED: 'bg-warning-50 text-warning-700',
@@ -66,7 +70,7 @@ export function ChangeControlBoard({ project, canEdit }: { project: ProjectDetai
       </div>
 
       {canEdit && (
-        <div className="mb-4 rounded-card border border-black/[0.08] p-3">
+        <div className="mb-4 rounded-card border border-ink-primary/[0.08] p-3">
           <div className="mb-2 text-body-sm font-medium text-ink-primary">New Change Request</div>
           <div className="grid gap-2 lg:grid-cols-4">
             <input className="input" value={draft.title} onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))} placeholder="Title" />
@@ -84,7 +88,7 @@ export function ChangeControlBoard({ project, canEdit }: { project: ProjectDetai
             <input className="input" type="number" min={0} value={draft.scheduleImpactDays} onChange={(e) => setDraft((d) => ({ ...d, scheduleImpactDays: e.target.value }))} placeholder="Schedule impact days" />
             <input className="input" type="number" min={0} value={draft.costImpact} onChange={(e) => setDraft((d) => ({ ...d, costImpact: e.target.value }))} placeholder="Cost impact" />
             <ProjectDatePicker value={draft.requestDate} onChange={(requestDate) => setDraft((d) => ({ ...d, requestDate }))} ariaLabel="Change request date" allowClear={false} />
-            <label className="flex items-center gap-2 rounded-md border border-black/[0.08] px-2 text-body-sm">
+            <label className="flex items-center gap-2 rounded-md border border-ink-primary/[0.08] px-2 text-body-sm">
               <input type="checkbox" checked={draft.clientSignOff} onChange={(e) => setDraft((d) => ({ ...d, clientSignOff: e.target.checked }))} />
               Client sign-off captured
             </label>
@@ -111,16 +115,17 @@ export function ChangeControlBoard({ project, canEdit }: { project: ProjectDetai
         <div className="overflow-x-auto">
           <table className="w-full text-body-sm">
             <thead>
-              <tr className="border-b border-black/[0.08] text-left text-ink-tertiary">
+              <tr className="border-b border-ink-primary/[0.08] text-left text-ink-tertiary">
                 <th className="px-2 py-1.5 font-medium">CR</th>
                 <th className="px-2 py-1.5 font-medium">Request</th>
                 <th className="px-2 py-1.5 font-medium">Impact</th>
                 <th className="px-2 py-1.5 font-medium">Status</th>
                 <th className="px-2 py-1.5 font-medium">Sign-off</th>
+                <th className="px-2 py-1.5 font-medium">Client portal</th>
                 {canEdit && <th className="px-2 py-1.5 font-medium">Actions</th>}
               </tr>
             </thead>
-            <tbody className="divide-y divide-black/[0.04]">
+            <tbody className="divide-y divide-ink-primary/[0.04]">
               {rows.map((row) => (
                 <ChangeRequestRow
                   key={row.id}
@@ -160,7 +165,7 @@ function ChangeRequestRow({
   onReject,
   onDelete,
 }: {
-  row: ChangeRequestNode
+  row: ChangeRequestRowData
   canEdit: boolean
   rejecting: boolean
   rejectionReason: string
@@ -175,21 +180,22 @@ function ChangeRequestRow({
   const canDecide = row.status === 'SUBMITTED' || row.status === 'UNDER_REVIEW'
   const canImplement = row.status === 'APPROVED'
   const canDelete = row.status === 'SUBMITTED' || row.status === 'UNDER_REVIEW' || row.status === 'REJECTED'
+  const shared = row.visibility === 'CLIENT_VISIBLE'
 
   return (
     <tr>
       <td className="px-2 py-2 font-medium text-ink-primary">{row.crCode}</td>
       <td className="max-w-sm px-2 py-2">
         <div className="font-medium text-ink-primary">{row.title}</div>
-        <div className="text-[12px] text-ink-tertiary">{TYPE_LABEL[row.type]} · {row.requestedByParty === '360GROUND' ? '360Ground' : 'Client'} · {row.requestedBy}</div>
+        <div className="text-xs text-ink-tertiary">{TYPE_LABEL[row.type]} · {row.requestedByParty === '360GROUND' ? '360Ground' : 'Client'} · {row.requestedBy}</div>
       </td>
       <td className="px-2 py-2 text-ink-secondary">
         <span className="tabular-nums">+{row.scheduleImpactDays}d</span>
         {row.costImpact > 0 && <span className="ml-2 tabular-nums">{row.costImpact.toLocaleString()}</span>}
-        <div className="text-[12px] text-ink-tertiary">{row.affectedActivityIds.length} affected</div>
+        <div className="text-xs text-ink-tertiary">{row.affectedActivityIds.length} affected</div>
       </td>
       <td className="px-2 py-2">
-        <span className={cn('rounded-pill px-2 py-0.5 text-[12px] font-medium', STATUS_TONE[row.status])}>{labelize(row.status)}</span>
+        <span className={cn('rounded-pill px-2 py-0.5 text-xs font-medium', STATUS_TONE[row.status])}>{labelize(row.status)}</span>
       </td>
       <td className="px-2 py-2">
         {row.clientSignOff ? (
@@ -198,6 +204,24 @@ function ChangeRequestRow({
           <button className="text-primary-700 hover:underline" onClick={() => onUpdate({ clientSignOff: true })}>Capture</button>
         ) : (
           <span className="text-ink-tertiary">Pending</span>
+        )}
+      </td>
+      <td className="px-2 py-2">
+        {canEdit ? (
+          <button
+            className={cn('inline-flex items-center gap-1 rounded-pill px-2 py-0.5 text-xs font-medium transition-colors duration-[180ms] ease-apple', shared ? 'bg-primary-50 text-primary-700 hover:bg-primary-100' : 'bg-surface-muted text-ink-secondary hover:text-ink-primary')}
+            onClick={() => onUpdate({ visibility: shared ? 'INTERNAL' : 'CLIENT_VISIBLE' })}
+            title={shared ? 'Visible in the client portal — click to make internal' : 'Internal only — click to share with the client portal'}
+            aria-pressed={shared}
+          >
+            {shared ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />}
+            {shared ? 'Shared' : 'Internal'}
+          </button>
+        ) : (
+          <span className={cn('inline-flex items-center gap-1 text-xs', shared ? 'text-primary-700' : 'text-ink-tertiary')}>
+            {shared ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />}
+            {shared ? 'Shared' : 'Internal'}
+          </span>
         )}
       </td>
       {canEdit && (

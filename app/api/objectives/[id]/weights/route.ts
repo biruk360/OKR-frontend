@@ -14,6 +14,8 @@ import {
   apiNotFound,
   withAuth,
 } from '@/lib/api'
+import { broadcastObjectiveEvent } from '@/lib/pusher'
+import { OKR_REALTIME_EVENTS } from '@/lib/okr/realtime'
 
 interface WeightInput {
   id: string
@@ -113,5 +115,6 @@ export const PATCH = withAuth<RouteIdParams>(async (req, { session, params }) =>
     },
   })
 
+  broadcastObjectiveEvent(id, OKR_REALTIME_EVENTS.UPDATED, session.user.id)
   return apiSuccess({ updated: true }, { message: 'Weights updated.' })
 })

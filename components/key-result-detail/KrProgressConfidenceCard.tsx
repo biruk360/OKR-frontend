@@ -118,17 +118,17 @@ export default function KrProgressConfidenceCard({
   return (
     <section className="rounded-[var(--ap-radius-md)] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
       <header className="flex items-baseline justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--ap-border)' }}>
-        <h3 className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+        <h3 className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">
           Progress &amp; Confidence
         </h3>
-        <span className="text-[10px] font-mono text-muted-foreground tabular-nums">
+        <span className="text-micro font-mono text-muted-foreground tabular-nums">
           W{wStart} → W{totalWeeks}
         </span>
       </header>
 
       <div className="grid grid-cols-2 gap-0 border-b" style={{ borderColor: 'var(--ap-border)' }}>
         <div className="px-4 py-3 border-r" style={{ borderColor: 'var(--ap-border)' }}>
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Progress</p>
+          <p className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">Progress</p>
           <div className="mt-1 flex items-baseline gap-1.5">
             <span
               className="text-[22px] font-semibold tabular-nums leading-none"
@@ -137,10 +137,10 @@ export default function KrProgressConfidenceCard({
               {Math.round(currentPct)}%
             </span>
             <span
-              className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 tabular-nums"
+              className="text-micro font-semibold rounded-full px-1.5 py-0.5 tabular-nums"
               style={{
-                background: pacePositive ? 'rgba(52,199,89,0.12)' : 'rgba(255,59,48,0.12)',
-                color: pacePositive ? 'var(--ap-green)' : 'var(--ap-red)',
+                background: pacePositive ? 'var(--ap-ok-bg)' : 'var(--ap-danger-bg)',
+                color: pacePositive ? 'var(--ap-ok-fg)' : 'var(--ap-danger-fg)',
               }}
             >
               {pacePositive ? '▲' : '▼'}
@@ -149,21 +149,21 @@ export default function KrProgressConfidenceCard({
           </div>
         </div>
         <div className="px-4 py-3">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Confidence</p>
+          <p className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">Confidence</p>
           <div className="mt-1 flex items-baseline gap-1.5">
             <span
               className="text-[22px] font-semibold tabular-nums leading-none"
               style={{ color: 'var(--ap-orange)', letterSpacing: '-0.02em' }}
             >
               {Math.round(currentConfidence)}
-              <span className="text-[12px] text-muted-foreground font-normal">/100</span>
+              <span className="text-xs text-muted-foreground font-normal">/100</span>
             </span>
             {confidenceDelta !== 0 && (
               <span
-                className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 tabular-nums"
+                className="text-micro font-semibold rounded-full px-1.5 py-0.5 tabular-nums"
                 style={{
-                  background: confidenceDelta >= 0 ? 'rgba(52,199,89,0.12)' : 'rgba(255,59,48,0.12)',
-                  color: confidenceDelta >= 0 ? 'var(--ap-green)' : 'var(--ap-red)',
+                  background: confidenceDelta >= 0 ? 'var(--ap-ok-bg)' : 'var(--ap-danger-bg)',
+                  color: confidenceDelta >= 0 ? 'var(--ap-ok-fg)' : 'var(--ap-danger-fg)',
                 }}
               >
                 {confidenceDelta >= 0 ? '▲' : '▼'}
@@ -234,7 +234,7 @@ function LegendPill({
 }) {
   return (
     <span
-      className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium"
+      className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-micro font-medium"
       style={{ background: 'var(--ap-bg-sunken)', color: 'var(--ap-fg-muted)' }}
     >
       <span

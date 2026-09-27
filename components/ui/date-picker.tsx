@@ -80,7 +80,7 @@ const css = `
   text-align: left;
 }
 .apdp-trigger:hover { background: rgba(120,120,128,0.16); }
-.apdp-trigger:focus-visible { outline: 2px solid var(--ap-accent); outline-offset: 1px; border-color: transparent; }
+.apdp-trigger:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; border-color: transparent; }
 .apdp-trigger .placeholder { color: var(--ap-fg-faint); }
 .apdp-trigger svg { color: var(--ap-fg-muted); flex-shrink: 0; }
 
@@ -131,7 +131,7 @@ const css = `
   font-variant-numeric: tabular-nums; transition: background .12s, color .12s;
 }
 .apdp-day:hover:not(:disabled) { background: var(--ap-bg-hover); }
-.apdp-day:focus-visible { outline: 2px solid var(--ap-accent); outline-offset: -2px; }
+.apdp-day:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: -2px; }
 .apdp-day.outside { color: var(--ap-fg-faint); }
 .apdp-day:disabled { color: var(--ap-fg-faint); cursor: not-allowed; }
 .apdp-day.today::after {

@@ -26,17 +26,17 @@ export function DepartmentNode({ data }: { data: Data }) {
       <div className="mb-2 flex items-center gap-2">
         <Building2 className="size-4 shrink-0 text-blue-600" />
         <p className="flex-1 truncate text-[13px] font-semibold text-gray-900">{data.name}</p>
-        <span className="rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700 tabular-nums">
+        <span className="rounded-full bg-blue-50 px-1.5 py-0.5 text-micro font-semibold text-blue-700 tabular-nums">
           {data.memberCount}
         </span>
       </div>
       {data.headName ? (
         <div className="mb-2 flex items-center gap-1.5 rounded bg-amber-50 px-1.5 py-1">
           <Crown className="size-3 shrink-0 text-amber-700" />
-          <span className="truncate text-[11px] font-medium text-gray-800">{data.headName}</span>
+          <span className="truncate text-caption font-medium text-gray-800">{data.headName}</span>
         </div>
       ) : (
-        <p className="mb-2 rounded bg-amber-50 px-1.5 py-1 text-[10px] font-medium text-amber-800">
+        <p className="mb-2 rounded bg-amber-50 px-1.5 py-1 text-micro font-medium text-amber-800">
           No head
         </p>
       )}
@@ -44,8 +44,8 @@ export function DepartmentNode({ data }: { data: Data }) {
         <div className="h-1 flex-1 overflow-hidden rounded-full bg-gray-200">
           <div className="h-full rounded-full transition-all" style={{ width: `${data.avgProgress}%`, background: tone }} />
         </div>
-        <span className="text-[10px] font-semibold tabular-nums text-gray-600">{data.avgProgress}%</span>
-        <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-700">
+        <span className="text-micro font-semibold tabular-nums text-gray-600">{data.avgProgress}%</span>
+        <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-micro font-medium text-gray-700">
           {data.okrCount} OKR
         </span>
       </div>

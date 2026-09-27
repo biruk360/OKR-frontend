@@ -1,6 +1,8 @@
 'use client'
 
 import { cn } from '@/lib/utils'
+import { chartColors } from '@/lib/chart-colors'
+import { Skeleton } from '@/components/ui/Skeleton'
 import type { ProgressBucket, ProgressTimeseriesPoint, ConfidenceBreakdown, FiltersTab } from '../types'
 
 // ─── Card shell ───────────────────────────────────────────────────────────────
@@ -15,7 +17,7 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
         boxShadow: 'var(--ap-shadow-sm)',
       }}
     >
-      <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'var(--ap-fg-subtle)' }}>
+      <p className="mb-3 text-caption font-semibold uppercase tracking-widest" style={{ color: 'var(--ap-fg-subtle)' }}>
         {title}
       </p>
       {children}
@@ -87,9 +89,9 @@ export function ConfidenceChart({ data, tab, onSegmentClick }: ConfidenceChartPr
   const isEmpty = total === 0
 
   const rows = [
-    { key: 'ON_TRACK' as const, label: tab === 'objectives' ? 'High' : 'On Track', count: data.onTrack, color: 'var(--ap-success, #16a34a)' },
-    { key: 'AT_RISK' as const,  label: tab === 'objectives' ? 'Moderate' : 'At Risk', count: data.atRisk, color: 'var(--ap-warning, #d97706)' },
-    { key: 'OFF_TRACK' as const, label: tab === 'objectives' ? 'Low' : 'Off Track', count: data.offTrack, color: 'var(--ap-danger, #dc2626)' },
+    { key: 'ON_TRACK' as const, label: tab === 'objectives' ? 'High' : 'On Track', count: data.onTrack, color: chartColors.success },
+    { key: 'AT_RISK' as const,  label: tab === 'objectives' ? 'Moderate' : 'At Risk', count: data.atRisk, color: chartColors.warning },
+    { key: 'OFF_TRACK' as const, label: tab === 'objectives' ? 'Low' : 'Off Track', count: data.offTrack, color: chartColors.danger },
     { key: 'PENDING' as const,   label: 'Pending', count: data.pending, color: 'var(--ap-border-strong)' },
   ]
 
@@ -127,7 +129,7 @@ export function ConfidenceChart({ data, tab, onSegmentClick }: ConfidenceChartPr
                   key={r.key}
                   type="button"
                   onClick={() => onSegmentClick?.(r.key)}
-                  className="flex items-center justify-between gap-2 text-[11px] transition-opacity hover:opacity-70"
+                  className="flex items-center justify-between gap-2 text-caption transition-opacity hover:opacity-70"
                   style={{ color: 'var(--ap-fg-muted)' }}
                 >
                   <span className="flex items-center gap-1.5">
@@ -136,7 +138,7 @@ export function ConfidenceChart({ data, tab, onSegmentClick }: ConfidenceChartPr
                   </span>
                   <span className="tabular-nums" style={{ color: 'var(--ap-fg)' }}>
                     {r.count}
-                    <span className="ml-1 text-[10px]" style={{ color: 'var(--ap-fg-subtle)' }}>
+                    <span className="ml-1 text-micro" style={{ color: 'var(--ap-fg-subtle)' }}>
                       {pct}%
                     </span>
                   </span>
@@ -183,8 +185,9 @@ export function ProgressTimeseriesChart({ data, isLoading }: ProgressTimeseriesC
   return (
     <Card title="Progress Over Time">
       {isLoading ? (
-        <div className="flex h-24 items-center justify-center">
-          <div className="size-4 animate-spin rounded-full border-2 border-[var(--ap-accent)] border-t-transparent" />
+        <div className="flex h-24 flex-col justify-between" aria-busy="true" aria-label="Loading progress history">
+          <Skeleton className="h-6 w-20" />
+          <Skeleton className="h-10 w-full" />
         </div>
       ) : isEmpty ? (
         <p className="py-6 text-center text-xs" style={{ color: 'var(--ap-fg-subtle)' }}>
@@ -198,14 +201,14 @@ export function ProgressTimeseriesChart({ data, isLoading }: ProgressTimeseriesC
                 {Math.round(last)}%
               </span>
               <span
-                className="text-[11px] font-medium tabular-nums"
-                style={{ color: delta > 0 ? 'var(--ap-success, #16a34a)' : delta < 0 ? 'var(--ap-danger, #dc2626)' : 'var(--ap-fg-subtle)' }}
+                className="text-caption font-medium tabular-nums"
+                style={{ color: delta > 0 ? chartColors.success : delta < 0 ? chartColors.danger : 'var(--ap-fg-subtle)' }}
               >
                 {delta > 0 ? '+' : ''}
                 {delta} pts
               </span>
             </div>
-            <span className="text-[10px]" style={{ color: 'var(--ap-fg-subtle)' }}>
+            <span className="text-micro" style={{ color: 'var(--ap-fg-subtle)' }}>
               last {points.length} wks
             </span>
           </div>

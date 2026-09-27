@@ -12,7 +12,6 @@ export * from './types'
 
 // Components (exported as phases land).
 export { ProjectsListClient } from './components/ProjectsListClient'
-export { ProjectDetailClient } from './components/ProjectDetailClient'
 export { ProjectWorkspaceClient } from './components/ProjectWorkspaceClient'
 export { CreateProjectWizard } from './components/CreateProjectWizard'
 export { NewProjectEntry } from './components/creation/NewProjectEntry'
@@ -26,7 +25,13 @@ export { ChangeListPanel } from './components/creation/ChangeListPanel'
 export { CommitConfirmDialog } from './components/creation/CommitConfirmDialog'
 export { ScheduleTree } from './components/ScheduleTree'
 export { DelayLedgerTable } from './components/DelayLedgerTable'
-export { GanttChart } from './components/gantt/GanttChart'
+// GanttChart and ProjectChartsLibrary are deliberately NOT re-exported: ProjectViewSwitcher
+// loads them with next/dynamic, and a barrel re-export would pull the Gantt (~110 KB) and
+// recharts back into every page that imports this barrel.
+export { CommitBaselineDialog } from './components/baseline/CommitBaselineDialog'
+export { RebaselineDialog } from './components/baseline/RebaselineDialog'
+export { TextPromptDialog } from './components/dialogs/TextPromptDialog'
+export { PortalAccessPanel } from './components/portal/PortalAccessPanel'
 export { ProjectViewSwitcher } from './components/views/ProjectViewSwitcher'
 export { ActivityDetailPanel } from './components/activity/ActivityDetailPanel'
 export { RaidRegister } from './components/registers/RaidRegister'
@@ -38,7 +43,6 @@ export { PaymentMilestonesRegister } from './components/registers/PaymentMilesto
 export { JiraIntegrationPanel } from './components/integrations/JiraIntegrationPanel'
 export { ScrumLogWidget } from './components/ScrumLogWidget'
 export { ChartWrapper } from './components/charts/ChartWrapper'
-export { ProjectChartsLibrary } from './components/charts/ProjectChartsLibrary'
 export { PortfolioChartsLibrary } from './components/charts/PortfolioChartsLibrary'
 export { ClientReportsPanel } from './components/reports/ClientReportsPanel'
 export { PortfolioWbrPanel } from './components/reports/PortfolioWbrPanel'

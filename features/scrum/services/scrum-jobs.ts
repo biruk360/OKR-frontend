@@ -1,8 +1,10 @@
 import { prisma } from '@/lib/prisma'
-import { emit } from '@/lib/notifications'
+import { SUBMITTED_SCRUM_UPDATE_WHERE } from './drafts'
+import { emitNow } from '@/lib/notifications'
 import { absoluteUrl } from '@/lib/notifications/deep-link'
 import { getScrumSettings } from './settings'
-import { dateFromDateKey, isScrumWorkingDay, toScrumDateKey } from './working-days'
+import { dateFromDateKey, isScrumWorkingDay, scrumWorkingDaysInRange, toScrumDateKey } from './working-days'
+import { shouldSendTeamMoodAlert, trailingRedMoodStreak, type MoodReport } from './mood-alert'
 import { getScrumPrefill } from './prefill'
 import { escalateScrumBlocker } from './blocker-actions'
 
@@ -32,10 +34,10 @@ export async function runScrumFinalize(now = new Date()) {
   let digests = 0
   for (const [managerId, reportIds] of byManager) {
     const [updates, absences] = await Promise.all([
-      prisma.scrumUpdate.findMany({ where: { userId: { in: reportIds }, scrumDate: date } }),
+      prisma.scrumUpdate.findMany({ where: { userId: { in: reportIds }, scrumDate: date, ...SUBMITTED_SCRUM_UPDATE_WHERE } }),
       prisma.scrumAbsence.findMany({ where: { userId: { in: reportIds }, date } }),
     ])
-    await emit('SCRUM_MANAGER_DIGEST', {
+    await emitNow('SCRUM_MANAGER_DIGEST', {
       entityType: 'SCRUM_UPDATE',
       explicitRecipients: [managerId],
       data: {
@@ -51,6 +53,7 @@ export async function runScrumFinalize(now = new Date()) {
   const recurring = await prisma.scrumUpdate.findMany({
     where: {
       scrumDate: date,
+      ...SUBMITTED_SCRUM_UPDATE_WHERE,
       hasBlocker: true,
       blockerStatus: { in: ['RECURRING', 'ESCALATED'] },
       blockerDaysOpen: { gte: settings.escalationThresholdDays },
@@ -75,11 +78,11 @@ export async function runScrumWeekly(now = new Date()) {
     const recipients = members.map((m) => m.userId)
     if (recipients.length === 0) continue
     const updates = await prisma.scrumUpdate.findMany({
-      where: { userId: { in: recipients }, scrumDate: { lte: dateFromDateKey(dateKey) } },
+      where: { userId: { in: recipients }, scrumDate: { lte: dateFromDateKey(dateKey) }, ...SUBMITTED_SCRUM_UPDATE_WHERE },
       orderBy: { scrumDate: 'desc' },
       take: 200,
     })
-    await emit('SCRUM_WEEKLY_DIGEST', {
+    await emitNow('SCRUM_WEEKLY_DIGEST', {
       entityType: 'SCRUM_UPDATE',
       explicitRecipients: recipients,
       data: {
@@ -103,7 +106,7 @@ export async function runScrumHealth(now = new Date()) {
     take: 50,
   })
   for (const objective of staleObjectives) {
-    await emit('SCRUM_OBJECTIVE_NEGLECTED', {
+    await emitNow('SCRUM_OBJECTIVE_NEGLECTED', {
       entityType: 'OBJECTIVE',
       entityId: objective.id,
       entityTitle: objective.title,
@@ -111,7 +114,65 @@ export async function runScrumHealth(now = new Date()) {
       data: { objectiveId: objective.id, thresholdDays: settings.objectiveNeglectDays },
     })
   }
-  return { checkedAt: now.toISOString(), neglectedObjectives: staleObjectives.length }
+  const moodAlerts = settings.moodEnabled ? await runTeamMoodAlerts(now, settings, ceoId?.companyCeoUserId ?? null) : 0
+  return { checkedAt: now.toISOString(), neglectedObjectives: staleObjectives.length, moodAlerts }
+}
+
+/**
+ * SCRUM_TEAM_MOOD_ALERT (spec S8 SC5 / §12): a department whose aggregated mood
+ * has been red for `moodAlertDays` consecutive completed working days alerts
+ * the CEO (fallback: active EXECUTIVEs). Only team aggregates leave this
+ * function — never an individual's mood. Idempotent per department per day.
+ */
+async function runTeamMoodAlerts(now: Date, settings: Awaited<ReturnType<typeof getScrumSettings>>, ceoUserId: string | null) {
+  const threshold = Math.max(1, settings.moodAlertDays)
+  const todayKey = toScrumDateKey(now, settings)
+  // Completed working days only (the job runs before the day's standup).
+  const windowStart = new Date(dateFromDateKey(todayKey).getTime() - (threshold * 3 + 14) * 24 * 60 * 60 * 1000)
+  const dayKeys = scrumWorkingDaysInRange(windowStart, dateFromDateKey(todayKey), settings)
+    .map((date) => toScrumDateKey(date, settings))
+    .filter((key) => key < todayKey)
+  if (dayKeys.length < threshold) return 0
+  const recipients = ceoUserId
+    ? [ceoUserId]
+    : (await prisma.user.findMany({ where: { role: 'EXECUTIVE', isActive: true }, select: { id: true } })).map((u) => u.id)
+  if (recipients.length === 0) return 0
+
+  const departments = await prisma.department.findMany({ where: { isActive: true }, select: { id: true, name: true } })
+  const runDate = dateFromDateKey(todayKey)
+  let sent = 0
+  for (const dept of departments) {
+    const members = await prisma.departmentMembership.findMany({ where: { departmentId: dept.id, endedAt: null }, select: { userId: true } })
+    const memberIds = [...new Set(members.map((m) => m.userId))]
+    if (memberIds.length === 0) continue
+    const updates = await prisma.scrumUpdate.findMany({
+      where: { userId: { in: memberIds }, scrumDate: { gte: dateFromDateKey(dayKeys[0]), lte: dateFromDateKey(dayKeys[dayKeys.length - 1]) }, mood: { not: null }, ...SUBMITTED_SCRUM_UPDATE_WHERE },
+      select: { userId: true, scrumDate: true, mood: true },
+    })
+    const reportsByDay = new Map<string, MoodReport[]>()
+    for (const update of updates) {
+      const key = toScrumDateKey(update.scrumDate, settings)
+      const list = reportsByDay.get(key) ?? []
+      list.push({ userId: update.userId, mood: update.mood })
+      reportsByDay.set(key, list)
+    }
+    const streak = trailingRedMoodStreak(dayKeys, reportsByDay)
+    if (!shouldSendTeamMoodAlert(streak, threshold)) continue
+    const jobKey = `scrum-mood-alert:${dept.id}`
+    const already = await prisma.scrumJobRun.findUnique({
+      where: { jobKey_userId_runDate: { jobKey, userId: dept.id, runDate } },
+      select: { id: true },
+    })
+    if (already) continue
+    await emitNow('SCRUM_TEAM_MOOD_ALERT', {
+      entityType: 'SCRUM_UPDATE',
+      explicitRecipients: recipients,
+      data: { teamId: dept.id, teamName: dept.name, streakDays: streak, thresholdDays: threshold, deepLink: '/dashboard/scrum?view=analytics' },
+    })
+    await prisma.scrumJobRun.create({ data: { jobKey, userId: dept.id, runDate, metadata: { streakDays: streak } } })
+    sent++
+  }
+  return sent
 }
 
 async function notifyMissing(eventKey: 'SCRUM_REMINDER' | 'SCRUM_MISSED', now: Date, jobKey: string) {
@@ -123,13 +184,14 @@ async function notifyMissing(eventKey: 'SCRUM_REMINDER' | 'SCRUM_MISSED', now: D
   let sent = 0
   for (const user of users) {
     const [update, absence, jobRun] = await Promise.all([
-      prisma.scrumUpdate.findUnique({ where: { userId_scrumDate: { userId: user.id, scrumDate: date } }, select: { id: true } }),
+      // A saved draft is not a submission — the reminder/nudge still goes out.
+      prisma.scrumUpdate.findFirst({ where: { userId: user.id, scrumDate: date, ...SUBMITTED_SCRUM_UPDATE_WHERE }, select: { id: true } }),
       prisma.scrumAbsence.findUnique({ where: { userId_date: { userId: user.id, date } }, select: { id: true } }),
       prisma.scrumJobRun.findUnique({ where: { jobKey_userId_runDate: { jobKey, userId: user.id, runDate: date } }, select: { id: true } }),
     ])
     if (update || absence || jobRun) continue
     const prefill = await getScrumPrefill(user.id, now)
-    await emit(eventKey, {
+    await emitNow(eventKey, {
       entityType: 'SCRUM_UPDATE',
       explicitRecipients: [user.id],
       data: {

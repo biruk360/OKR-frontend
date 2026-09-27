@@ -5,6 +5,7 @@ import { join } from 'node:path'
 // The real implementation, not a copy: a mirrored version can drift from the
 // one that actually runs, which is the whole failure mode this file guards.
 import { safeCallbackUrl } from '../../features/auth/services/callback-url'
+import { safePortalCallbackUrl } from '../portal-callback-url'
 
 /**
  * SHR-6 guards.
@@ -73,4 +74,45 @@ test('SEC-6: card comments are not injected as raw HTML', () => {
     'TodoCardModal injects raw HTML; comment bodies must go through RichTextContent',
   )
   assert.match(modal, /RichTextContent/, 'comments must render via the sanitizing component')
+})
+
+test('portal sign-in: callbackUrl stays inside /portal', () => {
+  assert.equal(safePortalCallbackUrl('/portal/projects/p_1'), '/portal/projects/p_1')
+  assert.equal(safePortalCallbackUrl(encodeURIComponent('/portal/projects/p_1?tab=raid')), '/portal/projects/p_1?tab=raid')
+  assert.equal(safePortalCallbackUrl('/portal'), '/portal')
+  assert.equal(safePortalCallbackUrl(null), '/portal')
+})
+
+test('portal sign-in: callbackUrl cannot redirect away or run script', () => {
+  for (const hostile of [
+    'javascript:alert(1)',
+    'JaVaScRiPt:alert(document.cookie)',
+    encodeURIComponent('javascript:alert(1)'),
+    'data:text/html,<script>alert(1)</script>',
+    'https://evil.com',
+    '//evil.com',
+    '/\\evil.com',
+    '/portal\\..\\..\\evil.com',
+    '/portalevil',
+    '/portal/../dashboard',
+    '/portal/../../evil.com',
+    '/portal/%2e%2e/api/admin',
+    '/dashboard',
+    '/api/portal/projects',
+    ' /portal',
+    '/portal\tx',
+    '%E0%A4%A',
+    '',
+  ]) {
+    const out = safePortalCallbackUrl(hostile)
+    assert.ok(out === '/portal' || out.startsWith('/portal/'), `"${hostile}" resolved to "${out}"`)
+    assert.ok(!out.startsWith('//'), `"${hostile}" resolved to a protocol-relative URL`)
+    assert.ok(!/^[a-z]+:/i.test(out), `"${hostile}" resolved to an absolute URL`)
+  }
+})
+
+test('portal sign-in page routes callbackUrl through the validator', () => {
+  const page = readFileSync(join(ROOT, 'app/portal/signin/page.tsx'), 'utf8')
+  assert.match(page, /safePortalCallbackUrl\(search\.get\('callbackUrl'\)\)/)
+  assert.ok(!/router\.push\(search\.get\(/.test(page), 'raw callbackUrl reaches router.push')
 })

@@ -34,7 +34,7 @@ function ActivityRow({ entry }: { entry: EvaluationActivityEntry }) {
   return (
     <li className="flex gap-3 py-2.5 first:pt-0 last:pb-0">
       {entry.actor
-        ? <UserAvatar user={{ id: entry.actor.id, name: entry.actor.name ?? 'User', avatar: entry.actor.avatar }} size={24} />
+        ? <UserAvatar user={{ id: entry.actor.id, name: entry.actor.name ?? 'User', avatar: entry.actor.avatar }} size={24} tooltip={false} />
         : <History className="mt-0.5 size-5 shrink-0 text-muted-foreground" />}
       <div className="min-w-0 flex-1">
         <p className="text-sm">
@@ -42,7 +42,7 @@ function ActivityRow({ entry }: { entry: EvaluationActivityEntry }) {
           <span className="text-muted-foreground">{humanizeEnum(entry.action).toLowerCase()}</span>
         </p>
         {summary && <p className="truncate text-xs text-muted-foreground" title={summary}>{summary}</p>}
-        <p className="mt-0.5 text-[11px] text-muted-foreground/80">
+        <p className="mt-0.5 text-caption text-muted-foreground/80">
           {formatDistanceToNow(new Date(entry.createdAt), { addSuffix: true })}
         </p>
       </div>

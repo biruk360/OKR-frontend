@@ -1,8 +1,10 @@
 import type { Session } from 'next-auth'
 import { prisma } from '@/lib/prisma'
+import { excludeScrumDrafts } from './drafts'
 import { getScrumSettings } from './settings'
 import { dateFromDateKey, isScrumWorkingDay, scrumWorkingDaysInRange, toScrumDateKey } from './working-days'
 import { serializeScrumUpdates } from './scrum-serializer'
+import { canViewScrumUser, listManagedScrumUserIds } from './access'
 
 export interface CalendarQuery {
   from: string
@@ -42,7 +44,7 @@ export async function getScrumCalendar(session: Session, query: CalendarQuery) {
 
   const [updatesRaw, absences] = await Promise.all([
     prisma.scrumUpdate.findMany({
-      where: updateWhere,
+      where: excludeScrumDrafts(updateWhere),
       include: { links: true, celebrations: true, comments: true },
       orderBy: [{ scrumDate: 'asc' }, { submittedAt: 'asc' }],
     }),
@@ -50,7 +52,18 @@ export async function getScrumCalendar(session: Session, query: CalendarQuery) {
       where: { date: { gte: from, lte: to }, userId: { in: memberIds } },
     }),
   ])
-  const updates = await serializeScrumUpdates(updatesRaw as any[], { id: session.user.id, role: session.user.role })
+  const serialized = await serializeScrumUpdates(updatesRaw as any[], { id: session.user.id, role: session.user.role })
+  // UI affordance flags only — every action route re-checks access server-side.
+  const managed = serialized.some((u: any) => u.userId !== session.user.id)
+    ? new Set(await listManagedScrumUserIds(session))
+    : new Set<string>()
+  const updates = serialized.map((update: any) => ({
+    ...update,
+    commentCount: Array.isArray(update.comments) ? update.comments.length : 0,
+    celebrationCount: Array.isArray(update.celebrations) ? update.celebrations.length : 0,
+    celebratedByMe: Array.isArray(update.celebrations) && update.celebrations.some((c: any) => c.userId === session.user.id),
+    viewerCanActOnBlocker: update.userId === session.user.id || managed.has(update.userId),
+  }))
   const updateByUserDate = new Map(updates.map((update: any) => [`${update.userId}:${toScrumDateKey(update.scrumDate, settings)}`, update]))
   const absenceByUserDate = new Map(absences.map((absence) => [`${absence.userId}:${toScrumDateKey(absence.date, settings)}`, absence]))
   const days = scrumWorkingDaysInRange(from, to, settings).map((date) => {
@@ -98,12 +111,15 @@ export async function getScrumCalendar(session: Session, query: CalendarQuery) {
 
 export async function listCalendarMembers(session: Session, teamId?: string | null, userId?: string | null) {
   if (userId) {
+    // Same visibility rule as GET /api/scrum/updates/[id].
+    if (!await canViewScrumUser(session, userId)) return []
     return prisma.user.findMany({ where: { id: userId, isActive: true }, select: { id: true, name: true, avatar: true, email: true }, orderBy: { name: 'asc' } })
   }
   const where: any = { isActive: true }
-  if (teamId) {
-    where.departmentMemberships = { some: { departmentId: teamId, endedAt: null } }
-  } else if (session.user.role !== 'ADMIN' && session.user.role !== 'EXECUTIVE') {
+  if (teamId) where.departmentMemberships = { some: { departmentId: teamId, endedAt: null } }
+  if (session.user.role !== 'ADMIN' && session.user.role !== 'EXECUTIVE') {
+    // Non-org-wide viewers are always limited to self, direct reports, and their
+    // own departments — a teamId filter narrows this, it never widens it.
     const memberships = await prisma.departmentMembership.findMany({
       where: { userId: session.user.id, endedAt: null },
       select: { departmentId: true },

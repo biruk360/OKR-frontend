@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useId, cloneElement, isValidElement } from 'react'
 import { ChevronDown } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { Modal } from '@/components/ui/Modal'
@@ -204,6 +204,7 @@ export function StopEditorModal({ open, onClose, initial, onSubmit, busy }: Prop
                 className="w-24"
                 value={form.dwellMinutes}
                 onChange={(e) => setField('dwellMinutes', Math.max(5, Number(e.target.value) || 0))}
+                aria-label="Estimated wait time at destination, in minutes"
                 aria-invalid={!!errors.dwellMinutes}
               />
               <span className="text-sm text-muted-foreground">min</span>
@@ -408,13 +409,14 @@ function Field({
   error?: string
   children: React.ReactNode
 }) {
+  const uid = useId()
   return (
     <div>
-      <Label className="text-xs flex items-center gap-1">
+      <Label id={`${uid}-label`} htmlFor={isValidElement(children) ? `${uid}-control` : undefined} className="text-xs flex items-center gap-1">
         {label}
         {required && <span className="text-danger-600" aria-hidden>*</span>}
       </Label>
-      <div className="mt-1">{children}</div>
+      <div className="mt-1">{withFieldIds(children, `${uid}-control`, `${uid}-label`)}</div>
       {error && <p className="text-xs text-danger-600 mt-1">{error}</p>}
     </div>
   )
@@ -423,17 +425,29 @@ function Field({
 /** Segmented button group with a clearly visible selected state.
  * Uses explicit Tailwind colors (blue-600 / white) rather than the design
  * tokens so the highlight is always visible regardless of theme overrides. */
+/** Give a Field's single control the label's id so the <Label> is programmatically linked. */
+function withFieldIds(children: React.ReactNode, controlId: string, labelId: string) {
+  if (!isValidElement(children)) return children
+  const props = children.props as { id?: string; 'aria-labelledby'?: string }
+  return cloneElement(children as React.ReactElement<Record<string, unknown>>, {
+    id: props.id ?? controlId,
+    'aria-labelledby': props['aria-labelledby'] ?? labelId,
+  })
+}
+
 function SegmentedControl({
   value,
   onChange,
   options,
+  'aria-labelledby': labelledBy,
 }: {
   value: string
   onChange: (v: string) => void
   options: { value: string; label: string }[]
+  'aria-labelledby'?: string
 }) {
   return (
-    <div className="inline-flex flex-wrap gap-1.5" role="radiogroup">
+    <div className="inline-flex flex-wrap gap-1.5" role="radiogroup" aria-labelledby={labelledBy}>
       {options.map((o) => (
         <PillButton
           key={o.value}

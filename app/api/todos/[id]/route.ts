@@ -1,16 +1,16 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { canEditKeyResultWithObjectiveContext, type UserRole } from '@/lib/permissions'
-import { resolveDocTypePermission } from '@/lib/permission-resolver'
-import { buildScopeFilter } from '@/lib/apply-scope'
+import { canEditKeyResultWithObjectiveContext, canViewSprint, type UserRole } from '@/lib/permissions'
+import { inviteToSprint } from '@/lib/sprints/participants'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { recordActivity } from '@/lib/activity-log'
 import { isDueReminder, shouldResetReminderSentAt } from '@/lib/todos/due-reminders'
-import { isRecurrenceRule } from '@/lib/todos/recurrence'
+import { anchorDayOnSave, isRecurrenceRule } from '@/lib/todos/recurrence'
 import { emit, resolveTodoStakeholders } from '@/lib/notifications'
 import { broadcastSprintEvent } from '@/lib/pusher'
 import { recalcKrFromInitiatives, recalcNodeAndAncestors } from '@/lib/objectiveProgress'
-import { hasTodoParticipantWriteAccess } from '@/lib/todos/access'
+import { canReadTodo, canWriteTodo } from '@/lib/todos/access'
+import { snapshotTodoAttachmentFiles, purgeDeletedTodoAttachments } from '@/lib/attachments/todo-delete'
 import {
   apiSuccess,
   apiBadRequest,
@@ -51,9 +51,12 @@ const TODO_INCLUDE = {
   objective: { select: { id: true, title: true, level: true, timeframe: { select: { name: true } } } },
 } as const
 
-export const GET = withAuth<RouteIdParams>(async (_request, { params }) => {
+export const GET = withAuth<RouteIdParams>(async (_request, { session, params }) => {
   const { id: todoId } = await resolveParams(params)
   if (!todoId) return apiBadRequest('Invalid todo id')
+  // Card read rule (lib/todos/access.ts). A card the caller may not read answers
+  // exactly like a missing one, so ids cannot be probed.
+  if (!(await canReadTodo(session.user, todoId))) return apiNotFound('To-do not found')
   const todo = await prisma.todo.findUnique({ where: { id: todoId }, include: TODO_INCLUDE })
   if (!todo) return apiNotFound('To-do not found')
   const shaped = {
@@ -173,52 +176,28 @@ export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { sess
   }
 
   // Permission: creators, assignees, and explicit task members can always edit.
-  // KR/objective managers can also edit linked todos.
-  const kr = existingTodo.keyResult
-  let canManageKr = false
-  if (kr) {
-    canManageKr = await canEditKeyResultWithObjectiveContext(
-      session.user.role as UserRole,
-      session.user.id,
-      { ownerId: kr.ownerId, objectiveId: kr.objectiveId },
-      {
-        level: kr.objective.level,
-        ownerId: kr.objective.ownerId,
-        departmentId: kr.objective.departmentId,
-      }
-    )
-  }
-  const intrinsicHasAccess = hasTodoParticipantWriteAccess(session.user.id, {
-    assigneeId: existingTodo.assigneeId,
-    creatorId: existingTodo.creatorId,
-    memberIds: existingTodo.members.map((member) => member.userId),
-  })
-  const legacyHasAccess =
-    intrinsicHasAccess ||
-    canManageKr ||
-    (['ADMIN', 'EXECUTIVE', 'DEPARTMENT_LEAD'] as string[]).includes(session.user.role)
-
-  let hasAccess = legacyHasAccess
-  try {
-    let rbacHasAccess = await resolveDocTypePermission(session.user.id, 'todo', 'write')
-    if (rbacHasAccess) {
-      const scopeFilter = await buildScopeFilter(session.user.id, 'todo', 'write')
-      if (scopeFilter) {
-        const scopedTodo = await prisma.todo.findFirst({
-          where: { id: todoId, AND: [scopeFilter] },
-          select: { id: true },
-        })
-        rbacHasAccess = scopedTodo !== null
-      }
-    }
-    // DB permissions can expand access, but must not revoke participant access.
-    hasAccess = legacyHasAccess || rbacHasAccess
-  } catch {
-    // Keep legacy access only while a deployment is still applying RBAC tables.
-  }
+  // KR/objective managers, manager roles and DB-RBAC `todo:write` (in scope)
+  // can also edit. The rule lives in lib/todos/access.ts so card sub-resources
+  // (checklists, items) enforce exactly the same one (CPM-3).
+  const hasAccess = await canWriteTodo(session.user, existingTodo)
 
   if (!hasAccess) {
     return apiForbidden('Insufficient permissions to update this to-do')
+  }
+
+  // Invite-only sprints: moving a card onto a board invites its assignee and
+  // members (below), so only someone who can view the target board may do it —
+  // otherwise moving your own card would be a way to join any sprint.
+  if (typeof sprintId === 'string' && sprintId !== existingTodo.sprintId) {
+    const target = await prisma.sprint.findUnique({
+      where: { id: sprintId },
+      select: { ownerId: true, participants: { select: { userId: true } } },
+    })
+    if (!target) return apiBadRequest('Invalid sprintId')
+    const canViewTarget = await canViewSprint(session.user.role as UserRole, session.user.id, target, {
+      userType: session.user.userType,
+    })
+    if (!canViewTarget) return apiForbidden('You do not have access to that sprint')
   }
 
   // Parse progressValue — accept number or numeric string. Null explicitly clears it.
@@ -289,6 +268,19 @@ export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { sess
     }
   }
 
+  // MONTHLY/YEARLY anchor day (recurrenceAnchorDay): re-derived from the due
+  // date only when the rule or the due day actually changes; undefined = keep.
+  const nextAnchorDay =
+    recurrenceRule !== undefined || dueDate !== undefined
+      ? anchorDayOnSave(existingTodo, {
+          recurrenceRule:
+            recurrenceRule !== undefined
+              ? (isRecurrenceRule(recurrenceRule) ? recurrenceRule : null)
+              : existingTodo.recurrenceRule,
+          dueDate: dueDate !== undefined ? (dueDate ? new Date(dueDate) : null) : existingTodo.dueDate,
+        })
+      : undefined
+
   const updatedTodo = await prisma.$transaction(async (tx) => {
     const updated = await tx.todo.update({
       where: { id: todoId },
@@ -324,6 +316,7 @@ export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { sess
         ...(recurrenceEndsAt !== undefined
           && isRecurrenceRule(recurrenceRule ?? existingTodo.recurrenceRule)
           && { recurrenceEndsAt: recurrenceEndsAt ? new Date(recurrenceEndsAt) : null }),
+        ...(nextAnchorDay !== undefined && { recurrenceAnchorDay: nextAnchorDay }),
         // A rescheduled card, or a changed lead time, must be able to remind
         // again — otherwise moving a card a week out would silently never fire.
         ...(reminderNeedsReset && { dueReminderSentAt: null }),
@@ -383,6 +376,12 @@ export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { sess
         await recalcKrFromInitiatives(tx, keyResultId)
         if (nextKrObjectiveId) await recalcNodeAndAncestors(tx, nextKrObjectiveId)
       }
+    }
+
+    // Invite-only sprints: whoever is on a sprint card (assignee or member) is
+    // a participant of its board — upserted with the assignment, never removed.
+    if (updated.sprintId && (assigneeId !== undefined || Array.isArray(memberIds) || sprintId !== undefined)) {
+      await inviteToSprint(tx, updated.sprintId, [updated.assigneeId, ...updated.members.map((m) => m.userId)])
     }
 
     return updated
@@ -655,7 +654,16 @@ export const DELETE = withAuth<RouteIdParams>(async (_request, { session, params
     return apiForbidden('Insufficient permissions to delete this to-do')
   }
 
+  // The cascade drops the card's TodoAttachment rows — the only record of where
+  // its files are — so note them first; bytes go only once the delete succeeded.
+  const attachmentSnapshot = await snapshotTodoAttachmentFiles(todoId)
   await prisma.todo.delete({ where: { id: todoId } })
+  try {
+    await purgeDeletedTodoAttachments(todoId, attachmentSnapshot)
+  } catch (err) {
+    // The card is gone either way; leftover bytes are not worth failing the delete.
+    console.error('[todos/delete] attachment cleanup failed', { todoId, err })
+  }
 
   if (existingTodo.keyResult) {
     await recordActivity({

@@ -25,7 +25,7 @@ export function ChartWrapper({ id, title, description, height = 220, children }:
       <div className="mb-2 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-body-sm font-semibold text-ink-primary">{title}</div>
-          {description && <div className="mt-0.5 text-body-xs text-ink-tertiary">{description}</div>}
+          {description && <div className="mt-0.5 text-xs text-ink-tertiary">{description}</div>}
         </div>
         <button
           type="button"
@@ -77,7 +77,7 @@ export function HeatmapGrid({
       <div className="min-w-max">
         <div className="grid gap-1" style={{ gridTemplateColumns: `120px repeat(${xLabels.length}, 34px)` }}>
           <div />
-          {xLabels.map((label) => <div key={label} className="text-center text-[10px] text-ink-tertiary">{label}</div>)}
+          {xLabels.map((label) => <div key={label} className="text-center text-xs text-ink-tertiary">{label}</div>)}
           {yLabels.map((label, y) => (
             <HeatmapRow key={label} label={label} xLabels={xLabels} y={y} value={value} />
           ))}
@@ -90,7 +90,7 @@ export function HeatmapGrid({
 function HeatmapRow({ label, xLabels, y, value }: { label: string; xLabels: string[]; y: number; value: (yIndex: number, xIndex: number) => number }) {
   return (
     <>
-      <div className="truncate py-1 pr-2 text-body-xs text-ink-secondary">{label}</div>
+      <div className="truncate py-1 pr-2 text-xs text-ink-secondary">{label}</div>
       {xLabels.map((x, i) => {
         const v = value(y, i)
         return <div key={`${label}-${x}`} title={`${label} · ${x} · ${v}`} className="h-6 rounded" style={{ background: heatColor(v) }} />

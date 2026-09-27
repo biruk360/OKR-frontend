@@ -115,7 +115,7 @@ function ProjectHierarchyMapInner({ project, visibleActivityIds, isFiltered, onO
   }, [autoGraph.nodes, fit, project.id, setNodes])
 
   return (
-    <div className="h-[calc(100vh-165px)] min-h-[520px] w-full bg-[#f4f4f5]">
+    <div className="h-[calc(100vh-165px)] min-h-[520px] w-full bg-surface-app">
       <ReactFlow
         className="h-full w-full"
         nodes={nodes}
@@ -140,12 +140,12 @@ function ProjectHierarchyMapInner({ project, visibleActivityIds, isFiltered, onO
         proOptions={{ hideAttribution: true }}
       >
         <Controls showInteractive={false} className="!shadow-md" />
-        <Background color="#d4d4d8" gap={20} size={1} />
+        <Background color="var(--ap-border-strong)" gap={20} size={1} />
         <Panel position="top-left" className="flex items-center gap-1 rounded-lg border border-border bg-card/95 p-1 shadow-md">
-          <button type="button" onClick={() => { setExpanded(new Set(allExpandableIds)); fit() }} className="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground">
+          <button type="button" onClick={() => { setExpanded(new Set(allExpandableIds)); fit() }} className="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground">
             <ChevronsUpDown className="size-3.5" /> Expand all
           </button>
-          <button type="button" onClick={() => { setExpanded(new Set([`project:${project.id}`])); fit() }} className="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground">
+          <button type="button" onClick={() => { setExpanded(new Set([`project:${project.id}`])); fit() }} className="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground">
             <ChevronsDownUp className="size-3.5" /> Collapse
           </button>
           <button type="button" onClick={fit} className="flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Fit project map">
@@ -157,13 +157,13 @@ function ProjectHierarchyMapInner({ project, visibleActivityIds, isFiltered, onO
           <button
             type="button"
             onClick={() => setShowDependencies((current) => !current)}
-            className={cn('inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-[11px] font-medium', showDependencies ? 'bg-blue-50 text-blue-700' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}
+            className={cn('inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-xs font-medium', showDependencies ? 'bg-primary-50 text-primary-700' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}
             aria-pressed={showDependencies}
           >
             <GitBranch className="size-3.5" /> Dependencies
           </button>
         </Panel>
-        <Panel position="top-right" className="rounded-md border border-border bg-card/95 px-2 py-1 text-[10px] text-muted-foreground shadow-sm">
+        <Panel position="top-right" className="rounded-md border border-border bg-card/95 px-2 py-1 text-xs text-muted-foreground shadow-sm">
           Drag cards to save their position · double-click a task to open
         </Panel>
       </ReactFlow>
@@ -302,7 +302,7 @@ function layoutTree(root: TreeNode, expanded: Set<string>, onToggle: (id: string
     for (const child of visibleChildren(item)) {
       const childSpan = span(child)
       place(child, childLeft, depth + 1)
-      edges.push({ id: `hierarchy:${item.id}:${child.id}`, source: item.id, target: child.id, type: 'smoothstep', style: { stroke: '#94a3b8', strokeWidth: 1.4 } })
+      edges.push({ id: `hierarchy:${item.id}:${child.id}`, source: item.id, target: child.id, type: 'smoothstep', style: { stroke: 'var(--ap-fg-faint)', strokeWidth: 1.4 } })
       childLeft += childSpan + NODE_GAP
     }
   }
@@ -320,9 +320,9 @@ function layoutTree(root: TreeNode, expanded: Set<string>, onToggle: (id: string
       type: 'smoothstep',
       label: dependency.type,
       animated: true,
-      markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14, color: '#2563eb' },
-      style: { stroke: '#2563eb', strokeWidth: 1.7, strokeDasharray: '5 4' },
-      labelStyle: { fontSize: 9, fill: '#1d4ed8', fontWeight: 600 },
+      markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14, color: 'var(--ap-accent)' },
+      style: { stroke: 'var(--ap-accent)', strokeWidth: 1.7, strokeDasharray: '5 4' },
+      labelStyle: { fontSize: 9, fill: 'var(--ap-accent)', fontWeight: 600 },
     })
   }
 

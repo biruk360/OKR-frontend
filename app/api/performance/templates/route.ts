@@ -3,6 +3,7 @@ import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { apiBadRequest, apiForbidden, apiSuccess, withAuth } from '@/lib/api'
 import { canCreateTemplates, canReadTemplates, hasPerformancePermission, isPerformanceAdmin } from '@/lib/performance'
+import { recordActivity } from '@/lib/activity-log'
 
 const DEFAULT_GATEKEEPER = { tierName: 'Tier 1: Core Execution & Mindset', threshold: 25, failureBand: 'Not Ready' }
 const DEFAULT_BANDS = [
@@ -64,5 +65,17 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
     })
   })
 
+  await recordActivity({
+    entityType: 'PERFORMANCE_SETTINGS',
+    action: 'CREATED',
+    actorId: session.user.id,
+    changes: {
+      name: { from: null, to: name },
+      roleLabel: { from: null, to: roleLabel },
+      version: { from: null, to: created.version },
+      status: { from: null, to: 'DRAFT' },
+    },
+    metadata: { entity: 'SCORECARD_TEMPLATE', templateId: created.id, familyId: created.familyId },
+  })
   return apiSuccess(created, { status: 201 })
 })

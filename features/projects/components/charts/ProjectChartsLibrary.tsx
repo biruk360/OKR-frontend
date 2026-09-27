@@ -26,9 +26,9 @@ interface ProjectChartsLibraryProps {
 }
 
 const STATUS_COLORS: Record<ActivityStatus, string> = {
-  NOT_STARTED: '#a1a1aa',
+  NOT_STARTED: chartColors.muted,
   STARTED: chartColors.blue,
-  FINISHED: '#38bdf8',
+  FINISHED: 'var(--ap-card-sky)',
   APPROVAL_REQUESTED: chartColors.orange,
   APPROVED: chartColors.green,
   REJECTED: chartColors.red,

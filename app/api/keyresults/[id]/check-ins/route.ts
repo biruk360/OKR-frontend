@@ -18,6 +18,8 @@ import {
   withAuth,
 } from '@/lib/api'
 import { computeKrConfidence } from '@/lib/confidence-calc'
+import { broadcastKeyResultEvent } from '@/lib/pusher'
+import { OKR_REALTIME_EVENTS } from '@/lib/okr/realtime'
 
 const CONFIDENCE = new Set(['ON_TRACK', 'AT_RISK', 'OFF_TRACK'])
 
@@ -254,5 +256,6 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
     await emit('KR_COMPLETED', emitBase)
   }
 
+  broadcastKeyResultEvent(existingKeyResult.id, existingKeyResult.objectiveId, OKR_REALTIME_EVENTS.CHECK_IN_CREATED, session.user.id)
   return apiSuccess(result, { status: 201, message: 'Check-in saved.' })
 })

@@ -12,7 +12,7 @@ import { useCheckInPickerStore } from '@/lib/stores/check-in-picker-store'
  *  - create-objective → /dashboard/objectives, then trigger the existing CreateObjectiveButton modal via createIntent store.
  *  - create-todo      → /dashboard/todos, then trigger TodosPageClient's create modal via createIntent store.
  *  - create-sprint    → /dashboard/sprints, then trigger SprintsListClient's inline create form.
- *  - check-in         → /dashboard/my-okrs (no global "check-in" modal yet).
+ *  - check-in         → opens the global check-in picker (CheckInPickerModal).
  *
  * Each create-* path: navigate first if not already there, then publish the
  * intent. The target page picks it up on mount.
@@ -30,7 +30,7 @@ export default function CmdkActionListener() {
 
       switch (action) {
         case 'create-objective': {
-          if (pathname !== '/dashboard/objectives') router.push('/dashboard/objectives')
+          if (pathname !== '/dashboard/okrs-all') router.push('/dashboard/okrs-all')
           // Defer the intent so the target page mounts first.
           setTimeout(() => request('objective'), 50)
           return

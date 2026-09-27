@@ -1,21 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { emit } from '@/lib/notifications'
+import { emitNow } from '@/lib/notifications'
 import { generateWbrPack } from '@/lib/projects/wbr-report'
+import { withCronAuth } from '@/lib/cron-auth'
 
-export async function POST(request: NextRequest) {
-  const expected = process.env.CRON_SECRET
-  if (expected) {
-    const auth = request.headers.get('authorization') || ''
-    const url = new URL(request.url)
-    const key = auth.replace(/^Bearer\s+/i, '') || url.searchParams.get('key') || ''
-    if (key !== expected) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-  }
-
+// Auth: withCronAuth (lib/cron-auth.ts) — `Authorization: Bearer $CRON_SECRET`, fail-closed.
+export const POST = withCronAuth(async (request: NextRequest) => {
   const result = await generateWbrPack({ actorId: 'system' })
   if (result.created) {
-    await emit('WBR_PACK_READY', {
+    await emitNow('WBR_PACK_READY', {
       actorId: 'system',
       entityType: 'PROJECT',
       entityId: result.report.id,
@@ -30,6 +22,6 @@ export async function POST(request: NextRequest) {
     reportId: result.report.id,
     recipients: result.recipients.length,
   })
-}
+})
 
 export const GET = POST

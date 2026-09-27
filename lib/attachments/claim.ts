@@ -60,16 +60,24 @@ export async function claimAttachments(args: {
   return rows.map(toDto)
 }
 
-/** Attachments for a set of comments, keyed by comment id. */
+/**
+ * Attachments for a set of comments, keyed by comment id. Pass `entityId` to
+ * pin the rows to one parent, so a comment id from elsewhere never surfaces.
+ */
 export async function attachmentsForComments(
   commentType: CommentScope,
   commentIds: string[],
+  opts: { entityId?: string } = {},
 ): Promise<Map<string, AttachmentDto[]>> {
   const out = new Map<string, AttachmentDto[]>()
   if (commentIds.length === 0) return out
 
   const rows = await prisma.commentAttachment.findMany({
-    where: { commentType, commentId: { in: commentIds } },
+    where: {
+      commentType,
+      commentId: { in: commentIds },
+      ...(opts.entityId ? { entityId: opts.entityId } : {}),
+    },
     orderBy: { createdAt: 'asc' },
     select: {
       id: true, commentId: true, filename: true, mimeType: true,

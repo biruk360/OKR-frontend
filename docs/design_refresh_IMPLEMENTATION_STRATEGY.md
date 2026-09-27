@@ -5,7 +5,14 @@
 > **Scope:** sprint board, to-dos list page, task/to-do card modal, sidebar, top bar.
 > **This is a visual refresh.** The designs are a skin over the existing app — see
 > Decision 0 in §1. No new features, no schema changes, no API changes.
-> **Status:** planned, not started. Update the tracker table in §10 as work lands.
+> **Status (verified 2026-09-25):** Phases 0–6 and 8 **done** 2026-09-17; Phase 7 cleanup
+> **complete** 2026-09-18 (see §10). Remediation Wave 3 (2026-09-25) added **U1** — Tailwind palette
+> → `--rgb-*` CSS channel variables so dark mode is real (`:root.dark` in `app/globals.css`), one
+> accent (`primary-500/600` ≡ `--ap-accent`), unified 2px focus ring, mobile drawer on `Sheet` — then
+> area passes A/B/C1/C2/D/E (hex/raw palette → tokens, native dialogs → Modal/ConfirmDialog,
+> skeletons), `text-caption` (11px) / `text-micro` (10px) size tokens, and a `cn()` fix for custom
+> font sizes. Remaining: ~30 raw `bg-white` usages in 15 `.tsx` files; **no browser/visual check
+> has been run** for any phase. §11 backlog is not built. Update the tracker table in §10 as work lands.
 
 All rules in `CLAUDE.md` apply in full — reuse audit before implementation, barrel
 exports, `components/ui/Modal` for every dialog, `ConfirmDialog` for every destructive
@@ -1137,6 +1144,8 @@ Also out of scope:
 | 6 — to-dos list | **Done** 2026-09-17 | Claude | Restyle only. Also: CreateTodoModal → ui/Modal, ConfirmDialog for delete, stripHtml replaces a regex-into-dangerouslySetInnerHTML, unassigned dashed avatar, StatusLozenge → todoStatusMeta (was a private 4-status map), kanban+tree moved onto --ap-*, dead viewMode toggle removed, TODO_STATUS_META retargeted |
 | 8 — due-date tone | **Done** 2026-09-17 | Claude | `lib/todos/due-tone.ts` + 14 tests. Ten private implementations consolidated. Resolves the ≤2d vs ≤7d conflict by making the window a **parameter** (default 2; reports pass 7) rather than forcing one horizon on every surface. **Fixes a real bug:** five files compared raw timestamps, so an all-day task due *today* rendered overdue from 00:01 — now aligned with `due-reminders.ts` and `daily-digest.ts`, which both already used day boundaries. Green is now reserved for `done`; "due tomorrow" no longer renders as success and a merely-scheduled task no longer reads "On Track". |
 | 7 — cleanup | **Partly done** 2026-09-17 | Claude | Deleted: `SprintCardModal` (810 lines, + barrel line + the `SprintBoardActivity` type it existed for), `TodoDetailPanel` (325), `lib/design/apple-pro-tokens.ts`, 4 dead `components/ui/` files, and 5 dead CSS blocks (`.ap-segmented`, `.ap-progress*`, `.ap-kbd`, `.ap-sidebar`, `.ap-topbar` — the last two a **third** copy of 228/52/54 that nothing applied). Fixed: 18 malformed `var(--text-sm …)` names in ToDoList/AddToDo that resolved to nothing; 6 dead `font-5/6/700` classes outside the modal; all 3 `bg-muted0` sites; **added `getConfidenceColor`** (mandated by CLAUDE.md, never existed) and adopted it at the 3 sites that had each grown their own map. **Complete.** `lib/todos/due-tone.ts` done (see below); all 7 `ProgressBar` copies migrated onto `ui/progress.tsx`, plus `getOkrStatusColor`/`getProgressBarColor` extracted from them. **Complete 2026-09-18** — those six are migrated too, so every progress bar in the app now uses `ui/progress.tsx` and carries `role="progressbar"`. |
+| U1 — tokens/dark/focus (remediation 2026-09-25) | **Done** 2026-09-25 | Claude (U1) | Tailwind palette (`surface/ink/primary/success/warning/danger`) → `--rgb-*` channel vars in `globals.css`; light byte-identical except the accent; dark values under `:root.dark` (ink ≥5.5:1, 600/700 ≥4.6:1 on every surface). **One accent:** `primary-500/600` ≡ `--ap-accent` via `--ap-accent-lch`. Focus conflict **resolved** → 2px `hsl(var(--ring))` outline, 2px offset, `.ap-focus-ring` (DESIGN_SYSTEM §12). Dead `.notion-*`/`.atlas-*` CSS removed. Mobile drawer on `Sheet`. `lib/design-tokens.test.ts`. **No browser check yet.** Follow-up: ~127 raw `bg-white` sites stay white in dark mode (U2–U5). |
+| U2–U5 — area passes (remediation 2026-09-25) | **Done** 2026-09-25 | Claude (Wave 3 A/B/C1/C2/D/E/F) | Per-area hex/raw palette → tokens, native dialogs → `Modal`/`ConfirmDialog`, loading/error boundaries + skeletons, `PageHeader`/`EmptyState`/`FilterSelect`, a11y labels. Added `text-caption` (11px) / `text-micro` (10px); all `text-[11px]`/`text-[10px]` converted; `cn()` now keeps custom font sizes next to a text colour. Raw `bg-white` down to ~30 usages in 15 files (from ~127). `tsc`/lint/tests/`next build` green. **No browser check yet.** |
 
 ---
 

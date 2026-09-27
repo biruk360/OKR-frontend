@@ -4,6 +4,27 @@ import { prisma } from '@/lib/prisma'
 import { apiBadRequest, apiForbidden, apiNotFound, apiSuccess, withAuth } from '@/lib/api'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { hasPerformancePermission, isPerformanceAdmin } from '@/lib/performance'
+import { recordActivity, type ChangeMap } from '@/lib/activity-log'
+
+type LibraryEntry = { id: string; code: string; version: number; name: string; isActive: boolean; definitionJson: unknown }
+
+async function auditLibraryUpdate(actorId: string, before: LibraryEntry, after: LibraryEntry) {
+  const changes: ChangeMap = {}
+  if (before.name !== after.name) changes.name = { from: before.name, to: after.name }
+  if (before.isActive !== after.isActive) changes.isActive = { from: before.isActive, to: after.isActive }
+  if (JSON.stringify(before.definitionJson ?? null) !== JSON.stringify(after.definitionJson ?? null)) {
+    changes.definitionJson = { from: before.definitionJson ?? null, to: after.definitionJson ?? null }
+  }
+  if (Object.keys(changes).length === 0) return
+  const onlyActive = Object.keys(changes).length === 1 && 'isActive' in changes
+  await recordActivity({
+    entityType: 'PERFORMANCE_SETTINGS',
+    action: onlyActive ? (after.isActive ? 'UNARCHIVED' : 'ARCHIVED') : 'UPDATED',
+    actorId,
+    changes,
+    metadata: { entity: 'CRITERION_LIBRARY_ENTRY', libraryEntryId: after.id, code: after.code, version: after.version },
+  })
+}
 
 async function canManage(actor: { userId: string; role: string }) {
   const [admin, permission] = await Promise.all([isPerformanceAdmin(actor), hasPerformancePermission(actor, 'criterion_library_entry', 'write')])
@@ -33,6 +54,7 @@ export const PUT = withAuth<RouteIdParams>(async (request: NextRequest, { sessio
       isActive,
     },
   })
+  await auditLibraryUpdate(session.user.id, existing, updated)
   return apiSuccess(updated)
 })
 
@@ -51,5 +73,6 @@ export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { sess
     where: { id },
     data: { isActive },
   })
+  await auditLibraryUpdate(session.user.id, existing, updated)
   return apiSuccess(updated)
 })

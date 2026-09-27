@@ -3,20 +3,15 @@ import {
   runCheckinEscalation, runDigestDrain, runTimeframeWatcher, runTodoReminders,
   runAdminWeeklyHealth, runAdminMonthlyExecSummary, runPruneNotifications,
 } from '@/lib/notifications/jobs'
+import { withCronAuth } from '@/lib/cron-auth'
+import { apiBadRequest } from '@/lib/api/apiResponse'
+import { handleApiError } from '@/lib/api/handleError'
 
 /**
  * Unified cron endpoint — select the job via `?job=<name>`. Protected by CRON_SECRET.
  * Valid jobs: daily, weekly, monthly, escalation, todos, timeframes, admin-weekly, admin-monthly.
  */
-export async function POST(request: NextRequest) {
-  const expected = process.env.CRON_SECRET
-  if (expected) {
-    const auth = request.headers.get('authorization') || ''
-    const url = new URL(request.url)
-    const key = auth.replace(/^Bearer\s+/i, '') || url.searchParams.get('key') || ''
-    if (key !== expected) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
+export const POST = withCronAuth(async (request: NextRequest) => {
   const job = new URL(request.url).searchParams.get('job') || 'daily'
   try {
     switch (job) {
@@ -32,12 +27,11 @@ export async function POST(request: NextRequest) {
       case 'admin-weekly': return NextResponse.json({ success: true, ...(await runAdminWeeklyHealth()) })
       case 'admin-monthly': return NextResponse.json({ success: true, ...(await runAdminMonthlyExecSummary()) })
       case 'prune-notifications': return NextResponse.json({ success: true, ...(await runPruneNotifications()) })
-      default: return NextResponse.json({ error: 'unknown job' }, { status: 400 })
+      default: return apiBadRequest(`Unknown job: ${job}`)
     }
   } catch (err) {
-    console.error('[cron] job failed', job, err)
-    return NextResponse.json({ success: false, error: String(err) }, { status: 500 })
+    return handleApiError(err, `cron/notifications job=${job}`)
   }
-}
+})
 
 export const GET = POST

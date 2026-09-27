@@ -1,9 +1,11 @@
 'use client'
 
+import { Target } from 'lucide-react'
 import { formatDate, getProgressBarColor } from '@/lib/utils'
 import type { OkrAttainment } from '../types'
 import { SectionCard } from './SectionCard'
 import { Progress } from '@/components/ui/progress'
+import { EmptyState } from '@/components/ui/EmptyState'
 
 function ProgressBar({ value }: { value: number }) {
   const clamped = Math.max(0, Math.min(100, value))
@@ -27,7 +29,12 @@ export function OkrAttainmentSection({ attainment }: { attainment: OkrAttainment
     >
       <>
         {attainment.objectives.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No owned objectives overlapped this review period.</p>
+          <EmptyState
+            bare
+            icon={Target}
+            title="No objectives in this period"
+            description="No owned objectives overlapped this review period."
+          />
         ) : (
           <div className="divide-y divide-border">
             {attainment.objectives.map((objective) => (

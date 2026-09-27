@@ -56,7 +56,11 @@ export const useTodoStore = create<TodoState>((set, get) => ({
     if (get().loading) return
     set({ loading: true })
     try {
-      const res = await fetch('/api/todos?mine=all')
+      // `surface=todos` is the same visibility rule, row shape, order and 500 cap
+      // as the SSR page (lib/todos/visibility.ts, CPM-2). It used to be `?mine=all`
+      // (assignee OR creator only), so KR/objective-owner rows vanished after every
+      // edit and an ADMIN's "everything" collapsed to "mine".
+      const res = await fetch('/api/todos?surface=todos')
       const data = await res.json()
       // The route returns the standard envelope `{ success, data }` (apiSuccess).
       // This used to read `data.todos`, which does not exist — so `todos` was set to

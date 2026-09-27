@@ -1,45 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { withCronAuth } from '@/lib/cron-auth'
+import { handleApiError } from '@/lib/api/handleError'
+import { runPruneNotifications } from '@/lib/notifications/jobs'
+import { pruneRetainedTables } from '@/lib/retention/prune-tables'
 
 /**
- * Notification retention cron.
- * - Marks unread notifications older than 30 days as read (keeps them visible briefly).
- * - Deletes read notifications older than 90 days (keeps the table bounded).
+ * Nightly retention sweep (scheduled by scripts/install-crontab.sh, 00:45 UTC).
  *
- * Safe to run nightly. Protected by CRON_SECRET.
+ * 1. Notifications — the shared rule in lib/notifications/jobs.ts: unread rows
+ *    older than 30 days are marked read, read rows older than 90 days deleted.
+ *    (This route used to carry its own copy of that rule; `?job=prune-notifications`
+ *    on /api/cron/notifications runs the same function, and install-crontab.sh
+ *    migrates that older entry to this path so the work is not done twice.)
+ * 2. Every other append-only table nothing else bounded — EmailDigestQueue,
+ *    OutboundEmail, ClientErrorLog, TelegramMessage, AiGenerationLog,
+ *    JiraSyncLog — via lib/retention/prune-tables.ts (batched deletes,
+ *    per-table retention with env overrides; see that file).
+ *
+ * Idempotent: a re-run the same night finds nothing left to delete.
  */
-export async function POST(request: NextRequest) {
-  const expected = process.env.CRON_SECRET
-  if (expected) {
-    const auth = request.headers.get('authorization') || ''
-    const key = auth.replace(/^Bearer\s+/i, '') || new URL(request.url).searchParams.get('key') || ''
-    if (key !== expected) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  const now = new Date()
-  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-  const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
-
+// Auth: withCronAuth (lib/cron-auth.ts) — `Authorization: Bearer $CRON_SECRET`, fail-closed.
+export const POST = withCronAuth(async (_request: NextRequest) => {
   try {
-    const [markedRead, deleted] = await Promise.all([
-      prisma.notification.updateMany({
-        where: { isRead: false, createdAt: { lt: thirtyDaysAgo } },
-        data: { isRead: true },
-      }),
-      prisma.notification.deleteMany({
-        where: { isRead: true, createdAt: { lt: ninetyDaysAgo } },
-      }),
-    ])
-
+    const notifications = await runPruneNotifications()
+    const tables = await pruneRetainedTables()
     return NextResponse.json({
       success: true,
-      markedRead: markedRead.count,
-      deleted: deleted.count,
+      // Top-level keys kept for anything that read the old response shape.
+      markedRead: notifications.markedRead,
+      deleted: notifications.deleted,
+      tables,
     })
   } catch (err) {
-    console.error('[cron/prune-notifications] failed', err)
-    return NextResponse.json({ success: false, error: String(err) }, { status: 500 })
+    return handleApiError(err, 'cron/prune-notifications')
   }
-}
+})
 
 export const GET = POST

@@ -18,24 +18,24 @@ export default function LetterStatusBar({ status }: { status: LetterStatus }) {
             <span
               className={cn(
                 'flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-medium',
-                active && 'border-blue-300 bg-blue-50 text-blue-800',
-                done && 'border-emerald-200 bg-emerald-50 text-emerald-700',
-                !active && !done && 'border-gray-200 bg-white text-gray-500'
+                active && 'border-primary-300 bg-primary-50 text-primary-800',
+                done && 'border-success-200 bg-success-50 text-success-700',
+                !active && !done && 'border-border bg-surface-card text-muted-foreground'
               )}
             >
               <span
                 className={cn(
-                  'flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-semibold',
-                  done && 'bg-emerald-500 text-white',
-                  active && 'bg-blue-500 text-white',
-                  !active && !done && 'bg-gray-200 text-gray-600'
+                  'flex h-4 w-4 items-center justify-center rounded-full text-micro font-semibold',
+                  done && 'bg-success-500 text-primary-foreground',
+                  active && 'bg-primary-500 text-primary-foreground',
+                  !active && !done && 'bg-surface-muted text-muted-foreground'
                 )}
               >
                 {done ? <Check className="h-3 w-3" /> : i + 1}
               </span>
               {LETTER_STATUS_LABEL[stage]}
             </span>
-            {i < STAGES.length - 1 && <span className="h-px w-4 bg-gray-200" aria-hidden />}
+            {i < STAGES.length - 1 && <span className="h-px w-4 bg-surface-muted" aria-hidden />}
           </li>
         )
       })}

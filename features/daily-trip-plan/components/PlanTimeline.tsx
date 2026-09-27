@@ -49,7 +49,7 @@ export function PlanTimeline({ plan }: Props) {
         <li className="flex items-center gap-3 text-sm text-warning-700"><ArrowDown className="h-4 w-4" /> Returned for edit</li>
       )}
       {plan.status === 'ADJUSTED' && (
-        <li className="flex items-center gap-3 text-sm text-purple-800"><Truck className="h-4 w-4" /> Coordinator adjusted — awaiting your acknowledgement</li>
+        <li className="flex items-center gap-3 text-sm text-[color:var(--ap-ahead-fg)]"><Truck className="h-4 w-4" /> Coordinator adjusted — awaiting your acknowledgement</li>
       )}
     </ol>
   )

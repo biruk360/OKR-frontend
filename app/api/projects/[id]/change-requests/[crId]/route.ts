@@ -24,6 +24,9 @@ const patchSchema = z.object({
   approvedById: z.string().nullable().optional(),
   clientSignOff: z.boolean().optional(),
   rejectionReason: z.string().trim().max(2000).nullable().optional(),
+  // Share with / withdraw from the client portal. Rows are created INTERNAL (fail-safe,
+  // invariant 5); this explicit, audited PM action is the only way a CR reaches a client.
+  visibility: z.enum(['INTERNAL', 'CLIENT_VISIBLE']).optional(),
 })
 
 export const PATCH = withAuth<{ id: string; crId: string }>(async (req: NextRequest, { session, params }) => {
@@ -45,7 +48,7 @@ export const PATCH = withAuth<{ id: string; crId: string }>(async (req: NextRequ
   }
 
   const data: Record<string, unknown> = {}
-  for (const key of ['title', 'description', 'type', 'requestedBy', 'requestedByParty', 'scheduleImpactDays', 'costImpact', 'rejectionReason'] as const) {
+  for (const key of ['title', 'description', 'type', 'requestedBy', 'requestedByParty', 'scheduleImpactDays', 'costImpact', 'rejectionReason', 'visibility'] as const) {
     if (input[key] !== undefined) data[key] = input[key]
   }
   if (input.requestDate !== undefined) data.requestDate = new Date(input.requestDate)
@@ -97,6 +100,9 @@ export const PATCH = withAuth<{ id: string; crId: string }>(async (req: NextRequ
       changeRequestId: updated.id,
       crCode: updated.crCode,
       status: updated.status,
+      ...(input.visibility !== undefined && input.visibility !== existing.visibility
+        ? { kind: 'CHANGE_REQUEST_VISIBILITY_CHANGED', visibility: updated.visibility }
+        : {}),
       delayEventId: approvalMetadata?.delayEventId ?? null,
       shiftedActivityIds: approvalMetadata?.shiftedActivityIds ?? [],
     },

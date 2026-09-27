@@ -15,14 +15,17 @@ import {
   User as UserIcon,
   Trash2,
 } from 'lucide-react'
-import { TodoCardModal } from '@/components/todos/TodoCardModal'
+import { LazyTodoCardModal } from '@/components/todos/LazyTodoCardModal'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { PageHeader } from '@/components/ui/PageHeader'
+import { FilterSelect } from '@/components/ui/FilterSelect'
 import { CheckSquare } from 'lucide-react'
 import TodoKanbanView from './TodoKanbanView'
 import TodoTreeView from './TodoTreeView'
 import { useTodoStore } from '@/lib/stores/todo-store'
 import { todoStatusMeta } from '@/lib/todo-status'
 import { userColor, userInitials } from '@/lib/user-color'
+import { PersonTooltip } from '@/components/shared/UserAvatar'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/button'
@@ -131,6 +134,12 @@ export default function TodosPageClient({
     const sp = new URLSearchParams(window.location.search)
     const openId = sp.get('open')
     if (openId) setOpenTodoId(openId)
+    // ?scope= / ?status= preselect the filters. /dashboard/my-tasks redirects
+    // here with ?scope=assigned (the "mine" surface).
+    const scope = sp.get('scope')
+    if (scope === 'assigned' || scope === 'created' || scope === 'all') setScopeFilter(scope)
+    const status = sp.get('status')
+    if (status === 'open' || status === 'completed' || status === 'all' || status === 'archived') setStatusFilter(status)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -232,26 +241,27 @@ export default function TodosPageClient({
     <div className="-m-3 min-h-full px-4 pb-20 pt-4 sm:-m-6 sm:px-[26px] sm:pb-20 sm:pt-[22px]">
       <div className="mx-auto max-w-[1180px]">
         {/* Header */}
-        <div className="mb-5 flex items-start justify-between gap-3">
-          <div>
-            <h1 className="text-[26px] font-bold tracking-[-0.02em] text-[var(--ap-fg)]">To-dos</h1>
-            <p className="text-[13px] text-[var(--ap-fg-muted)] mt-0.5">
-              Everything on your plate — linked to OKRs or standalone.{' '}
-              <span className="font-medium text-[var(--ap-fg-secondary)]">{counts.open} open</span>
-              {counts.overdue > 0 && <span className="text-[var(--ap-red)] font-medium"> · {counts.overdue} overdue</span>}
-              {counts.dueToday > 0 && <span className="text-[var(--ap-orange)] font-medium"> · {counts.dueToday} due today</span>}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
+        <PageHeader
+          title="To-dos"
+          className="mb-0.5"
+          actions={
             <button
               type="button"
               onClick={() => setShowCreate(true)}
-              className="inline-flex h-9 items-center gap-1.5 rounded-[var(--ap-radius-md)] bg-[var(--ap-accent)] px-[15px] text-[13px] font-semibold text-[var(--ap-accent-fg)] transition-colors hover:bg-[var(--ap-accent-hover)]"
+              className="inline-flex h-9 items-center gap-1.5 rounded-[var(--ap-radius-md)] bg-[var(--ap-accent)] px-[15px] text-body-sm font-semibold text-[var(--ap-accent-fg)] transition-colors hover:bg-[var(--ap-accent-hover)]"
             >
               <Plus className="h-3.5 w-3.5" /> Create to-do
             </button>
-          </div>
-        </div>
+          }
+        />
+        {/* Rich description (coloured counts), so it sits under PageHeader
+            rather than in its plain-string `description`. */}
+        <p className="mb-5 text-body-sm text-[var(--ap-fg-muted)]">
+          Everything on your plate — linked to OKRs or standalone.{' '}
+          <span className="font-medium text-[var(--ap-fg-secondary)]">{counts.open} open</span>
+          {counts.overdue > 0 && <span className="text-[var(--ap-red)] font-medium"> · {counts.overdue} overdue</span>}
+          {counts.dueToday > 0 && <span className="text-[var(--ap-orange)] font-medium"> · {counts.dueToday} due today</span>}
+        </p>
 
         {/* Filter bar */}
         <div className="mb-4 mt-[18px] flex flex-wrap items-center gap-2.5">
@@ -265,34 +275,40 @@ export default function TodosPageClient({
               className="h-[38px] w-full rounded-[var(--ap-radius-md)] border border-[var(--ap-border-strong)] bg-[var(--ap-bg-raised)] pl-9 pr-3 text-[13.5px] text-[var(--ap-fg)] outline-none transition-colors placeholder:text-[var(--ap-fg-subtle)] focus:border-[var(--ap-focus)]"
             />
           </div>
-          <select
+          <FilterSelect
+            label="Scope"
             value={scopeFilter}
-            onChange={(e) => setScopeFilter(e.target.value as ScopeFilter)}
-            className="h-[38px] cursor-pointer rounded-[var(--ap-radius-md)] border border-[var(--ap-border-strong)] bg-[var(--ap-bg-raised)] px-3 text-[13px] font-semibold text-[var(--ap-fg-muted)] outline-none transition-colors focus:border-[var(--ap-focus)]"
-          >
-            <option value="assigned">Assigned to me</option>
-            <option value="created">Created by me</option>
-            <option value="all">All visible</option>
-          </select>
-          <select
+            onValueChange={(v) => { if (v) setScopeFilter(v as ScopeFilter) }}
+            clearable={false}
+            options={[
+              { value: 'assigned', label: 'Assigned to me' },
+              { value: 'created', label: 'Created by me' },
+              { value: 'all', label: 'All visible' },
+            ]}
+          />
+          <FilterSelect
+            label="Status"
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-            className="h-[38px] cursor-pointer rounded-[var(--ap-radius-md)] border border-[var(--ap-border-strong)] bg-[var(--ap-bg-raised)] px-3 text-[13px] font-semibold text-[var(--ap-fg-muted)] outline-none transition-colors focus:border-[var(--ap-focus)]"
-          >
-            <option value="open">Open</option>
-            <option value="completed">Completed</option>
-            <option value="all">All statuses</option>
-            <option value="archived">Archived</option>
-          </select>
-          <select
+            onValueChange={(v) => { if (v) setStatusFilter(v as StatusFilter) }}
+            clearable={false}
+            options={[
+              { value: 'open', label: 'Open' },
+              { value: 'completed', label: 'Completed' },
+              { value: 'all', label: 'All statuses' },
+              { value: 'archived', label: 'Archived' },
+            ]}
+          />
+          <FilterSelect
+            label="Link"
             value={linkFilter}
-            onChange={(e) => setLinkFilter(e.target.value as LinkFilter)}
-            className="h-[38px] cursor-pointer rounded-[var(--ap-radius-md)] border border-[var(--ap-border-strong)] bg-[var(--ap-bg-raised)] px-3 text-[13px] font-semibold text-[var(--ap-fg-muted)] outline-none transition-colors focus:border-[var(--ap-focus)]"
-          >
-            <option value="all">Any link</option>
-            <option value="linked">Linked to OKR</option>
-            <option value="standalone">Standalone</option>
-          </select>
+            onValueChange={(v) => { if (v) setLinkFilter(v as LinkFilter) }}
+            clearable={false}
+            options={[
+              { value: 'all', label: 'Any link' },
+              { value: 'linked', label: 'Linked to OKR' },
+              { value: 'standalone', label: 'Standalone' },
+            ]}
+          />
         </div>
 
         {/* View switcher */}
@@ -321,7 +337,7 @@ export default function TodosPageClient({
 
         {/* Views */}
         {viewType === 'list' && (
-          <div className="mt-3.5 overflow-hidden rounded-[var(--ap-radius-card)] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)]">
+          <div className="mt-3.5 overflow-x-auto rounded-[var(--ap-radius-card)] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)]">
             {/* `table-fixed` is load-bearing: with the default auto layout the
                 browser ignores the w-[…] on each <th> whenever a cell's content
                 is wider, so one long OKR title stretched the Linked-to column,
@@ -329,7 +345,9 @@ export default function TodosPageClient({
                 overflow-hidden clipped Timeframe/Due/Who/Status off the right
                 edge entirely. Fixed layout makes the widths real and lets the
                 per-cell truncation actually take effect. */}
-            <table className="w-full table-fixed border-collapse text-[13px]">
+            {/* min-w: on narrow screens the fixed columns scroll horizontally
+                inside the card instead of being squeezed or clipped. */}
+            <table className="w-full min-w-[880px] table-fixed border-collapse text-body-sm">
               <thead>
                 <tr className="h-[42px] border-b border-[var(--ap-border)] bg-[var(--ap-bg-sunken)]">
                   <th className="w-9 px-3 py-2.5"></th>
@@ -395,7 +413,7 @@ export default function TodosPageClient({
       </div>
 
       {openTodoId && (
-        <TodoCardModal
+        <LazyTodoCardModal
           todoId={openTodoId}
           currentUserId={currentUserId}
           onClose={() => setOpenTodoId(null)}
@@ -483,16 +501,22 @@ function TodoTableRow({
           }`}
           aria-label={isDone ? 'Mark pending' : 'Mark completed'}
         >
-          {isDone && <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />}
+          {isDone && <Check className="h-2.5 w-2.5 text-[var(--ap-accent-fg)]" strokeWidth={3} />}
         </button>
       </td>
       <td className="px-3.5 py-[11px] min-w-0">
         <div className="min-w-0">
-          <div className={`text-[13px] font-medium truncate ${isDone ? 'text-[var(--ap-fg-muted)] line-through' : 'text-[var(--ap-fg)]'}`}>
+          {/* The row is clickable for pointer users; this button is the
+              keyboard / screen-reader way to open the card. */}
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onOpen() }}
+            className={`block w-full truncate text-left text-body-sm font-medium ${isDone ? 'text-[var(--ap-fg-muted)] line-through' : 'text-[var(--ap-fg)]'}`}
+          >
             {row.title}
-          </div>
+          </button>
           {row.description && (
-            <div className="mt-0.5 truncate text-[12px] text-[var(--ap-fg-subtle)]">
+            <div className="mt-0.5 truncate text-xs text-[var(--ap-fg-subtle)]">
               {stripHtml(row.description)}
             </div>
           )}
@@ -504,54 +528,57 @@ function TodoTableRow({
             <Link
               href={`/dashboard/key-results/${row.keyResult.id}`}
               onClick={(e) => e.stopPropagation()}
-              className="flex w-full min-w-0 items-center gap-1 text-[12px] text-[var(--ap-accent)] hover:underline"
+              className="flex w-full min-w-0 items-center gap-1 text-xs text-[var(--ap-accent)] hover:underline"
               title={row.keyResult.objective.title}
             >
               <Link2 className="h-3 w-3 flex-shrink-0" />
               <span className="min-w-0 truncate">{row.keyResult.title}</span>
             </Link>
-            <div className="text-[11px] text-[var(--ap-fg-muted)] truncate mt-0.5">{row.keyResult.objective.title}</div>
+            <div className="text-caption text-[var(--ap-fg-muted)] truncate mt-0.5">{row.keyResult.objective.title}</div>
           </div>
         ) : row.objective ? (
           <Link
             href={`/dashboard/objectives/${row.objective.id}`}
             onClick={(e) => e.stopPropagation()}
-            className="flex w-full min-w-0 items-center gap-1 text-[12px] text-[var(--ap-accent)] hover:underline"
+            className="flex w-full min-w-0 items-center gap-1 text-xs text-[var(--ap-accent)] hover:underline"
           >
             <Target className="h-3 w-3 flex-shrink-0" />
             <span className="min-w-0 truncate">{row.objective.title}</span>
           </Link>
         ) : (
-          <span className="text-[12px] text-[var(--ap-fg-muted)]">—</span>
+          <span className="text-xs text-[var(--ap-fg-muted)]">—</span>
         )}
       </td>
       <td className="px-3.5 py-[11px] w-[100px]">
-        <span className="text-[12px] text-[var(--ap-fg-muted)]">{timeframeName ?? '—'}</span>
+        <span className="text-xs text-[var(--ap-fg-muted)]">{timeframeName ?? '—'}</span>
       </td>
       <td className="px-3.5 py-[11px] w-[110px]">
         {row.dueDate ? (
-          <span className={`inline-flex items-center gap-1 text-[12px] font-medium ${overdue ? 'text-[var(--ap-red)]' : 'text-[var(--ap-fg-secondary)]'}`}>
+          <span className={`inline-flex items-center gap-1 text-xs font-medium ${overdue ? 'text-[var(--ap-red)]' : 'text-[var(--ap-fg-secondary)]'}`}>
             <Calendar className="h-3 w-3" />
             {new Date(row.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
           </span>
         ) : (
-          <span className="text-[12px] text-[var(--ap-fg-muted)]">—</span>
+          <span className="text-xs text-[var(--ap-fg-muted)]">—</span>
         )}
       </td>
       <td className="w-[50px] px-3.5 py-[11px] text-center">
         {row.assignee ? (
+          <PersonTooltip person={row.assignee} detail="Assignee">
           <span
+            role="img"
+            aria-label={row.assignee.name}
             className="inline-flex h-[26px] w-[26px] items-center justify-center rounded-full text-[9.5px] font-bold text-white"
             style={{ background: userColor(row.assignee.id, row.assignee.name) }}
-            title={row.assignee.name}
           >
             {row.assignee.avatar ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={row.assignee.avatar} alt="" className="h-[26px] w-[26px] rounded-full object-cover" />
             ) : (
-              userInitials(row.assignee.name)
+              <span aria-hidden>{userInitials(row.assignee.name)}</span>
             )}
           </span>
+          </PersonTooltip>
         ) : (
           <span
             title="Unassigned"
@@ -568,8 +595,9 @@ function TodoTableRow({
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onDelete() }}
-          className="inline-flex items-center justify-center w-7 h-7 rounded-[6px] text-[var(--ap-fg-muted)] hover:bg-[var(--ap-bg-sunken)] hover:text-[var(--ap-red)] transition-colors opacity-0 group-hover:opacity-100"
+          className="inline-flex items-center justify-center w-7 h-7 rounded-[6px] text-[var(--ap-fg-muted)] hover:bg-[var(--ap-bg-sunken)] hover:text-[var(--ap-red)] transition-colors opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
           title="Delete"
+          aria-label={`Delete ${row.title}`}
         >
           <Trash2 className="h-3.5 w-3.5" />
         </button>
@@ -584,7 +612,7 @@ function StatusLozenge({ status }: { status: string }) {
   const meta = todoStatusMeta(status)
   return (
     <span
-      className="inline-flex h-[22px] shrink-0 items-center whitespace-nowrap rounded-[var(--ap-radius-xs)] px-2 text-[11px] font-semibold"
+      className="inline-flex h-[22px] shrink-0 items-center whitespace-nowrap rounded-[var(--ap-radius-xs)] px-2 text-caption font-semibold"
       style={{ background: meta.bg, color: meta.fg }}
     >
       {meta.label}
@@ -703,8 +731,8 @@ function CreateTodoModal({
     }
   }
 
-  const inputCls = "w-full h-8 px-3 rounded-[8px] border border-[var(--ap-border)] bg-[rgba(120,120,128,0.06)] text-[13px] text-[var(--ap-fg)] placeholder:text-[var(--ap-fg-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--ap-accent)] focus:border-[var(--ap-accent)]"
-  const labelCls = "block text-[11px] font-semibold uppercase tracking-wide text-[var(--ap-fg-muted)] mb-1"
+  const inputCls = "w-full h-8 px-3 rounded-[8px] border border-[var(--ap-border)] bg-[rgba(120,120,128,0.06)] text-body-sm text-[var(--ap-fg)] placeholder:text-[var(--ap-fg-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--ap-accent)] focus:border-[var(--ap-accent)]"
+  const labelCls = "block text-caption font-semibold uppercase tracking-wide text-[var(--ap-fg-muted)] mb-1"
 
   return (
     <Modal
@@ -760,16 +788,16 @@ function CreateTodoModal({
                   placeholder="Search key results…" className={inputCls} />
               </div>
               <button type="button" onClick={() => setKeyResultId('')}
-                className={`flex items-center gap-2 w-full px-3 py-2 text-[13px] transition-colors cursor-pointer ${keyResultId === '' ? 'bg-[var(--ap-accent-soft)] text-[var(--ap-accent)]' : 'text-[var(--ap-fg-muted)] hover:bg-[var(--ap-bg-hover)]'}`}>
+                className={`flex items-center gap-2 w-full px-3 py-2 text-body-sm transition-colors cursor-pointer ${keyResultId === '' ? 'bg-[var(--ap-accent-soft)] text-[var(--ap-accent)]' : 'text-[var(--ap-fg-muted)] hover:bg-[var(--ap-bg-hover)]'}`}>
                 <X className="h-3 w-3" /> None
               </button>
               {filteredKrs.map((kr) => (
                 <button key={kr.id} type="button" onClick={() => setKeyResultId(kr.id)}
-                  className={`flex items-center gap-2 w-full px-3 py-2 text-left text-[13px] transition-colors cursor-pointer ${keyResultId === kr.id ? 'bg-[var(--ap-accent-soft)] text-[var(--ap-accent)]' : 'text-[var(--ap-fg)] hover:bg-[var(--ap-bg-hover)]'}`}>
+                  className={`flex items-center gap-2 w-full px-3 py-2 text-left text-body-sm transition-colors cursor-pointer ${keyResultId === kr.id ? 'bg-[var(--ap-accent-soft)] text-[var(--ap-accent)]' : 'text-[var(--ap-fg)] hover:bg-[var(--ap-bg-hover)]'}`}>
                   <Link2 className="h-3 w-3 flex-shrink-0 text-[var(--ap-fg-muted)]" />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate">{kr.title}</span>
-                    <span className="block truncate text-[11px] text-[var(--ap-fg-muted)]">{kr.objective.title}</span>
+                    <span className="block truncate text-caption text-[var(--ap-fg-muted)]">{kr.objective.title}</span>
                   </span>
                   {keyResultId === kr.id && <Check className="h-3 w-3 flex-shrink-0 text-[var(--ap-accent)]" />}
                 </button>
@@ -785,15 +813,15 @@ function CreateTodoModal({
                   placeholder="Search objectives…" className={inputCls} />
               </div>
               <button type="button" onClick={() => setObjectiveId('')}
-                className={`flex items-center gap-2 w-full px-3 py-2 text-[13px] transition-colors cursor-pointer ${objectiveId === '' ? 'bg-[var(--ap-accent-soft)] text-[var(--ap-accent)]' : 'text-[var(--ap-fg-muted)] hover:bg-[var(--ap-bg-hover)]'}`}>
+                className={`flex items-center gap-2 w-full px-3 py-2 text-body-sm transition-colors cursor-pointer ${objectiveId === '' ? 'bg-[var(--ap-accent-soft)] text-[var(--ap-accent)]' : 'text-[var(--ap-fg-muted)] hover:bg-[var(--ap-bg-hover)]'}`}>
                 <X className="h-3 w-3" /> None
               </button>
               {filteredObjs.map((o) => (
                 <button key={o.id} type="button" onClick={() => setObjectiveId(o.id)}
-                  className={`flex items-center gap-2 w-full px-3 py-2 text-left text-[13px] transition-colors cursor-pointer ${objectiveId === o.id ? 'bg-[var(--ap-accent-soft)] text-[var(--ap-accent)]' : 'text-[var(--ap-fg)] hover:bg-[var(--ap-bg-hover)]'}`}>
+                  className={`flex items-center gap-2 w-full px-3 py-2 text-left text-body-sm transition-colors cursor-pointer ${objectiveId === o.id ? 'bg-[var(--ap-accent-soft)] text-[var(--ap-accent)]' : 'text-[var(--ap-fg)] hover:bg-[var(--ap-bg-hover)]'}`}>
                   <Target className="h-3 w-3 flex-shrink-0 text-[var(--ap-fg-muted)]" />
                   <span className="truncate flex-1">{o.title}</span>
-                  <span className="text-[10px] text-[var(--ap-fg-muted)]">{o.level.toLowerCase()}</span>
+                  <span className="text-micro text-[var(--ap-fg-muted)]">{o.level.toLowerCase()}</span>
                   {objectiveId === o.id && <Check className="h-3 w-3 flex-shrink-0 text-[var(--ap-accent)]" />}
                 </button>
               ))}

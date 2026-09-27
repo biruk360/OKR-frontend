@@ -12,9 +12,11 @@
  * so the surrounding server page stays thin — same pattern as the objective page.
  */
 
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh'
+import { OKR_REALTIME_EVENT_NAMES, keyResultRealtimeChannel } from '@/lib/okr/realtime'
 import {
   ArrowLeft,
   Archive,
@@ -23,10 +25,8 @@ import {
   Calendar,
   ChevronLeft,
   ChevronRight,
-  MoreHorizontal,
-  Plug,
+  LineChart,
   Share2,
-  Sparkles,
   Target,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -36,12 +36,16 @@ import { formatAxisValue } from '@/lib/keyResultChart'
 import CreateCheckInModal from './CreateCheckInModal'
 import { ToDoList } from '@/features/todos'
 import EditKeyResultButton from './EditKeyResultButton'
+import KeyResultActionsMenu from './KeyResultActionsMenu'
+import CloneKeyResultModal from './CloneKeyResultModal'
+import DeleteKeyResultModal from './DeleteKeyResultModal'
 import { type BreadcrumbNode } from '@/components/shared/OkrBreadcrumb'
 import OkrComments from '@/components/shared/OkrComments'
 import WorkItemsKanban from '@/components/shared/WorkItemsKanban'
 import KrProgressConfidenceCard from '@/components/key-result-detail/KrProgressConfidenceCard'
 import KrInspectorTabs from '@/components/key-result-detail/KrInspectorTabs'
 import CheckInTimeline from '@/components/key-result-detail/CheckInTimeline'
+import { EmptyState } from '@/components/ui'
 
 function safePct(p: unknown): number {
   const n = typeof p === 'number' ? p : Number(p)
@@ -74,12 +78,18 @@ export interface KeyResultDetailClientProps {
     nextId: string | null
   }
   canEdit: boolean
+  /** DELETE /api/keyresults/[id] rule (canDeleteKeyResult). */
+  canDelete?: boolean
+  /** POST /api/keyresults/[id]/clone rule. */
+  canClone?: boolean
   users: Array<{ id: string; name: string; email: string }>
   isRedacted: boolean
   todoCount: number
   breadcrumbNodes: BreadcrumbNode[]
   /** Initiatives (todos) for the Work Items kanban rendered below the content. */
   initiatives: Array<{ id: string; title: string; status: string; keyResultId?: string | null }>
+  /** Signed-in user — own realtime events are skipped (this tab already refreshed). */
+  currentUserId?: string | null
 }
 
 export default function KeyResultDetailClient({
@@ -88,15 +98,31 @@ export default function KeyResultDetailClient({
   checkIns,
   siblingNav,
   canEdit,
+  canDelete = false,
+  canClone = false,
   users,
   isRedacted,
   todoCount,
   breadcrumbNodes,
   initiatives,
+  currentUserId = null,
 }: KeyResultDetailClientProps) {
   const router = useRouter()
+  // Live refresh: `private-keyresult-<id>` carries id-only change signals; the
+  // server render (permission-checked) is re-run via router.refresh(). Redacted
+  // views don't subscribe — the channel auth route would refuse them anyway.
+  const refreshFromRealtime = useCallback(() => router.refresh(), [router])
+  useRealtimeRefresh({
+    channel: isRedacted ? null : keyResultRealtimeChannel(kr.id),
+    events: OKR_REALTIME_EVENT_NAMES,
+    onRefresh: refreshFromRealtime,
+    ignoreActorId: currentUserId,
+  })
   const [checkInOpen, setCheckInOpen] = useState(false)
-  const [menuOpen, setMenuOpen] = useState(false)
+  const [cloneOpen, setCloneOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  // Lifecycle actions are only offered on the full (unredacted) view.
+  const canEditFull = canEdit && !isRedacted
 
   const timeframe = objective.timeframe ?? null
   const deadline = timeframe?.endDate != null ? format(new Date(timeframe.endDate), 'MMM d, yyyy') : null
@@ -178,7 +204,7 @@ export default function KeyResultDetailClient({
         const krCode = `KR${siblingNav.index + 1}`
         return (
           <div className="flex items-center justify-between gap-3 border-b pb-3" style={{ borderColor: 'var(--ap-border)' }}>
-            <div className="flex min-w-0 items-center gap-2 text-[13px]">
+            <div className="flex min-w-0 items-center gap-2 text-body-sm">
               <Link
                 href={`/dashboard/objectives/${objective.id}`}
                 className="inline-flex items-center gap-1 rounded-[8px] px-2 py-1 text-muted-foreground transition-colors hover:bg-[var(--ap-bg-hover)] hover:text-foreground"
@@ -189,12 +215,12 @@ export default function KeyResultDetailClient({
               <span className="text-muted-foreground/50">/</span>
               <Link
                 href={`/dashboard/objectives/${objective.id}`}
-                className="rounded-[8px] px-2 py-1 font-mono text-[12px] text-muted-foreground transition-colors hover:bg-[var(--ap-bg-hover)] hover:text-foreground"
+                className="rounded-[8px] px-2 py-1 font-mono text-xs text-muted-foreground transition-colors hover:bg-[var(--ap-bg-hover)] hover:text-foreground"
               >
                 {objCode}
               </Link>
               <span className="text-muted-foreground/50">/</span>
-              <span className="rounded-[8px] bg-[var(--ap-accent-soft)] px-2 py-1 text-[12px] font-semibold text-[var(--ap-accent)]">
+              <span className="rounded-[8px] bg-[var(--ap-accent-soft)] px-2 py-1 text-xs font-semibold text-[var(--ap-accent)]">
                 {krCode}
               </span>
               <span className="text-muted-foreground/50">/</span>
@@ -223,7 +249,7 @@ export default function KeyResultDetailClient({
                       <ChevronLeft className="h-4 w-4 text-muted-foreground" />
                     </span>
                   )}
-                  <span className="rounded-[8px] border bg-card px-2.5 py-1 font-mono text-[12px] text-muted-foreground tabular-nums shadow-sm" style={{ borderColor: 'var(--ap-border)' }}>
+                  <span className="rounded-[8px] border bg-card px-2.5 py-1 font-mono text-xs text-muted-foreground tabular-nums shadow-sm" style={{ borderColor: 'var(--ap-border)' }}>
                     KR {siblingNav.index + 1} of {siblingNav.total}
                   </span>
                   {siblingNav.nextId ? (
@@ -246,7 +272,7 @@ export default function KeyResultDetailClient({
                 <button
                   type="button"
                   onClick={() => setCheckInOpen(true)}
-                  className="inline-flex h-8 items-center gap-1.5 rounded-[8px] border bg-card px-3 text-[12px] font-medium shadow-sm transition-colors hover:bg-[var(--ap-bg-hover)]"
+                  className="inline-flex h-8 items-center gap-1.5 rounded-[8px] border bg-card px-3 text-xs font-medium shadow-sm transition-colors hover:bg-[var(--ap-bg-hover)]"
                   style={{ borderColor: 'var(--ap-border)' }}
                 >
                   Check in
@@ -258,55 +284,35 @@ export default function KeyResultDetailClient({
               <button
                 type="button"
                 onClick={copyShare}
-                className="inline-flex h-8 items-center gap-1.5 rounded-[8px] bg-[var(--ap-accent-soft)] px-3 text-[12px] font-semibold text-[var(--ap-accent)] transition-colors hover:bg-[var(--ap-accent)] hover:text-white"
+                className="inline-flex h-8 items-center gap-1.5 rounded-[8px] bg-[var(--ap-accent-soft)] px-3 text-xs font-semibold text-[var(--ap-accent)] transition-colors hover:bg-[var(--ap-accent)] hover:text-[var(--ap-accent-fg)]"
               >
                 <Share2 className="h-3.5 w-3.5" />
                 Share
               </button>
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setMenuOpen((m) => !m)}
-                  aria-expanded={menuOpen}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-[8px] border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-[var(--ap-bg-hover)]"
-                  style={{ borderColor: 'var(--ap-border)' }}
-                >
-                  <MoreHorizontal className="h-4 w-4" />
-                </button>
-                {menuOpen && (
-                  <>
-                    <button
-                      type="button"
-                      className="fixed inset-0 z-40 cursor-default"
-                      aria-label="Close menu"
-                      onClick={() => setMenuOpen(false)}
-                    />
-                    <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-[var(--ap-radius-sm)] border bg-card py-1 text-[13px] shadow-[var(--ap-shadow-lg)]" style={{ borderColor: 'var(--ap-border)' }}>
-                      <Link
-                        href={`/dashboard/objectives/${objective.id}`}
-                        className="block px-3 py-1.5 text-muted-foreground hover:bg-[var(--ap-bg-hover)]"
-                        onClick={() => setMenuOpen(false)}
-                      >
-                        View objective
-                      </Link>
-                      <a
-                        href={`#${TIMELINE_ELEMENT_ID}`}
-                        className="block px-3 py-1.5 text-muted-foreground hover:bg-[var(--ap-bg-hover)]"
-                        onClick={() => setMenuOpen(false)}
-                      >
-                        Jump to Progress Timeline
-                      </a>
-                      <a
-                        href={`#${ACTIVITY_ELEMENT_ID}`}
-                        className="block px-3 py-1.5 text-muted-foreground hover:bg-[var(--ap-bg-hover)]"
-                        onClick={() => setMenuOpen(false)}
-                      >
-                        Jump to Activity log
-                      </a>
-                    </div>
-                  </>
-                )}
-              </div>
+              <KeyResultActionsMenu
+                keyResult={kr}
+                canEdit={canEditFull}
+                canDelete={canDelete && !isRedacted}
+                canClone={canClone && !isRedacted}
+                onClone={() => setCloneOpen(true)}
+                onDelete={() => setDeleteOpen(true)}
+                onChanged={afterMutation}
+                extraItems={[
+                  {
+                    key: 'view-objective',
+                    label: 'View objective',
+                    icon: Target,
+                    onSelect: () => router.push(`/dashboard/objectives/${objective.id}`),
+                  },
+                  {
+                    key: 'jump-timeline',
+                    label: 'Jump to check-in history',
+                    icon: LineChart,
+                    onSelect: () =>
+                      document.getElementById(TIMELINE_ELEMENT_ID)?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+                  },
+                ]}
+              />
             </div>
           </div>
         )
@@ -317,9 +323,9 @@ export default function KeyResultDetailClient({
         {/* -------- Main column -------- */}
         <div className="min-w-0 space-y-3">
           {kr.status === 'ARCHIVED' && (
-            <div className="bg-orange-50 border border-orange-200 rounded-lg px-4 py-3 flex items-center">
-              <Archive className="h-5 w-5 text-orange-600 mr-2" />
-              <span className="text-sm font-medium text-orange-800">
+            <div className="bg-warning-50 border border-warning-200 rounded-lg px-4 py-3 flex items-center">
+              <Archive className="h-5 w-5 text-warning-600 mr-2" />
+              <span className="text-sm font-medium text-warning-800">
                 This key result has been archived
               </span>
             </div>
@@ -329,7 +335,7 @@ export default function KeyResultDetailClient({
           <section className="rounded-[var(--ap-radius-md)] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
             <div className="px-5 pt-5 pb-4">
               {/* Chip row */}
-              <div className="flex flex-wrap items-center gap-1.5 mb-3 text-[11px]">
+              <div className="flex flex-wrap items-center gap-1.5 mb-3 text-caption">
                 {objectiveLevelLabel && (
                   <span className="inline-flex items-center rounded-full px-2 py-0.5 font-semibold"
                     style={{ background: 'var(--ap-bg-sunken)', color: 'var(--ap-fg-muted)' }}>
@@ -359,16 +365,16 @@ export default function KeyResultDetailClient({
                 )}
                 {kr.isPrivate && (
                   <span className="inline-flex items-center rounded-full px-2 py-0.5 font-semibold"
-                    style={{ background: 'rgba(255,149,0,0.12)', color: 'var(--ap-orange)' }}>Private</span>
+                    style={{ background: 'var(--ap-warn-bg)', color: 'var(--ap-warn-fg)' }}>Private</span>
                 )}
               </div>
 
-              <h1 className="text-[24px] font-semibold leading-tight"
+              <h1 className="text-2xl font-semibold leading-tight"
                 style={{ letterSpacing: '-0.02em', textWrap: 'balance', maxWidth: 720 } as any}>
                 {kr.title}
               </h1>
 
-              <p className="mt-2 text-[12px] flex items-center gap-1.5 text-muted-foreground">
+              <p className="mt-2 text-xs flex items-center gap-1.5 text-muted-foreground">
                 <Target className="size-3.5" />
                 <span>Aligned to</span>
                 <Link href={`/dashboard/objectives/${objective.id}`}
@@ -378,23 +384,23 @@ export default function KeyResultDetailClient({
               </p>
 
               {kr.description && !isRedacted && (
-                <p className="mt-2 text-[13px] text-muted-foreground"
+                <p className="mt-2 text-body-sm text-muted-foreground"
                   style={{ maxWidth: 720, textWrap: 'pretty' } as any}>
                   {kr.description}
                 </p>
               )}
 
-              <div className="mt-4 flex items-center gap-2 text-[12px] text-muted-foreground">
+              <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
                 <Link href={`/dashboard/org/users/${kr.owner?.id ?? ''}`} className="flex items-center gap-2">
                   {kr.owner?.avatar ? (
                     <img src={kr.owner.avatar} alt={kr.owner?.name ?? ''} className="size-7 rounded-full object-cover" />
                   ) : (
-                    <span className="flex size-7 items-center justify-center rounded-full text-[11px] font-semibold text-white"
+                    <span className="flex size-7 items-center justify-center rounded-full text-caption font-semibold text-[var(--ap-accent-fg)]"
                       style={{ background: 'var(--ap-accent)' }}>{ownerInitials}</span>
                   )}
                   <span className="font-medium" style={{ color: 'var(--ap-fg)' }}>{kr.owner?.name ?? 'Unknown'}</span>
                 </Link>
-                <span className="text-[11px]">· KR Owner</span>
+                <span className="text-caption">· KR Owner</span>
                 {deadline && (
                   <>
                     <span className="hidden sm:inline-block h-3.5 w-px" style={{ background: 'var(--ap-border)' }} />
@@ -409,7 +415,7 @@ export default function KeyResultDetailClient({
                     <span>{weekLabel}</span>
                   </>
                 )}
-                <span className="ml-auto text-[11px]">Updated {formatRelativeTime(kr.updatedAt)}</span>
+                <span className="ml-auto text-caption">Updated {formatRelativeTime(kr.updatedAt)}</span>
               </div>
             </div>
 
@@ -433,15 +439,15 @@ export default function KeyResultDetailClient({
                         <circle cx={size/2} cy={size/2} r={r} stroke={ringColor} strokeWidth={stroke} fill="none"
                           strokeDasharray={c} strokeDashoffset={offset} strokeLinecap="round" />
                       </svg>
-                      <span className="absolute inset-0 flex items-center justify-center text-[13px] font-semibold tabular-nums"
+                      <span className="absolute inset-0 flex items-center justify-center text-body-sm font-semibold tabular-nums"
                         style={{ letterSpacing: '-0.02em' }}>{progressRounded}%</span>
                     </div>
                   )
                 })()}
                 <div className="min-w-0">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Progress</p>
+                  <p className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">Progress</p>
                   {!isRedacted && (
-                    <p className="text-[11px] text-muted-foreground tabular-nums mt-0.5">
+                    <p className="text-caption text-muted-foreground tabular-nums mt-0.5">
                       {formatAxisValue(Number(kr.currentValue) || 0)}/{formatAxisValue(Number(kr.targetValue) || 0)} {unit}
                     </p>
                   )}
@@ -450,16 +456,16 @@ export default function KeyResultDetailClient({
 
               {/* Status */}
               <div className="flex flex-col justify-center gap-1.5 px-4 py-4 border-r" style={{ borderColor: 'var(--ap-border)' }}>
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Status</p>
+                <p className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">Status</p>
                 {(() => {
                   const map: any = {
-                    ON_TRACK: { label: 'On track', bg: 'rgba(52,199,89,0.12)', fg: 'var(--ap-green)' },
-                    AT_RISK: { label: 'At risk', bg: 'rgba(255,149,0,0.12)', fg: 'var(--ap-orange)' },
-                    OFF_TRACK: { label: 'Off track', bg: 'rgba(255,59,48,0.12)', fg: 'var(--ap-red)' },
+                    ON_TRACK: { label: 'On track', bg: 'var(--ap-ok-bg)', fg: 'var(--ap-ok-fg)' },
+                    AT_RISK: { label: 'At risk', bg: 'var(--ap-warn-bg)', fg: 'var(--ap-warn-fg)' },
+                    OFF_TRACK: { label: 'Off track', bg: 'var(--ap-danger-bg)', fg: 'var(--ap-danger-fg)' },
                   }
-                  const s = map[kr.confidence] ?? { label: 'No status', bg: 'var(--ap-bg-sunken)', fg: 'var(--ap-fg-muted)' }
+                  const s = map[kr.confidence] ?? { label: 'No status', bg: 'var(--ap-none-bg)', fg: 'var(--ap-none-fg)' }
                   return (
-                    <span className="inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
+                    <span className="inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-0.5 text-caption font-semibold"
                       style={{ background: s.bg, color: s.fg }}>
                       <span className="size-1.5 rounded-full" style={{ background: s.fg }} />
                       {s.label}
@@ -470,22 +476,22 @@ export default function KeyResultDetailClient({
 
               {/* Confidence (use confidence string as a 0/50/100 proxy) */}
               <div className="flex flex-col justify-center gap-1.5 px-4 py-4 border-r" style={{ borderColor: 'var(--ap-border)' }}>
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <p className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">
                   Confidence <span className="normal-case font-normal">(auto)</span>
                 </p>
                 {(() => {
                   const c = kr.confidence === 'ON_TRACK' ? 85 : kr.confidence === 'AT_RISK' ? 55 : kr.confidence === 'OFF_TRACK' ? 25 : 50
                   return (
                     <>
-                      <p className="text-[18px] font-semibold tabular-nums leading-none" style={{ letterSpacing: '-0.02em' }}>
-                        {c}<span className="text-[12px] text-muted-foreground font-normal">/100</span>
+                      <p className="text-lg font-semibold tabular-nums leading-none" style={{ letterSpacing: '-0.02em' }}>
+                        {c}<span className="text-xs text-muted-foreground font-normal">/100</span>
                       </p>
                       <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ background: 'var(--ap-kr-bar-bg)' }}>
                         <div className="h-full rounded-full"
                           style={{ width: `${c}%`, background: c >= 70 ? 'var(--ap-green)' : c >= 40 ? 'var(--ap-orange)' : 'var(--ap-red)' }} />
                       </div>
                       {typeof latest?.confidenceScore === 'number' && (
-                        <p className="text-[10px] text-muted-foreground tabular-nums">
+                        <p className="text-micro text-muted-foreground tabular-nums">
                           Manual: {latest.confidenceScore}/100
                         </p>
                       )}
@@ -496,27 +502,27 @@ export default function KeyResultDetailClient({
 
               {/* Initiatives */}
               <div className="flex flex-col justify-center gap-1.5 px-4 py-4 border-r" style={{ borderColor: 'var(--ap-border)' }}>
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Initiatives</p>
-                <p className="text-[18px] font-semibold tabular-nums leading-none">{todoCount}</p>
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">Initiatives</p>
+                <p className="text-lg font-semibold tabular-nums leading-none">{todoCount}</p>
+                <p className="text-caption text-muted-foreground">
                   {todoCount === 0 ? 'none yet' : todoCount === 1 ? 'initiative' : 'initiatives'}
                 </p>
               </div>
 
               {/* Last check-in */}
               <div className="flex flex-col justify-center gap-1.5 px-4 py-4">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Last check-in</p>
+                <p className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">Last check-in</p>
                 {checkIns.length > 0 ? (
                   <>
-                    <p className="text-[14px] font-semibold tabular-nums leading-none">
+                    <p className="text-sm font-semibold tabular-nums leading-none">
                       {formatRelativeTime(checkIns[checkIns.length - 1].asOfDate)}
                     </p>
-                    <p className="text-[11px] text-muted-foreground truncate">
+                    <p className="text-caption text-muted-foreground truncate">
                       by {checkIns[checkIns.length - 1].createdBy?.name ?? 'Unknown'}
                     </p>
                   </>
                 ) : (
-                  <p className="text-[12px] text-muted-foreground">No check-ins yet</p>
+                  <p className="text-xs text-muted-foreground">No check-ins yet</p>
                 )}
               </div>
             </div>
@@ -526,14 +532,14 @@ export default function KeyResultDetailClient({
           {showCheckIn && (
             <div className="rounded-[var(--ap-radius-md)] border bg-card flex items-center gap-3 px-4 py-2.5"
               style={{ borderColor: 'var(--ap-border)' }}>
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Quick check-in</span>
-              <span className="text-[12px] text-muted-foreground tabular-nums">
+              <span className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">Quick check-in</span>
+              <span className="text-xs text-muted-foreground tabular-nums">
                 Currently {unit} {formatAxisValue(Number(kr.currentValue) || 0)}
               </span>
               <button
                 type="button"
                 onClick={() => setCheckInOpen(true)}
-                className="ml-auto rounded-[var(--ap-radius-sm)] bg-[var(--ap-accent)] px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-[var(--ap-accent-hover)]"
+                className="ml-auto rounded-[var(--ap-radius-sm)] bg-[var(--ap-accent)] px-3 py-1.5 text-xs font-semibold text-[var(--ap-accent-fg)] hover:bg-[var(--ap-accent-hover)]"
               >
                 Post check-in
               </button>
@@ -543,39 +549,33 @@ export default function KeyResultDetailClient({
           {/* Check-in history */}
           <section className="rounded-[var(--ap-radius-md)] border bg-card p-5" style={{ borderColor: 'var(--ap-border)' }} id={TIMELINE_ELEMENT_ID}>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Check-in history</h2>
-              <span className="text-[11px] text-muted-foreground tabular-nums">{isRedacted ? '—' : `${checkIns.length} total`}</span>
+              <h2 className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">Check-in history</h2>
+              <span className="text-caption text-muted-foreground tabular-nums">{isRedacted ? '—' : `${checkIns.length} total`}</span>
             </div>
 
             {!isRedacted && checkIns.length === 0 ? (
-              <div className="text-center py-10 px-4 border-2 border-dashed border-border rounded-lg bg-muted/50">
-                <div className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-violet-100 text-violet-600 mb-4">
-                  <Bot className="h-8 w-8" />
-                </div>
-                <p className="text-muted-foreground font-medium mb-1">Waiting for the first check-in</p>
-                <p className="text-sm text-muted-foreground mb-6 max-w-md mx-auto">
-                  Record progress to see trends and history on this key result.
-                </p>
-                <div className="flex flex-wrap gap-3 justify-center">
-                  {showCheckIn && (
+              <EmptyState
+                bare
+                className="py-10 px-4 border-2 border-dashed border-border rounded-lg bg-muted/50"
+                icon={
+                  <div className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-primary-100 text-primary-600">
+                    <Bot className="h-8 w-8" />
+                  </div>
+                }
+                title="Waiting for the first check-in"
+                description="Record progress to see trends and history on this key result."
+                action={
+                  showCheckIn ? (
                     <button
                       type="button"
                       onClick={() => setCheckInOpen(true)}
-                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700"
+                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary-600 text-primary-foreground text-sm font-medium hover:bg-primary-700"
                     >
                       Create the first check-in
                     </button>
-                  )}
-                  <button
-                    type="button"
-                    disabled
-                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-border bg-card text-sm text-muted-foreground cursor-not-allowed"
-                    title="Coming soon"
-                  >
-                    <Plug className="h-4 w-4" /> Connect a data source
-                  </button>
-                </div>
-              </div>
+                  ) : undefined
+                }
+              />
             ) : !isRedacted ? (
               <CheckInTimeline checkIns={checkIns} unit={unit} />
             ) : (
@@ -586,16 +586,9 @@ export default function KeyResultDetailClient({
           {/* Initiatives under this KR */}
           <section className="rounded-[var(--ap-radius-md)] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
             <div className="px-5 py-3 border-b flex flex-wrap items-center justify-between gap-2" style={{ borderColor: 'var(--ap-border)' }}>
-              <h2 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <h2 className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">
                 Initiatives <span className="ml-1 tabular-nums">({todoCount})</span>
               </h2>
-              <span
-                className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full text-white opacity-60 cursor-not-allowed"
-                style={{ background: 'linear-gradient(90deg, #af52de, #ff2d55)' }}
-                title="Coming soon"
-              >
-                <Sparkles className="h-3 w-3" /> Generate via AI
-              </span>
             </div>
             <div className="p-4">
               {!isRedacted ? (
@@ -645,6 +638,7 @@ export default function KeyResultDetailClient({
             keyResultId={kr.id}
             activityElementId={ACTIVITY_ELEMENT_ID}
             checkIns={isRedacted ? [] : checkIns}
+            canReportRisk={canEditFull}
             details={{
               owner: kr.owner,
               timeframe: timeframe ?? null,
@@ -660,6 +654,25 @@ export default function KeyResultDetailClient({
           />
         </aside>
       </div>
+
+      {canClone && !isRedacted && (
+        <CloneKeyResultModal
+          isOpen={cloneOpen}
+          onClose={() => setCloneOpen(false)}
+          keyResult={kr}
+          users={users}
+          onSuccess={afterMutation}
+        />
+      )}
+
+      {canDelete && !isRedacted && (
+        <DeleteKeyResultModal
+          isOpen={deleteOpen}
+          onClose={() => setDeleteOpen(false)}
+          keyResult={kr}
+          onSuccess={() => router.push(`/dashboard/objectives/${objective.id}`)}
+        />
+      )}
 
       {showCheckIn && (
         <CreateCheckInModal

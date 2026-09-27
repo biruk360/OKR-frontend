@@ -31,23 +31,23 @@ export default function CriticalBanner({
     <div
       className="flex items-center justify-between gap-4 rounded-[var(--ap-radius-md)] border px-4 py-3"
       style={{
-        background: 'rgba(255, 149, 0, 0.10)',
-        borderColor: 'rgba(255, 149, 0, 0.28)',
+        background: 'var(--ap-warn-bg)',
+        borderColor: 'color-mix(in oklch, var(--ap-warn) 28%, transparent)',
         color: 'var(--ap-warn-fg)',
       }}
     >
       <div className="flex items-center gap-3 min-w-0">
         <div
           className="flex size-8 shrink-0 items-center justify-center rounded-full"
-          style={{ background: 'rgba(255, 149, 0, 0.18)' }}
+          style={{ background: 'color-mix(in oklch, var(--ap-warn) 18%, transparent)' }}
         >
           <AlertTriangle className="size-4" style={{ color: 'var(--ap-orange)' }} />
         </div>
         <div className="min-w-0">
-          <p className="text-[13px] font-semibold leading-tight" style={{ color: 'var(--ap-warn-fg)' }}>
+          <p className="text-body-sm font-semibold leading-tight" style={{ color: 'var(--ap-warn-fg)' }}>
             This objective needs attention
           </p>
-          <p className="text-[12px] mt-0.5" style={{ color: 'var(--ap-warn-fg)', opacity: 0.85 }}>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--ap-warn-fg)', opacity: 0.85 }}>
             {issues.join(' · ')}
           </p>
         </div>
@@ -57,7 +57,7 @@ export default function CriticalBanner({
           variant="outline"
           size="sm"
           className="shrink-0 rounded-[var(--ap-radius-sm)]"
-          style={{ borderColor: 'rgba(255, 149, 0, 0.4)', color: 'var(--ap-warn-fg)' }}
+          style={{ borderColor: 'color-mix(in oklch, var(--ap-warn) 40%, transparent)', color: 'var(--ap-warn-fg)' }}
           onClick={onRecoverClick}
         >
           Recover plan

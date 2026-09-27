@@ -174,7 +174,7 @@ export function ScrumLogWidget({ projectId, canEdit }: ScrumLogWidgetProps) {
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full text-left text-body-sm">
-            <thead className="text-body-xs uppercase text-ink-tertiary">
+            <thead className="text-xs uppercase text-ink-tertiary">
               <tr>
                 <th className="py-2 pr-3 font-medium">Person</th>
                 <th className="py-2 pr-3 font-medium">Rate</th>
@@ -219,7 +219,7 @@ function AttendanceHeatmap({ people, logs }: { people: ScrumAttendancePerson[]; 
         <div className="min-w-max">
           <div className="grid gap-1" style={{ gridTemplateColumns: `140px repeat(${logs.length}, 32px)` }}>
             <div />
-            {logs.map((log) => <div key={log.scrumDate} className="text-center text-[10px] text-ink-tertiary">{log.scrumDate.slice(5)}</div>)}
+            {logs.map((log) => <div key={log.scrumDate} className="text-center text-xs text-ink-tertiary">{log.scrumDate.slice(5)}</div>)}
             {people.map((person) => (
               <HeatmapRow key={person.userId} person={person} logs={logs} />
             ))}
@@ -233,7 +233,7 @@ function AttendanceHeatmap({ people, logs }: { people: ScrumAttendancePerson[]; 
 function HeatmapRow({ person, logs }: { person: ScrumAttendancePerson; logs: Array<{ scrumDate: string; attendeeIds: string[]; lateIds: string[]; absenteeIds: string[] }> }) {
   return (
     <>
-      <div className="truncate py-1 pr-2 text-body-xs text-ink-secondary">{person.name}</div>
+      <div className="truncate py-1 pr-2 text-xs text-ink-secondary">{person.name}</div>
       {logs.map((log) => {
         const state = log.lateIds.includes(person.userId)
           ? 'LATE'
@@ -279,8 +279,8 @@ function AttendanceControl({
             disabled={disabled}
             onClick={() => onChange(state)}
             className={cn(
-              'rounded-md px-2 py-1 text-body-xs',
-              value === state ? 'bg-primary-600 text-white' : 'bg-surface-card text-ink-secondary',
+              'rounded-md px-2 py-1 text-xs',
+              value === state ? 'bg-primary-600 text-primary-foreground' : 'bg-surface-card text-ink-secondary',
             )}
           >
             {state === 'ATTENDED' ? 'In' : state === 'LATE' ? 'Late' : 'Out'}

@@ -7,6 +7,7 @@ import { Inbox } from 'lucide-react'
 import { notificationIcon, notificationTypeLabel } from '@/components/shared/notification-icon'
 import { useNotificationStore } from '@/lib/stores/notification-store'
 import { cn } from '@/lib/utils'
+import { Skeleton } from '@/components/ui/Skeleton'
 
 /**
  * The sprint board's Inbox view.
@@ -41,8 +42,8 @@ export default function SprintInboxView({ dark }: { dark?: boolean }) {
     >
       <div className="flex items-center justify-between px-5 py-3.5">
         <div>
-          <p className="text-[13px] font-semibold">Inbox</p>
-          <p className="mt-0.5 text-[12px] text-muted-foreground">
+          <p className="text-body-sm font-semibold">Inbox</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
             {unreadCount > 0 ? `${unreadCount} unread` : 'Nothing unread'}
           </p>
         </div>
@@ -51,7 +52,7 @@ export default function SprintInboxView({ dark }: { dark?: boolean }) {
             <button
               type="button"
               onClick={() => void markAllRead()}
-              className="rounded-[var(--ap-radius-sm)] px-2.5 py-1 text-[12px] font-medium text-[var(--ap-accent)] hover:bg-[color:var(--ap-bg-hover)]"
+              className="rounded-[var(--ap-radius-sm)] px-2.5 py-1 text-xs font-medium text-[var(--ap-accent)] hover:bg-[color:var(--ap-bg-hover)]"
             >
               Mark all read
             </button>
@@ -59,7 +60,7 @@ export default function SprintInboxView({ dark }: { dark?: boolean }) {
           <button
             type="button"
             onClick={() => router.push('/dashboard/notifications')}
-            className="rounded-[var(--ap-radius-sm)] px-2.5 py-1 text-[12px] font-medium text-[var(--ap-fg-secondary)] hover:bg-[color:var(--ap-bg-hover)]"
+            className="rounded-[var(--ap-radius-sm)] px-2.5 py-1 text-xs font-medium text-[var(--ap-fg-secondary)] hover:bg-[color:var(--ap-bg-hover)]"
           >
             View all
           </button>
@@ -67,12 +68,15 @@ export default function SprintInboxView({ dark }: { dark?: boolean }) {
       </div>
 
       {!loaded ? (
-        <p className="px-5 pb-8 pt-4 text-center text-[12px] text-muted-foreground">Loading…</p>
+        <div className="space-y-2 px-5 pb-8 pt-4" aria-busy="true">
+          <span className="sr-only">Loading…</span>
+          {[0, 1, 2].map((i) => <Skeleton key={i} className="h-12 w-full" />)}
+        </div>
       ) : notifications.length === 0 ? (
         <div className="px-5 pb-10 pt-4 text-center">
           <Inbox className="mx-auto size-6 text-muted-foreground" />
-          <p className="mt-2 text-[13px] font-semibold">You&apos;re all caught up</p>
-          <p className="mt-1 text-[12px] text-muted-foreground">
+          <p className="mt-2 text-body-sm font-semibold">You&apos;re all caught up</p>
+          <p className="mt-1 text-xs text-muted-foreground">
             Mentions, reviews and assignments will land here.
           </p>
         </div>
@@ -104,11 +108,11 @@ export default function SprintInboxView({ dark }: { dark?: boolean }) {
                       )}
                     </span>
                     <span className="mt-0.5 line-clamp-2 block text-[11.5px] text-muted-foreground">{n.message}</span>
-                    <span className="mt-0.5 block text-[10px] uppercase tracking-wide text-muted-foreground">
+                    <span className="mt-0.5 block text-micro uppercase tracking-wide text-muted-foreground">
                       {notificationTypeLabel(n.type)}
                     </span>
                   </span>
-                  <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
+                  <span className="shrink-0 text-caption tabular-nums text-muted-foreground">
                     {formatDistanceToNowStrict(new Date(n.createdAt), { addSuffix: true })}
                   </span>
                 </button>

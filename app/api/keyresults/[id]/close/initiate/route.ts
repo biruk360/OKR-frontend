@@ -11,6 +11,8 @@ import {
   parseInitiateCloseInput,
 } from '@/lib/okr/period-close'
 import { apiBadRequest, apiConflict, apiForbidden, apiNotFound, apiSuccess, withAuth } from '@/lib/api'
+import { broadcastKeyResultEvent } from '@/lib/pusher'
+import { OKR_REALTIME_EVENTS } from '@/lib/okr/realtime'
 
 export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { session, params }) => {
   const { id } = await resolveParams(params)
@@ -95,5 +97,6 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
     actorId: session.user.id,
     metadata: { outcome: parsed.data.outcome, finalGrade: parsed.data.finalGrade },
   })
+  broadcastKeyResultEvent(id, keyResult.objectiveId, OKR_REALTIME_EVENTS.UPDATED, session.user.id)
   return apiSuccess(result, { message: 'Key Result closure started.' })
 })

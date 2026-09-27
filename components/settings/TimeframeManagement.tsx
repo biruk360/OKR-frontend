@@ -1,9 +1,55 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { Controller, useForm, type FieldErrors } from 'react-hook-form'
+import { z } from 'zod'
 import { Calendar, Plus, Edit, Trash2, Check, X } from 'lucide-react'
 import { calculateTimeframeDates, getTimeframeTypeLabel, type TimeframeType } from '@/lib/timeframe-utils'
 import toast from 'react-hot-toast'
+// Shared Zod bridge (the repo has no @hookform/resolvers); imported by path to avoid the auth UI barrel.
+import { zodFormResolver } from '@/features/auth/services/zod-resolver'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { SettingsSelect, type SettingsSelectOption } from './SettingsSelect'
+
+const TIMEFRAME_TYPE_OPTIONS: SettingsSelectOption[] = [
+  { value: 'MONTHLY', label: 'Monthly' },
+  { value: 'QUARTERLY', label: 'Quarterly' },
+  { value: 'SIX_MONTH', label: '6-Month' },
+  { value: 'YEARLY', label: 'Yearly' },
+]
+
+const TIMEFRAME_TYPES = ['MONTHLY', 'QUARTERLY', 'SIX_MONTH', 'YEARLY'] as const
+
+const timeframeFields = {
+  name: z.string().trim().min(1, 'Name is required'),
+  type: z.enum(TIMEFRAME_TYPES),
+  startDate: z.string().min(1, 'Start date is required'),
+  endDate: z.string().min(1, 'End date is required'),
+}
+const endAfterStart = (v: { startDate: string; endDate: string }) => !v.startDate || !v.endDate || v.endDate >= v.startDate
+
+const createTimeframeSchema = z
+  .object({ ...timeframeFields, baseDate: z.string().min(1, 'Base date is required') })
+  .refine(endAfterStart, { path: ['endDate'], message: 'End date must be on or after the start date' })
+const editTimeframeSchema = z
+  .object(timeframeFields)
+  .refine(endAfterStart, { path: ['endDate'], message: 'End date must be on or after the start date' })
+
+type CreateTimeframeValues = z.infer<typeof createTimeframeSchema>
+type EditTimeframeValues = z.infer<typeof editTimeframeSchema>
+
+const todayInputValue = () => new Date().toISOString().split('T')[0]
+const emptyCreateValues = (): CreateTimeframeValues => ({ name: '', type: 'QUARTERLY', startDate: '', endDate: '', baseDate: todayInputValue() })
+const EMPTY_EDIT_VALUES: EditTimeframeValues = { name: '', type: 'QUARTERLY', startDate: '', endDate: '' }
+
+/** First validation message, shown as a toast (matches the old submit-time checks). */
+function firstError(errors: FieldErrors): string {
+  for (const value of Object.values(errors)) {
+    if (value && typeof value.message === 'string' && value.message) return value.message
+  }
+  return 'Please fill in all required fields'
+}
 
 function toDateInputValue(d: string | Date): string {
   if (typeof d === 'string') return d.split('T')[0]
@@ -29,40 +75,33 @@ export default function TimeframeManagement({ timeframes }: TimeframeManagementP
   const [timeframesList, setTimeframesList] = useState(timeframes)
   const [isCreating, setIsCreating] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [newTimeframe, setNewTimeframe] = useState({
-    name: '',
-    type: 'QUARTERLY' as TimeframeType,
-    startDate: '',
-    endDate: '',
-    baseDate: new Date().toISOString().split('T')[0]
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const createForm = useForm<CreateTimeframeValues>({
+    defaultValues: emptyCreateValues(),
+    resolver: zodFormResolver<CreateTimeframeValues>(createTimeframeSchema),
   })
-  const [editTimeframe, setEditTimeframe] = useState({
-    name: '',
-    type: 'QUARTERLY' as TimeframeType,
-    startDate: '',
-    endDate: ''
+  const editForm = useForm<EditTimeframeValues>({
+    defaultValues: EMPTY_EDIT_VALUES,
+    resolver: zodFormResolver<EditTimeframeValues>(editTimeframeSchema),
   })
+  const newTimeframe = createForm.watch()
+  const editType = editForm.watch('type')
 
   // Auto-generate dates when type or base date changes
   useEffect(() => {
     if (newTimeframe.type && newTimeframe.baseDate) {
       const baseDate = new Date(newTimeframe.baseDate)
-      const { startDate, endDate, name } = calculateTimeframeDates(newTimeframe.type, baseDate)
-      setNewTimeframe(prev => ({
-        ...prev,
-        startDate: startDate.toISOString().split('T')[0],
-        endDate: endDate.toISOString().split('T')[0],
-        name: name
-      }))
+      const { startDate, endDate, name } = calculateTimeframeDates(newTimeframe.type as TimeframeType, baseDate)
+      createForm.setValue('startDate', startDate.toISOString().split('T')[0])
+      createForm.setValue('endDate', endDate.toISOString().split('T')[0])
+      createForm.setValue('name', name)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [newTimeframe.type, newTimeframe.baseDate])
 
-  const handleCreateTimeframe = async () => {
-    if (!newTimeframe.name || !newTimeframe.startDate || !newTimeframe.endDate) {
-      toast.error('Please fill in all required fields')
-      return
-    }
-
+  const handleCreateTimeframe = async (values: CreateTimeframeValues) => {
+    const newTimeframe = values
     try {
       const response = await fetch('/api/timeframes', {
         method: 'POST',
@@ -79,13 +118,7 @@ export default function TimeframeManagement({ timeframes }: TimeframeManagementP
       
       if (response.ok) {
         setTimeframesList(prev => [result.data, ...prev])
-        setNewTimeframe({ 
-          name: '', 
-          type: 'QUARTERLY',
-          startDate: '', 
-          endDate: '',
-          baseDate: new Date().toISOString().split('T')[0]
-        })
+        createForm.reset(emptyCreateValues())
         setIsCreating(false)
         toast.success('Timeframe created successfully')
         // Refresh the page to reflect changes
@@ -99,7 +132,7 @@ export default function TimeframeManagement({ timeframes }: TimeframeManagementP
     }
   }
 
-  const handleUpdateTimeframe = async (id: string) => {
+  const handleUpdateTimeframe = async (id: string, editTimeframe: EditTimeframeValues) => {
     try {
       const response = await fetch(`/api/timeframes/${id}`, {
         method: 'PATCH',
@@ -118,7 +151,7 @@ export default function TimeframeManagement({ timeframes }: TimeframeManagementP
           tf.id === id ? data.data : tf
         ))
         setEditingId(null)
-        setEditTimeframe({ name: '', type: 'QUARTERLY', startDate: '', endDate: '' })
+        editForm.reset(EMPTY_EDIT_VALUES)
         toast.success('Timeframe updated successfully')
         // Refresh the page to reflect changes
         window.location.reload()
@@ -156,11 +189,10 @@ export default function TimeframeManagement({ timeframes }: TimeframeManagementP
     }
   }
 
-  const handleDeleteTimeframe = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this timeframe? This action cannot be undone.')) {
-      return
-    }
-
+  const handleDeleteTimeframe = async () => {
+    const id = pendingDeleteId
+    if (!id) return
+    setIsDeleting(true)
     try {
       const response = await fetch(`/api/timeframes/${id}`, {
         method: 'DELETE'
@@ -168,52 +200,55 @@ export default function TimeframeManagement({ timeframes }: TimeframeManagementP
 
       if (response.ok) {
         setTimeframesList(prev => prev.filter(tf => tf.id !== id))
+        setPendingDeleteId(null)
       } else {
         const error = await response.json()
-        alert(error.error || 'Failed to delete timeframe')
+        toast.error(error.error || 'Failed to delete timeframe')
       }
     } catch (error) {
-      alert('An error occurred. Please try again.')
+      toast.error('An error occurred. Please try again.')
+    } finally {
+      setIsDeleting(false)
     }
   }
 
   const startEditing = (timeframe: Timeframe) => {
-    setEditingId(timeframe.id)
-    setEditTimeframe({
+    editForm.reset({
       name: timeframe.name,
-      type: (timeframe.type || 'QUARTERLY') as TimeframeType,
+      type: (timeframe.type || 'QUARTERLY') as EditTimeframeValues['type'],
       startDate: toDateInputValue(timeframe.startDate),
       endDate: toDateInputValue(timeframe.endDate)
     })
+    setEditingId(timeframe.id)
   }
 
-  // Auto-generate dates when editing type changes
+  // Auto-generate dates when editing type changes (and on entering edit mode),
+  // based on the current start date — same behaviour as before the RHF move.
   useEffect(() => {
-    if (editingId && editTimeframe.type && editTimeframe.startDate) {
-      const baseDate = new Date(editTimeframe.startDate)
-      const { startDate, endDate, name } = calculateTimeframeDates(editTimeframe.type, baseDate)
-      // Only update if the calculated dates are different to avoid infinite loops
-      setEditTimeframe(prev => {
-        const newStart = startDate.toISOString().split('T')[0]
-        const newEnd = endDate.toISOString().split('T')[0]
-        if (prev.startDate === newStart && prev.endDate === newEnd && prev.name === name) {
-          return prev // No change needed
-        }
-        return {
-          ...prev,
-          startDate: newStart,
-          endDate: newEnd,
-          name: name
-        }
-      })
+    const current = editForm.getValues()
+    if (editingId && editType && current.startDate) {
+      const baseDate = new Date(current.startDate)
+      const { startDate, endDate, name } = calculateTimeframeDates(editType as TimeframeType, baseDate)
+      const newStart = startDate.toISOString().split('T')[0]
+      const newEnd = endDate.toISOString().split('T')[0]
+      // Only update if the calculated values differ
+      if (current.startDate !== newStart) editForm.setValue('startDate', newStart)
+      if (current.endDate !== newEnd) editForm.setValue('endDate', newEnd)
+      if (current.name !== name) editForm.setValue('name', name)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editTimeframe.type, editingId])
+  }, [editType, editingId])
 
   const cancelEditing = () => {
     setEditingId(null)
-    setEditTimeframe({ name: '', type: 'QUARTERLY', startDate: '', endDate: '' })
+    editForm.reset(EMPTY_EDIT_VALUES)
   }
+
+  const submitCreate = createForm.handleSubmit(handleCreateTimeframe, (errors) => toast.error(firstError(errors)))
+  const submitEdit = (id: string) => editForm.handleSubmit(
+    (values) => handleUpdateTimeframe(id, values),
+    (errors) => toast.error(firstError(errors)),
+  )()
 
   return (
     <div className="bg-card shadow rounded-lg">
@@ -225,7 +260,7 @@ export default function TimeframeManagement({ timeframes }: TimeframeManagementP
           <button
             type="button"
             onClick={() => setIsCreating(true)}
-            className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 cursor-pointer relative z-10"
+            className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-primary-foreground bg-primary-600 hover:bg-primary-700 cursor-pointer relative z-10"
           >
             <Plus className="h-4 w-4 mr-1" />
             Add Timeframe
@@ -238,35 +273,38 @@ export default function TimeframeManagement({ timeframes }: TimeframeManagementP
             <h4 className="text-sm font-medium text-foreground mb-3">Create New Timeframe</h4>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div>
-                <label className="block text-sm font-medium text-muted-foreground mb-1">Timeframe Type *</label>
-                <select
-                  value={newTimeframe.type}
-                  onChange={(e) => setNewTimeframe(prev => ({ ...prev, type: e.target.value as TimeframeType }))}
-                  className="mt-1 block w-full border-border rounded-md shadow-sm focus:ring-ring focus:border-blue-500 sm:text-sm cursor-pointer relative z-10"
-                >
-                  <option value="MONTHLY">Monthly</option>
-                  <option value="QUARTERLY">Quarterly</option>
-                  <option value="SIX_MONTH">6-Month</option>
-                  <option value="YEARLY">Yearly</option>
-                </select>
+                <label htmlFor="timeframe-new-type" className="block text-sm font-medium text-muted-foreground mb-1">Timeframe Type *</label>
+                <Controller
+                  control={createForm.control}
+                  name="type"
+                  render={({ field }) => (
+                    <SettingsSelect
+                      id="timeframe-new-type"
+                      value={field.value}
+                      onValueChange={(v) => field.onChange(v as CreateTimeframeValues['type'])}
+                      options={TIMEFRAME_TYPE_OPTIONS}
+                      className="mt-1"
+                    />
+                  )}
+                />
               </div>
               <div>
-                <label className="block text-sm font-medium text-muted-foreground mb-1">Base Date *</label>
+                <label htmlFor="timeframe-new-base" className="block text-sm font-medium text-muted-foreground mb-1">Base Date *</label>
                 <input
+                  id="timeframe-new-base"
                   type="date"
-                  value={newTimeframe.baseDate}
-                  onChange={(e) => setNewTimeframe(prev => ({ ...prev, baseDate: e.target.value }))}
-                  className="mt-1 block w-full border-border rounded-md shadow-sm focus:ring-ring focus:border-blue-500 sm:text-sm cursor-pointer relative z-10"
+                  {...createForm.register('baseDate')}
+                  className="mt-1 block w-full border-border rounded-md shadow-sm focus:ring-ring focus:border-primary-500 sm:text-sm cursor-pointer relative z-10"
                 />
                 <p className="mt-1 text-xs text-muted-foreground">Start date will be auto-calculated</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-muted-foreground mb-1">Name (Auto-generated)</label>
+                <label htmlFor="timeframe-new-name" className="block text-sm font-medium text-muted-foreground mb-1">Name (Auto-generated)</label>
                 <input
+                  id="timeframe-new-name"
                   type="text"
-                  value={newTimeframe.name}
-                  onChange={(e) => setNewTimeframe(prev => ({ ...prev, name: e.target.value }))}
-                  className="mt-1 block w-full border-border rounded-md shadow-sm focus:ring-ring focus:border-blue-500 sm:text-sm bg-muted"
+                  {...createForm.register('name')}
+                  className="mt-1 block w-full border-border rounded-md shadow-sm focus:ring-ring focus:border-primary-500 sm:text-sm bg-muted"
                   placeholder="Auto-generated from type"
                   readOnly
                 />
@@ -283,8 +321,8 @@ export default function TimeframeManagement({ timeframes }: TimeframeManagementP
             <div className="mt-4 flex space-x-3">
               <button
                 type="button"
-                onClick={handleCreateTimeframe}
-                className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-green-600 hover:bg-green-700 cursor-pointer relative z-10"
+                onClick={submitCreate}
+                className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-primary-foreground bg-success-600 hover:bg-success-700 cursor-pointer relative z-10"
               >
                 <Check className="h-4 w-4 mr-1" />
                 Create
@@ -308,43 +346,45 @@ export default function TimeframeManagement({ timeframes }: TimeframeManagementP
               {editingId === timeframe.id ? (
                 <div className="flex-1 grid grid-cols-1 gap-4 sm:grid-cols-4">
                   <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">Type</label>
-                    <select
-                      value={editTimeframe.type}
-                      onChange={(e) => setEditTimeframe(prev => ({ ...prev, type: e.target.value as TimeframeType }))}
-                      className="block w-full border-border rounded-md shadow-sm focus:ring-ring focus:border-blue-500 sm:text-sm cursor-pointer relative z-10"
-                    >
-                      <option value="MONTHLY">Monthly</option>
-                      <option value="QUARTERLY">Quarterly</option>
-                      <option value="SIX_MONTH">6-Month</option>
-                      <option value="YEARLY">Yearly</option>
-                    </select>
+                    <label htmlFor={`timeframe-${timeframe.id}-type`} className="block text-xs font-medium text-muted-foreground mb-1">Type</label>
+                    <Controller
+                      control={editForm.control}
+                      name="type"
+                      render={({ field }) => (
+                        <SettingsSelect
+                          id={`timeframe-${timeframe.id}-type`}
+                          value={field.value}
+                          onValueChange={(v) => field.onChange(v as EditTimeframeValues['type'])}
+                          options={TIMEFRAME_TYPE_OPTIONS}
+                        />
+                      )}
+                    />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">Name</label>
+                    <label htmlFor={`timeframe-${timeframe.id}-name`} className="block text-xs font-medium text-muted-foreground mb-1">Name</label>
                     <input
+                      id={`timeframe-${timeframe.id}-name`}
                       type="text"
-                      value={editTimeframe.name}
-                      onChange={(e) => setEditTimeframe(prev => ({ ...prev, name: e.target.value }))}
-                      className="block w-full border-border rounded-md shadow-sm focus:ring-ring focus:border-blue-500 sm:text-sm cursor-text relative z-10"
+                      {...editForm.register('name')}
+                      className="block w-full border-border rounded-md shadow-sm focus:ring-ring focus:border-primary-500 sm:text-sm cursor-text relative z-10"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">Start Date</label>
+                    <label htmlFor={`timeframe-${timeframe.id}-start`} className="block text-xs font-medium text-muted-foreground mb-1">Start Date</label>
                     <input
+                      id={`timeframe-${timeframe.id}-start`}
                       type="date"
-                      value={editTimeframe.startDate}
-                      onChange={(e) => setEditTimeframe(prev => ({ ...prev, startDate: e.target.value }))}
-                      className="block w-full border-border rounded-md shadow-sm focus:ring-ring focus:border-blue-500 sm:text-sm cursor-pointer relative z-10"
+                      {...editForm.register('startDate')}
+                      className="block w-full border-border rounded-md shadow-sm focus:ring-ring focus:border-primary-500 sm:text-sm cursor-pointer relative z-10"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">End Date</label>
+                    <label htmlFor={`timeframe-${timeframe.id}-end`} className="block text-xs font-medium text-muted-foreground mb-1">End Date</label>
                     <input
+                      id={`timeframe-${timeframe.id}-end`}
                       type="date"
-                      value={editTimeframe.endDate}
-                      onChange={(e) => setEditTimeframe(prev => ({ ...prev, endDate: e.target.value }))}
-                      className="block w-full border-border rounded-md shadow-sm focus:ring-ring focus:border-blue-500 sm:text-sm cursor-pointer relative z-10"
+                      {...editForm.register('endDate')}
+                      className="block w-full border-border rounded-md shadow-sm focus:ring-ring focus:border-primary-500 sm:text-sm cursor-pointer relative z-10"
                     />
                   </div>
                 </div>
@@ -358,7 +398,7 @@ export default function TimeframeManagement({ timeframes }: TimeframeManagementP
                           <span className="text-sm font-medium text-foreground">
                             {timeframe.name}
                           </span>
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary-100 text-primary-800">
                             {getTimeframeTypeLabel((timeframe.type || 'QUARTERLY') as TimeframeType)}
                           </span>
                         </div>
@@ -369,7 +409,7 @@ export default function TimeframeManagement({ timeframes }: TimeframeManagementP
                     </div>
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                       timeframe.isActive 
-                        ? 'bg-green-100 text-green-800' 
+                        ? 'bg-success-100 text-success-800' 
                         : 'bg-muted text-foreground'
                     }`}>
                       {timeframe.isActive ? 'Active' : 'Inactive'}
@@ -383,15 +423,17 @@ export default function TimeframeManagement({ timeframes }: TimeframeManagementP
                   <>
                     <button
                       type="button"
-                      onClick={() => handleUpdateTimeframe(timeframe.id)}
-                      className="p-2 text-green-600 hover:text-green-700 cursor-pointer"
+                      onClick={() => submitEdit(timeframe.id)}
+                      aria-label={`Save ${timeframe.name}`}
+                      className="p-2 text-success-700 hover:text-success-700 cursor-pointer"
                     >
                       <Check className="h-4 w-4" />
                     </button>
                     <button
                       type="button"
                       onClick={cancelEditing}
-                      className="p-2 text-muted-foreground hover:text-muted-foreground cursor-pointer"
+                      aria-label="Cancel editing"
+                      className="p-2 text-muted-foreground hover:text-foreground cursor-pointer"
                     >
                       <X className="h-4 w-4" />
                     </button>
@@ -404,7 +446,7 @@ export default function TimeframeManagement({ timeframes }: TimeframeManagementP
                       className={`px-3 py-1 text-xs font-medium rounded-md cursor-pointer ${
                         timeframe.isActive
                           ? 'bg-muted text-muted-foreground hover:bg-muted'
-                          : 'bg-green-100 text-green-700 hover:bg-green-200'
+                          : 'bg-success-100 text-success-700 hover:bg-success-200'
                       }`}
                     >
                       {timeframe.isActive ? 'Deactivate' : 'Activate'}
@@ -412,14 +454,16 @@ export default function TimeframeManagement({ timeframes }: TimeframeManagementP
                     <button
                       type="button"
                       onClick={() => startEditing(timeframe)}
-                      className="p-2 text-blue-600 hover:text-blue-700 cursor-pointer"
+                      aria-label={`Edit ${timeframe.name}`}
+                      className="p-2 text-primary-600 hover:text-primary-700 cursor-pointer"
                     >
                       <Edit className="h-4 w-4" />
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleDeleteTimeframe(timeframe.id)}
-                      className="p-2 text-red-600 hover:text-red-700 cursor-pointer"
+                      onClick={() => setPendingDeleteId(timeframe.id)}
+                      aria-label={`Delete ${timeframe.name}`}
+                      className="p-2 text-danger-600 hover:text-danger-700 cursor-pointer"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -431,19 +475,25 @@ export default function TimeframeManagement({ timeframes }: TimeframeManagementP
         </div>
 
         {timeframesList.length === 0 && (
-          <div className="text-center py-6">
-            <Calendar className="mx-auto h-12 w-12 text-muted-foreground" />
-            <h3 className="mt-2 text-sm font-medium text-foreground">No timeframes</h3>
-            <p className="mt-1 text-sm text-muted-foreground">Get started by creating a new timeframe.</p>
-          </div>
+          <EmptyState
+            bare
+            icon={Calendar}
+            title="No timeframes"
+            description="Get started by creating a new timeframe."
+          />
         )}
       </div>
+
+      <ConfirmDialog
+        open={pendingDeleteId !== null}
+        onClose={() => { if (!isDeleting) setPendingDeleteId(null) }}
+        onConfirm={handleDeleteTimeframe}
+        title="Delete timeframe"
+        message="Are you sure you want to delete this timeframe? This action cannot be undone."
+        variant="danger"
+        confirmLabel="Delete"
+        isLoading={isDeleting}
+      />
     </div>
   )
 }
-
-
-
-
-
-

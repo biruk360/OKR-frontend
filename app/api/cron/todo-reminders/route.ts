@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { emit } from '@/lib/notifications'
+import { emitNow } from '@/lib/notifications'
 import { shouldSendReminder, reminderLabel } from '@/lib/todos/due-reminders'
+import { withCronAuth } from '@/lib/cron-auth'
 
 /**
  * Per-card due-date reminders (DTE-4).
@@ -14,18 +15,8 @@ import { shouldSendReminder, reminderLabel } from '@/lib/todos/due-reminders'
  * re-run in the same window sends nothing. It is cleared whenever `dueDate` or
  * `dueReminder` changes, so a rescheduled card reminds again.
  */
-export async function POST(request: NextRequest) { return handle(request) }
-export async function GET(request: NextRequest) { return handle(request) }
 
 async function handle(request: NextRequest) {
-  const secret = process.env.CRON_SECRET
-  if (!secret) {
-    return NextResponse.json({ success: false, error: 'CRON_SECRET not configured' }, { status: 500 })
-  }
-  if ((request.headers.get('authorization') || '') !== `Bearer ${secret}`) {
-    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
-  }
-
   const now = new Date()
 
   // Bound the scan: only cards with a reminder still pending, due within a
@@ -88,7 +79,7 @@ async function handle(request: NextRequest) {
     // Nobody to tell — the row is already stamped, so it stops being rescanned.
     if (recipients.length === 0) continue
 
-    await emit('TODO_DUE_REMINDER', {
+    await emitNow('TODO_DUE_REMINDER', {
       entityType: 'TODO',
       entityId: card.id,
       entityTitle: card.title,
@@ -108,3 +99,6 @@ async function handle(request: NextRequest) {
 
   return NextResponse.json({ success: true, data: { scanned: candidates.length, sent } })
 }
+
+export const POST = withCronAuth(handle)
+export const GET = POST

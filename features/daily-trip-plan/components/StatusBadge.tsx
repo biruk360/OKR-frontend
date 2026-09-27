@@ -11,9 +11,9 @@ const STATUS_STYLES: Record<string, string> = {
   SUBMITTED: 'bg-warning-50 text-warning-700 border-warning-200',
   MANAGER_ENDORSED: 'bg-primary/10 text-primary-700 border-primary-200',
   UNDER_REVIEW: 'bg-primary/10 text-primary-700 border-primary-200',
-  ADJUSTED: 'bg-purple-100 text-purple-800 border-purple-200',
+  ADJUSTED: 'bg-[color:var(--ap-ahead-bg)] text-[color:var(--ap-ahead-fg)] border-[color:var(--ap-ahead-bg)]',
   APPROVED: 'bg-success-50 text-success-700 border-success-200',
-  DRIVER_ASSIGNED: 'bg-indigo-100 text-indigo-800 border-indigo-200',
+  DRIVER_ASSIGNED: 'bg-primary-100 text-primary-800 border-primary-200',
   IN_PROGRESS: 'bg-primary/10 text-primary-700 border-primary-200',
   COMPLETED: 'bg-success-50 text-success-700 border-success-200',
   RECONCILED: 'bg-success-100 text-success-700 border-success-200',
@@ -44,7 +44,7 @@ export function StatusBadge({ status, className }: { status: string; className?:
   const style = STATUS_STYLES[status] ?? 'bg-muted text-muted-foreground border-border'
   const label = STATUS_LABELS[status] ?? status
   return (
-    <span className={cn('inline-flex items-center rounded-pill border px-2 py-0.5 text-[11px] font-medium', style, className)}>
+    <span className={cn('inline-flex items-center rounded-pill border px-2 py-0.5 text-caption font-medium', style, className)}>
       {label}
     </span>
   )

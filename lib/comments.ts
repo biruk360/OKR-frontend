@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { writeDirectNotifications } from '@/lib/notifications/direct'
 import { sendMail } from '@/lib/email'
+import { canAccessOkrComments } from '@/lib/okr/comment-access'
 
 /** Hard cap so a pasted wall of mentions cannot fan out into thousands of emails (MEN-4). */
 export const MAX_MENTIONS_PER_COMMENT = 25
@@ -95,7 +96,21 @@ interface NotifyArgs {
 
 /** Create in-app notifications + send email for each unique recipient. Swallows email errors. */
 export async function fanOutCommentNotifications(args: NotifyArgs): Promise<void> {
-  const unique = Array.from(new Set(args.recipientIds.filter((id) => id && id !== args.authorId)))
+  const candidates = Array.from(new Set(args.recipientIds.filter((id) => id && id !== args.authorId)))
+  if (candidates.length === 0) return
+
+  // The notification and email carry the comment text, so only people who can
+  // read the thread may receive them. On a private objective/KR a mentioned
+  // colleague without a full view (or a deactivated user) gets nothing rather
+  // than the private discussion. Same gate the comments API uses.
+  const people = await prisma.user.findMany({
+    where: { id: { in: candidates }, isActive: true },
+    select: { id: true, role: true },
+  })
+  const allowed = await Promise.all(
+    people.map(async (p) => ((await canAccessOkrComments(p, args.entityType, args.entityId)) ? p.id : null)),
+  )
+  const unique = allowed.filter((id): id is string => id !== null)
   if (unique.length === 0) return
 
   const href =

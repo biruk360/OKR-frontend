@@ -174,6 +174,19 @@ function aliasHeader(value: unknown): ProjectCreationImportHeader | null {
   return SCHEDULE_IMPORT_HEADERS.find((header) => HEADER_ALIASES[header]?.includes(normalized)) ?? null
 }
 
+/**
+ * Shared exact/known-alias header matcher. Exported so the DOCX schedule
+ * extractor maps table headers with the same rules as CSV/XLSX import.
+ */
+export function matchProjectCreationImportHeader(
+  value: unknown,
+): { target: ProjectCreationImportHeader; match: 'EXACT' | 'ALIAS' } | null {
+  const exact = exactHeader(value)
+  if (exact) return { target: exact, match: 'EXACT' }
+  const alias = aliasHeader(value)
+  return alias ? { target: alias, match: 'ALIAS' } : null
+}
+
 function detectHeaderRow(rows: unknown[][]): number {
   const candidates = rows.slice(0, 50).map((row, index) => {
     const values = row.filter((value) => displayValue(value) !== '')
@@ -465,6 +478,18 @@ function latest(values: Array<Date | null>): string | null {
   return dates.length ? isoDate(new Date(Math.max(...dates.map((date) => date.getTime())))) : null
 }
 
+/**
+ * Normalizes parser rows into the draft schedule. Exported for the DOCX
+ * schedule extractor, which builds `ScheduleImportRecord`s from document
+ * tables and then reuses this exact phase/milestone/activity/deliverable logic.
+ */
+export function normalizeProjectCreationParsedRows(
+  rows: ParsedScheduleRow[],
+  sheetName: string,
+): NormalizedProjectCreationImport {
+  return normalizeParsedRows(rows, sheetName)
+}
+
 function normalizeParsedRows(rows: ParsedScheduleRow[], sheetName: string): NormalizedProjectCreationImport {
   const phaseIdByName = new Map<string, string>()
   const milestoneIdByKey = new Map<string, string>()
@@ -665,6 +690,7 @@ export async function validateProjectCreationSpreadsheet(
   options: {
     maxRows?: number
     activeAssigneeEmails?: ReadonlySet<string>
+    resolveActiveAssigneeEmails?: (emails: readonly string[]) => Promise<ReadonlySet<string>>
   } = {},
 ): Promise<ValidatedProjectCreationImport> {
   if (!inspection.selectedSheetName || inspection.headerRowNumber === null) {
@@ -682,7 +708,7 @@ export async function validateProjectCreationSpreadsheet(
   }
   const assigneeEmails = parsed.rows.flatMap((row) => row.assigneeEmail ? [row.assigneeEmail] : [])
   const activeAssigneeEmails = options.activeAssigneeEmails
-    ?? await resolveActiveProjectCreationAssigneeEmails(assigneeEmails)
+    ?? await (options.resolveActiveAssigneeEmails ?? resolveActiveProjectCreationAssigneeEmails)(assigneeEmails)
   const validationJson = validateProjectCreationImport({
     rows: parsed.rows,
     records,

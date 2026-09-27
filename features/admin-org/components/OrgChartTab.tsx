@@ -3,6 +3,7 @@
 import { Building2, Crown, User, Users as UsersIcon } from 'lucide-react'
 import type { OrgTree } from '../types'
 import { Avatar } from './shared/Avatar'
+import { PersonTooltip } from '@/components/shared/UserAvatar'
 
 /**
  * Read-only org tree:
@@ -26,7 +27,7 @@ export function OrgChartTab({ tree }: { tree: OrgTree }) {
           <Crown className="size-4" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--ap-accent)' }}>
+          <p className="text-micro font-bold uppercase tracking-widest" style={{ color: 'var(--ap-accent)' }}>
             Company
           </p>
           <p className="text-[16px] font-semibold" style={{ color: 'var(--ap-fg)' }}>{tree.company.name}</p>
@@ -38,7 +39,7 @@ export function OrgChartTab({ tree }: { tree: OrgTree }) {
             <span className="text-sm font-medium" style={{ color: 'var(--ap-fg)' }}>
               {tree.company.ceo.name ?? tree.company.ceo.email}
             </span>
-            <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--ap-fg-subtle)' }}>CEO</span>
+            <span className="text-micro font-bold uppercase tracking-widest" style={{ color: 'var(--ap-fg-subtle)' }}>CEO</span>
           </div>
         ) : (
           <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">No CEO set</span>
@@ -56,7 +57,7 @@ export function OrgChartTab({ tree }: { tree: OrgTree }) {
             <div className="mb-3 flex items-center gap-2">
               <Building2 className="size-4 shrink-0" style={{ color: 'var(--ap-accent)' }} />
               <p className="flex-1 truncate text-[14px] font-semibold" style={{ color: 'var(--ap-fg)' }}>{d.name}</p>
-              <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+              <span className="rounded-full px-2 py-0.5 text-micro font-semibold"
                 style={{ background: 'rgba(0,122,255,0.10)', color: 'var(--ap-accent)' }}>
                 {d.members.length}
               </span>
@@ -70,7 +71,7 @@ export function OrgChartTab({ tree }: { tree: OrgTree }) {
                 <span className="text-[12px] font-semibold" style={{ color: 'var(--ap-fg)' }}>
                   {d.head.name ?? d.head.email}
                 </span>
-                <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#b45309' }}>Head</span>
+                <span className="text-micro font-bold uppercase tracking-widest" style={{ color: '#b45309' }}>Head</span>
               </div>
             )}
 
@@ -78,9 +79,11 @@ export function OrgChartTab({ tree }: { tree: OrgTree }) {
               {d.members.filter((m) => m.role !== 'HEAD').map((m) => (
                 <li key={m.membershipId} className="flex items-center gap-2 px-1 py-0.5">
                   <Avatar name={m.user.name ?? m.user.email} size="xs" />
-                  <span className="min-w-0 flex-1 truncate text-[12px]" style={{ color: 'var(--ap-fg-muted)' }}>
-                    {m.user.name ?? m.user.email}
-                  </span>
+                  <PersonTooltip person={m.user} whenTruncated>
+                    <span className="min-w-0 flex-1 truncate text-[12px]" style={{ color: 'var(--ap-fg-muted)' }}>
+                      {m.user.name ?? m.user.email}
+                    </span>
+                  </PersonTooltip>
                   {m.role === 'SECONDARY_MEMBER' && (
                     <span className="text-[9px] uppercase tracking-widest" style={{ color: 'var(--ap-fg-subtle)' }}>2°</span>
                   )}
@@ -89,7 +92,7 @@ export function OrgChartTab({ tree }: { tree: OrgTree }) {
             </ul>
 
             {d.members.length === 0 && (
-              <p className="py-2 text-center text-[11px]" style={{ color: 'var(--ap-fg-subtle)' }}>No members</p>
+              <p className="py-2 text-center text-caption" style={{ color: 'var(--ap-fg-subtle)' }}>No members</p>
             )}
           </div>
         ))}
@@ -109,7 +112,7 @@ export function OrgChartTab({ tree }: { tree: OrgTree }) {
           </div>
           <div className="flex flex-wrap gap-1.5">
             {tree.unassignedUsers.map((u) => (
-              <span key={u.id} className="flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px]"
+              <span key={u.id} className="flex items-center gap-1.5 rounded-full px-2 py-1 text-caption"
                 style={{ background: 'var(--ap-bg-raised)' }}>
                 <User className="size-2.5" style={{ color: 'var(--ap-fg-subtle)' }} />
                 {u.name ?? u.email}

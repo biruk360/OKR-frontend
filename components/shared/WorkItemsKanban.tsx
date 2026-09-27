@@ -106,9 +106,9 @@ export default function WorkItemsKanban({
   }, [keyResults, localInitiatives])
 
   const columns: Array<{ key: ColumnKey; label: string; tint: string; ring: string }> = [
-    { key: 'TODO', label: 'To do', tint: 'bg-slate-50 border-slate-200', ring: 'ring-slate-400' },
-    { key: 'IN_PROGRESS', label: 'In progress', tint: 'bg-amber-50 border-amber-200', ring: 'ring-amber-400' },
-    { key: 'DONE', label: 'Done', tint: 'bg-emerald-50 border-emerald-200', ring: 'ring-emerald-400' },
+    { key: 'TODO', label: 'To do', tint: 'bg-surface-hover border-border', ring: 'ring-ink-secondary' },
+    { key: 'IN_PROGRESS', label: 'In progress', tint: 'bg-warning-50 border-warning-200', ring: 'ring-warning-400' },
+    { key: 'DONE', label: 'Done', tint: 'bg-success-50 border-success-200', ring: 'ring-success-400' },
   ]
 
   async function moveInitiative(initiativeId: string, toColumn: ColumnKey) {
@@ -179,8 +179,8 @@ export default function WorkItemsKanban({
   return (
     <section className="rounded-[var(--ap-radius-md)] border bg-card p-4" style={{ borderColor: 'var(--ap-border)' }}>
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{title}</h3>
-        <span className="text-[11px] text-muted-foreground">Drag initiatives to change status</span>
+        <h3 className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">{title}</h3>
+        <span className="text-caption text-muted-foreground">Drag initiatives to change status</span>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {columns.map((col) => {
@@ -212,7 +212,7 @@ export default function WorkItemsKanban({
                     const chipColour =
                       it.kind === 'KR'
                         ? 'text-[var(--ap-accent)]'
-                        : 'text-purple-700'
+                        : 'text-[color:var(--ap-ahead-fg)]'
                     const chipStyle: React.CSSProperties =
                       it.kind === 'KR'
                         ? { background: 'var(--ap-accent-soft)' }
@@ -225,7 +225,7 @@ export default function WorkItemsKanban({
                         draggable={it.kind === 'INITIATIVE'}
                         onDragStart={(e) => onDragStart(e, it)}
                         onDragEnd={onDragEnd}
-                        className={`group rounded-[var(--ap-radius-sm)] bg-card border p-2.5 text-[13px] transition-all ${
+                        className={`group rounded-[var(--ap-radius-sm)] bg-card border p-2.5 text-body-sm transition-all ${
                           it.kind === 'INITIATIVE' ? 'cursor-grab active:cursor-grabbing hover:shadow-sm' : ''
                         } ${isDragging ? 'opacity-40' : ''} ${isSaving ? 'opacity-60' : ''}`}
                         style={{ borderColor: 'var(--ap-border)' }}
@@ -235,14 +235,14 @@ export default function WorkItemsKanban({
                             <GripVertical className="h-3.5 w-3.5 text-muted-foreground group-hover:text-muted-foreground shrink-0" />
                           )}
                           <span
-                            className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${chipColour}`}
+                            className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-micro font-semibold ${chipColour}`}
                             style={chipStyle}
                           >
                             <Icon className="h-3 w-3" />
                             {it.kind === 'KR' ? 'KR' : 'Init'}
                           </span>
                           {it.meta && (
-                            <span className="text-[10px] text-muted-foreground uppercase tracking-wide truncate">{it.meta}</span>
+                            <span className="text-micro text-muted-foreground uppercase tracking-wide truncate">{it.meta}</span>
                           )}
                         </div>
                         {it.kind === 'INITIATIVE' ? (
@@ -252,14 +252,14 @@ export default function WorkItemsKanban({
                               if (isDragging) { e.preventDefault(); return }
                               useInitiativeDetailStore.getState().open(it.raw)
                             }}
-                            className="block w-full text-left text-sm text-foreground hover:text-blue-600 line-clamp-2"
+                            className="block w-full text-left text-sm text-foreground hover:text-primary-600 line-clamp-2"
                           >
                             {it.title}
                           </button>
                         ) : (
                           <Link
                             href={it.href}
-                            className="block text-sm text-foreground hover:text-blue-600 line-clamp-2"
+                            className="block text-sm text-foreground hover:text-primary-600 line-clamp-2"
                           >
                             {it.title}
                           </Link>

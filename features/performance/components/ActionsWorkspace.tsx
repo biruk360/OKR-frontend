@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useId } from 'react'
 import { Award, CheckCircle2, PlayCircle, XCircle } from 'lucide-react'
 import { Button, ConfirmDialog, EmptyState, Label, Textarea } from '@/components/ui'
 import { Skeleton } from '@/components/ui/Skeleton'
@@ -22,6 +22,7 @@ const TRANSITION_COPY: Record<PendingTransition['next'], { title: string; confir
 }
 
 export function ActionsWorkspace() {
+  const uid = useId()
   const query = useDevelopmentActions()
   const transition = useTransitionDevelopmentAction()
   const permissions = usePerformancePermissions()
@@ -97,8 +98,8 @@ export function ActionsWorkspace() {
         isLoading={transition.isPending}
         extraContent={
           <div>
-            <Label>Decision or execution note</Label>
-            <Textarea
+            <Label htmlFor={`${uid}-note`}>Decision or execution note</Label>
+            <Textarea id={`${uid}-note`}
               value={reason}
               onChange={(event) => setReason(event.target.value)}
               placeholder="Optional note recorded with this decision"

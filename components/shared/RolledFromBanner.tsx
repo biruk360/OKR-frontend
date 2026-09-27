@@ -5,6 +5,7 @@ import { ArrowRight, History } from 'lucide-react'
 import { Button, Modal } from '@/components/ui'
 import CheckInTimeline from '@/components/key-result-detail/CheckInTimeline'
 import EntityLink from './EntityLink'
+import RichTextContent from './RichTextContent'
 import TimeframeBadge from './TimeframeBadge'
 
 interface LineageEntity {
@@ -31,9 +32,10 @@ interface RolledFromBannerProps {
   lineageDepth?: number
 }
 
+/** Stored retrospective HTML — always rendered through the DOMPurify allowlist. */
 function RichText({ html }: { html?: string | null }) {
   if (!html) return <span className="text-muted-foreground">Not recorded</span>
-  return <div className="prose prose-sm max-w-none text-foreground" dangerouslySetInnerHTML={{ __html: html }} />
+  return <RichTextContent html={html} className="text-foreground" />
 }
 
 export default function RolledFromBanner({ entityType, previous, next, lineageDepth = 0 }: RolledFromBannerProps) {

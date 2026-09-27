@@ -148,10 +148,11 @@ function PopoverContent({
           width === undefined && "w-[300px]",
           variantRadius[variant],
           "ring-1 ring-foreground/10",
-          "data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95",
-          "data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95",
-          "data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2",
-          "data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
+          // tw-animate utilities are Tailwind v4-only; reuse the 180ms
+          // ap-person-tip-* fade + scale keyframes from app/globals.css.
+          "origin-[var(--radix-popover-content-transform-origin)]",
+          "data-[state=open]:animate-[ap-person-tip-in_180ms_cubic-bezier(0.4,0,0.2,1)]",
+          "data-[state=closed]:animate-[ap-person-tip-out_120ms_cubic-bezier(0.4,0,0.2,1)_forwards]",
           className,
         )}
         {...props}

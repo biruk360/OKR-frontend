@@ -33,6 +33,8 @@ export interface ProjectCreationDocxBlock {
   headingPath: string[]
   text: string
   rows: string[][]
+  /** True for bulleted/numbered paragraphs (Word list numbering or a List style). */
+  isListItem: boolean
   candidateCategories: ProjectCreationDocxCandidateCategory[]
 }
 
@@ -50,6 +52,7 @@ interface MammothNode {
   styleName?: string | null
   breakType?: string
   checked?: boolean
+  numbering?: unknown
   children?: MammothNode[]
 }
 
@@ -126,17 +129,19 @@ function tableRows(node: MammothNode): string[][] {
 }
 
 const CATEGORY_RULES: Array<[ProjectCreationDocxCandidateCategory, RegExp]> = [
-  ['PROJECT_METADATA', /\b(project overview|project name|client|contract|objective|business outcome)\b/i],
-  ['SCOPE', /\b(scope|in scope|work package)\b/i],
-  ['DELIVERABLE', /\b(deliverable|output|submission)\b/i],
-  ['MILESTONE', /\b(milestone|checkpoint|gate)\b/i],
-  ['ACTIVITY', /\b(activity|activities|task|work plan|schedule)\b/i],
-  ['DATE', /\b(date|start|end|deadline|duration|timeline)\b/i],
-  ['RESPONSIBILITY', /\b(owner|responsib|accountab|assignee|role|party)\b/i],
-  ['DEPENDENCY', /\b(depend|predecessor|successor|prerequisite|lag)\b/i],
-  ['ASSUMPTION', /\b(assumption|constraint|risk)\b/i],
-  ['EXCLUSION', /\b(exclusion|out of scope|not included)\b/i],
-  ['APPROVAL', /\b(approval|acceptance|sign[ -]?off|review step)\b/i],
+  // Plural forms are accepted: real TORs (and the Story 2.5 template) title
+  // their sections "Deliverables", "Milestones", "Dependencies", …
+  ['PROJECT_METADATA', /\b(project overview|project name|client|contract|objectives?|business outcomes?)\b/i],
+  ['SCOPE', /\b(scope|in scope|work packages?)\b/i],
+  ['DELIVERABLE', /\b(deliverables?|outputs?|submissions?)\b/i],
+  ['MILESTONE', /\b(milestones?|checkpoints?|gates?)\b/i],
+  ['ACTIVITY', /\b(activity|activities|tasks?|work plan|schedule)\b/i],
+  ['DATE', /\b(dates?|start|end|deadlines?|duration|timeline)\b/i],
+  ['RESPONSIBILITY', /\b(owners?|responsib\w*|accountab\w*|assignees?|roles?|party|parties)\b/i],
+  ['DEPENDENCY', /\b(depend\w*|predecessors?|successors?|prerequisites?|lag)\b/i],
+  ['ASSUMPTION', /\b(assumptions?|constraints?|risks?)\b/i],
+  ['EXCLUSION', /\b(exclusions?|out of scope|not included)\b/i],
+  ['APPROVAL', /\b(approvals?|acceptance|sign[ -]?off|review steps?)\b/i],
 ]
 
 function candidateCategories(text: string, headingPath: readonly string[]): ProjectCreationDocxCandidateCategory[] {
@@ -197,6 +202,7 @@ export async function extractProjectCreationDocx(
     let text = ''
     let rows: string[][] = []
     let level: number | undefined
+    let isListItem = false
     if (child.type === 'paragraph') {
       text = normalizeText(nodeText(child))
       if (!text) continue
@@ -209,6 +215,7 @@ export async function extractProjectCreationDocx(
         headingPath.splice(detectedLevel)
       } else {
         type = 'PARAGRAPH'
+        isListItem = Boolean(child.numbering) || /\blist\b/i.test(child.styleName ?? '')
       }
     } else if (child.type === 'table') {
       rows = tableRows(child)
@@ -234,6 +241,7 @@ export async function extractProjectCreationDocx(
       headingPath: blockHeadingPath,
       text,
       rows,
+      isListItem,
       candidateCategories: candidateCategories(text, blockHeadingPath),
     })
   }

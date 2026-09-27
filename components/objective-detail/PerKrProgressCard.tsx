@@ -24,19 +24,19 @@ export default function PerKrProgressCard({ keyResults }: Props) {
   return (
     <section className="rounded-[var(--ap-radius-md)] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
       <header className="px-4 py-3 border-b" style={{ borderColor: 'var(--ap-border)' }}>
-        <h3 className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+        <h3 className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">
           Per-KR Progress
         </h3>
-        <p className="mt-1 text-[13px]">
-          <span className="text-[20px] font-semibold tabular-nums" style={{ letterSpacing: '-0.02em' }}>{avg}%</span>
-          <span className="text-[12px] text-muted-foreground ml-2">
+        <p className="mt-1 text-body-sm">
+          <span className="text-xl font-semibold tabular-nums" style={{ letterSpacing: '-0.02em' }}>{avg}%</span>
+          <span className="text-xs text-muted-foreground ml-2">
             Average across {active.length} KR{active.length !== 1 ? 's' : ''}
           </span>
         </p>
       </header>
       <div className="px-4 py-4">
         {active.length === 0 ? (
-          <p className="text-[12px] text-muted-foreground text-center py-4">No active KRs.</p>
+          <p className="text-xs text-muted-foreground text-center py-4">No active KRs.</p>
         ) : (
           <div className="flex items-end gap-2 h-[120px]">
             {active.slice(0, 8).map((kr, i) => {
@@ -53,7 +53,7 @@ export default function PerKrProgressCard({ keyResults }: Props) {
                       style={{ height: `${pct}%`, background: getConfidenceColor(kr.confidence) }}
                     />
                   </div>
-                  <div className="text-[10px] font-semibold tabular-nums">{pct}%</div>
+                  <div className="text-micro font-semibold tabular-nums">{pct}%</div>
                 </div>
               )
             })}

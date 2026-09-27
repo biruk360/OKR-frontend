@@ -81,7 +81,9 @@ function mapPermission(permission: string): PermissionTarget {
     case 'letter.archive':
       return { kind: 'feature', featureKey: 'button.letter.archive' }
     case 'letter.view_all':
-      return { kind: 'feature', featureKey: 'module.letters' }
+      // Admin-level letter access (edit/archive any letter) — never the module
+      // key, which every employee holds. See lib/letter-permissions.ts.
+      return { kind: 'feature', featureKey: 'button.letter.admin' }
     default:
       return { kind: 'skip' }
   }

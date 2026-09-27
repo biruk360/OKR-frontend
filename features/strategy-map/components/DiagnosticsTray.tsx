@@ -31,7 +31,7 @@ export function DiagnosticsTray() {
 
   return (
     <div
-      className="flex items-center gap-2 border-t px-3 py-1.5 text-[11px]"
+      className="flex items-center gap-2 border-t px-3 py-1.5 text-caption"
       style={{ borderColor: '#fde68a', background: 'rgba(252,211,77,0.12)' }}
     >
       <AlertTriangle className="size-3.5 shrink-0" style={{ color: '#b45309' }} />
@@ -71,7 +71,7 @@ function Pills({ d }: { d: Diagnostics }) {
 function Pill({ children }: { children: React.ReactNode }) {
   return (
     <span
-      className="rounded-full px-2 py-0.5 text-[10px] font-medium"
+      className="rounded-full px-2 py-0.5 text-micro font-medium"
       style={{ background: 'rgba(180,83,9,0.10)', color: '#92400e' }}
     >
       {children}

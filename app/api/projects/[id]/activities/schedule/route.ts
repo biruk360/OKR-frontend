@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { z } from 'zod'
+import { SLIP_REASONS } from '@/features/projects/types'
 import { prisma } from '@/lib/prisma'
 import { recordActivity } from '@/lib/activity-log'
 import { getWritableProject } from '@/lib/projects/access'
@@ -13,7 +14,9 @@ const scheduleSchema = z.object({
   mode: z.enum(['move', 'resize-start', 'resize-end']),
   currentStart: z.string().nullable().optional(),
   currentEnd: z.string().nullable().optional(),
-  slipReason: z.string().optional(),
+  // One of the 9-value taxonomy (build spec §C4) — a blank or free-text value
+  // must not satisfy the Invariant #2 slip gate below.
+  slipReason: z.enum(SLIP_REASONS).optional(),
   slipOwner: z.enum(['360GROUND', 'CLIENT', 'SHARED']).optional(),
   slipDetail: z.string().max(2000).optional(),
 })

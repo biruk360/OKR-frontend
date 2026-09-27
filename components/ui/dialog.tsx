@@ -31,25 +31,32 @@ function DialogClose({
   return <DialogPrimitive.Close data-slot="dialog-close" {...props} />
 }
 
-function DialogOverlay({
-  className,
-  ...props
-}: React.ComponentProps<typeof DialogPrimitive.Overlay>) {
+// forwardRef: Radix's presence layer passes a ref to the overlay, and React 18
+// warns ("Function components cannot be given refs") on every modal open
+// when it can't attach one.
+const DialogOverlay = React.forwardRef<
+  React.ElementRef<typeof DialogPrimitive.Overlay>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
+>(function DialogOverlay({ className, ...props }, ref) {
   return (
     <DialogPrimitive.Overlay
+      ref={ref}
       data-slot="dialog-overlay"
       className={cn(
         // Scrim comes from --ap-overlay (via .ap-modal-overlay in globals.css) rather
       // than bg-black/10, so it follows the theme — the old flat 10% black was
       // nearly invisible over the refreshed light surfaces and far too weak in
       // dark mode. This is the single scrim for all ~50 Modal consumers.
-      "ap-modal-overlay fixed inset-0 isolate z-50 duration-100 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
+      // Tailwind v3: tw-animate is v4-only, so the 100ms fade-in uses the
+      // tailwind.config.js `fadeIn` keyframes. No exit keyframe exists, so
+      // close stays instant (Radix unmounts at once when no animation runs).
+      "ap-modal-overlay fixed inset-0 isolate z-50 data-[state=open]:animate-[fadeIn_100ms_ease-out]",
         className
       )}
       {...props}
     />
   )
-}
+})
 
 function DialogContent({
   className,
@@ -65,7 +72,10 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          // Opacity-only fade: the v4 zoom-in-95 can't be reproduced with a
+          // transform keyframe here because v3's -translate-x/y-1/2 centring is
+          // itself a `transform` and would be overridden mid-animation.
+          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 outline-none sm:max-w-sm data-[state=open]:animate-[fadeIn_100ms_ease-out]",
           className
         )}
         {...props}
@@ -150,7 +160,7 @@ function DialogDescription({
     <DialogPrimitive.Description
       data-slot="dialog-description"
       className={cn(
-        "text-sm text-muted-foreground *:[a]:underline *:[a]:underline-offset-3 *:[a]:hover:text-foreground",
+        "text-sm text-muted-foreground [&>a]:underline [&>a]:underline-offset-[3px] [&>a:hover]:text-foreground",
         className
       )}
       {...props}

@@ -20,9 +20,10 @@
  * pays the launch cost; everyone else gets a warm pool.
  */
 
-import type { Browser } from 'puppeteer'
+import type { Browser, Page } from 'puppeteer'
 import type { Letter, LetterEnclosure, LetterTypeDef } from '@prisma/client'
 import { renderLetterHtml } from './letter-html'
+import { isAllowedPdfRequestUrl } from './letter-sanitize'
 
 let browserPromise: Promise<Browser> | null = null
 let pagesRendered = 0
@@ -60,6 +61,28 @@ async function recycleIfNeeded() {
   if (b) await (await b).close().catch(() => {})
 }
 
+/**
+ * Harden a fresh page before any HTML is loaded into it:
+ *   - JavaScript off — page scripts never run (our own `page.evaluate` still
+ *     works; it goes through the DevTools protocol, not the page).
+ *   - Request interception — everything except data:/about:/blob: and the
+ *     Google Fonts hosts is aborted, so HTML (a letter body, an AI briefing)
+ *     can't make the server fetch internal URLs / cloud metadata (SSRF).
+ * Applied to every render — all callers' templates are self-contained.
+ */
+async function hardenPage(page: Page): Promise<void> {
+  await page.setJavaScriptEnabled(false)
+  await page.setRequestInterception(true)
+  page.on('request', (request) => {
+    if (request.isInterceptResolutionHandled()) return
+    if (isAllowedPdfRequestUrl(request.url())) {
+      request.continue().catch(() => {})
+    } else {
+      request.abort('blockedbyclient').catch(() => {})
+    }
+  })
+}
+
 export interface RenderToPdfArgs {
   letter: Letter & {
     signatory: { name: string | null } | null
@@ -67,10 +90,8 @@ export interface RenderToPdfArgs {
     letterTypeDef?: Pick<LetterTypeDef, 'id' | 'code' | 'name'> | null
   }
   lang?: 'en' | 'am'
-  /** Google Font family name to use for the letter body. */
+  /** Google Font family name to use for the letter body (allowlisted by the renderer). */
   font?: string
-  /** Absolute base URL so Puppeteer can fetch fonts/logos from /branding & /fonts. */
-  origin: string
 }
 
 export interface RenderHtmlToPdfArgs {
@@ -85,7 +106,7 @@ export interface RenderHtmlToPngArgs {
   height?: number
 }
 
-/** Render arbitrary trusted HTML to PDF using the shared warm Puppeteer browser. */
+/** Render HTML to PDF using the shared warm Puppeteer browser (JS off, network allowlisted). */
 export async function renderHtmlToPdf({
   html,
   format = 'A4',
@@ -94,6 +115,7 @@ export async function renderHtmlToPdf({
   const browser = await getBrowser()
   const page = await browser.newPage()
   try {
+    await hardenPage(page)
     await page.setContent(html, { waitUntil: 'load', timeout: 15_000 })
     await page.evaluate(async () => {
       if (document.fonts && document.fonts.ready) await document.fonts.ready
@@ -124,7 +146,7 @@ export async function renderHtmlToPdf({
   }
 }
 
-/** Render arbitrary trusted HTML to PNG using the shared warm Puppeteer browser. */
+/** Render HTML to PNG using the shared warm Puppeteer browser (JS off, network allowlisted). */
 export async function renderHtmlToPng({
   html,
   width = 1600,
@@ -133,6 +155,7 @@ export async function renderHtmlToPng({
   const browser = await getBrowser()
   const page = await browser.newPage()
   try {
+    await hardenPage(page)
     await page.setViewport({ width, height, deviceScaleFactor: 1 })
     await page.setContent(html, { waitUntil: 'load', timeout: 15_000 })
     await page.evaluate(async () => {
@@ -166,9 +189,8 @@ export async function renderLetterToPdf({
   letter,
   lang = 'en',
   font,
-  origin,
 }: RenderToPdfArgs): Promise<{ pdf: Buffer; missing: string[] }> {
-  const { html, missing } = renderLetterHtml({ letter, lang, font, origin })
+  const { html, missing } = renderLetterHtml({ letter, lang, font })
   const pdf = await renderHtmlToPdf({ html })
   return { pdf, missing }
 }

@@ -1,21 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { emit } from '@/lib/notifications'
+import { emitNow } from '@/lib/notifications'
 import { generateClientReportDraftsForActiveProjects } from '@/lib/projects/client-report'
+import { withCronAuth } from '@/lib/cron-auth'
 
-export async function POST(request: NextRequest) {
-  const expected = process.env.CRON_SECRET
-  if (expected) {
-    const auth = request.headers.get('authorization') || ''
-    const url = new URL(request.url)
-    const key = auth.replace(/^Bearer\s+/i, '') || url.searchParams.get('key') || ''
-    if (key !== expected) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-  }
-
+// Auth: withCronAuth (lib/cron-auth.ts) — `Authorization: Bearer $CRON_SECRET`, fail-closed.
+export const POST = withCronAuth(async (request: NextRequest) => {
   const result = await generateClientReportDraftsForActiveProjects()
   for (const notification of result.notifications) {
-    await emit('CLIENT_REPORT_READY', {
+    await emitNow('CLIENT_REPORT_READY', {
       actorId: 'system',
       entityType: 'PROJECT',
       entityId: notification.projectId,
@@ -25,6 +17,6 @@ export async function POST(request: NextRequest) {
     })
   }
   return NextResponse.json({ success: true, ...result })
-}
+})
 
 export const GET = POST

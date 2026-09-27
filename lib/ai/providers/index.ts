@@ -8,6 +8,8 @@ import { OpenAIProvider } from './openai'
  * Throws ProviderNotConfiguredError when the API key is missing OR when the
  * provider implementation hasn't been wired yet (Anthropic + Gemini stubs land
  * in subsequent commits). Routes catch this and return a 503 naming the provider.
+ * Keep WIRED_AI_PROVIDERS (./wired.ts) in step with the cases below — UI
+ * pickers only offer the providers listed there.
  */
 export function getProvider(id: AiProviderId): AiProvider {
   if (!hasProviderKey(id)) {
@@ -25,6 +27,7 @@ export function getProvider(id: AiProviderId): AiProvider {
 }
 
 export { ProviderNotConfiguredError, ProviderCallError } from './types'
+export { WIRED_AI_PROVIDERS, AI_PROVIDER_LABELS, isWiredAiProvider, type WiredAiProviderId } from './wired'
 export type {
   AiProvider,
   AiUsage,

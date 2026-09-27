@@ -63,7 +63,7 @@ export function PortfolioReportPanel() {
         <div className="overflow-x-auto">
           <table className="w-full text-body-sm">
             <thead>
-              <tr className="border-b border-black/[0.08] text-left text-ink-tertiary">
+              <tr className="border-b border-ink-primary/[0.08] text-left text-ink-tertiary">
                 <th className="px-2 py-1.5 font-medium">Period</th>
                 <th className="px-2 py-1.5 font-medium">Headline</th>
                 <th className="px-2 py-1.5 font-medium">Projects</th>
@@ -72,7 +72,7 @@ export function PortfolioReportPanel() {
                 <th className="px-2 py-1.5 font-medium">PDF</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-black/[0.04]">
+            <tbody className="divide-y divide-ink-primary/[0.04]">
               {reports.map((report) => (
                 <tr key={report.id}>
                   <td className="whitespace-nowrap px-2 py-2 text-ink-secondary">{fmtDate(report.periodStart)} - {fmtDate(report.periodEnd)}</td>

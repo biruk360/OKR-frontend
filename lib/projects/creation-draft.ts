@@ -13,6 +13,15 @@ import {
   type ProjectCreationValidationJson,
 } from '@/lib/projects/creation-normalize'
 import { validateProjectCreationCleanupTransitions } from '@/lib/projects/creation-changes'
+import {
+  applyUserEditProvenance,
+  assertClientProvenanceUnchanged,
+} from '@/lib/projects/creation-provenance'
+import {
+  decideProjectCreationAiProposals,
+  type ProjectCreationAssumptionDecision,
+  type ProjectCreationAssumptionScope,
+} from '@/lib/projects/creation-assumption-decisions'
 
 export const PROJECT_CREATION_SOURCE_METHODS = [
   'MANUAL',
@@ -116,6 +125,12 @@ export interface UpdateProjectCreationDraftInput {
   clearMethodData?: true
   /** Server-only authorization for a provider/parser to introduce new proposals. */
   allowNewAiProposals?: true
+  /**
+   * Story 2.6: the update comes from a user (PATCH). Source/provenance records are
+   * server-owned — any client change to them is rejected, and sources whose targets
+   * the user edited are re-stamped (lastEditor USER, basis USER_DECISION).
+   */
+  enforceServerProvenance?: true
   sourceMetadata?: {
     fileName: string
     mimeType: string
@@ -321,6 +336,25 @@ export async function updateProjectCreationDraft(
         ),
         { allowNewProposals: input.allowNewAiProposals === true },
       )
+    let effectiveScheduleJson = scheduleJson
+    if (input.enforceServerProvenance && !sourceMetadata
+      && (projectJson !== undefined || scheduleJson !== undefined || validationJson !== undefined)) {
+      if (scheduleJson !== undefined) {
+        assertClientProvenanceUnchanged(currentScheduleJson.sources, scheduleJson.sources)
+      }
+      const previousDraft = combineNormalizedProjectCreationDraft(currentProjectJson, currentScheduleJson, currentValidationJson)
+      const nextDraft = combineNormalizedProjectCreationDraft(
+        projectJson ?? currentProjectJson,
+        scheduleJson ?? currentScheduleJson,
+        validationJson ?? currentValidationJson,
+      )
+      const stamped = applyUserEditProvenance(previousDraft, nextDraft)
+      if (scheduleJson !== undefined) {
+        effectiveScheduleJson = { ...scheduleJson, sources: stamped }
+      } else if (JSON.stringify(stamped) !== JSON.stringify(currentScheduleJson.sources)) {
+        effectiveScheduleJson = { ...currentScheduleJson, sources: stamped }
+      }
+    }
     const methodChanged = input.sourceMethod !== undefined
       && input.sourceMethod !== current.sourceMethod
     if (methodChanged && input.discardMethodData !== true) {
@@ -329,7 +363,7 @@ export async function updateProjectCreationDraft(
     const changedFields = [
       methodChanged ? 'sourceMethod' : null,
       projectJson !== undefined ? 'projectJson' : null,
-      methodChanged || input.clearMethodData || scheduleJson !== undefined ? 'scheduleJson' : null,
+      methodChanged || input.clearMethodData || effectiveScheduleJson !== undefined ? 'scheduleJson' : null,
       methodChanged || input.clearMethodData || validationJson !== undefined ? 'validationJson' : null,
       sourceMetadata !== undefined ? 'sourceMetadata' : null,
     ].filter((field): field is string => field !== null)
@@ -347,8 +381,8 @@ export async function updateProjectCreationDraft(
           : {}),
         ...(methodChanged || input.clearMethodData
           ? { scheduleJson: Prisma.DbNull }
-          : scheduleJson !== undefined
-          ? { scheduleJson: scheduleJson as Prisma.InputJsonValue }
+          : effectiveScheduleJson !== undefined
+          ? { scheduleJson: effectiveScheduleJson as Prisma.InputJsonValue }
           : {}),
         ...(methodChanged || input.clearMethodData
           ? { validationJson: Prisma.DbNull }
@@ -428,6 +462,88 @@ export async function updateProjectCreationDraft(
       }, { client: tx, required: true })
     }
     return updated
+  })
+}
+
+export interface BulkDecideProjectCreationAiProposalsInput {
+  id: string
+  actorUserId: string
+  expectedVersion: number
+  scope: ProjectCreationAssumptionScope
+  decision: ProjectCreationAssumptionDecision
+  /** The count the PM confirmed; the server refuses if the stored set differs. */
+  expectedCount: number
+}
+
+/**
+ * Bulk accept/reject of pending AI/inferred assumption proposals (per phase or all
+ * remaining) as one explicit PM action. The target set is recomputed from the stored
+ * draft under optimistic concurrency; only assumption statuses change (values and
+ * server-owned provenance are untouched); one audit entry records the counts.
+ */
+export async function bulkDecideProjectCreationAiProposals(
+  input: BulkDecideProjectCreationAiProposalsInput,
+  database: DraftDatabase = prisma as unknown as DraftDatabase,
+): Promise<{ draft: ProjectCreationDraft; count: number }> {
+  return database.$transaction(async (tx) => {
+    const current = await tx.projectCreationDraft.findUnique({ where: { id: input.id } })
+    if (!current || current.ownerUserId !== input.actorUserId) {
+      throw new ProjectCreationDraftNotFoundError()
+    }
+    if (!EDITABLE_DRAFT_STATUSES.has(current.status as ProjectCreationDraftStatus)) {
+      throw new ProjectCreationDraftStateError(current.status, `Drafts in ${current.status} status cannot be edited`)
+    }
+    if (current.version !== input.expectedVersion) {
+      throw new ProjectCreationDraftVersionConflictError(input.expectedVersion, current.version)
+    }
+    const currentValidationJson = current.validationJson === null
+      ? createEmptyProjectCreationValidationJson()
+      : projectCreationValidationJsonSchema.parse(current.validationJson)
+    const combined = combineNormalizedProjectCreationDraft(
+      projectCreationProjectJsonSchema.parse(current.projectJson),
+      current.scheduleJson === null
+        ? createEmptyProjectCreationScheduleJson()
+        : projectCreationScheduleJsonSchema.parse(current.scheduleJson),
+      currentValidationJson,
+    )
+    const decided = decideProjectCreationAiProposals(combined, {
+      scope: input.scope,
+      decision: input.decision,
+      expectedCount: input.expectedCount,
+    })
+    const validationJson = projectCreationValidationJsonSchema.parse({
+      ...currentValidationJson,
+      assumptions: decided.draft.assumptions,
+    })
+
+    const result = await tx.projectCreationDraft.updateMany({
+      where: { id: input.id, ownerUserId: input.actorUserId, version: input.expectedVersion },
+      data: { validationJson: validationJson as Prisma.InputJsonValue, version: { increment: 1 } },
+    })
+    if (result.count !== 1) {
+      const latest = await tx.projectCreationDraft.findUnique({ where: { id: input.id } })
+      if (!latest) throw new ProjectCreationDraftNotFoundError()
+      throw new ProjectCreationDraftVersionConflictError(input.expectedVersion, latest.version)
+    }
+    const updated = await tx.projectCreationDraft.findUnique({ where: { id: input.id } })
+    if (!updated) throw new ProjectCreationDraftNotFoundError()
+    await recordActivity({
+      entityType: 'PROJECT_CREATION_DRAFT',
+      action: 'UPDATED',
+      actorId: input.actorUserId,
+      changes: { version: { from: current.version, to: updated.version } },
+      metadata: {
+        draftId: updated.id,
+        kind: input.decision === 'ACCEPT' ? 'AI_PROPOSALS_BULK_ACCEPTED' : 'AI_PROPOSALS_BULK_REJECTED',
+        changedFields: ['validationJson'],
+        scope: input.scope.type,
+        ...(input.scope.type === 'PHASE' ? { phaseId: input.scope.phaseId } : {}),
+        count: decided.assumptionIds.length,
+        assumptionIds: decided.assumptionIds.slice(0, 500),
+        status: updated.status,
+      },
+    }, { client: tx, required: true })
+    return { draft: updated, count: decided.assumptionIds.length }
   })
 }
 

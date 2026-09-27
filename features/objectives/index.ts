@@ -23,10 +23,14 @@ export { default as EditObjectiveButton } from './components/EditObjectiveButton
 export { default as EditObjectiveModal } from './components/EditObjectiveModal'
 export { default as NestedObjectivesList } from './components/NestedObjectivesList'
 export { default as ObjectivesList } from './components/ObjectivesList'
-export { default as OKRLevelView } from './components/OKRLevelView'
 export { default as ParentObjectiveSelector } from './components/ParentObjectiveSelector'
 export { default as UnarchiveObjectiveButton } from './components/UnarchiveObjectiveButton'
 export { default as ObjectiveActionsMenu } from './components/ObjectiveActionsMenu'
+export {
+  conservativeObjectivePermissions,
+  NO_OBJECTIVE_PERMISSIONS,
+  type ObjectivePermissionFlags,
+} from './services/objective-permission-flags'
 
 export type {
   CreateObjectiveForm,

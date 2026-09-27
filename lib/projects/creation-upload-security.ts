@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto'
-import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises'
 import net from 'node:net'
 import os from 'node:os'
 import path from 'node:path'
@@ -458,9 +458,49 @@ export async function deleteSecureProjectCreationUpload(
   storageRoot = resolveProjectCreationUploadRoot(),
 ): Promise<void> {
   if (!sourceRef) return
+  const resolved = sourcePath(path.resolve(storageRoot), sourceRef)
+  for (const target of [resolved, `${resolved}${PROCESSING_STATE_SUFFIX}`]) {
+    try {
+      await unlink(target)
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+    }
+  }
+}
+
+/**
+ * Story 2.7: private background-processing state for a retained upload, stored next to
+ * the source file (same 0600 private storage, deleted with it). Never served directly.
+ */
+const PROCESSING_STATE_SUFFIX = '.processing.json'
+
+export async function writeProjectCreationProcessingStateFile(
+  sourceRef: string,
+  state: unknown,
+  storageRoot = resolveProjectCreationUploadRoot(),
+): Promise<void> {
+  const destination = `${sourcePath(path.resolve(storageRoot), sourceRef)}${PROCESSING_STATE_SUFFIX}`
+  const temporary = `${destination}.${randomUUID()}.tmp`
   try {
-    await unlink(sourcePath(path.resolve(storageRoot), sourceRef))
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+    await writeFile(temporary, JSON.stringify(state), { flag: 'wx', mode: 0o600 })
+    await rename(temporary, destination)
+  } catch {
+    await unlink(temporary).catch(() => undefined)
+    throw new ProjectCreationUploadSecurityError(
+      'Secure upload storage is temporarily unavailable. Try again later.',
+      'STORAGE_UNAVAILABLE',
+    )
+  }
+}
+
+export async function readProjectCreationProcessingStateFile(
+  sourceRef: string,
+  storageRoot = resolveProjectCreationUploadRoot(),
+): Promise<unknown | null> {
+  try {
+    const raw = await readFile(`${sourcePath(path.resolve(storageRoot), sourceRef)}${PROCESSING_STATE_SUFFIX}`, 'utf8')
+    return JSON.parse(raw) as unknown
+  } catch {
+    return null
   }
 }

@@ -6,6 +6,7 @@ export type ActivityEntityType =
   | 'TODO'
   | 'SPRINT'
   | 'LETTER'
+  | 'LETTER_TEMPLATE'
   | 'EVALUATION'
   | 'REVIEW_CYCLE'
   | 'DEVELOPMENT_ACTION'
@@ -30,6 +31,11 @@ export type ActivityEntityType =
   // Daily Scrum module entity types.
   | 'SCRUM_UPDATE'
   | 'SCRUM_ABSENCE'
+  | 'SCRUM_SETTINGS'
+  | 'SCRUM_SAVED_VIEW'
+  | 'SCRUM_LINK'
+  // Board label definitions (not a card), e.g. create/rename/delete a label.
+  | 'TODO_LABEL'
 
 export type ActivityAction =
   | 'CREATED'
@@ -129,6 +135,9 @@ export type ActivityAction =
   | 'AI_MAPPING_FAILED'
   | 'AI_CLEANUP_ACCEPTED'
   | 'AI_CLEANUP_REJECTED'
+  | 'AI_PLAN_GENERATED'
+  | 'AI_PLAN_REVISED'
+  | 'AI_PLAN_REVISION_UNDONE'
   // Project Management module actions.
   | 'BASELINE_COMMITTED'
   | 'REBASELINED'
@@ -140,12 +149,14 @@ export type ActivityAction =
   | 'GATE_WAIVED'
   | 'CR_APPROVED'
   | 'REPORT_SENT'
+  | 'AI_ASSISTANT_QUERIED'
   // Daily Scrum module actions.
   | 'PROXY_SUBMITTED'
   | 'PROXY_CONFIRMED'
   | 'AMENDED'
   | 'ESCALATED'
   | 'RESOLVED'
+  | 'CELEBRATED'
   // OKR period-close lifecycle actions.
   | 'CLOSURE_INITIATED'
   | 'CLOSED'

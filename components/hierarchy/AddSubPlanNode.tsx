@@ -30,7 +30,7 @@ const AddSubPlanNode = memo(({ data, selected }: NodeProps<AddSubPlanNodeData>) 
       <button
         type="button"
         onClick={handleClick}
-        className="inline-flex items-center gap-2 rounded-md bg-card px-3 py-2 text-sm font-medium text-muted-foreground shadow-sm ring-1 ring-border transition hover:bg-blue-50 hover:text-blue-700 hover:ring-blue-300"
+        className="inline-flex items-center gap-2 rounded-md bg-card px-3 py-2 text-sm font-medium text-muted-foreground shadow-sm ring-1 ring-border transition hover:bg-primary-50 hover:text-primary-700 hover:ring-primary-300"
       >
         <Plus className="h-4 w-4" />
         Add aligned objective
@@ -38,7 +38,7 @@ const AddSubPlanNode = memo(({ data, selected }: NodeProps<AddSubPlanNodeData>) 
       <p className="mt-2 max-w-[180px] text-center text-xs text-muted-foreground">
         Pick an existing objective to roll up here, or create a new one.
       </p>
-      <Handle type="target" position={Position.Top} className="!h-2 !w-2 !border-0 !bg-gray-400" />
+      <Handle type="target" position={Position.Top} className="!h-2 !w-2 !border-0 !bg-ink-tertiary" />
     </div>
   )
 })

@@ -106,7 +106,7 @@ export function JiraIntegrationPanel({ projectId, canEdit }: JiraIntegrationPane
           </div>
           <div className="mt-1 text-body-sm text-ink-secondary">Connect a Jira Cloud project with a write-only API token.</div>
           {connection.data?.lastSyncAt && (
-            <div className="mt-1 text-body-xs text-ink-tertiary">
+            <div className="mt-1 text-xs text-ink-tertiary">
               Last sync {formatDateTime(connection.data.lastSyncAt)} · {connection.data.lastSyncStatus ?? 'UNKNOWN'}
             </div>
           )}
@@ -233,7 +233,7 @@ function JiraAdoptionSummary({ loading, data }: { loading: boolean; data?: JiraA
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="text-body-sm font-semibold text-ink-primary">Jira adoption score</div>
-          <div className="mt-1 text-body-xs text-ink-secondary">
+          <div className="mt-1 text-xs text-ink-secondary">
             Assignee {score.assigneePct}% · Estimate {score.estimatePct}% · Updated 3d {score.updatedRecentlyPct}%{score.storyPointsPct == null ? '' : ` · Points ${score.storyPointsPct}%`}
           </div>
         </div>
@@ -261,11 +261,11 @@ function JiraMetricsSummary({ loading, rows, period }: { loading: boolean; rows:
     <div className="rounded-card border border-border bg-surface-hover p-3">
       <div className="mb-2 flex items-center justify-between gap-3">
         <div className="text-body-sm font-semibold text-ink-primary">Developer Jira evidence</div>
-        {period && <div className="text-body-xs text-ink-tertiary">{period.from} to {period.to}</div>}
+        {period && <div className="text-xs text-ink-tertiary">{period.from} to {period.to}</div>}
       </div>
       <div className="overflow-x-auto">
         <table className="min-w-full text-left text-body-sm">
-          <thead className="text-body-xs uppercase text-ink-tertiary">
+          <thead className="text-xs uppercase text-ink-tertiary">
             <tr>
               <th className="py-2 pr-3 font-medium">Developer</th>
               <th className="py-2 pr-3 font-medium">Idle days</th>
@@ -311,8 +311,8 @@ function Field({ label, error, hint, children }: { label: string; error?: string
     <label className="block">
       <span className="text-body-sm font-medium text-ink-secondary">{label}</span>
       <div className="mt-1">{children}</div>
-      {hint && <div className="mt-1 text-body-xs text-ink-tertiary">{hint}</div>}
-      {error && <div className="mt-1 text-body-xs text-danger-600">{error}</div>}
+      {hint && <div className="mt-1 text-xs text-ink-tertiary">{hint}</div>}
+      {error && <div className="mt-1 text-xs text-danger-600">{error}</div>}
     </label>
   )
 }

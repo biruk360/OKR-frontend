@@ -2,8 +2,29 @@
 
 import { useState, useEffect } from 'react'
 import { Save, Eye, EyeOff, Calendar, Bell } from 'lucide-react'
-import { useForm } from 'react-hook-form'
+import { useForm, Controller } from 'react-hook-form'
 import toast from 'react-hot-toast'
+import { PageHeader } from '@/components/ui/PageHeader'
+import { SettingsSelect, type SettingsSelectOption } from './SettingsSelect'
+
+const VISIBILITY_OPTIONS: SettingsSelectOption[] = [
+  { value: 'PUBLIC', label: 'Public (visible to all)' },
+  { value: 'PRIVATE', label: 'Private (visible to owner and managers)' },
+]
+
+const GRADING_SCALE_OPTIONS: SettingsSelectOption[] = [
+  { value: 'PERCENTAGE', label: 'Percentage (0-100%)' },
+  { value: 'NUMERIC', label: 'Numeric Value' },
+  { value: 'CURRENCY', label: 'Currency' },
+  { value: 'BOOLEAN', label: 'Completed/Not Completed' },
+]
+
+const CADENCE_OPTIONS: SettingsSelectOption[] = [
+  { value: 'DAILY', label: 'Daily' },
+  { value: 'WEEKLY', label: 'Weekly' },
+  { value: 'BIWEEKLY', label: 'Bi-weekly' },
+  { value: 'MONTHLY', label: 'Monthly' },
+]
 
 interface FormData {
   defaultVisibility: string
@@ -15,7 +36,7 @@ interface FormData {
 
 export default function OKRRulesManagement() {
   const [isLoading, setIsLoading] = useState(false)
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
+  const { register, control, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
     defaultValues: {
       defaultVisibility: 'PUBLIC',
       gradingScale: 'PERCENTAGE',
@@ -64,12 +85,11 @@ export default function OKRRulesManagement() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">OKR Rules</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Configure default settings and rules for OKRs in your organization.
-        </p>
-      </div>
+      <PageHeader
+        className="mb-0"
+        title="OKR Rules"
+        description="Configure default settings and rules for OKRs in your organization."
+      />
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         {/* Default Visibility */}
@@ -79,16 +99,21 @@ export default function OKRRulesManagement() {
             <h3 className="text-lg font-medium text-foreground">Default Visibility</h3>
           </div>
           <div>
-            <label className="block text-sm font-medium text-muted-foreground mb-2">
+            <label htmlFor="okr-default-visibility" className="block text-sm font-medium text-muted-foreground mb-2">
               Default visibility for new objectives
             </label>
-            <select
-              {...register('defaultVisibility')}
-              className="input"
-            >
-              <option value="PUBLIC">Public (visible to all)</option>
-              <option value="PRIVATE">Private (visible to owner and managers)</option>
-            </select>
+            <Controller
+              control={control}
+              name="defaultVisibility"
+              render={({ field }) => (
+                <SettingsSelect
+                  id="okr-default-visibility"
+                  value={field.value}
+                  onValueChange={field.onChange}
+                  options={VISIBILITY_OPTIONS}
+                />
+              )}
+            />
             <p className="mt-1 text-xs text-muted-foreground">
               This setting applies to newly created objectives. Users can override this when creating objectives.
             </p>
@@ -102,18 +127,21 @@ export default function OKRRulesManagement() {
             <h3 className="text-lg font-medium text-foreground">Grading Scale</h3>
           </div>
           <div>
-            <label className="block text-sm font-medium text-muted-foreground mb-2">
+            <label htmlFor="okr-grading-scale" className="block text-sm font-medium text-muted-foreground mb-2">
               Progress measurement scale
             </label>
-            <select
-              {...register('gradingScale')}
-              className="input"
-            >
-              <option value="PERCENTAGE">Percentage (0-100%)</option>
-              <option value="NUMERIC">Numeric Value</option>
-              <option value="CURRENCY">Currency</option>
-              <option value="BOOLEAN">Completed/Not Completed</option>
-            </select>
+            <Controller
+              control={control}
+              name="gradingScale"
+              render={({ field }) => (
+                <SettingsSelect
+                  id="okr-grading-scale"
+                  value={field.value}
+                  onValueChange={field.onChange}
+                  options={GRADING_SCALE_OPTIONS}
+                />
+              )}
+            />
             <p className="mt-1 text-xs text-muted-foreground">
               Default scale for measuring progress on key results.
             </p>
@@ -127,18 +155,21 @@ export default function OKRRulesManagement() {
             <h3 className="text-lg font-medium text-foreground">Check-in Cadence</h3>
           </div>
           <div>
-            <label className="block text-sm font-medium text-muted-foreground mb-2">
+            <label htmlFor="okr-checkin-cadence" className="block text-sm font-medium text-muted-foreground mb-2">
               Recommended check-in frequency
             </label>
-            <select
-              {...register('checkInCadence')}
-              className="input"
-            >
-              <option value="DAILY">Daily</option>
-              <option value="WEEKLY">Weekly</option>
-              <option value="BIWEEKLY">Bi-weekly</option>
-              <option value="MONTHLY">Monthly</option>
-            </select>
+            <Controller
+              control={control}
+              name="checkInCadence"
+              render={({ field }) => (
+                <SettingsSelect
+                  id="okr-checkin-cadence"
+                  value={field.value}
+                  onValueChange={field.onChange}
+                  options={CADENCE_OPTIONS}
+                />
+              )}
+            />
             <p className="mt-1 text-xs text-muted-foreground">
               Recommended frequency for updating progress on key results.
             </p>
@@ -157,16 +188,17 @@ export default function OKRRulesManagement() {
                 <input
                   type="checkbox"
                   {...register('reminderEnabled')}
-                  className="h-4 w-4 text-blue-600 focus:ring-ring border-border rounded"
+                  className="h-4 w-4 text-primary-600 focus:ring-ring border-border rounded"
                 />
                 <span className="ml-2 text-sm text-muted-foreground">Enable check-in reminders</span>
               </label>
             </div>
             <div>
-              <label className="block text-sm font-medium text-muted-foreground mb-2">
+              <label htmlFor="okr-reminder-days" className="block text-sm font-medium text-muted-foreground mb-2">
                 Remind users every (days)
               </label>
               <input
+                id="okr-reminder-days"
                 type="number"
                 {...register('reminderDays', { min: 1, max: 30 })}
                 className="input"
@@ -184,7 +216,7 @@ export default function OKRRulesManagement() {
         <div className="flex items-center justify-end">
           <button
             type="submit"
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-primary-foreground bg-primary-600 hover:bg-primary-700"
             disabled={isLoading}
           >
             <Save className="h-4 w-4 mr-2" />

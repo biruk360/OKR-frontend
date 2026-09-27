@@ -1,6 +1,6 @@
 # System Cron Entries (VPS)
 
-Last reviewed: 2026-09-18.
+Last reviewed: 2026-09-25.
 
 > **Install with `scripts/install-crontab.sh`.** That script is the single source
 > of truth for the schedule — it is idempotent, re-adds only what is missing, and
@@ -15,6 +15,27 @@ Last reviewed: 2026-09-18.
 
 All jobs authenticate with `Authorization: Bearer $CRON_SECRET` and are
 idempotent — running one more often than scheduled is safe, just wasteful.
+
+## Authentication (since 2026-09-25)
+
+Every route under `app/api/cron/` is wrapped in `withCronAuth` from
+`lib/cron-auth.ts` (enforced by `lib/security/cron-auth.test.ts`). The rules:
+
+- **Fail closed.** If the server has no `CRON_SECRET`, or it is shorter than
+  16 characters, every cron route answers **503** `CRON_NOT_CONFIGURED` (logged
+  once per process). Routes used to run unauthenticated in that case.
+- **Headers only.** `Authorization: Bearer <secret>` or `x-cron-secret: <secret>`.
+  The `?key=<secret>` query form is **no longer accepted** (it ended up in nginx
+  access logs); a request that tries it gets 401 and a one-time warning in the
+  app log.
+- **Constant-time comparison** (`crypto.timingSafeEqual` over SHA-256 digests).
+- Errors use the standard envelope: `{ success: false, error, code }`.
+
+Operationally: `CRON_SECRET` (≥16 chars, e.g. `openssl rand -hex 32`) must be in
+the app's `.env` **and** in the crontab's `CRON_SECRET=` line.
+`scripts/install-crontab.sh` refuses to run without it, keeps the crontab line in
+sync with `.env`, and rewrites any hand-added `?key=` entry to the header form.
+After rotating the secret: restart the app, then re-run the script.
 
 ## Timezone
 
@@ -65,15 +86,19 @@ flood the board.
 
 ## Project Management module
 
-These three are listed in the build spec and were documented here from the day
-the module shipped, but were absent from `install-crontab.sh` until 2026-09-18 —
-so on a host bootstrapped with that script they had never run.
+approval-clock / project-health / project-digest were documented here from the
+day the module shipped but absent from `install-crontab.sh` until 2026-09-18;
+client-report, wbr-pack, jira-sync and the draft purge were added 2026-09-25.
 
 | Schedule (UTC) | Endpoint | Purpose |
 |---|---|---|
 | `0 8 * * *` | `/api/cron/approval-clock` | ⭐ `CLIENT_APPROVAL_SLA_BREACH` at SLA, SLA+3, SLA+7 business days. Critical invariant #3 ("the Approval Clock is automatic") depends on this. |
 | `0 2 * * *` | `/api/cron/project-health` | Nightly health recompute. |
 | `0 7 * * *` | `/api/cron/project-digest` | Daily PM digest. |
+| `0 3 * * 1` | `/api/cron/client-report` | Client report drafts — Mon 06:00 EAT. Spec says bi-weekly; the report period is semi-monthly (1–15 / 16–end) and an existing draft for the current period is reused, so a weekly run yields at most one draft per project per period. |
+| `0 3 * * 1` | `/api/cron/wbr-pack` | Weekly Business Review pack for CEO + PMs — Mon 06:00 EAT. Idempotent per week. |
+| `*/30 * * * *` | `/api/cron/jira-sync` | Jira pull for every active `JiraConnection` (spec §G2). With no connection configured it is one empty query. Read-only toward Jira. |
+| `40 0 * * *` | `/api/cron/project-creation-draft-purge` | Purges abandoned New Project creation drafts + uploaded source files past `PROJECT_CREATION_DRAFT_RETENTION_DAYS` (default 30). |
 
 ## AI Automations
 
@@ -93,29 +118,63 @@ so on a host bootstrapped with that script they had never run.
 | `5 6 * * 1-5` | `/api/cron/scrum-nudge` | Single nudge for anyone who has not posted. |
 | `0 13 * * 5` | `/api/cron/scrum-weekly` | Weekly digest — Friday 16:00 EAT. |
 
+## Performance
+
+| Schedule (UTC) | Endpoint | Purpose |
+|---|---|---|
+| `0 5 * * *` | `/api/cron/performance-nudge` | Weekly improvement-focus nudge — 08:00 EAT. Scheduled **daily** on purpose: the route sends only on `PerformanceSettings.weeklyNudgeDay` (ISO, default Monday = 1) and is idempotent per ISO week (`PerformanceNudgeDelivery`), so changing the day in settings needs no crontab edit. `?force=1` bypasses the day gate for a manual run. |
+
 ## Hygiene
 
 | Schedule (UTC) | Endpoint | Purpose |
 |---|---|---|
 | `0 0 * * *` | `/api/cron/auto-confidence` | Recompute confidence for OKRs with no check-in in 14 days. |
+| `15 0 * * *` | `/api/cron/permission-cleanup` | Revokes `UserRole` assignments and `UserPermissionOverride`s past `expiresAt`, invalidates the permission cache. Without it, time-boxed access never expires. |
 | `30 0 * * *` | `/api/cron/prune-activity` | Drops `ActivityLog` rows older than ~18 months. |
-| `45 0 * * *` | `/api/cron/notifications?job=prune-notifications` | Marks unread notifications older than 30d read; deletes read ones older than 90d. |
+| `45 0 * * *` | `/api/cron/prune-notifications` | Retention sweep — see below. |
+| `50 0 * * *` | `/api/cron/attachment-staging-cleanup` | Deletes comment attachments staged in a composer but never posted (`CommentAttachment.commentId` null, older than 24h) — row, then file. Batched (200 × up to 50 per run), race-safe against a concurrent post, idempotent (`lib/attachments/staging-cleanup.ts`). |
+
+### Retention (`/api/cron/prune-notifications`)
+
+Notifications: unread rows older than 30d are marked read, read rows older than
+90d deleted (shared rule: `runPruneNotifications` in `lib/notifications/jobs.ts`).
+Then every other append-only table, via `lib/retention/prune-tables.ts`:
+
+| Table | Kept for | Filter | Override env |
+|---|---|---|---|
+| `EmailDigestQueue` | 30 days | `sentAt` — **sent rows only**; unsent rows are still owed and kept | `RETENTION_EMAIL_DIGEST_DAYS` |
+| `OutboundEmail` | 90 days | `createdAt` | `RETENTION_OUTBOUND_EMAIL_DAYS` |
+| `ClientErrorLog` | 30 days | `createdAt` | `RETENTION_CLIENT_ERROR_DAYS` |
+| `TelegramMessage` | 180 days | `sentAt` | `TELEGRAM_MESSAGE_RETENTION_DAYS` |
+| `AiGenerationLog` | 180 days | `createdAt` | `RETENTION_AI_GENERATION_DAYS` |
+| `JiraSyncLog` | 30 days | `createdAt` | `RETENTION_JIRA_SYNC_LOG_DAYS` |
+
+Deletes run in batches of 2,000 ids (max 100 batches ≈ 200k rows per table per
+night; the remainder goes next night — `capped: true` in the response). Each
+table is independent: one failing is logged and reported without stopping the
+rest. Overrides below 7 days are ignored. The response carries per-table counts,
+and the app log gets one `[retention] pruned …` line.
+
+This route used to duplicate the notification rule only, while the crontab ran
+`/api/cron/notifications?job=prune-notifications`. `install-crontab.sh` now
+rewrites that older entry to `/api/cron/prune-notifications` so the notification
+half does not run twice. The `?job=` variant still works for manual runs.
 
 ## Routes that exist but are deliberately NOT scheduled
 
-These nine routes exist under `app/api/cron/` and are intentionally left
-unscheduled:
-
-- `prune-notifications` — superseded by the `?job=prune-notifications` variant
-  above. The two are duplicate implementations of the same retention rule;
-  scheduling both would do the work twice.
 - `daily-digest` — superseded by `/api/cron/notifications?job=daily`.
-- `client-report`, `wbr-pack`, `jira-sync`, `sprint-migration-check`,
-  `permission-cleanup`, `confidence-calc` — ops/manual tools, or one-off
-  migrations, run on demand rather than on a timer.
-- `performance-nudge` — the performance-review module fires this per cycle;
-  it has no standing cadence. **Revisit**: if that module is meant to nudge
-  automatically, this needs a schedule.
+- `confidence-calc` — the older bi-weekly (1st/15th) confidence recompute. The
+  nightly `auto-confidence` above covers OKRs that have gone stale; run this one
+  on demand. **Revisit** if a full bi-weekly recompute is wanted.
+- `sprint-migration-check` — a one-off report on the Sprint v2 migration; run
+  on demand.
+- `/api/cron/notifications?job=prune-notifications` — kept for manual runs;
+  the scheduled retention sweep is `/api/cron/prune-notifications` (above).
+
+Everything else under `app/api/cron/` is scheduled. The 2026-09-25 pass added
+`permission-cleanup`, `performance-nudge`, `client-report`, `wbr-pack`,
+`jira-sync` and `project-creation-draft-purge`, which previously existed but
+never ran.
 
 Add a route here and to `scripts/install-crontab.sh` **together**. A schedule in
 one but not the other is exactly what produced the gaps this file now records —

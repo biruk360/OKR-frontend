@@ -2,7 +2,8 @@
 
 import Link from 'next/link'
 import { useMemo } from 'react'
-import { cn } from '@/lib/utils'
+import { cn, getProgressBarColor } from '@/lib/utils'
+import { PersonTooltip } from '@/components/shared/UserAvatar'
 
 /* ────────────────────────────────────────────────────────────────────────────
  * Shared AP primitives
@@ -22,7 +23,7 @@ function APCard({ children, className }: { children: React.ReactNode; className?
 function SectionHeader({ children, right }: { children: React.ReactNode; right?: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--ap-border)' }}>
-      <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{children}</h3>
+      <h3 className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">{children}</h3>
       {right}
     </div>
   )
@@ -59,7 +60,7 @@ function Segmented({ options, current, paramName, basePath, otherParams }: SegPr
             key={opt.value || 'all'}
             href={href}
             className={cn(
-              'inline-flex items-center h-6 px-2.5 rounded-[8px] text-[11px] font-medium transition',
+              'inline-flex items-center h-6 px-2.5 rounded-[8px] text-caption font-medium transition',
               active
                 ? 'bg-card text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
@@ -94,18 +95,18 @@ function KpiStrip({ kpis }: { kpis: AnalyticsKpis }) {
         { label: 'Total objectives', value: kpis.totalObjectives.toString(), sub: 'Active in selection' },
         { label: 'Average progress', value: `${kpis.avgProgress}%`, sub: `${pace >= 0 ? '+' : ''}${pace}pt vs expected ${kpis.expectedProgress}%`, color: pace >= 0 ? 'var(--ap-green)' : 'var(--ap-red)' },
         { label: 'At-risk %', value: `${kpis.atRiskPct}%`, sub: 'Of active KRs', color: atRiskColor },
-        { label: 'Completion rate', value: `${kpis.completionRate}%`, sub: 'Objectives ≥ 75% progress' },
+        { label: 'Completion rate', value: `${kpis.completionRate}%`, sub: 'Objectives closed or at 100%' },
       ].map((k, i) => (
         <APCard key={i} className="ap-hover-lift">
           <div className="px-4 py-4">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{k.label}</p>
+            <p className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">{k.label}</p>
             <p
-              className="mt-1.5 text-[28px] font-semibold tabular-nums leading-none"
+              className="mt-1.5 text-page-title font-semibold tabular-nums leading-none"
               style={{ letterSpacing: '-0.02em', color: (k as any).color ?? 'var(--ap-fg)' }}
             >
               {k.value}
             </p>
-            <p className="mt-2 text-[12px] text-muted-foreground">{k.sub}</p>
+            <p className="mt-2 text-xs text-muted-foreground">{k.sub}</p>
           </div>
         </APCard>
       ))}
@@ -187,7 +188,7 @@ function ProgressTrend({ points, expectedAtNow }: { points: TrendPoint[]; expect
 function Legend({ color, label, dashed, dotted }: { color: string; label: string; dashed?: boolean; dotted?: boolean }) {
   return (
     <span
-      className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium"
+      className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-micro font-medium"
       style={{ background: 'var(--ap-bg-sunken)', color: 'var(--ap-fg-muted)' }}
     >
       <span
@@ -255,17 +256,17 @@ function Donut({ data }: { data: DistributionData }) {
             })}
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-[24px] font-semibold tabular-nums leading-none" style={{ letterSpacing: '-0.02em' }}>
+            <span className="text-2xl font-semibold tabular-nums leading-none" style={{ letterSpacing: '-0.02em' }}>
               {slices.reduce((s, x) => s + x.value, 0)}
             </span>
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mt-1">Items</span>
+            <span className="text-micro font-semibold uppercase tracking-wide text-muted-foreground mt-1">Items</span>
           </div>
         </div>
         <div className="flex-1 space-y-1.5 w-full">
           {slices.map((s) => {
             const pct = Math.round((s.value / total) * 100)
             return (
-              <div key={s.key} className="flex items-center gap-2 text-[12px]">
+              <div key={s.key} className="flex items-center gap-2 text-xs">
                 <span className="size-2 rounded-full" style={{ background: s.color }} />
                 <span className="flex-1 truncate">{s.label}</span>
                 <span className="font-mono tabular-nums text-muted-foreground w-8 text-right">{s.value}</span>
@@ -302,33 +303,35 @@ function ContributorsTable({ rows }: { rows: ContributorRow[] }) {
     <APCard>
       <SectionHeader>Top contributors</SectionHeader>
       {rows.length === 0 ? (
-        <div className="px-4 py-8 text-[12px] text-muted-foreground text-center">No contributors yet.</div>
+        <div className="px-4 py-8 text-xs text-muted-foreground text-center">No contributors yet.</div>
       ) : (
         <ul className="divide-y" style={{ borderColor: 'var(--ap-border)' }}>
           {rows.slice(0, 8).map((r, i) => (
             <li key={r.id} className="flex items-center gap-3 px-4 py-2.5">
-              <span className="text-[10px] font-mono text-muted-foreground tabular-nums w-5">{(i + 1).toString().padStart(2, '0')}</span>
+              <span className="text-micro font-mono text-muted-foreground tabular-nums w-5">{(i + 1).toString().padStart(2, '0')}</span>
               {r.avatar ? (
                 <img src={r.avatar} alt="" className="size-7 rounded-full object-cover" />
               ) : (
                 <span
-                  className="flex size-7 items-center justify-center rounded-full text-[10px] font-semibold text-white"
+                  className="flex size-7 items-center justify-center rounded-full text-micro font-semibold text-[var(--ap-accent-fg)]"
                   style={{ background: 'var(--ap-accent)' }}
                 >
                   {r.name.split(' ').map(s => s[0]).slice(0, 2).join('').toUpperCase()}
                 </span>
               )}
               <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-medium truncate">{r.name}</p>
-                <p className="text-[11px] text-muted-foreground">{r.okrCount} OKR{r.okrCount !== 1 ? 's' : ''}</p>
+                <PersonTooltip person={r} whenTruncated>
+                  <p className="text-body-sm font-medium truncate">{r.name}</p>
+                </PersonTooltip>
+                <p className="text-caption text-muted-foreground">{r.okrCount} OKR{r.okrCount !== 1 ? 's' : ''}</p>
               </div>
-              <span className="text-[12px] font-mono tabular-nums text-muted-foreground">{r.avgProgress}%</span>
+              <span className="text-xs font-mono tabular-nums text-muted-foreground">{r.avgProgress}%</span>
               <div className="hidden sm:block h-1.5 w-20 rounded-full overflow-hidden" style={{ background: 'var(--ap-kr-bar-bg)' }}>
                 <div
                   className="h-full rounded-full"
                   style={{
                     width: `${Math.min(r.avgProgress, 100)}%`,
-                    background: r.avgProgress >= 75 ? 'var(--ap-green)' : r.avgProgress >= 35 ? 'var(--ap-orange)' : 'var(--ap-red)',
+                    background: getProgressBarColor(r.avgProgress),
                   }}
                 />
               </div>
@@ -345,24 +348,24 @@ function DepartmentTable({ rows }: { rows: DepartmentRow[] }) {
     <APCard>
       <SectionHeader>Department performance</SectionHeader>
       {rows.length === 0 ? (
-        <div className="px-4 py-8 text-[12px] text-muted-foreground text-center">No departments configured.</div>
+        <div className="px-4 py-8 text-xs text-muted-foreground text-center">No departments configured.</div>
       ) : (
         <ul className="divide-y" style={{ borderColor: 'var(--ap-border)' }}>
           {rows.map((d) => (
             <li key={d.id} className="px-4 py-2.5">
               <div className="flex items-center gap-3">
                 <div className="flex-1 min-w-0">
-                  <p className="text-[13px] font-medium truncate">{d.name}</p>
-                  <p className="text-[11px] text-muted-foreground">{d.objectiveCount} objective{d.objectiveCount !== 1 ? 's' : ''}</p>
+                  <p className="text-body-sm font-medium truncate">{d.name}</p>
+                  <p className="text-caption text-muted-foreground">{d.objectiveCount} objective{d.objectiveCount !== 1 ? 's' : ''}</p>
                 </div>
-                <span className="text-[12px] font-mono tabular-nums text-muted-foreground">{d.avgProgress}%</span>
+                <span className="text-xs font-mono tabular-nums text-muted-foreground">{d.avgProgress}%</span>
               </div>
               <div className="mt-2 h-1.5 w-full rounded-full overflow-hidden" style={{ background: 'var(--ap-kr-bar-bg)' }}>
                 <div
                   className="h-full rounded-full"
                   style={{
                     width: `${Math.min(d.avgProgress, 100)}%`,
-                    background: d.avgProgress >= 75 ? 'var(--ap-green)' : d.avgProgress >= 35 ? 'var(--ap-orange)' : 'var(--ap-red)',
+                    background: getProgressBarColor(d.avgProgress),
                   }}
                 />
               </div>
@@ -411,13 +414,13 @@ function FilterStrip({ filters, timeframes, departments }: FilterStripProps) {
     <APCard>
       <div className="flex flex-wrap items-center gap-x-5 gap-y-3 px-4 py-3">
         <FilterGroup label="Timeframe">
-          <Segmented options={tfOpts} current={filters.timeframe} paramName="timeframe" basePath="/dashboard/analytics" otherParams={others('timeframe')} />
+          <Segmented options={tfOpts} current={filters.timeframe} paramName="timeframe" basePath="/dashboard/insights" otherParams={others('timeframe')} />
         </FilterGroup>
         <FilterGroup label="Department">
-          <Segmented options={deptOpts.slice(0, 5)} current={filters.department} paramName="department" basePath="/dashboard/analytics" otherParams={others('department')} />
+          <Segmented options={deptOpts.slice(0, 5)} current={filters.department} paramName="department" basePath="/dashboard/insights" otherParams={others('department')} />
         </FilterGroup>
         <FilterGroup label="Level">
-          <Segmented options={lvlOpts} current={filters.level} paramName="level" basePath="/dashboard/analytics" otherParams={others('level')} />
+          <Segmented options={lvlOpts} current={filters.level} paramName="level" basePath="/dashboard/insights" otherParams={others('level')} />
         </FilterGroup>
       </div>
     </APCard>
@@ -427,7 +430,7 @@ function FilterStrip({ filters, timeframes, departments }: FilterStripProps) {
 function FilterGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</span>
+      <span className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">{label}</span>
       {children}
     </div>
   )

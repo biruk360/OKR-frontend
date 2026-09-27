@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import toast from 'react-hot-toast'
 
 /**
  * Favorited OKR objectives (star / watch). Backed by the `favorites` table
@@ -59,29 +60,33 @@ export const useOkrFavoritesStore = create<OkrFavoritesState>((set, get) => ({
   },
 
   toggle: async (objectiveId) => {
-    const current = get().ids
-    const isFav = current.has(objectiveId)
+    const isFav = get().ids.has(objectiveId)
     // Optimistic update.
-    const next = new Set(current)
+    const next = new Set(get().ids)
     if (isFav) next.delete(objectiveId)
     else next.add(objectiveId)
     set({ ids: next })
     try {
-      if (isFav) {
-        await fetch(
-          `/api/favorites?entityType=OBJECTIVE&entityId=${encodeURIComponent(objectiveId)}`,
-          { method: 'DELETE' },
-        )
-      } else {
-        await fetch('/api/favorites', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ entityType: 'OBJECTIVE', entityId: objectiveId }),
-        })
-      }
+      // A 4xx/5xx resolves rather than throwing, so check `ok` — otherwise the
+      // star stays flipped while the server never saved it.
+      const res = isFav
+        ? await fetch(
+            `/api/favorites?entityType=OBJECTIVE&entityId=${encodeURIComponent(objectiveId)}`,
+            { method: 'DELETE' },
+          )
+        : await fetch('/api/favorites', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ entityType: 'OBJECTIVE', entityId: objectiveId }),
+          })
+      if (!res.ok) throw new Error(`favorite ${isFav ? 'remove' : 'add'} failed (${res.status})`)
     } catch {
-      // Revert on failure.
-      set({ ids: current })
+      // Revert only this id (other toggles may have landed meanwhile) and tell the user.
+      const reverted = new Set(get().ids)
+      if (isFav) reverted.add(objectiveId)
+      else reverted.delete(objectiveId)
+      set({ ids: reverted })
+      toast.error(isFav ? 'Could not remove from favorites' : 'Could not add to favorites')
     }
   },
 

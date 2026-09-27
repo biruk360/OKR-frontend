@@ -15,7 +15,7 @@
  */
 
 import { prisma } from '@/lib/prisma'
-import { emit } from '@/lib/notifications'
+import { emitNow } from '@/lib/notifications'
 import { businessDaysBetween } from './business-days'
 import { approvalEscalationLevel, APPROVAL_ESCALATION_OFFSETS, type ApprovalEscalationLevel } from './delay-ledger'
 
@@ -69,7 +69,7 @@ export async function runApprovalEscalations(now: Date = new Date()): Promise<Ap
     await prisma.activity.update({ where: { id: a.id }, data: { approvalEscalationLevel: level } })
     escalated.push({ activityId: a.id, activityTitle: a.title, projectId, level, daysWaited, slaBusinessDays: sla })
 
-    await emit('CLIENT_APPROVAL_SLA_BREACH', {
+    await emitNow('CLIENT_APPROVAL_SLA_BREACH', {
       entityType: 'PROJECT',
       entityId: projectId,
       entityTitle: a.milestone.phase.project.name,

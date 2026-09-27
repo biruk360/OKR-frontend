@@ -15,6 +15,8 @@ import CreateCheckInButton from './CreateCheckInButton'
 import { ToDoList } from '@/features/todos'
 import { useUsersForSelection } from '@/hooks'
 import KeyResultActionsMenu from './KeyResultActionsMenu'
+import { PersonTooltip } from '@/components/shared/UserAvatar'
+import { EmptyState } from '@/components/ui'
 
 function safeProgressPercent(value: unknown): number {
   const n = typeof value === 'number' ? value : Number(value)
@@ -28,9 +30,9 @@ function getInitials(name?: string) {
 }
 
 const CONFIDENCE_DOT: Record<string, string> = {
-  ON_TRACK: 'bg-green-500',
-  AT_RISK: 'bg-yellow-500',
-  OFF_TRACK: 'bg-red-500',
+  ON_TRACK: 'bg-success-500',
+  AT_RISK: 'bg-warning-500',
+  OFF_TRACK: 'bg-danger-500',
 }
 
 type KeyResultPermissions = {
@@ -109,7 +111,7 @@ export default function KeyResultsList({
 
   if (!objective?.id) {
     return (
-      <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+      <div className="rounded-md border border-warning-200 bg-warning-50 px-3 py-2 text-xs text-warning-900">
         Key results are unavailable (missing objective).
       </div>
     )
@@ -156,6 +158,7 @@ export default function KeyResultsList({
         />
         <KeyResultActionsMenu
           keyResult={kr}
+          canEdit={canEdit}
           extrasOnly
           chartElementId={`kr-chart-${kr.id}`}
           onChanged={afterMutation}
@@ -174,7 +177,7 @@ export default function KeyResultsList({
       <li key={kr.id} className="group rounded-md px-2 py-1.5 hover:bg-muted/50 transition-colors">
         <div className="flex items-center gap-2.5 min-w-0">
           <span
-            className={`h-2 w-2 shrink-0 rounded-full ${CONFIDENCE_DOT[confidence] ?? 'bg-gray-300'}`}
+            className={`h-2 w-2 shrink-0 rounded-full ${CONFIDENCE_DOT[confidence] ?? 'bg-ink-tertiary'}`}
             title={confidence.replace(/_/g, ' ')}
           />
 
@@ -182,17 +185,17 @@ export default function KeyResultsList({
 
           <Link
             href={`/dashboard/key-results/${kr.id}`}
-            className="text-sm font-medium text-foreground hover:text-blue-700 hover:underline truncate"
+            className="text-sm font-medium text-foreground hover:text-primary-700 hover:underline truncate"
           >
             {kr.title}
           </Link>
 
-          <span className="hidden md:inline text-[11px] text-muted-foreground tabular-nums whitespace-nowrap">
+          <span className="hidden md:inline text-caption text-muted-foreground tabular-nums whitespace-nowrap">
             {kr.currentValue}/{kr.targetValue}{kr.unit ? ` ${kr.unit}` : ''}
           </span>
 
           <span className="ml-auto flex items-center gap-2 shrink-0">
-            <div className="relative h-1.5 w-24 overflow-hidden rounded-full bg-gray-200">
+            <div className="relative h-1.5 w-24 overflow-hidden rounded-full bg-surface-muted">
               <div
                 className={`h-full rounded-full transition-all duration-300 ${progressBar}`}
                 style={{ width: `${progress}%` }}
@@ -202,21 +205,24 @@ export default function KeyResultsList({
               {Math.round(progress)}%
             </span>
 
+            {/* Full name on hover (docs/user_name_hover_REQUIREMENTS.md UNH-2). */}
+            <PersonTooltip person={{ ...kr.owner, name: ownerName }} detail="Owner">
             {kr.owner?.avatar ? (
               <img
                 src={kr.owner.avatar}
                 alt={ownerName}
-                title={ownerName}
                 className="h-5 w-5 rounded-full"
               />
             ) : (
               <div
-                className="h-5 w-5 rounded-full bg-blue-500 flex items-center justify-center text-[9px] font-semibold text-white"
-                title={ownerName}
+                role="img"
+                aria-label={ownerName}
+                className="h-5 w-5 rounded-full bg-primary-500 flex items-center justify-center text-[9px] font-semibold text-primary-foreground"
               >
-                {getInitials(ownerName)}
+                <span aria-hidden>{getInitials(ownerName)}</span>
               </div>
             )}
+            </PersonTooltip>
 
             {perm ? renderKeyResultActions(kr) : null}
           </span>
@@ -240,24 +246,24 @@ export default function KeyResultsList({
     const ownerName = kr.owner?.name || 'Unknown'
 
     return (
-      <li key={kr.id} className="group rounded-md px-2 py-1.5 bg-orange-50/40 hover:bg-orange-50 transition-colors">
+      <li key={kr.id} className="group rounded-md px-2 py-1.5 bg-warning-50/40 hover:bg-warning-50 transition-colors">
         <div className="flex items-center gap-2.5 min-w-0">
-          <Archive className="h-3.5 w-3.5 shrink-0 text-orange-600" />
+          <Archive className="h-3.5 w-3.5 shrink-0 text-warning-600" />
           <Link
             href={`/dashboard/key-results/${kr.id}`}
-            className="text-sm font-medium text-foreground line-through hover:text-blue-700 truncate"
+            className="text-sm font-medium text-foreground line-through hover:text-primary-700 truncate"
           >
             {kr.title}
           </Link>
-          <span className="hidden md:inline text-[11px] text-muted-foreground tabular-nums whitespace-nowrap">
+          <span className="hidden md:inline text-caption text-muted-foreground tabular-nums whitespace-nowrap">
             {kr.currentValue}/{kr.targetValue}{kr.unit ? ` ${kr.unit}` : ''}
           </span>
-          <span className="hidden lg:inline text-[10px] text-orange-800 bg-orange-100 px-1.5 py-0.5 rounded">
+          <span className="hidden lg:inline text-micro text-warning-800 bg-warning-100 px-1.5 py-0.5 rounded">
             Archived {new Date(kr.archivedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
           </span>
 
           <span className="ml-auto flex items-center gap-2 shrink-0">
-            <div className="relative h-1.5 w-24 overflow-hidden rounded-full bg-gray-200">
+            <div className="relative h-1.5 w-24 overflow-hidden rounded-full bg-surface-muted">
               <div
                 className={`h-full rounded-full ${progressBar}`}
                 style={{ width: `${progress}%` }}
@@ -266,16 +272,19 @@ export default function KeyResultsList({
             <span className={`text-xs font-semibold tabular-nums w-9 text-right ${getProgressColor(progress)}`}>
               {Math.round(progress)}%
             </span>
+            <PersonTooltip person={{ ...kr.owner, name: ownerName }} detail="Owner">
             {kr.owner?.avatar ? (
-              <img src={kr.owner.avatar} alt={ownerName} title={ownerName} className="h-5 w-5 rounded-full" />
+              <img src={kr.owner.avatar} alt={ownerName} className="h-5 w-5 rounded-full" />
             ) : (
               <div
-                className="h-5 w-5 rounded-full bg-blue-500 flex items-center justify-center text-[9px] font-semibold text-white"
-                title={ownerName}
+                role="img"
+                aria-label={ownerName}
+                className="h-5 w-5 rounded-full bg-primary-500 flex items-center justify-center text-[9px] font-semibold text-primary-foreground"
               >
-                {getInitials(ownerName)}
+                <span aria-hidden>{getInitials(ownerName)}</span>
               </div>
             )}
+            </PersonTooltip>
             {perm ? (
               <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                 <CloneKeyResultButton
@@ -365,20 +374,22 @@ export default function KeyResultsList({
       )}
 
       {list.length === 0 && (
-        <div className="text-center py-6">
-          <Target className="mx-auto h-8 w-8 text-muted-foreground" />
-          <p className="mt-2 text-sm text-muted-foreground">No key results yet.</p>
-          {perm && (
-            <div className="mt-3 flex justify-center">
+        <EmptyState
+          bare
+          className="py-6 px-0"
+          icon={<Target className="h-8 w-8 text-muted-foreground" />}
+          title="No key results yet."
+          action={
+            perm ? (
               <AddKeyResultButton
                 objective={objective}
                 users={users}
                 canCreate={perm.canCreate}
                 onCreated={afterMutation}
               />
-            </div>
-          )}
-        </div>
+            ) : undefined
+          }
+        />
       )}
     </div>
   )

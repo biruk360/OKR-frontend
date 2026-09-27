@@ -9,7 +9,7 @@ import {
   apiError,
   withAuth,
 } from '@/lib/api'
-import { canEditSprint, type UserRole } from '@/lib/permissions'
+import { canEditSprint, sprintVisibilityWhere, type UserRole } from '@/lib/permissions'
 import { emit } from '@/lib/notifications'
 import { executeSprintClose, CloseError } from '@/lib/sprints/close-sprint'
 import { findColumnMismatch } from '@/lib/sprints/end-sprint'
@@ -62,8 +62,9 @@ export const GET = withAuth<RouteIdParams>(async (_request: NextRequest, { sessi
     todos.filter(t => t.status === 'COMPLETED' && false), // always empty by construction
   )
 
+  // Only boards the actor can see are offered (invite-only sprints).
   const destinations = await prisma.sprint.findMany({
-    where: { state: { in: ['PLANNING', 'ACTIVE'] }, id: { not: id } },
+    where: { state: { in: ['PLANNING', 'ACTIVE'] }, id: { not: id }, ...sprintVisibilityWhere(session.user) },
     select: { id: true, name: true, state: true, startDate: true, endDate: true },
     orderBy: { createdAt: 'desc' },
     take: 20,

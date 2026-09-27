@@ -1,7 +1,15 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useForm } from 'react-hook-form'
 import { AlertCircle, EyeOff, Loader2, Lock, Plus, Save } from 'lucide-react'
+import { Modal } from '@/components/ui/Modal'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { Skeleton } from '@/components/ui/Skeleton'
+import { SettingsSelect } from '../SettingsSelect'
 
 interface DocType { key: string; displayName: string; module: string }
 interface Role { id: string; name: string; key: string }
@@ -16,6 +24,87 @@ interface FieldAccess { canRead: boolean; canWrite: boolean }
 
 interface FieldLevelsTabProps { initialDoctype?: string }
 
+interface AddFieldValues { fieldName: string; displayLabel: string }
+
+function humanise(fieldName: string) {
+  return fieldName.replace(/([A-Z])/g, ' $1').replace(/^./, (value) => value.toUpperCase()).trim()
+}
+
+const PERM_LEVEL_OPTIONS = [
+  { value: '0', label: '0 · Public' },
+  { value: '1', label: '1 · Internal' },
+  { value: '2', label: '2 · Restricted' },
+  { value: '3', label: '3 · Sensitive' },
+]
+
+/** Replaces the two window.prompt() calls that used to collect a new field. */
+function AddFieldModal({
+  existing,
+  onClose,
+  onAdd,
+}: {
+  existing: string[]
+  onClose: () => void
+  onAdd: (values: AddFieldValues) => void
+}) {
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    formState: { errors, dirtyFields },
+  } = useForm<AddFieldValues>({ defaultValues: { fieldName: '', displayLabel: '' } })
+  const fieldNameInput = register('fieldName', {
+    required: 'Field name is required',
+    validate: (value) => {
+      const name = value.trim()
+      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) return 'Use letters, digits and underscores (e.g. status)'
+      if (existing.includes(name)) return `Field "${name}" already exists`
+      return true
+    },
+  })
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title="Add field"
+      icon={Plus}
+      size="sm"
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button type="submit" form="add-field-form">Add field</Button>
+        </>
+      }
+    >
+      <form
+        id="add-field-form"
+        onSubmit={handleSubmit((values) => onAdd({ fieldName: values.fieldName.trim(), displayLabel: values.displayLabel.trim() || humanise(values.fieldName.trim()) }))}
+        className="space-y-4"
+      >
+        <div className="space-y-1.5">
+          <Label htmlFor="add-field-name">Field name *</Label>
+          <Input
+            id="add-field-name"
+            className="font-mono"
+            placeholder="status"
+            aria-invalid={Boolean(errors.fieldName)}
+            {...fieldNameInput}
+            onChange={(event) => {
+              void fieldNameInput.onChange(event)
+              if (!dirtyFields.displayLabel) setValue('displayLabel', humanise(event.target.value.trim()))
+            }}
+          />
+          {errors.fieldName && <p className="text-xs text-danger-600">{errors.fieldName.message}</p>}
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="add-field-label">Display label</Label>
+          <Input id="add-field-label" {...register('displayLabel')} />
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
 export default function FieldLevelsTab({ initialDoctype }: FieldLevelsTabProps) {
   const [doctypes, setDoctypes] = useState<DocType[]>([])
   const [roles, setRoles] = useState<Role[]>([])
@@ -27,6 +116,7 @@ export default function FieldLevelsTab({ initialDoctype }: FieldLevelsTabProps) 
   const [loadingFields, setLoadingFields] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [addingField, setAddingField] = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -76,16 +166,13 @@ export default function FieldLevelsTab({ initialDoctype }: FieldLevelsTabProps) 
   }
 
   function addField() {
-    const fieldName = window.prompt('Field name (for example: status)')?.trim()
-    if (!fieldName) return
-    if (fields.some((field) => field.fieldName === fieldName)) {
-      setError(`Field "${fieldName}" already exists`)
-      return
-    }
-    const displayLabel = window.prompt('Display label', fieldName.replace(/([A-Z])/g, ' $1').replace(/^./, (value) => value.toUpperCase()))?.trim()
-    if (!displayLabel) return
+    setAddingField(true)
+  }
+
+  function handleAddField({ fieldName, displayLabel }: AddFieldValues) {
     setFields((current) => [...current, { fieldName, displayLabel, permLevel: 0, isSensitive: false }])
     setAccess((current) => ({ ...current, [fieldName]: { canRead: true, canWrite: false } }))
+    setAddingField(false)
   }
 
   async function save() {
@@ -114,20 +201,71 @@ export default function FieldLevelsTab({ initialDoctype }: FieldLevelsTabProps) 
 
   return (
     <div className="space-y-5">
-      {error && <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"><AlertCircle className="h-4 w-4" />{error}</div>}
+      {error && <div className="flex items-center gap-2 rounded-lg border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-700"><AlertCircle className="size-4" />{error}</div>}
       <div className="flex flex-wrap items-end gap-4">
-        {loadingInit ? <div className="flex items-center gap-2 text-sm text-gray-400"><Loader2 className="h-4 w-4 animate-spin" />Loading…</div> : <>
-          <div className="space-y-1"><label className="block text-sm font-medium text-gray-700">Document Type</label><select value={selectedDoctype} onChange={(event) => setSelectedDoctype(event.target.value)} className="min-w-56 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"><option value="">Select a document type…</option>{doctypes.map((doctype) => <option key={doctype.key} value={doctype.key}>{doctype.displayName}</option>)}</select></div>
-          <div className="space-y-1"><label className="block text-sm font-medium text-gray-700">Role</label><select value={selectedRole} onChange={(event) => setSelectedRole(event.target.value)} className="min-w-48 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">{roles.map((role) => <option key={role.id} value={role.id}>{role.name}</option>)}</select></div>
-          <button onClick={addField} disabled={!selectedDoctype || loadingFields} className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm disabled:opacity-50"><Plus className="h-4 w-4" />Add Field</button>
-          <button onClick={() => void save()} disabled={!selectedDoctype || !selectedRole || loadingFields || saving} className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}Save changes</button>
+        {loadingInit ? (
+          <div className="flex flex-wrap items-end gap-4" aria-busy="true" aria-label="Loading document types and roles">
+            <Skeleton className="h-9 w-56" />
+            <Skeleton className="h-9 w-48" />
+            <Skeleton className="h-8 w-56" />
+          </div>
+        ) : <>
+          <div className="space-y-1">
+            <label htmlFor="field-levels-doctype" className="block text-sm font-medium text-foreground">Document Type</label>
+            <SettingsSelect
+              id="field-levels-doctype"
+              value={selectedDoctype}
+              onValueChange={setSelectedDoctype}
+              placeholder="Select a document type…"
+              options={doctypes.map((doctype) => ({ value: doctype.key, label: doctype.displayName }))}
+              className="min-w-56"
+            />
+          </div>
+          <div className="space-y-1">
+            <label htmlFor="field-levels-role" className="block text-sm font-medium text-foreground">Role</label>
+            <SettingsSelect
+              id="field-levels-role"
+              value={selectedRole}
+              onValueChange={setSelectedRole}
+              options={roles.map((role) => ({ value: role.id, label: role.name }))}
+              className="min-w-48"
+            />
+          </div>
+          <Button variant="outline" onClick={addField} disabled={!selectedDoctype || loadingFields}><Plus />Add field</Button>
+          <Button onClick={() => void save()} disabled={!selectedDoctype || !selectedRole || loadingFields || saving}>{saving ? <Loader2 className="animate-spin" /> : <Save />}Save changes</Button>
         </>}
       </div>
 
-      {!selectedDoctype ? <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-gray-200 py-20 text-sm text-gray-400"><Lock className="mb-3 h-10 w-10 text-gray-300" /><p className="font-medium text-gray-500">Select a document type to configure field-level permissions</p></div> : loadingFields ? <div className="py-20 text-center text-gray-400"><Loader2 className="mr-2 inline h-5 w-5 animate-spin" />Loading fields…</div> : fields.length === 0 ? <div className="flex flex-col items-center justify-center py-16 text-sm text-gray-400"><EyeOff className="mb-2 h-8 w-8 text-gray-300" /><p>No fields are registered for this document type.</p><button onClick={addField} className="mt-3 text-blue-600 hover:underline">Add the first field</button></div> : (
-        <div className="overflow-x-auto rounded-lg border border-gray-200"><table className="min-w-full text-sm"><thead className="border-b border-gray-200 bg-gray-50"><tr><th className="px-3 py-2.5 text-left font-semibold text-gray-600">Field</th><th className="px-3 py-2.5 text-left font-semibold text-gray-600">Label</th><th className="px-3 py-2.5 text-center font-semibold text-gray-600">Level</th><th className="px-3 py-2.5 text-center font-semibold text-gray-600">Sensitive</th><th className="px-3 py-2.5 text-center font-semibold text-gray-600">Read</th><th className="px-3 py-2.5 text-center font-semibold text-gray-600">Write</th></tr></thead><tbody className="divide-y divide-gray-100">
-          {fields.map((field) => { const fieldAccess = access[field.fieldName] ?? { canRead: true, canWrite: false }; return <tr key={field.fieldName} className="hover:bg-gray-50"><td className="px-3 py-2 font-mono text-xs text-gray-700">{field.fieldName}</td><td className="px-3 py-2"><input value={field.displayLabel} onChange={(event) => updateField(field.fieldName, { displayLabel: event.target.value })} className="w-full rounded border border-gray-300 px-2 py-1.5" /></td><td className="px-3 py-2 text-center"><select value={field.permLevel} onChange={(event) => updateField(field.fieldName, { permLevel: Number(event.target.value) })} className="rounded border border-gray-300 px-2 py-1.5"><option value={0}>0 · Public</option><option value={1}>1 · Internal</option><option value={2}>2 · Restricted</option><option value={3}>3 · Sensitive</option></select></td><td className="px-3 py-2 text-center"><input type="checkbox" checked={field.isSensitive} onChange={(event) => updateField(field.fieldName, { isSensitive: event.target.checked })} /></td><td className="px-3 py-2 text-center"><input type="checkbox" checked={fieldAccess.canRead} onChange={(event) => updateAccess(field.fieldName, { canRead: event.target.checked })} /></td><td className="px-3 py-2 text-center"><input type="checkbox" checked={fieldAccess.canWrite} onChange={(event) => updateAccess(field.fieldName, { canWrite: event.target.checked })} /></td></tr> })}
+      {!selectedDoctype ? (
+        <EmptyState
+          bare
+          icon={Lock}
+          className="rounded-lg border border-dashed border-border"
+          title="Select a document type to configure field-level permissions"
+        />
+      ) : loadingFields ? (
+        <div className="space-y-2" aria-busy="true" aria-label="Loading fields">
+          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
+        </div>
+      ) : fields.length === 0 ? (
+        <EmptyState
+          bare
+          icon={EyeOff}
+          title="No fields are registered for this document type."
+          action={{ label: 'Add the first field', onClick: addField }}
+        />
+      ) : (
+        <div className="overflow-x-auto rounded-lg border border-border"><table className="min-w-full text-sm"><thead className="border-b border-border bg-muted/50"><tr><th className="px-3 py-2.5 text-left font-semibold text-muted-foreground">Field</th><th className="px-3 py-2.5 text-left font-semibold text-muted-foreground">Label</th><th className="px-3 py-2.5 text-center font-semibold text-muted-foreground">Level</th><th className="px-3 py-2.5 text-center font-semibold text-muted-foreground">Sensitive</th><th className="px-3 py-2.5 text-center font-semibold text-muted-foreground">Read</th><th className="px-3 py-2.5 text-center font-semibold text-muted-foreground">Write</th></tr></thead><tbody className="divide-y divide-border">
+          {fields.map((field) => { const fieldAccess = access[field.fieldName] ?? { canRead: true, canWrite: false }; return <tr key={field.fieldName} className="hover:bg-muted/50"><td className="px-3 py-2 font-mono text-xs text-foreground">{field.fieldName}</td><td className="px-3 py-2"><input aria-label={`Label for ${field.fieldName}`} value={field.displayLabel} onChange={(event) => updateField(field.fieldName, { displayLabel: event.target.value })} className="h-8 w-full rounded-lg border border-input bg-transparent px-2 text-sm" /></td><td className="px-3 py-2 text-center"><SettingsSelect size="sm" aria-label={`Permission level for ${field.fieldName}`} value={String(field.permLevel)} onValueChange={(value) => updateField(field.fieldName, { permLevel: Number(value) })} options={PERM_LEVEL_OPTIONS} className="w-auto min-w-36" /></td><td className="px-3 py-2 text-center"><input type="checkbox" aria-label={`${field.fieldName} is sensitive`} checked={field.isSensitive} onChange={(event) => updateField(field.fieldName, { isSensitive: event.target.checked })} /></td><td className="px-3 py-2 text-center"><input type="checkbox" aria-label={`Can read ${field.fieldName}`} checked={fieldAccess.canRead} onChange={(event) => updateAccess(field.fieldName, { canRead: event.target.checked })} /></td><td className="px-3 py-2 text-center"><input type="checkbox" aria-label={`Can write ${field.fieldName}`} checked={fieldAccess.canWrite} onChange={(event) => updateAccess(field.fieldName, { canWrite: event.target.checked })} /></td></tr> })}
         </tbody></table></div>
+      )}
+
+      {addingField && (
+        <AddFieldModal
+          existing={fields.map((field) => field.fieldName)}
+          onClose={() => setAddingField(false)}
+          onAdd={handleAddField}
+        />
       )}
     </div>
   )

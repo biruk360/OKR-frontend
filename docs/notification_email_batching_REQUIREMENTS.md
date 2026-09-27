@@ -1,6 +1,6 @@
 # Notification Emails — Mentions, Assignments, and 10-Minute Batching
 
-> Status: SPECIFIED, NOT STARTED. Owner: TBD. Last updated: 2026-09-22.
+> Status: SHIPPED (BAT/MEN in b9d9856); BAT-2 wired end-to-end 2026-09-25 — org seed now BATCHED, settings APIs/UIs accept BATCHED, direct mention email removed; prod org rows need `scripts/notifications-set-batched-defaults.ts --apply`. Owner: TBD. Last updated: 2026-09-25.
 >
 > Legend: **[V]** verified against code in this repo · **[A]** assumption needing confirmation.
 > Every requirement has an ID and Given/When/Then acceptance criteria.

@@ -173,7 +173,10 @@ describe('Project Creation AI administration', () => {
     const page = readFileSync(path.join(ROOT, 'app/dashboard/settings/integrations/page.tsx'), 'utf8')
     const panel = readFileSync(path.join(ROOT, 'components/settings/AiProviderSettingsPanel.tsx'), 'utf8')
     assert.match(route, /withRole\('ADMIN'/)
-    assert.match(page, /showAiProviderSettings=\{session\.user\.role === 'ADMIN'\}/)
+    // The whole page is ADMIN-only (non-admins are redirected), so the AI
+    // provider panel is only ever rendered for administrators.
+    assert.match(page, /session\.user\.role !== 'ADMIN'\)\s*\{\s*redirect\(/)
+    assert.match(page, /showAiProviderSettings/)
     assert.match(panel, /apiKey: ''/)
     assert.doesNotMatch(route, /encryptedKey/)
   })

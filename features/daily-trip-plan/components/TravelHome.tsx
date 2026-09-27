@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { SkeletonRow } from '@/components/ui/Skeleton'
 import { useCreateOrOpenPlan, usePlans } from '../hooks/queries'
 import { StatusBadge } from './StatusBadge'
 import { useRouter } from 'next/navigation'
@@ -39,8 +40,8 @@ export function TravelHome() {
         <CardContent>
           <div className="flex flex-wrap items-end gap-3">
             <div>
-              <Label className="text-xs">Trip date</Label>
-              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-44" />
+              <Label htmlFor="travel-trip-date" className="text-xs">Trip date</Label>
+              <Input id="travel-trip-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-44" />
             </div>
             <Button
               onClick={async () => {
@@ -62,7 +63,7 @@ export function TravelHome() {
         <CardHeader className="pb-3"><CardTitle className="text-base">Your recent plans</CardTitle></CardHeader>
         <CardContent>
           {myPlans.isLoading ? (
-            <div className="text-sm text-muted-foreground">Loading…</div>
+            <div className="space-y-2" aria-busy="true" aria-label="Loading">{Array.from({ length: 3 }).map((_, i) => <SkeletonRow key={i} />)}</div>
           ) : (myPlans.data ?? []).length === 0 ? (
             <EmptyState title="No plans yet" description="Create your first trip plan above." />
           ) : (

@@ -11,6 +11,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ChevronDown, ChevronRight, Search, Target, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Skeleton } from '@/components/ui/Skeleton'
 
 const RECENT_KEY = 'okr-link-recent-v1'
 
@@ -129,17 +131,20 @@ export default function LinkToOkrPopover({
     setQuery('')
   }
 
-  function clear(e: React.MouseEvent) {
-    e.stopPropagation()
+  function clear() {
     onChange(null)
   }
 
   return (
     <div className={cn('relative inline-block w-full', className)}>
+      <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between gap-2 rounded-[var(--ap-radius-sm)] border bg-card px-3 py-1.5 text-left text-[12px] hover:bg-muted/40"
+        className={cn(
+          'flex w-full items-center justify-between gap-2 rounded-[var(--ap-radius-sm)] border bg-card px-3 py-1.5 text-left text-xs hover:bg-muted/40',
+          value && 'pr-12',
+        )}
         style={{ borderColor: 'var(--ap-border)' }}
       >
         {value ? (
@@ -150,23 +155,29 @@ export default function LinkToOkrPopover({
         ) : (
           <span className="text-muted-foreground">{buttonLabel ?? 'Link to OKR…'}</span>
         )}
-        <span className="flex items-center gap-1">
-          {value && (
-            <span onClick={clear} className="rounded p-0.5 hover:bg-muted" role="button" tabIndex={0}>
-              <X className="h-3 w-3" />
-            </span>
-          )}
-          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-        </span>
+        <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
       </button>
+      </PopoverTrigger>
+      {/* A sibling of the trigger, not nested inside it: a button inside a
+          button is invalid and was unreachable by keyboard. */}
+      {value && (
+        <button
+          type="button"
+          onClick={clear}
+          aria-label="Remove OKR link"
+          className="absolute right-7 top-1/2 -translate-y-1/2 rounded p-0.5 hover:bg-muted"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      )}
 
-      {open && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div
-            className="absolute z-50 mt-1 w-full min-w-[320px] rounded-[12px] border bg-[var(--ap-bg-raised)] shadow-[var(--ap-shadow-lg)]"
-            style={{ borderColor: 'var(--ap-border)' }}
-          >
+      <PopoverContent
+        label="Link to OKR"
+        align="start"
+        variant="menu"
+        className="rounded-[12px] border bg-[var(--ap-bg-raised)]"
+        style={{ borderColor: 'var(--ap-border)', width: 'var(--radix-popover-trigger-width)', minWidth: 320 }}
+      >
             <div className="border-b p-2" style={{ borderColor: 'var(--ap-border)' }}>
               <div className="relative">
                 <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -175,7 +186,7 @@ export default function LinkToOkrPopover({
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search objectives & key results…"
-                  className="w-full rounded-[8px] border-0 bg-muted/40 py-1.5 pl-7 pr-2 text-[12px] outline-none focus:bg-muted"
+                  className="w-full rounded-[8px] border-0 bg-muted/40 py-1.5 pl-7 pr-2 text-xs outline-none focus:bg-muted"
                 />
               </div>
             </div>
@@ -183,27 +194,34 @@ export default function LinkToOkrPopover({
             <div className="max-h-[320px] overflow-y-auto p-1">
               {!query && recent.length > 0 && (
                 <div className="mb-1">
-                  <p className="px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Recent</p>
+                  <p className="px-2 pb-1 pt-2 text-micro font-semibold uppercase tracking-wide text-muted-foreground">Recent</p>
                   {recent.map((r) => (
                     <button
                       key={r.keyResultId}
                       type="button"
                       onClick={() => pick({ id: r.objectiveId, title: r.objectiveTitle, keyResults: [] }, { id: r.keyResultId, title: r.keyResultTitle })}
-                      className="flex w-full items-center gap-2 rounded-[6px] px-2 py-1.5 text-left text-[12px] hover:bg-muted/60"
+                      className="flex w-full items-center gap-2 rounded-[6px] px-2 py-1.5 text-left text-xs hover:bg-muted/60"
                     >
                       <Target className="h-3 w-3 shrink-0" style={{ color: 'var(--ap-accent)' }} />
                       <span className="truncate">{r.keyResultTitle}</span>
-                      <span className="ml-auto truncate text-[10px] text-muted-foreground">{r.objectiveTitle}</span>
+                      <span className="ml-auto truncate text-micro text-muted-foreground">{r.objectiveTitle}</span>
                     </button>
                   ))}
                   <div className="my-1 border-t" style={{ borderColor: 'var(--ap-border)' }} />
                 </div>
               )}
 
-              {loading && <p className="p-3 text-[12px] text-muted-foreground">Loading…</p>}
+              {loading && (
+                <div className="space-y-1.5 p-3" aria-busy="true">
+                  <span className="sr-only">Loading objectives…</span>
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-4 w-2/3" />
+                  <Skeleton className="h-4 w-1/2" />
+                </div>
+              )}
 
               {!loading && filtered.length === 0 && (
-                <p className="p-3 text-[12px] text-muted-foreground">No matches.</p>
+                <p className="p-3 text-xs text-muted-foreground">No matches.</p>
               )}
 
               {filtered.map((o) => {
@@ -220,11 +238,11 @@ export default function LinkToOkrPopover({
                           return n
                         })
                       }}
-                      className="flex w-full items-center gap-1.5 rounded-[6px] px-2 py-1.5 text-left text-[12px] font-medium hover:bg-muted/60"
+                      className="flex w-full items-center gap-1.5 rounded-[6px] px-2 py-1.5 text-left text-xs font-medium hover:bg-muted/60"
                     >
                       {isOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
                       <span className="truncate">{o.title}</span>
-                      <span className="ml-auto text-[10px] text-muted-foreground">{o.keyResults.length} KR</span>
+                      <span className="ml-auto text-micro text-muted-foreground">{o.keyResults.length} KR</span>
                     </button>
                     {isOpen && (
                       <div className="ml-4 border-l pl-2" style={{ borderColor: 'var(--ap-border)' }}>
@@ -234,7 +252,7 @@ export default function LinkToOkrPopover({
                             type="button"
                             onClick={() => pick(o, k)}
                             className={cn(
-                              'flex w-full items-center gap-2 rounded-[6px] px-2 py-1.5 text-left text-[12px] hover:bg-muted/60',
+                              'flex w-full items-center gap-2 rounded-[6px] px-2 py-1.5 text-left text-xs hover:bg-muted/60',
                               value?.keyResultId === k.id && 'bg-muted/60',
                             )}
                           >
@@ -248,9 +266,8 @@ export default function LinkToOkrPopover({
                 )
               })}
             </div>
-          </div>
-        </>
-      )}
+      </PopoverContent>
+      </Popover>
     </div>
   )
 }

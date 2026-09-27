@@ -1,9 +1,12 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { sendUserInvitationEmail } from '@/lib/email'
+import { generateAuthToken, hashAuthToken } from '@/lib/security/auth-tokens'
 import { apiSuccess, apiBadRequest, apiConflict, withRole, withRoleOrFeature } from '@/lib/api'
 import { emit } from '@/lib/notifications'
 import { filterArrayByPermLevel } from '@/lib/field-filter'
+import { recordActivity } from '@/lib/activity-log'
+import { isDeletedAccountEmail } from '@/lib/users/deleted-account'
 
 export const GET = withRoleOrFeature(['ADMIN'], 'page.settings.users', async (_request, { session }) => {
   const users = await prisma.user.findMany({
@@ -30,7 +33,9 @@ export const GET = withRoleOrFeature(['ADMIN'], 'page.settings.users', async (_r
   return apiSuccess(filtered)
 })
 
-export const POST = withRoleOrFeature(['ADMIN'], 'page.settings.users', async (request: NextRequest) => {
+// Creating accounts is ADMIN-only (decision 2026-09-25) — the users-page
+// feature grant does not extend to adding people.
+export const POST = withRole('ADMIN', async (request: NextRequest, { session }) => {
   const body = await request.json()
   const { name, email, role = 'EMPLOYEE' } = body
 
@@ -39,8 +44,11 @@ export const POST = withRoleOrFeature(['ADMIN'], 'page.settings.users', async (r
   }
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  if (!emailRegex.test(email)) {
+  if (!emailRegex.test(email) || isDeletedAccountEmail(email)) {
     return apiBadRequest('A valid email address is required')
+  }
+  if (!['ADMIN', 'EXECUTIVE', 'DEPARTMENT_LEAD', 'EMPLOYEE'].includes(role)) {
+    return apiBadRequest('Invalid role. Must be ADMIN, EXECUTIVE, DEPARTMENT_LEAD, or EMPLOYEE')
   }
 
   const existingUser = await prisma.user.findUnique({ where: { email } })
@@ -48,9 +56,8 @@ export const POST = withRoleOrFeature(['ADMIN'], 'page.settings.users', async (r
     return apiConflict('User with this email already exists')
   }
 
-  const activationToken =
-    Math.random().toString(36).substring(2, 15) +
-    Math.random().toString(36).substring(2, 15)
+  // CSPRNG token; only its hash is stored (the raw value goes in the invite link).
+  const activationToken = generateAuthToken()
 
   const user = await prisma.user.create({
     data: {
@@ -59,7 +66,7 @@ export const POST = withRoleOrFeature(['ADMIN'], 'page.settings.users', async (r
       role,
       isActive: false,
       password: null,
-      activationToken,
+      activationToken: hashAuthToken(activationToken),
       activationTokenExpires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     },
     select: {
@@ -72,6 +79,14 @@ export const POST = withRoleOrFeature(['ADMIN'], 'page.settings.users', async (r
       isProjectManager: true,
       createdAt: true,
     },
+  })
+
+  await recordActivity({
+    entityType: 'USER',
+    action: 'CREATED',
+    actorId: session.user.id,
+    changes: { role: { from: null, to: user.role }, isActive: { from: null, to: false } },
+    metadata: { userId: user.id, invited: true },
   })
 
   try {

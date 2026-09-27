@@ -4,7 +4,8 @@ import { NextResponse } from 'next/server'
 import { apiBadRequest, apiNotFound, withAuth } from '@/lib/api'
 import { readFile } from 'fs/promises'
 import type { UserRole } from '@/types'
-import { ALLOWED_TYPES, dispositionFor } from '@/lib/attachments/file-types'
+import { ALLOWED_TYPES } from '@/lib/attachments/file-types'
+import { attachmentResponseHeaders } from '@/lib/attachments/serve'
 import { resolveStoredPath } from '@/lib/attachments/storage'
 import { canAccessAttachmentScope, isCommentScope } from '@/lib/attachments/access'
 
@@ -40,7 +41,8 @@ export const GET = withAuth<RouteIdParams>(async (_request, { session, params })
   const allowed = await canAccessAttachmentScope(
     row.commentType,
     row.entityId,
-    { id: session.user.id, role: session.user.role as UserRole },
+    { id: session.user.id, role: session.user.role as UserRole, userType: session.user.userType },
+    'read',
   )
   if (!allowed) return apiNotFound('Attachment not available')
 
@@ -56,19 +58,14 @@ export const GET = withAuth<RouteIdParams>(async (_request, { session, params })
     return apiNotFound('Attachment not available')
   }
 
-  // Quote-strip the display name: it is caller-supplied and goes in a header.
-  const safeName = row.filename.replace(/["\\\r\n]/g, '_')
-
+  // Shared header policy with the card route (lib/attachments/serve.ts):
+  // nosniff, sandboxed CSP, `attachment` for anything not an image/PDF,
+  // private caching (permission is re-checked per request), and an RFC 5987
+  // filename so a non-ASCII display name cannot break the header.
+  //
   // withAuth is typed to NextResponse; a binary body still needs a plain
   // Response, so this is cast rather than wrapped in NextResponse.json.
   return new NextResponse(new Uint8Array(bytes), {
-    headers: {
-      'Content-Type': type.mime,
-      'Content-Length': String(bytes.byteLength),
-      'Content-Disposition': `${dispositionFor(type)}; filename="${safeName}"`,
-      'X-Content-Type-Options': 'nosniff',
-      // Permission is re-checked per request, so caches must not share it.
-      'Cache-Control': 'private, max-age=0, must-revalidate',
-    },
+    headers: attachmentResponseHeaders({ type, filename: row.filename, size: bytes.byteLength }),
   })
 })

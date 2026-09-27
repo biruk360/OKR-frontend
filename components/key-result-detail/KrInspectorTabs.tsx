@@ -45,6 +45,11 @@ interface Props {
     confidenceTrend?: number[]
   }
   checkIns: CheckInLite[]
+  /**
+   * May the viewer flag a risk on this KR? POST /api/risks requires edit rights
+   * on the key result, so non-editors get a read-only panel instead of a 403.
+   */
+  canReportRisk?: boolean
 }
 
 function initialsOf(name?: string | null): string {
@@ -61,7 +66,13 @@ function timeframeTypeLabel(type?: string): string {
   }
 }
 
-export default function KrInspectorTabs({ keyResultId, activityElementId, details, checkIns }: Props) {
+export default function KrInspectorTabs({
+  keyResultId,
+  activityElementId,
+  details,
+  checkIns,
+  canReportRisk = false,
+}: Props) {
   const { data: session } = useSession()
   const [risksCount, setRisksCount] = useState<number | null>(null)
   const [viewersCount, setViewersCount] = useState<number | null>(null)
@@ -79,7 +90,7 @@ export default function KrInspectorTabs({ keyResultId, activityElementId, detail
             <TabsTrigger
               key={v}
               value={v}
-              className="rounded-none border-b-2 border-transparent px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground data-[state=active]:border-[var(--ap-accent)] data-[state=active]:text-[var(--ap-fg)] data-[state=active]:shadow-none data-[state=active]:bg-transparent"
+              className="rounded-none border-b-2 border-transparent px-3 py-2 text-caption font-semibold uppercase tracking-wide text-muted-foreground data-[state=active]:border-[var(--ap-accent)] data-[state=active]:text-[var(--ap-fg)] data-[state=active]:shadow-none data-[state=active]:bg-transparent"
             >
               {v === 'details' ? 'Details' : v === 'checkins' ? 'Check-ins' : v === 'activity' ? 'Activity' : v === 'risks' ? `Risks${risksCount !== null ? ` (${risksCount})` : ''}` : `Viewers${viewersCount !== null ? ` (${viewersCount})` : ''}`}
             </TabsTrigger>
@@ -96,16 +107,16 @@ export default function KrInspectorTabs({ keyResultId, activityElementId, detail
                     <img src={details.owner.avatar} alt={details.owner.name ?? ''} className="size-8 rounded-full object-cover" />
                   ) : (
                     <span
-                      className="flex size-8 items-center justify-center rounded-full text-[11px] font-semibold text-white"
+                      className="flex size-8 items-center justify-center rounded-full text-caption font-semibold text-[var(--ap-accent-fg)]"
                       style={{ background: 'var(--ap-accent)' }}
                     >
                       {initialsOf(details.owner.name)}
                     </span>
                   )}
                   <div className="min-w-0">
-                    <p className="text-[13px] font-medium truncate">{details.owner.name ?? 'Unknown'}</p>
+                    <p className="text-body-sm font-medium truncate">{details.owner.name ?? 'Unknown'}</p>
                     {details.owner.email && (
-                      <p className="text-[11px] text-muted-foreground truncate">{details.owner.email}</p>
+                      <p className="text-caption text-muted-foreground truncate">{details.owner.email}</p>
                     )}
                   </div>
                 </div>
@@ -116,11 +127,11 @@ export default function KrInspectorTabs({ keyResultId, activityElementId, detail
               <Field icon={<Calendar className="size-3" />} label="Timeframe">
                 <div className="flex items-center gap-2 flex-wrap">
                   {details.timeframe.name && (
-                    <span className="text-[13px] font-medium">{details.timeframe.name}</span>
+                    <span className="text-body-sm font-medium">{details.timeframe.name}</span>
                   )}
                   {details.timeframe.type && (
                     <span
-                      className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                      className="inline-flex items-center rounded-full px-2 py-0.5 text-micro font-semibold"
                       style={{ background: 'var(--ap-accent-soft)', color: 'var(--ap-accent)' }}
                     >
                       {timeframeTypeLabel(details.timeframe.type)}
@@ -128,7 +139,7 @@ export default function KrInspectorTabs({ keyResultId, activityElementId, detail
                   )}
                 </div>
                 {details.timeframe.startDate && details.timeframe.endDate && (
-                  <p className="text-[11px] text-muted-foreground mt-1 tabular-nums">
+                  <p className="text-caption text-muted-foreground mt-1 tabular-nums">
                     {new Date(details.timeframe.startDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
                     {' → '}
                     {new Date(details.timeframe.endDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
@@ -141,7 +152,7 @@ export default function KrInspectorTabs({ keyResultId, activityElementId, detail
               <Field icon={<Target className="size-3" />} label="Parent objective">
                 <Link
                   href={`/dashboard/objectives/${details.parentObjective.id}`}
-                  className="block rounded-[var(--ap-radius-sm)] border px-2.5 py-1.5 text-[12px] hover:bg-[var(--ap-bg-hover)]"
+                  className="block rounded-[var(--ap-radius-sm)] border px-2.5 py-1.5 text-xs hover:bg-[var(--ap-bg-hover)]"
                   style={{
                     borderColor: 'var(--ap-border)',
                     background: 'var(--ap-accent-soft)',
@@ -157,7 +168,7 @@ export default function KrInspectorTabs({ keyResultId, activityElementId, detail
             )}
 
             <Field icon={<TrendingUp className="size-3" />} label="Measurement">
-              <p className="text-[12px]">
+              <p className="text-xs">
                 Start{' '}
                 <span className="font-semibold tabular-nums">
                   {formatAxisValue(details.startValue)} {details.unit}
@@ -167,7 +178,7 @@ export default function KrInspectorTabs({ keyResultId, activityElementId, detail
                   {formatAxisValue(details.targetValue)} {details.unit}
                 </span>
               </p>
-              <p className="text-[11px] text-muted-foreground mt-0.5 tabular-nums">
+              <p className="text-caption text-muted-foreground mt-0.5 tabular-nums">
                 Current{' '}
                 <span className="font-semibold text-[var(--ap-fg)]">
                   {formatAxisValue(details.currentValue)} {details.unit}
@@ -193,11 +204,11 @@ export default function KrInspectorTabs({ keyResultId, activityElementId, detail
             )}
 
             <Field icon={<Clock className="size-3" />} label="Last updated">
-              <p className="text-[12px] tabular-nums">
+              <p className="text-xs tabular-nums">
                 {format(new Date(details.updatedAt), 'PP p')}
               </p>
               {details.updatedBy?.name && (
-                <p className="text-[11px] text-muted-foreground mt-0.5">by {details.updatedBy.name}</p>
+                <p className="text-caption text-muted-foreground mt-0.5">by {details.updatedBy.name}</p>
               )}
             </Field>
           </div>
@@ -206,7 +217,7 @@ export default function KrInspectorTabs({ keyResultId, activityElementId, detail
         <TabsContent value="checkins" className="m-0 p-0">
           <div className="px-4 py-4 max-h-[460px] overflow-auto">
             {checkIns.length === 0 ? (
-              <p className="text-[12px] text-muted-foreground italic">No check-ins yet.</p>
+              <p className="text-xs text-muted-foreground italic">No check-ins yet.</p>
             ) : (
               <CheckInTimeline checkIns={checkIns} unit={details.unit} />
             )}
@@ -224,6 +235,7 @@ export default function KrInspectorTabs({ keyResultId, activityElementId, detail
             parent={{ type: 'keyResult', id: keyResultId }}
             currentUserId={userId}
             currentUserRole={userRole}
+            canReport={canReportRisk}
             onCountChange={setRisksCount}
           />
         </TabsContent>
@@ -241,7 +253,7 @@ export default function KrInspectorTabs({ keyResultId, activityElementId, detail
 function Field({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
   return (
     <div>
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5 mb-1.5">
+      <p className="text-micro font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5 mb-1.5">
         {icon} {label}
       </p>
       {children}

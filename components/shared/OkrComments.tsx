@@ -1,11 +1,21 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
+import { MessageSquare } from 'lucide-react'
 import { formatRelativeTime } from '@/lib/utils'
+import { Skeleton, SkeletonAvatar } from '@/components/ui/Skeleton'
+import { EmptyState } from '@/components/ui/EmptyState'
 import RichTextEditor from './RichTextEditor'
 import { AttachmentPicker, AttachmentList, type CommentAttachmentDto } from './CommentAttachments'
 import RichTextContent from './RichTextContent'
+import { LinkPreviewList } from './LinkPreview'
+import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh'
+import {
+  OKR_REALTIME_EVENTS,
+  keyResultRealtimeChannel,
+  objectiveRealtimeChannel,
+} from '@/lib/okr/realtime'
 
 interface CommentAuthor {
   id: string
@@ -33,34 +43,59 @@ interface Props {
   endpoint: 'objectives' | 'keyresults'
   entityId: string
   users: UserOption[]
+  /** Viewer id — their own comment-added echoes are skipped (already appended locally). */
+  currentUserId?: string | null
 }
+
+const COMMENT_EVENTS = [OKR_REALTIME_EVENTS.COMMENT_ADDED] as const
 
 /**
  * Discussion thread backed by a Tiptap rich-text editor. Content is stored
  * and transmitted as sanitized HTML; legacy plaintext comments still render
  * via RichTextContent's plain-text fallback.
  */
-export default function OkrComments({ endpoint, entityId }: Props) {
+export default function OkrComments({ endpoint, entityId, currentUserId }: Props) {
   const [comments, setComments] = useState<CommentRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [value, setValue] = useState('')
   const [saving, setSaving] = useState(false)
   const [staged, setStaged] = useState<CommentAttachmentDto[]>([])
+  // Bumped by a realtime comment-added signal → silent refetch (no skeleton).
+  const [reloadTick, setReloadTick] = useState(0)
+
+  useEffect(() => {
+    setLoading(true)
+  }, [endpoint, entityId])
 
   useEffect(() => {
     let cancelled = false
-    setLoading(true)
     fetch(`/api/${endpoint}/${entityId}/comments`)
       .then((r) => r.json())
       .then((res) => {
         if (cancelled) return
         if (res.success) setComments(res.data)
       })
+      .catch(() => { /* keep the current thread; the next signal retries */ })
       .finally(() => !cancelled && setLoading(false))
     return () => {
       cancelled = true
     }
-  }, [endpoint, entityId])
+  }, [endpoint, entityId, reloadTick])
+
+  // Live thread: the comment POST routes signal `okr:comment-added` on the
+  // entity's private channel (ids only). The payload is a signal — the thread is
+  // refetched through the permission-checked comments API. The page-level
+  // refresher (ObjectiveRealtimeRefresher / KeyResultDetailClient) subscribes to
+  // the same channel with the same lifetime (both mount only for an unredacted
+  // view); Pusher shares one channel object between them. A channel the viewer
+  // may not see is refused by /api/pusher/auth and the hook drops it quietly.
+  const reload = useCallback(() => setReloadTick((n) => n + 1), [])
+  useRealtimeRefresh({
+    channel: endpoint === 'objectives' ? objectiveRealtimeChannel(entityId) : keyResultRealtimeChannel(entityId),
+    events: COMMENT_EVENTS,
+    onRefresh: reload,
+    ignoreActorId: currentUserId ?? null,
+  })
 
   const submit = async () => {
     const content = value.trim()
@@ -94,15 +129,30 @@ export default function OkrComments({ endpoint, entityId }: Props) {
       </div>
 
       {loading ? (
-        <p className="text-sm text-muted-foreground">Loading comments…</p>
+        <div className="space-y-3" aria-busy="true" aria-label="Loading comments">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <div key={i} className="flex gap-3">
+              <SkeletonAvatar size={32} />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-3 w-32" />
+                <Skeleton className="h-3 w-full" />
+              </div>
+            </div>
+          ))}
+        </div>
       ) : comments.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No comments yet. Start the conversation.</p>
+        <EmptyState
+          bare
+          icon={MessageSquare}
+          title="No comments yet"
+          description="Start the conversation."
+        />
       ) : (
         <ul className="space-y-3">
           {/* Newest first — see TodoCardModal for the same reasoning. */}
           {[...comments].reverse().map((c) => (
             <li key={c.id} className="flex gap-3">
-              <div className="h-8 w-8 rounded-full bg-blue-500 text-white text-xs font-semibold flex items-center justify-center shrink-0">
+              <div className="h-8 w-8 rounded-full bg-primary-500 text-primary-foreground text-xs font-semibold flex items-center justify-center shrink-0">
                 {(c.author.name ?? '?').slice(0, 1).toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">
@@ -111,6 +161,9 @@ export default function OkrComments({ endpoint, entityId }: Props) {
                   <span className="text-xs text-muted-foreground">{formatRelativeTime(new Date(c.createdAt))}</span>
                 </div>
                 <RichTextContent html={c.content} className="text-sm text-foreground" />
+                {/* Same link previews as the card thread (LPV-1..9): up to 3
+                    external URLs per body, rendered from API data as text. */}
+                <LinkPreviewList html={c.content} className="mt-2" />
                 <AttachmentList attachments={c.attachments ?? []} />
               </div>
             </li>
@@ -118,7 +171,7 @@ export default function OkrComments({ endpoint, entityId }: Props) {
         </ul>
       )}
 
-      <div>
+      <div data-comment-composer>
         <RichTextEditor
           value={value}
           onChange={setValue}
@@ -137,7 +190,7 @@ export default function OkrComments({ endpoint, entityId }: Props) {
             type="button"
             disabled={saving || (!value.trim() && staged.length === 0)}
             onClick={submit}
-            className="px-4 py-1.5 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700 disabled:opacity-60"
+            className="px-4 py-1.5 rounded-md bg-primary-600 text-primary-foreground text-sm hover:bg-primary-700 disabled:opacity-60"
           >
             {saving ? 'Posting…' : 'Post comment'}
           </button>

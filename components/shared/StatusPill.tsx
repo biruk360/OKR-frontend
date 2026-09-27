@@ -24,8 +24,8 @@ const MAP: Record<StatusKey, { label: string; bg: string; fg: string; dot: strin
   'closed':      { label: 'Closed',    bg: 'rgba(120,120,128,0.12)', fg: 'var(--ap-fg-muted)', dot: 'var(--ap-fg-muted)' },
   'pending':     { label: 'Pending',   bg: 'rgba(120,120,128,0.12)', fg: 'var(--ap-fg-muted)', dot: 'var(--ap-fg-muted)' },
   'in-progress': { label: 'In progress', bg: 'rgba(0,122,255,0.12)', fg: 'var(--ap-accent)', dot: 'var(--ap-accent)' },
-  'in-review':   { label: 'In review', bg: 'rgba(175,82,222,0.14)', fg: '#7A2BB8', dot: '#AF52DE' },
-  'stuck':       { label: 'Stuck',     bg: 'rgba(255,149,0,0.14)', fg: '#B86200', dot: '#FF9500' },
+  'in-review':   { label: 'In review', bg: 'var(--ap-ahead-bg)', fg: 'var(--ap-ahead-fg)', dot: 'var(--ap-ahead)' },
+  'stuck':       { label: 'Stuck',     bg: 'var(--ap-warn-bg)', fg: 'var(--ap-warn-fg)', dot: 'var(--ap-warn)' },
   'cancelled':   { label: 'Cancelled', bg: 'rgba(120,120,128,0.12)', fg: 'var(--ap-fg-muted)', dot: 'var(--ap-fg-muted)' },
   // Sprint lifecycle states (Sprints v2)
   'planning':    { label: 'Planning',  bg: 'rgba(120,120,128,0.14)', fg: 'var(--ap-fg-muted)', dot: 'var(--ap-fg-muted)' },
@@ -65,9 +65,9 @@ export default function StatusPill({
     : normalizeStatus(status as string | null | undefined)
   const c = MAP[key] ?? MAP['pending']
   const sizing =
-    size === 'xs' ? 'px-1.5 py-0.5 text-[10px]' :
-    size === 'md' ? 'px-2.5 py-1 text-[12px]' :
-    'px-2 py-0.5 text-[11px]'
+    size === 'xs' ? 'px-1.5 py-0.5 text-micro' :
+    size === 'md' ? 'px-2.5 py-1 text-xs' :
+    'px-2 py-0.5 text-caption'
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-full font-semibold ${sizing}`}
@@ -85,7 +85,7 @@ export function PaceChip({ delta }: { delta: number }) {
   const fg = positive ? 'var(--ap-green)' : 'var(--ap-red)'
   return (
     <span
-      className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums"
+      className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-micro font-semibold tabular-nums"
       style={{ background: bg, color: fg }}
     >
       {positive ? '▲' : '▼'}{Math.abs(delta)}pt
@@ -95,14 +95,14 @@ export function PaceChip({ delta }: { delta: number }) {
 
 export function LevelBadge({ level }: { level: string }) {
   const map: Record<string, { label: string; bg: string; fg: string }> = {
-    COMPANY:    { label: 'Company',    bg: 'rgba(88,86,214,0.12)',  fg: 'rgb(88,86,214)' },
+    COMPANY:    { label: 'Company',    bg: 'var(--ap-ahead-bg)',     fg: 'var(--ap-ahead-fg)' },
     DEPARTMENT: { label: 'Department', bg: 'rgba(0,122,255,0.12)',  fg: 'var(--ap-accent)' },
     INDIVIDUAL: { label: 'Individual', bg: 'rgba(120,120,128,0.14)', fg: 'var(--ap-fg-muted)' },
   }
   const c = map[level] ?? map.INDIVIDUAL
   return (
     <span
-      className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+      className="inline-flex items-center rounded-full px-2 py-0.5 text-micro font-bold uppercase tracking-wide"
       style={{ background: c.bg, color: c.fg }}
     >
       {c.label}

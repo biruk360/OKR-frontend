@@ -40,7 +40,7 @@ export function MapFilterBar({ value }: { value: MapFilters }) {
             key={k.key}
             type="button"
             onClick={() => toggle(k.key)}
-            className="rounded-md border px-2 py-1 text-[11px] font-medium transition-colors"
+            className="rounded-md border px-2 py-1 text-caption font-medium transition-colors"
             style={{
               borderColor: on ? '#2563eb' : '#d1d5db',
               background: on ? 'rgba(37,99,235,0.08)' : '#fff',

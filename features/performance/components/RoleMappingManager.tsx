@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useId } from 'react'
 import { useForm } from 'react-hook-form'
 import { Tags, Trash2 } from 'lucide-react'
 import { Button, ConfirmDialog, EmptyState, Input, Label } from '@/components/ui'
@@ -11,6 +11,7 @@ import { SectionCard } from './SectionCard'
 type MappingForm = { designationKey: string; familyId: string }
 
 export function RoleMappingManager() {
+  const uid = useId()
   const templates = usePerformanceTemplates()
   const mappings = useTemplateMappings()
   const save = useSaveTemplateMapping()
@@ -35,12 +36,12 @@ export function RoleMappingManager() {
       <SectionCard title="Role-to-template mappings" contentClassName="space-y-4 px-4 py-4">
         <form onSubmit={submit} className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
           <div>
-            <Label>Employee designation</Label>
-            <Input {...register('designationKey')} placeholder="Software Engineer" />
+            <Label htmlFor={`${uid}-designation`}>Employee designation</Label>
+            <Input id={`${uid}-designation`} {...register('designationKey')} placeholder="Software Engineer" />
           </div>
           <div>
-            <Label>Template family</Label>
-            <NativeSelect {...register('familyId')}>
+            <Label htmlFor={`${uid}-family`}>Template family</Label>
+            <NativeSelect id={`${uid}-family`} {...register('familyId')}>
               <option value="">Select family</option>
               {families.map((family) => <option key={family.id} value={family.id}>{family.name}</option>)}
             </NativeSelect>

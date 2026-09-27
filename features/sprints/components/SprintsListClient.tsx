@@ -18,8 +18,12 @@ import { Plus, Calendar, Target, Layout, X } from 'lucide-react'
 import { useCreateIntentStore } from '@/lib/stores/create-intent-store'
 import StatusPill from '@/components/shared/StatusPill'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { PageHeader } from '@/components/ui/PageHeader'
+import { SkeletonCard, SkeletonRow } from '@/components/ui/Skeleton'
 import AddToSprintDropdown from '@/components/sprints/AddToSprintDropdown'
 import { cn } from '@/lib/utils'
+import { userInitials } from '@/lib/user-color'
+import { PeopleTooltip, PersonTooltip } from '@/components/shared/UserAvatar'
 import { Progress } from '@/components/ui/progress'
 
 type Tab = 'active' | 'planning' | 'backlog' | 'completed'
@@ -61,16 +65,25 @@ interface BacklogTodo {
   keyResult: { id: string; title: string } | null
 }
 
-function Avatar({ name, avatar, size = 22 }: { name: string; avatar: string | null; size?: number }) {
-  const initials = name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
-  return avatar ? (
-    <img src={avatar} alt={name} className="rounded-full object-cover" style={{ width: size, height: size }} />
-  ) : (
-    <span title={name}
-      className="inline-flex shrink-0 items-center justify-center rounded-full font-semibold text-white"
-      style={{ width: size, height: size, fontSize: size * 0.38, background: 'var(--ap-accent)' }}>
-      {initials}
-    </span>
+function Avatar({ name, avatar, size = 22, detail }: { name: string; avatar: string | null; size?: number; detail?: string }) {
+  const initials = userInitials(name)
+  // Full name on hover — docs/user_name_hover_REQUIREMENTS.md UNH-2.
+  return (
+    <PersonTooltip person={{ name, avatar }} detail={detail}>
+      {avatar ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={avatar} alt={name} className="shrink-0 rounded-full object-cover" style={{ width: size, height: size }} />
+      ) : (
+        <span
+          role="img"
+          aria-label={name}
+          className="inline-flex shrink-0 items-center justify-center rounded-full font-semibold text-white"
+          style={{ width: size, height: size, fontSize: size * 0.38, background: 'var(--ap-accent)' }}
+        >
+          <span aria-hidden>{initials}</span>
+        </span>
+      )}
+    </PersonTooltip>
   )
 }
 
@@ -101,12 +114,12 @@ function SprintCard({ s, greyscale }: { s: Sprint; greyscale?: boolean }) {
       style={{ borderColor: 'var(--ap-border)' }}
     >
       <div className="flex items-start justify-between gap-2">
-        <h3 className="text-[15px] font-semibold leading-tight" style={{ letterSpacing: '-0.01em' }}>{s.name}</h3>
+        <h3 className="text-body font-semibold leading-tight" style={{ letterSpacing: '-0.01em' }}>{s.name}</h3>
         <StatusPill status={s.state.toLowerCase().replace('_', '-')} />
       </div>
-      {s.description && <p className="mt-1 line-clamp-2 text-[12px] text-muted-foreground">{s.description}</p>}
+      {s.description && <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{s.description}</p>}
 
-      <div className="mt-3 flex items-center gap-3 text-[11px] text-muted-foreground">
+      <div className="mt-3 flex items-center gap-3 text-caption text-muted-foreground">
         {s.startDate && s.endDate && (
           <span className="inline-flex items-center gap-1">
             <Calendar className="h-3 w-3" />
@@ -127,7 +140,7 @@ function SprintCard({ s, greyscale }: { s: Sprint; greyscale?: boolean }) {
       {(s.state === 'ACTIVE' || s.state === 'COMPLETED') && (
         <div className="mt-3 space-y-2">
           <div>
-            <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+            <div className="flex items-center justify-between text-micro text-muted-foreground">
               <span>Tasks</span>
               <span className="tabular-nums">
                 {summary ? `${summary.completedCount}/${closedTotal} · ${closedPct ?? 0}%` : taskTotal}
@@ -142,7 +155,7 @@ function SprintCard({ s, greyscale }: { s: Sprint; greyscale?: boolean }) {
           </div>
           {goalPercent !== null && (
             <div>
-              <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+              <div className="flex items-center justify-between text-micro text-muted-foreground">
                 <span>{s.goalLabel ?? 'Goal'}</span>
                 <span className="tabular-nums">{goalPercent}%</span>
               </div>
@@ -156,17 +169,17 @@ function SprintCard({ s, greyscale }: { s: Sprint; greyscale?: boolean }) {
       {summary && (summary.movedToNext > 0 || summary.movedToBacklog > 0 || summary.cancelledCount > 0) && (
         <div className="mt-2.5 flex flex-wrap gap-1.5">
           {summary.movedToNext > 0 && (
-            <span className="rounded-[6px] px-1.5 py-px text-[10px] font-semibold" style={{ background: 'var(--ap-accent-soft)', color: 'var(--ap-accent)' }}>
+            <span className="rounded-[6px] px-1.5 py-px text-micro font-semibold" style={{ background: 'var(--ap-accent-soft)', color: 'var(--ap-accent)' }}>
               {summary.movedToNext} carried
             </span>
           )}
           {summary.movedToBacklog > 0 && (
-            <span className="rounded-[6px] px-1.5 py-px text-[10px] font-semibold" style={{ background: 'var(--ap-none-bg)', color: 'var(--ap-none-fg)' }}>
+            <span className="rounded-[6px] px-1.5 py-px text-micro font-semibold" style={{ background: 'var(--ap-none-bg)', color: 'var(--ap-none-fg)' }}>
               {summary.movedToBacklog} backlog
             </span>
           )}
           {summary.cancelledCount > 0 && (
-            <span className="rounded-[6px] px-1.5 py-px text-[10px] font-semibold" style={{ background: 'var(--ap-danger-bg)', color: 'var(--ap-danger-fg)' }}>
+            <span className="rounded-[6px] px-1.5 py-px text-micro font-semibold" style={{ background: 'var(--ap-danger-bg)', color: 'var(--ap-danger-fg)' }}>
               {summary.cancelledCount} cancelled
             </span>
           )}
@@ -175,14 +188,20 @@ function SprintCard({ s, greyscale }: { s: Sprint; greyscale?: boolean }) {
 
       <div className="mt-3 flex items-center justify-between">
         <div className="flex -space-x-1">
-          {s.participants.slice(0, 4).map((p) => <Avatar key={p.user.id} name={p.user.name} avatar={p.user.avatar} size={20} />)}
+          {s.participants.slice(0, 4).map((p) => <Avatar key={p.user.id} name={p.user.name} avatar={p.user.avatar} size={20} detail="Participant" />)}
           {s.participants.length > 4 && (
-            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[9px] font-semibold">
-              +{s.participants.length - 4}
-            </span>
+            <PeopleTooltip people={s.participants.slice(4).map((p) => p.user)}>
+              <span
+                role="img"
+                aria-label={`${s.participants.length - 4} more: ${s.participants.slice(4).map((p) => p.user.name).join(', ')}`}
+                className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[9px] font-semibold"
+              >
+                +{s.participants.length - 4}
+              </span>
+            </PeopleTooltip>
           )}
         </div>
-        <span className="text-[11px] font-semibold" style={{ color: 'var(--ap-accent)' }}>
+        <span className="text-caption font-semibold" style={{ color: 'var(--ap-accent)' }}>
           {isClosed && summary ? 'View Report →' : 'Open Board →'}
         </span>
       </div>
@@ -228,7 +247,14 @@ function BacklogList({ currentUserId }: { currentUserId: string }) {
     }
   }
 
-  if (isLoading) return <p className="p-6 text-[13px] text-muted-foreground">Loading backlog…</p>
+  if (isLoading) {
+    return (
+      <div className="space-y-2" aria-busy="true">
+        <span className="sr-only">Loading backlog…</span>
+        {Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)}
+      </div>
+    )
+  }
 
   const todos = data ?? []
   if (todos.length === 0) {
@@ -239,7 +265,7 @@ function BacklogList({ currentUserId }: { currentUserId: string }) {
     <div className="rounded-[var(--ap-radius-md)] border bg-card" style={{ borderColor: 'var(--ap-border)' }}>
       <div className="divide-y" style={{ borderColor: 'var(--ap-border)' }}>
         {todos.map((t) => (
-          <label key={t.id} className="flex cursor-pointer items-center gap-3 px-4 py-2 text-[12px] hover:bg-muted/30">
+          <label key={t.id} className="flex cursor-pointer items-center gap-3 px-4 py-2 text-xs hover:bg-muted/30">
             <input
               type="checkbox"
               checked={selected.has(t.id)}
@@ -255,7 +281,7 @@ function BacklogList({ currentUserId }: { currentUserId: string }) {
             <span className="flex-1 truncate font-medium">{t.title}</span>
             {t.keyResult && (
               <span
-                className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium"
+                className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-micro font-medium"
                 style={{ background: 'var(--ap-accent-soft)', color: 'var(--ap-accent)' }}
               >
                 <Target className="h-3 w-3" />
@@ -263,11 +289,11 @@ function BacklogList({ currentUserId }: { currentUserId: string }) {
               </span>
             )}
             {t.dueDate && (
-              <span className="text-[10px] text-muted-foreground">
+              <span className="text-micro text-muted-foreground">
                 {new Date(t.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
               </span>
             )}
-            <Avatar name={t.assignee.name} avatar={t.assignee.avatar} size={20} />
+            <Avatar name={t.assignee.name} avatar={t.assignee.avatar} size={20} detail="Assignee" />
           </label>
         ))}
       </div>
@@ -275,7 +301,7 @@ function BacklogList({ currentUserId }: { currentUserId: string }) {
       {selected.size > 0 && (
         <div className="sticky bottom-0 flex items-center gap-2 border-t bg-card px-4 py-2"
           style={{ borderColor: 'var(--ap-border)' }}>
-          <span className="text-[12px] font-semibold">{selected.size} selected</span>
+          <span className="text-xs font-semibold">{selected.size} selected</span>
           <div className="ml-auto flex items-center gap-2">
             <div className="w-[220px]">
               <AddToSprintDropdown value={bulkSprintId} onChange={setBulkSprintId} placeholder="Move to sprint…" />
@@ -284,8 +310,8 @@ function BacklogList({ currentUserId }: { currentUserId: string }) {
               type="button"
               disabled={!bulkSprintId}
               onClick={moveBulk}
-              className="rounded-[var(--ap-radius-sm)] px-3 py-1.5 text-[12px] font-semibold text-white disabled:opacity-50"
-              style={{ background: 'var(--ap-accent)' }}
+              className="rounded-[var(--ap-radius-sm)] px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
+              style={{ background: 'var(--ap-accent)', color: 'var(--ap-accent-fg)' }}
             >
               Move
             </button>
@@ -355,22 +381,23 @@ export default function SprintsListClient({ currentUserId }: { currentUserId: st
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-[24px] font-semibold leading-tight" style={{ letterSpacing: '-0.02em' }}>Sprints</h1>
-        <div className="ml-auto flex items-center gap-2">
+      <PageHeader
+        title="Sprints"
+        className="mb-0"
+        actions={
           <button
             type="button"
             onClick={() => setCreating(true)}
-            className="inline-flex items-center gap-1.5 rounded-[var(--ap-radius-sm)] h-8 px-3 text-[12px] font-semibold text-white"
-            style={{ background: 'var(--ap-accent)' }}
+            className="inline-flex items-center gap-1.5 rounded-[var(--ap-radius-sm)] h-8 px-3 text-xs font-semibold"
+            style={{ background: 'var(--ap-accent)', color: 'var(--ap-accent-fg)' }}
           >
             <Plus className="h-3.5 w-3.5" /> New sprint
           </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Sub-tabs */}
-      <div className="flex items-center gap-1 rounded-[var(--ap-radius-sm)] border p-0.5 text-[12px]" style={{ borderColor: 'var(--ap-border)', width: 'fit-content' }}>
+      <div className="flex items-center gap-1 rounded-[var(--ap-radius-sm)] border p-0.5 text-xs" style={{ borderColor: 'var(--ap-border)', width: 'fit-content' }}>
         {(['active', 'planning', 'backlog', 'completed'] as Tab[]).map((t) => (
           <button
             key={t}
@@ -397,16 +424,18 @@ export default function SprintsListClient({ currentUserId }: { currentUserId: st
               if (e.key === 'Escape') { setCreating(false); setName('') }
             }}
             placeholder="Sprint name (e.g. Marketing Q2 W14)"
-            className="w-full rounded-[var(--ap-radius-sm)] border bg-card px-3 py-1.5 text-[13px] outline-none"
+            aria-label="Sprint name"
+            className="w-full rounded-[var(--ap-radius-sm)] border bg-card px-3 py-1.5 text-body-sm outline-none"
             style={{ borderColor: 'var(--ap-border)' }}
           />
           <div className="mt-2 flex items-center gap-2">
             <button onClick={createSprint} disabled={!name.trim() || submitting}
-              className="rounded-[var(--ap-radius-sm)] px-3 py-1.5 text-[12px] font-semibold text-white disabled:opacity-50"
-              style={{ background: 'var(--ap-accent)' }}>
+              className="rounded-[var(--ap-radius-sm)] px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
+              style={{ background: 'var(--ap-accent)', color: 'var(--ap-accent-fg)' }}>
               {submitting ? 'Creating…' : 'Create'}
             </button>
             <button onClick={() => { setCreating(false); setName('') }}
+              aria-label="Cancel new sprint"
               className="rounded-[var(--ap-radius-sm)] p-1.5 text-muted-foreground hover:bg-muted">
               <X className="h-4 w-4" />
             </button>
@@ -417,7 +446,10 @@ export default function SprintsListClient({ currentUserId }: { currentUserId: st
       {tab === 'backlog' ? (
         <BacklogList currentUserId={currentUserId} />
       ) : isLoading ? (
-        <p className="p-6 text-[13px] text-muted-foreground">Loading…</p>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3" aria-busy="true">
+          <span className="sr-only">Loading sprints…</span>
+          {[0, 1, 2].map((i) => <SkeletonCard key={i} />)}
+        </div>
       ) : list.length === 0 ? (
         <EmptyState
           icon={Layout}

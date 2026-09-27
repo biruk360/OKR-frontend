@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useId } from 'react'
 import { Check, RotateCcw, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { Button } from '@/components/ui/button'
@@ -16,6 +16,7 @@ import type { DtpPlanWithStops } from '../types'
  * by a Coordinator.
  */
 export function CoordinatorActions({ plan }: { plan: DtpPlanWithStops }) {
+  const uid = useId()
   const t = usePlanTransition(plan.id)
   const [returnNote, setReturnNote] = useState<{ open: boolean; mode: 'RETURN' | 'REJECT'; note: string } | null>(null)
 
@@ -74,8 +75,8 @@ export function CoordinatorActions({ plan }: { plan: DtpPlanWithStops }) {
             </div>
           }
         >
-          <Label>Note for the requester</Label>
-          <Textarea rows={4} value={returnNote.note} onChange={(e) => setReturnNote({ ...returnNote, note: e.target.value })} />
+          <Label htmlFor={`${uid}-note`}>Note for the requester</Label>
+          <Textarea id={`${uid}-note`} rows={4} value={returnNote.note} onChange={(e) => setReturnNote({ ...returnNote, note: e.target.value })} />
         </Modal>
       )}
     </div>

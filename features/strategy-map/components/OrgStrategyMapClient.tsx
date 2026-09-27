@@ -17,7 +17,7 @@ export function OrgStrategyMapClient({ mode, timeframeId }: { mode: MapMode; tim
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 items-center gap-3 border-b border-border bg-card px-3 py-2">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+        <span className="text-micro font-bold uppercase tracking-widest text-muted-foreground">
           Filters
         </span>
         <MapFilterBar value={filters} />

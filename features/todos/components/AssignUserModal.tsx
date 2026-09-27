@@ -49,7 +49,7 @@ export default function AssignUserModal({ isOpen, onClose, todo, users, onAssign
   if (!todo) return null
 
   return (
-    <Modal open={isOpen} onClose={onClose} title="Assign User" icon={UserCheck} iconClassName="text-blue-600" size="sm">
+    <Modal open={isOpen} onClose={onClose} title="Assign User" icon={UserCheck} iconClassName="text-primary-600" size="sm">
       <div>
         <div className="mb-4">
           <h3 className="text-sm font-medium text-muted-foreground mb-2">To-Do:</h3>
@@ -59,14 +59,14 @@ export default function AssignUserModal({ isOpen, onClose, todo, users, onAssign
         {todo.assignee && (
           <div className="mb-4">
             <h3 className="text-sm font-medium text-muted-foreground mb-2">Currently Assigned To:</h3>
-            <div className="flex items-center space-x-3 p-3 bg-blue-50 rounded-md">
+            <div className="flex items-center space-x-3 p-3 bg-primary-50 rounded-md">
               <div className="flex-shrink-0">
                 {todo.assignee.avatar ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img className="h-8 w-8 rounded-full" src={todo.assignee.avatar} alt={todo.assignee.name} />
                 ) : (
-                  <div className="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center">
-                    <User className="h-4 w-4 text-white" />
+                  <div className="h-8 w-8 rounded-full bg-primary-500 flex items-center justify-center">
+                    <User className="h-4 w-4 text-primary-foreground" />
                   </div>
                 )}
               </div>
@@ -77,7 +77,7 @@ export default function AssignUserModal({ isOpen, onClose, todo, users, onAssign
               <button
                 onClick={handleUnassign}
                 disabled={isLoading}
-                className="text-sm text-red-600 hover:text-red-700 disabled:opacity-50"
+                className="text-sm text-danger-600 hover:text-danger-700 disabled:opacity-50"
               >
                 Unassign
               </button>
@@ -97,7 +97,7 @@ export default function AssignUserModal({ isOpen, onClose, todo, users, onAssign
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-blue-500"
+              className="w-full pl-10 pr-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary-500"
               placeholder="Search users..."
             />
           </div>
@@ -112,7 +112,7 @@ export default function AssignUserModal({ isOpen, onClose, todo, users, onAssign
                   onClick={() => handleAssign(user.id)}
                   disabled={isLoading || user.id === todo.assigneeId}
                   className={`w-full flex items-center space-x-3 p-3 rounded-md border text-left hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed ${
-                    user.id === todo.assigneeId ? 'border-blue-200 bg-blue-50' : 'border-border'
+                    user.id === todo.assigneeId ? 'border-primary-200 bg-primary-50' : 'border-border'
                   }`}
                 >
                   <div className="flex-shrink-0">
@@ -121,7 +121,7 @@ export default function AssignUserModal({ isOpen, onClose, todo, users, onAssign
                       <img className="h-8 w-8 rounded-full" src={user.avatar} alt={user.name} />
                     ) : (
                       <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
-                        <User className="h-4 w-4 text-white" />
+                        <User className="h-4 w-4 text-muted-foreground" />
                       </div>
                     )}
                   </div>
@@ -131,7 +131,7 @@ export default function AssignUserModal({ isOpen, onClose, todo, users, onAssign
                   </div>
                   {user.id === todo.assigneeId && (
                     <div className="flex-shrink-0">
-                      <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">Current</span>
+                      <span className="text-xs bg-primary-100 text-primary-800 px-2 py-1 rounded-full">Current</span>
                     </div>
                   )}
                 </button>

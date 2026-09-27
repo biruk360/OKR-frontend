@@ -48,7 +48,7 @@ export function ProjectProgress({
           aria-valuenow={Math.round(actualPct)}
         >
           <div className="flex size-28 flex-col items-center justify-center rounded-full bg-surface-card">
-            <span className="text-[30px] font-semibold tabular-nums text-ink-primary">{actualLabel}</span>
+            <span className="text-3xl font-semibold tabular-nums text-ink-primary">{actualLabel}</span>
             <span className="text-body-sm text-ink-tertiary">Actual</span>
           </div>
         </div>

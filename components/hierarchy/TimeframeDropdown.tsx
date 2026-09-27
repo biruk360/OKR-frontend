@@ -2,7 +2,8 @@
 
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useTransition } from 'react'
-import { Calendar, ChevronDown } from 'lucide-react'
+import { Calendar } from 'lucide-react'
+import { FilterSelect } from '@/components/ui/FilterSelect'
 
 interface TimeframeOption {
   id: string
@@ -31,8 +32,8 @@ export default function TimeframeDropdown({ timeframes, selectedId }: Props) {
 
   const selected = timeframes.find((t) => t.id === selectedId)
 
-  function onChange(e: React.ChangeEvent<HTMLSelectElement>) {
-    const nextId = e.target.value
+  function onChange(nextId: string | undefined) {
+    if (!nextId || nextId === selectedId) return
     const next = new URLSearchParams(params?.toString() || '')
     next.set('timeframeId', nextId)
     startTransition(() => {
@@ -40,35 +41,29 @@ export default function TimeframeDropdown({ timeframes, selectedId }: Props) {
     })
   }
 
+  const options = timeframes.map((t) => {
+    const start = new Date(t.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })
+    const end = new Date(t.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })
+    return { value: t.id, label: `${t.name} · ${start}–${end}`, hint: `${t.objectiveCount} obj` }
+  })
+
   return (
-    <label className="relative inline-flex items-center gap-1.5">
-      <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-      <span className="sr-only">Timeframe</span>
-      <div className="relative">
-        <select
-          value={selectedId}
-          onChange={onChange}
-          disabled={isPending}
-          aria-label="Select timeframe"
-          className="appearance-none rounded-md border border-border bg-card py-1 pl-2 pr-7 text-xs font-medium text-foreground hover:border-border focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100 disabled:opacity-60"
-        >
-          {timeframes.map((t) => {
-            const start = new Date(t.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })
-            const end = new Date(t.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })
-            return (
-              <option key={t.id} value={t.id}>
-                {t.name} · {start}–{end} · {t.objectiveCount} obj
-              </option>
-            )
-          })}
-        </select>
-        <ChevronDown className="pointer-events-none absolute right-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-      </div>
+    <div className="relative inline-flex items-center gap-1.5">
+      <Calendar className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+      <FilterSelect
+        label="Timeframe"
+        value={selectedId}
+        onValueChange={onChange}
+        options={options}
+        clearable={false}
+        disabled={isPending}
+        menuWidth={300}
+      />
       {selected && (
-        <span className="font-normal text-muted-foreground">
+        <span className="text-xs font-normal text-muted-foreground">
           · {new Date(selected.startDate).toLocaleDateString()} – {new Date(selected.endDate).toLocaleDateString()}
         </span>
       )}
-    </label>
+    </div>
   )
 }

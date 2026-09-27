@@ -9,8 +9,12 @@
 # crontab contained a literal `$CRON_SECRET`: cron runs each command through
 # /bin/sh, and single quotes suppress expansion, so curl sent the nine characters
 # "$CRON_SECRET" as the token and every job was 401'd whenever the secret was set.
-# The jobs only appeared to work because the routes fall open when CRON_SECRET is
-# unset in the server environment.
+# The jobs only appeared to work because the routes used to fall open when
+# CRON_SECRET was unset in the server environment. They no longer do: since
+# 2026-09-25 every route authenticates through lib/cron-auth.ts, which refuses
+# (503) when the secret is unset and accepts it ONLY as a header —
+# `Authorization: Bearer …` (what this script sends) or `x-cron-secret: …`.
+# The old `?key=<secret>` query form is ignored; it leaked into access logs.
 #
 # The fix is two parts, and both are required:
 #   1. cron itself exports variables declared as `NAME=value` lines in the crontab,
@@ -32,10 +36,19 @@ if [ -z "${CRON_SECRET:-}" ] && [ -f "$ENV_FILE" ]; then
   CRON_SECRET="$(grep -E '^CRON_SECRET=' "$ENV_FILE" | tail -1 | cut -d= -f2- | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")"
 fi
 
+# The routes fail CLOSED (lib/cron-auth.ts): with no CRON_SECRET, or one shorter
+# than 16 characters, every /api/cron/* call is refused with 503. Installing a
+# schedule that can only ever fail would hide that, so refuse instead.
 if [ -z "${CRON_SECRET:-}" ]; then
-  echo "WARNING: CRON_SECRET is not set in the environment or $ENV_FILE."
-  echo "         The cron routes fall open when the server also has no CRON_SECRET,"
-  echo "         but if the server sets one, every job below will be rejected with 401."
+  echo "ERROR: CRON_SECRET is not set in the environment or $ENV_FILE." >&2
+  echo "       Every /api/cron/* route refuses requests without it. Generate one with" >&2
+  echo "         openssl rand -hex 32" >&2
+  echo "       add CRON_SECRET=... to $ENV_FILE, restart the app, and re-run this script." >&2
+  exit 1
+fi
+if [ "${#CRON_SECRET}" -lt 16 ]; then
+  echo "ERROR: CRON_SECRET is shorter than 16 characters; the cron routes treat that as unset (503)." >&2
+  exit 1
 fi
 
 TMP=$(mktemp)
@@ -43,13 +56,24 @@ trap 'rm -f "$TMP"' EXIT
 crontab -l 2>/dev/null > "$TMP" || true
 
 # Declare the secret once, at the top, so cron exports it to every command.
-if [ -n "${CRON_SECRET:-}" ]; then
-  if grep -q '^CRON_SECRET=' "$TMP"; then
-    # Keep it current — the secret may have been rotated since the last install.
-    sed -i.bak "s|^CRON_SECRET=.*|CRON_SECRET=${CRON_SECRET}|" "$TMP" && rm -f "$TMP.bak"
-  else
-    printf 'CRON_SECRET=%s\n' "$CRON_SECRET" | cat - "$TMP" > "$TMP.new" && mv "$TMP.new" "$TMP"
-  fi
+if grep -q '^CRON_SECRET=' "$TMP"; then
+  # Keep it current — the secret may have been rotated since the last install.
+  sed -i.bak "s|^CRON_SECRET=.*|CRON_SECRET=${CRON_SECRET}|" "$TMP" && rm -f "$TMP.bak"
+else
+  printf 'CRON_SECRET=%s\n' "$CRON_SECRET" | cat - "$TMP" > "$TMP.new" && mv "$TMP.new" "$TMP"
+fi
+
+# Migrate any hand-added entry that still passes the secret as ?key= — the
+# routes ignore it now, so such a line would 401 forever. Rewrite it to the
+# header form (the query parameter is dropped, other parameters kept).
+if grep -qE 'curl .*[?&]key=' "$TMP"; then
+  echo "  ~ rewriting legacy ?key= cron entries to the Authorization header"
+  sed -E -i.bak \
+    -e '/curl .*[?&]key=/ s#[?]key=[^&[:space:]"]*&#?#' \
+    -e '/curl .*[?&]key=/ s#[?&]key=[^&[:space:]"]*##' \
+    "$TMP" && rm -f "$TMP.bak"
+  # Lines that had no Authorization header get one.
+  sed -E -i.bak '/curl /{/Authorization: Bearer/!s#curl #curl -H "Authorization: Bearer $CRON_SECRET" #;}' "$TMP" && rm -f "$TMP.bak"
 fi
 
 # add <match> <schedule> <path> [comment]
@@ -90,6 +114,12 @@ add project-health     "0 2 * * *"   "/api/cron/project-health" \
   "Nightly project health recompute."
 add project-digest     "0 7 * * *"   "/api/cron/project-digest" \
   "Daily PM digest."
+add client-report      "0 3 * * 1"   "/api/cron/client-report" \
+  "Client report drafts — Monday 06:00 EAT. The spec says bi-weekly; the report period is semi-monthly (1-15 / 16-end) and a draft already existing for the current period is reused, so a weekly run creates at most one draft per project per period."
+add wbr-pack           "0 3 * * 1"   "/api/cron/wbr-pack" \
+  "Weekly Business Review pack for CEO + PMs — Monday 06:00 EAT. Idempotent per week."
+add jira-sync          "*/30 * * * *" "/api/cron/jira-sync" \
+  "Jira pull for every ACTIVE JiraConnection (build spec G2). With no connection configured it queries one table and returns an empty result."
 
 # ── Notifications ────────────────────────────────────────────────────────────
 # Schedules lifted from deploy/notifications-crontab.example, which nothing ever
@@ -123,8 +153,22 @@ add auto-confidence    "0 0 * * *"   "/api/cron/auto-confidence" \
   "Recompute confidence for OKRs with no check-in in 14 days — 03:00 EAT."
 add prune-activity     "30 0 * * *"  "/api/cron/prune-activity" \
   "Retention: drops ActivityLog rows older than ~18 months — 03:30 EAT."
-add "notifications?job=prune-notifications" "45 0 * * *" "/api/cron/notifications?job=prune-notifications" \
-  "Retention: marks unread notifications older than 30d as read, deletes read ones older than 90d. Nothing pruned this table before, so it grew without bound."
+# The nightly retention sweep used to be `/api/cron/notifications?job=prune-notifications`
+# (notifications only). /api/cron/prune-notifications now runs that same rule
+# AND bounds the other append-only tables, so point any existing entry at it
+# rather than running the notification half twice.
+if grep -q 'cron/notifications?job=prune-notifications' "$TMP"; then
+  echo "  ~ migrating notifications?job=prune-notifications to /api/cron/prune-notifications"
+  sed -i.bak 's#/api/cron/notifications?job=prune-notifications#/api/cron/prune-notifications#' "$TMP" && rm -f "$TMP.bak"
+fi
+add cron/prune-notifications "45 0 * * *" "/api/cron/prune-notifications" \
+  "Retention — 03:45 EAT: notifications (unread >30d marked read, read >90d deleted) plus EmailDigestQueue sent >30d, OutboundEmail >90d, ClientErrorLog >30d, TelegramMessage >180d, AiGenerationLog >180d, JiraSyncLog >30d (lib/retention/prune-tables.ts)."
+add permission-cleanup "15 0 * * *"  "/api/cron/permission-cleanup" \
+  "Revokes UserRole assignments and permission overrides past their expiresAt — 03:15 EAT. Without it, time-boxed access never expires."
+add project-creation-draft-purge "40 0 * * *" "/api/cron/project-creation-draft-purge" \
+  "Purges abandoned New Project creation drafts and their uploaded source files — 03:40 EAT."
+add attachment-staging-cleanup "50 0 * * *" "/api/cron/attachment-staging-cleanup" \
+  "Deletes comment attachments staged in a composer but never posted (unclaimed, older than 24h) — rows and files — 03:50 EAT."
 
 
 # ── Daily Scrum ──────────────────────────────────────────────────────────────
@@ -139,15 +183,18 @@ add scrum-nudge        "5 6 * * 1-5" "/api/cron/scrum-nudge" \
 add scrum-weekly       "0 13 * * 5"  "/api/cron/scrum-weekly" \
   "Scrum weekly digest — Friday 16:00 EAT."
 
+# ── Performance ──────────────────────────────────────────────────────────────
+add performance-nudge  "0 5 * * *"   "/api/cron/performance-nudge" \
+  "Weekly improvement-focus nudge — 08:00 EAT. Scheduled DAILY on purpose: the route sends only on PerformanceSettings.weeklyNudgeDay (ISO, default Monday) and is idempotent per ISO week, so an admin changing the day needs no crontab edit."
+
 crontab "$TMP"
 echo "Crontab updated."
 
 # Prove the header actually resolves, rather than trusting that it does.
-if [ -n "${CRON_SECRET:-}" ]; then
-  echo -n "Verifying the tick authenticates... "
-  if curl -fsS -o /dev/null -H "Authorization: Bearer $CRON_SECRET" "${APP_URL}/api/cron/automations-tick"; then
-    echo "OK"
-  else
-    echo "FAILED — the app may not be running yet, or CRON_SECRET does not match the server's."
-  fi
+echo -n "Verifying the tick authenticates... "
+if curl -fsS -o /dev/null -H "Authorization: Bearer $CRON_SECRET" "${APP_URL}/api/cron/automations-tick"; then
+  echo "OK"
+else
+  echo "FAILED — the app may not be running yet, CRON_SECRET does not match the server's (401),"
+  echo "         or the server has no CRON_SECRET / one under 16 characters (503)."
 fi

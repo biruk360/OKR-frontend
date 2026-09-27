@@ -12,7 +12,7 @@
  * ⚠ The default is deliberately NOT mono. Not one of the 249 existing eyebrows
  * uses a mono face, so a mono default would be 249 visual regressions. The
  * default matches the 54-occurrence majority:
- *   `text-[11px] font-semibold uppercase tracking-wide text-muted-foreground`
+ *   `text-caption font-semibold uppercase tracking-wide text-muted-foreground`
  * `mono` is opt-in, for the redesigned surfaces only.
  */
 
@@ -31,9 +31,9 @@ const sizeClasses: Record<EyebrowSize, string> = {
   // 9.5px / .12em — sidebar group labels, table header eyebrows
   sm: 'text-[9.5px] tracking-[0.12em]',
   // 10px / .1em — popover panel + board eyebrows
-  md: 'text-[10px] tracking-[0.1em]',
+  md: 'text-micro tracking-[0.1em]',
   // 11px / tracking-wide — the existing in-repo majority
-  default: 'text-[11px] tracking-wide',
+  default: 'text-caption tracking-wide',
 }
 
 const alignClasses: Record<EyebrowAlign, string> = {

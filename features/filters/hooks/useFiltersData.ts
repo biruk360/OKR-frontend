@@ -80,6 +80,8 @@ async function fetchObjectives(filters: FilterState, segmentParams: Record<strin
     ownerId: o.ownerId,
     level: o.level,
     krCount: o._count?.keyResults ?? o.keyResults?.length ?? 0,
+    dueDate: o.endDate ?? o.timeframe?.endDate ?? undefined,
+    updatedAt: o.updatedAt ?? undefined,
     entityType: 'objectives' as FiltersTab,
   }))
 
@@ -122,6 +124,7 @@ async function fetchKeyResults(filters: FilterState, segmentParams: Record<strin
     startValue: kr.startValue,
     unit: kr.unit,
     initiativeCount: kr._count?.todos ?? 0,
+    updatedAt: kr.updatedAt ?? undefined,
     entityType: 'key-results' as FiltersTab,
   }))
 
@@ -155,6 +158,8 @@ async function fetchInitiatives(filters: FilterState, segmentParams: Record<stri
     workStatus: mapTodoStatus(t.status),
     ownerName: t.assignee?.name ?? null,
     ownerId: t.assigneeId,
+    dueDate: t.dueDate ?? undefined,
+    updatedAt: t.updatedAt ?? undefined,
     entityType: 'initiatives' as FiltersTab,
   }))
 

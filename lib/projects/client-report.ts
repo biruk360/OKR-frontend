@@ -168,7 +168,9 @@ export async function generateClientReportDraft(
       data: {
         userId: opts.actorId,
         feature: CLIENT_REPORT_FEATURE,
-        provider: 'openai',
+        // The summary is built by buildDeterministicClientSummary — no model is
+        // called, so the log must not claim a provider did (remediation F5).
+        provider: 'deterministic',
         modelId: 'deterministic-structured-summary',
         inputTokens: JSON.stringify(facts).length,
         outputTokens: summary.length,
@@ -412,7 +414,7 @@ export function renderClientReportPdfHtml(report: ProjectReport): string {
     delayed: content.delayed.map((row) => `<tr><td>${escapeHtml(row.activity)}</td><td>${row.delayOwner}</td><td>${row.originalDate ?? '-'}</td><td>${row.currentDate ?? '-'}</td><td>${row.daysSlipped}d</td><td>${escapeHtml(row.reason)}</td></tr>`).join(''),
     pending: content.pendingClientAction.map((row) => `<tr><td>${escapeHtml(row.deliverable)}</td><td>${row.sentOn ?? '-'}</td><td>${row.daysWaiting}d</td><td>${row.slaBusinessDays ?? '-'}</td><td>${row.breached ? 'Yes' : 'No'}</td></tr>`).join(''),
     milestones: content.upcomingMilestones.map((row) => `<tr><td>${escapeHtml(row.milestone)}</td><td>${row.dueDate ?? '-'}</td><td>${escapeHtml(row.needFromClient)}</td></tr>`).join(''),
-    crs: content.changeRequests.map((row) => `<tr><td>${escapeHtml(row.cr)}</td><td>${row.impactDays}d</td><td>${row.costImpact}</td><td>${escapeHtml(row.status)}</td></tr>`).join(''),
+    crs: content.changeRequests.map((row) => `<tr><td>${escapeHtml(row.cr)}</td><td>${row.impactDays}d</td><td>${row.costImpact ?? '-'}</td><td>${escapeHtml(row.status)}</td></tr>`).join(''),
     risks: content.risks.map((row) => `<tr><td>${escapeHtml(row.risk)}</td><td>${row.probability ?? '-'}</td><td>${row.impact ?? '-'}</td><td>${escapeHtml(row.mitigation ?? '-')}</td></tr>`).join(''),
   }
   return `<!doctype html><html><head><meta charset="utf-8" />

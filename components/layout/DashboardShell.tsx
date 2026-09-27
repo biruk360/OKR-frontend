@@ -32,16 +32,10 @@ export default function DashboardShell({ user, children }: DashboardShellProps) 
   useIdleTimeout()
   const pathname = usePathname()
   const isStrategyMap =
-    pathname === '/dashboard/alignment-map' ||
-    pathname === '/dashboard/filters' ||
     pathname === '/dashboard/admin/org'
   const isFullWidth =
-    pathname === '/dashboard/okr-hierarchy' ||
-    pathname === '/dashboard/timeline' ||
-    pathname === '/dashboard/plans' ||
+    pathname === '/dashboard/okrs-all' ||
     pathname === '/dashboard/work' ||
-    pathname?.startsWith('/dashboard/okr-hierarchy/') ||
-    pathname?.startsWith('/dashboard/timeline/') ||
     pathname?.startsWith('/dashboard/sprints/')
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)

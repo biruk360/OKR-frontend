@@ -121,7 +121,7 @@ export function FilterSelect({
           aria-label={label}
           className={cn(
             'h-9 w-full items-center gap-1.5 rounded-[var(--ap-radius-sm)] bg-[var(--ap-bg-raised)] py-0 pl-2.5 text-left',
-            'border-[var(--ap-border-strong)] shadow-[var(--ap-shadow-sm)]',
+            'border-[var(--ap-border-strong)] shadow-[shadow:var(--ap-shadow-sm)]',
             'data-[state=open]:border-[var(--ap-focus)]',
             // Room for the clear / remove affordances, which are siblings —
             // nesting a <button> inside the trigger button is invalid HTML.
@@ -149,7 +149,7 @@ export function FilterSelect({
           position="popper"
           align="start"
           sideOffset={6}
-          className="rounded-[var(--ap-radius-md)] shadow-[var(--ap-shadow-pop-lg)]"
+          className="rounded-[var(--ap-radius-md)] shadow-[shadow:var(--ap-shadow-pop-lg)]"
           style={{ width: menuWidth, minWidth: menuWidth }}
           onCloseAutoFocus={() => setSearch('')}
         >
@@ -197,7 +197,7 @@ export function FilterSelect({
                 >
                   <span className="truncate">{opt.label}</span>
                   {opt.hint && (
-                    <span className="ml-auto text-[11px]" style={{ color: 'var(--ap-fg-subtle)' }}>
+                    <span className="ml-auto text-caption" style={{ color: 'var(--ap-fg-subtle)' }}>
                       {opt.hint}
                     </span>
                   )}

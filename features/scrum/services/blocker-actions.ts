@@ -4,8 +4,15 @@ import { recordActivity } from '@/lib/activity-log'
 import { emit } from '@/lib/notifications'
 import { createRaidIssue, createScrumDelayEvent, flagProjectActivityBlocked } from '@/lib/projects/raid'
 import { getScrumSettings } from './settings'
+import { canActOnScrumUpdate } from './access'
+import { stripHtml } from './prefill'
 
+/** Owner, their manager/department lead/PM, or ADMIN may resolve (see access.ts). */
 export async function resolveScrumBlocker(session: Session, updateId: string, resolutionNote: string) {
+  const existing = await prisma.scrumUpdate.findUnique({ where: { id: updateId }, select: { id: true, userId: true, hasBlocker: true } })
+  if (!existing) return { status: 'not_found' } as const
+  if (!await canActOnScrumUpdate(session, existing)) return { status: 'forbidden' } as const
+  if (!existing.hasBlocker) return { status: 'invalid', reason: 'This update has no blocker' } as const
   const update = await prisma.scrumUpdate.update({
     where: { id: updateId },
     data: {
@@ -28,13 +35,20 @@ export async function resolveScrumBlocker(session: Session, updateId: string, re
     explicitRecipients: [update.userId, update.managerId].filter(Boolean) as string[],
     data: { deepLink: `/dashboard/scrum?update=${updateId}` },
   })
-  return update
+  return { status: 'ok', update } as const
 }
 
+/** Same access as resolve. Escalation can create RAID issues and delay events, so it is never open to peers. */
 export async function escalateScrumBlocker(session: Session, updateId: string, escalatedToUserId?: string | null) {
-  const settings = await getScrumSettings()
   const update = await prisma.scrumUpdate.findUnique({ where: { id: updateId } })
-  if (!update) return null
+  if (!update) return { status: 'not_found' } as const
+  if (!await canActOnScrumUpdate(session, update)) return { status: 'forbidden' } as const
+  if (!update.hasBlocker) return { status: 'invalid', reason: 'This update has no blocker' } as const
+  if (escalatedToUserId) {
+    const target = await prisma.user.findFirst({ where: { id: escalatedToUserId, isActive: true }, select: { id: true } })
+    if (!target) return { status: 'invalid', reason: 'Escalation target not found' } as const
+  }
+  const settings = await getScrumSettings()
   let raidItemId = update.raidItemId
   if (update.projectId && !raidItemId) {
     const issue = await createRaidIssue(prisma, {
@@ -83,9 +97,10 @@ export async function escalateScrumBlocker(session: Session, updateId: string, e
     explicitRecipients: [escalatedToUserId, saved.managerId].filter(Boolean) as string[],
     data: { raidItemId, deepLink: `/dashboard/scrum?update=${updateId}` },
   })
-  return saved
+  return { status: 'ok', update: saved } as const
 }
 
+/** Plain-text title for RAID items (stored HTML is escaped; decode it back to text). */
 function plain(value: string): string {
-  return value.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+  return stripHtml(value).replace(/\s+/g, ' ').trim()
 }

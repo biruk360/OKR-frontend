@@ -7,6 +7,7 @@ import {
   SCRUM_PROXY_REASONS,
 } from '@/types/scrum'
 import { scrumLinkInputSchema } from './scrum-links'
+import { MAX_ATTACHMENTS_PER_COMMENT } from '@/lib/attachments/file-types'
 
 const richText = z.string().trim().min(10).max(10000)
 const optionalRichText = z.string().trim().max(10000).optional().nullable()
@@ -44,9 +45,15 @@ const scrumUpdateInputBaseSchema = z.object({
   links: z.array(scrumLinkInputSchema).max(30).optional(),
   contentJson: scrumContentJsonSchema.optional().nullable(),
   remarks: z.string().trim().max(20000).optional().nullable(),
+  /** Answer to the "Is this the same blocker as yesterday?" prompt (spec S5.1). */
+  sameBlockerConfirmed: z.boolean().optional().nullable(),
+  /** Save as a server-side draft (no attendance, To-do sync or notifications). */
+  asDraft: z.boolean().optional().nullable(),
 })
 
 function hasBlockerItems(value: any) {
+  // A draft may be incomplete — the category is enforced when it is submitted.
+  if (value.asDraft) return false
   const items = value.contentJson?.blockerItems
   return Array.isArray(items) && items.length > 0
 }
@@ -64,6 +71,9 @@ export const scrumUpdatePatchSchema = scrumUpdateInputBaseSchema.partial().refin
 export const scrumCommentSchema = z.object({
   body: z.string().trim().min(1).max(5000),
   mentions: z.array(z.string().min(1)).max(50).optional(),
+  // Staged via POST /api/comment-attachments (commentType SCRUM, entityId =
+  // update id); claimed by the comment POST, scoped to uploader + update.
+  attachmentIds: z.array(z.string().min(1)).max(MAX_ATTACHMENTS_PER_COMMENT).optional(),
 })
 
 export const blockerResolveSchema = z.object({

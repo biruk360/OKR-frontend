@@ -1,10 +1,17 @@
 /**
  * Resolve a user's effective notification preference for a category.
- * Order: explicit NotificationPreference row → org default → hard-coded default (true/IMMEDIATE).
+ *
+ * Order (implemented once, in ./cadence.ts resolveEffectivePref):
+ *   mandatory category (ACCOUNT) → always in-app + IMMEDIATE email
+ *   → explicit NotificationPreference row
+ *   → OrgNotificationDefault row
+ *   → hard-coded default { inApp: true, email: true, BATCHED }.
+ * A DISABLED cadence resolves to `email: false`.
  */
 
 import { prisma } from '@/lib/prisma'
-import { ALL_CATEGORIES, MANDATORY_CATEGORIES, type EventCategory, type DefaultCadence } from './events'
+import { ALL_CATEGORIES, type EventCategory, type DefaultCadence } from './events'
+import { resolveEffectivePref, seedCadenceFor } from './cadence'
 
 export interface EffectivePref {
   inApp: boolean
@@ -13,39 +20,16 @@ export interface EffectivePref {
   mandatory: boolean
 }
 
-const HARDCODED_DEFAULT: EffectivePref = {
-  inApp: true,
-  email: true,
-  // BAT-2 — was IMMEDIATE, i.e. one email per event. Users with an active board
-  // received a continuous drip. BATCHED collapses a window's worth into one
-  // email; in-app notifications are unaffected and still arrive instantly.
-  // Existing explicit user/org preference rows override this and are untouched.
-  emailCadence: 'BATCHED',
-  mandatory: false,
+function toEffective(p: ReturnType<typeof resolveEffectivePref>): EffectivePref {
+  return { inApp: p.inApp, email: p.email, emailCadence: p.emailCadence, mandatory: p.mandatory }
 }
 
 export async function getUserPref(userId: string, category: EventCategory): Promise<EffectivePref> {
-  const mandatory = MANDATORY_CATEGORIES.includes(category)
-
   const [userRow, orgRow] = await Promise.all([
     prisma.notificationPreference.findUnique({ where: { userId_category: { userId, category } } }),
     prisma.orgNotificationDefault.findUnique({ where: { category } }),
   ])
-
-  const base: EffectivePref = {
-    inApp: orgRow?.inApp ?? HARDCODED_DEFAULT.inApp,
-    email: orgRow?.email ?? HARDCODED_DEFAULT.email,
-    emailCadence: ((orgRow?.emailCadence as DefaultCadence) ?? HARDCODED_DEFAULT.emailCadence),
-    mandatory,
-  }
-  if (!userRow) return base
-
-  return {
-    inApp: mandatory ? true : userRow.inApp,
-    email: mandatory ? true : userRow.email,
-    emailCadence: mandatory ? 'IMMEDIATE' : (userRow.emailCadence as DefaultCadence),
-    mandatory,
-  }
+  return toEffective(resolveEffectivePref({ category, userRow, orgRow }))
 }
 
 /** Bulk-load prefs for a set of users (N+1 avoider for dispatcher fan-out). */
@@ -53,40 +37,31 @@ export async function getUserPrefsBulk(
   userIds: string[],
   category: EventCategory
 ): Promise<Map<string, EffectivePref>> {
-  const mandatory = MANDATORY_CATEGORIES.includes(category)
   const [rows, orgRow] = await Promise.all([
     prisma.notificationPreference.findMany({
       where: { userId: { in: userIds }, category },
     }),
     prisma.orgNotificationDefault.findUnique({ where: { category } }),
   ])
-  const base: EffectivePref = {
-    inApp: orgRow?.inApp ?? HARDCODED_DEFAULT.inApp,
-    email: orgRow?.email ?? HARDCODED_DEFAULT.email,
-    emailCadence: ((orgRow?.emailCadence as DefaultCadence) ?? HARDCODED_DEFAULT.emailCadence),
-    mandatory,
-  }
   const byUser = new Map(rows.map((r) => [r.userId, r]))
   const out = new Map<string, EffectivePref>()
   for (const id of userIds) {
-    const row = byUser.get(id)
-    if (!row) { out.set(id, base); continue }
-    out.set(id, {
-      inApp: mandatory ? true : row.inApp,
-      email: mandatory ? true : row.email,
-      emailCadence: mandatory ? 'IMMEDIATE' : (row.emailCadence as DefaultCadence),
-      mandatory,
-    })
+    out.set(id, toEffective(resolveEffectivePref({ category, userRow: byUser.get(id) ?? null, orgRow })))
   }
   return out
 }
 
-/** Seed org defaults for every category (idempotent). Call at app boot or from admin settings. */
+/**
+ * Seed org defaults for every category (idempotent — existing rows are never
+ * touched). New rows get BATCHED email (IMMEDIATE for mandatory categories), so
+ * seeding no longer overrides the BAT-2 default. Rows seeded as IMMEDIATE by the
+ * old code are converted by scripts/notifications-set-batched-defaults.ts.
+ */
 export async function ensureOrgDefaults(): Promise<void> {
   await Promise.all(ALL_CATEGORIES.map((category) =>
     prisma.orgNotificationDefault.upsert({
       where: { category },
-      create: { category, inApp: true, email: true, emailCadence: 'IMMEDIATE' },
+      create: { category, inApp: true, email: true, emailCadence: seedCadenceFor(category) },
       update: {},
     })
   ))

@@ -13,6 +13,9 @@ import {
 } from 'lucide-react'
 import type { TodoRow, UserOption } from './TodosPageClient'
 import { isOverdue } from '@/lib/todos/due-tone'
+import { userInitials } from '@/lib/user-color'
+import { PersonTooltip } from '@/components/shared/UserAvatar'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 
 interface Props {
   rows: TodoRow[]
@@ -170,6 +173,13 @@ function TreeNodeRow({
         className="group flex items-center gap-1.5 rounded-md px-2 py-1.5 hover:bg-muted transition cursor-pointer"
         style={{ paddingLeft: `${depth * 20 + 8}px` }}
         onClick={() => hasChildren && toggle(node.id)}
+        // Keyboard access to expand / collapse (the row was mouse-only).
+        role={hasChildren ? 'button' : undefined}
+        tabIndex={hasChildren ? 0 : undefined}
+        aria-expanded={hasChildren ? isOpen : undefined}
+        onKeyDown={hasChildren ? (e) => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(node.id) }
+        } : undefined}
       >
         {hasChildren ? (
           isOpen ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
@@ -177,15 +187,15 @@ function TreeNodeRow({
           <span className="w-3.5" />
         )}
         <span className="text-muted-foreground flex-shrink-0">{icon}</span>
-        <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">
+        <span className="min-w-0 flex-1 truncate text-body-sm font-medium text-foreground">
           {node.label}
         </span>
         {levelBadge && (
-          <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${levelBadge}`}>
+          <span className={`text-micro font-bold uppercase px-1.5 py-0.5 rounded ${levelBadge}`}>
             {node.level?.toLowerCase()}
           </span>
         )}
-        <span className="text-[11px] text-muted-foreground tabular-nums ml-2">
+        <span className="text-caption text-muted-foreground tabular-nums ml-2">
           {completedTodos}/{totalTodos}
         </span>
         <div className="h-1 w-full bg-muted rounded-full overflow-hidden ml-1">
@@ -263,30 +273,43 @@ function TodoLeafRow({
         type="checkbox"
         checked={isDone}
         onChange={() => onToggle(todo)}
-        className="appearance-none w-3.5 h-3.5 rounded border border-border"
+        className="w-3.5 h-3.5 rounded border border-border accent-[var(--ap-accent)]"
         onClick={(e) => e.stopPropagation()}
+        aria-label={isDone ? `Mark ${todo.title} as not done` : `Mark ${todo.title} as done`}
       />
-      <span
-        className={`min-w-0 flex-1 cursor-pointer truncate text-[13px] ${
+      <button
+        type="button"
+        className={`min-w-0 flex-1 cursor-pointer truncate text-left text-body-sm ${
           isDone ? 'text-muted-foreground line-through' : 'text-foreground'
         }`}
         onClick={() => onOpen(todo.id)}
       >
         {todo.title}
-      </span>
+      </button>
 
       {/* Inline assignee */}
-      <div className="relative">
+      <Popover open={editingAssignee} onOpenChange={setEditingAssignee}>
+        {/* Full name on hover and keyboard focus (UNH-2, UNH-7). */}
+        <PersonTooltip
+          person={todo.assignee ?? {}}
+          detail="Assignee · click to change"
+          disabled={!todo.assignee}
+        >
+        <PopoverTrigger asChild>
         <button
-          onClick={(e) => { e.stopPropagation(); setEditingAssignee(!editingAssignee) }}
+          type="button"
+          onClick={(e) => e.stopPropagation()}
           className="inline-flex items-center justify-center size-6 rounded-full bg-muted text-xs font-semibold"
           style={{ width: 20, height: 20, fontSize: 9 }}
-          title={todo.assignee?.name ?? 'Unassigned'}
+          aria-label={todo.assignee ? `Assignee: ${todo.assignee.name}. Change assignee` : 'Unassigned. Set assignee'}
+          title={todo.assignee ? undefined : 'Unassigned'}
         >
-          {todo.assignee ? todo.assignee.name.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase() : '—'}
+          {todo.assignee ? userInitials(todo.assignee.name) : '—'}
         </button>
-        {editingAssignee && (
-          <div className="absolute right-0 top-6 z-20 bg-popover border border-border rounded-lg shadow-lg p-1 min-w-[200px] max-h-[200px] overflow-auto" onClick={(e) => e.stopPropagation()}>
+        </PopoverTrigger>
+        </PersonTooltip>
+        <PopoverContent label="Change assignee" align="end" variant="menu" width={220}>
+          <div className="max-h-[200px] overflow-auto" onClick={(e) => e.stopPropagation()}>
             {users.map((u) => (
               <button
                 key={u.id}
@@ -294,21 +317,22 @@ function TodoLeafRow({
                 onClick={() => { onAssigneeChange(todo.id, u.id); setEditingAssignee(false) }}
               >
                 <span className="inline-flex items-center justify-center size-6 rounded-full bg-muted text-xs font-semibold" style={{ width: 16, height: 16, fontSize: 8 }}>
-                  {u.name.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase()}
+                  {userInitials(u.name)}
                 </span>
                 {u.name}
               </button>
             ))}
           </div>
-        )}
-      </div>
+        </PopoverContent>
+      </Popover>
 
       {/* Inline status */}
       <select
         value={todo.status}
         onChange={(e) => { e.stopPropagation(); onStatusChange(todo.id, e.target.value) }}
         onClick={(e) => e.stopPropagation()}
-        className="input input text-[11px] w-[90px] h-5 px-1 py-0"
+        aria-label={`Status of ${todo.title}`}
+        className="input text-caption w-[90px] h-5 px-1 py-0"
         style={{ fontSize: 11 }}
       >
         <option value="PENDING">To do</option>
@@ -327,12 +351,12 @@ function TodoLeafRow({
             onChange={(e) => { onDueDateChange(todo.id, e.target.value || null); setEditingDate(false) }}
             onBlur={() => setEditingDate(false)}
             onClick={(e) => e.stopPropagation()}
-            className="input text-[11px] w-[110px] h-5 px-1 py-0"
+            className="input text-caption w-[110px] h-5 px-1 py-0"
           />
         ) : (
           <button
             onClick={(e) => { e.stopPropagation(); setEditingDate(true) }}
-            className={`text-[11px] inline-flex items-center gap-0.5 ${
+            className={`text-caption inline-flex items-center gap-0.5 ${
               overdue ? 'text-destructive' : 'text-muted-foreground'
             }`}
           >

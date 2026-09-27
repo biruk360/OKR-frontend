@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { apiBadRequest, apiForbidden, apiNotFound, apiSuccess, withAuth } from '@/lib/api'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { canManageTemplates, hasPerformancePermission } from '@/lib/performance'
+import { recordActivity } from '@/lib/activity-log'
 
 export const POST = withAuth<RouteIdParams>(async (_request, { session, params }) => {
   const actor = { userId: session.user.id, role: session.user.role }
@@ -62,6 +63,16 @@ export const POST = withAuth<RouteIdParams>(async (_request, { session, params }
       },
       include: { family: true, tiers: { include: { criteria: true } } },
     })
+  })
+  await recordActivity({
+    entityType: 'PERFORMANCE_SETTINGS',
+    action: 'CLONED',
+    actorId: session.user.id,
+    changes: {
+      version: { from: source.version, to: created.version },
+      status: { from: source.status, to: 'DRAFT' },
+    },
+    metadata: { entity: 'SCORECARD_TEMPLATE', templateId: created.id, forkedFromId: source.id, familyId: source.familyId },
   })
   return apiSuccess(created, { status: 201 })
 })

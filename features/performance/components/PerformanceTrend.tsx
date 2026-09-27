@@ -1,7 +1,8 @@
 'use client'
 
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { Info } from 'lucide-react'
+import { Info, TrendingUp } from 'lucide-react'
+import { EmptyState } from '@/components/ui/EmptyState'
 
 // Apple Pro chart tokens (see components/dashboard/AppleAnalytics.tsx)
 const CHART_PRIMARY = 'var(--ap-accent)'
@@ -25,7 +26,14 @@ export function PerformanceTrend({ points, height = 220 }: { points: Performance
     .map((point) => ({ cycleName: point.cycleName, normalized: Math.round(((point.normalized as number) + Number.EPSILON) * 10) / 10 }))
 
   if (data.length === 0) {
-    return <p className="text-sm text-muted-foreground">No finalized scores yet — the trend appears after your first finalized review.</p>
+    return (
+      <EmptyState
+        bare
+        icon={TrendingUp}
+        title="No finalized scores yet"
+        description="The trend appears after your first finalized review."
+      />
+    )
   }
   if (data.length === 1) {
     return (

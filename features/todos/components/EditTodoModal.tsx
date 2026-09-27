@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Edit3, Save, RotateCcw } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { Modal } from '@/components/ui'
+import { Modal, ConfirmDialog } from '@/components/ui'
 
 interface EditTodoModalProps {
   isOpen: boolean
@@ -17,6 +17,7 @@ export default function EditTodoModal({ isOpen, onClose, todo, onSave }: EditTod
   const [description, setDescription] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [hasChanges, setHasChanges] = useState(false)
+  const [confirmDiscard, setConfirmDiscard] = useState(false)
 
   useEffect(() => {
     if (isOpen && todo) {
@@ -53,9 +54,7 @@ export default function EditTodoModal({ isOpen, onClose, todo, onSave }: EditTod
 
   const handleCancel = () => {
     if (hasChanges) {
-      if (confirm('You have unsaved changes. Are you sure you want to cancel?')) {
-        onClose()
-      }
+      setConfirmDiscard(true)
     } else {
       onClose()
     }
@@ -72,22 +71,22 @@ export default function EditTodoModal({ isOpen, onClose, todo, onSave }: EditTod
   if (!todo) return null
 
   return (
-    <Modal open={isOpen} onClose={handleCancel} title="Edit To-Do" icon={Edit3} iconClassName="text-blue-600" size="sm">
+    <Modal open={isOpen} onClose={handleCancel} title="Edit To-Do" icon={Edit3} iconClassName="text-primary-600" size="sm">
       <div>
         <div className="mb-4">
           <label htmlFor="title" className="block text-sm font-medium text-muted-foreground mb-2">
-            Title <span className="text-red-500">*</span>
+            Title <span className="text-danger-500">*</span>
           </label>
           <input
             type="text"
             id="title"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-blue-500"
+            className="w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary-500"
             placeholder="Enter initiative title"
             disabled={isLoading}
           />
-          {!title.trim() && <p className="mt-1 text-sm text-red-600">Title is required</p>}
+          {!title.trim() && <p className="mt-1 text-sm text-danger-600">Title is required</p>}
         </div>
 
         <div className="mb-4">
@@ -99,7 +98,7 @@ export default function EditTodoModal({ isOpen, onClose, todo, onSave }: EditTod
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={4}
-            className="w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-blue-500"
+            className="w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary-500"
             placeholder="Enter initiative description (optional)"
             disabled={isLoading}
           />
@@ -114,10 +113,10 @@ export default function EditTodoModal({ isOpen, onClose, todo, onSave }: EditTod
         </div>
 
         {hasChanges && (
-          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+          <div className="mb-4 p-3 bg-primary-50 border border-primary-200 rounded-md">
             <div className="flex items-center">
-              <Edit3 className="h-4 w-4 text-blue-600 mr-2" />
-              <p className="text-sm text-blue-700">
+              <Edit3 className="h-4 w-4 text-primary-600 mr-2" />
+              <p className="text-sm text-primary-700">
                 You have unsaved changes. Click &quot;Save Changes&quot; to apply them.
               </p>
             </div>
@@ -143,14 +142,11 @@ export default function EditTodoModal({ isOpen, onClose, todo, onSave }: EditTod
             </button>
             <button
               onClick={handleSave}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring disabled:opacity-50"
+              className="bg-primary-600 hover:bg-primary-700 text-primary-foreground px-4 py-2 rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring disabled:opacity-50"
               disabled={isLoading || !title.trim()}
             >
               {isLoading ? (
-                <div className="flex items-center">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                  Saving...
-                </div>
+                <span aria-live="polite">Saving…</span>
               ) : (
                 <>
                   <Save className="h-4 w-4 mr-1 inline" />
@@ -161,6 +157,17 @@ export default function EditTodoModal({ isOpen, onClose, todo, onSave }: EditTod
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmDiscard}
+        onClose={() => setConfirmDiscard(false)}
+        onConfirm={() => { setConfirmDiscard(false); onClose() }}
+        title="Discard changes"
+        message="You have unsaved changes. Discard them?"
+        variant="warning"
+        confirmLabel="Discard"
+        cancelLabel="Keep editing"
+      />
     </Modal>
   )
 }

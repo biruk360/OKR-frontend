@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { Command } from 'cmdk'
@@ -26,6 +25,7 @@ import {
 import { useCmdkStore } from '@/lib/stores/cmdk-store'
 import { useDebounce } from '@/hooks/useDebounce'
 import { cn } from '@/lib/utils'
+import { Modal } from '@/components/ui/Modal'
 
 interface SearchObjective {
   id: string
@@ -54,22 +54,24 @@ interface SearchData {
 }
 
 const PAGE_ITEMS: { label: string; href: string; icon: typeof Target; hint?: string }[] = [
-  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, hint: 'G then D' },
-  { label: 'Objectives', href: '/dashboard/objectives', icon: Target, hint: 'G then O' },
-  { label: 'Key Results', href: '/dashboard/key-results', icon: Key, hint: 'G then K' },
-  { label: 'To-dos', href: '/dashboard/todos', icon: CheckSquare, hint: 'G then T' },
+  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { label: 'My OKRs', href: '/dashboard/my-okrs', icon: User },
+  { label: 'OKR Explorer', href: '/dashboard/okrs-all', icon: Target },
+  { label: 'OKR Tree', href: '/dashboard/okrs-all?view=tree', icon: Network },
+  { label: 'Strategy Map', href: '/dashboard/okrs-all?view=map', icon: Network },
+  { label: 'Key Results', href: '/dashboard/key-results', icon: Key },
+  { label: 'To-dos', href: '/dashboard/todos', icon: CheckSquare },
   { label: 'Work Board', href: '/dashboard/work', icon: Kanban },
-  { label: 'OKR Hierarchy', href: '/dashboard/okr-hierarchy', icon: Network },
   { label: 'Sprints', href: '/dashboard/sprints', icon: Layout },
-  { label: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
-  { label: 'Reports', href: '/dashboard/reports', icon: FileText },
+  { label: 'Insights', href: '/dashboard/insights', icon: BarChart3 },
+  { label: 'Reports', href: '/dashboard/insights?tab=reports', icon: FileText },
   { label: 'Profile', href: '/dashboard/profile', icon: User },
   { label: 'Settings', href: '/dashboard/settings', icon: Settings },
 ]
 
 const QUICK_ACTIONS: { label: string; action: string; icon: typeof Plus; hint?: string }[] = [
-  { label: 'Create objective', action: 'create-objective', icon: Plus, hint: 'C then O' },
-  { label: 'Create to-do', action: 'create-todo', icon: ListTodo, hint: 'C then T' },
+  { label: 'Create objective', action: 'create-objective', icon: Plus },
+  { label: 'Create to-do', action: 'create-todo', icon: ListTodo },
   { label: 'Create sprint', action: 'create-sprint', icon: Layout },
   { label: 'Check in', action: 'check-in', icon: CheckCircle2 },
 ]
@@ -116,7 +118,7 @@ export function CommandPalette() {
     staleTime: 30_000,
   })
 
-  if (!mounted || !open) return null
+  if (!mounted) return null
 
   const handleNavigate = (href: string) => {
     setOpen(false)
@@ -133,22 +135,18 @@ export function CommandPalette() {
   const showQuickGroups = !debouncedQuery
   const showResults = !!debouncedQuery
 
-  const palette = (
-    <div
-      className="fixed inset-0 z-[100] flex items-start justify-center bg-black/50 pt-[15vh] backdrop-blur-sm"
-      onClick={() => setOpen(false)}
-      role="dialog"
-      aria-label="Command palette"
+  return (
+    <Modal
+      open={open}
+      onClose={() => setOpen(false)}
+      title="Command palette"
+      hideHeader
+      showCloseButton={false}
+      className="gap-0 overflow-hidden p-0 sm:max-w-[600px]"
     >
       <div
-        onClick={(e) => e.stopPropagation()}
-        className="ap-modal-enter w-[600px] max-w-[92vw] overflow-hidden rounded-[var(--ap-radius-md)] bg-white"
-        style={{
-          background: 'var(--ap-bg-raised)',
-          color: 'var(--ap-fg)',
-          boxShadow: 'var(--ap-shadow-lg)',
-          border: '0.5px solid var(--ap-border)',
-        }}
+        className="overflow-hidden rounded-[var(--ap-radius-md)]"
+        style={{ background: 'var(--ap-bg-raised)', color: 'var(--ap-fg)' }}
       >
         <Command label="Command palette" loop>
           <div
@@ -161,7 +159,7 @@ export function CommandPalette() {
               value={query}
               onValueChange={setQuery}
               placeholder="Search or jump to…"
-              className="h-11 flex-1 bg-transparent text-[14px] outline-none placeholder:text-[var(--ap-fg-subtle)]"
+              className="h-11 flex-1 bg-transparent text-sm outline-none placeholder:text-[var(--ap-fg-subtle)]"
             />
             {isFetching && (
               <Loader2 className="size-4 animate-spin" style={{ color: 'var(--ap-fg-subtle)' }} />
@@ -172,7 +170,7 @@ export function CommandPalette() {
             className="max-h-[420px] overflow-y-auto p-2"
           >
             <Command.Empty
-              className="px-4 py-8 text-center text-[13px]"
+              className="px-4 py-8 text-center text-body-sm"
               style={{ color: 'var(--ap-fg-subtle)' }}
             >
               No results.
@@ -262,7 +260,7 @@ export function CommandPalette() {
           </Command.List>
 
           <div
-            className="flex h-10 items-center justify-between px-4 text-[11px]"
+            className="flex h-10 items-center justify-between px-4 text-caption"
             style={{
               borderTop: '1px solid var(--ap-border)',
               background: 'var(--ap-bg-sunken)',
@@ -274,17 +272,15 @@ export function CommandPalette() {
           </div>
         </Command>
       </div>
-    </div>
+    </Modal>
   )
-
-  return createPortal(palette, document.body)
 }
 
 function CmdkGroup({ heading, children }: { heading: string; children: React.ReactNode }) {
   return (
     <Command.Group
       heading={heading}
-      className="mb-1 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:pt-2 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-[var(--ap-fg-subtle)]"
+      className="mb-1 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:pt-2 [&_[cmdk-group-heading]]:text-micro [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-[var(--ap-fg-subtle)]"
     >
       {children}
     </Command.Group>
@@ -309,9 +305,9 @@ function CmdkItem({
       value={value}
       onSelect={onSelect}
       className={cn(
-        'flex h-9 cursor-pointer items-center gap-2.5 rounded-[var(--ap-radius-sm)] px-2.5 text-[13px] outline-none',
-        'data-[selected=true]:bg-[var(--ap-accent)] data-[selected=true]:text-white',
-        'data-[selected=true]:[&_svg]:text-white',
+        'flex h-9 cursor-pointer items-center gap-2.5 rounded-[var(--ap-radius-sm)] px-2.5 text-body-sm outline-none',
+        'data-[selected=true]:bg-[var(--ap-accent)] data-[selected=true]:text-[color:var(--ap-accent-fg)]',
+        'data-[selected=true]:[&_svg]:text-[color:var(--ap-accent-fg)]',
       )}
     >
       <span className="flex size-5 items-center justify-center text-[var(--ap-fg-subtle)]">
@@ -319,7 +315,7 @@ function CmdkItem({
       </span>
       <span className="flex-1 truncate">{label}</span>
       {hint && (
-        <span className="font-mono text-[11px] opacity-70">{hint}</span>
+        <span className="font-mono text-caption opacity-70">{hint}</span>
       )}
     </Command.Item>
   )

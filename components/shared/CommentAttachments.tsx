@@ -95,7 +95,7 @@ export function AttachmentList({ attachments }: { attachments: CommentAttachment
                 onClick={() => open(a)}
                 title={a.filename}
                 aria-label={`Open ${a.filename}`}
-                className="group relative overflow-hidden rounded-[10px] border transition hover:brightness-95"
+                className="group relative overflow-hidden rounded-card border transition hover:brightness-95"
                 style={{ borderColor: 'var(--ap-border)' }}
               >
                 <img
@@ -118,7 +118,7 @@ export function AttachmentList({ attachments }: { attachments: CommentAttachment
               key={a.id}
               type="button"
               onClick={() => open(a)}
-              className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition-colors hover:bg-[var(--ap-bg-hover)]"
+              className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-caption transition-colors hover:bg-[var(--ap-bg-hover)]"
               style={{ borderColor: 'var(--ap-border)' }}
               title={a.filename}
               aria-label={`Open ${a.filename}`}
@@ -155,6 +155,7 @@ export function AttachmentPicker({
   className?: string
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null)
+  const rootRef = useRef<HTMLDivElement | null>(null)
   const [busy, setBusy] = useState(0)
   const [dragging, setDragging] = useState(false)
 
@@ -197,6 +198,13 @@ export function AttachmentPicker({
   useEffect(() => {
     if (disabled) return
     const onPaste = (e: ClipboardEvent) => {
+      // Only a paste inside *this* composer: several threads can be open at once
+      // (scrum day view, card modal + OKR page), and a document-wide listener
+      // would stage the same image on every one of them. The composer is the
+      // nearest form / [data-comment-composer] around the picker.
+      const root = rootRef.current
+      const composer = root?.closest('form, [data-comment-composer]') ?? root?.parentElement
+      if (!composer || !(e.target instanceof Node) || !composer.contains(e.target)) return
       const files = Array.from(e.clipboardData?.files ?? [])
       if (files.length === 0) return
       e.preventDefault()
@@ -208,7 +216,8 @@ export function AttachmentPicker({
 
   return (
     <div
-      className={cn('rounded-[10px] transition-colors', dragging && 'ring-2 ring-[var(--ap-accent)]', className)}
+      ref={rootRef}
+      className={cn('rounded-card transition-colors', dragging && 'ring-2 ring-[var(--ap-accent)]', className)}
       onDragOver={(e) => { if (!disabled) { e.preventDefault(); setDragging(true) } }}
       onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragging(false) }}
       onDrop={(e) => {
@@ -223,7 +232,7 @@ export function AttachmentPicker({
           {staged.map((a) => (
             <span
               key={a.id}
-              className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px]"
+              className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-caption"
               style={{ borderColor: 'var(--ap-border)', background: 'var(--ap-bg-sunken)' }}
             >
               <span className="max-w-[160px] truncate">{a.filename}</span>
@@ -245,12 +254,12 @@ export function AttachmentPicker({
         type="button"
         disabled={disabled || busy > 0}
         onClick={() => inputRef.current?.click()}
-        className="inline-flex items-center gap-1.5 text-[12px] font-600 text-[var(--ap-fg-muted)] transition-colors hover:text-[var(--ap-fg)] disabled:opacity-50"
+        className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--ap-fg-muted)] transition-colors hover:text-[var(--ap-fg)] disabled:opacity-50"
       >
         {busy > 0 ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Paperclip className="h-3.5 w-3.5" />}
         {busy > 0 ? `Uploading ${busy}…` : 'Attach files'}
       </button>
-      <span className="ml-2 text-[11px] text-[var(--ap-fg-subtle)]">or drop / paste</span>
+      <span className="ml-2 text-caption text-[var(--ap-fg-subtle)]">or drop / paste</span>
 
       <input
         ref={inputRef}

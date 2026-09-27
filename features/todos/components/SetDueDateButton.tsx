@@ -40,6 +40,7 @@ export default function SetDueDateButton({ todo, onSetDueDate, className = '' }:
         className={`inline-flex items-center rounded px-2 py-1 text-sm transition-colors hover:bg-[var(--ap-bg-hover)] ${className}`}
         style={{ color: DUE_TONE_STYLE[tone].color }}
         title={todo.dueDate ? 'Change due date' : 'Set due date'}
+        aria-label={todo.dueDate ? 'Change due date' : 'Set due date'}
       >
         {todo.dueDate ? (
           <CalendarDays className="h-4 w-4" />

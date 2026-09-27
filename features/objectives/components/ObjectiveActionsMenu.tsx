@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useSession } from 'next-auth/react'
 import {
   Pencil,
   Archive,
@@ -24,6 +25,11 @@ import EditWeightsModal from './EditWeightsModal'
 import CloseObjectiveModal from './CloseObjectiveModal'
 import OkrReopenDialog from '@/components/shared/OkrReopenDialog'
 import MoveOkrModal from '@/components/shared/MoveOkrModal'
+import DeleteObjectiveModal from './DeleteObjectiveModal'
+import {
+  conservativeObjectivePermissions,
+  type ObjectivePermissionFlags,
+} from '../services/objective-permission-flags'
 
 function useWatcher(entityType: string, entityId: string) {
   const [watching, setWatching] = useState(false)
@@ -74,8 +80,19 @@ interface ObjectiveActionsMenuProps {
   auditLogElementId?: string
   /** Element id of the chart card — used by "Download chart" to render an image. */
   chartElementId?: string
-  /** Called when the delete action fires — parent opens the delete modal. */
+  /**
+   * Called when the delete action fires — parent opens its own delete modal.
+   * When omitted, the menu opens the standard DeleteObjectiveModal itself.
+   */
   onDelete?: () => void
+  /**
+   * Permission flags computed on the server with lib/permissions helpers.
+   * When omitted (client list surfaces) a conservative subset derived from
+   * role + ownership is used — see services/objective-permission-flags.ts.
+   */
+  permissions?: ObjectivePermissionFlags
+  /** Where to navigate after a successful delete (detail pages). Defaults to a refresh. */
+  redirectAfterDelete?: string
 }
 
 /**
@@ -89,8 +106,13 @@ export default function ObjectiveActionsMenu({
   auditLogElementId,
   chartElementId,
   onDelete,
+  permissions,
+  redirectAfterDelete,
 }: ObjectiveActionsMenuProps) {
   const router = useRouter()
+  const { data: session } = useSession()
+  const perms = permissions ?? conservativeObjectivePermissions(session?.user, objective)
+  const [deleteOpen, setDeleteOpen] = useState(false)
   const [archiveOpen, setArchiveOpen] = useState(false)
   const [weightsOpen, setWeightsOpen] = useState(false)
   const [closeOpen, setCloseOpen] = useState(false)
@@ -188,35 +210,35 @@ export default function ObjectiveActionsMenu({
       label: 'Edit',
       icon: Pencil,
       onSelect: () => onEdit?.(),
-      hidden: isArchived || isClosed || !onEdit,
+      hidden: isArchived || isClosed || !onEdit || !perms.canEdit,
     },
     {
       key: 'move',
       label: 'Move under another objective',
       icon: MoveRight,
       onSelect: () => setMoveOpen(true),
-      hidden: isArchived || isClosed,
+      hidden: isArchived || isClosed || !perms.canEdit,
     },
     {
       key: 'reopen',
       label: objective.reopenCount ? `Reopen (${objective.reopenCount} prior)` : 'Reopen objective',
       icon: RotateCcw,
       onSelect: () => setReopenOpen(true),
-      hidden: !isClosed,
+      hidden: !isClosed || !perms.canReopen,
     },
     {
       key: 'close',
       label: objective.closureStatus === 'CLOSING' ? 'Continue closing' : 'Close objective',
       icon: LockKeyhole,
       onSelect: () => { setAchievedShortcut(false); setCloseOpen(true) },
-      hidden: isArchived || objective.closureStatus === 'CLOSED',
+      hidden: isArchived || objective.closureStatus === 'CLOSED' || !perms.canEdit,
     },
     {
       key: 'complete',
       label: 'Mark as completed',
       icon: CheckCircle2,
       onSelect: () => { setAchievedShortcut(true); setCloseOpen(true) },
-      hidden: isArchived || objective.closureStatus !== 'OPEN',
+      hidden: isArchived || objective.closureStatus !== 'OPEN' || !perms.canEdit,
     },
     {
       key: 'request-checkin',
@@ -235,7 +257,7 @@ export default function ObjectiveActionsMenu({
       label: 'Edit weights',
       icon: Scale,
       onSelect: () => setWeightsOpen(true),
-      hidden: isArchived || isClosed,
+      hidden: isArchived || isClosed || !perms.canEdit,
     },
     {
       key: 'watch',
@@ -274,15 +296,15 @@ export default function ObjectiveActionsMenu({
           setArchiveOpen(true)
         }
       },
-      hidden: isClosed,
+      hidden: isClosed || !perms.canEdit,
     },
     {
       key: 'delete',
       label: 'Delete',
       icon: Trash2,
       destructive: true,
-      onSelect: () => onDelete?.(),
-      hidden: isClosed || !onDelete,
+      onSelect: () => (onDelete ? onDelete() : setDeleteOpen(true)),
+      hidden: isClosed || objective.isLocked || !perms.canDelete,
     },
   ]
 
@@ -330,6 +352,18 @@ export default function ObjectiveActionsMenu({
         objectiveTitle={objective.title}
         onSaved={() => router.refresh()}
       />
+
+      {!onDelete && perms.canDelete && (
+        <DeleteObjectiveModal
+          isOpen={deleteOpen}
+          onClose={() => setDeleteOpen(false)}
+          objective={objective}
+          onDeleted={() => {
+            if (redirectAfterDelete) router.push(redirectAfterDelete)
+            else router.refresh()
+          }}
+        />
+      )}
 
       <ConfirmDialog
         open={archiveOpen}

@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
+import { recordActivity } from '@/lib/activity-log'
 import { emit } from '@/lib/notifications'
 import { getReadableProject, getWritableProject } from '@/lib/projects/access'
 import { generateClientReportDraft, CLIENT_REPORT_TYPE } from '@/lib/projects/client-report'
@@ -36,6 +37,18 @@ export const POST = withAuth<{ id: string }>(async (req: NextRequest, { session,
   const periodEnd = parsed.data.periodEnd ? new Date(parsed.data.periodEnd) : undefined
   const result = await generateClientReportDraft(params.id, { actorId: session.user.id, periodStart, periodEnd })
   if (result.created) {
+    await recordActivity({
+      entityType: 'PROJECT_REPORT',
+      projectId: params.id,
+      action: 'CREATED',
+      actorId: session.user.id,
+      metadata: {
+        reportId: result.report.id,
+        type: result.report.type,
+        periodStart: result.report.periodStart.toISOString(),
+        periodEnd: result.report.periodEnd.toISOString(),
+      },
+    })
     await emit('CLIENT_REPORT_READY', {
       actorId: session.user.id,
       entityType: 'PROJECT',

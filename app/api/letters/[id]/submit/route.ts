@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
+import { letterReadGuard } from '@/lib/letter-access'
 import { recordActivity } from '@/lib/activity-log'
 import { checkLetterPermissionV2 } from '@/lib/letter-permissions'
 import { notifyLetterSubmitted } from '@/lib/letters-notify'
@@ -16,6 +17,11 @@ import {
 export const POST = withAuth<RouteIdParams>(async (_req, { session, params }) => {
   const { id } = await resolveParams(params)
   if (!id) return apiBadRequest('Invalid letter id')
+
+  // Read scope first: an out-of-scope letter is 404, so ids can't be probed
+  // through the transition endpoints.
+  const denied = await letterReadGuard(session.user.id, id)
+  if (denied) return denied
 
   const letter = await prisma.letter.findUnique({ where: { id } })
   if (!letter) return apiNotFound('Letter not found')

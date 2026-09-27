@@ -6,7 +6,7 @@
 import { prisma } from '@/lib/prisma'
 import { apiSuccess, apiForbidden } from '@/lib/api'
 import { withAuth } from '@/lib/api/withAuth'
-import { transitionPlan, loadReadablePlan, badStatus } from '@/lib/dtp/api-helpers'
+import { tryTransitionPlan, transitionFailure, loadReadablePlan, badStatus } from '@/lib/dtp/api-helpers'
 import { rebuildLegsForPlan } from '@/lib/dtp/legs'
 import { notifyDtpEvent } from '@/lib/dtp/notifier'
 import { getDtpSettings, parseCsvIds } from '@/lib/dtp/settings'
@@ -19,7 +19,7 @@ export const POST = withAuth<{ id: string }>(async (_req, { session, params }) =
   if (plan.requesterId !== session.user.id) return apiForbidden('Only the requester can acknowledge')
   if (plan.status !== 'ADJUSTED') return badStatus()
 
-  const updated = await transitionPlan({
+  const transition = await tryTransitionPlan({
     planId: plan.id,
     from: plan.status as DtpStatus,
     to: 'APPROVED',
@@ -28,7 +28,8 @@ export const POST = withAuth<{ id: string }>(async (_req, { session, params }) =
     payload: null,
     patch: { acknowledgedAt: new Date() },
   })
-  if (!updated) return badStatus()
+  if (!transition.ok) return transitionFailure(transition.reason)
+  const updated = transition.plan
 
   await rebuildLegsForPlan(plan.id)
 

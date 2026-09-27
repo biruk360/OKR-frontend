@@ -4,7 +4,7 @@
 
 import { apiSuccess, apiForbidden } from '@/lib/api'
 import { withAuth } from '@/lib/api/withAuth'
-import { transitionPlan, loadReadablePlan, badStatus } from '@/lib/dtp/api-helpers'
+import { tryTransitionPlan, transitionFailure, loadReadablePlan, badStatus } from '@/lib/dtp/api-helpers'
 import { resolveApprovalRouting } from '@/lib/dtp/settings'
 import { notifyDtpEvent } from '@/lib/dtp/notifier'
 import type { DtpStatus } from '@/types/dtp'
@@ -16,7 +16,7 @@ export const POST = withAuth<{ id: string }>(async (_req, { session, params }) =
   if (plan.requesterId !== session.user.id) return apiForbidden('Only the requester can withdraw this plan')
   const status = plan.status as DtpStatus
   if (status !== 'SUBMITTED' && status !== 'MANAGER_ENDORSED' && status !== 'DRAFT' && status !== 'RETURNED' && status !== 'UNDER_REVIEW') return badStatus()
-  const updated = await transitionPlan({
+  const transition = await tryTransitionPlan({
     planId: plan.id,
     from: status,
     to: 'WITHDRAWN',
@@ -24,7 +24,8 @@ export const POST = withAuth<{ id: string }>(async (_req, { session, params }) =
     actorId: session.user.id,
     payload: null,
   })
-  if (!updated) return badStatus()
+  if (!transition.ok) return transitionFailure(transition.reason)
+  const updated = transition.plan
   const routing = await resolveApprovalRouting(plan.departmentId)
   await notifyDtpEvent({
     eventKey: 'TRAVEL_PLAN_WITHDRAWN',

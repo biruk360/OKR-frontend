@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { apiBadRequest, apiForbidden, apiSuccess, withAuth } from '@/lib/api'
 import { canCreateCycles, canReadCycles, hasPerformancePermission, isPerformanceAdmin } from '@/lib/performance'
+import { recordActivity } from '@/lib/activity-log'
 
 const VALID_CADENCES = ['MONTHLY', 'EVERY_TWO_MONTHS', 'QUARTERLY']
 
@@ -67,6 +68,20 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
         : { createMany: { data: departmentIds.map((departmentId: string) => ({ departmentId })), skipDuplicates: true } },
     },
     include: { departments: { include: { department: true } } },
+  })
+  await recordActivity({
+    entityType: 'REVIEW_CYCLE',
+    action: 'CREATED',
+    actorId: session.user.id,
+    changes: {
+      name: { from: null, to: name },
+      cadence: { from: null, to: cadence },
+      periodStart: { from: null, to: start.toISOString() },
+      periodEnd: { from: null, to: end.toISOString() },
+      allCompany: { from: null, to: allCompany },
+      ...(allCompany ? {} : { departmentIds: { from: null, to: departmentIds } }),
+    },
+    metadata: { cycleId: cycle.id, cycleName: cycle.name },
   })
   return apiSuccess(cycle, { status: 201 })
 })

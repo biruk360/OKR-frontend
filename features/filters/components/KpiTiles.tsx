@@ -23,7 +23,7 @@ function Tile({ tile, onClick }: { tile: KpiTile; onClick?: () => void }) {
     atrisk:   { dot: 'bg-[var(--ap-warn)]',   value: 'text-[var(--ap-warn-fg)]',   bg: 'hover:bg-[var(--ap-warn-bg)]'   },
     offtrack: { dot: 'bg-[var(--ap-danger)]', value: 'text-[var(--ap-danger-fg)]', bg: 'hover:bg-[var(--ap-danger-bg)]' },
     none:     { dot: 'bg-[var(--ap-none)]',   value: 'text-[var(--ap-fg-muted)]',  bg: 'hover:bg-[var(--ap-none-bg)]'   },
-    accent:   { dot: 'bg-[var(--ap-accent)]', value: 'text-[var(--ap-accent)]',    bg: 'hover:bg-[var(--ap-accent)]/8'  },
+    accent:   { dot: 'bg-[var(--ap-accent)]', value: 'text-[var(--ap-accent)]',    bg: 'hover:bg-[var(--ap-accent-soft)]'  },
   }
   const s = toneStyles[tile.tone]
 

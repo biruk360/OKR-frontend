@@ -1,10 +1,8 @@
 import { NextRequest } from 'next/server'
 import { buildPortfolioDashboard, type PortfolioDashboardFilters } from '@/lib/projects/portfolio-dashboard'
 import { apiForbidden, apiSuccess, withAuth } from '@/lib/api'
+import { canReadPortfolio } from '@/lib/projects/portfolio-access'
 
-function canReadPortfolio(role: string): boolean {
-  return role === 'ADMIN' || role === 'EXECUTIVE' || role === 'DEPARTMENT_LEAD'
-}
 
 export const GET = withAuth(async (req: NextRequest, { session }) => {
   if (!canReadPortfolio(session.user.role)) {

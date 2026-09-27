@@ -46,20 +46,21 @@ export function CompanyHeader({ settings, loading }: { settings?: OrgSettings; l
       </div>
 
       <div className="min-w-0 flex-1">
-        <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--ap-accent)' }}>
+        <p className="text-micro font-bold uppercase tracking-widest" style={{ color: 'var(--ap-accent)' }}>
           Company
         </p>
         {editingName ? (
           <div className="mt-1 flex items-center gap-2">
             <input
               autoFocus
+              aria-label="Company name"
               defaultValue={settings.companyName}
               onChange={(e) => setName(e.target.value)}
               className="rounded-md border px-2 py-1 text-sm"
               style={{ borderColor: 'var(--ap-border-strong)' }}
             />
-            <IconBtn onClick={() => { update.mutate({ companyName: name || settings.companyName }); setEditingName(false) }}><Check className="size-3.5" /></IconBtn>
-            <IconBtn onClick={() => setEditingName(false)}><X className="size-3.5" /></IconBtn>
+            <IconBtn label="Save company name" onClick={() => { update.mutate({ companyName: name || settings.companyName }); setEditingName(false) }}><Check className="size-3.5" /></IconBtn>
+            <IconBtn label="Cancel editing company name" onClick={() => setEditingName(false)}><X className="size-3.5" /></IconBtn>
           </div>
         ) : (
           <div className="mt-0.5 flex items-center gap-2">
@@ -67,8 +68,9 @@ export function CompanyHeader({ settings, loading }: { settings?: OrgSettings; l
               {settings.companyName}
             </h2>
             <button type="button" onClick={() => { setName(settings.companyName); setEditingName(true) }}
+              aria-label="Edit company name" title="Edit company name"
               className="rounded p-1 hover:bg-black/5">
-              <Pencil className="size-3" style={{ color: 'var(--ap-fg-subtle)' }} />
+              <Pencil className="size-3" style={{ color: 'var(--ap-fg-subtle)' }} aria-hidden />
             </button>
           </div>
         )}
@@ -77,13 +79,14 @@ export function CompanyHeader({ settings, loading }: { settings?: OrgSettings; l
       {/* CEO slot */}
       <div className="flex shrink-0 items-center gap-3 rounded-[var(--ap-radius-sm)] px-3 py-2"
         style={{ background: 'rgba(255,255,255,0.6)', border: '1px solid var(--ap-border)' }}>
-        <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--ap-fg-subtle)' }}>
+        <p className="text-micro font-bold uppercase tracking-widest" style={{ color: 'var(--ap-fg-subtle)' }}>
           CEO
         </p>
         {editingCeo ? (
           <div className="flex items-center gap-2">
             <select
               autoFocus
+              aria-label="Company CEO"
               defaultValue={settings.companyCeoUserId ?? ''}
               onChange={(e) => setCeoId(e.target.value || null)}
               className="rounded-md border bg-white px-2 py-1 text-sm"
@@ -94,8 +97,8 @@ export function CompanyHeader({ settings, loading }: { settings?: OrgSettings; l
                 <option key={u.id} value={u.id}>{u.name ?? u.email} ({u.role})</option>
               ))}
             </select>
-            <IconBtn onClick={() => { update.mutate({ companyCeoUserId: ceoId }); setEditingCeo(false) }}><Check className="size-3.5" /></IconBtn>
-            <IconBtn onClick={() => setEditingCeo(false)}><X className="size-3.5" /></IconBtn>
+            <IconBtn label="Save company CEO" onClick={() => { update.mutate({ companyCeoUserId: ceoId }); setEditingCeo(false) }}><Check className="size-3.5" /></IconBtn>
+            <IconBtn label="Cancel changing company CEO" onClick={() => setEditingCeo(false)}><X className="size-3.5" /></IconBtn>
           </div>
         ) : (
           <div className="flex items-center gap-2">
@@ -108,8 +111,9 @@ export function CompanyHeader({ settings, loading }: { settings?: OrgSettings; l
               <span className="text-sm italic" style={{ color: 'var(--ap-fg-subtle)' }}>Not set</span>
             )}
             <button type="button" onClick={() => { setCeoId(settings.companyCeoUserId); setEditingCeo(true) }}
+              aria-label="Change company CEO" title="Change company CEO"
               className="rounded p-1 hover:bg-black/5">
-              <Pencil className="size-3" style={{ color: 'var(--ap-fg-subtle)' }} />
+              <Pencil className="size-3" style={{ color: 'var(--ap-fg-subtle)' }} aria-hidden />
             </button>
           </div>
         )}
@@ -118,9 +122,9 @@ export function CompanyHeader({ settings, loading }: { settings?: OrgSettings; l
   )
 }
 
-function IconBtn({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
+function IconBtn({ children, onClick, label }: { children: React.ReactNode; onClick: () => void; label: string }) {
   return (
-    <button type="button" onClick={onClick} className="rounded p-1 transition-colors hover:bg-black/5"
+    <button type="button" onClick={onClick} aria-label={label} title={label} className="rounded p-1 transition-colors hover:bg-black/5"
       style={{ color: 'var(--ap-fg-muted)' }}>
       {children}
     </button>

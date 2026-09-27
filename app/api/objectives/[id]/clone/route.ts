@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { recordActivity } from '@/lib/activity-log'
 import { recalcNodeAndAncestors } from '@/lib/objectiveProgress'
+import { canCloneObjective } from '@/lib/permissions'
 import {
   apiSuccess,
   apiBadRequest,
@@ -13,7 +14,7 @@ import {
 } from '@/lib/api'
 
 export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { session, params }) => {
-  if (!['ADMIN', 'EXECUTIVE', 'DEPARTMENT_LEAD'].includes(session.user.role)) {
+  if (!canCloneObjective(session.user.role)) {
     return apiForbidden('Insufficient permissions to clone objectives')
   }
 

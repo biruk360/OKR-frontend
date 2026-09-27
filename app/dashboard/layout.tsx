@@ -28,7 +28,9 @@ export default async function DashboardLayout({
     <DashboardTitleProvider>
       <DashboardShell user={session.user}>{children}</DashboardShell>
       {/* Mounted once — opens whenever any initiative card calls
-          useInitiativeDetailStore.getState().open(id). */}
+          useInitiativeDetailStore.getState().open(id). Renders nothing until
+          then; the card modal (+ Tiptap) is a separate chunk fetched on first
+          open via next/dynamic (LazyTodoCardModal), not on every page load. */}
       <GlobalInitiativeDetail />
     </DashboardTitleProvider>
   )

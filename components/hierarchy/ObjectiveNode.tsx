@@ -66,22 +66,22 @@ export interface ObjectiveNodeData {
 }
 
 const STATUS_BADGE: Record<string, { label: string; className: string }> = {
-  ON_TRACK: { label: 'On track', className: 'bg-emerald-50 text-emerald-800 ring-emerald-600/20' },
-  AT_RISK: { label: 'At risk', className: 'bg-amber-50 text-amber-900 ring-amber-600/25' },
-  OFF_TRACK: { label: 'Behind', className: 'bg-red-50 text-red-800 ring-red-600/20' },
-  CLOSED: { label: 'Closed', className: 'bg-muted text-muted-foreground ring-gray-500/20' },
+  ON_TRACK: { label: 'On track', className: 'bg-success-50 text-success-800 ring-success-600/20' },
+  AT_RISK: { label: 'At risk', className: 'bg-warning-50 text-warning-900 ring-warning-600/25' },
+  OFF_TRACK: { label: 'Behind', className: 'bg-danger-50 text-danger-800 ring-danger-600/20' },
+  CLOSED: { label: 'Closed', className: 'bg-muted text-muted-foreground ring-ink-secondary/20' },
 }
 
 function confidenceDot(confidence: string) {
   switch (confidence) {
     case 'ON_TRACK':
-      return 'bg-[#28a745]'
+      return 'bg-success-500'
     case 'AT_RISK':
-      return 'bg-[#fd7e14]'
+      return 'bg-warning-500'
     case 'OFF_TRACK':
-      return 'bg-[#dc3545]'
+      return 'bg-danger-500'
     default:
-      return 'bg-gray-400'
+      return 'bg-ink-tertiary'
   }
 }
 
@@ -127,7 +127,7 @@ const ObjectiveNode = memo(({ data, selected }: NodeProps<ObjectiveNodeData>) =>
 
   const badge = STATUS_BADGE[goalStatus] ?? {
     label: 'In progress',
-    className: 'bg-indigo-50 text-indigo-800 ring-indigo-600/20',
+    className: 'bg-primary-50 text-primary-800 ring-primary-600/20',
   }
 
   const hierarchySubtitle = useMemo(() => {
@@ -162,19 +162,19 @@ const ObjectiveNode = memo(({ data, selected }: NodeProps<ObjectiveNodeData>) =>
               <PlanIcon className="h-4 w-4" />
             </div>
             <div className="min-w-0">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+              <p className="text-caption font-medium uppercase tracking-wide text-muted-foreground">
                 {hierarchySubtitle.line1}
               </p>
               {hierarchySubtitle.line2 ? (
-                <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">{hierarchySubtitle.line2}</p>
+                <p className="mt-0.5 text-micro leading-snug text-muted-foreground">{hierarchySubtitle.line2}</p>
               ) : null}
-              <h3 className="mt-0.5 line-clamp-3 text-[15px] font-semibold leading-snug text-foreground">
+              <h3 className="mt-0.5 line-clamp-3 text-body font-semibold leading-snug text-foreground">
                 {title}
               </h3>
             </div>
           </div>
           <span
-            className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-inset ${badge.className}`}
+            className={`shrink-0 rounded-full px-2 py-0.5 text-micro font-semibold ring-1 ring-inset ${badge.className}`}
           >
             {badge.label}
           </span>
@@ -183,7 +183,7 @@ const ObjectiveNode = memo(({ data, selected }: NodeProps<ObjectiveNodeData>) =>
 
       <div className="grid grid-cols-3 gap-2 border-b border-border px-4 py-3">
         <div>
-          <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Key results</p>
+          <p className="text-micro font-medium uppercase tracking-wide text-muted-foreground">Key results</p>
           <p className="text-lg font-semibold tabular-nums text-foreground">{metrics.avgKrProgress}%</p>
           <Progress
             className="mt-1"
@@ -193,7 +193,7 @@ const ObjectiveNode = memo(({ data, selected }: NodeProps<ObjectiveNodeData>) =>
           />
         </div>
         <div>
-          <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Initiatives</p>
+          <p className="text-micro font-medium uppercase tracking-wide text-muted-foreground">Initiatives</p>
           <p className="text-lg font-semibold tabular-nums text-foreground">{initiativeLabel}</p>
           <Progress
             className="mt-1"
@@ -203,7 +203,7 @@ const ObjectiveNode = memo(({ data, selected }: NodeProps<ObjectiveNodeData>) =>
           />
         </div>
         <div>
-          <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Confidence</p>
+          <p className="text-micro font-medium uppercase tracking-wide text-muted-foreground">Confidence</p>
           <p className="text-lg font-semibold tabular-nums text-foreground">{metrics.ncsScore} NCS</p>
           <Progress
             className="mt-1"
@@ -234,7 +234,7 @@ const ObjectiveNode = memo(({ data, selected }: NodeProps<ObjectiveNodeData>) =>
             {keyResults.map((kr) => (
               <li
                 key={kr.id}
-                className="flex items-start justify-between gap-2 border-b border-gray-50 pb-2 last:border-0 last:pb-0"
+                className="flex items-start justify-between gap-2 border-b border-surface-muted pb-2 last:border-0 last:pb-0"
               >
                 <div className="flex min-w-0 flex-1 items-start gap-2">
                   <span
@@ -249,7 +249,7 @@ const ObjectiveNode = memo(({ data, selected }: NodeProps<ObjectiveNodeData>) =>
                   </span>
                   <div className="h-1 w-14 overflow-hidden rounded-full bg-muted">
                     <div
-                      className="h-full rounded-full bg-[#0d6efd]"
+                      className="h-full rounded-full bg-primary-600"
                       style={{ width: `${Math.min(kr.progress, 100)}%` }}
                     />
                   </div>
@@ -269,7 +269,7 @@ const ObjectiveNode = memo(({ data, selected }: NodeProps<ObjectiveNodeData>) =>
       <div className="flex items-center justify-between gap-1 border-t border-border px-2 py-2">
         <Link
           href={`/dashboard/objectives/${data.id}`}
-          className="px-2 py-1 text-[11px] font-medium text-blue-600 hover:text-blue-800 hover:underline"
+          className="px-2 py-1 text-caption font-medium text-primary-600 hover:text-primary-800 hover:underline"
           onClick={(e) => e.stopPropagation()}
           onPointerDown={(e) => e.stopPropagation()}
         >
@@ -287,11 +287,11 @@ const ObjectiveNode = memo(({ data, selected }: NodeProps<ObjectiveNodeData>) =>
         )}
       </div>
 
-      <Handle type="target" position={Position.Top} className="!h-2 !w-2 !border-0 !bg-gray-400" />
+      <Handle type="target" position={Position.Top} className="!h-2 !w-2 !border-0 !bg-ink-tertiary" />
       <Handle
         type="source"
         position={Position.Bottom}
-        className="!h-2 !w-2 !border-0 !bg-gray-400"
+        className="!h-2 !w-2 !border-0 !bg-ink-tertiary"
         style={{ opacity: 1 }}
       />
     </div>

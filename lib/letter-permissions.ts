@@ -7,7 +7,7 @@
  *   - prisma/seed-letter-permissions.ts
  */
 import { prisma } from './prisma'
-import { resolveDocTypePermission, resolveFeaturePermission } from './permission-resolver'
+import { resolveDocTypePermission, resolveFeaturePermission, type DocTypeAction } from './permission-resolver'
 
 export const LETTER_PERMISSIONS = [
   'letter.read',
@@ -36,7 +36,7 @@ export const LETTER_PERMISSION_LABELS: Record<LetterPermission, { label: string;
   'letter.archive':      { label: 'Archive',      description: 'Archive letters' },
   'letter.manage_types': { label: 'Manage Types', description: 'Create, edit, delete letter type definitions' },
   'letter.export':       { label: 'Export',       description: 'Export letters as PDF or CSV' },
-  'letter.view_all':     { label: 'View All',     description: 'View all letters org-wide, not just own department' },
+  'letter.view_all':     { label: 'Letter Admin', description: 'Letter administrator: edit, delete, force-archive and unarchive any letter regardless of status or author' },
 }
 
 export const SYSTEM_ROLES = ['ADMIN', 'EXECUTIVE', 'DEPARTMENT_LEAD', 'EMPLOYEE'] as const
@@ -105,6 +105,36 @@ export const DEFAULT_LETTER_MATRIX: Record<SystemRole, Record<LetterPermission, 
   },
 }
 
+/**
+ * Where each letter permission resolves in the unified permission tables.
+ *
+ * `letter.view_all` is the letter-ADMIN check (routes use it to edit/delete/
+ * force-archive any letter). It used to resolve to `module.letters` — the
+ * sidebar-visibility key that every role, EMPLOYEE included, is granted — so
+ * any employee could edit any letter. It now resolves to the dedicated
+ * ADMIN-only `button.letter.admin` feature key (seeded in
+ * scripts/seed-permissions.ts; ADMIN also passes via the resolver's shortcut).
+ */
+export type LetterPermissionTarget =
+  | { kind: 'doctype'; doctypeKey: string; action: DocTypeAction }
+  | { kind: 'feature'; featureKey: string }
+
+export const LETTER_ADMIN_FEATURE_KEY = 'button.letter.admin'
+
+export const LETTER_PERMISSION_TARGETS: Readonly<Record<LetterPermission, LetterPermissionTarget>> = Object.freeze({
+  'letter.read':         { kind: 'doctype', doctypeKey: 'letter', action: 'read' },
+  'letter.create':       { kind: 'doctype', doctypeKey: 'letter', action: 'create' },
+  'letter.write':        { kind: 'doctype', doctypeKey: 'letter', action: 'write' },
+  'letter.submit':       { kind: 'doctype', doctypeKey: 'letter', action: 'submit' },
+  'letter.approve':      { kind: 'feature', featureKey: 'button.letter.approve' },
+  'letter.dispatch':     { kind: 'feature', featureKey: 'button.letter.send' },
+  'letter.delete':       { kind: 'doctype', doctypeKey: 'letter', action: 'delete' },
+  'letter.archive':      { kind: 'feature', featureKey: 'button.letter.archive' },
+  'letter.manage_types': { kind: 'doctype', doctypeKey: 'letter_type_def', action: 'create' },
+  'letter.export':       { kind: 'doctype', doctypeKey: 'letter', action: 'export' },
+  'letter.view_all':     { kind: 'feature', featureKey: LETTER_ADMIN_FEATURE_KEY },
+})
+
 async function legacyLetterCheck(userId: string, permission: LetterPermission): Promise<boolean> {
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } })
   const role = (user?.role as SystemRole | undefined) ?? 'EMPLOYEE'
@@ -131,21 +161,18 @@ export async function checkLetterPermissionV2(
     return legacyLetterCheck(userId, permission)
   }
 
+  const target = LETTER_PERMISSION_TARGETS[permission]
+  if (!target) return false
   try {
-    switch (permission) {
-      case 'letter.read':         return resolveDocTypePermission(userId, 'letter', 'read')
-      case 'letter.create':       return resolveDocTypePermission(userId, 'letter', 'create')
-      case 'letter.write':        return resolveDocTypePermission(userId, 'letter', 'write')
-      case 'letter.submit':       return resolveDocTypePermission(userId, 'letter', 'submit')
-      case 'letter.approve':      return resolveFeaturePermission(userId, 'button.letter.approve')
-      case 'letter.dispatch':     return resolveFeaturePermission(userId, 'button.letter.send')
-      case 'letter.delete':       return resolveDocTypePermission(userId, 'letter', 'delete')
-      case 'letter.archive':      return resolveFeaturePermission(userId, 'button.letter.archive')
-      case 'letter.manage_types': return resolveDocTypePermission(userId, 'letter_type_def', 'create')
-      case 'letter.export':       return resolveDocTypePermission(userId, 'letter', 'export')
-      case 'letter.view_all':     return resolveFeaturePermission(userId, 'module.letters')
-    }
+    return target.kind === 'doctype'
+      ? await resolveDocTypePermission(userId, target.doctypeKey, target.action)
+      : await resolveFeaturePermission(userId, target.featureKey)
   } catch {
     return legacyLetterCheck(userId, permission)
   }
+}
+
+/** Letter administrator: may edit/delete/force-archive any letter in any status. */
+export function canAdministerLetters(userId: string): Promise<boolean> {
+  return checkLetterPermissionV2(userId, 'letter.view_all')
 }

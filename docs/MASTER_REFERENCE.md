@@ -4,7 +4,13 @@
 > It is generated from a full traversal of all code, schemas, routes, components, and docs.
 > **Keep it up-to-date:** after every feature addition or significant change, update the relevant section(s) here, then update `docs/CHANGELOG_AI.md`.
 >
-> Last updated: 2026-09-16
+> Last updated: 2026-09-25 — full-project remediation (session okr-mgt-75), **complete**: Waves 1–3, Wave 4 G1–G7
+> (OKR pages consolidated into My OKRs / OKR Explorer / Insights with 14 permanent redirects, projects DOCX import +
+> provenance + background processing, AI-guided project creation, portal Planned-vs-Actual and Change Requests tabs,
+> filters sort, scrum server drafts), follow-ups H2–H6 / C1–C6 / B1–B2 (comment attachments for activities and scrum +
+> staging cleanup, OKR realtime + comment access, `test:core`, thin pages) and Next 14.2.35. Verified: tsc 0 · lint 0
+> errors · 15 test scripts green (1,661 runs) · `next build` 209 pages. Deploy: §18.2. Open items: §20.
+> Plan and decisions: `docs/REMEDIATION_PLAN_2026-09-25.md`.
 
 ---
 
@@ -63,7 +69,7 @@ A full-stack **OKR (Objectives & Key Results) management platform** built with N
 
 | Technology | Version | Purpose |
 |------------|---------|---------|
-| Next.js | 14 | App Router, API routes, SSR |
+| Next.js | 14 (`14.2.35`, 2026-09-25) | App Router, API routes, SSR. `images.unoptimized: true`. Next 14 is EOL; the remaining advisories are fixed only in 15.5.x (open decision) |
 | React | 18 | UI framework |
 | TypeScript | 5 | Type safety |
 | Prisma | Latest | ORM — PostgreSQL (prod), schema-push deployment |
@@ -71,12 +77,13 @@ A full-stack **OKR (Objectives & Key Results) management platform** built with N
 | Zustand | Latest | Client-side stores |
 | Tailwind CSS | 3 | Styling with design tokens |
 | react-hook-form | Latest | Form state management |
-| NextAuth.js | Latest | Authentication (Credentials provider, JWT) |
+| NextAuth.js | `^4.24.15` | Authentication (Credentials provider, JWT) |
 | Pusher | Latest | Real-time push notifications |
 | date-fns | Latest | Date formatting |
 | Lucide React | Latest | Icons |
-| dhtmlx-gantt | Latest | Gantt chart on Plans page |
+| dhtmlx-gantt | Latest | OKR Explorer Timeline view (`PlansGantt`) |
 | @tanstack/react-virtual | Latest | Custom Project Management Gantt row virtualization |
+| ESLint (`next/core-web-vitals`, `eslint-config-next` 14.2.35) | — | `.eslintrc.json` (2026-09-25); `npm run lint` runs in CI; `rules-of-hooks` is an error |
 
 **Database:** PostgreSQL (production). Schema applied via `prisma db push` — no migration history. Changes tracked in `preflight.sql`.
 
@@ -88,7 +95,9 @@ A full-stack **OKR (Objectives & Key Results) management platform** built with N
 OKR-frontend/
 ├── app/                          # Next.js App Router
 │   ├── api/                      # REST API endpoints (170+ route files)
-│   ├── auth/                     # Public auth pages (signin, signup)
+│   ├── auth/                     # Public auth pages (signin, signup, forgot-password, reset-password)
+│   ├── portal/                   # Client portal (signin, accept-invite, projects/[id])
+│   ├── projects/                 # Full-screen project workspace + public snapshots
 │   └── dashboard/                # All authenticated UI pages
 │
 ├── components/                   # Shared React components
@@ -96,28 +105,29 @@ OKR-frontend/
 │   ├── layout/                   # DashboardShell, DashboardTitleContext
 │   ├── shared/                   # ActivityLogPanel, EntityLink, TimeframeBadge
 │   ├── dashboard/                # Dashboard widgets, MyOKRsPage
-│   ├── hierarchy/                # Org hierarchy visualization
+│   ├── hierarchy/                # Org hierarchy visualization, OkrHierarchyTable (Explorer Tree view)
+│   ├── insights/                 # Insights Progress / Period-close panels (2026-09-25)
 │   ├── initiative-report/        # Daily updates report grid
-│   ├── objectives/               # Objective modals, lists, buttons
-│   ├── keyresults/               # KR modals, lists, buttons
-│   ├── todos/                    # Todo modals, lists, buttons
-│   ├── goals/                    # Goals views and filter bar
-│   ├── sprints/                  # Sprint board, card modal
+│   ├── objective-detail/         # Objective detail sections (KRList + kr-filters, hero, activity tabs)
+│   ├── todos/                    # TodoCardModal + Card* sections, LazyTodoCardModal, TodoCard, MentionEditor
+│   ├── sprints/                  # Sprint helper modals/popovers (board lives in features/sprints)
 │   ├── settings/                 # All settings panels
-│   ├── plans/                    # PlansList, PlansGantt
+│   ├── plans/                    # PlansGantt (Explorer Timeline view)
 │   ├── profile/                  # User profile components
 │   └── reports/                  # Report components
 │
-├── features/                     # Feature barrels (strangler pattern)
-│   ├── objectives/               # 18 exports + barrel
-│   ├── key-results/              # 16 exports + barrel
-│   ├── todos/                    # 11 exports + barrel
-│   ├── goals/                    # 9 exports + barrel
-│   ├── sprints/                  # 3 exports + barrel
+├── features/                     # Feature modules with barrels (objectives/key-results/todos migrated out of components/)
+│   ├── objectives/               # modals, buttons, lists, ObjectiveActionsMenu, services/
+│   ├── key-results/              # modals, buttons, KeyResultActionsMenu, KeyResultDetailClient
+│   ├── todos/                    # modals, buttons, ToDoList, useTodoStatusToggle
+│   ├── sprints/                  # SprintBoardClient (+ Header/Lane/AddTaskInline), SprintsListClient
 │   ├── letters/                  # Letter UI + workflow components
 │   ├── filters/                  # Filters workspace
 │   ├── daily-trip-plan/          # Full DTP feature module
-│   ├── scrum/                    # Daily Scrum foundation
+│   ├── scrum/                    # Daily Scrum (S1–S11)
+│   ├── auth/                     # Sign-in/up, forgot/reset password
+│   ├── projects/                 # Project management + portal UI
+│   ├── automations/, performance/, sprints-ai/  # AI Automations, Performance, AI sprint planning
 │   └── index.ts                  # Root namespace barrel
 │
 ├── hooks/                        # Shared React hooks
@@ -127,7 +137,9 @@ OKR-frontend/
 │   ├── useDepartments.ts
 │   ├── useReferenceData.ts
 │   ├── useMediaQuery.ts
-│   └── useViewTracker.ts
+│   ├── useViewTracker.ts
+│   ├── useOkrOptions.ts, useLinkPreview.ts
+│   └── useRealtimeRefresh.ts     # 2026-09-25 — debounced Pusher refetch
 │
 ├── lib/                          # Server + shared utilities
 │   ├── api/                      # withAuth, apiResponse, handleError
@@ -148,7 +160,15 @@ OKR-frontend/
 │   ├── email.ts                  # sendMail() with SMTP
 │   ├── weekly-digest.ts          # Weekly digest generation
 │   ├── dashboard-navigation.ts   # Sidebar nav structure
-│   └── telegram/                 # Telegram bot integration
+│   ├── telegram/                 # Telegram bot integration (+ access.ts allowlist/limits)
+│   ├── okr/                      # visibility-scope, action-permissions, check-in queue, dashboard-home, thresholds, explorer-params, insights-data, realtime, comment-access
+│   ├── retired-routes.js         # 14 retired OKR/analytics routes → next.config.js redirects()
+│   ├── security/                 # rate-limit, auth-tokens (+ invariant tests)
+│   ├── cron-auth.ts              # withCronAuth — every /api/cron/* route
+│   ├── background.ts             # runAfterResponse / flushBackgroundWork
+│   ├── retention/                # prune-tables (nightly retention)
+│   ├── users/                    # deleted-account (admin delete = anonymise)
+│   └── chart-colors.ts           # recharts colours from tokens
 │
 ├── types/
 │   ├── index.ts                  # All shared TypeScript types
@@ -156,7 +176,7 @@ OKR-frontend/
 │   └── next-auth.d.ts            # Session type augmentation
 │
 ├── prisma/
-│   ├── schema.prisma             # Source of truth — 58 models
+│   ├── schema.prisma             # Source of truth — 147 models (2026-09-25)
 │   └── seed*.ts                  # Seed scripts
 │
 └── docs/                         # Documentation
@@ -175,6 +195,14 @@ OKR-frontend/
     └── AI_SPRINT_PLANNING.md     # AI sprint planning spec
 ```
 
+**Thin pages (2026-09-25, H5/C3/C6).** No `app/**/page.tsx` imports Prisma (was 35). Page data comes from server-only
+`*.server.ts` loaders: `features/admin-org/services/org-pages.server.ts`, `features/daily-trip-plan/services/travel-pages.server.ts`,
+`features/key-results/services/key-result-detail.server.ts`, `features/letters/services/letter-pages.server.ts`,
+`features/objectives/services/{archived-objectives,objective-detail}.server.ts`, `features/projects/services/{portal-pages,snapshot-page}.server.ts`,
+`features/sprints/services/sprint-pages.server.ts`, `features/todos/services/todo-pages.server.ts`, `lib/dashboards/home.server.ts`,
+`lib/notifications/notifications-page.server.ts`, `lib/okr/{activity-feed,comments-page}.server.ts`, `lib/settings/settings-pages.server.ts`.
+New pages must follow the same pattern.
+
 ---
 
 ## 4. Modules & Features
@@ -183,18 +211,20 @@ OKR-frontend/
 
 | Module | Status | Paths |
 |--------|--------|-------|
-| Authentication | DONE | `app/auth/`, `features/auth/`, `lib/auth.ts`, `app/api/wallpaper/` |
-| Objectives CRUD | DONE (needs refactor) | `features/objectives/`, `app/api/objectives/` |
-| Objective Hierarchy | DONE | `components/objectives/NestedObjectivesList.tsx` |
-| Objective Cloning | DONE | `components/objectives/CloneObjectiveModal.tsx` |
-| Objective Alignment Map | DONE | `app/dashboard/alignment-map/` |
-| Key Results CRUD | DONE (needs refactor) | `features/key-results/`, `app/api/keyresults/` |
-| KR Check-ins | DONE | `components/keyresults/CreateCheckInModal.tsx` |
-| KR Archiving | DONE | `components/keyresults/ArchiveKeyResultModal.tsx` |
+| Authentication | DONE (hardened 2026-09-25) | `app/auth/`, `features/auth/`, `lib/auth.ts`, `lib/security/`, `app/api/auth/**`, `app/api/wallpaper/` — rate limits, hashed tokens, `passwordChangedAt` session invalidation, sign-up = inactive EMPLOYEE |
+| Objectives CRUD | DONE | `features/objectives/`, `app/api/objectives/` — action menu gated by `lib/okr/action-permissions.ts` |
+| Objective Hierarchy | DONE | `features/objectives/components/NestedObjectivesList.tsx` |
+| Objective Cloning | DONE | `features/objectives/components/CloneObjectiveModal.tsx` |
+| Objective Alignment Map | DONE | `lib/okr/alignment-map-data.ts` — rendered as the OKR Explorer Map view (`/dashboard/okrs-all?view=map`) |
+| Key Results CRUD | DONE | `features/key-results/`, `app/api/keyresults/`, `/dashboard/key-results` index |
+| KR Check-ins | DONE | `features/key-results/components/CreateCheckInModal.tsx`, check-in picker (`?checkin=1`), `CheckInQueue` |
+| KR Archiving | DONE | `features/key-results/components/ArchiveKeyResultModal.tsx` |
+| OKR visibility scope | DONE (2026-09-25) | `lib/okr/visibility-scope.ts` — one rule for hierarchy, objectives API, progress, analytics, alignment, timeline, activity, home feed |
 | Progress Calculation | DONE | `lib/objectiveProgress.ts` |
 | Confidence Snapshots | DONE | `lib/confidence-calc.ts`, `/api/cron/confidence-calc/` |
 | Favorites / Starred | DONE | `/api/favorites/` |
 | Watchers | DONE | `/api/watchers/` |
+| OKR realtime + comments | DONE (2026-09-25, H3/C2) | `lib/okr/realtime.ts` (`private-objective-<id>` / `private-keyresult-<id>`), `lib/okr/comment-access.ts`, `OkrComments` on objective + KR pages — needs real Pusher creds |
 | Period Close & Retrospective | DONE | `lib/okr/`, close/retrospective/reopen routes, shared close/reopen UI |
 | Roll-forward & Lineage | DONE | Existing clone routes/modals, `RolledFromBanner` |
 | End-of-period Report | DONE | `/dashboard/okrs-all/period-report/[timeframeId]`, `/api/reports/period-close/[timeframeId]` |
@@ -204,12 +234,13 @@ OKR-frontend/
 | Module | Status | Paths |
 |--------|--------|-------|
 | Todos / Initiatives CRUD | DONE (needs refactor) | `features/todos/`, `app/api/todos/` |
-| Todo Comments (WYSIWYG) | DONE | `app/api/todos/[id]/comments/` |
+| Todo Comments (WYSIWYG) | DONE | `app/api/todos/[id]/comments/` — optimistic post/reply/edit in `CardComments`; notifications run after the response (`lib/background.ts`); attachments are `CommentAttachment` rows (`commentType: 'TODO'`, 2026-09-25) |
+| Link previews in card + OKR comments/description | DONE | `app/api/link-preview/`, `lib/link-preview/`, `components/shared/LinkPreview.tsx` — SSRF-safe server fetch, favicon/site/title/description/thumbnail |
 | Todo Checklists | DONE | `app/api/todos/[id]/checklists/` |
-| Todo Attachments | DONE | `app/api/todos/[id]/attachments/` |
+| Todo Attachments | DONE | `app/api/todos/[id]/attachments/` — type-validated, stored privately (`TODO_UPLOAD_DIR`, default `var/uploads/todos`), served only via the API with safe headers; `/uploads/todos/*` is blocked in middleware |
 | Todo Labels | DONE | `app/api/todo-labels/` |
 | Initiative Daily Updates | DONE | `app/api/initiatives/[id]/updates/` |
-| Sprint Board (Kanban) | DONE | `features/sprints/`, `app/api/sprints/` |
+| Sprint Board (Kanban) | DONE | `features/sprints/`, `app/api/sprints/` — invite-only; filter facets people/labels/due/watching/linked (`lib/sprints/board-filters.ts`); live refresh on `private-sprint-<id>` (`lib/sprints/realtime.ts`, `useRealtimeRefresh`) |
 | Sprint Cloning | DONE | `/api/sprints/[id]/clone/` |
 | Sprint Ending | DONE | `/api/sprints/[id]/end/` |
 | AI Sprint Planning | IN PROGRESS | `features/sprints-ai/`, `app/api/sprints/ai/` |
@@ -218,21 +249,16 @@ OKR-frontend/
 
 | Module | Status | Paths |
 |--------|--------|-------|
-| Dashboard Home | DONE | `app/dashboard/page.tsx` |
-| My OKRs | DONE | `app/dashboard/my-okrs/` |
-| My Tasks | DONE | `app/dashboard/my-tasks/` |
-| Goals View (table/feed/team) | DONE | `app/dashboard/goals/`, `features/goals/` |
-| Filters Workspace | DONE | `app/dashboard/filters/`, `features/filters/` |
-| Company OKRs | DONE | `app/dashboard/company-okrs/` |
-| Department OKRs | DONE | `app/dashboard/department-okrs/` |
-| Plans (List + Gantt) | DONE | `app/dashboard/plans/`, `components/plans/` |
-| Progress Tracking | DONE | `app/dashboard/progress/` |
-| Reports & Analytics | DONE | `app/dashboard/reports/`, `app/dashboard/analytics/` |
-| Initiative Report | DONE | `app/dashboard/initiative-report/` |
+| Dashboard Home | DONE | `app/dashboard/page.tsx` (loader `lib/dashboards/home.server.ts`) |
+| My OKRs | DONE | `app/dashboard/my-okrs/` — own + contributed objectives with the "Needs a check-in" queue on top |
+| OKR Explorer | DONE (2026-09-25, G6) | `app/dashboard/okrs-all/` — `?view=list\|tree\|timeline\|map\|analyze`, `?level=all\|company\|department\|mine\|team` (List/Tree); `lib/okr/explorer-params.ts` |
+| Insights | DONE (2026-09-25, G6) | `app/dashboard/insights/` — `?tab=overview\|progress\|reports\|initiatives\|period-close`; `lib/okr/insights-data.ts`, `components/insights/`, `components/reports/`, `components/initiative-report/` |
+| Filters Workspace | DONE | `features/filters/` — Explorer Analyze view and `/dashboard/key-results`; sort + More menu (G7) |
+| Retired routes | RETIRED (2026-09-25) | 14 permanent redirects in `lib/retired-routes.js` (objectives, company/department OKRs, goals, plans, timeline, okr-hierarchy, alignment-map, filters → Explorer; analytics, progress-report, progress, reports, initiative-report → Insights). `features/goals`, `OKRLevelView`, `PlansList` deleted |
+| My Tasks | RETIRED | `app/dashboard/my-tasks/` redirects to `/dashboard/todos?scope=assigned` |
 | Activity Feed | DONE | `app/dashboard/activity/` |
 | Archived Objectives | DONE | `app/dashboard/archived-objectives/` |
-| OKR Alignment Map | DONE | `app/dashboard/alignment-map/` |
-| Period Close Report | DONE | `app/dashboard/okrs-all/period-report/[timeframeId]/` |
+| Period Close Report | DONE | `app/dashboard/okrs-all/period-report/[timeframeId]/` (reached from Insights → Period close) |
 
 ### 4.4 Letter Management
 
@@ -244,14 +270,15 @@ Full lifecycle workflow: DRAFT → SUBMITTED → APPROVED → SENT → ARCHIVED.
 | Create Letter (draft + ref number) | DONE | `features/letters/components/CreateLetterModal.tsx` |
 | Letter Form (body, recipient, signatory) | DONE | `features/letters/components/LetterFormClient.tsx` |
 | Workflow transitions (submit/approve/reject/send/archive) | DONE | `/api/letters/[id]/{submit,approve,reject,send,archive}` |
-| Enclosures | DONE (metadata only) | `features/letters/components/EnclosuresPanel.tsx` |
-| PDF preview & print | MOCKED | `/api/letters/[id]/pdf/` |
-| Odoo customer typeahead | MOCKED | `/api/letters/odoo/contacts/` |
+| Enclosures | DONE (real files, 2026-09-25) | `features/letters/components/EnclosuresPanel.tsx`, `lib/letter-enclosure-storage.ts` (`LETTER_UPLOAD_DIR`, default `var/uploads/letters`) |
+| PDF preview & print | DONE | `/api/letters/[id]/pdf/` — Puppeteer, JS off, request interception |
+| Odoo customer typeahead | DONE (mock fallback) | `/api/letters/odoo/contacts/`, `lib/odoo-contacts.ts` |
+| Security (sanitise, read guard, sandbox) | DONE (2026-09-25) | `lib/letter-sanitize.ts`, `lib/letter-access.ts` |
 | Activity log integration | DONE | `components/shared/ActivityLogPanel.tsx` |
 | Letter Permissions (role matrix + per-user overrides) | DONE | `lib/letter-permissions.ts`, `components/settings/LetterPermissionsManagement.tsx` |
-| Reporting view | PLANNED | — |
-| Notifications on transitions | PLANNED | — |
-| Template management screen | PLANNED | — |
+| Reporting view (FR-16) | DONE (2026-09-25) | `/dashboard/letters/reports`, `LetterReportsClient`, `lib/letter-reports.ts` — sidebar *Letter Reports* |
+| Notifications on transitions | DONE | `lib/letters-notify.ts` (submit/approve/reject/send, `LETTER` category) |
+| Template management screen | DONE (2026-09-25) | `/dashboard/letters/templates`, `LetterTemplatesClient`, `lib/letter-templates.ts`, `LetterTemplate` model — letter admin only; sidebar *Letter Templates* (`button.letter.admin`); audited as `LETTER_TEMPLATE` |
 
 ### 4.5 Daily Trip Plan (DTP)
 
@@ -273,15 +300,19 @@ Employee travel request and logistics management.
 
 ### 4.6 Daily Scrum
 
-Daily employee scrum updates and team visibility. Current status is P0 foundation only; submission API/UI, calendar wall, proxy entry, blocker lifecycle, analytics, cron jobs, and Performance/PM integrations are pending.
+Daily employee scrum updates and team visibility. All stories S1.1–S11.3 are implemented with tests; `docs/SCRUM_MODULE_TRACKER.md` keeps them 🟡 only for the manual walkthrough column.
 
 | Module | Status | Paths |
 |--------|--------|-------|
-| Schema foundation | IN PROGRESS | `prisma/schema.prisma` (`ScrumUpdate`, `ScrumComment`, `ScrumAbsence`, `ScrumSettings`, `ScrumUpdateLink`) |
-| Feature barrel and foundation page | IN PROGRESS | `features/scrum/`, `app/dashboard/scrum/page.tsx` |
-| Working-day and mood privacy services | IN PROGRESS | `features/scrum/services/working-days.ts`, `features/scrum/services/scrum-serializer.ts` |
-| Permissions/settings seeds | IN PROGRESS | `scripts/seed-scrum-permissions.ts`, `scripts/seed-scrum-settings.ts` |
-| Core loop and visualization | PLANNED | P1/P2 in `docs/SCRUM_MODULE_TRACKER.md` |
+| Schema | DONE | `ScrumUpdate`, `ScrumComment`, `ScrumAbsence`, `ScrumSettings`, `ScrumWinCelebration`, `ScrumSavedView`, `ScrumJobRun`, `ScrumUpdateLink` (+ legacy PM `ScrumLog`) |
+| Submit / proxy / previous-day panel | DONE (manual QA pending) | `features/scrum/`, `app/api/scrum/updates/**`, `app/dashboard/scrum/` |
+| Wall: month / week / day / streak / analytics views, deep links, saved views | DONE (2026-09-25 F4 completed week view, day filter, deep links, saved-view UI) | `ScrumCalendarViews.tsx`, `ScrumSavedViewsMenu.tsx`, `services/view-state.ts` |
+| Blockers (lifecycle, same-blocker prompt, resolve/escalate), wins + celebrate, absences | DONE (F4 UI) | `ScrumBlockerDialogs.tsx`, `ScrumAbsenceModal.tsx`, `/dashboard/scrum/wins` |
+| Crons: reminder, finalize, nudge, health (mood alert), weekly | DONE, scheduled | `/api/cron/scrum-*` |
+| Performance + PM + OKR links (S9/S11) | DONE | `app/api/scrum/{metrics,links,linkable,attention}`, `ScrumActivityPanel` |
+| Security (2026-09-25 S2) | DONE | `services/html.ts` (escape/sanitise), `services/access.ts` (ownership + read checks), audit on settings/saved-views/celebrate/links |
+| Server-side drafts | DONE (2026-09-25, G7) | `ScrumUpdate.status = 'DRAFT'`, `features/scrum/services/drafts.ts` — owner-only, no side effects until submit; every counting read spreads `SUBMITTED_SCRUM_UPDATE_WHERE` (`drafts.test.ts`) |
+| Comment attachments | DONE (2026-09-25, H2) | `CommentAttachment` `commentType: 'SCRUM'`; files purged when the update is deleted |
 
 ### 4.6a AI Automations
 
@@ -320,7 +351,7 @@ Three layers: **Automation** (config + compiled plan) → **AutomationRun** (aud
 
 | Module | Status | Notes |
 |--------|--------|-------|
-| Webhook (message logging + `/ask` command) | IN PROGRESS | Stage 1 — Claude Sonnet 4.6 Q&A |
+| Webhook (message logging + `/ask` command) | IN PROGRESS | Stage 1 — provider `TELEGRAM_AI_PROVIDER`, **default OpenAI** (Anthropic optional). Since 2026-09-25: `/ask` only in `TELEGRAM_ALLOWED_CHAT_IDS`, rate-limited, timing-safe webhook secret (`lib/telegram/access.ts`) |
 | Admin setup (register/clear webhook) | IN PROGRESS | `/api/telegram/admin/setup/` |
 | Odoo digests | DEFERRED | Stage 2 |
 | Tool use + admin UI | DEFERRED | Stage 3 |
@@ -335,14 +366,15 @@ Implementation reference: `docs/PERFORMANCE_SCORECARD_IMPLEMENTATION_PROPOSAL.md
 | Review cycles, evaluator panels, and issue generation | DONE | `app/api/performance/cycles/`, `lib/performance/cycle-opening.ts` |
 | Scoring, OKR metric actuals, consolidation, calibration | IN PROGRESS | `ScoringWorkspace`, `lib/performance/consolidation.ts`, `/api/performance/okr-actual/` |
 | Sealed reports, acknowledgement, dispute, finalization | IN PROGRESS | `PerformanceReport`, evaluation workflow APIs |
-| Growth focuses, weekly nudge, and development actions | IN PROGRESS | `PerformanceHome`, `ActionsWorkspace`, `/api/cron/performance-nudge` |
-| Excel scorecard seed | BLOCKED | Required workbooks are absent |
+| Growth focuses, weekly nudge, and development actions | IN PROGRESS | `PerformanceHome`, `ActionsWorkspace`, `/api/cron/performance-nudge` (scheduled daily 05:00 UTC; sends on `weeklyNudgeDay`) |
+| Excel scorecard seed (A8) | DONE | `npm run db:seed:performance` — 8 role templates from the source workbooks |
+| Audit coverage | DONE (2026-09-25) | every performance mutation calls `recordActivity` (`app/api/performance/audit-coverage.test.ts`) |
 
 ### 4.9 Organization & Settings
 
 | Module | Status | Paths |
 |--------|--------|-------|
-| User Management | DONE | `components/settings/UserManagement.tsx` |
+| User Management | DONE | `components/settings/UserManagement.tsx`, `UserDetail.tsx` — ADMIN-only create/delete; delete anonymises (`lib/users/deleted-account.ts`); sign-ups arrive inactive |
 | Team Management | DONE | `components/settings/TeamsManagement.tsx` |
 | User Directory | DONE | `app/dashboard/org/users/` |
 | Team Directory | DONE | `app/dashboard/org/teams/` |
@@ -351,7 +383,7 @@ Implementation reference: `docs/PERFORMANCE_SCORECARD_IMPLEMENTATION_PROPOSAL.md
 | Timeframe Management | DONE | `app/dashboard/settings/timeframes/` |
 | OKR Rules Config | DONE | `components/settings/OKRRulesManagement.tsx` |
 | Branding Config | DONE | `components/settings/BrandingManagement.tsx` |
-| Integrations Config | DONE | `components/settings/IntegrationsManagement.tsx` |
+| Integrations Config | DONE | `components/settings/IntegrationsManagement.tsx` — ADMIN-only, secrets masked (2026-09-25) |
 | Audit Logs | DONE | `components/settings/AuditLogsView.tsx` |
 | Notification Preferences | DONE | `app/dashboard/settings/notifications/` |
 | Org Notification Defaults (Admin) | DONE | `app/dashboard/settings/notification-defaults/` |
@@ -370,8 +402,26 @@ Implementation reference: `docs/PERFORMANCE_SCORECARD_IMPLEMENTATION_PROPOSAL.md
 | View Tracking | DONE | `lib/view-tracking.ts` |
 | Client Error Reporting | DONE | `components/CrashReporter.tsx`, `/api/client-errors/` |
 | AI Generation Logging | DONE | `AiGenerationLog` model, `/api/admin/ai-logs/` |
+| Cron auth (fail-closed) | DONE (2026-09-25) | `lib/cron-auth.ts` `withCronAuth` |
+| Security headers + CSP | DONE (2026-09-25) | `next.config.js` |
+| Rate limiting (in-memory) | DONE (2026-09-25) | `lib/security/rate-limit.ts`, `lib/telegram/access.ts` |
+| Deferred background work | DONE (2026-09-25) | `lib/background.ts`, `lib/notifications/fanout.ts` |
+| Table retention | DONE (2026-09-25) | `lib/retention/prune-tables.ts` via `/api/cron/prune-notifications` |
+| Tokens → CSS vars, dark mode | DONE (2026-09-25) | `tailwind.config.js`, `app/globals.css`, `lib/design-tokens.test.ts` |
+| Route loading/error boundaries | DONE (2026-09-25) | 35 `loading.tsx`, 24 `error.tsx`; `SectionError`, `RouteStates` |
+| ESLint + CI | DONE (2026-09-25) | `.eslintrc.json`, `.github/workflows/ci.yml` |
 
 ---
+
+### 4.10 Project creation & client portal — 2026-09-25 additions
+
+| Module | Status | Paths |
+|--------|--------|-------|
+| DOCX TOR template, DOCX → schedule, server-owned provenance, background processing (Stories 2.5–2.7) | DONE (G4) | `lib/projects/{project-docx-template,creation-docx-schedule,creation-provenance,creation-processing}.ts` — client edits to provenance sources → 422; upload → 202 + polling `GET …/upload` + `POST …/upload/retry` |
+| AI-guided project creation (P3) | DONE (G5/C5), OpenAI only, behind the project-creation AI flag | `lib/projects/ai-guided-*.ts`, `app/api/projects/creation-drafts/[id]/ai-guided/**`, `features/projects/components/creation/ai-guided/**`; bulk assumption decisions; audit `AI_PLAN_GENERATED` / `AI_PLAN_REVISED` / `AI_PLAN_REVISION_UNDONE` |
+| Change requests shared with the client | DONE (C4) | `ChangeRequest.visibility` (`INTERNAL` \| `CLIENT_VISIBLE`), `ChangeControlBoard` toggle, portal Change Requests tab |
+| Portal Planned vs Actual | DONE (G4) | `app/portal/projects/[id]/PlannedVsActualTab.tsx`, `/api/portal/projects/[id]/planned-vs-actual` |
+| Project activity comment attachments | DONE (H2) | `lib/attachments/activity-comments.ts` — internal only, never served to the portal |
 
 ## 5. Page List & Sitemap
 
@@ -381,7 +431,11 @@ Implementation reference: `docs/PERFORMANCE_SCORECARD_IMPLEMENTATION_PROPOSAL.md
 |-------|------|-------------|
 | `/` | `app/page.tsx` | Root redirect |
 | `/auth/signin` | `app/auth/signin/page.tsx` | Sign-in — thin wrapper over `SignInScreen` (`features/auth`), rotating photo backdrop |
-| `/auth/signup` | `app/auth/signup/page.tsx` | Sign-up / registration |
+| `/auth/signup` | `app/auth/signup/page.tsx` | Sign-up — creates an inactive EMPLOYEE awaiting admin activation |
+| `/auth/forgot-password` | `app/auth/forgot-password/page.tsx` | Request a reset link (no enumeration) |
+| `/auth/reset-password` | `app/auth/reset-password/page.tsx` | Set a password from a reset/invite token |
+| `/portal/signin`, `/portal/accept-invite`, `/portal`, `/portal/projects/[id]` | `app/portal/**` | Client portal (separate auth); `accept-invite` new 2026-09-25; project page tabs Planned vs Actual and Change Requests (2026-09-25) |
+| `/projects/snapshots/[snapshotId]` | `app/projects/snapshots/[snapshotId]/page.tsx` | Public approved project snapshot |
 
 ### 5.2 Dashboard — My Work
 
@@ -389,36 +443,43 @@ Implementation reference: `docs/PERFORMANCE_SCORECARD_IMPLEMENTATION_PROPOSAL.md
 |-------|------|-------------|
 | `/dashboard` | `app/dashboard/page.tsx` | Main dashboard overview |
 | `/dashboard/my-okrs` | `app/dashboard/my-okrs/page.tsx` | User's own OKRs |
-| `/dashboard/my-tasks` | `app/dashboard/my-tasks/page.tsx` | User's assigned tasks |
+| `/dashboard/my-tasks` | `app/dashboard/my-tasks/page.tsx` | Redirect → `/dashboard/todos?scope=assigned` (2026-09-25) |
+| `/dashboard/work` | `app/dashboard/work/page.tsx` | Work Board |
 | `/dashboard/todos` | `app/dashboard/todos/page.tsx` | All todos / initiatives |
-| `/dashboard/goals` | `app/dashboard/goals/page.tsx` | Goals (table, feed, team views) |
-| `/dashboard/scrum` | `app/dashboard/scrum/page.tsx` | Daily Scrum foundation page |
+| `/dashboard/scrum` | `app/dashboard/scrum/page.tsx` | Daily Scrum (submit, wall, week/day views, blockers, wins, absences) |
+| `/dashboard/scrum/wins`, `/dashboard/scrum/settings` | `app/dashboard/scrum/{wins,settings}/page.tsx` | Wins feed; settings (gated) |
 | `/dashboard/sprints` | `app/dashboard/sprints/page.tsx` | Sprint list |
 | `/dashboard/sprints/[id]` | `app/dashboard/sprints/[id]/page.tsx` | Sprint kanban board detail |
+| `/dashboard/sprints/[id]/report` | `app/dashboard/sprints/[id]/report/page.tsx` | Sprint report |
 | `/dashboard/sprints/ai/[planId]` | `app/dashboard/sprints/ai/[planId]/page.tsx` | AI sprint plan review + approve |
 
 ### 5.3 Dashboard — OKRs
 
+> Consolidated 2026-09-25 (G6). Sidebar *OKRs*: OKR Explorer, Key Results, Insights; My OKRs is under *My Work*.
+
 | Route | File | Description |
 |-------|------|-------------|
-| `/dashboard/plans` | `app/dashboard/plans/page.tsx` | Planning page (List + Gantt toggle) |
-| `/dashboard/company-okrs` | `app/dashboard/company-okrs/page.tsx` | Company-level OKRs |
-| `/dashboard/department-okrs` | `app/dashboard/department-okrs/page.tsx` | Department-level OKRs |
-| `/dashboard/objectives` | `app/dashboard/objectives/page.tsx` | All objectives list |
-| `/dashboard/objectives/[id]` | `app/dashboard/objectives/[id]/page.tsx` | Objective detail view |
+| `/dashboard/my-okrs` | `app/dashboard/my-okrs/page.tsx` | My OKRs + "Needs a check-in" queue |
+| `/dashboard/okrs-all` | `app/dashboard/okrs-all/page.tsx` | **OKR Explorer** — views `list` (default), `tree`, `timeline`, `map`, `analyze`; levels `all`, `company`, `department`, `mine`, `team` (List/Tree) |
+| `/dashboard/key-results` | `app/dashboard/key-results/page.tsx` | KR index over `FiltersWorkspace` (defaults to my KRs) |
+| `/dashboard/objectives/[id]` | `app/dashboard/objectives/[id]/page.tsx` | Objective detail (comment thread, live refresh on `private-objective-<id>`) |
 | `/dashboard/key-results/[id]` | `app/dashboard/key-results/[id]/page.tsx` | Key result detail view |
-| `/dashboard/alignment-map` | `app/dashboard/alignment-map/page.tsx` | OKR alignment / strategy map |
-| `/dashboard/filters` | `app/dashboard/filters/page.tsx` | Filters Workspace (3-tab analytical surface) |
 | `/dashboard/archived-objectives` | `app/dashboard/archived-objectives/page.tsx` | Archived objectives |
 
-### 5.4 Dashboard — Tracking & Analytics
+### 5.4 Dashboard — Insights and retired routes
 
 | Route | File | Description |
 |-------|------|-------------|
-| `/dashboard/progress` | `app/dashboard/progress/page.tsx` | Progress tracking |
-| `/dashboard/reports` | `app/dashboard/reports/page.tsx` | Reports & analytics |
-| `/dashboard/initiative-report` | `app/dashboard/initiative-report/page.tsx` | Daily initiative updates report |
-| `/dashboard/analytics` | `app/dashboard/analytics/page.tsx` | Analytics dashboard |
+| `/dashboard/insights` | `app/dashboard/insights/page.tsx` | **Insights** — tabs `overview` (default), `progress` (`&view=dashboard\|tracking`), `reports`, `initiatives`, `period-close` |
+| `/dashboard/okrs-all/period-report/[timeframeId]` | `app/dashboard/okrs-all/period-report/[timeframeId]/page.tsx` | End-of-period report |
+
+Retired 2026-09-25 — permanent (308) redirects from `lib/retired-routes.js`, query string carried over:
+`/dashboard/objectives` → `/dashboard/okrs-all?level=all` · `/dashboard/company-okrs` → `?level=company` ·
+`/dashboard/department-okrs` → `?level=department` · `/dashboard/goals` → `?level=mine` · `/dashboard/plans` and
+`/dashboard/timeline` → `?view=timeline` · `/dashboard/okr-hierarchy` → `?view=tree` · `/dashboard/alignment-map` →
+`?view=map` · `/dashboard/filters` → `?view=analyze` · `/dashboard/analytics` → `/dashboard/insights?tab=overview` ·
+`/dashboard/progress-report` → `?tab=progress` · `/dashboard/progress` → `?tab=progress&view=tracking` ·
+`/dashboard/reports` → `?tab=reports` · `/dashboard/initiative-report` → `?tab=initiatives`.
 
 ### 5.4A Dashboard — Performance & Scorecard
 
@@ -440,7 +501,8 @@ Implementation reference: `docs/PERFORMANCE_SCORECARD_IMPLEMENTATION_PROPOSAL.md
 |-------|------|-------------|
 | `/dashboard/projects` | `app/dashboard/projects/page.tsx` | Project list |
 | `/dashboard/projects/portfolio` | `app/dashboard/projects/portfolio/page.tsx` | Portfolio dashboard |
-| `/dashboard/projects/[id]` | `app/dashboard/projects/[id]/page.tsx` | Project detail |
+| `/dashboard/projects/[id]` | `app/dashboard/projects/[id]/page.tsx` | Redirect → `/projects/[id]` (`ProjectWorkspaceClient`) |
+| `/projects/[id]` | `app/projects/[id]/page.tsx` | Full-screen project workspace |
 | `/dashboard/projects/templates` | `app/dashboard/projects/templates/page.tsx` | Project template directory |
 | `/dashboard/projects/templates/new` | `app/dashboard/projects/templates/new/page.tsx` | New template builder |
 | `/dashboard/projects/templates/[id]` | `app/dashboard/projects/templates/[id]/page.tsx` | Edit template builder |
@@ -459,6 +521,8 @@ Implementation reference: `docs/PERFORMANCE_SCORECARD_IMPLEMENTATION_PROPOSAL.md
 |-------|------|-------------|
 | `/dashboard/letters` | `app/dashboard/letters/page.tsx` | Letters list (filters, search, status tabs) |
 | `/dashboard/letters/[id]` | `app/dashboard/letters/[id]/page.tsx` | Letter form — details, body, enclosures, PDF preview, activity log + workflow |
+| `/dashboard/letters/reports` | `app/dashboard/letters/reports/page.tsx` | **New 2026-09-25.** Letter reports (FR-16) |
+| `/dashboard/letters/templates` | `app/dashboard/letters/templates/page.tsx` | **New 2026-09-25.** Template management (letter admin only) |
 
 ### 5.7 Dashboard — Travel (DTP)
 
@@ -490,7 +554,10 @@ Implementation reference: `docs/PERFORMANCE_SCORECARD_IMPLEMENTATION_PROPOSAL.md
 | `/dashboard/settings/account` | `app/dashboard/settings/account/page.tsx` | Account settings |
 | `/dashboard/settings/notifications` | `app/dashboard/settings/notifications/page.tsx` | Notification preferences |
 | `/dashboard/settings/notification-defaults` | `app/dashboard/settings/notification-defaults/page.tsx` | Org notification defaults (Admin) |
-| `/dashboard/settings/users` | `app/dashboard/settings/users/page.tsx` | User management (Admin) |
+| `/dashboard/settings/users` | `app/dashboard/settings/users/page.tsx` | User management (Admin; ADMIN-only create/delete) |
+| `/dashboard/settings/users/[id]` | `app/dashboard/settings/users/[id]/page.tsx` | User detail |
+| `/dashboard/settings/permissions` | `app/dashboard/settings/permissions/page.tsx` | Permission manager (role create/delete UI) |
+| `/dashboard/settings/automations` | `app/dashboard/settings/automations/page.tsx` | Automations admin settings |
 | `/dashboard/settings/teams` | `app/dashboard/settings/teams/page.tsx` | Team management (Admin) |
 | `/dashboard/settings/timeframes` | `app/dashboard/settings/timeframes/page.tsx` | Timeframe management |
 | `/dashboard/settings/okr-rules` | `app/dashboard/settings/okr-rules/page.tsx` | OKR rules configuration |
@@ -506,11 +573,14 @@ Implementation reference: `docs/PERFORMANCE_SCORECARD_IMPLEMENTATION_PROPOSAL.md
 
 Database: **PostgreSQL** (production). All enums stored as `String` for portability. Soft deletion via `archivedAt`, `status`, `deletedAt` fields.
 
+> **2026-09-25 schema changes (need `prisma db push`):** `User.passwordChangedAt`, `Todo.recurrenceAnchorDay` (other session), `emailCadence` default → `BATCHED`, new `LetterTemplate` model, `ChangeRequest.visibility` (`INTERNAL` default \| `CLIENT_VISIBLE`, `@@index([projectId, visibility])`), `ScrumUpdate.status` may now be `DRAFT` (no DDL), `CommentAttachment.commentType` now `TODO \| OKR \| ACTIVITY \| SCRUM` (no DDL), and 18 new `@@index`es (objectives `[timeframeId,status]`/`[parentObjectiveId,status]`; key_results `[objectiveId,status]`/`[ownerId]`; initiatives `[keyResultId,status]`/`[objectiveId]`; comments `[objectiveId,createdAt]`/`[keyResultId,createdAt]`/`[parentId]`; notifications `[isRead,createdAt]`; email_digest_queue `[cadence,sentAt,queuedAt]`; objective_labels `[labelId]`; activity_logs `[createdAt]`/`[actorId,createdAt]`; user_roles `[roleId]`; project_milestones `[keyResultId]`; project_activity_dependencies `[successorId]`; project_members `[userId]`). The indexes are also in `scripts/preflight.sql` as `CREATE INDEX CONCURRENTLY IF NOT EXISTS` so they build without locking before `db push`. `letter_templates` has no preflight DDL — `db push` creates it.
+
 ### 6.1 Users & Organization
 
 | Model | Table | Key Fields | Notes |
 |-------|-------|-----------|-------|
-| `User` | `users` | `id`, `email`, `name`, `role`, `designation`, `nameAmharic`, `designationAmharic`, `isActive`, `avatar` | Roles: ADMIN / EXECUTIVE / DEPARTMENT_LEAD / EMPLOYEE |
+| `User` | `users` | `id`, `email`, `name`, `role`, `designation`, `nameAmharic`, `designationAmharic`, `isActive`, `avatar`, **`passwordChangedAt`** | Roles: ADMIN / EXECUTIVE / DEPARTMENT_LEAD / EMPLOYEE. `passwordChangedAt` (2026-09-25) is the credential epoch: JWTs whose `authTime` predates it are rejected; set on change/reset/admin reset and on admin delete. Deleted users are anonymised in place (`deleted+<id>@deleted.invalid`, "<title> (deleted account)"). |
+| `ClientPortalUser` | `project_client_portal_users` | `email`, `name`, `clientName`, `passwordHash` (bcrypt, or a pending `invite:` credential), `projectIds[]` (hard scope), `isActive`, `lastLoginAt`, `createdById` | Client-portal accounts; managed per project via `/api/projects/[id]/portal-users` (2026-09-25) |
 | `Department` | `departments` | `id`, `name`, `description`, `isActive` | |
 | `DepartmentMembership` | `department_memberships` | `userId`, `departmentId`, `role`, `isPrimary`, `endedAt` | Roles: HEAD / MEMBER / SECONDARY_MEMBER |
 | `ManagerRelationship` | `manager_relationships` | `managerId`, `directReportId`, `startedAt`, `endedAt` | Manager hierarchy |
@@ -535,14 +605,14 @@ Database: **PostgreSQL** (production). All enums stored as `String` for portabil
 
 | Model | Table | Key Fields | Notes |
 |-------|-------|-----------|-------|
-| `Todo` | `initiatives` | `title`, `status`, `priority`, `assigneeId`, `creatorId`, `keyResultId`, `objectiveId`, `sprintId`, `sprintPosition`, `taskType`, `aiSuggested`, `ambitionLevel`, `carryoverCount`, `carryoverDisposition`, `dueDate`, `startDate` | Statuses: PENDING / IN_PROGRESS / IN_REVIEW / STUCK / COMPLETED / CANCELLED |
+| `Todo` | `initiatives` | `title`, `status`, `priority`, `assigneeId`, `creatorId`, `keyResultId`, `objectiveId`, `sprintId`, `sprintPosition`, `taskType`, `aiSuggested`, `ambitionLevel`, `carryoverCount`, `carryoverDisposition`, `dueDate`, `startDate`, `recurrenceAnchorDay` | Statuses: PENDING / IN_PROGRESS / IN_REVIEW / STUCK / COMPLETED / CANCELLED |
 | `TodoMember` | `todo_members` | `todoId`, `userId` | Additional assignees |
 | `TodoLabel` | `todo_labels` | `todoId`, `labelDefId` | |
 | `TodoLabelDef` | `todo_label_defs` | `name`, `color` | Board-wide label palette |
 | `TodoChecklist` | `todo_checklists` | `todoId`, `title`, `position` | Named checklist group |
 | `TodoChecklistItem` | `todo_checklist_items` | `checklistId`, `title`, `completed`, `assigneeId`, `dueDate` | |
 | `TodoAttachment` | `todo_attachments` | `todoId`, `filename`, `url`, `mimeType`, `size` | |
-| `CommentAttachment` | `comment_attachments` | `scope`, `entityId`, `commentId`, `filename`, `storedName`, `mimeType`, `size`, `width`, `height` | Polymorphic; files live outside `public/` and are served only through the API |
+| `CommentAttachment` | `comment_attachments` | `scope`, `entityId`, `commentId`, `filename`, `storedName`, `mimeType`, `size`, `width`, `height` | Polymorphic; files live outside `public/` and are served only through the API. Since 2026-09-25 also carries to-do (`TODO`), project activity (`ACTIVITY`, internal only) and scrum (`SCRUM`) comment files; migrate legacy to-do files with `scripts/migrate-todo-comment-attachments.ts`; staged rows unclaimed for 24 h are swept nightly |
 | `TodoComment` | `todo_comments` | `todoId`, `authorId`, `content` (HTML), `parentId` | WYSIWYG threaded comments |
 | `InitiativeUpdate` | `initiative_updates` | `initiativeId`, `authorId`, `updateDate`, `content`, `status`, `blockers` | One per (initiative, date) |
 | `Sprint` | `sprints` | `name`, `ownerId`, `startDate`, `endDate`, `state`, `goal`, `departmentId`, `background` | States: PLANNING / ACTIVE / COMPLETED / CANCELLED |
@@ -564,8 +634,8 @@ Database: **PostgreSQL** (production). All enums stored as `String` for portabil
 | Model | Table | Key Fields | Notes |
 |-------|-------|-----------|-------|
 | `Notification` | `notifications` | `userId`, `eventKey`, `category`, `title`, `message`, `isRead`, `metadata`, `redacted`, `emailMode` | In-app notification row |
-| `NotificationPreference` | `notification_preferences` | `userId`, `category`, `inApp`, `email`, `emailCadence` | Per-user per-category |
-| `OrgNotificationDefault` | `org_notification_defaults` | `category`, `inApp`, `email`, `emailCadence` | Fallback when no user row |
+| `NotificationPreference` | `notification_preferences` | `userId`, `category`, `inApp`, `email`, `emailCadence` | Per-user per-category. `emailCadence` default **`BATCHED`** (was IMMEDIATE; 2026-09-25) — BATCHED / IMMEDIATE / DAILY / WEEKLY / DISABLED |
+| `OrgNotificationDefault` | `org_notification_defaults` | `category`, `inApp`, `email`, `emailCadence` | Fallback when no user row; default `BATCHED` (existing rows: `scripts/notifications-set-batched-defaults.ts`) |
 | `EmailDigestQueue` | `email_digest_queue` | `userId`, `cadence`, `category`, `eventKey`, `subject`, `bodyHtml` | Pending digest entries |
 | `EmailDigestState` | `email_digest_state` | `userId`, `lastSentAt` | Idempotency for weekly digest |
 | `OutboundEmail` | `outbound_emails` | `toEmail`, `subject`, `bodyHtml`, `status`, `attempts` | Sent email audit trail |
@@ -587,7 +657,8 @@ Database: **PostgreSQL** (production). All enums stored as `String` for portabil
 | Model | Table | Key Fields | Notes |
 |-------|-------|-----------|-------|
 | `Letter` | `letters` | `referenceNumber`, `subject`, `letterType`, `letterTypeId`, `status`, `customerName`, `preparedById`, `signatoryId`, `bodyContent`, `bodyDocx` | Statuses: DRAFT / SUBMITTED / APPROVED / SENT / ARCHIVED |
-| `LetterEnclosure` | `letter_enclosures` | `letterId`, `fileName`, `fileSize`, `mimeType`, `storagePath` | |
+| `LetterEnclosure` | `letter_enclosures` | `letterId`, `fileName`, `fileSize`, `mimeType`, `storagePath` | Schema unchanged; since 2026-09-25 `storagePath` = `letter-enclosure:<storedName>` pointing at a real private file under `LETTER_UPLOAD_DIR` |
+| `LetterTemplate` | `letter_templates` | `name`, `letterType` (LetterTypeDef.code), `language` (en/am), `bodyHtml` (sanitised), `isActive`, `seedKey` (unique), `createdById`, `updatedById` | **New 2026-09-25.** Body templates; archive = `isActive false`; seeded from the old `LETTER_TEMPLATES` constants on first read. `@@index([letterType, language, isActive])` |
 | `LetterSequence` | `letter_sequences` | `typeCode`, `year`, `lastSeq` | Monotonic reference number sequences |
 | `LetterTypeDef` | `letter_types` | `code`, `name`, `isBuiltIn` | e.g. CL / OF / GR |
 | `LetterRolePermission` | `letter_role_permissions` | `role`, `permission`, `granted` | DB-driven RBAC matrix |
@@ -613,11 +684,12 @@ Database: **PostgreSQL** (production). All enums stored as `String` for portabil
 
 | Model | Table | Key Fields | Notes |
 |-------|-------|-----------|-------|
-| `ScrumUpdate` | `scrum_updates` | `userId`, `submittedById`, `managerId`, `teamId`, `scrumDate`, `todayPlan`, `blockers`, `blockerCategory`, `blockerStatus`, `win`, `mood`, `hasBlocker`, `hasWin`, `isLate`, proxy fields | One row per user/day via `@@unique([userId, scrumDate])`; user references are plain strings, not Prisma relations |
+| `ScrumUpdate` | `scrum_updates` | `userId`, `submittedById`, `managerId`, `teamId`, `scrumDate`, `todayPlan`, `blockers`, `blockerCategory`, `blockerStatus`, `win`, `mood`, `hasBlocker`, `hasWin`, `isLate`, `status` (`DRAFT` \| `SUBMITTED` \| `CONFIRMED` \| `AMENDED`), proxy fields | One row per user/day; `DRAFT` rows are excluded from every counting read via `@@unique([userId, scrumDate])`; user references are plain strings, not Prisma relations |
 | `ScrumComment` | `scrum_comments` | `updateId`, `authorId`, `body`, `mentions` | Cascades with parent update |
 | `ScrumAbsence` | `scrum_absences` | `userId`, `date`, `type`, `reason`, `recordedById` | One row per user/date |
 | `ScrumSettings` | `scrum_settings` | `timezone`, reminder/cutoff/nudge times, `workingDays`, `holidays`, feature toggles, escalation thresholds | Singleton default row (`id="default"`) |
 | `ScrumUpdateLink` | `scrum_update_links` | `updateId`, `objectiveId?`, `keyResultId?`, `todoId?`, `linkType`, `context`, `progressNote` | OKR join table; app-layer guard must enforce exactly one FK |
+| `ScrumWinCelebration` / `ScrumSavedView` / `ScrumJobRun` | — | celebrations per win; per-user saved filter views; cron idempotency ledger | Used by F4 celebrate/saved-view UI and the scrum crons |
 
 ### 6.9a AI Automations
 
@@ -663,17 +735,19 @@ Auth: routes use `withAuth(handler)` or `withRole(roles, handler)` from `lib/api
 
 | Method | Route | Auth | Description |
 |--------|-------|------|-------------|
-| POST | `/api/auth/register` | Public | Register new user |
-| GET/POST | `/api/auth/[...nextauth]` | Public | NextAuth handler |
-| POST | `/api/auth/forgot-password` | Public | Request password reset |
-| POST | `/api/auth/reset-password` | Public | Reset password with token |
+| POST | `/api/auth/register` | Public, rate-limited (5/h/IP) | Always an **inactive EMPLOYEE** (body `role` ignored); identical 201 for new and existing emails; admins notified after the response |
+| GET/POST | `/api/auth/[...nextauth]` | Public | NextAuth handler — `verifyCredentials` (rate-limited; passwordless/inactive/unknown → same `invalid`); JWT carries `authTime` |
+| POST | `/api/auth/login` | Public, rate-limited | Bearer login for API clients; 429 + `Retry-After` |
+| POST | `/api/auth/forgot-password` | Public, rate-limited (IP + email) | Constant-time response; token (hashed) + email sent after the response; no longer emits `ACCOUNT_PASSWORD_RESET_REQUESTED` |
+| POST | `/api/auth/reset-password` | Public, rate-limited | Consume hashed token; sets `passwordChangedAt` |
+| POST | `/api/auth/change-password` | Auth | Sets `passwordChangedAt` and re-issues the caller's session cookie |
 | GET | `/api/wallpaper` | Public | Sign-in backdrop photos — Bing image-of-the-day, memoised 6 h, falls back to built-in CSS scenes (`AUTH_WALLPAPER_SOURCE=off` disables the outbound fetch) |
 
 ### 7.2 Objectives
 
 | Method | Route | Auth | Description |
 |--------|-------|------|-------------|
-| GET | `/api/objectives` | Auth | List (role-scoped) |
+| GET | `/api/objectives` | Auth | List — SQL visibility (`buildObjectiveVisibilityWhere`) + redaction; filters `ownerIds` (repeatable/CSV), `contributorId`; search only matches rows visible unredacted (2026-09-25 I1) |
 | POST | `/api/objectives` | Auth | Create |
 | GET | `/api/objectives/[id]` | Auth | Get detail |
 | PUT | `/api/objectives/[id]` | Auth | Update |
@@ -689,13 +763,13 @@ Auth: routes use `withAuth(handler)` or `withRole(roles, handler)` from `lib/api
 | GET | `/api/objectives/[id]/key-result-permissions` | Auth | KR permission check |
 | POST | `/api/objectives/[id]/clone` | Auth | Clone with KRs |
 | GET/PUT | `/api/objectives/[id]/weights` | Auth | KR/child weights |
-| GET/POST | `/api/objectives/[id]/comments` | Auth | Comments |
+| GET/POST | `/api/objectives/[id]/comments` | Auth + `canAccessOkrComments` | Comments — needs an unredacted view of the objective (else 404); notifications only to recipients who can view it (2026-09-25) |
 | POST | `/api/objectives/[id]/request-checkin` | Auth | Request check-in from owner |
 | POST | `/api/objectives/[id]/close/initiate` | Owner/editor | Snapshot grade/outcome and enter CLOSING |
-| GET/PUT | `/api/objectives/[id]/retrospective` | Owner/editor | Read evidence / save close reflection |
+| GET/PUT | `/api/objectives/[id]/retrospective` | Owner/editor | Read evidence / save close reflection (validated + sanitised by `lib/okr/retrospective-input.ts`) |
 | POST | `/api/objectives/[id]/close/commit` | Owner/editor | Freeze retrospective, close, and lock |
 | POST | `/api/objectives/[id]/reopen` | Window/role scoped | Reopen with permanent reason scar |
-| GET | `/api/objectives/alignment-search` | Auth | Search alignment candidates |
+| GET | `/api/objectives/alignment-search` | Auth | Search alignment candidates (in-DB, case-insensitive, ≤80) |
 
 ### 7.3 Key Results
 
@@ -731,25 +805,26 @@ Auth: routes use `withAuth(handler)` or `withRole(roles, handler)` from `lib/api
 
 | Method | Route | Auth | Description |
 |--------|-------|------|-------------|
-| GET | `/api/todos` | Auth | List (filtered) |
+| GET | `/api/todos` | Auth | List (filtered). `?surface=todos\|work\|mine` returns exactly what that page shows (`lib/todos/visibility.ts` + record scope; portal sessions 403); legacy `?mine=` unchanged |
 | POST | `/api/todos` | Auth | Create |
 | GET | `/api/todos/[id]` | Auth | Get detail |
 | PUT | `/api/todos/[id]` | Auth | Update |
 | DELETE | `/api/todos/[id]` | Auth | Delete |
 | GET | `/api/todos/[id]/activity` | Auth | Activity log |
-| GET/POST | `/api/todos/[id]/comments` | Auth | Threaded comments |
+| GET/POST | `/api/todos/[id]/comments` | Card read/write | Threaded comments. POST responds after the row + ActivityLog; mention/stakeholder notifications run after the response (single mention email since 2026-09-25). Attachments hydrate from `CommentAttachment` rows (rows win over legacy `attachmentIds`) |
 | PUT/DELETE | `/api/todos/[id]/comments/[commentId]` | Auth | Comment CRUD |
+| — | `/api/todos/[id]/checklists/**` | Card write (`canWriteTodo`) | Record must belong to the card (404); closed sprint 409. Comments/attachments/activity use `canAccessAttachmentScope`; mutations 409 on closed sprints |
 | GET/POST | `/api/todos/[id]/checklists` | Auth | Checklists |
 | GET/PUT/DELETE | `/api/todos/[id]/checklists/[checklistId]` | Auth | Checklist CRUD |
 | GET/POST | `/api/todos/[id]/checklists/[checklistId]/items` | Auth | Checklist items |
 | GET/PUT/DELETE | `/api/todos/[id]/checklists/[checklistId]/items/[itemId]` | Auth | Item CRUD |
 | GET/POST | `/api/todos/[id]/attachments` | Auth | Attachments |
 | GET/DELETE | `/api/todos/[id]/attachments/[attachmentId]` | Auth + `canAccessAttachmentScope` | Stream or remove one attachment. **GET is the only read path** — `public/uploads/**` is served with no session check, so nothing in the UI may link it directly (enforced by `lib/attachments/viewer-invariants.test.ts`). |
-| POST/GET | `/api/comment-attachments` | Auth + scope check | Upload (magic-byte validated, allowlisted) and list |
+| POST/GET | `/api/comment-attachments` | Auth + scope check | Upload (magic-byte validated, allowlisted) and list; `commentType` `TODO` (read/write → `canReadTodo`/`canWriteTodo`), `OKR`, `ACTIVITY`, `SCRUM` (`lib/attachments/access.ts`) |
 | GET/DELETE | `/api/comment-attachments/[id]` | Auth + scope check | Stream or remove one |
 | GET/POST | `/api/initiatives/[id]/updates` | Auth | Daily initiative updates |
-| GET/POST | `/api/todo-labels` | Auth | Label definitions |
-| GET/PUT/DELETE | `/api/todo-labels/[id]` | Auth | Label def CRUD |
+| GET/POST | `/api/todo-labels` | Auth | Label definitions; POST validated (`parseLabelInput`) and audited |
+| PATCH/DELETE | `/api/todo-labels/[id]` | PATCH ADMIN/EXECUTIVE, DELETE ADMIN | Label def CRUD (delete hidden in the UI for non-admins) |
 
 ### 7.5 Sprints
 
@@ -791,13 +866,13 @@ Auth: routes use `withAuth(handler)` or `withRole(roles, handler)` from `lib/api
 | Method | Route | Auth | Description |
 |--------|-------|------|-------------|
 | GET | `/api/users` | Auth | List users |
-| POST | `/api/users` | Admin | Create user |
+| POST | `/api/users` | **ADMIN only** | Create user (hashed CSPRNG activation token, audited) |
 | GET | `/api/users/for-selection` | Auth | Active users for dropdowns |
 | GET | `/api/users/me/direct-reports` | Auth | Manager's direct reports |
 | GET | `/api/users/me/departments` | Auth | Current user's departments |
 | GET | `/api/users/[id]` | Auth | User detail |
-| PUT | `/api/users/[id]` | Auth | Update user |
-| DELETE | `/api/users/[id]` | Admin | Delete user |
+| PATCH | `/api/users/[id]` | ADMIN or `page.settings.users` | Update user; only ADMIN may grant/revoke ADMIN or change an admin's status; last active ADMIN protected; deleted accounts read-only; audited |
+| DELETE | `/api/users/[id]` | **ADMIN only** | **Anonymise** — name → "<designation or role> (deleted account)", email → `deleted+<id>@deleted.invalid`, credentials cleared, inactive; records kept. 409 if already deleted |
 | POST | `/api/users/[id]/reset-password` | Admin | Reset password |
 | GET | `/api/users/[id]/org` | Auth | User's org context |
 
@@ -831,7 +906,7 @@ Auth: routes use `withAuth(handler)` or `withRole(roles, handler)` from `lib/api
 | GET/PUT | `/api/user-preferences` | Auth | User view preferences |
 | GET/PUT | `/api/settings/okr-rules` | Admin | OKR rules config |
 | GET/PUT | `/api/settings/branding` | Admin | Branding config |
-| GET/PUT | `/api/settings/integrations` | Admin | Integrations config |
+| GET/POST | `/api/settings/integrations` | **ADMIN only** (EXECUTIVE removed 2026-09-25) | Integrations config; secrets masked (`••••••••` + last 4); a masked value on save keeps the stored secret |
 | GET/PUT | `/api/settings/notification-defaults` | Admin | Org notification defaults |
 | GET/PUT | `/api/settings/letter-permissions/roles` | Admin | Letter role × permission matrix |
 | GET/POST | `/api/settings/letter-permissions/users` | Admin | Per-user letter permission overrides |
@@ -842,7 +917,10 @@ Auth: routes use `withAuth(handler)` or `withRole(roles, handler)` from `lib/api
 
 | Method | Route | Auth | Description |
 |--------|-------|------|-------------|
-| GET/PUT | `/api/notifications/preferences` | Auth | Per-user notification preferences |
+| GET | `/api/notifications` | Auth | Current user's notifications + unread count |
+| PATCH/DELETE | `/api/notifications/[id]` | Owner | Mark read / dismiss |
+| POST | `/api/notifications/mark-all-read` | Auth | Clear unread |
+| GET/PUT | `/api/notifications/preferences` | Auth | Per-user notification preferences (15 categories; cadences BATCHED/IMMEDIATE/DAILY/WEEKLY/DISABLED) |
 
 ### 7.11 Letters
 
@@ -850,7 +928,7 @@ Auth: routes use `withAuth(handler)` or `withRole(roles, handler)` from `lib/api
 |--------|-------|------|-------------|
 | GET | `/api/letters` | Auth | List (filter by status, type, search, mine) |
 | POST | `/api/letters` | Auth | Create draft + allocate reference number |
-| GET | `/api/letters/[id]` | Auth | Letter detail |
+| GET | `/api/letters/[id]` | `letterReadGuard` | Letter detail (out-of-scope → 404; same guard on html/pdf/docx/activity/duplicate/workflow routes) |
 | PATCH | `/api/letters/[id]` | Auth | Update editable fields |
 | DELETE | `/api/letters/[id]` | Auth | Delete DRAFT letter |
 | POST | `/api/letters/[id]/submit` | Auth | DRAFT → SUBMITTED |
@@ -861,12 +939,16 @@ Auth: routes use `withAuth(handler)` or `withRole(roles, handler)` from `lib/api
 | DELETE | `/api/letters/[id]/archive` | Admin | Unarchive |
 | GET | `/api/letters/[id]/activity` | Auth | Activity log |
 | POST | `/api/letters/[id]/views` | Auth | View beacon |
-| POST | `/api/letters/[id]/pdf` | Auth | Render HTML + missing placeholders |
-| GET | `/api/letters/[id]/html` | Auth | Raw HTML body |
+| GET/POST | `/api/letters/[id]/pdf` | `letterReadGuard` | Real PDF (Puppeteer, JS off, request interception) + missing placeholders |
+| GET | `/api/letters/[id]/html` | `letterReadGuard` | Sanitised HTML body; `?origin` removed, `?font` validated; CSP `sandbox` |
 | GET | `/api/letters/[id]/docx` | Auth | DOCX download |
-| POST | `/api/letters/[id]/enclosures` | Auth | Register enclosure |
-| DELETE | `/api/letters/[id]/enclosures/[enclosureId]` | Auth | Remove enclosure |
-| GET | `/api/letters/odoo/contacts` | Auth | Mocked Odoo contact typeahead |
+| POST | `/api/letters/[id]/enclosures` | Letter admin, or `letter.write` + DRAFT + preparer | **Multipart upload** (field `file`), validated, stored under `LETTER_UPLOAD_DIR` |
+| GET | `/api/letters/[id]/enclosures/[enclosureId]` | `letterReadGuard` | **New.** Stream the file |
+| DELETE | `/api/letters/[id]/enclosures/[enclosureId]` | Same as upload | Remove enclosure + file |
+| GET | `/api/letters/reports` | Letter read scope (403 without) | **New (FR-16).** Aggregates by status/type/month/customer, preparers, signatories; ≤20,000 rows |
+| GET/POST | `/api/letters/templates` | GET: letter admin / `letter.create` / `letter.read`; POST: letter admin | **New.** List (`?letterType`, admin-only `?includeArchived`) / create template; audited |
+| PATCH/DELETE | `/api/letters/templates/[templateId]` | Letter admin | **New.** Update / archive / unarchive; DELETE = soft archive; audited |
+| GET | `/api/letters/odoo/contacts` | Auth | Odoo `res.partner` typeahead; mock roster when Odoo env is unset |
 | GET/POST | `/api/letters/types` | Admin | Letter type definitions |
 
 ### 7.12 Daily Trip Plan (DTP)
@@ -901,7 +983,7 @@ Auth: routes use `withAuth(handler)` or `withRole(roles, handler)` from `lib/api
 
 | Method | Route | Auth | Description |
 |--------|-------|------|-------------|
-| POST | `/api/telegram/webhook` | Token (`X-Telegram-Bot-Api-Secret-Token`) | Receive Telegram updates |
+| POST | `/api/telegram/webhook` | Token (`X-Telegram-Bot-Api-Secret-Token`, timing-safe) | Receive Telegram updates; `/ask` only in `TELEGRAM_ALLOWED_CHAT_IDS`, 20/10 min per chat, 5/10 min per user |
 | GET/POST/DELETE | `/api/telegram/admin/setup` | Admin | Bot identity + webhook management |
 
 ### 7.14 Admin
@@ -939,22 +1021,42 @@ Auth: routes use `withAuth(handler)` or `withRole(roles, handler)` from `lib/api
 | GET/POST | `/api/projects/portfolio/report` | Portfolio read | K3 list/generate cross-project performance reports |
 | GET | `/api/projects/portfolio/report/[reportId]` | Portfolio read | K3 read a portfolio report |
 | GET | `/api/projects/portfolio/report/[reportId]/pdf` | Portfolio read | K3 download portfolio report PDF |
+| GET/POST | `/api/projects/[id]/portal-users` | Project write | **New 2026-09-25.** List / grant client-portal accounts (invite link 7 d single-use, or password ≥10); audited |
+| PATCH/DELETE | `/api/projects/[id]/portal-users/[portalUserId]` | Project write | **New.** `RESEND_INVITE` / `SET_PASSWORD` (ends that account's portal sessions) / revoke project (deactivate when none left); audited |
+| GET/POST | `/api/portal/invite` | Public, rate-limited | **New.** Validate invite token / set password |
+| GET | `/api/portal/projects/[id]/attachments` | Portal session + project scope | **New.** Client-visible attachments only (SQL filter, Invariant 5) |
+| GET | `/api/portal/projects/[id]/activities/[activityId]/attachments/[attachmentId]` | Portal session + project scope | **New.** Stream one client-visible attachment |
+| GET/POST | `/api/cron/project-creation-draft-purge` | `withCronAuth` | **New.** Purge expired project-creation drafts + retained sources |
+| PATCH | `/api/projects/creation-drafts/[id]` | Owner | (2026-09-25) Adding, removing or changing a provenance source record → **422** (`lib/projects/creation-provenance.ts`) |
+| POST | `/api/projects/creation-drafts` | Capability | AI methods refused while the project-creation AI flag is off |
+| POST / GET | `/api/projects/creation-drafts/[id]/upload` | Owner | **POST → 202**: validate, scan (ClamAV), store privately, process in the background; **GET**: processing status (UI polls) |
+| POST | `/api/projects/creation-drafts/[id]/upload/retry` | Owner | Reprocess the retained file (idempotent) |
+| POST | `/api/projects/creation-drafts/[id]/assumptions/bulk-decision` | Owner | Accept/reject all pending assumptions in a phase or all; atomic, version-checked, audited once |
+| PUT | `/api/projects/creation-drafts/[id]/ai-guided/brief` | Owner + AI flag | Save the brief |
+| POST | `/api/projects/creation-drafts/[id]/ai-guided/{clarify,answers,generate,revise,undo}` | Owner + AI flag | OpenAI clarifying questions, answers, plan generation (`AI_PLAN_GENERATED`), constrained revision preview/apply (`AI_PLAN_REVISED`, HMAC preview token signed with `NEXTAUTH_SECRET`), undo (`AI_PLAN_REVISION_UNDONE`) |
+| POST | `/api/projects/creation-drafts/[id]/ai-guided/tor-upload` | Owner + AI flag | DOCX TOR upload via the import security path; returns extracted text, no AI call |
+| PATCH | `/api/projects/[id]/change-requests/[crId]` | Project write | Now also accepts `visibility: 'INTERNAL' \| 'CLIENT_VISIBLE'` |
+| GET | `/api/portal/projects/[id]/planned-vs-actual` | Portal session + project scope | Baseline vs current + signed slip per milestone/activity |
+| GET | `/api/portal/projects/[id]/change-requests` | Portal session + project scope | `CLIENT_VISIBLE` change requests only (SQL filter); no names or cost |
 
 ### 7.17 Misc
 
 | Method | Route | Auth | Description |
 |--------|-------|------|-------------|
 | GET | `/api/health` | Public | Health check |
+| GET/POST/DELETE | `/api/sprints/[id]/participants` | View gate; `canEditSprint` to change | Invite-only sprint members (one person per call; owner not removable; audited) |
+| GET | `/api/link-preview?url=` | Auth | Page metadata for a pasted URL: `{ url, finalUrl, domain, siteName, title, description, image, favicon, ok }`. SSRF-safe (connect-time IP check, ≤3 redirects, 5 s, 512 KB); 400 for disallowed URLs, `ok:false` when the page can't be read. In-process LRU cache |
 | POST | `/api/client-errors` | Auth | Browser error reporting |
 | GET | `/api/search` | Auth | Global search |
 | GET/POST | `/api/watchers` | Auth | Opt-in watchers |
 | GET/POST/DELETE | `/api/favorites` | Auth | Starred objectives |
-| GET | `/api/okr-hierarchy` | Auth | Full OKR hierarchy |
+| GET | `/api/okr-hierarchy` | Auth | OKR hierarchy, role/record-scoped via `lib/okr/visibility-scope.ts`; per-KR initiative counts |
+| GET | `/api/okr-hierarchy/initiatives?keyResultId=…` | Auth (portal 403) | **New 2026-09-25.** Initiative rows for ≤50 KRs, same visibility rule |
 | GET | `/api/org/tree` | Auth | Org tree |
 | GET | `/api/org/diagnostics` | Admin | Org structure diagnostics |
-| GET | `/api/risks` | Auth | List risks |
-| POST | `/api/risks` | Auth | Create risk |
-| GET/PUT/DELETE | `/api/risks/[id]` | Auth | Risk CRUD |
+| GET | `/api/risks` | Auth + object checks | List risks (only on objectives/KRs the caller can view unredacted) |
+| POST | `/api/risks` | Auth + edit on the target | Create risk |
+| GET/PUT/DELETE | `/api/risks/[id]` | Auth + object checks | Risk CRUD |
 
 ### 7.16a AI Automations
 
@@ -977,22 +1079,7 @@ Auth: routes use `withAuth(handler)` or `withRole(roles, handler)` from `lib/api
 
 ### 7.17 Cron Jobs
 
-All cron routes: `POST /api/cron/*` — require Bearer `CRON_SECRET` header.
-
-| Method | Route | Description |
-|--------|-------|-------------|
-| POST | `/api/cron/confidence-calc` | Bi-weekly confidence snapshots |
-| POST | `/api/cron/auto-confidence` | Auto-confidence recalculation |
-| POST | `/api/cron/weekly-digest` | Weekly email digest drain |
-| POST | `/api/cron/daily-digest` | Daily email digest drain |
-| POST | `/api/cron/notifications` | Unified notification cron (`?job=daily|weekly|monthly|escalation|todos|timeframes|admin-weekly|admin-monthly`) |
-| POST | `/api/cron/sprint-tick` | Sprint lifecycle tick (PLANNING→ACTIVE→COMPLETED) |
-| POST | `/api/cron/sprint-deadlines` | Sprint deadline warnings |
-| POST | `/api/cron/sprint-migration-check` | Legacy sprint migration status check |
-| POST | `/api/cron/prune-activity` | Prune old activity log rows |
-| POST | `/api/cron/automations-tick` | Enqueue due automation slots (every minute; cheap and idempotent — the worker does the work) |
-| POST | `/api/cron/automations-reap` | Reclaim automation runs whose worker lease expired (every 5 min) |
-| POST | `/api/cron/performance-nudge` | Bundled score-free weekly performance focus notification |
+All cron routes (`GET`/`POST /api/cron/*`) are wrapped in `withCronAuth` (`lib/cron-auth.ts`, 2026-09-25): `Authorization: Bearer $CRON_SECRET` or `x-cron-secret`; `?key=` is ignored; timing-safe compare; **503 `CRON_NOT_CONFIGURED`** when `CRON_SECRET` is unset or shorter than 16 characters; 401 on a wrong token. Full list and schedule: §14.
 
 ### 7.18 Performance & Scorecard
 
@@ -1035,6 +1122,8 @@ Import: `import { Modal, ConfirmDialog, EmptyState, StatCard, StatGrid, PageHead
 | `StatCard` | `label`, `value`, `icon?`, `tone?` (blue/green/yellow/red/purple/gray/indigo), `trend?`, `helperText?` | Dashboard stat displays |
 | `StatGrid` | `children`, `columns?` (2/3/4/5) | Stat card grid layouts |
 | `PageHeader` | `title`, `description?`, `actions?`, `breadcrumb?` | Page header + action bar |
+| `FilterMultiSelect` | `label`, `values[]`, `onValuesChange`, `options[]` ({value,label,hint?,leading?,disabled?}), `placeholder?`, `summary?`, `searchThreshold?`, `renderTrigger?` | Multi-select filter (Radix checkbox menu items). Companion to single-select `FilterSelect` |
+| `SettingsSelect` (`components/settings/`) | `value`, `onValueChange`, `options[]` ({value,label,group?,disabled?}), `placeholder?`, `size?` | Labelled form select over Radix Select for Settings screens (replaced native `<select>`, 2026-09-25) |
 
 ### 8.2 Shared Components (`components/shared/`)
 
@@ -1043,6 +1132,11 @@ Import: `import { Modal, ConfirmDialog, EmptyState, StatCard, StatGrid, PageHead
 | `ActivityLogPanel` | `ActivityLogPanel.tsx` | `entityType`, `entityId` | Audit trail for any entity |
 | `EntityLink` | `EntityLink.tsx` | `entity`, `type` | Navigation link to entity detail |
 | `TimeframeBadge` | `TimeframeBadge.tsx` | `timeframe` | Badge for Q1 2025, etc. |
+| `UserAvatar` / `UserAvatarStack` / `PersonTooltip` / `PeopleTooltip` | `UserAvatar.tsx` | `user`, `tooltip?` / `person`, `whenTruncated?` | Avatars and clipped names show the full name in a hover card everywhere (except the client portal) |
+| `LinkPreviewList` / `LinkPreviewCard` | `LinkPreview.tsx` | `html`, `className?` / `url` | Preview cards for up to 3 URLs found in rich-text HTML (same-origin, mailto and mentions skipped); skeleton while loading, domain+URL fallback on failure. Used in card comments/description and OKR comments |
+| `CopyLinkButton` | `CopyLinkButton.tsx` | `value` \| `getValue`, `label?`, `iconOnly?` | The one copy-to-clipboard control (sprint board share, card modal) |
+| `LinkTabs` | `LinkTabs.tsx` | `items`, `activeKey`, `ariaLabel`, `variant?: 'tabs' \| 'segmented'` | **New 2026-09-25.** URL-synced tab strip of plain links (OKR Explorer views/levels, Insights tabs) |
+| `OkrComments` | `OkrComments.tsx` | see file | OKR comment thread with link previews, attachments and live refresh (objective + KR pages) |
 
 ### 8.3 Layout Components (`components/layout/`)
 
@@ -1051,7 +1145,7 @@ Import: `import { Modal, ConfirmDialog, EmptyState, StatCard, StatGrid, PageHead
 | `DashboardShell` | Main layout wrapper: sidebar + header + content area |
 | `DashboardTitleContext` | Context for setting page titles from child pages |
 
-### 8.4 Objectives (`features/objectives/` — 18 exports)
+### 8.4 Objectives (`features/objectives/`)
 
 | Component | Type | Notes |
 |-----------|------|-------|
@@ -1061,7 +1155,6 @@ Import: `import { Modal, ConfirmDialog, EmptyState, StatCard, StatGrid, PageHead
 | `CloneObjectiveModal` | Form modal | Uses Modal |
 | `ObjectivesList` | List | Objective list with filters |
 | `NestedObjectivesList` | List | Hierarchical objective view |
-| `OKRLevelView` | Server component | Shared for Company + Department OKR pages |
 | `CreateObjectiveButton` | Trigger | Opens CreateObjectiveModal (accepts `level` prop) |
 | `EditObjectiveButton` | Trigger | |
 | `DeleteObjectiveButton` | Trigger | |
@@ -1069,7 +1162,7 @@ Import: `import { Modal, ConfirmDialog, EmptyState, StatCard, StatGrid, PageHead
 | `ArchiveObjectiveButton` | Action | Direct archive |
 | `UnarchiveObjectiveButton` | Action | Direct unarchive |
 
-### 8.5 Key Results (`features/key-results/` — 16 exports)
+### 8.5 Key Results (`features/key-results/`)
 
 | Component | Type | Notes |
 |-----------|------|-------|
@@ -1087,7 +1180,7 @@ Import: `import { Modal, ConfirmDialog, EmptyState, StatCard, StatGrid, PageHead
 | `ArchiveKeyResultButton` | Trigger | |
 | `UnarchiveKeyResultButton` | Action | |
 
-### 8.6 Todos (`features/todos/` — 11 exports)
+### 8.6 Todos (`features/todos/`)
 
 | Component | Type | Notes |
 |-----------|------|-------|
@@ -1095,30 +1188,31 @@ Import: `import { Modal, ConfirmDialog, EmptyState, StatCard, StatGrid, PageHead
 | `DeleteTodoModal` | Confirm modal | Uses ConfirmDialog |
 | `AssignUserModal` | Form modal | Uses Modal |
 | `SetDueDateModal` | Form modal | Uses Modal |
-| `ToDoList` | List | Main todo list with status toggle |
-| `MyTasksList` | List | User's assigned tasks |
+| `ToDoList` | List | Main todo list with status toggle (`useTodoStatusToggle`; `MyTasksList` deleted 2026-09-25) |
+| `LazyTodoCardModal` (`components/todos/`) | Lazy wrapper | `next/dynamic` card modal — use instead of `TodoCardModal`; the modal itself is split into `Card*` sections (Wave 3) |
 | `EditTodoButton` | Trigger | |
 | `DeleteTodoButton` | Trigger | |
 | `AssignUserButton` | Trigger | |
 | `SetDueDateButton` | Trigger | |
 
-### 8.7 Goals (`features/goals/` — 9 exports)
+### 8.7 OKR Explorer & Insights (2026-09-25; replaces Goals)
 
 | Component | Notes |
 |-----------|-------|
-| `GoalsListView` | List view |
-| `GoalsTable` | Table view |
-| `GoalsFeedView` | Feed view |
-| `GoalsFilterBar` | Filter bar |
-| `MyTeamView` | Team goals |
-| `CreateGoalModal` | Uses Modal + useReferenceData |
+| `OkrsAllClient` (+ `OkrsAll*` parts) | Explorer List view — KPIs, filters, bulk archive/restore, role-aware Create menu |
+| `OkrHierarchyTable` (`components/hierarchy/`) | Explorer Tree view |
+| `ExplorerTimelineView` / `ExplorerMapView` / `ExplorerCreateHandoff` | Timeline (`PlansGantt`), strategy map, create hand-offs (Cmd-K, `?createUnder=`) |
+| `ProgressDashboardPanel`, `ProgressTrackingPanel`, `ProgressReportWeeklyBars`, `PeriodClosePicker`, `PrintButton` (`components/insights/`) | Insights Progress and Period-close tabs |
 
-### 8.8 Sprints (`features/sprints/` — 3 exports)
+`features/goals` (Goals table/feed/team views, `CreateGoalModal`, services) was **deleted** 2026-09-25; `/dashboard/goals` redirects to `/dashboard/okrs-all?level=mine`.
+
+### 8.8 Sprints (`features/sprints/`)
 
 | Component | Notes |
 |-----------|-------|
-| `SprintBoardClient` | Trello-style kanban board |
-| `SprintCardModal` | Card detail/edit |
+| `SprintBoardClient` | Trello-style kanban board (757 lines after the G1 split) |
+| `SprintBoardHeader`, `SprintBoardLane`, `AddTaskInline`, `useBoardKeyboardMove` (internal) | Header + facets, lane, inline composer, keyboard move |
+| `SprintMembersDialog` (internal) | Invite-only participants |
 | `SprintsListClient` | Sprint list |
 
 ### 8.9 Letters (`features/letters/`)
@@ -1130,8 +1224,10 @@ Import: `import { Modal, ConfirmDialog, EmptyState, StatCard, StatGrid, PageHead
 | `CreateLetterModal` | Create draft + allocate reference |
 | `LetterFormClient` | Full letter editor (body, recipient, signatory) |
 | `EnclosuresPanel` | Enclosure management |
-| `PdfPreviewPanel` | PDF/print preview |
+| `PdfPreviewPanel` | PDF/print preview (sandboxed iframe) |
 | `CustomerLookup` | Odoo contact typeahead |
+| `LetterReportsClient` | **New 2026-09-25.** FR-16 report (recharts) |
+| `LetterTemplatesClient` | **New 2026-09-25.** Template management (letter admin), `sandbox=""` preview |
 
 ### 8.10 Filters Workspace (`features/filters/`)
 
@@ -1140,6 +1236,7 @@ Import: `import { Modal, ConfirmDialog, EmptyState, StatCard, StatGrid, PageHead
 | `ObjectiveDetailModal` | Objective detail panel in filters view |
 | `KeyResultDetailModal` | KR detail panel in filters view |
 | `ResultsList` | Grouped results list |
+| `FiltersWorkspace` | The workspace itself (Explorer Analyze view, `/dashboard/key-results`); per-tab sort (`features/filters/sort.ts`) and More options menu (2026-09-25) |
 
 ### 8.11 Daily Trip Plan (`features/daily-trip-plan/`)
 
@@ -1169,8 +1266,11 @@ Import: `import { ScrumHome, serializeScrumUpdate } from '@/features/scrum'`
 
 | Component / Service | Purpose |
 |---------------------|---------|
-| `ScrumHome` | P0 `/dashboard/scrum` foundation page using existing UI primitives |
+| `ScrumHome` | `/dashboard/scrum` — submit, wall (month/week/day/streak/analytics), saved views, blockers, celebrate, absences |
+| `ScrumWinsPage`, `ScrumSettingsPage`, `ScrumActivityPanel` | Wins feed, settings, OKR/project activity panel |
+| `ScrumUpdateCard`, `ScrumCalendarViews`, `ScrumBlockerDialogs`, `ScrumAbsenceModal`, `ScrumSavedViewsMenu` (internal) | F4 UI pieces (2026-09-25) |
 | `serializeScrumUpdate()` | Mood privacy choke point: mood is present only for the subject or active direct manager |
+| `drafts` (`SUBMITTED_SCRUM_UPDATE_WHERE`, `excludeScrumDrafts`, `isScrumDraft`) | Server-side drafts (2026-09-25); spread into every counting read |
 | Working-day utilities | Timezone-aware date keys, previous working day, business-day counts, lateness checks |
 
 ### 8.11B Performance & Scorecard (`features/performance/`)
@@ -1190,7 +1290,11 @@ Import: `import { ScrumHome, serializeScrumUpdate } from '@/features/scrum'`
 
 | Component | Notes |
 |-----------|-------|
-| `UserManagement` | User CRUD (uses useState — inconsistent) |
+| `UserManagement` | User CRUD (uses useState — inconsistent); ADMIN-only create/delete |
+| `UserDetail` | User detail page section |
+| `TimeframeManagement` | react-hook-form + zod (2026-09-25) |
+| `permissions/RecordScopingTab`, `permissions/UserRolesPanel` | Add-rule form on react-hook-form + zod; destructive role/override actions confirm via `ConfirmDialog` (2026-09-25) |
+| `SettingsSelect` | Settings form select (Radix) |
 | `TeamsManagement` | Team CRUD |
 | `OKRRulesManagement` | react-hook-form |
 | `BrandingManagement` | react-hook-form |
@@ -1202,14 +1306,18 @@ Import: `import { ScrumHome, serializeScrumUpdate } from '@/features/scrum'`
 
 | Component | Notes |
 |-----------|-------|
-| `PlansList` | List view with List/Gantt toggle. Server-rendered with KR/initiative/NCS metrics |
-| `PlansGantt` | DHTMLX-Gantt. Objective→KR hierarchy, dependency arrows, status/confidence pills, zoom (Week/Month/Quarter/Year) |
+| `PlansGantt` | OKR Explorer Timeline view (`PlansList` deleted 2026-09-25). DHTMLX-Gantt. Objective→KR hierarchy, dependency arrows, status/confidence pills, zoom (Week/Month/Quarter/Year) |
 
 ### 8.14 Project Management Components (`features/projects/components/`)
 
 | Component | Notes |
 |-----------|-------|
-| `ProjectDetailClient` | Project detail shell with baseline/re-baseline controls, E1 project view switcher, Delay Ledger, H1 RAID Register, H2 Change Control Board, H3 Stage Gates, H4 Client Obligations, H5 Correction of Errors, and H6 Payment Milestones |
+| `ProjectWorkspaceClient` | Full-screen project workspace at `/projects/[id]` (the old `ProjectDetailClient` was dead code and was deleted 2026-09-25) |
+| `ProjectDeliveryControlCenter` | Team/governance/delivery/reports/integrations/settings drawer; mounts `PortalAccessPanel` |
+| `PortalAccessPanel` | **New 2026-09-25.** Portal on/off + client accounts (invite, resend, set password, revoke) |
+| `creation/ai-guided/{AiGuidedFlow,AiBriefStep,ClarifyQuestions,AiRevisionPanel,useAiGuided}` | **New 2026-09-25 (G5/C5).** AI-guided creation: brief (+ optional DOCX TOR), clarifying questions, generated plan, constrained revision preview/apply/undo |
+| `TextPromptDialog`, `CommitBaselineDialog`, `RebaselineDialog` | **New 2026-09-25.** Replace `window.prompt/confirm`; re-baseline requires a ≥20-char reason |
+| `RouteStates` (`ProjectRouteError`, `ProjectListSkeleton`, `ProjectWorkspaceSkeleton`, `ProjectDashboardSkeleton`, `PortalSkeleton`) | **New.** Route loading/error bodies |
 | `TemplateListClient` | A2 project template directory: searchable card grid, create/clone/delete modals, and navigation to the builder |
 | `TemplateBuilderClient` | A2 template builder: name/description editor, left phase→milestone→activity tree, right properties panel, native HTML5 drag-and-drop reorder, validation, save/create, and system-template clone |
 | `DelayLedgerTable` | C5 filtered delay ledger with server totals, inline recovery editing, CSV export, and PDF export |
@@ -1264,13 +1372,19 @@ Import: `import { ScrumHome, serializeScrumUpdate } from '@/features/scrum'`
 | `/portal` | I1 portal shell with scoped project list for client sessions and internal preview banner for internal users |
 | `/portal/projects/[id]` | I3 client portal dashboard with "Awaiting Your Action" first, live business-day counters, anonymized schedule bars, honest delay table, published reports, client-visible RAID, and internal preview banner |
 | `PortalCommentBox` | I3 client comment reader/writer for awaiting actions; calls portal-only comment APIs that write `isClientAuthor=true` and notify the PM |
+| `/portal/accept-invite` | **New 2026-09-25.** Invitee sets a password from a single-use token |
+| `PortalSignOutButton`, `PortalProjectSwitcher` | **New 2026-09-25.** Portal sign-out and project switcher |
+| `PlannedVsActualTab`, `ChangeRequestsTab` | **New 2026-09-25.** Project page tabs: baseline vs current + slip; client-visible change requests (no names/cost) |
 
 ### 8.17 Dashboard Components (`components/dashboard/`)
 
 | Component | Notes |
 |-----------|-------|
-| `MyOKRsPage` | User's OKR overview (has duplicate stat card markup — refactor pending) |
-| Various dashboard widgets | Stats, charts, quick actions |
+| `MyOKRsPage` | My OKRs (own + contributed objectives), under `CheckInQueue` |
+| `AppleDashboard` | Home; `?checkin=1` opens the check-in picker |
+| `CheckInQueue` | **New 2026-09-25.** Due check-ins on My OKRs |
+| `SectionError` | **New.** `error.tsx` body: reports, recovers stale chunks, retry |
+| `CheckInBanner`, `HeroStats`, `NeedsAttention`, `QuickStats`, `TeamActivityFeed`, `UserOkrTree`, `AppleAnalytics` | Live widgets. Seven orphans (AtAGlanceRow, ConfidenceTracker, DashboardStats, MyActivityFeed, RecentObjectives, SprintWidget, TopSummaryBoxes) deleted 2026-09-25 |
 
 ---
 
@@ -1287,6 +1401,9 @@ Import: `import { useDebounce, useUsersForSelection, useTimeframes, useDepartmen
 | `useReferenceData({ users?, timeframes?, departments?, activeTimeframesOnly? })` | `{ users, timeframes, departments, isLoading }` | Combined hook for forms — parallel fetches |
 | `useMediaQuery(query)` | `boolean` | Responsive breakpoint detection |
 | `useViewTracker(entityType, entityId)` | — | Fires view-tracking beacon once per entity per session |
+| `useOkrOptions(opts)` | `{ objectives, isLoading, … }` | Objectives with nested KRs for OKR pickers |
+| `useLinkPreview(url)` | `{ preview, isLoading, isError }` | Link-preview metadata (24 h cache) |
+| `useRealtimeRefresh({ channel, events, onRefresh, debounceMs?, maxWaitMs?, ignoreActorId?, shouldDefer?, enabled? })` | `void` | **New 2026-09-25.** Debounced refetch on private Pusher channel events (sprint board); no-op without Pusher |
 
 ---
 
@@ -1295,7 +1412,7 @@ Import: `import { useDebounce, useUsersForSelection, useTimeframes, useDepartmen
 | Store | File | State |
 |-------|------|-------|
 | `useTodoStore` | `lib/stores/todo-store.ts` | Todo filters (`status`, `priority`, `assigneeId`), selected todo IDs |
-| `useNotificationStore` | `lib/stores/notification-store.ts` | Toast notification messages |
+| `useNotificationStore` | `lib/stores/notification-store.ts` | In-app notification feed + server `unreadCount` (bell, page, sprint Inbox) — not toasts |
 | `useUserPrefsStore` | `lib/stores/user-prefs-store.ts` | UI preferences (`todoViewMode`: modal/sidebar) |
 | `useThemeStore` | `lib/stores/theme-store.ts` | Light/dark theme selection |
 | `useCmdkStore` | `lib/stores/cmdk-store.ts` | Command palette open/close state |
@@ -1328,7 +1445,14 @@ ADMIN > EXECUTIVE > DEPARTMENT_LEAD > EMPLOYEE
 
 | Action | ADMIN | EXECUTIVE | DEPARTMENT_LEAD | EMPLOYEE |
 |--------|-------|-----------|-----------------|----------|
-| Manage users | ✅ | ❌ | ❌ | ❌ |
+| Create / delete (anonymise) users | ✅ | ❌ | ❌ | ❌ |
+| Edit users (non-admin fields) | ✅ | via `page.settings.users` feature | via feature | via feature |
+| Grant/revoke ADMIN, change an admin's status | ✅ (last active ADMIN protected) | ❌ | ❌ | ❌ |
+| Integrations settings (`/api/settings/integrations`) | ✅ | ❌ (removed 2026-09-25) | ❌ | ❌ |
+| Letter admin (`button.letter.admin` = `letter.view_all`): all letters, templates, enclosure override | ✅ | ❌ | ❌ | ❌ |
+| Create to-do label / edit / delete | ✅ / ✅ / ✅ | ✅ / ✅ / ❌ | ✅ / ❌ / ❌ | ✅ / ❌ / ❌ |
+| See all sprint boards | ✅ | ✅ | invited only | invited only |
+| Sign up (public) | — | — | — | creates inactive EMPLOYEE; admin activates |
 | Manage departments | ✅ | view own | view own | view own |
 | Manage timeframes | ✅ | ✅ | ❌ | ❌ |
 | Set org notification defaults | ✅ | ❌ | ❌ | ❌ |
@@ -1341,11 +1465,38 @@ ADMIN > EXECUTIVE > DEPARTMENT_LEAD > EMPLOYEE
 
 Stored in `LetterRolePermission` (role matrix) and `LetterUserPermission` (per-user overrides). Resolved by `lib/letter-permissions.ts::checkLetterPermission()`. Editable at runtime via Settings > Letter Permissions (Admin only).
 
-Key permissions: `letter.read`, `letter.create`, `letter.edit`, `letter.delete`, `letter.submit`, `letter.approve`, `letter.send`, `letter.archive`.
+Key permissions: `letter.read`, `letter.create`, `letter.edit`, `letter.delete`, `letter.submit`, `letter.approve`, `letter.send`, `letter.archive`, and `letter.view_all` — which since 2026-09-25 maps to the real admin feature key **`button.letter.admin`** (`LETTER_ADMIN_FEATURE_KEY`, seeded ADMIN-only in `scripts/seed-permissions.ts`; `canAdministerLetters()`). `LETTER_PERMISSION_TARGETS` maps each letter permission to its doctype/feature. Every letter read path goes through `letterReadGuard` (`lib/letter-access.ts`), which 404s out-of-scope letters.
 
 ### 11.5 DTP Permissions
 
 Role tags: `poolCoordinatorIds` (CSV in DtpSettings), `operationsManagerIds` (CSV in DtpSettings), `primaryCoordinatorId` / `alternateCoordinatorId` (per-department). Coordinators approve/reject plans. Pool coordinators assign drivers.
+
+### 11.6 OKR visibility (2026-09-25)
+
+`lib/okr/visibility-scope.ts` is the single rule, in SQL (`buildObjectiveVisibilityWhere`/`buildKeyResultVisibilityWhere`) and in memory (`canViewObjectiveInMemory`/`canViewKeyResultInMemory`); `canViewObjective`/`canViewKeyResult` in `lib/permissions.ts` delegate to it. Every role may see every non-private objective; a private one is redacted unless the viewer is ADMIN/EXECUTIVE, the owner or the owner's current manager. The objective detail page 404s when the objective is missing, DELETED or not viewable. OKR menu actions use `lib/okr/action-permissions.ts` (`canDeleteObjective`: ADMIN/EXECUTIVE/owner; `canCloneObjective`: ADMIN/EXECUTIVE/DEPARTMENT_LEAD; `canCloneKeyResult`).
+
+### 11.7 Security invariants (2026-09-25 remediation)
+
+| # | Invariant | Where enforced / tested |
+|---|-----------|-------------------------|
+| S-1 | Every `/api/cron/*` route authenticates with a ≥16-char `CRON_SECRET` in a header, timing-safe, fail-closed (503) | `lib/cron-auth.ts`; `lib/security/cron-auth.test.ts` |
+| S-2 | Credentials: one `verifyCredentials`; passwordless/inactive/unknown/wrong all identical; rate-limited | `lib/auth.ts`; `lib/security/auth-hardening.test.ts` |
+| S-3 | Reset/activation tokens are CSPRNG and stored hashed; sessions older than `passwordChangedAt` are rejected | `lib/security/auth-tokens.ts`, `lib/auth.ts` |
+| S-4 | Public sign-up can never choose a role; accounts start inactive; no email enumeration (register, forgot) | `app/api/auth/register`, `app/api/auth/forgot-password` |
+| S-5 | `withFeature` denies when the permission lookup fails | `lib/api/withAuth.ts`; `lib/security/platform-hardening.test.ts` |
+| S-6 | Integrations settings ADMIN-only and masked | `app/api/settings/integrations/route.ts` |
+| S-7 | Telegram `/ask` only in allowlisted chats, rate-limited, timing-safe secret | `lib/telegram/access.ts` |
+| S-8 | CSP + security headers on every response; no wildcard image hosts | `next.config.js` |
+| S-9 | Stored HTML is sanitised server-side (letters, scrum remarks/items, retrospectives) and rendered through DOMPurify or a sandboxed iframe | `lib/letter-sanitize.ts`, `features/scrum/services/html.ts`, `lib/okr/retrospective-input.ts`; `lib/letters-security.test.ts` |
+| S-10 | Puppeteer renders with JS off and only data:/about:/blob:/Google-Fonts requests | `lib/letter-pdf-puppeteer.ts` |
+| S-11 | Uploaded files never live under `public/`; served only through authenticated routes (`/uploads/*` 404 in middleware) | `lib/attachments/*-storage.ts`, `lib/letter-enclosure-storage.ts`; `lib/attachments/project-upload.test.ts` |
+| S-12 | Portal: every response through `portal-serializer.ts`; no employee name (incl. inactive users) in comment bodies; attachments filtered by `CLIENT_VISIBLE` in SQL; `callbackUrl` limited to `/portal` | `lib/projects/portal-routes-invariant.test.ts`, `portal-route-guards.test.ts` |
+| S-13 | Object-level reads: objective page, card GET (`canReadTodo`), risks, letters, scrum records, sprint boards | `lib/security/{okr,card,sprint}-access-invariants.test.ts` |
+| S-14 | Every performance mutation writes `ActivityLog` | `app/api/performance/audit-coverage.test.ts` |
+| S-15 | Realtime channels are private and per-viewer: `private-user-<own id>`, `private-sprint-<id>` (`canViewSprint`), `private-objective-/private-keyresult-<id>` (unredacted view only); payloads carry no content | `app/api/pusher/auth`, `lib/okr/realtime.ts` (`lib/okr/realtime.test.ts`) |
+| S-16 | OKR comments readable/postable only with an unredacted view of the entity; comment notifications only to recipients who can view it | `lib/okr/comment-access.ts`, `lib/comments.ts` |
+| S-17 | Change requests reach the portal only when `CLIENT_VISIBLE` (SQL filter), without names or cost; project creation provenance is server-owned (422 on client edits) | `app/api/portal/projects/[id]/change-requests`, `lib/projects/creation-provenance.ts` |
+| S-18 | No `app/**/page.tsx` imports Prisma (thin pages) | `*.server.ts` loaders (§3) |
 
 ---
 
@@ -1385,6 +1536,11 @@ unread count is authoritative). Every failure path is silent: realtime is an
 enhancement, and `getPusherServer()` returns null under the placeholder
 credentials in `env.example`, so dev degrades to the mount-and-open refresh.
 
+Since 2026-09-25 the same route also authorizes `private-sprint-<id>` (`canViewSprint`; `lib/sprints/realtime.ts`,
+`broadcastSprintEvent`) and `private-objective-<id>` / `private-keyresult-<id>` (only when the viewer sees the
+objective / key result unredacted; `lib/okr/realtime.ts`). Payloads are signals; pages refetch through
+`hooks/useRealtimeRefresh.ts` (debounced, skips the actor's own events). Everything else is 403.
+
 ### 12.0.2 The preference gate for direct writers (added 2026-09-21)
 
 `emit()` is the path for anything with a declared `EventKey`. Six writers have
@@ -1407,18 +1563,25 @@ previously filed under `ADMIN`, so muting admin digests muted them too).
 `grep -rn "prisma.notification.create" lib/ app/` outside `lib/notifications/`
 now returns nothing. Keep it that way.
 
+### 12.0.3 Delivery off the request path + BATCHED default (added 2026-09-25)
+
+`emit()` (`lib/notifications/dispatcher.ts`) now resolves recipients inline and hands delivery (row write, Pusher, email) to `lib/notifications/fanout.ts`, scheduled after the response by `lib/background.ts` `runAfterResponse` (bounded concurrency: 2 deliveries × 5 recipients). ~36 routes stopped awaiting it. Crons, scripts and `lib/projects/{project-digest,approval-escalations}.ts` use **`emitNow()`**, which resolves only after delivery; the automations worker calls `flushBackgroundWork()`. `lib/notifications/direct.ts` gained `writeDirectNotificationsNow`.
+
+Email cadence vocabulary lives in `lib/notifications/cadence.ts`: `BATCHED` (default for new rows — schema default changed from IMMEDIATE), `IMMEDIATE`, `DAILY`, `WEEKLY`, `DISABLED`. BATCHED mail drains every 10 minutes (`/api/cron/notifications?job=batch`). Existing org defaults are moved with `scripts/notifications-set-batched-defaults.ts` (dry-run → apply). The duplicate mention email (IMMEDIATE `emit` + a direct `sendMail`) is gone. Both settings pages render all 15 categories from `CATEGORY_LABEL`.
+
 ### 12.1 Flow
 
 ```
-domain code → emit(eventKey, payload)
-  ├─ resolveRecipients()     ← role-based routing per event
+domain code → emit(eventKey, payload)          (emitNow() in crons/scripts)
+  ├─ resolveRecipients()     ← role-based routing per event (inline)
+  └─ after the response (fanout.ts):
   ├─ getUserPrefsBulk()      ← per-user override or org default
   ├─ redact()                ← privacy mask for isPrivate entities
   ├─ renderTemplate()        ← subject / text / html
   ├─ write Notification row (in-app)
   └─ email:
        IMMEDIATE → sendMail() now
-       DAILY/WEEKLY/MONTHLY → enqueue to EmailDigestQueue
+       BATCHED (default) / DAILY / WEEKLY / MONTHLY → enqueue to EmailDigestQueue
 ```
 
 ### 12.2 Event Categories
@@ -1436,7 +1599,12 @@ domain code → emit(eventKey, payload)
 | `ADMIN` | ADMIN_WEEKLY_HEALTH_DIGEST, ADMIN_MONTHLY_EXEC_SUMMARY | — |
 | `PERFORMANCE` | PERF_CYCLE_OPENED, PERF_DRAFT_SHARED, PERF_WEEKLY_FOCUS | — |
 | `PROJECT` | PROJECT_CREATED, ACTIVITY_BLOCKED, CLIENT_APPROVAL_PENDING | — |
-| `SCRUM` | SCRUM_REMINDER, SCRUM_BLOCKER_RAISED, SCRUM_MANAGER_DIGEST, SCRUM_OBJECTIVE_NEGLECTED | — |
+| `SCRUM` | SCRUM_REMINDER, SCRUM_BLOCKER_RAISED, SCRUM_BLOCKER_RECURRING, SCRUM_TEAM_MOOD_ALERT, SCRUM_MANAGER_DIGEST, SCRUM_OBJECTIVE_NEGLECTED | — |
+| `TRAVEL` | DTP plan events (`lib/dtp/notifier.ts`) | — |
+| `LETTER` | submitted / approved / rejected / sent (`lib/letters-notify.ts`) | — |
+| `AUTOMATION` | Briefing delivery (`lib/automations/delivery.ts`) | — |
+
+15 categories in total (`CATEGORY_LABEL`, `lib/notifications/events.ts`); only `ACCOUNT` is mandatory.
 
 ### 12.3 Recipient Role Tags
 
@@ -1472,39 +1640,42 @@ Entities with `isPrivate: true`: owner + owner's managers + ADMIN see real data;
 
 ## 14. Cron Jobs
 
-All cron routes secured by Bearer `CRON_SECRET`.
+All cron routes are secured by `withCronAuth` (`lib/cron-auth.ts`) — header-only `CRON_SECRET` (≥16 chars, else every call 503s), timing-safe.
 
-> **`scripts/install-crontab.sh` is the single source of truth for the schedule**,
-> and `docs/CRON.md` documents what it installs. Until 2026-09-18 the installer
-> registered only 6 of the 27 intended jobs — the rest lived in
-> `deploy/notifications-crontab.example` (now superseded) or in `docs/CRON.md`
-> alone. Consequences on any host bootstrapped with the script: `EmailDigestQueue`
-> never drained, `approval-clock` never ran (breaking critical invariant #3), and a
-> scheduled `automations-prune` entry curled a route that did not exist. **Add a
-> route to the installer and to `docs/CRON.md` together.**
+> **`scripts/install-crontab.sh` is the single source of truth for the schedule**, and `docs/CRON.md` documents what it installs. Add a route to the installer and to `docs/CRON.md` together. Since 2026-09-25 the installer refuses to run without a valid `CRON_SECRET` and rewrites legacy `?key=` entries to the `Authorization` header; **re-run it after deploy** so the new jobs are installed. Times are **UTC** (EAT = UTC+3).
 
-| Job | Route | Recommended Schedule | Purpose |
-|-----|-------|---------------------|---------|
-| Confidence calc | `POST /api/cron/confidence-calc` | Bi-weekly | Objective + KR confidence snapshots |
-| Auto-confidence | `POST /api/cron/auto-confidence` | Daily | Auto-recalculate confidence |
-| Daily digest | `POST /api/cron/daily-digest` | Daily | Drain DAILY email queue |
-| Weekly digest | `POST /api/cron/weekly-digest` | Weekly (Monday) | Drain WEEKLY queue + weekly summary |
-| Notification jobs | `POST /api/cron/notifications?job=` | Various | `daily`, `weekly`, `monthly`, `escalation`, `todos`, `timeframes`, `admin-weekly`, `admin-monthly` |
-| Sprint tick | `POST /api/cron/sprint-tick` | Daily | Sprint lifecycle state transitions |
-| Sprint deadlines | `POST /api/cron/sprint-deadlines` | Daily | Sprint deadline warnings |
-| Prune activity | `POST /api/cron/prune-activity` | Daily 00:30 UTC | Remove activity log rows older than ~18 months |
-| Prune notifications | `POST /api/cron/notifications?job=prune-notifications` | Daily 00:45 UTC | Mark unread >30d read, delete read >90d. Nothing pruned this table before 2026-09-18. |
-| Todo recurrence | `POST /api/cron/todo-recurrence` | Daily 01:00 UTC | Generate the next occurrence of each recurring card (DTE-5) |
-| Automations prune | `POST /api/cron/automations-prune` | Daily 03:30 UTC | Null old run transcripts, delete briefings past `AutomationSettings.retentionDays` |
-| Sprint migration check | `POST /api/cron/sprint-migration-check` | One-time | Legacy sprint migration status |
-| Project health | `POST /api/cron/project-health` | Daily 02:00 | Recompute confidence/RAG/SPI/CPI for all active projects |
-| Approval clock | `POST /api/cron/approval-clock` | Daily 08:00 | Fire `CLIENT_APPROVAL_SLA_BREACH` escalations at SLA / SLA+3 / SLA+7 business days (deduped per wait) |
-| Project digest | `POST /api/cron/project-digest` | Daily 07:00 | Overdue/blocked/waiting-approval digest emailed to each project manager |
-| Jira sync | `POST /api/cron/jira-sync` | Every 30 min | Pull issues/worklogs/changelogs/sprints for all active Jira connections |
-| Client report | `POST /api/cron/client-report` | Bi-weekly Mon 06:00 | Generate bi-monthly client report drafts for active projects |
-| WBR pack | `POST /api/cron/wbr-pack` | Weekly Mon 06:00 | Generate Weekly Business Review pack |
+| Job | Route | Schedule (UTC) | Purpose |
+|-----|-------|----------------|---------|
+| Sprint tick | `/api/cron/sprint-tick` | `0 * * * *` | Sprint lifecycle transitions |
+| Sprint deadlines | `/api/cron/sprint-deadlines` | `0 9 * * *` | Sprint deadline warnings |
+| To-do reminders | `/api/cron/todo-reminders` | `*/5 * * * *` | Per-card reminder lead times |
+| Automations tick | `/api/cron/automations-tick` | `* * * * *` | Enqueue due automation slots |
+| Automations reap | `/api/cron/automations-reap` | `*/5 * * * *` | Reclaim expired worker leases |
+| Automations prune | `/api/cron/automations-prune` | `30 3 * * *` | Automations retention |
+| To-do recurrence | `/api/cron/todo-recurrence` | `0 1 * * *` | Next occurrence of recurring cards |
+| Approval clock | `/api/cron/approval-clock` | `0 8 * * *` | Client approval SLA escalations (Invariant #3) |
+| Project health | `/api/cron/project-health` | `0 2 * * *` | Confidence/RAG/SPI/CPI for active projects |
+| Project digest | `/api/cron/project-digest` | `0 7 * * *` | PM digest |
+| Client report | `/api/cron/client-report` | `0 3 * * 1` | **Newly scheduled 2026-09-25.** R2 drafts (one per project per semi-monthly period) |
+| WBR pack | `/api/cron/wbr-pack` | `0 3 * * 1` | **Newly scheduled.** Weekly Business Review pack |
+| Jira sync | `/api/cron/jira-sync` | `*/30 * * * *` | **Newly scheduled.** Jira pull for active connections |
+| Notification batch | `/api/cron/notifications?job=batch` | `*/10 * * * *` | BATCHED email drain (default cadence) |
+| Notifications daily / weekly / monthly | `?job=daily` / `weekly` / `monthly` | `0 4 * * *` / `5 4 * * 1` / `10 4 1 * *` | Digest drains |
+| Check-in escalation | `?job=escalation` | `0 6 * * *` | Missed check-in 7d/14d |
+| To-do due sweep | `?job=todos` | `0 5 * * *` | `TODO_DUE_TOMORROW` / `TODO_OVERDUE` |
+| Timeframe watcher | `?job=timeframes` | `30 3 * * *` | Timeframe lifecycle events |
+| Admin digests | `?job=admin-weekly` / `admin-monthly` | `15 4 * * 1` / `20 4 1 * *` | Admin summaries |
+| Weekly digest | `/api/cron/weekly-digest` | `25 4 * * 1` | Weekly OKR digest |
+| Auto-confidence | `/api/cron/auto-confidence` | `0 0 * * *` | Confidence recalculation (chunked reads 1000 / writes 100) |
+| Prune activity | `/api/cron/prune-activity` | `30 0 * * *` | Old ActivityLog rows |
+| Prune notifications + retention | `/api/cron/prune-notifications` | `45 0 * * *` | **Own route since 2026-09-25** (installer migrates the old `?job=prune-notifications` line). Notifications + `pruneRetainedTables()` (EmailDigestQueue 30 d, OutboundEmail 90, ClientErrorLog 30, TelegramMessage 180, AiGenerationLog 180, JiraSyncLog 30; `RETENTION_*` env) |
+| Permission cleanup | `/api/cron/permission-cleanup` | `15 0 * * *` | **Newly scheduled.** Expired role/override cleanup |
+| Project-creation draft purge | `/api/cron/project-creation-draft-purge` | `40 0 * * *` | **New.** Expired drafts + retained uploads |
+| Scrum health / reminder / finalize / nudge / weekly | `/api/cron/scrum-*` | `0 23 * * *` / `0 5 * * 1-5` / `0 6 * * 1-5` / `5 6 * * 1-5` / `0 13 * * 5` | Daily Scrum rhythm; health also emits `SCRUM_TEAM_MOOD_ALERT` |
+| Attachment staging cleanup | `/api/cron/attachment-staging-cleanup` | `50 0 * * *` | **New 2026-09-25 (H2).** Deletes staged comment uploads unclaimed for 24 h, then their files (batched, race-safe, idempotent) |
+| Performance nudge | `/api/cron/performance-nudge` | `0 5 * * *` | **Newly scheduled.** Sends only on `PerformanceSettings.weeklyNudgeDay`, idempotent per ISO week |
 
----
+Deliberately **not** scheduled: `confidence-calc`, `daily-digest`, `sprint-migration-check`.
 
 ## 15. Library Utilities
 
@@ -1545,15 +1716,35 @@ All cron routes secured by Bearer `CRON_SECRET`.
 
 | File | Key Export | Description |
 |------|-----------|-------------|
-| `lib/objectiveProgress.ts` | `recalcNodeAndAncestors()`, `recalcObjectiveStoredProgress()` | LOOSE + STRICT_DEPENDENCY progress recalculation |
+| `lib/objectiveProgress.ts` | `recalcNodeAndAncestors()`, `recalcObjectiveStoredProgress()` | LOOSE + STRICT_DEPENDENCY progress recalculation (cycle-guarded `seen` set since 2026-09-25) |
 | `lib/confidence-calc.ts` | `runConfidenceCalc()` | Score = time-elapsed vs progress (40%) + velocity (25%) + initiative completion (15%) + staleness (20%) |
 | `lib/activity-log.ts` | `recordActivity()` | Append-only audit trail |
 | `lib/letters.ts` | `allocateReferenceNumber()` | `360G/LT/{CL\|OF\|GR}/{SEQ}/{YEAR}` allocation |
-| `lib/letter-permissions.ts` | `checkLetterPermission()` | Async permission resolver: DB row → static fallback |
+| `lib/letter-permissions.ts` | `checkLetterPermission()`, `canAdministerLetters()` | Async permission resolver: DB row → static fallback; letter admin = `button.letter.admin` |
+| `lib/letter-access.ts` | `letterReadGuard()`, `buildLetterReadWhere()` | Letter read scope (2026-09-25) |
+| `lib/letter-sanitize.ts` | `sanitizeLetterBodyHtml()`, `resolveLetterFont()`, `isAllowedPdfRequestUrl()` | Server-side letter HTML allowlist (2026-09-25) |
+| `lib/letter-reports.ts` · `lib/letter-templates.ts` · `lib/letter-enclosure-storage.ts` | `buildLetterReport()` · `resolveTemplateBodyForNewLetter()` · `persistEnclosureFile()` | Letters reporting, templates, enclosure files (2026-09-25 G3) |
+| `lib/okr/visibility-scope.ts` | `loadViewerContext()`, `buildObjectiveVisibilityWhere()` | OKR visibility (§11.6) |
+| `lib/cron-auth.ts` | `withCronAuth()` | Cron route auth (§14) |
+| `lib/security/rate-limit.ts` · `lib/security/auth-tokens.ts` | `hitRateLimit()` · `generateAuthToken()`, `hashAuthToken()` | Auth hardening |
+| `lib/background.ts` | `runAfterResponse()`, `flushBackgroundWork()` | After-response work |
+| `lib/retention/prune-tables.ts` | `pruneRetainedTables()` | Table retention |
+| `lib/users/deleted-account.ts` | `deletedAccountData()` | Admin delete = anonymise |
+| `lib/projects/portal-accounts.ts` | `grantPortalAccess()`, `acceptPortalInvite()` | Client-portal accounts |
+| `lib/sprints/board-filters.ts` · `lib/sprints/realtime.ts` | `compileBoardFilter()` · `sprintRealtimeChannel()` | Sprint board facets and realtime |
+| `lib/attachments/todo-comments.ts` | `hydrateTodoCommentAttachments()` | To-do comment files on `CommentAttachment` |
+| `lib/attachments/{access,activity-comments,staging-cleanup,parent-delete}.ts` | `COMMENT_SCOPES`, `withActivityCommentAttachments()`, `sweepAbandonedStagedAttachments()`, `purgeCommentAttachmentsAfterParentDelete()` | Comment-attachment scopes, activity files (internal), nightly staged sweep, cleanup after a parent delete (2026-09-25) |
+| `lib/okr/realtime.ts` · `lib/okr/comment-access.ts` | `objectiveRealtimeChannel()`, `canSubscribeToOkrChannel()` · `canAccessOkrComments()` | OKR private channels; OKR comment gate |
+| `lib/okr/explorer-params.ts` · `lib/okr/insights-data.ts` · `lib/retired-routes.js` | `parseExplorerView()`, `scopeForLevel()`, `parseInsightsTab()` · `loadAnalyticsOverview()`, `loadProgressDashboard()`, `loadProgressTracking()` · `retiredRouteRedirects()` | OKR Explorer / Insights params and loaders; retired-route redirects |
+| `features/scrum/services/drafts.ts` | `SUBMITTED_SCRUM_UPDATE_WHERE`, `excludeScrumDrafts()` | Keep scrum drafts out of counting reads |
+| `lib/projects/creation-{docx-schedule,provenance,processing}.ts` · `lib/projects/project-docx-template.ts` | — | DOCX → schedule, server-owned provenance, background upload processing, Word TOR template |
+| `lib/projects/ai-guided-*.ts` | `ai-guided-service.ts`, `ai-guided-openai.ts`, `ai-guided-revise.ts` | AI-guided creation (OpenAI only, schema-forced, signed revision previews) |
+| `lib/dtp/ec-calendar.ts` · `lib/dtp/api-helpers.ts` | Ethiopian ↔ Gregorian conversion · transition helpers | Leap-year fix; atomic plan transitions → 409 on conflict |
+| `lib/chart-colors.ts` | `chartColors`, `chartAlpha()` | Chart colours from tokens |
 | `features/scrum/services/working-days.ts` | `previousScrumWorkingDay()`, `isLateSubmission()` | Daily Scrum timezone, working-day, holiday, and cutoff math |
 | `features/scrum/services/scrum-serializer.ts` | `serializeScrumUpdate()` | Removes `mood` unless viewer is subject or active direct manager |
 | `lib/view-tracking.ts` | `trackView()` | One row per (user, entity, day) |
-| `lib/pusher.ts` | `pushToUser()` | Real-time Pusher push |
+| `lib/pusher.ts` | `pushToUser()`, `broadcastUserNotification()`, `broadcastSprintEvent()`, OKR objective/key-result broadcast helpers | Real-time Pusher push; `private-sprint-<id>` board events (2026-09-25) |
 | `lib/dashboard-navigation.ts` | `navGroups` | Sidebar nav structure |
 | `lib/profileMetrics.ts` | `getUserMetrics()` | User activity metrics |
 | `lib/reportDashboard.ts` | `loadDashboardPayload()` | CEO + personal dashboard data |
@@ -1596,6 +1787,8 @@ Light/dark theme via CSS variables. Key tokens:
 
 Tone classes: `success-*`, `primary-*`, `warning-*`, `danger-*` — do NOT hardcode hex colors.
 
+**Since 2026-09-25 (U1):** the Tailwind palette (`surface-*`, `ink-*`, `primary/success/warning/danger-*`) reads CSS-variable channels — `rgb(var(--rgb-*) / <alpha-value>)` — defined in `app/globals.css` `:root` and overridden under `:root.dark` (class toggled by `app/theme-body-class.tsx`; follows the OS only when appearance is `system`). One accent, `--ap-accent-lch` (`primary.500/600`). `primary`/`secondary` have `DEFAULT` + `foreground`, so `bg-primary` and default `<Button>`s fill. Light values are byte-identical to the old hex and dark ink meets WCAG (`lib/design-tokens.test.ts`). Size-only type tokens **`text-caption` (11px)** and **`text-micro` (10px)** replace every `text-[11px]`/`text-[10px]`; `cn()` knows all custom font sizes (`extendTailwindMerge`). Charts use `lib/chart-colors.ts`. Every dashboard/projects/portal route has a `loading.tsx` skeleton and an `error.tsx` boundary (`SectionError`, `RouteStates`). Settings selects use `SettingsSelect`; filter bars use `FilterSelect`/`FilterMultiSelect`; native `window.prompt/confirm` replaced by `Modal`-based dialogs.
+
 ### 17.2 Code Conventions
 
 - **Routes** (`app/`): thin composition only — no business logic, no Prisma, no inline fetches
@@ -1629,29 +1822,46 @@ Always update after every code change:
 |---------|---------|
 | Hosting | VPS, PM2 process manager, Nginx reverse proxy |
 | Database | PostgreSQL — `prisma db push` (no migration history) |
-| Schema changes | `scripts/preflight.sql` runs in CI before deploy |
+| Schema changes | `scripts/preflight.sql` runs in deploy before `prisma db push` (must be idempotent — enforced by `test:security`); 18 `CREATE INDEX CONCURRENTLY IF NOT EXISTS` added 2026-09-25 |
 | CI secrets | Repo-level GitHub secrets |
 | Zero-downtime | PM2 graceful reload |
-| Cron | System cron calling API routes with `CRON_SECRET` |
+| Cron | System cron (`scripts/install-crontab.sh`) calling API routes with `Authorization: Bearer $CRON_SECRET` (≥16 chars, else 503) |
+| CI | `.github/workflows/ci.yml`: all unit suites → `tsc --noEmit` → `npm run lint` → `next build` (20 min) |
+| Background work | `runAfterResponse` relies on the long-lived PM2 process; rate limits are in-memory per process |
 | Email | `EMAIL_DRIVER=smtp` + SMTP env vars; falls back to log-only |
 | Real-time | Pusher — placeholder creds (`dev-placeholder`) will fail; set real creds in env |
-| AI | Anthropic API (Claude Sonnet 4.6) — `ANTHROPIC_API_KEY` env var |
-| Telegram | `TELEGRAM_BOT_TOKEN` + `TELEGRAM_BOT_SECRET` env vars |
+| AI | OpenAI (`OPENAI_API_KEY` or the encrypted in-app key) for project creation, sprint planning (only wired provider), automations and Telegram by default; Anthropic (`ANTHROPIC_API_KEY`) optional for Telegram (`TELEGRAM_AI_PROVIDER=anthropic`) |
+| Telegram | `TELEGRAM_BOT_TOKEN` + `TELEGRAM_WEBHOOK_SECRET`; `/ask` needs `TELEGRAM_ALLOWED_CHAT_IDS` |
+| Private uploads | `TODO_UPLOAD_DIR` (`var/uploads/todos`), `PROJECT_UPLOAD_DIR` (`var/uploads/project-activities`), `LETTER_UPLOAD_DIR` (`var/uploads/letters`), `PROJECT_CREATION_UPLOAD_DIR` (retained creation sources), comment attachments under `UPLOAD_DIR` — all outside `public/`, must be writable by the app user. Creation uploads are scanned by ClamAV (`PROJECT_CREATION_CLAMAV_HOST`/`_PORT`) and fail closed without it |
 
 ### 18.1 Required Environment Variables
 
 ```
 DATABASE_URL
-NEXTAUTH_SECRET
-NEXTAUTH_URL
-PUSHER_APP_ID, PUSHER_KEY, PUSHER_SECRET, PUSHER_CLUSTER
-EMAIL_DRIVER (smtp | log)
-SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM
-CRON_SECRET
-ANTHROPIC_API_KEY
-TELEGRAM_BOT_TOKEN
-TELEGRAM_BOT_SECRET
+NEXTAUTH_SECRET                  # also signs AI-guided revision preview tokens
+NEXTAUTH_URL, APP_URL
+PUSHER_APP_ID, PUSHER_KEY, PUSHER_SECRET, PUSHER_CLUSTER (+ NEXT_PUBLIC_PUSHER_KEY/CLUSTER)
+EMAIL_DRIVER (smtp | log), EMAIL_SERVER_HOST/PORT/USER/PASSWORD, EMAIL_FROM, EMAIL_FROM_NAME
+CRON_SECRET                      # REQUIRED, ≥16 chars (openssl rand -hex 32) — else every cron 503s
+OPENAI_API_KEY, ANTHROPIC_API_KEY (optional), TELEGRAM_AI_PROVIDER
+TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET, TELEGRAM_ALLOWED_CHAT_IDS
+JIRA_TOKEN_ENCRYPTION_KEY, AI_CREDENTIAL_ENCRYPTION_KEY   # 32-byte keys
+TODO_UPLOAD_DIR, PROJECT_UPLOAD_DIR, LETTER_UPLOAD_DIR, UPLOAD_DIR, PROJECT_CREATION_UPLOAD_DIR   # writable
+PROJECT_CREATION_CLAMAV_HOST, PROJECT_CREATION_CLAMAV_PORT, PROJECT_CREATION_CLAMAV_TIMEOUT_MS
+RETENTION_EMAIL_DIGEST_DAYS, RETENTION_OUTBOUND_EMAIL_DAYS, RETENTION_CLIENT_ERROR_DAYS,
+TELEGRAM_MESSAGE_RETENTION_DAYS, RETENTION_AI_GENERATION_DAYS, RETENTION_JIRA_SYNC_LOG_DAYS   # optional
+NOTIFICATION_BATCH_MINUTES (informational), AUTH_WALLPAPER_SOURCE
 ```
+
+### 18.2 Deploy checklist for the 2026-09-25 remediation
+
+One commit/push once both sessions are green (tsc + all suites + `next build`) **and the user approves**. Then, in order:
+1. Production env (then restart): `CRON_SECRET` ≥16 chars (else every cron 503s); `TELEGRAM_ALLOWED_CHAT_IDS` (empty = `/ask` refused); `NEXTAUTH_SECRET` (also signs AI revision tokens); `LETTER_UPLOAD_DIR` and `PROJECT_CREATION_UPLOAD_DIR` writable; `PROJECT_CREATION_CLAMAV_HOST` (creation uploads fail closed without clamd); `JIRA_TOKEN_ENCRYPTION_KEY`, `AI_CREDENTIAL_ENCRYPTION_KEY`; **real Pusher credentials** (bell, sprint board and OKR realtime).
+2. Deploy code; `scripts/preflight.sql` (indexes pre-created `CONCURRENTLY`) then `prisma db push` — `User.passwordChangedAt`, `emailCadence` default `BATCHED`, `LetterTemplate` table, `ChangeRequest.visibility` (+ index), the P1 indexes, and okr-mgt-e6's `Todo.recurrenceAnchorDay`.
+3. One-off scripts, dry-run first, then `--apply`: `scripts/notifications-set-batched-defaults.ts`, `scripts/migrate-project-attachments-private.ts`, `scripts/migrate-todo-comment-attachments.ts`; other session: `scripts/update-employee-todo-scope.ts` (**after** the code is live), `backfill-sprint-participants.ts`, `migrate-todo-attachments-private.ts`.
+4. Seeds if not yet on prod: `npm run db:seed:scrum-permissions`, `npm run db:seed:scrum-settings`, `npm run db:seed:culture-library`.
+5. Re-run `scripts/install-crontab.sh` — installs `attachment-staging-cleanup` (00:50) and the other newly scheduled jobs, rewrites legacy `?key=` lines.
+6. Afterwards: browser/visual QA of the remediated pages (not done yet) — see §20.
 
 ---
 
@@ -1661,22 +1871,21 @@ TELEGRAM_BOT_SECRET
 |---------|--------|
 | Authentication (NextAuth, JWT) | ✅ DONE |
 | RBAC (Permissions) | ✅ DONE |
-| Objectives CRUD + hierarchy + cloning | ✅ DONE (needs modal refactor) |
-| Key Results CRUD + check-ins + archiving | ✅ DONE (needs modal refactor) |
+| Objectives CRUD + hierarchy + cloning | ✅ DONE |
+| Key Results CRUD + check-ins + archiving | ✅ DONE |
 | Progress calculation (LOOSE + STRICT_DEPENDENCY) | ✅ DONE |
 | Confidence snapshots (bi-weekly + cron) | ✅ DONE |
-| Todos / Initiatives CRUD | ✅ DONE (needs refactor) |
+| Todos / Initiatives CRUD | ✅ DONE |
 | Todo comments, checklists, attachments | ✅ DONE |
 | Comment attachments + shared attachment viewer (`useAttachmentViewer`) | ✅ DONE (project activity files excluded pending portal-visibility review) |
 | Initiative daily updates | ✅ DONE |
 | Sprint board (kanban) | ✅ DONE |
 | AI Sprint Planning | 🔄 IN PROGRESS |
-| Goals view (table/feed/team) | ✅ DONE |
-| Filters Workspace (3-tab analytical) | ✅ DONE |
-| Plans page (List + Gantt) | ✅ DONE |
-| Alignment Map | ✅ DONE |
-| Company OKRs / Department OKRs | ✅ DONE |
-| Dashboard (home, my-okrs, my-tasks) | ✅ DONE |
+| OKR Explorer (list/tree/timeline/map/analyze + levels) | ✅ DONE (2026-09-25) |
+| Insights (overview/progress/reports/initiatives/period-close) | ✅ DONE (2026-09-25) |
+| Filters Workspace (3-tab analytical, sort) | ✅ DONE |
+| Goals view, Plans list, Company/Department OKR pages, alignment-map/analytics/progress/reports pages | ↪ RETIRED 2026-09-25 (14 permanent redirects) |
+| Dashboard (home, my-okrs) | ✅ DONE (my-tasks → redirect) |
 | Reports & Analytics | ✅ DONE |
 | Activity Feed | ✅ DONE |
 | User Management | ✅ DONE |
@@ -1690,7 +1899,7 @@ TELEGRAM_BOT_SECRET
 | Favorites | ✅ DONE |
 | Settings (profile, account, OKR rules, branding) | ✅ DONE |
 | Audit Logs | ✅ DONE |
-| Letter Management (full workflow) | ✅ DONE (PDF/Odoo mocked) |
+| Letter Management (full workflow, real PDF, Odoo w/ mock fallback) | ✅ DONE |
 | Letter Permissions (DB-driven) | ✅ DONE |
 | Risk Register | ✅ DONE |
 | Activity Logging (audit trail) | ✅ DONE |
@@ -1699,37 +1908,52 @@ TELEGRAM_BOT_SECRET
 | AI Generation Logging | ✅ DONE |
 | Performance & Scorecard core review lifecycle | 🔄 IN PROGRESS |
 | Daily Trip Plan (DTP) — web Phase 1 | 🔄 IN PROGRESS |
-| Daily Scrum — P0 foundation | 🔄 IN PROGRESS |
+| Daily Scrum — S1–S11 built | 🔄 IN PROGRESS (manual QA; server drafts done 2026-09-25) |
 | DTP — Distance Matrix / VRP Optimizer | 🗓 PLANNED (Phase 2) |
 | DTP — Mobile App (Flutter) | 🗓 PLANNED (Phase 2) |
 | Telegram Bot — Stage 1 (Q&A) | 🔄 IN PROGRESS |
 | Telegram Bot — Stage 2 (Odoo digests) | ⏸ DEFERRED |
 | Telegram Bot — Stage 3 (tool use + admin UI) | ⏸ DEFERRED |
-| Letter Reporting view | 🗓 PLANNED |
-| Letter Notifications on transitions | 🗓 PLANNED |
-| Letter Template management screen | 🗓 PLANNED |
+| Letter Reporting view (FR-16) | ✅ DONE (2026-09-25) |
+| Letter Notifications on transitions | ✅ DONE |
+| Letter Template management screen | ✅ DONE (2026-09-25) |
+| Letter enclosures (real files) | ✅ DONE (2026-09-25) |
+| Performance Excel scorecard seed | ✅ DONE |
+| Sprint board facets + realtime | ✅ DONE (2026-09-25; realtime needs real Pusher creds) |
+| To-do comment attachments on `CommentAttachment` | ✅ DONE (2026-09-25) |
+| Client-portal account management | ✅ DONE (2026-09-25) |
+| Security hardening (auth, cron, CSP, rate limits, uploads, object-level reads) | ✅ DONE (2026-09-25; Next 14.2.35) |
+| Project creation: DOCX → schedule, provenance, background processing | ✅ DONE (2026-09-25) |
+| AI-guided project creation (P3, OpenAI) | ✅ DONE (2026-09-25; behind the AI flag) |
+| Portal Planned vs Actual + client-visible change requests | ✅ DONE (2026-09-25) |
+| OKR realtime + live comments | ✅ DONE (2026-09-25; needs real Pusher creds) |
+| Comment attachments for project activities + scrum, staging cleanup cron | ✅ DONE (2026-09-25) |
+| Thin pages (no Prisma in `page.tsx`) | ✅ DONE (2026-09-25) |
+| `test:core` suite (RBAC, progress, API, email, DTP, stores, AI providers) | ✅ DONE (2026-09-25) |
+| Design tokens → CSS vars, dark mode, caption/micro tokens | ✅ DONE (2026-09-25) |
+| ESLint + CI (tests, tsc, lint, build) | ✅ DONE (2026-09-25) |
+| Account deletion | ✅ admin-only anonymise (no self-service) |
 
 ---
 
 ## 20. Known Issues & Refactor Backlog
 
+Resolved 2026-09-25 and removed from this list: objective/KR modal duplication (all on `Modal`/`ConfirmDialog`), `ToDoList` vs `MyTasksList` toggle duplication (`MyTasksList` deleted), company/department page duplication (`OKRLevelView`), letter PDF (real Puppeteer), letter Odoo integration (real, mock fallback), unbounded `Notification` table (nightly prune + retention), Performance Excel seed, performance report visuals (radar/trend/attainment shipped), performance audit integration (`ActivityLog.evaluationId` + audit-coverage test).
+
 | Area | Issue | Priority |
 |------|-------|----------|
-| Objectives modals | 19 modal wrappers with identical structure → consolidate to `components/ui/Modal` | Medium |
-| KR modals | Same duplication as objectives | Medium |
-| `ToDoList` vs `MyTasksList` | Duplicate status toggle logic | Medium |
-| `company-okrs` vs `department-okrs` | Near-identical pages — DONE via `OKRLevelView` but old pages still exist | Low |
+| Next.js version | Upgraded to 14.2.35 (2026-09-25). Next 14 is EOL; the remaining advisories are fixed only in 15.5.x — major upgrade, user decision | **High** |
+| Rate limiting | In-memory per process — not shared across PM2 instances or restarts | Medium |
 | `UserManagement` | Uses `useState` instead of `react-hook-form` — inconsistent | Low |
-| `GoalsTable`, `GoalsFeedView`, `MyTeamView` | Duplicate empty-state blocks | Low |
 | Sprint legacy tables | `SprintActivity`, `SprintActivityComment`, `SprintActivityTask` — DEPRECATED, slated for removal | Planned |
-| Pusher placeholder creds | `dev-placeholder`/`your-*`/`0` pass truthy guard → every mutation awaits 400 from Pusher | Blocker if real-time needed |
-| Letter PDF | Returns server-rendered HTML — needs Puppeteer or `@react-pdf/renderer` | Planned |
-| Letter Odoo integration | Returns stub roster — needs real Odoo `res.partner` API | Planned |
-| Notification dedup upper bound | No sweeper for old unread notifications → `Notification` table grows unbounded | Medium |
+| Pusher placeholder creds | Realtime (bell, sprint board, OKR pages) needs real credentials; placeholders are rejected by `isUsableCred()` and the UI degrades to refetch-on-open | Blocker if real-time needed |
+| Bundle | P3 partial: no dependencies dropped yet | Low |
 | Notification quiet hours | All emails fire in server time — no per-user timezone or quiet hours | Low |
 | Watcher UI | `Watcher` rows can only be created programmatically — no Watch button in UI | Low |
-| Email batch sends | Sequential sends in digest drain — slow for large orgs | Medium |
-| DTP Distance Matrix | 10-minute placeholder — no real Google/HERE integration | Phase 2 |
-| Performance Excel seed | Required scorecard source workbooks are absent | Blocked |
-| Performance report visuals | Radar, trend, and OKR-attainment sections remain | Planned |
-| Performance audit integration | Shared ActivityLog has no performance entity foreign key | Planned |
+| DTP Distance Matrix + optimizer | 10-minute placeholder, no VRP suggestions — needs a Google key | Phase 2 |
+| Label rename/recolour + global labels | Blocked on decisions A2/A3 | Blocked |
+| Calendar view, recurring sub-tasks | Other session (okr-mgt-e6), after this release | Planned |
+| dnd-kit migration + board virtualisation | Needs dependency approval | Blocked |
+| Custom fields | Not started | Planned |
+| Automations P2b / P3 / P4, Telegram stages 2–3 | Keys + SSRF review | Blocked |
+| Browser / visual QA | No browser or visual QA of the 2026-09-25 remediation yet (only tsc, lint, 15 test scripts, `next build`) | **High** before release |

@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { escapeHtml } from '@/lib/letter-sanitize'
 import {
   LetterType,
   LETTER_TYPE_CODE,
@@ -122,7 +123,9 @@ export function resolvePlaceholders(body: string, ctx: PlaceholderContext): {
       missing.push(key)
       return `[MISSING: ${key}]`
     }
-    return v
+    // Values are plain-text DB fields (customer name, department, …) being
+    // spliced into HTML — escape them so they can't inject markup.
+    return escapeHtml(v)
   })
   return { html, missing: Array.from(new Set(missing)) }
 }

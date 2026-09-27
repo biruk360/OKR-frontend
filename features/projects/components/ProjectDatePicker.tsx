@@ -54,7 +54,7 @@ export function ProjectDatePicker({
           disabled={disabled}
           aria-label={ariaLabel}
           className={cn(
-            'flex h-9 w-full min-w-0 items-center gap-2 rounded-md border border-black/[0.1] bg-white px-2.5 text-left text-[12px] text-ink-primary outline-none transition hover:border-black/20 focus-visible:border-primary-500 focus-visible:ring-2 focus-visible:ring-primary-100 disabled:cursor-not-allowed disabled:bg-surface-muted disabled:text-ink-tertiary',
+            'flex h-9 w-full min-w-0 items-center gap-2 rounded-md border border-ink-primary/[0.1] bg-surface-card px-2.5 text-left text-xs text-ink-primary outline-none transition hover:border-ink-primary/20 focus-visible:border-primary-500 focus-visible:ring-2 focus-visible:ring-primary-100 disabled:cursor-not-allowed disabled:bg-surface-muted disabled:text-ink-tertiary',
             className,
             buttonClassName,
           )}
@@ -70,21 +70,21 @@ export function ProjectDatePicker({
           align={align}
           sideOffset={7}
           collisionPadding={10}
-          className="z-[100] w-[286px] rounded-md border border-black/20 bg-white p-2 text-ink-primary shadow-[0_12px_30px_rgba(15,23,42,0.18)] outline-none"
+          className="z-[100] w-[286px] rounded-md border border-ink-primary/20 bg-surface-card p-2 text-ink-primary shadow-[0_12px_30px_rgba(15,23,42,0.18)] outline-none"
         >
           <Popover.Arrow className="fill-white stroke-black/20" width={14} height={7} />
           <div className="grid h-9 grid-cols-[36px_1fr_36px] items-center">
             <button type="button" className="flex size-8 items-center justify-center rounded text-ink-secondary hover:bg-surface-hover hover:text-ink-primary" onClick={() => setVisibleMonth((month) => addMonths(month, -1))} aria-label="Previous month">
               <ChevronLeft className="size-5" />
             </button>
-            <div className="text-center text-[16px] font-semibold">{format(visibleMonth, 'MMMM yyyy')}</div>
+            <div className="text-center text-base font-semibold">{format(visibleMonth, 'MMMM yyyy')}</div>
             <button type="button" className="flex size-8 items-center justify-center rounded text-ink-secondary hover:bg-surface-hover hover:text-ink-primary" onClick={() => setVisibleMonth((month) => addMonths(month, 1))} aria-label="Next month">
               <ChevronRight className="size-5" />
             </button>
           </div>
 
-          <div className="mt-1 grid grid-cols-7 border-b border-black/[0.12] pb-1">
-            {WEEKDAYS.map((weekday) => <div key={weekday} className="flex h-7 items-center justify-center text-[12px] font-medium text-ink-secondary">{weekday}</div>)}
+          <div className="mt-1 grid grid-cols-7 border-b border-ink-primary/[0.12] pb-1">
+            {WEEKDAYS.map((weekday) => <div key={weekday} className="flex h-7 items-center justify-center text-xs font-medium text-ink-secondary">{weekday}</div>)}
           </div>
           <div className="mt-1 grid grid-cols-7">
             {days.map((day) => {
@@ -97,10 +97,10 @@ export function ProjectDatePicker({
                   type="button"
                   onClick={() => { onChange(toProjectDateValue(day)); setOpen(false) }}
                   className={cn(
-                    'mx-auto flex size-9 items-center justify-center rounded-md text-[13px] tabular-nums outline-none hover:bg-primary-50 focus-visible:ring-2 focus-visible:ring-primary-300',
+                    'mx-auto flex size-9 items-center justify-center rounded-md text-sm tabular-nums outline-none hover:bg-primary-50 focus-visible:ring-2 focus-visible:ring-primary-300',
                     !inMonth && 'text-ink-tertiary/60',
                     isToday && !isSelected && 'font-semibold text-primary-700 ring-1 ring-primary-300',
-                    isSelected && 'bg-primary-600 font-semibold text-white hover:bg-primary-700',
+                    isSelected && 'bg-primary-600 font-semibold text-primary-foreground hover:bg-primary-700',
                   )}
                   aria-label={format(day, 'EEEE, MMMM d, yyyy')}
                   aria-pressed={isSelected}
@@ -110,10 +110,10 @@ export function ProjectDatePicker({
               )
             })}
           </div>
-          <div className="mt-1 flex items-center justify-between border-t border-black/[0.1] pt-2">
-            <button type="button" className="rounded px-2 py-1 text-[12px] font-medium text-primary-700 hover:bg-primary-50" onClick={() => { const next = toProjectDateValue(today); onChange(next); setVisibleMonth(startOfMonth(today)); setOpen(false) }}>Today</button>
+          <div className="mt-1 flex items-center justify-between border-t border-ink-primary/[0.1] pt-2">
+            <button type="button" className="rounded px-2 py-1 text-xs font-medium text-primary-700 hover:bg-primary-50" onClick={() => { const next = toProjectDateValue(today); onChange(next); setVisibleMonth(startOfMonth(today)); setOpen(false) }}>Today</button>
             {allowClear && selected && (
-              <button type="button" className="inline-flex items-center gap-1 rounded px-2 py-1 text-[12px] text-ink-secondary hover:bg-surface-hover hover:text-danger-600" onClick={() => { onChange(''); setOpen(false) }}>
+              <button type="button" className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-ink-secondary hover:bg-surface-hover hover:text-danger-600" onClick={() => { onChange(''); setOpen(false) }}>
                 <X className="size-3" /> Clear
               </button>
             )}

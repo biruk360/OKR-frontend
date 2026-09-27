@@ -81,7 +81,7 @@ export function PeopleTab({ tree, settings }: { tree: OrgTree; settings?: OrgSet
         style={{ background: '#fff', border: '1px solid var(--ap-border)' }}
       >
         <div
-          className="grid items-center gap-3 px-4 py-2 text-[10px] font-semibold uppercase tracking-widest"
+          className="grid items-center gap-3 px-4 py-2 text-micro font-semibold uppercase tracking-widest"
           style={{
             background: 'var(--ap-bg-raised)',
             borderBottom: '1px solid var(--ap-border)',
@@ -153,7 +153,7 @@ function PersonRow({
             {row.name ?? row.email}
             {isCeo && <Crown className="size-3" style={{ color: '#b45309' }} />}
           </p>
-          <p className="truncate text-[11px]" style={{ color: 'var(--ap-fg-subtle)' }}>{row.email}</p>
+          <p className="truncate text-caption" style={{ color: 'var(--ap-fg-subtle)' }}>{row.email}</p>
         </div>
       </div>
 
@@ -207,7 +207,7 @@ function PersonRow({
             type="button"
             onClick={onSetCeo}
             title="Set as CEO"
-            className="rounded-md px-2 py-1 text-[11px] font-semibold transition-colors hover:bg-black/5"
+            className="rounded-md px-2 py-1 text-caption font-semibold transition-colors hover:bg-black/5"
             style={{ color: 'var(--ap-accent)' }}
           >
             Set CEO

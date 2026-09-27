@@ -125,15 +125,21 @@ describe('Story 2.4 DOCX ordered extraction and untrusted-data framing', () => {
 
   it('wires scan-before-extraction, persisted source refs, safe UI states, and no project creation', () => {
     const route = read('app/api/projects/creation-drafts/[id]/upload/route.ts')
+    const processing = read('lib/projects/creation-processing.ts')
     const upload = read('features/projects/components/creation/ImportUploadStep.tsx')
     const errorAdapter = read('lib/projects/creation-import-api.ts')
     const extractor = read('lib/projects/docx-extract.ts')
 
-    assert.ok(route.indexOf('secureProjectCreationUpload({') < route.indexOf('extractProjectCreationDocx(bytes)'))
-    assert.match(route, /outcome: 'DOCX_EXTRACTED'/)
-    assert.match(route, /projectCreationDocxExtractionToSchedule\(extraction\)/)
-    assert.match(route, /inspection: null/)
-    assert.doesNotMatch(route, /createProjectWithTemplate|project\.create|emit\('PROJECT_CREATED'/)
+    // Story 2.7: the route scans + stores, then schedules extraction after the response.
+    assert.ok(route.indexOf('secureProjectCreationUpload({') < route.indexOf('runAfterResponse('))
+    assert.doesNotMatch(route, /extractProjectCreationDocx/)
+    assert.match(processing, /readSecureProjectCreationUpload/)
+    assert.ok(processing.indexOf("createHash('sha256')") < processing.indexOf('extractProjectCreationDocx(bytes)'))
+    assert.match(processing, /outcome: 'DOCX_EXTRACTED'/)
+    assert.match(processing, /buildProjectCreationDocxSchedule\(extraction/)
+    for (const file of [route, processing]) {
+      assert.doesNotMatch(file, /createProjectWithTemplate|project\.create|emit\('PROJECT_CREATED'/)
+    }
     assert.match(upload, /\.docx/)
     assert.match(upload, /Document content is untrusted project data/)
     assert.match(upload, /no project was created/i)

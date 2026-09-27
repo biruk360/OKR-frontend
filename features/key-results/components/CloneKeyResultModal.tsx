@@ -246,7 +246,7 @@ export default function CloneKeyResultModal({
           >
             {isLoading ? (
               <div className="flex items-center">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2" />
                 Cloning...
               </div>
             ) : (

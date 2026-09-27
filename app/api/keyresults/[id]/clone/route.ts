@@ -4,6 +4,7 @@ import { parseStartAndTarget } from '@/lib/keyResultNumbers'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { recalcNodeAndAncestors } from '@/lib/objectiveProgress'
 import { recordActivity } from '@/lib/activity-log'
+import { canCloneKeyResult } from '@/lib/okr/action-permissions'
 import {
   apiSuccess,
   apiBadRequest,
@@ -14,18 +15,8 @@ import {
 } from '@/lib/api'
 
 export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { session, params }) => {
-  if (!['ADMIN', 'EXECUTIVE', 'DEPARTMENT_LEAD'].includes(session.user.role)) {
-    return apiForbidden('Insufficient permissions to clone key results')
-  }
-
   const { id: keyResultId } = await resolveParams(params)
   if (!keyResultId) return apiBadRequest('Invalid key result id')
-
-  const { title, description, ownerId, startValue, targetValue, unit, objectiveId, useCarriedBaseline = true, includeIncompleteTodos } = await request.json()
-
-  if (!title || !ownerId || targetValue === undefined || targetValue === null || targetValue === '' || !objectiveId) {
-    return apiBadRequest('Title, owner, target value, and objective are required')
-  }
 
   const originalKeyResult = await prisma.keyResult.findUnique({
     where: { id: keyResultId },
@@ -38,6 +29,19 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
   })
 
   if (!originalKeyResult) return apiNotFound('Original key result not found')
+
+  // Single rule shared with the UI (lib/okr/action-permissions.ts): clone roles
+  // ADMIN/EXECUTIVE/DEPARTMENT_LEAD, then ADMIN or the parent objective's owner.
+  if (!canCloneKeyResult(session.user.role, session.user.id, originalKeyResult.objective.ownerId)) {
+    return apiForbidden('Insufficient permissions to clone this key result')
+  }
+
+  const { title, description, ownerId, startValue, targetValue, unit, objectiveId, useCarriedBaseline = true, includeIncompleteTodos } = await request.json()
+
+  if (!title || !ownerId || targetValue === undefined || targetValue === null || targetValue === '' || !objectiveId) {
+    return apiBadRequest('Title, owner, target value, and objective are required')
+  }
+
   if (originalKeyResult.rolledTo.length > 0) {
     return apiConflict('This Key Result has already been rolled forward. Open its successor instead.')
   }
@@ -45,14 +49,6 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
   const carriedStartValue = originalKeyResult.finalValue ?? originalKeyResult.currentValue
   const bounds = parseStartAndTarget(useCarriedBaseline ? carriedStartValue : startValue, targetValue)
   if (!bounds.ok) return apiBadRequest(bounds.message)
-
-  const canClone =
-    session.user.role === 'ADMIN' ||
-    session.user.id === originalKeyResult.objective.ownerId
-
-  if (!canClone) {
-    return apiForbidden('Insufficient permissions to clone this key result')
-  }
 
   const objective = await prisma.objective.findUnique({ where: { id: objectiveId } })
   if (!objective) return apiNotFound('Objective not found')

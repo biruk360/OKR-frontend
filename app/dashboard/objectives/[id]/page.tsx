@@ -1,5 +1,4 @@
 import { getServerSessionSafe } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
 import { resolveParams } from '@/lib/resolve-route-params'
 import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
@@ -9,10 +8,10 @@ import {
   CloneObjectiveButton,
   ObjectiveActionsMenu,
 } from '@/features/objectives'
+import { loadObjectiveDetail } from '@/features/objectives/services/objective-detail.server'
 import WorkItemsKanban from '@/components/shared/WorkItemsKanban'
+import OkrComments from '@/components/shared/OkrComments'
 import { PageTitleSetter } from '@/components/layout/DashboardTitleContext'
-import { computeExpectedProgress, countUnassignedKRs } from '@/lib/okr/compute'
-import { daysUntilDeadline, daysSince, weekLabel } from '@/lib/okr/dates'
 
 import CriticalBanner from '@/components/objective-detail/CriticalBanner'
 import ObjectiveHero from '@/components/objective-detail/ObjectiveHero'
@@ -24,6 +23,7 @@ import { ScrumActivityPanel } from '@/features/scrum'
 import { ObjectiveDeliveryPanel } from '@/features/projects'
 import RolledFromBanner from '@/components/shared/RolledFromBanner'
 import OkrLockBanner from '@/components/shared/OkrLockBanner'
+import ObjectiveRealtimeRefresher from './ObjectiveRealtimeRefresher'
 
 interface ObjectiveDetailPageProps {
   params: { id: string } | Promise<{ id: string }>
@@ -36,142 +36,70 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
   const { id } = await resolveParams(params)
   if (!id) notFound()
 
-  const objective = await prisma.objective.findUnique({
-    where: { id },
-    include: {
-      owner: { select: { id: true, name: true, avatar: true, email: true } },
-      timeframe: true,
-      department: { select: { id: true, name: true } },
-      parentObjective: {
-        select: { id: true, title: true, level: true, goalStatus: true, progress: true },
-      },
-      contributors: {
-        include: { user: { select: { id: true, name: true, avatar: true, email: true } } },
-      },
-      childObjectives: {
-        where: { status: 'ACTIVE' },
-        include: {
-          owner: { select: { id: true, name: true, avatar: true } },
-          department: { select: { id: true, name: true } },
-          _count: { select: { keyResults: true } },
-        },
-        orderBy: { updatedAt: 'desc' },
-      },
-      keyResults: {
-        include: { owner: { select: { id: true, name: true, avatar: true } } },
-        orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
-      },
-      _count: { select: { keyResults: true, childObjectives: true } },
-      rolledFrom: {
-        select: { id: true, title: true, finalGrade: true, finalProgress: true, finalConfidence: true, closureNote: true, timeframe: true, retrospective: true },
-      },
-      rolledTo: {
-        select: { id: true, title: true, timeframe: true },
-        take: 1,
-      },
-    },
-  })
-
-  if (!objective) notFound()
-
-  // Kanban initiatives
-  const krIds = objective.keyResults.map(k => k.id)
-  const kanbanInitiatives = await prisma.todo.findMany({
-    where: {
-      status: { not: 'CANCELLED' },
-      OR: [
-        { objectiveId: id },
-        krIds.length > 0 ? { keyResultId: { in: krIds } } : { id: '___none___' },
-      ],
-    },
-    select: { id: true, title: true, status: true, keyResultId: true },
-    orderBy: { updatedAt: 'desc' },
-  })
-
-  // Snapshots for timeline chart
-  const snapshots = await prisma.confidenceSnapshot.findMany({
-    where: { entityType: 'OBJECTIVE', entityId: objective.id },
-    orderBy: { periodStart: 'asc' },
-    select: { periodStart: true, score: true },
-  })
-
-  // Contributors (distinct from KR owners)
-  const contributorUsers = (objective.contributors ?? [])
-    .map((c: any) => c.user)
-    .filter((u: any) => u && u.id !== objective.ownerId)
-
-  const collaboratorsMap = new Map<string, { id: string; name: string; avatar: string | null; source: string }>()
-  for (const u of contributorUsers) {
-    collaboratorsMap.set(u.id, { id: u.id, name: u.name, avatar: u.avatar, source: 'contributor' })
-  }
-  for (const kr of objective.keyResults) {
-    if (kr.owner.id === objective.ownerId) continue
-    if (!collaboratorsMap.has(kr.owner.id)) {
-      collaboratorsMap.set(kr.owner.id, { ...kr.owner, source: 'kr-owner' })
-    }
-  }
-  const collaborators = Array.from(collaboratorsMap.values())
-
-  const timeframes = await prisma.timeframe.findMany({ orderBy: { startDate: 'desc' } })
-  const users = await prisma.user.findMany({
-    select: { id: true, name: true, email: true },
-    orderBy: { name: 'asc' },
-  })
-
-  // Computed values
-  const cycleStart = new Date(objective.timeframe.startDate)
-  const cycleEnd = new Date(objective.timeframe.endDate)
-  const expectedProgress = computeExpectedProgress(cycleStart, cycleEnd)
-  const daysLeft = daysUntilDeadline(cycleEnd)
-  const lastUpdatedDays = daysSince(objective.updatedAt)
-  const activeKrs = objective.keyResults.filter(kr => kr.status === 'ACTIVE')
-  const unassignedKrCount = countUnassignedKRs(objective.keyResults)
-  const wkLabel = weekLabel(cycleStart, cycleEnd)
-
-  // Owner OKR summary for hover card
-  const [ownerObjCount, ownerKrAgg] = await Promise.all([
-    prisma.objective.count({ where: { ownerId: objective.ownerId, status: 'ACTIVE' } }),
-    prisma.keyResult.aggregate({
-      where: { ownerId: objective.ownerId, status: 'ACTIVE' },
-      _avg: { progress: true },
-      _count: { _all: true },
-    }),
-  ])
-  const ownerSummary = {
-    objectiveCount: ownerObjCount,
-    krCount: ownerKrAgg._count._all,
-    avgProgress: Math.round(ownerKrAgg._avg.progress ?? 0),
-  }
-
-  const showCriticalBanner =
-    (expectedProgress - objective.progress > 20) ||
-    unassignedKrCount > 0 ||
-    lastUpdatedDays > 14
+  // Visibility gate (not-found / redacted), per-KR redaction, action
+  // permissions and every read live in the loader.
+  const {
+    objective,
+    isRedacted,
+    permissions,
+    canEdit,
+    canCreateKr,
+    kanbanInitiatives,
+    snapshots,
+    collaborators,
+    timeframes,
+    users,
+    expectedProgress,
+    daysLeft,
+    lastUpdatedDays,
+    activeKrs,
+    unassignedKrCount,
+    wkLabel,
+    ownerSummary,
+    showCriticalBanner,
+  } = await loadObjectiveDetail(session.user, id)
 
   return (
     <>
       <PageTitleSetter title={objective.title} />
+      {!isRedacted && <ObjectiveRealtimeRefresher objectiveId={objective.id} currentUserId={session.user.id} />}
       <div className="space-y-4">
         {/* Top bar: back + actions */}
         <div className="flex items-center justify-between">
           <Link
-            href="/dashboard/objectives"
+            href="/dashboard/okrs-all"
             className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="size-4 mr-1" /> Back to Objectives
           </Link>
           <div className="flex items-center gap-2">
-            {objective.status !== 'ARCHIVED' && (
+            {!isRedacted && objective.status !== 'ARCHIVED' && (
               <>
-                <CloneObjectiveButton objective={objective} timeframes={timeframes} className="px-3 py-2" />
-                {!objective.isLocked && <EditObjectiveButton objective={objective} className="px-3 py-2" />}
+                <CloneObjectiveButton
+                  objective={objective}
+                  timeframes={timeframes}
+                  canClone={permissions.canClone}
+                  className="px-3 py-2"
+                />
+                {!objective.isLocked && (
+                  <EditObjectiveButton objective={objective} canEdit={permissions.canEdit} className="px-3 py-2" />
+                )}
               </>
             )}
-            <ObjectiveActionsMenu objective={objective} />
+            {!isRedacted && (
+              <ObjectiveActionsMenu
+                objective={objective}
+                permissions={permissions}
+                redirectAfterDelete="/dashboard/okrs-all"
+                auditLogElementId={`obj-activity-${objective.id}`}
+              />
+            )}
           </div>
         </div>
 
-        <RolledFromBanner entityType="objective" previous={objective.rolledFrom} next={objective.rolledTo[0]} lineageDepth={objective.lineageDepth} />
+        {!isRedacted && (
+          <RolledFromBanner entityType="objective" previous={objective.rolledFrom} next={objective.rolledTo[0]} lineageDepth={objective.lineageDepth} />
+        )}
         {objective.isLocked && <OkrLockBanner entityType="Objective" reopenCount={objective.reopenCount} closedAt={objective.closedAt} />}
 
         {/* ═══ MAIN 2-COLUMN GRID ═══ */}
@@ -198,7 +126,13 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
               ownerSummary={ownerSummary}
             />
 
-            <KRList keyResults={objective.keyResults} objectiveId={objective.id} />
+            <KRList
+              keyResults={objective.keyResults}
+              objectiveId={objective.id}
+              canCreate={canCreateKr && objective.status === 'ACTIVE' && !objective.isLocked}
+              users={users}
+              currentUserId={session.user.id}
+            />
 
             <WorkItemsKanban
               keyResults={objective.keyResults.map(kr => ({
@@ -211,6 +145,15 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
                 keyResultId: i.keyResultId,
               }))}
             />
+
+            {!isRedacted && (
+              <OkrComments
+                endpoint="objectives"
+                entityId={objective.id}
+                users={users}
+                currentUserId={session.user.id}
+              />
+            )}
           </div>
 
           {/* ─── RIGHT SIDEBAR ─── */}
@@ -230,27 +173,32 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
               }))}
             />
 
-            <ScrumActivityPanel objectiveId={objective.id} compact />
+            {!isRedacted && (
+              <>
+                <ScrumActivityPanel objectiveId={objective.id} compact />
 
-            <ObjectiveDeliveryPanel objectiveId={objective.id} />
+                <ObjectiveDeliveryPanel objectiveId={objective.id} />
 
-            <ActivityTabs
-              objectiveId={objective.id}
-              activityElementId={`obj-activity-${objective.id}`}
-              users={users}
-              details={{
-                owner: objective.owner,
-                timeframe: objective.timeframe,
-                department: objective.department,
-                parentObjective: objective.parentObjective ?? null,
-                childObjectives: objective.childObjectives.map(c => ({ id: c.id, title: c.title })),
-                collaborators: [
-                  { id: objective.owner.id, name: objective.owner.name, avatar: objective.owner.avatar, email: objective.owner.email },
-                  ...collaborators,
-                ],
-                measurementCount: objective.keyResults.length,
-              }}
-            />
+                <ActivityTabs
+                  objectiveId={objective.id}
+                  canReportRisk={canEdit}
+                  activityElementId={`obj-activity-${objective.id}`}
+                  users={users}
+                  details={{
+                    owner: objective.owner,
+                    timeframe: objective.timeframe,
+                    department: objective.department,
+                    parentObjective: objective.parentObjective ?? null,
+                    childObjectives: objective.childObjectives.map(c => ({ id: c.id, title: c.title })),
+                    collaborators: [
+                      { id: objective.owner.id, name: objective.owner.name, avatar: objective.owner.avatar, email: objective.owner.email },
+                      ...collaborators,
+                    ],
+                    measurementCount: objective.keyResults.length,
+                  }}
+                />
+              </>
+            )}
           </div>
         </div>
       </div>

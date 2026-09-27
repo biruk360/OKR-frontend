@@ -3,7 +3,7 @@
 import { cn } from '@/lib/utils'
 
 export function Avatar({ name, size = 'sm' }: { name: string | null | undefined; size?: 'xs' | 'sm' | 'md' }) {
-  const sz = size === 'xs' ? 'size-5 text-[10px]' : size === 'md' ? 'size-8 text-[13px]' : 'size-6 text-[11px]'
+  const sz = size === 'xs' ? 'size-5 text-micro' : size === 'md' ? 'size-8 text-[13px]' : 'size-6 text-caption'
   return (
     <span
       className={cn('flex shrink-0 items-center justify-center rounded-full font-bold', sz)}

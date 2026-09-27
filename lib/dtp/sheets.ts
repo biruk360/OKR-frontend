@@ -5,6 +5,7 @@
 
 import { prisma } from '@/lib/prisma'
 import type { TripMode, Flexibility, ModeOfMovement } from '@/types/dtp'
+import { displayLegTime } from './time'
 
 export interface MovementSheetRow {
   stopId: string
@@ -182,7 +183,7 @@ export async function buildRunSheet(driverId: string, date: Date): Promise<RunSh
     }
     return {
       legId: l.id,
-      scheduledTime: l.scheduledTime,
+      scheduledTime: displayLegTime(l.scheduledTime), // "00:30 (+1)" for next-day legs
       legType: l.legType as 'DROPOFF' | 'RETURN_PICKUP',
       fromLabel: l.fromLabel,
       toLabel: l.toLabel,

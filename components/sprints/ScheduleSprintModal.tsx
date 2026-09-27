@@ -93,7 +93,7 @@ export default function ScheduleSprintModal({
         </>
       }
     >
-      <div className="space-y-3 text-[13px]">
+      <div className="space-y-3 text-body-sm">
         <p className="text-muted-foreground">
           <span className="font-semibold text-foreground">{sprintName}</span>
           {' — '}
@@ -102,7 +102,7 @@ export default function ScheduleSprintModal({
             : 'Update the start and end dates for this sprint.'}
         </p>
         <div>
-          <span className="block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Sprint dates</span>
+          <span className="block text-caption font-semibold uppercase tracking-wide text-muted-foreground">Sprint dates</span>
           <div className="mt-1.5">
             <AppleDateRangePicker
               start={start || null}
@@ -110,12 +110,12 @@ export default function ScheduleSprintModal({
               onChange={(s, e) => { setStart(s ?? ''); setEnd(e ?? '') }}
             />
           </div>
-          <p className="mt-1.5 text-[11px] text-muted-foreground">
+          <p className="mt-1.5 text-caption text-muted-foreground">
             Pick a range or use a preset — the duration is shown live.
           </p>
         </div>
         {invalid && start && end && (
-          <p className="text-[12px] text-[var(--ap-danger)]">End date must be on or after start date.</p>
+          <p className="text-xs text-[var(--ap-danger)]">End date must be on or after start date.</p>
         )}
       </div>
     </Modal>

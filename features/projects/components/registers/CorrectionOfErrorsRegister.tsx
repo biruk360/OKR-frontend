@@ -79,7 +79,7 @@ export function CorrectionOfErrorsRegister({ projectId, canEdit }: { projectId: 
       )}
 
       {canEdit && (
-        <div className="mb-4 rounded-card border border-black/[0.08] p-3">
+        <div className="mb-4 rounded-card border border-ink-primary/[0.08] p-3">
           <div className="mb-2 text-body-sm font-medium text-ink-primary">New Correction of Errors</div>
           <div className="grid gap-2 lg:grid-cols-4">
             <input className="input lg:col-span-2" value={draft.trigger} onChange={(e) => setDraft((d) => ({ ...d, trigger: e.target.value }))} placeholder="Trigger" />
@@ -95,7 +95,7 @@ export function CorrectionOfErrorsRegister({ projectId, canEdit }: { projectId: 
               {ownerOptions.map((owner) => <option key={owner.id} value={owner.id}>{owner.label}</option>)}
             </select>
             <ProjectDatePicker value={draft.fixDueDate} onChange={(fixDueDate) => setDraft((d) => ({ ...d, fixDueDate }))} ariaLabel="Fix due date" allowClear={false} />
-            <label className="flex items-center gap-2 rounded-md border border-black/[0.08] px-2 text-body-sm">
+            <label className="flex items-center gap-2 rounded-md border border-ink-primary/[0.08] px-2 text-body-sm">
               <input type="checkbox" checked={draft.fedIntoTemplate} onChange={(e) => setDraft((d) => ({ ...d, fedIntoTemplate: e.target.checked }))} />
               Feed into template
             </label>
@@ -103,9 +103,9 @@ export function CorrectionOfErrorsRegister({ projectId, canEdit }: { projectId: 
           <textarea className="input mt-2 w-full" rows={2} value={draft.timeline} onChange={(e) => setDraft((d) => ({ ...d, timeline: e.target.value }))} placeholder="Factual sequence / timeline" />
           <div className="mt-2 grid gap-2 lg:grid-cols-5">
             {draft.whys.map((why, index) => (
-              <div key={index} className="rounded-md border border-black/[0.08] p-2">
-                <input className="input h-8 w-full text-[12px]" value={why.why} onChange={(e) => updateWhy(index, 'why', e.target.value, setDraft)} placeholder={`Why ${index + 1}`} />
-                <textarea className="input mt-1 min-h-16 w-full text-[12px]" value={why.answer} onChange={(e) => updateWhy(index, 'answer', e.target.value, setDraft)} placeholder="Answer" />
+              <div key={index} className="rounded-md border border-ink-primary/[0.08] p-2">
+                <input className="input h-8 w-full text-xs" value={why.why} onChange={(e) => updateWhy(index, 'why', e.target.value, setDraft)} placeholder={`Why ${index + 1}`} />
+                <textarea className="input mt-1 min-h-16 w-full text-xs" value={why.answer} onChange={(e) => updateWhy(index, 'answer', e.target.value, setDraft)} placeholder="Answer" />
               </div>
             ))}
           </div>
@@ -124,7 +124,7 @@ export function CorrectionOfErrorsRegister({ projectId, canEdit }: { projectId: 
         <div className="overflow-x-auto">
           <table className="w-full text-body-sm">
             <thead>
-              <tr className="border-b border-black/[0.08] text-left text-ink-tertiary">
+              <tr className="border-b border-ink-primary/[0.08] text-left text-ink-tertiary">
                 <th className="px-2 py-1.5 font-medium">COE</th>
                 <th className="px-2 py-1.5 font-medium">Root Cause</th>
                 <th className="px-2 py-1.5 font-medium">Fix</th>
@@ -133,7 +133,7 @@ export function CorrectionOfErrorsRegister({ projectId, canEdit }: { projectId: 
                 {canEdit && <th className="px-2 py-1.5 font-medium">Actions</th>}
               </tr>
             </thead>
-            <tbody className="divide-y divide-black/[0.04]">
+            <tbody className="divide-y divide-ink-primary/[0.04]">
               {rows.map((row) => (
                 <CoeRow
                   key={row.id}
@@ -170,7 +170,7 @@ function TriggerPrompt({ trigger, canEdit, onUse }: { trigger: CoeTriggerNode; c
     <div className="flex flex-wrap items-center gap-2 rounded-card border border-warning-500/20 bg-warning-50 px-3 py-2">
       <AlertTriangle className="size-4 text-warning-700" />
       <div className="flex-1 text-body-sm text-warning-800">{trigger.trigger}</div>
-      {canEdit && <button className="btn btn-outline btn-sm bg-white" onClick={onUse}>Create COE</button>}
+      {canEdit && <button className="btn btn-outline btn-sm bg-surface-card" onClick={onUse}>Create COE</button>}
     </div>
   )
 }
@@ -186,25 +186,25 @@ function CoeRow({ row, canEdit, ownerName, onUpdate, onDelete }: {
     <tr>
       <td className="max-w-md px-2 py-2">
         <div className="font-medium text-ink-primary">{row.coeCode}</div>
-        <div className="text-[12px] text-ink-secondary">{row.trigger}</div>
-        <div className="mt-1 text-[12px] text-ink-tertiary">{row.daysLost} days lost{row.costImpact != null ? ` · ${row.costImpact.toLocaleString()} cost` : ''}</div>
+        <div className="text-xs text-ink-secondary">{row.trigger}</div>
+        <div className="mt-1 text-xs text-ink-tertiary">{row.daysLost} days lost{row.costImpact != null ? ` · ${row.costImpact.toLocaleString()} cost` : ''}</div>
       </td>
       <td className="px-2 py-2">
-        <span className="rounded-pill bg-surface-muted px-2 py-0.5 text-[12px] text-ink-secondary">{labelize(row.rootCauseClass)}</span>
+        <span className="rounded-pill bg-surface-muted px-2 py-0.5 text-xs text-ink-secondary">{labelize(row.rootCauseClass)}</span>
       </td>
       <td className="px-2 py-2 text-ink-secondary">
-        <span className={cn('rounded-pill px-2 py-0.5 text-[12px] font-medium', STATUS_CLASS[row.fixStatus])}>{labelize(row.fixStatus)}</span>
-        {row.isOverdue && <div className="mt-1 text-[12px] font-medium text-danger-700">Overdue</div>}
-        <div className="mt-1 text-[12px] text-ink-tertiary">{fmtDate(row.fixDueDate)} · {ownerName ?? 'Owner assigned'}</div>
+        <span className={cn('rounded-pill px-2 py-0.5 text-xs font-medium', STATUS_CLASS[row.fixStatus])}>{labelize(row.fixStatus)}</span>
+        {row.isOverdue && <div className="mt-1 text-xs font-medium text-danger-700">Overdue</div>}
+        <div className="mt-1 text-xs text-ink-tertiary">{fmtDate(row.fixDueDate)} · {ownerName ?? 'Owner assigned'}</div>
       </td>
       <td className="px-2 py-2">
-        <span className={cn('rounded-pill px-2 py-0.5 text-[12px] font-medium', row.whysComplete ? 'bg-success-50 text-success-700' : 'bg-warning-50 text-warning-700')}>
+        <span className={cn('rounded-pill px-2 py-0.5 text-xs font-medium', row.whysComplete ? 'bg-success-50 text-success-700' : 'bg-warning-50 text-warning-700')}>
           {row.whysComplete ? 'Complete' : `${row.whys.filter((why) => why.why && why.answer).length}/5`}
         </span>
       </td>
       <td className="px-2 py-2">
         {canEdit ? (
-          <button className={cn('rounded-md px-2 py-1 text-[12px] font-medium', row.fedIntoTemplate ? 'bg-success-50 text-success-700' : 'bg-surface-muted text-ink-secondary')} onClick={() => onUpdate({ fedIntoTemplate: !row.fedIntoTemplate })}>
+          <button className={cn('rounded-md px-2 py-1 text-xs font-medium', row.fedIntoTemplate ? 'bg-success-50 text-success-700' : 'bg-surface-muted text-ink-secondary')} onClick={() => onUpdate({ fedIntoTemplate: !row.fedIntoTemplate })}>
             {row.fedIntoTemplate ? 'Fed back' : 'Pending'}
           </button>
         ) : row.fedIntoTemplate ? 'Fed back' : 'Pending'}

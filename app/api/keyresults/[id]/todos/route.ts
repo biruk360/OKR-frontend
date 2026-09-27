@@ -15,6 +15,8 @@ import {
   apiNotFound,
   withAuth,
 } from '@/lib/api'
+import { broadcastKeyResultEvent } from '@/lib/pusher'
+import { OKR_REALTIME_EVENTS } from '@/lib/okr/realtime'
 
 export const GET = withAuth<RouteIdParams>(async (_request, { session, params }) => {
   const { id: keyResultId } = await resolveParams(params)
@@ -124,5 +126,6 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
     metadata: { initiativeId: todo.id, title: todo.title, assigneeId },
   })
 
+  broadcastKeyResultEvent(keyResultId, keyResult.objectiveId, OKR_REALTIME_EVENTS.UPDATED, session.user.id)
   return apiSuccess(todo, { status: 201, message: 'Initiative created successfully' })
 })

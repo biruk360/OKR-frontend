@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { apiBadRequest, apiForbidden, apiNotFound, apiSuccess, withAuth } from '@/lib/api'
 import { hasPerformanceFeature, hasPerformancePermission } from '@/lib/performance'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
+import { recordActivity } from '@/lib/activity-log'
 
 export const PUT = withAuth<RouteIdParams>(async (request: NextRequest, { session, params }) => {
   const { id } = await resolveParams(params)
@@ -21,5 +22,15 @@ export const PUT = withAuth<RouteIdParams>(async (request: NextRequest, { sessio
   const weeklyStep = typeof body.weeklyStep === 'string' ? body.weeklyStep.trim() : ''
   if (!weeklyStep) return apiBadRequest('weeklyStep is required')
   const updated = await prisma.improvementFocus.update({ where: { id }, data: { weeklyStep } })
+  if ((focus.weeklyStep ?? null) !== weeklyStep) {
+    await recordActivity({
+      entityType: 'EVALUATION',
+      evaluationId: focus.evaluationId,
+      action: 'UPDATED',
+      actorId: session.user.id,
+      changes: { weeklyStep: { from: focus.weeklyStep ?? null, to: weeklyStep } },
+      metadata: { kind: 'IMPROVEMENT_FOCUS_WEEKLY_STEP', focusId: id, criterionId: focus.criterionId },
+    })
+  }
   return apiSuccess(updated)
 })

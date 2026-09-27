@@ -8,6 +8,7 @@ import {
 } from '@/lib/attachments/file-types'
 import { generateStoredName, persistFile, deleteFile } from '@/lib/attachments/storage'
 import { canAccessAttachmentScope, isCommentScope } from '@/lib/attachments/access'
+import { sprintClosedGuard } from '@/lib/todos/access'
 
 /**
  * POST /api/comment-attachments — stage a file for a comment.
@@ -35,10 +36,18 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
   if (!isCommentScope(commentType)) return apiBadRequest('Unknown commentType')
   if (!entityId) return apiBadRequest('entityId is required')
 
-  const actor = { id: session.user.id, role: session.user.role as UserRole }
-  const allowed = await canAccessAttachmentScope(commentType, entityId, actor)
+  const actor = { id: session.user.id, role: session.user.role as UserRole, userType: session.user.userType }
+  // Staging a file is adding to the entity: for a card that is the card write
+  // rule (canWriteTodo), the same one its comment POST enforces.
+  const allowed = await canAccessAttachmentScope(commentType, entityId, actor, 'write')
   // Same answer for "no such entity" and "not yours", so an id cannot be probed.
   if (!allowed) return apiForbidden('You do not have access to this item')
+  // A card in a closed sprint is read-only (CDM-11 / STA-7): the comment POST
+  // would 409, so staging a file for it must too.
+  if (commentType === 'TODO') {
+    const closed = await sprintClosedGuard(entityId)
+    if (closed) return closed
+  }
 
   const staged = await prisma.commentAttachment.count({
     where: { entityId, commentType, commentId: null, uploadedById: actor.id },
@@ -103,7 +112,7 @@ export const DELETE = withAuth(async (request: NextRequest, { session }) => {
 
   const row = await prisma.commentAttachment.findUnique({
     where: { id },
-    select: { id: true, storedName: true, uploadedById: true, commentId: true },
+    select: { id: true, storedName: true, uploadedById: true, commentId: true, commentType: true, entityId: true },
   })
   if (!row || row.uploadedById !== session.user.id || row.commentId !== null) {
     return apiForbidden('Cannot remove this attachment')
@@ -113,9 +122,10 @@ export const DELETE = withAuth(async (request: NextRequest, { session }) => {
   await deleteFile(row.storedName)
   await recordActivity({
     entityType: 'TODO',
+    ...(row.commentType === 'TODO' ? { todoId: row.entityId } : {}),
     action: 'COMMENT_ATTACHMENT_REMOVED',
     actorId: session.user.id,
-    metadata: { attachmentId: id },
+    metadata: { attachmentId: id, commentType: row.commentType },
   })
   return apiSuccess({ removed: true })
 })

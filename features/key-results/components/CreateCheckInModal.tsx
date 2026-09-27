@@ -233,7 +233,7 @@ export default function CreateCheckInModal({
               className="rounded-lg border p-3"
               style={{ borderColor: 'var(--ap-border)', background: 'var(--ap-bg-sunken)' }}
             >
-              <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <div className="flex items-center gap-2 text-micro font-semibold uppercase tracking-wide text-muted-foreground">
                 <span className="inline-flex items-center rounded px-1.5 py-0.5"
                   style={{ background: 'var(--ap-accent-soft)', color: 'var(--ap-accent)' }}>
                   KEY RESULT
@@ -245,14 +245,14 @@ export default function CreateCheckInModal({
                   </>
                 )}
               </div>
-              <p className="mt-1.5 text-[14px] font-medium leading-snug text-foreground line-clamp-3">
+              <p className="mt-1.5 text-sm font-medium leading-snug text-foreground line-clamp-3">
                 {kr.title}
               </p>
             </div>
 
             {/* Date */}
             <div>
-              <label className="block text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
+              <label className="block text-micro font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
                 Date
               </label>
               <input
@@ -260,13 +260,13 @@ export default function CreateCheckInModal({
                 required
                 value={asOfDate}
                 onChange={(e) => setAsOfDate(e.target.value)}
-                className="w-full max-w-[180px] px-3 py-1.5 border border-border rounded-md text-sm focus:ring-2 focus:ring-ring focus:border-blue-500"
+                className="w-full max-w-[180px] px-3 py-1.5 border border-border rounded-md text-sm focus:ring-2 focus:ring-ring focus:border-primary-500"
               />
             </div>
 
             {/* Current value */}
             <div>
-              <label className="block text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
+              <label className="block text-micro font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
                 Current value
               </label>
               <div className="flex items-baseline gap-2">
@@ -276,11 +276,11 @@ export default function CreateCheckInModal({
                   required
                   value={progressInput}
                   onChange={(e) => setProgressInput(e.target.value)}
-                  className="w-32 px-3 py-1.5 border border-border rounded-md text-sm font-mono focus:ring-2 focus:ring-ring focus:border-blue-500"
+                  className="w-32 px-3 py-1.5 border border-border rounded-md text-sm font-mono focus:ring-2 focus:ring-ring focus:border-primary-500"
                   placeholder="0"
                 />
-                <span className="text-[13px] text-muted-foreground">of</span>
-                <span className="text-[15px] font-semibold tabular-nums">
+                <span className="text-body-sm text-muted-foreground">of</span>
+                <span className="text-body font-semibold tabular-nums">
                   {formatAxisValue(targetV)}
                   {unit ? ` ${unit}` : ''}
                 </span>
@@ -305,7 +305,7 @@ export default function CreateCheckInModal({
                     title={`Expected ${expectedPct}%`}
                   />
                 </div>
-                <div className="mt-1 flex items-center justify-between text-[11px]">
+                <div className="mt-1 flex items-center justify-between text-caption">
                   <span className="text-muted-foreground">
                     Actual <span className="font-semibold tabular-nums text-foreground">{Math.round(actualPct)}%</span>
                   </span>
@@ -318,14 +318,14 @@ export default function CreateCheckInModal({
                 </div>
               </div>
 
-              <p className="mt-2 text-[11px] text-muted-foreground">
+              <p className="mt-2 text-caption text-muted-foreground">
                 Enter the cumulative total, or type <kbd className="px-1 bg-muted rounded border">+</kbd> to add (e.g. <code>+25000</code>).
               </p>
             </div>
 
             {/* Confidence (auto) */}
             <div>
-              <label className="block text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
+              <label className="block text-micro font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
                 Confidence
               </label>
               <div
@@ -338,18 +338,18 @@ export default function CreateCheckInModal({
                 />
               </div>
               <div className="mt-1.5 flex items-center justify-between">
-                <div className="flex items-baseline gap-3 text-[11px] text-muted-foreground tabular-nums">
+                <div className="flex items-baseline gap-3 text-caption text-muted-foreground tabular-nums">
                   <span>0</span>
                   <span>50</span>
                   <span>100</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-[20px] font-semibold tabular-nums" style={{ color: statusColor, letterSpacing: '-0.02em' }}>
+                  <span className="text-xl font-semibold tabular-nums" style={{ color: statusColor, letterSpacing: '-0.02em' }}>
                     {confidenceScore}
-                    <span className="text-[12px] font-normal text-muted-foreground">/100</span>
+                    <span className="text-xs font-normal text-muted-foreground">/100</span>
                   </span>
                   <span
-                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-micro font-semibold"
                     style={{ background: 'var(--ap-bg-sunken)', color: statusColor }}
                   >
                     <span className="size-1.5 rounded-full" style={{ background: statusColor }} />
@@ -357,7 +357,7 @@ export default function CreateCheckInModal({
                   </span>
                 </div>
               </div>
-              <p className="mt-1 text-[11px] text-muted-foreground">
+              <p className="mt-1 text-caption text-muted-foreground">
                 Calculated automatically from pace vs plan.{' '}
                 <span className="italic">
                   The system also calculates a separate bi-weekly confidence score based on progress velocity, check-in cadence, and initiative completion — distinct from this check-in snapshot.
@@ -367,17 +367,17 @@ export default function CreateCheckInModal({
 
             {/* Analysis */}
             <div>
-              <label className="block text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
+              <label className="block text-micro font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
                 Analysis
               </label>
               <textarea
                 value={analysis}
                 onChange={(e) => setAnalysis(e.target.value)}
                 rows={5}
-                className="w-full px-3 py-2 text-[13px] text-foreground bg-card border border-border rounded-md focus:ring-2 focus:ring-ring focus:border-blue-500 resize-y min-h-[120px]"
+                className="w-full px-3 py-2 text-body-sm text-foreground bg-card border border-border rounded-md focus:ring-2 focus:ring-ring focus:border-primary-500 resize-y min-h-[120px]"
                 placeholder={`How did you get to where you are today?\nIs there anything you need to do differently?\nAny ask for the team?`}
               />
-              <p className="mt-1 text-[11px] text-muted-foreground">
+              <p className="mt-1 text-caption text-muted-foreground">
                 What changed? What&apos;s the plan? Any blockers?
               </p>
             </div>
@@ -391,10 +391,10 @@ export default function CreateCheckInModal({
               style={{ borderColor: 'var(--ap-border)', background: 'var(--ap-bg-sunken)' }}
             >
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <span className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">
                   Trajectory preview
                 </span>
-                <span className="text-[10px] text-muted-foreground tabular-nums">
+                <span className="text-micro text-muted-foreground tabular-nums">
                   {tfLabel ? `${tfLabel} →` : ''} today
                 </span>
               </div>
@@ -409,11 +409,11 @@ export default function CreateCheckInModal({
                   <path d={chart.actualPath} stroke="var(--ap-accent)" strokeWidth="1.5" fill="none" />
                 </svg>
               ) : (
-                <div className="h-[100px] flex items-center justify-center text-[11px] text-muted-foreground">
+                <div className="h-[100px] flex items-center justify-center text-caption text-muted-foreground">
                   No timeframe set
                 </div>
               )}
-              <div className="mt-1 flex items-center gap-3 text-[10px] text-muted-foreground">
+              <div className="mt-1 flex items-center gap-3 text-micro text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <span className="inline-block w-3 h-[2px]" style={{ background: 'var(--ap-accent)' }} />
                   Actual
@@ -447,14 +447,14 @@ export default function CreateCheckInModal({
           <button
             type="button"
             onClick={onClose}
-            className="px-3 py-1.5 text-[13px] text-muted-foreground hover:text-foreground"
+            className="px-3 py-1.5 text-body-sm text-muted-foreground hover:text-foreground"
             disabled={saving}
           >
             Cancel
           </button>
           <button
             type="submit"
-            className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-md text-[13px] font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 bg-primary-600 hover:bg-primary-700 text-primary-foreground px-4 py-1.5 rounded-md text-body-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring disabled:opacity-50"
             disabled={saving}
           >
             <Send className="h-3.5 w-3.5" />
@@ -486,7 +486,7 @@ function StatCard({
         {label}
       </div>
       <div
-        className="mt-0.5 inline-flex items-center gap-1 text-[13px] font-semibold tabular-nums"
+        className="mt-0.5 inline-flex items-center gap-1 text-body-sm font-semibold tabular-nums"
         style={{ color: tone }}
       >
         {dot && <span className="size-1.5 rounded-full" style={{ background: tone }} />}

@@ -1,66 +1,15 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { toast } from 'react-hot-toast'
-
-type Category = 'ACCOUNT' | 'OBJECTIVE' | 'KEY_RESULT' | 'CHECK_IN' | 'TODO' | 'TIMEFRAME' | 'ALIGNMENT' | 'COMMENT' | 'ADMIN'
-type Cadence = 'IMMEDIATE' | 'DAILY' | 'WEEKLY' | 'DISABLED'
-
-interface PrefRow {
-  category: Category
-  mandatory: boolean
-  inApp: boolean
-  email: boolean
-  emailCadence: Cadence
-  source: 'user' | 'org' | 'hardcoded'
-}
-
-const CATEGORY_LABEL: Record<Category, string> = {
-  ACCOUNT: 'Account & security',
-  OBJECTIVE: 'Objectives',
-  KEY_RESULT: 'Key results',
-  CHECK_IN: 'Check-ins',
-  TODO: 'To-dos / initiatives',
-  TIMEFRAME: 'Timeframes',
-  ALIGNMENT: 'Alignment',
-  COMMENT: 'Comments & mentions',
-  ADMIN: 'Admin & system',
-}
+import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/Skeleton'
+import { SettingsSelect } from '@/components/settings/SettingsSelect'
+import { useNotificationPreferences } from '@/hooks/useNotificationSettings'
+// Client-safe modules — NOT the '@/lib/notifications' barrel (it pulls in Prisma).
+import { CATEGORY_LABEL } from '@/lib/notifications/events'
+import { CADENCE_LABEL, SELECTABLE_CADENCES, type EmailCadence } from '@/lib/notifications/cadence'
 
 export default function NotificationsSettingsPage() {
-  const [rows, setRows] = useState<PrefRow[]>([])
-  const [saving, setSaving] = useState(false)
-
-  useEffect(() => {
-    fetch('/api/notifications/preferences')
-      .then((r) => r.json())
-      .then((res) => { if (res.success) setRows(res.data) })
-      .catch(() => toast.error('Failed to load preferences'))
-  }, [])
-
-  function update(cat: Category, patch: Partial<PrefRow>) {
-    setRows((prev) => prev.map((r) => r.category === cat ? { ...r, ...patch, source: 'user' } : r))
-  }
-
-  async function save() {
-    setSaving(true)
-    try {
-      const res = await fetch('/api/notifications/preferences', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          preferences: rows.filter((r) => !r.mandatory).map((r) => ({
-            category: r.category, inApp: r.inApp, email: r.email, emailCadence: r.emailCadence,
-          })),
-        }),
-      })
-      const json = await res.json()
-      if (json.success) toast.success('Preferences saved')
-      else toast.error(json.error || 'Save failed')
-    } finally {
-      setSaving(false)
-    }
-  }
+  const { rows, loading, saving, update, save } = useNotificationPreferences()
 
   return (
     <div className="space-y-4">
@@ -68,7 +17,8 @@ export default function NotificationsSettingsPage() {
         <div className="px-4 py-5 sm:p-6">
           <h3 className="text-lg font-medium text-foreground">Notification preferences</h3>
           <p className="text-sm text-muted-foreground mt-1">
-            Control which events reach you in-app and by email. Account &amp; security emails are always delivered.
+            Control which events reach you in-app and by email. By default emails are batched — at most one every
+            10 minutes. Account &amp; security emails are always delivered immediately.
           </p>
           <div className="mt-6 overflow-x-auto">
             <table className="min-w-full text-sm">
@@ -81,15 +31,19 @@ export default function NotificationsSettingsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
+                {loading && rows.length === 0 && Array.from({ length: 6 }).map((_, i) => (
+                  <tr key={`sk-${i}`} aria-hidden="true"><td colSpan={4} className="py-2"><Skeleton className="h-6 w-full" /></td></tr>
+                ))}
                 {rows.map((r) => (
                   <tr key={r.category}>
                     <td className="py-2 pr-4">
-                      <div className="font-medium text-foreground">{CATEGORY_LABEL[r.category]}</div>
+                      <div className="font-medium text-foreground">{CATEGORY_LABEL[r.category] ?? r.category}</div>
                       {r.mandatory && <div className="text-xs text-muted-foreground">Always on</div>}
                     </td>
                     <td className="py-2 pr-4">
                       <input
                         type="checkbox"
+                        aria-label={`In-app: ${CATEGORY_LABEL[r.category] ?? r.category}`}
                         disabled={r.mandatory}
                         checked={r.inApp}
                         onChange={(e) => update(r.category, { inApp: e.target.checked })}
@@ -98,23 +52,22 @@ export default function NotificationsSettingsPage() {
                     <td className="py-2 pr-4">
                       <input
                         type="checkbox"
+                        aria-label={`Email: ${CATEGORY_LABEL[r.category] ?? r.category}`}
                         disabled={r.mandatory}
                         checked={r.email}
                         onChange={(e) => update(r.category, { email: e.target.checked })}
                       />
                     </td>
                     <td className="py-2 pr-4">
-                      <select
-                        disabled={r.mandatory || !r.email}
-                        className="border rounded px-2 py-1 text-sm"
+                      <SettingsSelect
+                        size="sm"
+                        aria-label={`Email cadence for ${CATEGORY_LABEL[r.category] ?? r.category}`}
+                        className="w-auto min-w-32"
                         value={r.emailCadence}
-                        onChange={(e) => update(r.category, { emailCadence: e.target.value as Cadence })}
-                      >
-                        <option value="IMMEDIATE">Immediate</option>
-                        <option value="DAILY">Daily digest</option>
-                        <option value="WEEKLY">Weekly digest</option>
-                        <option value="DISABLED">Disabled</option>
-                      </select>
+                        disabled={r.mandatory || !r.email}
+                        onValueChange={(v) => update(r.category, { emailCadence: v as EmailCadence })}
+                        options={SELECTABLE_CADENCES.map((c) => ({ value: c, label: CADENCE_LABEL[c] }))}
+                      />
                     </td>
                   </tr>
                 ))}
@@ -122,13 +75,9 @@ export default function NotificationsSettingsPage() {
             </table>
           </div>
           <div className="mt-4 flex justify-end">
-            <button
-              className="rounded bg-blue-600 text-white px-4 py-2 text-sm disabled:opacity-50"
-              onClick={save}
-              disabled={saving}
-            >
+            <Button onClick={save} disabled={saving}>
               {saving ? 'Saving…' : 'Save preferences'}
-            </button>
+            </Button>
           </div>
         </div>
       </div>

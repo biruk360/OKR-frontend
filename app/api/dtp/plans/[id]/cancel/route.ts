@@ -8,7 +8,7 @@ import type { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { apiSuccess, apiBadRequest, apiForbidden } from '@/lib/api'
 import { withAuth } from '@/lib/api/withAuth'
-import { transitionPlan, loadReadablePlan, readJson, badStatus } from '@/lib/dtp/api-helpers'
+import { tryTransitionPlan, transitionFailure, loadReadablePlan, readJson, badStatus } from '@/lib/dtp/api-helpers'
 import { canActAsCoordinator, isOperationsManager } from '@/lib/dtp/permissions'
 import { notifyDtpEvent } from '@/lib/dtp/notifier'
 import type { DtpStatus } from '@/types/dtp'
@@ -34,7 +34,7 @@ export const POST = withAuth<{ id: string }>(async (req: NextRequest, { session,
   const driverIds = Array.from(new Set(legs.map((l) => l.driverId).filter(Boolean) as string[]))
   const passengerIds = Array.from(new Set(legs.flatMap((l) => l.passengerIds.split(',').filter(Boolean))))
 
-  const updated = await transitionPlan({
+  const transition = await tryTransitionPlan({
     planId: plan.id,
     from: status,
     to: 'CANCELLED',
@@ -43,7 +43,8 @@ export const POST = withAuth<{ id: string }>(async (req: NextRequest, { session,
     payload: { reason: body.reason },
     patch: { decisionNote: body.reason, decisionById: session.user.id, decisionAt: new Date() },
   })
-  if (!updated) return badStatus()
+  if (!transition.ok) return transitionFailure(transition.reason)
+  const updated = transition.plan
   await prisma.tripLeg.deleteMany({ where: { planId: plan.id, status: 'SCHEDULED' } })
 
   // Notify driver users (via Driver→User) + passengers + requester.

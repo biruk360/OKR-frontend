@@ -3,12 +3,27 @@ import { prisma } from '@/lib/prisma'
 import { recordActivity } from '@/lib/activity-log'
 import { emit } from '@/lib/notifications'
 import { apiForbidden } from '@/lib/api'
-import { canProxyFor, canViewScrumUser, resolveScrumSubjectContext } from './access'
+import {
+  canEditScrumUpdateResolved,
+  canProxyFor,
+  canViewScrumUser,
+  listDepartmentLeadIds,
+  resolveScrumSubjectContext,
+} from './access'
+import { sanitizeScrumRichTextOrNull } from './html'
 import { getScrumSettings } from './settings'
 import { dateFromDateKey, isLateSubmission, toScrumDateKey } from './working-days'
 import { replaceUpdateLinks, validateLinkOwnership, type ScrumLinkInput } from './scrum-links'
 import { serializeScrumUpdate, serializeScrumUpdates } from './scrum-serializer'
-import { decideBlockerLifecycle } from './blocker-lifecycle'
+import { decideBlockerLifecycle, shouldNotifyRecurringBlocker } from './blocker-lifecycle'
+import {
+  SCRUM_DRAFT_STATUS,
+  SUBMITTED_SCRUM_UPDATE_WHERE,
+  decideScrumDraftSave,
+  excludeScrumDrafts,
+  isScrumDraft,
+  scrumSubmitBaseline,
+} from './drafts'
 import {
   allItems,
   buildYesterdayDoneHtml,
@@ -39,20 +54,47 @@ export interface SaveScrumUpdateInput {
   links?: ScrumLinkInput[]
   contentJson?: ScrumContentJson | null
   remarks?: string | null
+  sameBlockerConfirmed?: boolean | null
+  /**
+   * Save as a server-side draft (status DRAFT): content only — no To-do sync,
+   * no OKR links, no notifications, not counted as attendance. See ./drafts.
+   */
+  asDraft?: boolean | null
 }
+
+/** Proxy attribution columns — never cleared once a record is a proxy entry (spec §11 hard rule 4). */
+const PROXY_ATTRIBUTION_FIELDS = ['isProxyEntry', 'proxyReason', 'proxyReasonDetail', 'submittedById'] as const
 
 export async function saveScrumUpdate(session: Session, input: SaveScrumUpdateInput, existingId?: string) {
   const settings = await getScrumSettings()
   const actorId = session.user.id
-  const subjectUserId = input.userId ?? actorId
+
+  // PATCH /updates/[id]: the record's owner is the only editor, and the record
+  // can never be re-assigned to another user or moved to another date.
+  let target: { id: string; userId: string; scrumDate: Date; status: string } | null = null
+  if (existingId) {
+    target = await prisma.scrumUpdate.findUnique({ where: { id: existingId }, select: { id: true, userId: true, scrumDate: true, status: true } })
+    if (!target) return { notFound: true as const }
+    if (!canEditScrumUpdateResolved({ actorId, ownerId: target.userId })) {
+      return { forbidden: apiForbidden('Only the owner can edit this scrum update') }
+    }
+    if (input.userId && input.userId !== target.userId) {
+      return { forbidden: apiForbidden('A scrum update cannot be re-assigned to another user') }
+    }
+  }
+
+  const subjectUserId = target?.userId ?? input.userId ?? actorId
   const isProxy = actorId !== subjectUserId
+  if (input.asDraft && isProxy) return { error: 'Drafts can only be saved for your own update' }
   if (isProxy) {
     if (!settings.proxyEntryEnabled) return { forbidden: apiForbidden('Proxy entry is disabled') }
     if (!await canProxyFor(session, subjectUserId)) return { forbidden: apiForbidden('You cannot submit on behalf of this user') }
     if (!input.proxyReason) return { error: 'Proxy reason is required' }
   }
 
-  const scrumDateKey = input.scrumDate ?? toScrumDateKey(new Date(), settings)
+  const scrumDateKey = target
+    ? toScrumDateKey(target.scrumDate, settings)
+    : input.scrumDate ?? toScrumDateKey(new Date(), settings)
   const scrumDate = dateFromDateKey(scrumDateKey)
   const subject = await resolveScrumSubjectContext(subjectUserId)
   const submittedAt = new Date()
@@ -73,8 +115,56 @@ export async function saveScrumUpdate(session: Session, input: SaveScrumUpdateIn
   const ownership = await validateLinkOwnership(subjectUserId, [...itemLinks, ...legacyLinks])
   if (!ownership.valid) return { error: ownership.reason }
 
+  // Fetch the existing row for the same date so we can diff and sync Todos
+  // (or, for a draft, refuse to overwrite a real submission).
+  const existing = await prisma.scrumUpdate.findUnique({
+    where: { userId_scrumDate: { userId: subjectUserId, scrumDate } },
+    select: { id: true, contentJson: true, isProxyEntry: true, blockerStatus: true, status: true },
+  })
+
+  if (input.asDraft) {
+    const decision = decideScrumDraftSave({ isProxy, existingStatus: existing?.status })
+    if (!decision.ok) return { error: decision.message }
+    return saveScrumDraft(session, {
+      existingId: existing?.id ?? null,
+      data: {
+        userId: subjectUserId,
+        submittedById: actorId,
+        managerId: subject.managerId,
+        teamId: subject.teamId,
+        projectId: input.projectId ?? null,
+        projectActivityId: input.projectActivityId ?? null,
+        scrumDate,
+        status: SCRUM_DRAFT_STATUS,
+        yesterdayDone: buildYesterdayDoneHtml(content.yesterdayItems),
+        yesterdayStatusJson: buildYesterdayStatusJson(content.yesterdayItems),
+        todayPlan: serializeItemsToHtml(content.todayItems),
+        blockers: serializeItemsToHtml(content.blockerItems) || null,
+        blockerCategory: input.blockerCategory ?? null,
+        // A draft carries no lifecycle/attendance facts; submit recomputes them.
+        blockerStatus: null,
+        blockerDaysOpen: 0,
+        blockerFirstRaisedAt: null,
+        wins: serializeItemsToHtml(content.winItems) || null,
+        mood: settings.moodEnabled ? input.mood ?? null : null,
+        hasBlocker: false,
+        hasWin: false,
+        isLate: false,
+        submittedAt: new Date(),
+        isProxyEntry: false,
+        proxyReason: null,
+        proxyReasonDetail: null,
+        contentJson: content,
+        remarks: sanitizeScrumRichTextOrNull(input.remarks?.trim()),
+      },
+    })
+  }
+
+  // A stored draft never synced To-dos/links: submitting it is a first submit.
+  const baseline = scrumSubmitBaseline(existing?.status)
+
   const previousDayUpdate = await prisma.scrumUpdate.findFirst({
-    where: { userId: subjectUserId, scrumDate: { lt: scrumDate } },
+    where: { userId: subjectUserId, scrumDate: { lt: scrumDate }, ...SUBMITTED_SCRUM_UPDATE_WHERE },
     orderBy: { scrumDate: 'desc' },
     select: {
       blockers: true,
@@ -93,14 +183,10 @@ export async function saveScrumUpdate(session: Session, input: SaveScrumUpdateIn
     category: input.blockerCategory,
     now: submittedAt,
     settings,
+    sameBlockerConfirmed: input.sameBlockerConfirmed ?? undefined,
   })
 
-  // Fetch the existing update for the same date so we can diff and sync Todos.
-  const existing = await prisma.scrumUpdate.findUnique({
-    where: { userId_scrumDate: { userId: subjectUserId, scrumDate } },
-    select: { id: true, contentJson: true },
-  })
-  const previousContent = normalizeContentJson(existing?.contentJson)
+  const previousContent = baseline.fromDraft ? emptyContentJson() : normalizeContentJson(existing?.contentJson)
   let hasBlockerForNotification = false
 
   const result = await prisma.$transaction(async (tx) => {
@@ -137,15 +223,27 @@ export async function saveScrumUpdate(session: Session, input: SaveScrumUpdateIn
       proxyReason: isProxy ? input.proxyReason : null,
       proxyReasonDetail: isProxy ? input.proxyReasonDetail ?? null : null,
       contentJson: syncedContent,
-      remarks: input.remarks?.trim() || null,
+      // Rich text from the editor: reduce to an inert allow-list before storing.
+      remarks: sanitizeScrumRichTextOrNull(input.remarks?.trim()),
     }
 
+    // Editing a proxy entry (owner amend, or self-submit over a proxy row) must
+    // not erase who physically entered it.
+    const updateData: any = { ...data }
+    if (existing?.isProxyEntry && !isProxy) {
+      for (const field of PROXY_ATTRIBUTION_FIELDS) delete updateData[field]
+    }
+
+    const amendStamp = baseline.isAmend ? { amendedAt: new Date() } : {}
     const update = existingId
-      ? await tx.scrumUpdate.update({ where: { id: existingId }, data: { ...data, amendedAt: new Date(), status: 'AMENDED' } })
+      ? await tx.scrumUpdate.update({
+          where: { id: existingId },
+          data: { ...updateData, ...amendStamp, ...(baseline.isAmend ? { status: 'AMENDED' } : {}) },
+        })
       : await tx.scrumUpdate.upsert({
           where: { userId_scrumDate: { userId: subjectUserId, scrumDate } },
           create: data,
-          update: { ...data, amendedAt: new Date() },
+          update: { ...updateData, ...amendStamp },
         })
     const linksFromWinItems = (syncedContent.winItems ?? [])
       .filter((item) => item.objectiveId || item.keyResultId)
@@ -165,9 +263,9 @@ export async function saveScrumUpdate(session: Session, input: SaveScrumUpdateIn
 
   await recordActivity({
     entityType: 'SCRUM_UPDATE',
-    action: isProxy ? 'PROXY_SUBMITTED' : existingId ? 'AMENDED' : 'CREATED',
+    action: isProxy ? 'PROXY_SUBMITTED' : baseline.isAmend ? 'AMENDED' : 'CREATED',
     actorId,
-    metadata: { updateId: result?.id, subjectUserId, scrumDate: scrumDateKey, isProxy },
+    metadata: { updateId: result?.id, subjectUserId, scrumDate: scrumDateKey, isProxy, ...(baseline.fromDraft ? { fromDraft: true } : {}) },
   })
 
   if (hasBlockerForNotification && subject.managerId) {
@@ -178,6 +276,31 @@ export async function saveScrumUpdate(session: Session, input: SaveScrumUpdateIn
       explicitRecipients: [subject.managerId],
       data: { subjectUserId, blockerCategory: input.blockerCategory, deepLink: `/dashboard/scrum?update=${result?.id}` },
     })
+  }
+  // Spec S5.1: the same blocker persisting past `recurringThresholdDays` → notify the department lead(s).
+  if (hasBlockerForNotification && shouldNotifyRecurringBlocker({
+    status: blockerDecision.status,
+    previousDayStatus: previousDayUpdate?.blockerStatus,
+    existingSameDayStatus: baseline.fromDraft ? null : existing?.blockerStatus,
+  })) {
+    const leadIds = await listDepartmentLeadIds(subject.teamId, subjectUserId)
+    const recipients = [...new Set(leadIds.length ? leadIds : [subject.managerId].filter(Boolean) as string[])]
+      .filter((id) => id !== actorId)
+    if (recipients.length) {
+      await emit('SCRUM_BLOCKER_RECURRING', {
+        actorId,
+        entityType: 'SCRUM_UPDATE',
+        entityId: result?.id,
+        explicitRecipients: recipients,
+        data: {
+          subjectUserId,
+          blockerCategory: input.blockerCategory,
+          daysOpen: blockerDecision.daysOpen,
+          blockerSummary: `A ${String(input.blockerCategory ?? 'scrum').toLowerCase().replace(/_/g, ' ')} blocker has been open for ${blockerDecision.daysOpen} working days.`,
+          deepLink: `/dashboard/scrum?update=${result?.id}`,
+        },
+      })
+    }
   }
   if (isProxy) {
     await emit('SCRUM_PROXY_SUBMITTED', {
@@ -198,6 +321,8 @@ export async function getScrumUpdateForViewer(session: Session, id: string) {
     include: { links: true, comments: true, celebrations: true },
   })
   if (!update) return null
+  // A draft is private working state: only its owner can open it.
+  if (isScrumDraft(update.status) && update.userId !== session.user.id) return null
   if (!await canViewScrumUser(session, update.userId)) return { forbidden: true }
   return serializeScrumUpdate(update as any, { id: session.user.id, role: session.user.role })
 }
@@ -232,7 +357,7 @@ export async function listScrumUpdates(session: Session, query: URLSearchParams)
   }
 
   const updates = await prisma.scrumUpdate.findMany({
-    where,
+    where: excludeScrumDrafts(where),
     include: { links: true, comments: true, celebrations: true },
     orderBy: [{ scrumDate: 'desc' }, { submittedAt: 'asc' }],
     take: Math.min(200, Number(query.get('limit') ?? 100)),
@@ -242,19 +367,20 @@ export async function listScrumUpdates(session: Session, query: URLSearchParams)
 
 export async function confirmProxyUpdate(session: Session, id: string, amend?: Partial<SaveScrumUpdateInput>) {
   const update = await prisma.scrumUpdate.findUnique({ where: { id } })
-  if (!update) return null
+  if (!update || isScrumDraft(update.status)) return null
   if (update.userId !== session.user.id) return { forbidden: true }
   const data: any = { proxyConfirmedByUser: true, proxyConfirmedAt: new Date(), status: 'CONFIRMED' }
-  if (amend?.yesterdayDone) data.yesterdayDone = amend.yesterdayDone
-  if (amend?.todayPlan) data.todayPlan = amend.todayPlan
+  // Amend payloads are raw HTML from the client — sanitize before storing.
+  if (amend?.yesterdayDone) data.yesterdayDone = sanitizeScrumRichTextOrNull(amend.yesterdayDone) ?? ''
+  if (amend?.todayPlan) data.todayPlan = sanitizeScrumRichTextOrNull(amend.todayPlan) ?? ''
   if (amend?.blockers !== undefined) {
-    data.blockers = amend.blockers || null
-    data.hasBlocker = !!amend.blockers
-    data.blockerCategory = amend.blockerCategory ?? null
+    data.blockers = sanitizeScrumRichTextOrNull(amend.blockers)
+    data.hasBlocker = !!data.blockers
+    data.blockerCategory = data.hasBlocker ? amend.blockerCategory ?? null : null
   }
   if (amend?.wins !== undefined) {
-    data.wins = amend.wins || null
-    data.hasWin = !!amend.wins
+    data.wins = sanitizeScrumRichTextOrNull(amend.wins)
+    data.hasWin = !!data.wins
   }
   const saved = await prisma.scrumUpdate.update({ where: { id }, data })
   await recordActivity({
@@ -271,4 +397,61 @@ export async function confirmProxyUpdate(session: Session, id: string, amend?: P
     data: { deepLink: `/dashboard/scrum?update=${id}` },
   })
   return serializeScrumUpdate(saved as any, { id: session.user.id, role: session.user.role })
+}
+
+/**
+ * Persist a draft row. Only content is written — no To-do sync, OKR links,
+ * activity, or notifications. Never overwrites a submitted row: the update is
+ * conditional on the stored status still being DRAFT.
+ */
+async function saveScrumDraft(session: Session, input: { existingId: string | null; data: Record<string, unknown> }) {
+  const viewer = { id: session.user.id, role: session.user.role }
+  const include = { links: true, comments: true, celebrations: true } as const
+  if (input.existingId) {
+    const { count } = await prisma.scrumUpdate.updateMany({
+      where: { id: input.existingId, status: SCRUM_DRAFT_STATUS },
+      data: input.data as any,
+    })
+    if (count === 0) return { error: 'This update was already submitted — edit and resubmit it instead of saving a draft' }
+    const saved = await prisma.scrumUpdate.findUnique({ where: { id: input.existingId }, include })
+    return { update: await serializeScrumUpdate(saved as any, viewer), draft: true as const }
+  }
+  try {
+    const saved = await prisma.scrumUpdate.create({ data: input.data as any, include })
+    return { update: await serializeScrumUpdate(saved as any, viewer), draft: true as const }
+  } catch (error: any) {
+    // A submit for the same user/day landed first — never replace it with a draft.
+    if (error?.code === 'P2002') return { error: 'This update was already submitted — edit and resubmit it instead of saving a draft' }
+    throw error
+  }
+}
+
+/** The signed-in user's own draft for a day, if one is stored (restored into the form). */
+export async function getOwnScrumDraft(userId: string, scrumDateKey: string) {
+  const draft = await prisma.scrumUpdate.findFirst({
+    where: { userId, scrumDate: dateFromDateKey(scrumDateKey), status: SCRUM_DRAFT_STATUS },
+    select: {
+      id: true,
+      contentJson: true,
+      blockerCategory: true,
+      mood: true,
+      projectId: true,
+      projectActivityId: true,
+      remarks: true,
+      updatedAt: true,
+    },
+  })
+  if (!draft) return null
+  return { ...draft, contentJson: normalizeContentJson(draft.contentJson), updatedAt: draft.updatedAt.toISOString() }
+}
+
+/** Owner-only delete of a draft ("Discard draft"). Submitted updates are never deleted here. */
+export async function discardScrumDraft(session: Session, id: string) {
+  const row = await prisma.scrumUpdate.findUnique({ where: { id }, select: { id: true, userId: true, status: true } })
+  if (!row || (isScrumDraft(row.status) && row.userId !== session.user.id)) return { notFound: true as const }
+  if (!isScrumDraft(row.status)) return { error: 'Only a draft can be discarded' }
+  const { count } = await prisma.scrumUpdate.deleteMany({ where: { id, userId: session.user.id, status: SCRUM_DRAFT_STATUS } })
+  // `deleted` is false if the row changed under us (e.g. submitted meanwhile) —
+  // the caller must not clean up after a delete that did not happen.
+  return { id, deleted: count > 0 }
 }

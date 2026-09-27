@@ -3,11 +3,12 @@ import { prisma } from '@/lib/prisma'
 import { apiError, apiForbidden, apiNotFound, withAuth } from '@/lib/api'
 import { renderHtmlToPdf } from '@/lib/letter-pdf-puppeteer'
 import { renderPortfolioReportPdfHtml, PORTFOLIO_REPORT_TYPE } from '@/lib/projects/portfolio-report'
+import { canReadPortfolio } from '@/lib/projects/portfolio-access'
 
 export const runtime = 'nodejs'
 
 export const GET = withAuth<{ reportId: string }>(async (_req, { session, params }) => {
-  if (session.user.role !== 'ADMIN' && session.user.role !== 'EXECUTIVE' && session.user.role !== 'DEPARTMENT_LEAD') {
+  if (!canReadPortfolio(session.user.role)) {
     return apiForbidden('Portfolio reports are restricted to executives and department leads')
   }
   const report = await prisma.projectReport.findFirst({

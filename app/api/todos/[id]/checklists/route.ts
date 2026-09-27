@@ -3,12 +3,16 @@ import { prisma } from '@/lib/prisma'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { apiSuccess, apiBadRequest, apiNotFound, withAuth } from '@/lib/api'
 import { recordActivity } from '@/lib/activity-log'
+import { canReadTodo, todoWriteGuard } from '@/lib/todos/access'
 
-export const GET = withAuth<RouteIdParams>(async (_req, { params }) => {
+/**
+ * GET — read rule is `canReadTodo`, the same rule GET /api/todos/[id] enforces
+ * (the card GET returns these checklists too). Unreadable answers 404.
+ */
+export const GET = withAuth<RouteIdParams>(async (_req, { session, params }) => {
   const { id: todoId } = await resolveParams(params)
   if (!todoId) return apiBadRequest('Invalid todo id')
-  const todo = await prisma.todo.findUnique({ where: { id: todoId }, select: { id: true } })
-  if (!todo) return apiNotFound('To-do not found')
+  if (!(await canReadTodo(session.user, todoId))) return apiNotFound('To-do not found')
 
   const checklists = await prisma.todoChecklist.findMany({
     where: { todoId },
@@ -23,9 +27,14 @@ export const GET = withAuth<RouteIdParams>(async (_req, { params }) => {
   return apiSuccess(checklists)
 })
 
+/** POST — 404 missing card, 403 without canWriteTodo, 409 SPRINT_CLOSED. */
 export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { session, params }) => {
   const { id: todoId } = await resolveParams(params)
   if (!todoId) return apiBadRequest('Invalid todo id')
+
+  const denied = await todoWriteGuard(todoId, session.user)
+  if (denied) return denied
+
   const { title } = await request.json()
 
   const count = await prisma.todoChecklist.count({ where: { todoId } })

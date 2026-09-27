@@ -1,10 +1,15 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useForm, Controller } from 'react-hook-form'
 import { Shield, Users, FileType, Check, X, Plus, Trash2, AlertCircle, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import Modal from '@/components/ui/Modal'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { PageHeader } from '@/components/ui/PageHeader'
+import { Skeleton } from '@/components/ui/Skeleton'
+import { SettingsSelect } from './SettingsSelect'
 import {
   LETTER_PERMISSIONS,
   LETTER_PERMISSION_LABELS,
@@ -49,11 +54,21 @@ interface UserOption {
 
 function roleColor(role: string) {
   switch (role) {
-    case 'ADMIN':           return 'bg-red-100 text-red-700 border-red-200'
-    case 'EXECUTIVE':       return 'bg-purple-100 text-purple-700 border-purple-200'
-    case 'DEPARTMENT_LEAD': return 'bg-blue-100 text-blue-700 border-blue-200'
-    default:                return 'bg-gray-100 text-gray-700 border-gray-200'
+    case 'ADMIN':           return 'bg-danger-100 text-danger-700 border-danger-200'
+    case 'EXECUTIVE':       return 'bg-warning-100 text-warning-800 border-warning-200'
+    case 'DEPARTMENT_LEAD': return 'bg-primary-100 text-primary-700 border-primary-200'
+    default:                return 'bg-surface-app text-ink-primary border-border'
   }
+}
+
+function TableSkeleton({ rows = 6, label }: { rows?: number; label: string }) {
+  return (
+    <div className="space-y-2" aria-busy="true" aria-label={label}>
+      {Array.from({ length: rows }).map((_, i) => (
+        <Skeleton key={i} className="h-12 w-full" />
+      ))}
+    </div>
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -117,18 +132,13 @@ function RoleMatrixTab() {
   }, [matrix])
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20 text-muted-foreground">
-        <Loader2 className="h-5 w-5 animate-spin mr-2" />
-        Loading permission matrix…
-      </div>
-    )
+    return <TableSkeleton rows={8} label="Loading permission matrix" />
   }
 
   return (
     <div className="space-y-4">
       {error && (
-        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="flex items-center gap-2 rounded-lg border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-700">
           <AlertCircle className="h-4 w-4 shrink-0" />
           {error}
         </div>
@@ -160,7 +170,7 @@ function RoleMatrixTab() {
                   key={perm}
                   className={cn(
                     'border-b border-border last:border-0 hover:bg-muted/30 transition-colors',
-                    idx % 2 === 0 ? 'bg-white' : 'bg-muted/10'
+                    idx % 2 === 0 ? 'bg-surface-card' : 'bg-muted/10'
                   )}
                 >
                   <td className="px-4 py-3">
@@ -179,14 +189,16 @@ function RoleMatrixTab() {
                           disabled={locked || isSaving}
                           onClick={() => toggle(role, perm)}
                           title={locked ? 'Administrator always has all permissions' : undefined}
+                          aria-label={`${label} for ${ROLE_LABELS[role]}: ${granted ? 'granted' : 'not granted'}`}
+                          aria-pressed={granted}
                           className={cn(
                             'mx-auto flex h-7 w-7 items-center justify-center rounded-full border transition-all',
                             locked
                               ? 'cursor-not-allowed opacity-60'
                               : 'cursor-pointer hover:scale-110',
                             granted
-                              ? 'bg-green-500 border-green-600 text-white'
-                              : 'bg-white border-gray-300 text-gray-400',
+                              ? 'bg-success-500 border-success-600 text-primary-foreground'
+                              : 'bg-surface-card border-ink-tertiary text-ink-secondary',
                             isSaving && 'opacity-50'
                           )}
                         >
@@ -228,18 +240,30 @@ interface AddOverrideModalProps {
   onSaved: () => void
 }
 
+interface AddOverrideForm {
+  userId: string
+  permission: LetterPermission | ''
+  granted: 'grant' | 'revoke'
+}
+
+const ADD_OVERRIDE_DEFAULTS: AddOverrideForm = { userId: '', permission: '', granted: 'grant' }
+
 function AddOverrideModal({ open, onClose, users, existingOverrides, onSaved }: AddOverrideModalProps) {
-  const [userId, setUserId] = useState('')
-  const [permission, setPermission] = useState<LetterPermission | ''>('')
-  const [granted, setGranted] = useState(true)
+  const { control, register, handleSubmit, reset: resetForm, watch } = useForm<AddOverrideForm>({
+    defaultValues: ADD_OVERRIDE_DEFAULTS,
+  })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const userId = watch('userId')
+  const permission = watch('permission')
 
-  const reset = () => { setUserId(''); setPermission(''); setGranted(true); setError(null) }
+  const reset = () => { resetForm(ADD_OVERRIDE_DEFAULTS); setError(null) }
 
   const handleClose = () => { reset(); onClose() }
 
-  const handleSave = async () => {
+  const handleSave = async (values: AddOverrideForm) => {
+    const { userId, permission } = values
+    const granted = values.granted === 'grant'
     if (!userId || !permission) { setError('Select a user and permission'); return }
     setSaving(true)
     setError(null)
@@ -264,67 +288,77 @@ function AddOverrideModal({ open, onClose, users, existingOverrides, onSaved }: 
     <Modal open={open} onClose={handleClose} title="Add User Permission Override" size="md">
       <div className="space-y-4 py-2">
         {error && (
-          <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <div className="flex items-center gap-2 rounded-lg border border-danger-200 bg-danger-50 px-3 py-2 text-sm text-danger-700">
             <AlertCircle className="h-4 w-4 shrink-0" /> {error}
           </div>
         )}
 
         <div className="space-y-1">
-          <label className="block text-sm font-medium text-foreground">User</label>
-          <select
-            value={userId}
-            onChange={e => setUserId(e.target.value)}
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-          >
-            <option value="">Select a user…</option>
-            {users.map(u => (
-              <option key={u.id} value={u.id}>
-                {u.name} ({u.email}) — {ROLE_LABELS[u.role as SystemRole] ?? u.role}
-              </option>
-            ))}
-          </select>
+          <label htmlFor="letter-override-user" className="block text-sm font-medium text-foreground">User</label>
+          <Controller
+            control={control}
+            name="userId"
+            render={({ field }) => (
+              <SettingsSelect
+                id="letter-override-user"
+                value={field.value}
+                onValueChange={field.onChange}
+                placeholder="Select a user…"
+                options={users.map(u => ({
+                  value: u.id,
+                  label: `${u.name} (${u.email}) — ${ROLE_LABELS[u.role as SystemRole] ?? u.role}`,
+                }))}
+              />
+            )}
+          />
         </div>
 
         <div className="space-y-1">
-          <label className="block text-sm font-medium text-foreground">Permission</label>
-          <select
-            value={permission}
-            onChange={e => setPermission(e.target.value as LetterPermission)}
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-          >
-            <option value="">Select a permission…</option>
-            {LETTER_PERMISSIONS.map(p => (
-              <option key={p} value={p}>{LETTER_PERMISSION_LABELS[p].label} — {LETTER_PERMISSION_LABELS[p].description}</option>
-            ))}
-          </select>
+          <label htmlFor="letter-override-permission" className="block text-sm font-medium text-foreground">Permission</label>
+          <Controller
+            control={control}
+            name="permission"
+            render={({ field }) => (
+              <SettingsSelect
+                id="letter-override-permission"
+                value={field.value}
+                onValueChange={field.onChange}
+                placeholder="Select a permission…"
+                options={LETTER_PERMISSIONS.map(p => ({
+                  value: p,
+                  label: `${LETTER_PERMISSION_LABELS[p].label} — ${LETTER_PERMISSION_LABELS[p].description}`,
+                }))}
+              />
+            )}
+          />
         </div>
 
-        <div className="space-y-1">
-          <label className="block text-sm font-medium text-foreground">Override type</label>
+        <fieldset className="space-y-1">
+          <legend className="block text-sm font-medium text-foreground">Override type</legend>
           <div className="flex gap-3">
             <label className="flex items-center gap-2 cursor-pointer">
-              <input type="radio" checked={granted} onChange={() => setGranted(true)} className="accent-primary" />
+              <input type="radio" value="grant" {...register('granted')} className="accent-primary" />
               <span className="text-sm">
-                <span className="font-medium text-green-700">Grant</span>
-                <span className="text-muted-foreground ml-1">— give this permission even if the role doesn't have it</span>
+                <span className="font-medium text-success-700">Grant</span>
+                <span className="text-muted-foreground ml-1">— give this permission even if the role doesn&apos;t have it</span>
               </span>
             </label>
             <label className="flex items-center gap-2 cursor-pointer">
-              <input type="radio" checked={!granted} onChange={() => setGranted(false)} className="accent-primary" />
+              <input type="radio" value="revoke" {...register('granted')} className="accent-primary" />
               <span className="text-sm">
-                <span className="font-medium text-red-700">Revoke</span>
+                <span className="font-medium text-danger-700">Revoke</span>
                 <span className="text-muted-foreground ml-1">— take away this permission even if the role has it</span>
               </span>
             </label>
           </div>
-        </div>
+        </fieldset>
 
         <div className="flex justify-end gap-3 pt-2">
           <button onClick={handleClose} className="rounded-md border border-input px-4 py-2 text-sm hover:bg-muted transition-colors">
             Cancel
           </button>
           <button
-            onClick={handleSave}
+            onClick={handleSubmit(handleSave)}
             disabled={saving || !userId || !permission}
             className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center gap-2"
           >
@@ -394,7 +428,7 @@ function UserOverridesTab() {
   return (
     <div className="space-y-4">
       {error && (
-        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="flex items-center gap-2 rounded-lg border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-700">
           <AlertCircle className="h-4 w-4 shrink-0" /> {error}
         </div>
       )}
@@ -412,15 +446,15 @@ function UserOverridesTab() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
-          <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading…
-        </div>
+        <TableSkeleton rows={4} label="Loading overrides" />
       ) : Object.keys(byUser).length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground border border-dashed border-border rounded-lg">
-          <Users className="h-8 w-8 mb-3 opacity-40" />
-          <p className="font-medium">No user overrides yet</p>
-          <p className="text-sm mt-1">Add overrides to grant or revoke specific permissions for individual users.</p>
-        </div>
+        <EmptyState
+          bare
+          icon={Users}
+          className="rounded-lg border border-dashed border-border"
+          title="No user overrides yet"
+          description="Add overrides to grant or revoke specific permissions for individual users."
+        />
       ) : (
         <div className="space-y-4">
           {Object.entries(byUser).map(([, rows]) => {
@@ -454,16 +488,17 @@ function UserOverridesTab() {
                         <span className={cn(
                           'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
                           override.granted
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-red-100 text-red-700'
+                            ? 'bg-success-100 text-success-700'
+                            : 'bg-danger-100 text-danger-700'
                         )}>
                           {override.granted ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
                           {override.granted ? 'Granted' : 'Revoked'}
                         </span>
                         <button
                           onClick={() => setDeleteTarget({ userId: user.id, permission: override.permission, name: user.name })}
-                          className="rounded p-1 text-muted-foreground hover:text-red-600 hover:bg-red-50 transition-colors"
+                          className="rounded p-1 text-muted-foreground hover:text-danger-600 hover:bg-danger-50 transition-colors"
                           title="Remove override"
+                          aria-label={`Remove override ${LETTER_PERMISSION_LABELS[override.permission as LetterPermission]?.label ?? override.permission} for ${user.name}`}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -508,17 +543,29 @@ interface AddTypeModalProps {
   onSaved: () => void
 }
 
+interface AddTypeForm {
+  name: string
+  code: string
+  description: string
+}
+
+const ADD_TYPE_DEFAULTS: AddTypeForm = { name: '', code: '', description: '' }
+
 function AddTypeModal({ open, onClose, onSaved }: AddTypeModalProps) {
-  const [name, setName] = useState('')
-  const [code, setCode] = useState('')
-  const [description, setDescription] = useState('')
+  const { register, handleSubmit, reset: resetForm, watch } = useForm<AddTypeForm>({
+    defaultValues: ADD_TYPE_DEFAULTS,
+  })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const nameValue = watch('name')
 
-  const reset = () => { setName(''); setCode(''); setDescription(''); setError(null) }
+  const reset = () => { resetForm(ADD_TYPE_DEFAULTS); setError(null) }
   const handleClose = () => { reset(); onClose() }
 
-  const handleSave = async () => {
+  const handleSave = async (values: AddTypeForm) => {
+    const name = values.name
+    const code = values.code.toUpperCase()
+    const description = values.description
     if (!name.trim()) { setError('Name is required'); return }
     setSaving(true)
     setError(null)
@@ -543,36 +590,36 @@ function AddTypeModal({ open, onClose, onSaved }: AddTypeModalProps) {
     <Modal open={open} onClose={handleClose} title="New Letter Type" size="sm">
       <div className="space-y-4 py-2">
         {error && (
-          <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <div className="flex items-center gap-2 rounded-lg border border-danger-200 bg-danger-50 px-3 py-2 text-sm text-danger-700">
             <AlertCircle className="h-4 w-4 shrink-0" /> {error}
           </div>
         )}
         <div className="space-y-1">
-          <label className="block text-sm font-medium text-foreground">Name <span className="text-red-500">*</span></label>
+          <label htmlFor="letter-type-name" className="block text-sm font-medium text-foreground">Name <span className="text-danger-500">*</span></label>
           <input
-            value={name}
-            onChange={e => setName(e.target.value)}
+            id="letter-type-name"
+            {...register('name')}
             placeholder="e.g. Notice of Default"
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           />
         </div>
         <div className="space-y-1">
-          <label className="block text-sm font-medium text-foreground">
+          <label htmlFor="letter-type-code" className="block text-sm font-medium text-foreground">
             Code <span className="text-muted-foreground text-xs">(2–4 letters, auto-derived if empty)</span>
           </label>
           <input
-            value={code}
-            onChange={e => setCode(e.target.value.toUpperCase())}
+            id="letter-type-code"
+            {...register('code', { setValueAs: (v: string) => v.toUpperCase() })}
             maxLength={4}
             placeholder="e.g. ND"
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-primary"
           />
         </div>
         <div className="space-y-1">
-          <label className="block text-sm font-medium text-foreground">Description</label>
+          <label htmlFor="letter-type-description" className="block text-sm font-medium text-foreground">Description</label>
           <textarea
-            value={description}
-            onChange={e => setDescription(e.target.value)}
+            id="letter-type-description"
+            {...register('description')}
             rows={2}
             placeholder="Optional — describes when this letter type is used"
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
@@ -581,8 +628,8 @@ function AddTypeModal({ open, onClose, onSaved }: AddTypeModalProps) {
         <div className="flex justify-end gap-3 pt-2">
           <button onClick={handleClose} className="rounded-md border border-input px-4 py-2 text-sm hover:bg-muted transition-colors">Cancel</button>
           <button
-            onClick={handleSave}
-            disabled={saving || !name.trim()}
+            onClick={handleSubmit(handleSave)}
+            disabled={saving || !nameValue.trim()}
             className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center gap-2"
           >
             {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
@@ -636,7 +683,7 @@ function LetterTypesTab() {
   return (
     <div className="space-y-4">
       {error && (
-        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="flex items-center gap-2 rounded-lg border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-700">
           <AlertCircle className="h-4 w-4 shrink-0" /> {error}
         </div>
       )}
@@ -654,11 +701,17 @@ function LetterTypesTab() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
-          <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading…
-        </div>
+        <TableSkeleton rows={4} label="Loading letter types" />
+      ) : types.length === 0 ? (
+        <EmptyState
+          bare
+          icon={FileType}
+          className="rounded-lg border border-dashed border-border"
+          title="No letter types"
+          description="Create a letter type to get started."
+        />
       ) : (
-        <div className="rounded-lg border border-border overflow-hidden">
+        <div className="rounded-lg border border-border overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-muted/50 border-b border-border">
@@ -666,28 +719,29 @@ function LetterTypesTab() {
                 <th className="px-4 py-3 text-left font-semibold text-foreground">Name</th>
                 <th className="px-4 py-3 text-left font-semibold text-foreground">Description</th>
                 <th className="px-4 py-3 text-center font-semibold text-foreground">Type</th>
-                <th className="px-4 py-3" />
+                <th className="px-4 py-3"><span className="sr-only">Actions</span></th>
               </tr>
             </thead>
             <tbody>
               {types.map((t, idx) => (
-                <tr key={t.id} className={cn('border-b border-border last:border-0 hover:bg-muted/20 transition-colors', idx % 2 === 0 ? 'bg-white' : 'bg-muted/10')}>
+                <tr key={t.id} className={cn('border-b border-border last:border-0 hover:bg-muted/20 transition-colors', idx % 2 === 0 ? 'bg-surface-card' : 'bg-muted/10')}>
                   <td className="px-4 py-3 font-mono font-semibold text-foreground">{t.code}</td>
                   <td className="px-4 py-3 font-medium text-foreground">{t.name}</td>
                   <td className="px-4 py-3 text-muted-foreground">{t.description ?? '—'}</td>
                   <td className="px-4 py-3 text-center">
                     {t.isBuiltIn ? (
-                      <span className="inline-block rounded-full bg-blue-100 text-blue-700 border border-blue-200 px-2 py-0.5 text-xs font-medium">Built-in</span>
+                      <span className="inline-block rounded-full bg-primary-100 text-primary-700 border border-primary-200 px-2 py-0.5 text-xs font-medium">Built-in</span>
                     ) : (
-                      <span className="inline-block rounded-full bg-gray-100 text-gray-600 border border-gray-200 px-2 py-0.5 text-xs font-medium">Custom</span>
+                      <span className="inline-block rounded-full bg-surface-app text-ink-secondary border border-border px-2 py-0.5 text-xs font-medium">Custom</span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-right">
                     {!t.isBuiltIn && (
                       <button
                         onClick={() => setDeleteTarget(t)}
-                        className="rounded p-1 text-muted-foreground hover:text-red-600 hover:bg-red-50 transition-colors"
+                        className="rounded p-1 text-muted-foreground hover:text-danger-600 hover:bg-danger-50 transition-colors"
                         title="Delete type"
+                        aria-label={`Delete letter type ${t.name}`}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -732,23 +786,24 @@ export default function LetterPermissionsManagement() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Letter Permissions</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Manage which roles can perform each letter operation, set per-user overrides, and define custom letter types.
-        </p>
-      </div>
+      <PageHeader
+        className="mb-0"
+        title="Letter Permissions"
+        description="Manage which roles can perform each letter operation, set per-user overrides, and define custom letter types."
+      />
 
       {/* Tab bar */}
-      <div className="flex gap-1 rounded-lg bg-muted p-1 w-fit">
+      <div role="tablist" aria-label="Letter permission sections" className="flex gap-1 rounded-lg bg-muted p-1 w-fit">
         {tabs.map(t => (
           <button
             key={t.id}
+            role="tab"
+            aria-selected={tab === t.id}
             onClick={() => setTab(t.id)}
             className={cn(
               'flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-all',
               tab === t.id
-                ? 'bg-white text-foreground shadow-sm'
+                ? 'bg-surface-card text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
             )}
           >

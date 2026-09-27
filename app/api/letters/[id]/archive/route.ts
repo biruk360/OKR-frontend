@@ -1,7 +1,8 @@
 import { prisma } from '@/lib/prisma'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
+import { letterReadGuard } from '@/lib/letter-access'
 import { recordActivity } from '@/lib/activity-log'
-import { checkLetterPermissionV2 } from '@/lib/letter-permissions'
+import { canAdministerLetters } from '@/lib/letter-permissions'
 import {
   apiSuccess,
   apiBadRequest,
@@ -15,11 +16,16 @@ export const POST = withAuth<RouteIdParams>(async (req, { session, params }) => 
   const { id } = await resolveParams(params)
   if (!id) return apiBadRequest('Invalid letter id')
 
+  // Read scope first: an out-of-scope letter is 404, so ids can't be probed
+  // through the transition endpoints.
+  const denied = await letterReadGuard(session.user.id, id)
+  if (denied) return denied
+
   const body = (await req.json().catch(() => ({}))) as { force?: boolean }
   const letter = await prisma.letter.findUnique({ where: { id } })
   if (!letter) return apiNotFound('Letter not found')
 
-  const canAdmin = await checkLetterPermissionV2(session.user.id, 'letter.view_all')
+  const canAdmin = await canAdministerLetters(session.user.id)
   const isForce = Boolean(body.force) && canAdmin
   if (letter.status !== 'SENT' && !isForce) {
     return apiBadRequest('Only SENT letters can be archived (or use force as an admin)')
@@ -44,7 +50,12 @@ export const DELETE = withAuth<RouteIdParams>(async (_req, { session, params }) 
   const { id } = await resolveParams(params)
   if (!id) return apiBadRequest('Invalid letter id')
 
-  if (!(await checkLetterPermissionV2(session.user.id, 'letter.view_all'))) {
+  // Read scope first: an out-of-scope letter is 404, so ids can't be probed
+  // through the transition endpoints.
+  const denied = await letterReadGuard(session.user.id, id)
+  if (denied) return denied
+
+  if (!(await canAdministerLetters(session.user.id))) {
     return apiForbidden('Only a Letter Administrator can unarchive')
   }
 

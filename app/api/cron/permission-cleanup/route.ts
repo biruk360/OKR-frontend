@@ -1,19 +1,17 @@
-import { NextRequest } from 'next/server'
+import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { permissionCache } from '@/lib/permission-cache'
 import { recordActivity } from '@/lib/activity-log'
+import { withCronAuth } from '@/lib/cron-auth'
 
-export async function POST(req: NextRequest) {
-  const secret = process.env.CRON_SECRET
-  const authHeader = req.headers.get('authorization')
-  const xCronSecret = req.headers.get('x-cron-secret')
-  const validBearer = authHeader === 'Bearer ' + secret
-  const validHeader = xCronSecret === secret
-
-  if (!validBearer && !validHeader) {
-    return Response.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
+/**
+ * Revokes expired UserRole assignments and permission overrides.
+ *
+ * Auth: withCronAuth (lib/cron-auth.ts) — `Authorization: Bearer $CRON_SECRET`
+ * or `x-cron-secret`. This route used to compare against `'Bearer ' + secret`,
+ * so with CRON_SECRET unset a literal `Bearer undefined` was accepted.
+ */
+export const POST = withCronAuth(async () => {
   const now = new Date()
 
   const expiredUserRoles = await prisma.userRole.findMany({
@@ -64,10 +62,12 @@ export async function POST(req: NextRequest) {
 
   permissionCache.invalidateAll()
 
-  return Response.json({
-    ok: true,
+  return NextResponse.json({
+    success: true,
     revokedUserRoles: revokedRoles.length,
     revokedOverrides: revokedOverrides.length,
     timestamp: now.toISOString(),
   })
-}
+})
+
+export const GET = POST

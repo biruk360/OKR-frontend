@@ -7,7 +7,7 @@
  */
 
 import { prisma } from '@/lib/prisma'
-import { emit } from '@/lib/notifications'
+import { emitNow } from '@/lib/notifications'
 import { businessDaysBetween } from './business-days'
 import { isPaymentMilestoneOverdue } from './payment-milestones'
 import type { RagStatus } from '@/features/projects/types'
@@ -288,7 +288,7 @@ export async function runProjectDigest(now = new Date()): Promise<{ generated: n
         continue
       }
 
-      await emit('PROJECT_DAILY_DIGEST', {
+      await emitNow('PROJECT_DAILY_DIGEST', {
         actorId: 'system',
         entityType: 'PROJECT',
         entityId: 'portfolio',

@@ -70,8 +70,8 @@ function PortfolioRagWall({ projects, totalSlipDays }: { projects: PortfolioProj
         {projects.map((p) => (
           <div key={p.id} className={cn('rounded-md border p-3', ragBg(p.ragStatus))}>
             <div className="truncate text-body-sm font-semibold text-ink-primary">{p.code}</div>
-            <div className="truncate text-body-xs text-ink-secondary">{p.name}</div>
-            <div className="mt-3 grid grid-cols-3 gap-2 text-body-xs">
+            <div className="truncate text-xs text-ink-secondary">{p.name}</div>
+            <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
               <Metric label="RAG" value={p.ragStatus} />
               <Metric label="Complete" value={<ProjectProgress actual={p.percentComplete} planned={p.percentPlanned} variant="value" showPlanned={false} />} />
               <Metric label="Slip" value={`${p.totalSlipDays}d`} />
@@ -109,8 +109,8 @@ function PortfolioClientHealth({ value }: { value: number }) {
           style={{ background: `conic-gradient(${value >= 80 ? chartColors.green : value >= 60 ? chartColors.orange : chartColors.red} ${value * 3.6}deg, var(--ap-bg-sunken) 0)` }}
         >
           <div className="flex size-32 flex-col items-center justify-center rounded-full bg-surface-card">
-            <div className="text-[32px] font-semibold text-ink-primary">{value}</div>
-            <div className="text-body-xs text-ink-tertiary">Health</div>
+            <div className="text-3xl font-semibold text-ink-primary">{value}</div>
+            <div className="text-xs text-ink-tertiary">Health</div>
           </div>
         </div>
       </div>

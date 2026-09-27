@@ -53,7 +53,7 @@ export default function CompanySignature({
         <span aria-hidden className="text-[12px] font-light text-white/40">
           &amp;
         </span>
-        <span className="text-[10px] uppercase tracking-[0.13em] text-white/70 [text-shadow:0_1px_8px_oklch(0.1_0.02_258/0.45)] sm:text-[10.5px] sm:tracking-[0.17em]">
+        <span className="text-micro uppercase tracking-[0.13em] text-white/70 [text-shadow:0_1px_8px_oklch(0.1_0.02_258/0.45)] sm:text-[10.5px] sm:tracking-[0.17em]">
           Eldix IT Technology PLC
         </span>
       </p>

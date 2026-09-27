@@ -7,9 +7,36 @@
 - `docs/apple_pro_ux_guide.md` — page anatomy + behavior
 - `docs/CRON.md` — VPS cron schedule
 
+> **⚠ 2026-09-25 addendum — read before trusting the "✅ Complete" rows below.** The table and
+> checklists below are the 2026-04-27 snapshot and overstated the state. The 2026-09-25 full-project
+> audit found, and the remediation in `docs/REMEDIATION_PLAN_2026-09-25.md` then addressed:
+> - **Dark mode was not real** for the Tailwind palette (`surface/ink/primary/…` were hardcoded hex);
+>   fixed in Wave 3 U1 — palette now reads `--rgb-*` CSS variables with `:root.dark` values. Before
+>   that the design refresh (`docs/design_refresh_IMPLEMENTATION_STRATEGY.md`, Phases 0–8,
+>   2026-09-17/18) had already retargeted `--ap-*` tokens, rebuilt the shell and the card modal.
+> - **Raw hex / off-token colours, native `window.confirm/prompt`, missing skeletons/error
+>   boundaries** across settings, projects, OKR, sprints/todos/scrum/letters/travel/performance —
+>   fixed in the Wave 3 area passes. ~30 raw `bg-white` usages remain in 15 files.
+> - **Focus ring** had two conflicting implementations; unified (2px `--ring` outline, `.ap-focus-ring`).
+> - **"Coming soon" stubs and dead entry points** (home Check-in button, Explorer Create menu,
+>   Plans More) — fixed in Wave 2 F1.
+> - The card modal is no longer a 480px right-side drawer (§"Phase 3" below): the design refresh
+>   made it a 940px centred-top `Modal`, and Wave 3 split `TodoCardModal` into `components/todos/Card*`
+>   parts behind `LazyTodoCardModal`.
+> - The `SprintActivity*` Prisma models are gone from `prisma/schema.prisma`; the preflight migration
+>   block remains and skips when the table is absent.
+> - Still **not** done: no browser/visual check of the refreshed UI; no staging environment; no
+>   visual-regression tests; Next.js is still `14.0.4` (upgrade for CVE-2025-29927 is plan item S8);
+>   realtime depends on real Pusher credentials.
+> - CI now exists (`.github/workflows/ci.yml` runs tsc, lint and the unit suites) and ESLint is
+>   configured (`.eslintrc.json`).
+>
+> Current state lives in `docs/FEATURE_STATUS.md` and `docs/MASTER_REFERENCE.md`; this file is kept as
+> the historical record of the April rollout.
+
 ---
 
-## TL;DR — Everything shipped
+## TL;DR — Everything shipped (as claimed 2026-04-27; see addendum above)
 
 | Area | Status |
 |------|--------|

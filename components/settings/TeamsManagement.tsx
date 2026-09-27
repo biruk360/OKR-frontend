@@ -7,7 +7,7 @@ import CreateTeamModal from './CreateTeamModal'
 import EditTeamModal from './EditTeamModal'
 import DeleteTeamModal from './DeleteTeamModal'
 import { useDepartments } from '@/hooks'
-import { EmptyState } from '@/components/ui'
+import { Button, EmptyState, PageHeader } from '@/components/ui'
 
 interface TeamsManagementProps {
   initialDepartments: any[]
@@ -44,24 +44,20 @@ export default function TeamsManagement({ initialDepartments }: TeamsManagementP
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Team Management</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Create and manage teams (departments) in your organization.
-          </p>
-        </div>
-        <button
-          onClick={() => setIsCreateModalOpen(true)}
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Create Team
-        </button>
-      </div>
+      <PageHeader
+        className="mb-0"
+        title="Team Management"
+        description="Create and manage teams (departments) in your organization."
+        actions={
+          <Button onClick={() => setIsCreateModalOpen(true)}>
+            <Plus className="size-4" />
+            Create Team
+          </Button>
+        }
+      />
 
       {/* Teams List */}
-      <div className="bg-card shadow rounded-lg overflow-hidden">
+      <div className="bg-card shadow rounded-lg overflow-x-auto">
         <table className="min-w-full divide-y divide-border">
           <thead className="bg-muted">
             <tr>
@@ -103,7 +99,7 @@ export default function TeamsManagement({ initialDepartments }: TeamsManagementP
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className={`px-2 py-1 text-xs font-medium rounded-full ${
                     department.isActive
-                      ? 'bg-green-100 text-green-800'
+                      ? 'bg-success-100 text-success-800'
                       : 'bg-muted text-foreground'
                   }`}>
                     {department.isActive ? 'Active' : 'Inactive'}
@@ -113,13 +109,15 @@ export default function TeamsManagement({ initialDepartments }: TeamsManagementP
                   <div className="flex items-center justify-end space-x-2">
                     <button
                       onClick={() => setEditingTeam(department)}
-                      className="text-blue-600 hover:text-blue-900"
+                      aria-label={`Edit ${department.name}`}
+                      className="text-primary-600 hover:text-primary-900"
                     >
                       <Edit className="h-4 w-4" />
                     </button>
                     <button
                       onClick={() => setDeletingTeam(department)}
-                      className="text-red-600 hover:text-red-900"
+                      aria-label={`Delete ${department.name}`}
+                      className="text-danger-600 hover:text-danger-900"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>

@@ -127,7 +127,7 @@ export default function MoveOkrModal({
       size="sm"
     >
       <div className="space-y-4">
-        <p className="text-[13px] text-muted-foreground">
+        <p className="text-body-sm text-muted-foreground">
           {isObjective ? (
             <>Align <span className="font-medium text-foreground">{entity.title}</span> under a different parent objective.</>
           ) : (
@@ -136,7 +136,7 @@ export default function MoveOkrModal({
         </p>
 
         <div>
-          <label className="mb-1.5 block text-[12px] font-semibold">
+          <label className="mb-1.5 block text-xs font-semibold">
             {isObjective ? 'New parent objective' : 'New objective'}
           </label>
           <EntityPicker
@@ -156,7 +156,7 @@ export default function MoveOkrModal({
             placeholder="Choose an objective…"
             width={360}
           />
-          <p className="mt-1.5 text-[11px] text-muted-foreground">
+          <p className="mt-1.5 text-caption text-muted-foreground">
             The target must be active and in the same timeframe. Progress is
             recalculated for both the old and the new parent.
           </p>

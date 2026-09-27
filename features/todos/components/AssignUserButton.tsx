@@ -31,8 +31,9 @@ export default function AssignUserButton({ todo, users, onAssign, className = ''
     <>
       <button
         onClick={() => setIsModalOpen(true)}
-        className={`inline-flex items-center px-2 py-1 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded ${className}`}
+        className={`inline-flex items-center px-2 py-1 text-sm text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded ${className}`}
         title={todo.assignee ? 'Re-assign user' : 'Assign user'}
+        aria-label={todo.assignee ? 'Re-assign user' : 'Assign user'}
       >
         {todo.assignee ? (
           <User className="h-4 w-4" />

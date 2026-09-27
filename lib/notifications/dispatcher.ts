@@ -1,11 +1,15 @@
 /**
  * emit(event, payload) — single entry point domain code uses to fire a
  * notification event. The dispatcher:
- *   1. Resolves recipients per the email-matrix rule for this event.
- *   2. Looks up each recipient's effective preference (in-app + email cadence).
- *   3. Builds a redacted variant per recipient (per isPrivate rule).
- *   4. Writes in-app Notification rows.
- *   5. Sends IMMEDIATE emails via lib/email.sendMail or enqueues to EmailDigestQueue.
+ *   1. Resolves recipients per the email-matrix rule for this event.   ─┐ awaited by
+ *      (plus the owner/manager scope redaction needs)                   ─┘ the caller
+ *   2. Looks up each recipient's effective preference (in-app + email cadence). ─┐
+ *   3. Builds a redacted variant per recipient (per isPrivate rule).             │ after the
+ *   4. Writes in-app Notification rows (one INSERT … RETURNING).                 │ response
+ *   5. Enqueues digest rows (one dedupe read + one INSERT).                      │ (runAfterResponse),
+ *   6. Pushes to Pusher and sends IMMEDIATE email, 5 recipients at a time.      ─┘ see ./fanout.ts
+ *
+ * `emitNow` runs all six before resolving — for cron jobs and scripts.
  *
  * Errors are logged but never thrown — notification failure must not break the
  * user's primary action (creating an objective, saving a KR, etc.).
@@ -24,6 +28,7 @@ import { renderTemplate } from '@/lib/email/templates'
 import { buildDeepLink } from './deep-link'
 import { broadcastUserNotification } from '@/lib/pusher'
 import { toNotificationRow } from './row'
+import { createEmitter, mapWithConcurrency, RECIPIENT_CONCURRENCY } from './fanout'
 
 type RecipientRoleTag = 'OWNER' | 'MANAGER' | 'PARENT_OWNER' | 'ADMIN' | 'WATCHER' | 'TEAM' | 'EXPLICIT' | 'ASSIGNEE'
 
@@ -320,51 +325,116 @@ async function resolveRecipients(eventKey: EventKey, p: EventPayload): Promise<M
 }
 
 /**
- * Fire an event. Safe to await — never throws. Recipients, channels, and cadence
- * are resolved entirely inside this function; callers only provide the event
- * payload.
+ * Everything delivery needs, captured while the caller is still awaiting.
+ * Recipients and the redaction scope read entity state the caller has just
+ * changed, so they are resolved here — not after the response, when a later
+ * request may already have moved the entity on.
  */
-export async function emit(eventKey: EventKey, payload: EventPayload): Promise<void> {
-  try {
-    const meta = EVENT_META[eventKey]
-    if (!meta) {
-      console.warn('[notifications] unknown event key', eventKey)
-      return
-    }
+interface EmitPlan {
+  eventKey: EventKey
+  payload: EventPayload
+  recipients: Array<[string, RecipientRoleTag[]]>
+  entityOwnerId: string | undefined
+  managerIds: string[]
+}
 
-    const recipients = await resolveRecipients(eventKey, payload)
-    if (recipients.size === 0) return
+async function planEmit(eventKey: EventKey, payload: EventPayload): Promise<EmitPlan | null> {
+  const meta = EVENT_META[eventKey]
+  if (!meta) {
+    console.warn('[notifications] unknown event key', eventKey)
+    return null
+  }
+  if (!payload || typeof payload !== 'object') {
+    console.warn('[notifications] emit called without a payload', eventKey)
+    return null
+  }
 
-    const userIds = Array.from(recipients.keys())
-    const [users, prefs] = await Promise.all([
-      prisma.user.findMany({
-        where: { id: { in: userIds }, isActive: true },
-        select: { id: true, email: true, name: true, role: true },
-      }),
-      getUserPrefsBulk(userIds, meta.category),
-    ])
-    const userById = new Map(users.map((u) => [u.id, u]))
+  // Snapshot: delivery runs after the caller returns, and callers reuse payload
+  // objects across emits (keyresults check-ins sends one `emitBase` three times).
+  const snapshot: EventPayload = {
+    ...payload,
+    explicitRecipients: payload.explicitRecipients ? [...payload.explicitRecipients] : undefined,
+    data: payload.data ? { ...payload.data } : undefined,
+  }
 
-    // Collect IDs of managers for redaction scoping (owners' managers see full detail).
-    const entityOwnerId = (payload.entityType === 'USER' || payload.entityType === 'TIMEFRAME')
-      ? payload.entityId
-      : undefined
-    let managerIds: string[] = []
-    if (payload.entityType === 'OBJECTIVE' && payload.entityId) {
-      const owners = await resolveOwnersOfObjective(payload.entityId)
+  const recipients = await resolveRecipients(eventKey, snapshot)
+  if (recipients.size === 0) return null
+
+  // Collect IDs of managers for redaction scoping (owners' managers see full detail).
+  const entityOwnerId = (snapshot.entityType === 'USER' || snapshot.entityType === 'TIMEFRAME')
+    ? snapshot.entityId
+    : undefined
+  let managerIds: string[] = []
+  if (snapshot.isPrivate) {
+    // Only consulted by shouldRedact/displayTitle, which both short-circuit
+    // when the entity is not private — skip the owner/manager lookups otherwise.
+    if (snapshot.entityType === 'OBJECTIVE' && snapshot.entityId) {
+      const owners = await resolveOwnersOfObjective(snapshot.entityId)
       for (const o of owners) managerIds.push(...(await resolveManagersOf(o)))
-    } else if (payload.entityType === 'KEY_RESULT' && payload.entityId) {
-      const krOwner = await resolveOwnerOfKeyResult(payload.entityId)
+    } else if (snapshot.entityType === 'KEY_RESULT' && snapshot.entityId) {
+      const krOwner = await resolveOwnerOfKeyResult(snapshot.entityId)
       if (krOwner) managerIds = await resolveManagersOf(krOwner)
     }
+  }
 
-    for (const [uid, tags] of Array.from(recipients.entries())) {
+  return {
+    eventKey,
+    payload: snapshot,
+    recipients: Array.from(recipients.entries()).map(([uid, tags]) => [uid, Array.from(tags)]),
+    entityOwnerId,
+    managerIds,
+  }
+}
+
+/** One recipient's fully rendered delivery. */
+interface RecipientDelivery {
+  uid: string
+  user: { id: string; email: string; name: string }
+  tags: RecipientRoleTag[]
+  inApp: boolean
+  email: boolean
+  effectiveCadence: string
+  redacted: boolean
+  rendered: { subject: string; text: string; html?: string | null }
+  deepLink: string
+  emailMode: string
+}
+
+async function deliverEmit(plan: EmitPlan): Promise<void> {
+  const { eventKey, payload, entityOwnerId, managerIds } = plan
+  const meta = EVENT_META[eventKey]
+  const userIds = plan.recipients.map(([uid]) => uid)
+
+  const [users, prefs] = await Promise.all([
+    prisma.user.findMany({
+      where: { id: { in: userIds }, isActive: true },
+      select: { id: true, email: true, name: true, role: true },
+    }),
+    getUserPrefsBulk(userIds, meta.category),
+  ])
+  const userById = new Map(users.map((u) => [u.id, u]))
+
+  // Auto-attach a deep link for every event so the email always points back to
+  // the page that initiated it. Caller-supplied data.deepLink wins if present.
+  // Recipient-independent, so computed once.
+  const autoDeepLink = buildDeepLink({
+    eventKey,
+    entityType: payload.entityType,
+    entityId: payload.entityId,
+    data: payload.data ?? {},
+  })
+
+  // 1. Pure per-recipient work: gate, redact, render.
+  const deliveries: RecipientDelivery[] = []
+  for (const [uid, tags] of plan.recipients) {
+    try {
       const user = userById.get(uid)
       if (!user) continue
-      const pref = prefs.get(uid)!
+      const pref = prefs.get(uid)
+      if (!pref) continue
       if (!pref.inApp && !pref.email) continue
 
-      const redacted = meta.redactable && shouldRedact({
+      const redactInput = {
         recipientId: uid,
         entityOwnerId,
         entityManagerIds: managerIds,
@@ -372,33 +442,17 @@ export async function emit(eventKey: EventKey, payload: EventPayload): Promise<v
         isPrivate: payload.isPrivate ?? false,
         entityType: payload.entityType,
         entityTitle: payload.entityTitle,
-      })
+      }
+      const redacted = meta.redactable && shouldRedact(redactInput)
+      const title = displayTitle(redactInput)
 
-      const title = displayTitle({
-        recipientId: uid,
-        entityOwnerId,
-        entityManagerIds: managerIds,
-        recipientRole: user.role as any,
-        isPrivate: payload.isPrivate ?? false,
-        entityType: payload.entityType,
-        entityTitle: payload.entityTitle,
-      })
-
-      // Auto-attach a deep link for every event so the email always points back to
-      // the page that initiated it. Caller-supplied data.deepLink wins if present.
-      const autoDeepLink = buildDeepLink({
-        eventKey,
-        entityType: payload.entityType,
-        entityId: payload.entityId,
-        data: payload.data ?? {},
-      })
       const templateData = redactData({
         ...payload.data,
         deepLink: (payload.data?.deepLink as string | undefined) || autoDeepLink,
         entityTitle: title,
         entityType: payload.entityType,
         entityId: payload.entityId,
-        recipientRole: Array.from(tags),
+        recipientRole: tags,
       }, redacted)
 
       const rendered = renderTemplate(eventKey, {
@@ -406,35 +460,6 @@ export async function emit(eventKey: EventKey, payload: EventPayload): Promise<v
         ...templateData,
       })
 
-      // In-app row
-      if (pref.inApp) {
-        const created = await prisma.notification.create({
-          data: {
-            type: eventKey,
-            eventKey,
-            category: meta.category,
-            title: rendered.subject,
-            message: rendered.text.split('\n').slice(0, 3).join(' ').slice(0, 280),
-            userId: uid,
-            metadata: JSON.stringify({
-              entityType: payload.entityType,
-              entityId: payload.entityId,
-              actorId: payload.actorId,
-              redacted,
-              tags: Array.from(tags),
-            }),
-            redacted,
-            emailMode: pref.email ? (pref.emailCadence === 'IMMEDIATE' ? 'IMMEDIATE' : `DIGEST_${pref.emailCadence}`) : 'DISABLED',
-          },
-        })
-        // Push it to the recipient's open tabs. Awaited but never fatal — the
-        // row is already persisted, so a websocket failure must not surface as
-        // a failed notification.
-        await broadcastUserNotification(uid, { ...toNotificationRow(created) })
-      }
-
-      // Email
-      if (!pref.email) continue
       // Cron-driven reminder events are forced into DAILY digest regardless of pref —
       // see FORCE_DIGEST_EVENTS for rationale.
       const effectiveCadence = FORCE_DIGEST_EVENTS.has(eventKey)
@@ -442,69 +467,169 @@ export async function emit(eventKey: EventKey, payload: EventPayload): Promise<v
         : FORCE_IMMEDIATE_EVENTS.has(eventKey)
           ? 'IMMEDIATE'
           : pref.emailCadence
-      if (effectiveCadence === 'IMMEDIATE') {
-        const res = await sendMail({
-          to: user.email,
-          toName: user.name,
-          subject: rendered.subject,
-          text: rendered.text,
-          html: rendered.html,
-          template: eventKey,
-          metadata: { userId: uid, eventKey, redacted },
-        })
-        if (pref.inApp) {
-          await prisma.notification.updateMany({
-            where: { userId: uid, eventKey, emailSent: false },
-            data: { emailSent: res.status === 'SENT' || res.status === 'LOGGED_ONLY', emailAt: new Date(), outboundEmailId: res.id },
-          })
-        }
-      } else {
-        // Dedupe against rows that are still queued for the same user+event+entity.
-        //
-        // Cron-driven reminders re-fire for the same entity every run, so they
-        // keep the original UTC-day bound — one row per item per day however
-        // often the cron ticks.
-        //
-        // Everything else dedupes only against UNSENT rows with no time bound.
-        // That collapses duplicates inside a window while still allowing a new
-        // notification once the batch has gone out. Keeping the day bound here
-        // would have been actively wrong now that BATCHED is the default: a
-        // second comment on the same to-do later in the day would be silently
-        // dropped.
-        const dedupeFrom = FORCE_DIGEST_EVENTS.has(eventKey)
-          ? (() => { const d = new Date(); d.setUTCHours(0, 0, 0, 0); return d })()
-          : undefined
-        const existing = await prisma.emailDigestQueue.findFirst({
-          where: {
-            userId: uid,
-            eventKey,
-            sentAt: null,
-            ...(dedupeFrom ? { queuedAt: { gte: dedupeFrom } } : {}),
-            metadata: payload.entityId ? { contains: `"entityId":"${payload.entityId}"` } : undefined,
-          },
-          select: { id: true },
-        })
-        if (existing) continue
-        await prisma.emailDigestQueue.create({
-          data: {
-            userId: uid,
-            cadence: effectiveCadence,
+
+      deliveries.push({
+        uid,
+        user,
+        tags,
+        inApp: pref.inApp,
+        email: pref.email,
+        effectiveCadence,
+        redacted,
+        rendered,
+        deepLink: String(templateData.deepLink ?? ''),
+        emailMode: pref.email ? (pref.emailCadence === 'IMMEDIATE' ? 'IMMEDIATE' : `DIGEST_${pref.emailCadence}`) : 'DISABLED',
+      })
+    } catch (err) {
+      console.error('[notifications] render failed', eventKey, uid, err)
+    }
+  }
+  if (deliveries.length === 0) return
+
+  // 2. In-app rows — one INSERT for every recipient. createManyAndReturn, not
+  //    createMany: the Pusher payload carries the row id, so the bell can
+  //    reconcile the pushed row with the one it later fetches.
+  const rowByUser = new Map<string, Awaited<ReturnType<typeof prisma.notification.createManyAndReturn>>[number]>()
+  const inAppDeliveries = deliveries.filter((d) => d.inApp)
+  if (inAppDeliveries.length > 0) {
+    try {
+      const rows = await prisma.notification.createManyAndReturn({
+        data: inAppDeliveries.map((d) => ({
+          type: eventKey,
+          eventKey,
+          category: meta.category,
+          title: d.rendered.subject,
+          message: d.rendered.text.split('\n').slice(0, 3).join(' ').slice(0, 280),
+          userId: d.uid,
+          metadata: JSON.stringify({
+            entityType: payload.entityType,
+            entityId: payload.entityId,
+            actorId: payload.actorId,
+            redacted: d.redacted,
+            tags: d.tags,
+          }),
+          redacted: d.redacted,
+          emailMode: d.emailMode,
+        })),
+      })
+      // Recipients are unique per emit, so userId identifies the row.
+      for (const r of rows) rowByUser.set(r.userId, r)
+    } catch (err) {
+      // Email is an independent channel — a failed insert must not also cost
+      // the recipient their email.
+      console.error('[notifications] in-app insert failed', eventKey, err)
+    }
+  }
+
+  // 3. Digest queue — dedupe against rows still queued for the same
+  //    user+event+entity with one read, then one INSERT.
+  //
+  // Cron-driven reminders re-fire for the same entity every run, so they
+  // keep the original UTC-day bound — one row per item per day however
+  // often the cron ticks.
+  //
+  // Everything else dedupes only against UNSENT rows with no time bound.
+  // That collapses duplicates inside a window while still allowing a new
+  // notification once the batch has gone out. Keeping the day bound here
+  // would have been actively wrong now that BATCHED is the default: a
+  // second comment on the same to-do later in the day would be silently
+  // dropped.
+  const queued = deliveries.filter((d) => d.email && d.effectiveCadence !== 'IMMEDIATE')
+  if (queued.length > 0) {
+    try {
+      const dedupeFrom = FORCE_DIGEST_EVENTS.has(eventKey)
+        ? (() => { const d = new Date(); d.setUTCHours(0, 0, 0, 0); return d })()
+        : undefined
+      const existing = await prisma.emailDigestQueue.findMany({
+        where: {
+          userId: { in: queued.map((d) => d.uid) },
+          eventKey,
+          sentAt: null,
+          ...(dedupeFrom ? { queuedAt: { gte: dedupeFrom } } : {}),
+          metadata: payload.entityId ? { contains: `"entityId":"${payload.entityId}"` } : undefined,
+        },
+        select: { userId: true },
+      })
+      const alreadyQueued = new Set(existing.map((e) => e.userId))
+      const fresh = queued.filter((d) => !alreadyQueued.has(d.uid))
+      if (fresh.length > 0) {
+        await prisma.emailDigestQueue.createMany({
+          data: fresh.map((d) => ({
+            userId: d.uid,
+            cadence: d.effectiveCadence,
             category: meta.category,
             eventKey,
-            subject: rendered.subject,
-            bodyText: rendered.text,
-            bodyHtml: rendered.html ?? null,
+            subject: d.rendered.subject,
+            bodyText: d.rendered.text,
+            bodyHtml: d.rendered.html ?? null,
             metadata: JSON.stringify({
               entityType: payload.entityType,
               entityId: payload.entityId,
-              redacted,
-              deepLink: templateData.deepLink,
+              redacted: d.redacted,
+              deepLink: d.deepLink,
             }),
-          },
+          })),
         })
       }
+    } catch (err) {
+      console.error('[notifications] digest enqueue failed', eventKey, err)
     }
-  } catch (err) {
-    console.error('[notifications] emit failed', eventKey, err)
   }
+
+  // 4. Network calls — Pusher and IMMEDIATE SMTP — in parallel with a bound,
+  //    so one slow recipient no longer delays everyone after them.
+  const results = await mapWithConcurrency(deliveries, RECIPIENT_CONCURRENCY, async (d) => {
+    const row = rowByUser.get(d.uid)
+    // Push it to the recipient's open tabs. Never fatal — the row is already
+    // persisted, so a websocket failure must not surface as a failed notification.
+    if (row) await broadcastUserNotification(d.uid, { ...toNotificationRow(row) })
+
+    if (!d.email || d.effectiveCadence !== 'IMMEDIATE') return
+    const res = await sendMail({
+      to: d.user.email,
+      toName: d.user.name,
+      subject: d.rendered.subject,
+      text: d.rendered.text,
+      html: d.rendered.html ?? undefined,
+      template: eventKey,
+      metadata: { userId: d.uid, eventKey, redacted: d.redacted },
+    })
+    if (row) {
+      await prisma.notification.updateMany({
+        where: { id: row.id },
+        data: { emailSent: res.status === 'SENT' || res.status === 'LOGGED_ONLY', emailAt: new Date(), outboundEmailId: res.id },
+      })
+    }
+  })
+  results.forEach((r, i) => {
+    if (r.status === 'rejected') {
+      console.error('[notifications] recipient delivery failed', eventKey, deliveries[i].uid, r.reason)
+    }
+  })
 }
+
+const emitter = createEmitter<[EventKey, EventPayload], EmitPlan>({
+  name: 'notifications',
+  plan: planEmit,
+  deliver: deliverEmit,
+  // Same event on the same entity → deliveries run in order, so the digest
+  // dedupe (read, then insert) never races with itself inside this process.
+  keyOf: (p) => `${p.eventKey}:${p.payload.entityId ?? ''}`,
+  labelOf: (p) => p.eventKey,
+})
+
+/**
+ * Fire an event. Safe to await — never throws.
+ *
+ * Resolves recipients before resolving (so they reflect the state the caller
+ * just wrote), then delivers after the HTTP response: preferences, in-app rows,
+ * Pusher, IMMEDIATE email and digest queueing all run via runAfterResponse. A
+ * delivery failure is logged under `[notifications]`, never thrown.
+ *
+ * Use `emitNow` when the next step depends on delivery having happened — cron
+ * jobs, digests, short-lived scripts that exit when their main() resolves.
+ */
+export const emit: (eventKey: EventKey, payload: EventPayload) => Promise<void> = emitter.emit
+
+/** Like `emit`, but resolves only after delivery has finished. Never throws. */
+export const emitNow: (eventKey: EventKey, payload: EventPayload) => Promise<void> = emitter.emitNow

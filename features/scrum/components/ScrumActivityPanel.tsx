@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { AlertTriangle, CalendarDays, ChevronRight, Sparkles } from 'lucide-react'
 import { prisma } from '@/lib/prisma'
+import { SUBMITTED_SCRUM_UPDATE_WHERE } from '../services/drafts'
+import { stripHtml as htmlToText } from '../services/prefill'
 
 interface ScrumActivityPanelProps {
   title?: string
@@ -33,7 +35,7 @@ export async function ScrumActivityPanel({
   if (filters.length === 0) return null
 
   const updates = await prisma.scrumUpdate.findMany({
-    where: { OR: filters },
+    where: { OR: filters, ...SUBMITTED_SCRUM_UPDATE_WHERE },
     orderBy: [{ scrumDate: 'desc' }, { submittedAt: 'desc' }],
     take: compact ? 3 : 6,
     select: {
@@ -86,8 +88,8 @@ export async function ScrumActivityPanel({
                   <p className="mt-1 line-clamp-2 text-sm text-foreground">{stripHtml(update.todayPlan || 'No plan recorded')}</p>
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
-                  {update.hasBlocker && <AlertTriangle className="size-4 text-amber-600" />}
-                  {update.hasWin && <Sparkles className="size-4 text-emerald-600" />}
+                  {update.hasBlocker && <AlertTriangle className="size-4 text-warning-600" />}
+                  {update.hasWin && <Sparkles className="size-4 text-success-600" />}
                 </div>
               </div>
               {(update.blockers || update.wins) && (
@@ -104,6 +106,7 @@ export async function ScrumActivityPanel({
   )
 }
 
+/** Plain text for React text nodes (stored HTML is escaped; decode entities, React re-escapes). */
 function stripHtml(value: string): string {
-  return value.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+  return htmlToText(value).replace(/\s+/g, ' ').trim()
 }

@@ -122,7 +122,7 @@ export default function EditObjectiveModal({ isOpen, onClose, objective }: EditO
             className="input"
             placeholder="Enter objective title"
           />
-          {errors.title && <p className="mt-1 text-sm text-red-600">{errors.title.message}</p>}
+          {errors.title && <p className="mt-1 text-sm text-danger-600">{errors.title.message}</p>}
         </div>
 
         <div>
@@ -153,7 +153,7 @@ export default function EditObjectiveModal({ isOpen, onClose, objective }: EditO
                 </option>
               ))}
             </select>
-            {errors.ownerId && <p className="mt-1 text-sm text-red-600">{errors.ownerId.message}</p>}
+            {errors.ownerId && <p className="mt-1 text-sm text-danger-600">{errors.ownerId.message}</p>}
           </div>
 
           <div className="md:col-span-2">
@@ -192,7 +192,7 @@ export default function EditObjectiveModal({ isOpen, onClose, objective }: EditO
               })}
             </select>
             {errors.timeframeId && (
-              <p className="mt-1 text-sm text-red-600">{errors.timeframeId.message}</p>
+              <p className="mt-1 text-sm text-danger-600">{errors.timeframeId.message}</p>
             )}
           </div>
         </div>
@@ -226,7 +226,7 @@ export default function EditObjectiveModal({ isOpen, onClose, objective }: EditO
                 ))}
               </select>
               {errors.departmentId && (
-                <p className="mt-1 text-sm text-red-600">{errors.departmentId.message}</p>
+                <p className="mt-1 text-sm text-danger-600">{errors.departmentId.message}</p>
               )}
               {objective.level === 'INDIVIDUAL' && (
                 <p className="mt-1 text-xs text-muted-foreground">
@@ -316,7 +316,7 @@ export default function EditObjectiveModal({ isOpen, onClose, objective }: EditO
             <input
               type="checkbox"
               {...register('isPrivate')}
-              className="h-4 w-4 text-blue-600 focus:ring-ring border-border rounded"
+              className="h-4 w-4 text-primary-600 focus:ring-ring border-border rounded"
             />
             <span className="ml-2 text-sm text-muted-foreground">Make this objective private</span>
           </label>
@@ -332,7 +332,7 @@ export default function EditObjectiveModal({ isOpen, onClose, objective }: EditO
           <button type="submit" className="btn-primary" disabled={isLoading}>
             {isLoading ? (
               <div className="flex items-center">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2" />
                 Saving...
               </div>
             ) : (

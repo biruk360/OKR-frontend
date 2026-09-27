@@ -1,13 +1,15 @@
 'use client'
 
 import Link from 'next/link'
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { formatDistanceToNowStrict } from 'date-fns'
 import {
   Activity, AlertTriangle, ArrowUpRight, Calendar, CheckCircle2,
   CheckSquare, ChevronRight, Clock, Sparkles, Target, TrendingDown, TrendingUp,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { PageHeader } from '@/components/ui/PageHeader'
 import WorkItemsKanban from '@/components/shared/WorkItemsKanban'
 import type { HeroStatsData } from './HeroStats'
 import type { CheckInBannerData } from './CheckInBanner'
@@ -17,6 +19,7 @@ import type { NeedsAttentionItem } from './NeedsAttention'
 import type { ActivityFeedItem } from './TeamActivityFeed'
 import { cn } from '@/lib/utils'
 import { Progress } from '@/components/ui/progress'
+import { useOpenCheckInPicker } from '@/components/cmdk/check-in-due-hints'
 
 /* ────────────────────────────────────────────────────────────────────────────
  * Reused AP primitives (ported from ObjectiveHero)
@@ -33,16 +36,16 @@ function statusFromConfidence(c: string): StatusKey {
 
 function StatusPill({ status, label }: { status: StatusKey; label?: string }) {
   const map: Record<StatusKey, { label: string; bg: string; fg: string }> = {
-    'on-track':  { label: 'On track',   bg: 'rgba(52,199,89,0.12)', fg: 'var(--ap-green)' },
-    'at-risk':   { label: 'At risk',    bg: 'rgba(255,149,0,0.12)', fg: 'var(--ap-orange)' },
-    'off-track': { label: 'Off track',  bg: 'rgba(255,59,48,0.12)', fg: 'var(--ap-red)' },
-    'completed': { label: 'Done',       bg: 'rgba(0,122,255,0.12)', fg: 'var(--ap-accent)' },
-    'none':      { label: 'Not started',bg: 'rgba(142,142,147,0.15)', fg: 'var(--ap-fg-muted)' },
+    'on-track':  { label: 'On track',   bg: 'color-mix(in oklch, var(--ap-green) 12%, transparent)', fg: 'var(--ap-green)' },
+    'at-risk':   { label: 'At risk',    bg: 'color-mix(in oklch, var(--ap-orange) 12%, transparent)', fg: 'var(--ap-orange)' },
+    'off-track': { label: 'Off track',  bg: 'color-mix(in oklch, var(--ap-red) 12%, transparent)', fg: 'var(--ap-red)' },
+    'completed': { label: 'Done',       bg: 'color-mix(in oklch, var(--ap-accent) 12%, transparent)', fg: 'var(--ap-accent)' },
+    'none':      { label: 'Not started',bg: 'color-mix(in oklch, var(--ap-none) 15%, transparent)', fg: 'var(--ap-fg-muted)' },
   }
   const c = map[status]
   return (
     <span
-      className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+      className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-caption font-semibold"
       style={{ background: c.bg, color: c.fg }}
     >
       <span className="size-1.5 rounded-full" style={{ background: c.fg }} />
@@ -55,9 +58,9 @@ function PaceChip({ delta }: { delta: number }) {
   const positive = delta >= 0
   return (
     <span
-      className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums"
+      className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-micro font-semibold tabular-nums"
       style={{
-        background: positive ? 'rgba(52,199,89,0.12)' : 'rgba(255,59,48,0.12)',
+        background: positive ? 'color-mix(in oklch, var(--ap-green) 12%, transparent)' : 'color-mix(in oklch, var(--ap-red) 12%, transparent)',
         color: positive ? 'var(--ap-green)' : 'var(--ap-red)',
       }}
     >
@@ -69,7 +72,7 @@ function PaceChip({ delta }: { delta: number }) {
 function SectionHeader({ children, right }: { children: React.ReactNode; right?: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--ap-border)' }}>
-      <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{children}</h3>
+      <h3 className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">{children}</h3>
       {right}
     </div>
   )
@@ -102,42 +105,50 @@ function DashboardHero({ name, banner }: { name: string; banner: CheckInBannerDa
   const greeting = `Good ${partOfDay(now)}, ${name.split(' ')[0]}`
   const date = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
   const showAlert = banner.overdueCount > 0 || banner.dueThisWeekCount > 0
+  const openCheckInPicker = useOpenCheckInPicker()
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const wantsCheckIn = searchParams?.get('checkin') === '1'
+
+  // `/dashboard?checkin=1` (check-in reminder emails) opens the picker on arrival.
+  useEffect(() => {
+    if (!wantsCheckIn) return
+    openCheckInPicker(banner.dueKrs ?? [])
+    router.replace('/dashboard', { scroll: false })
+  }, [wantsCheckIn, openCheckInPicker, banner.dueKrs, router])
 
   return (
     <APCard>
-      <div className="flex flex-col gap-3 px-5 py-5 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{date}</p>
-          <h1
-            className="mt-1 text-[28px] font-semibold leading-tight"
-            style={{ letterSpacing: '-0.02em', textWrap: 'balance' } as React.CSSProperties}
-          >
-            {greeting}
-          </h1>
-          <p className="mt-1 text-[13px] text-muted-foreground">
-            Here&apos;s what&apos;s happening with your OKRs today.
-          </p>
-        </div>
+      <PageHeader
+        className="mb-0 px-5 py-5"
+        breadcrumb={<p className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">{date}</p>}
+        title={greeting}
+        description="Here’s what’s happening with your OKRs today."
+        actions={
         <div className="flex items-center gap-2">
           <Link href="/dashboard/my-okrs">
-            <Button variant="outline" size="sm" className="rounded-[var(--ap-radius-sm)] h-8 px-3 text-[12px]">
+            <Button variant="outline" size="sm" className="rounded-[var(--ap-radius-sm)] h-8 px-3 text-xs">
               My OKRs
             </Button>
           </Link>
-          <Link href="/dashboard/key-results">
-            <Button size="sm" className="rounded-[var(--ap-radius-sm)] h-8 px-3 text-[12px]">
-              Check in
-            </Button>
-          </Link>
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => openCheckInPicker(banner.dueKrs ?? [])}
+            className="rounded-[var(--ap-radius-sm)] h-8 px-3 text-xs"
+          >
+            Check in
+          </Button>
         </div>
-      </div>
+        }
+      />
 
       {showAlert && (
         <div
-          className="flex items-center gap-2 px-5 py-2 border-t text-[12px]"
+          className="flex items-center gap-2 px-5 py-2 border-t text-xs"
           style={{
             borderColor: 'var(--ap-border)',
-            background: 'rgba(255,149,0,0.08)',
+            background: 'color-mix(in oklch, var(--ap-orange) 8%, transparent)',
             color: 'var(--ap-orange)',
           }}
         >
@@ -205,32 +216,32 @@ function KpiStrip({ kpis }: { kpis: DashboardKpis }) {
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
       <APCard className="ap-hover-lift">
         <div className="px-4 py-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Active objectives</p>
+          <p className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">Active objectives</p>
           <div className="mt-1.5 flex items-baseline gap-2">
-            <span className="text-[28px] font-semibold tabular-nums leading-none" style={{ letterSpacing: '-0.02em' }}>
+            <span className="text-page-title font-semibold tabular-nums leading-none" style={{ letterSpacing: '-0.02em' }}>
               {kpis.activeObjectives}
             </span>
             {typeof kpis.activeObjectivesDelta === 'number' && kpis.activeObjectivesDelta !== 0 && (
               <PaceChip delta={kpis.activeObjectivesDelta} />
             )}
           </div>
-          <p className="mt-2 text-[12px] text-muted-foreground">In your current cycle</p>
+          <p className="mt-2 text-xs text-muted-foreground">In your current cycle</p>
         </div>
       </APCard>
 
       <APCard className="ap-hover-lift">
         <div className="px-4 py-4">
           <div className="flex items-center justify-between">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Average progress</p>
+            <p className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">Average progress</p>
             <Sparkline values={kpis.momentumValues} />
           </div>
           <div className="mt-1.5 flex items-baseline gap-2">
-            <span className="text-[28px] font-semibold tabular-nums leading-none" style={{ letterSpacing: '-0.02em' }}>
+            <span className="text-page-title font-semibold tabular-nums leading-none" style={{ letterSpacing: '-0.02em' }}>
               {kpis.avgProgress}%
             </span>
             <PaceChip delta={paceDelta} />
           </div>
-          <p className="mt-2 text-[12px] text-muted-foreground tabular-nums">
+          <p className="mt-2 text-xs text-muted-foreground tabular-nums">
             Expected {kpis.expectedProgress}%
           </p>
         </div>
@@ -238,10 +249,10 @@ function KpiStrip({ kpis }: { kpis: DashboardKpis }) {
 
       <APCard className="ap-hover-lift">
         <div className="px-4 py-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">At-risk items</p>
+          <p className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">At-risk items</p>
           <div className="mt-1.5 flex items-baseline gap-2">
             <span
-              className="text-[28px] font-semibold tabular-nums leading-none"
+              className="text-page-title font-semibold tabular-nums leading-none"
               style={{
                 letterSpacing: '-0.02em',
                 color: kpis.offTrackCount > 0 ? 'var(--ap-red)' : kpis.atRiskCount > 0 ? 'var(--ap-orange)' : 'var(--ap-fg)',
@@ -254,19 +265,19 @@ function KpiStrip({ kpis }: { kpis: DashboardKpis }) {
               label={kpis.offTrackCount > 0 ? `${kpis.offTrackCount} off` : kpis.atRiskCount > 0 ? `${kpis.atRiskCount} at risk` : 'Healthy'}
             />
           </div>
-          <p className="mt-2 text-[12px] text-muted-foreground">KRs needing attention</p>
+          <p className="mt-2 text-xs text-muted-foreground">KRs needing attention</p>
         </div>
       </APCard>
 
       <APCard className="ap-hover-lift">
         <div className="px-4 py-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Upcoming deadlines</p>
+          <p className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">Upcoming deadlines</p>
           <div className="mt-1.5 flex items-baseline gap-2">
-            <span className="text-[28px] font-semibold tabular-nums leading-none" style={{ letterSpacing: '-0.02em' }}>
+            <span className="text-page-title font-semibold tabular-nums leading-none" style={{ letterSpacing: '-0.02em' }}>
               {kpis.upcomingDeadlinesCount}
             </span>
           </div>
-          <p className="mt-2 text-[12px] text-muted-foreground truncate">
+          <p className="mt-2 text-xs text-muted-foreground truncate">
             {kpis.soonestDeadlineLabel ? `Soonest: ${kpis.soonestDeadlineLabel}` : 'No upcoming due dates'}
           </p>
         </div>
@@ -304,7 +315,7 @@ function MyOkrsCard({ objectives }: { objectives: OkrTreeObjective[] }) {
     <APCard>
       <SectionHeader
         right={
-          <Link href="/dashboard/my-okrs" className="text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
+          <Link href="/dashboard/my-okrs" className="text-caption text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
             View all <ChevronRight className="size-3" />
           </Link>
         }
@@ -316,8 +327,8 @@ function MyOkrsCard({ objectives }: { objectives: OkrTreeObjective[] }) {
           <div className="flex size-10 items-center justify-center rounded-[var(--ap-radius-sm)]" style={{ background: 'var(--ap-bg-sunken)' }}>
             <Target className="size-5 text-muted-foreground" />
           </div>
-          <p className="mt-2 text-[13px] font-medium">No active key results</p>
-          <p className="text-[12px] text-muted-foreground">Create an objective to get started.</p>
+          <p className="mt-2 text-body-sm font-medium">No active key results</p>
+          <p className="text-xs text-muted-foreground">Create an objective to get started.</p>
         </div>
       ) : (
         <ul className="divide-y" style={{ borderColor: 'var(--ap-border)' }}>
@@ -334,15 +345,15 @@ function MyOkrsCard({ objectives }: { objectives: OkrTreeObjective[] }) {
                   href={`/dashboard/key-results/${r.krId}`}
                   className="flex items-center gap-3 px-4 py-2.5 hover:bg-[color:var(--ap-bg-hover)] transition"
                 >
-                  <span className="text-[10px] font-mono text-muted-foreground tabular-nums w-5">
+                  <span className="text-micro font-mono text-muted-foreground tabular-nums w-5">
                     {r.idx.toString().padStart(2, '0')}
                   </span>
                   <span className="size-1.5 rounded-full shrink-0" style={{ background: color }} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-medium truncate">{r.krTitle}</p>
-                    <p className="text-[11px] text-muted-foreground truncate">{r.objTitle}</p>
+                    <p className="text-body-sm font-medium truncate">{r.krTitle}</p>
+                    <p className="text-caption text-muted-foreground truncate">{r.objTitle}</p>
                   </div>
-                  <span className="text-[12px] font-mono tabular-nums text-muted-foreground w-10 text-right">
+                  <span className="text-xs font-mono tabular-nums text-muted-foreground w-10 text-right">
                     {Math.round(r.krProgress)}%
                   </span>
                   <Progress className="hidden w-20 sm:block" value={Math.min(r.krProgress, 100)} fill={color} aria-label="Key result progress" />
@@ -382,7 +393,7 @@ function Initials({ name }: { name: string }) {
   const letters = parts.length >= 2 ? `${parts[0][0]}${parts[parts.length - 1][0]}` : parts[0].slice(0, 2)
   return (
     <span
-      className="flex size-7 items-center justify-center rounded-full text-[10px] font-semibold text-white"
+      className="flex size-7 items-center justify-center rounded-full text-micro font-semibold text-[var(--ap-accent-fg)]"
       style={{ background: 'var(--ap-accent)' }}
     >
       {letters.toUpperCase()}
@@ -395,7 +406,7 @@ function ActivityCard({ items }: { items: ActivityFeedItem[] }) {
     <APCard>
       <SectionHeader
         right={
-          <Link href="/dashboard/activity" className="text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
+          <Link href="/dashboard/activity" className="text-caption text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
             See all <ChevronRight className="size-3" />
           </Link>
         }
@@ -407,8 +418,8 @@ function ActivityCard({ items }: { items: ActivityFeedItem[] }) {
           <div className="flex size-10 items-center justify-center rounded-[var(--ap-radius-sm)]" style={{ background: 'var(--ap-bg-sunken)' }}>
             <Activity className="size-5 text-muted-foreground" />
           </div>
-          <p className="mt-2 text-[13px] font-medium">Nothing new yet</p>
-          <p className="text-[12px] text-muted-foreground">Check-ins and updates will appear here.</p>
+          <p className="mt-2 text-body-sm font-medium">Nothing new yet</p>
+          <p className="text-xs text-muted-foreground">Check-ins and updates will appear here.</p>
         </div>
       ) : (
         <ul className="divide-y max-h-[420px] overflow-y-auto" style={{ borderColor: 'var(--ap-border)' }}>
@@ -420,7 +431,7 @@ function ActivityCard({ items }: { items: ActivityFeedItem[] }) {
                   : <Initials name={item.actorName ?? '?'} />}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[13px] leading-snug">
+                <p className="text-body-sm leading-snug">
                   <span className="font-semibold">{item.actorName ?? 'Someone'}</span>{' '}
                   <span className="text-muted-foreground">{actionVerb(item.action, item.entityType)}</span>{' '}
                   <Link
@@ -431,7 +442,7 @@ function ActivityCard({ items }: { items: ActivityFeedItem[] }) {
                     {item.entityTitle}
                   </Link>
                 </p>
-                <div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground tabular-nums">
+                <div className="mt-1 flex items-center gap-2 text-caption text-muted-foreground tabular-nums">
                   {item.entityType === 'KEY_RESULT' && <TrendingUp className="size-3" />}
                   {item.entityType === 'TODO' && <CheckSquare className="size-3" />}
                   {item.entityType === 'OBJECTIVE' && <Target className="size-3" />}
@@ -442,13 +453,13 @@ function ActivityCard({ items }: { items: ActivityFeedItem[] }) {
               </div>
               {item.progress !== null && (
                 <span
-                  className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums"
+                  className="shrink-0 rounded-full px-2 py-0.5 text-caption font-semibold tabular-nums"
                   style={{
                     background: item.progress >= 70
-                      ? 'rgba(52,199,89,0.12)'
+                      ? 'color-mix(in oklch, var(--ap-green) 12%, transparent)'
                       : item.progress >= 35
-                      ? 'rgba(255,149,0,0.12)'
-                      : 'rgba(255,59,48,0.12)',
+                      ? 'color-mix(in oklch, var(--ap-orange) 12%, transparent)'
+                      : 'color-mix(in oklch, var(--ap-red) 12%, transparent)',
                     color: item.progress >= 70
                       ? 'var(--ap-green)'
                       : item.progress >= 35
@@ -495,7 +506,7 @@ function DailyScrumCard({ data }: { data: DailyScrumDashboardData }) {
     <APCard>
       <SectionHeader
         right={
-          <Link href="/dashboard/scrum" className="text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
+          <Link href="/dashboard/scrum" className="text-caption text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
             Open <ChevronRight className="size-3" />
           </Link>
         }
@@ -504,28 +515,28 @@ function DailyScrumCard({ data }: { data: DailyScrumDashboardData }) {
       </SectionHeader>
       <div className="grid gap-3 px-4 py-4 sm:grid-cols-4">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Today</p>
+          <p className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">Today</p>
           <div className="mt-2 flex items-center gap-2">
-            {data.todaySubmitted ? <CheckCircle2 className="size-4 text-emerald-600" /> : <Clock className="size-4 text-amber-600" />}
+            {data.todaySubmitted ? <CheckCircle2 className="size-4 text-success-600" /> : <Clock className="size-4 text-warning-600" />}
             <span className="text-sm font-medium">{data.todaySubmitted ? data.todayStatus ?? 'Submitted' : 'Not submitted'}</span>
           </div>
         </div>
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Open blockers</p>
+          <p className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">Open blockers</p>
           <div className="mt-2 flex items-center gap-2">
-            <AlertTriangle className="size-4 text-amber-600" />
+            <AlertTriangle className="size-4 text-warning-600" />
             <span className="text-sm font-mono tabular-nums">{data.openBlockers}</span>
           </div>
         </div>
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Streak</p>
+          <p className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">Streak</p>
           <div className="mt-2 flex items-center gap-2">
-            <Sparkles className="size-4 text-emerald-600" />
+            <Sparkles className="size-4 text-success-600" />
             <span className="text-sm font-mono tabular-nums">{data.streakDays}d</span>
           </div>
         </div>
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Team submitted</p>
+          <p className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">Team submitted</p>
           <div className="mt-2 flex items-center gap-2">
             <Calendar className="size-4 text-muted-foreground" />
             <span className="text-sm font-mono tabular-nums">{data.teamSubmitted}/{data.teamExpected || 1}</span>

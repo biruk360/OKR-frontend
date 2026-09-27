@@ -78,7 +78,7 @@ export default function SprintFloatingBar({ view, onViewChange, onSwitchBoards, 
                 else onViewChange(key as SprintBoardView)
               }}
               className={cn(
-                'inline-flex h-[34px] items-center gap-[7px] rounded-[var(--ap-radius-pill)] px-[14px] text-[13px] font-semibold transition-colors',
+                'inline-flex h-[34px] items-center gap-[7px] rounded-[var(--ap-radius-pill)] px-[14px] text-body-sm font-semibold transition-colors',
                 !active && (dark ? 'hover:bg-white/10' : 'hover:bg-[var(--ap-bg-hover)]'),
               )}
               style={{
@@ -95,7 +95,7 @@ export default function SprintFloatingBar({ view, onViewChange, onSwitchBoards, 
               <span>{label}</span>
               {key === 'inbox' && (inboxCount ?? 0) > 0 && (
                 <span
-                  className="ml-0.5 inline-flex h-4 min-w-[16px] items-center justify-center rounded-[var(--ap-radius-pill)] px-1 text-[10px] font-bold"
+                  className="ml-0.5 inline-flex h-4 min-w-[16px] items-center justify-center rounded-[var(--ap-radius-pill)] px-1 text-micro font-bold"
                   style={{
                     background: active ? 'oklch(1 0 0 / 0.25)' : 'var(--ap-danger)',
                     color: 'oklch(1 0 0)',

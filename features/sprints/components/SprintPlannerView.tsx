@@ -100,7 +100,7 @@ export default function SprintPlannerView({ columns, onTodoClick, onDragStartCar
             <button
               type="button"
               onClick={() => setDay(startOfDay(new Date()))}
-              className={cn('rounded-[var(--ap-radius-xs)] px-2 py-1 text-[11px] font-semibold', dark ? 'hover:bg-white/15' : 'hover:bg-[var(--ap-bg-hover)]')}
+              className={cn('rounded-[var(--ap-radius-xs)] px-2 py-1 text-caption font-semibold', dark ? 'hover:bg-white/15' : 'hover:bg-[var(--ap-bg-hover)]')}
             >
               Today
             </button>
@@ -113,19 +113,19 @@ export default function SprintPlannerView({ columns, onTodoClick, onDragStartCar
               <ChevronRight className="h-4 w-4" />
             </button>
           </div>
-          <span className="text-[12px] font-semibold">{monthLabel}</span>
+          <span className="text-xs font-semibold">{monthLabel}</span>
         </div>
 
         {/* Day label */}
         <div className="flex items-center justify-center gap-2 px-3 py-3">
           <span
-            className="text-[13px] font-medium"
+            className="text-body-sm font-medium"
             style={{ color: dark ? 'oklch(0.9 0.006 262)' : 'var(--ap-fg-secondary)' }}
           >
             {dayLabel}
           </span>
           <span
-            className="inline-flex h-[26px] min-w-[26px] items-center justify-center rounded-[var(--ap-radius-pill)] px-2 text-[12px] font-semibold"
+            className="inline-flex h-[26px] min-w-[26px] items-center justify-center rounded-[var(--ap-radius-pill)] px-2 text-xs font-semibold"
             style={
               isToday(day)
                 ? { background: 'var(--ap-accent)', color: 'var(--ap-accent-fg)' }

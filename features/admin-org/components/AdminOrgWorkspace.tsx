@@ -141,7 +141,7 @@ export function AdminOrgWorkspace() {
 function Pill({ label }: { label: string }) {
   return (
     <span
-      className="rounded-full px-2.5 py-0.5 text-[11px] font-medium"
+      className="rounded-full px-2.5 py-0.5 text-caption font-medium"
       style={{ background: 'rgba(180,83,9,0.10)', color: '#b45309' }}
     >
       {label}

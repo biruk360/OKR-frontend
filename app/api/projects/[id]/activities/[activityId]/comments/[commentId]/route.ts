@@ -7,6 +7,8 @@ import { getReadableProject, getWritableProject } from '@/lib/projects/access'
 import { extractMentionIds, listActivityComments } from '@/lib/projects/activity-comments'
 import { resolveMentions } from '@/lib/comments'
 import { emit } from '@/lib/notifications'
+import { deleteAttachmentsForComment } from '@/lib/attachments/claim'
+import { ACTIVITY_COMMENT_TYPE, withActivityCommentAttachments } from '@/lib/attachments/activity-comments'
 
 const patchSchema = z.object({
   content: z.string().trim().min(1).max(20000).optional(),
@@ -73,7 +75,7 @@ export const PATCH = withAuth<{ id: string; activityId: string; commentId: strin
     })
   }
 
-  return apiSuccess(await listActivityComments(prisma, params.activityId))
+  return apiSuccess(await withActivityCommentAttachments(params.activityId, await listActivityComments(prisma, params.activityId)))
 })
 
 export const DELETE = withAuth<{ id: string; activityId: string; commentId: string }>(async (_req, { session, params }) => {
@@ -90,6 +92,8 @@ export const DELETE = withAuth<{ id: string; activityId: string; commentId: stri
   if (!writable) return apiForbidden()
 
   await prisma.activityComment.delete({ where: { id: params.commentId } })
+  // ATT-3 — the comment's files go with it, rows and bytes.
+  await deleteAttachmentsForComment(ACTIVITY_COMMENT_TYPE, params.commentId)
   await recordActivity({
     entityType: 'PROJECT_ACTIVITY',
     projectId: params.id,
@@ -98,7 +102,7 @@ export const DELETE = withAuth<{ id: string; activityId: string; commentId: stri
     metadata: { activityId: params.activityId, commentId: params.commentId },
   })
 
-  return apiSuccess(await listActivityComments(prisma, params.activityId))
+  return apiSuccess(await withActivityCommentAttachments(params.activityId, await listActivityComments(prisma, params.activityId)))
 })
 
 function stripHtml(value: string): string {

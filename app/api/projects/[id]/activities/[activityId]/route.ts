@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { z } from 'zod'
+import { SLIP_REASONS } from '@/features/projects/types'
 import { prisma } from '@/lib/prisma'
 import { recordActivity, type ChangeMap } from '@/lib/activity-log'
 import { getWritableProject } from '@/lib/projects/access'
@@ -9,6 +10,8 @@ import { hasBaselineFieldWrite } from '@/lib/projects/baseline'
 import { findBlockingStageGateForActivity } from '@/lib/projects/stage-gates'
 import { markPaymentMilestonesReady, resolveFinanceRecipients, shouldTriggerPaymentMilestone, type PaymentMilestoneReadyResult } from '@/lib/projects/payment-milestones'
 import { emit } from '@/lib/notifications'
+import { purgeCommentAttachmentsAfterParentDelete } from '@/lib/attachments/parent-delete'
+import { ACTIVITY_COMMENT_TYPE } from '@/lib/attachments/activity-comments'
 import { apiSuccess, apiForbidden, apiNotFound, apiBadRequest, apiConflict, apiValidationError, withAuth } from '@/lib/api'
 
 /**
@@ -44,7 +47,9 @@ const patchSchema = z.object({
   jiraIssueKeys: z.array(z.string().trim().min(1).max(120)).max(50).optional(),
   jiraAutoRollup: z.boolean().optional(),
   // Slip attribution — required when moving dates on a baselined project (C4).
-  slipReason: z.string().optional(),
+  // One of the 9-value taxonomy (build spec §C4) — a blank or free-text value
+  // must not satisfy the Invariant #2 slip gate below.
+  slipReason: z.enum(SLIP_REASONS).optional(),
   slipOwner: z.enum(['360GROUND', 'CLIENT', 'SHARED']).optional(),
   slipDetail: z.string().max(2000).optional(),
   // H3 gate override — required when starting a phase whose previous phase gate is unpassed.
@@ -253,6 +258,9 @@ export const DELETE = withAuth<{ id: string; activityId: string }>(async (_req, 
     await tx.activity.delete({ where: { id: params.activityId } })
     await recalcProjectRollup(tx, params.id)
   })
+  // ActivityComments cascade with the activity; their CommentAttachment rows
+  // (plain entityId, no relation) and bytes do not. Post-commit, log-only.
+  await purgeCommentAttachmentsAfterParentDelete(ACTIVITY_COMMENT_TYPE, params.activityId)
 
   await recordActivity({
     entityType: 'PROJECT_ACTIVITY',

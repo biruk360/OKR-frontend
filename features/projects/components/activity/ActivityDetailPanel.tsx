@@ -24,7 +24,9 @@ import {
 } from 'lucide-react'
 import SideDrawer from '@/components/ui/SideDrawer'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { Skeleton } from '@/components/ui/Skeleton'
 import { MentionEditor } from '@/components/todos/MentionEditor'
+import { AttachmentList, AttachmentPicker, type CommentAttachmentDto } from '@/components/shared/CommentAttachments'
 import { businessDaysBetween } from '@/lib/projects/business-days'
 import { cn } from '@/lib/utils'
 import { useUsersForSelection } from '@/hooks/useUsersForSelection'
@@ -56,6 +58,7 @@ import {
   useUpdateActivityComment,
   useUpdateActivity,
   useUploadActivityAttachment,
+  useUpdateActivityAttachmentVisibility,
   useCreateActivityDependency,
   useJiraMappingPreview,
   type ActivityCommentNode,
@@ -96,6 +99,9 @@ export function ActivityDetailPanel({ project, activityId, canEdit, onClose }: P
   const [commentHtml, setCommentHtml] = useState('')
   const [commentVisibility, setCommentVisibility] = useState<Visibility>('INTERNAL')
   const [replyTo, setReplyTo] = useState<ActivityCommentNode | null>(null)
+  // Files staged for the comment being composed (POST /api/comment-attachments,
+  // claimed by the comment POST). Anything abandoned is swept by the daily job.
+  const [stagedAttachments, setStagedAttachments] = useState<CommentAttachmentDto[]>([])
   const [pendingDatePatch, setPendingDatePatch] = useState<{ patch: Record<string, unknown>; undoPatch: Record<string, unknown> } | null>(null)
   const [pendingGateOverride, setPendingGateOverride] = useState<{ patch: Record<string, unknown>; undoPatch?: Record<string, unknown>; message: string } | null>(null)
   const [gateOverrideReason, setGateOverrideReason] = useState('')
@@ -117,6 +123,7 @@ export function ActivityDetailPanel({ project, activityId, canEdit, onClose }: P
   const deleteComment = useDeleteActivityComment(project.id, activity?.id ?? '')
   const uploadAttachment = useUploadActivityAttachment(project.id, activity?.id ?? '')
   const deleteAttachment = useDeleteActivityAttachment(project.id, activity?.id ?? '')
+  const attachmentVisibility = useUpdateActivityAttachmentVisibility(project.id, activity?.id ?? '')
   const activityOptions = useMemo(() => project.phases.flatMap((phase) => phase.milestones.flatMap((milestone) => milestone.activities.map((item) => ({
     id: item.id,
     title: item.title,
@@ -131,6 +138,7 @@ export function ActivityDetailPanel({ project, activityId, canEdit, onClose }: P
     setCommentHtml('')
     setCommentVisibility('INTERNAL')
     setReplyTo(null)
+    setStagedAttachments([])
     setPredecessorId('')
     setDependencyType('FS')
     if (activity) {
@@ -155,10 +163,10 @@ export function ActivityDetailPanel({ project, activityId, canEdit, onClose }: P
     }
     if (undoPatch && Object.keys(undoPatch).length) {
       toast.custom((t) => (
-        <div className="flex items-center gap-3 rounded-md bg-ink-primary px-3 py-2 text-body-sm text-white shadow-popover">
+        <div className="flex items-center gap-3 rounded-md bg-ink-primary px-3 py-2 text-body-sm text-surface-card shadow-popover">
           <span>Activity updated</span>
           <button
-            className="rounded bg-white/15 px-2 py-1 text-[12px] font-medium hover:bg-white/25"
+            className="rounded bg-surface-card/15 px-2 py-1 text-xs font-medium hover:bg-surface-card/25"
             onClick={() => {
               toast.dismiss(t.id)
               updateActivity.mutate({ activityId: activity.id, ...undoPatch })
@@ -187,14 +195,17 @@ export function ActivityDetailPanel({ project, activityId, canEdit, onClose }: P
 
   const submitComment = async () => {
     if (!activity || !stripHtml(commentHtml)) return
-    await addComment.mutateAsync({
+    const body = {
       content: commentHtml,
       visibility: commentVisibility,
       parentId: replyTo?.id ?? null,
-    })
+      attachmentIds: stagedAttachments.map((a) => a.id),
+    }
+    await addComment.mutateAsync(body)
     setCommentHtml('')
     setCommentVisibility('INTERNAL')
     setReplyTo(null)
+    setStagedAttachments([])
   }
 
   const saveDatePatch = (patch: Record<string, unknown>, undoPatch: Record<string, unknown>) => {
@@ -227,17 +238,17 @@ export function ActivityDetailPanel({ project, activityId, canEdit, onClose }: P
   return (
     <SideDrawer open={!!activity} onClose={onClose} title={activity?.title ?? 'Task details'} width="lg" showHeader={false} contentClassName="p-0">
       {activity && ctx && (
-        <div className="flex min-h-full flex-col gap-3 bg-[#f7f8fa] p-3 pb-5">
-          <div className="order-1 -mx-3 -mt-3 flex min-h-12 flex-wrap items-center gap-1 border-b border-black/[0.08] bg-white px-3 py-2 pr-12">
+        <div className="flex min-h-full flex-col gap-3 bg-surface-sidebar p-3 pb-5">
+          <div className="order-1 -mx-3 -mt-3 flex min-h-12 flex-wrap items-center gap-1 border-b border-ink-primary/[0.08] bg-surface-card px-3 py-2 pr-12">
             <button
-              className="inline-flex h-8 items-center rounded-md bg-success-600 px-3 text-[12px] font-semibold text-white hover:bg-success-700 disabled:opacity-50"
+              className="inline-flex h-8 items-center rounded-md bg-success-600 px-3 text-xs font-semibold text-primary-foreground hover:bg-success-700 disabled:opacity-50"
               disabled={!canEdit || updateActivity.isPending}
               onClick={() => void savePatch({ status: 'FINISHED', percentComplete: 100 }, { status: activity.status, percentComplete: activity.percentComplete })}
             >
               <Check className="mr-1 size-3.5" /> Mark done
             </button>
             <button
-              className="flex size-8 items-center justify-center rounded text-[#64748b] hover:bg-surface-hover hover:text-ink-primary disabled:opacity-30"
+              className="flex size-8 items-center justify-center rounded text-ink-secondary hover:bg-surface-hover hover:text-ink-primary disabled:opacity-30"
               disabled={!canEdit || !activity.parentActivityId || updateActivity.isPending}
               onClick={() => void savePatch({ parentActivityId: null }, { parentActivityId: activity.parentActivityId })}
               title="Outdent"
@@ -245,7 +256,7 @@ export function ActivityDetailPanel({ project, activityId, canEdit, onClose }: P
               <ChevronLeft className="size-3.5" />
             </button>
             <button
-              className="flex size-8 items-center justify-center rounded text-[#64748b] hover:bg-surface-hover hover:text-ink-primary disabled:opacity-30"
+              className="flex size-8 items-center justify-center rounded text-ink-secondary hover:bg-surface-hover hover:text-ink-primary disabled:opacity-30"
               disabled={!canEdit || !!activity.parentActivityId || !previousSibling || updateActivity.isPending}
               onClick={() => previousSibling && void savePatch({ parentActivityId: previousSibling.id }, { parentActivityId: activity.parentActivityId })}
               title="Indent"
@@ -253,14 +264,14 @@ export function ActivityDetailPanel({ project, activityId, canEdit, onClose }: P
               <ChevronRight className="size-3.5" />
             </button>
             <button
-              className="flex size-8 items-center justify-center rounded text-[#64748b] hover:bg-surface-hover hover:text-ink-primary disabled:opacity-30"
+              className="flex size-8 items-center justify-center rounded text-ink-secondary hover:bg-surface-hover hover:text-ink-primary disabled:opacity-30"
               disabled={!canEdit || updateActivity.isPending}
               onClick={() => void savePatch({ isMilestone: !activity.isMilestone }, { isMilestone: activity.isMilestone })}
               title="Convert to milestone"
             >
               <Diamond className={cn('size-3.5', activity.isMilestone && 'fill-current')} />
             </button>
-            <label className={cn('flex size-8 cursor-pointer items-center justify-center rounded text-[#64748b] hover:bg-surface-hover hover:text-ink-primary', !canEdit && 'pointer-events-none opacity-50')} title="Color">
+            <label className={cn('flex size-8 cursor-pointer items-center justify-center rounded text-ink-secondary hover:bg-surface-hover hover:text-ink-primary', !canEdit && 'pointer-events-none opacity-50')} title="Color">
               <Palette className="size-3.5" />
               <input
                 type="color"
@@ -270,12 +281,12 @@ export function ActivityDetailPanel({ project, activityId, canEdit, onClose }: P
                 onChange={(e) => void savePatch({ color: e.target.value }, { color: activity.color })}
               />
             </label>
-            <button className="flex size-8 items-center justify-center rounded text-[#64748b] hover:bg-danger-50 hover:text-danger-600 disabled:opacity-30" disabled={!canEdit} onClick={() => setDeleteOpen(true)} title="Delete">
+            <button className="flex size-8 items-center justify-center rounded text-ink-secondary hover:bg-danger-50 hover:text-danger-600 disabled:opacity-30" disabled={!canEdit} onClick={() => setDeleteOpen(true)} title="Delete">
               <Trash2 className="size-3.5" />
             </button>
           </div>
 
-          <div className="order-2 flex items-center gap-2 truncate text-[12px] text-ink-secondary">
+          <div className="order-2 flex items-center gap-2 truncate text-xs text-ink-secondary">
             <Folder className="size-3.5 shrink-0 text-ink-tertiary" />
             <span className="font-medium text-ink-primary">{ctx.phase.name}</span>
             <span className="mx-2 text-ink-tertiary">/</span>
@@ -285,7 +296,7 @@ export function ActivityDetailPanel({ project, activityId, canEdit, onClose }: P
           <label className="order-3 block">
             <span className="sr-only">Title</span>
             <input
-              className="w-full rounded border border-transparent bg-transparent px-1 py-0.5 text-[19px] font-semibold text-ink-primary outline-none hover:border-black/[0.08] focus:border-primary-400 focus:bg-white"
+              className="w-full rounded border border-transparent bg-transparent px-1 py-0.5 text-lg font-semibold text-ink-primary outline-none hover:border-ink-primary/[0.08] focus:border-primary-400 focus:bg-surface-card"
               defaultValue={activity.title}
               disabled={!canEdit}
               onBlur={(e) => {
@@ -295,10 +306,10 @@ export function ActivityDetailPanel({ project, activityId, canEdit, onClose }: P
             />
           </label>
 
-          <label className="order-[9] block rounded-md border border-black/[0.08] bg-white p-3">
-            <span className="text-[12px] font-medium text-ink-secondary">Description</span>
+          <label className="order-[9] block rounded-md border border-ink-primary/[0.08] bg-surface-card p-3">
+            <span className="text-xs font-medium text-ink-secondary">Description</span>
             <textarea
-              className="mt-1 min-h-16 w-full resize-y rounded border border-transparent bg-transparent px-1 py-1 text-[13px] leading-5 text-ink-primary outline-none hover:border-black/[0.08] focus:border-primary-400"
+              className="mt-1 min-h-16 w-full resize-y rounded border border-transparent bg-transparent px-1 py-1 text-body-sm leading-5 text-ink-primary outline-none hover:border-ink-primary/[0.08] focus:border-primary-400"
               rows={2}
               defaultValue={activity.description ?? ''}
               disabled={!canEdit}
@@ -310,10 +321,10 @@ export function ActivityDetailPanel({ project, activityId, canEdit, onClose }: P
           </label>
 
           <div className="order-4 grid gap-2 sm:grid-cols-2">
-            <label className="rounded-md border border-black/[0.08] bg-white p-3">
-              <span className="text-[11px] font-medium uppercase text-ink-tertiary">Assignee</span>
+            <label className="rounded-md border border-ink-primary/[0.08] bg-surface-card p-3">
+              <span className="text-xs font-medium uppercase text-ink-tertiary">Assignee</span>
               <select
-                className="mt-1 h-8 w-full rounded border border-transparent bg-transparent px-0 text-[14px] font-semibold text-ink-primary outline-none hover:border-black/[0.08] focus:border-primary-400"
+                className="mt-1 h-8 w-full rounded border border-transparent bg-transparent px-0 text-sm font-semibold text-ink-primary outline-none hover:border-ink-primary/[0.08] focus:border-primary-400"
                 value={activity.assigneeId ?? ''}
                 disabled={!canEdit || activity.ownerParty === 'CLIENT'}
                 onChange={(e) => void savePatch({ assigneeId: e.target.value || null, ...(e.target.value ? { ownerParty: '360GROUND' } : {}) }, { assigneeId: activity.assigneeId, ownerParty: activity.ownerParty })}
@@ -329,8 +340,8 @@ export function ActivityDetailPanel({ project, activityId, canEdit, onClose }: P
                 )}
               </select>
             </label>
-            <div className="rounded-md border border-black/[0.08] bg-white p-3">
-              <div className="mb-1.5 flex items-center gap-2 text-[11px] font-medium uppercase text-ink-tertiary"><CalendarDays className="size-3.5 text-primary-500" /> Dates <span className="ml-auto normal-case">{calendarDays == null ? '-' : `${calendarDays} CD`}</span></div>
+            <div className="rounded-md border border-ink-primary/[0.08] bg-surface-card p-3">
+              <div className="mb-1.5 flex items-center gap-2 text-xs font-medium uppercase text-ink-tertiary"><CalendarDays className="size-3.5 text-primary-500" /> Dates <span className="ml-auto normal-case">{calendarDays == null ? '-' : `${calendarDays} CD`}</span></div>
               <div className="grid grid-cols-2 gap-2">
               <DateField label="Start" value={activity.currentStart} disabled={!canEdit} onSave={(currentStart) => saveDatePatch({ currentStart }, { currentStart: activity.currentStart })} />
               <DateField label="Due" value={activity.currentEnd} disabled={!canEdit} onSave={(currentEnd) => saveDatePatch({ currentEnd }, { currentEnd: activity.currentEnd })} />
@@ -338,7 +349,7 @@ export function ActivityDetailPanel({ project, activityId, canEdit, onClose }: P
             </div>
           </div>
 
-          <div className="order-[10] grid gap-2 rounded-md border border-black/[0.08] bg-white p-3 sm:grid-cols-2">
+          <div className="order-[10] grid gap-2 rounded-md border border-ink-primary/[0.08] bg-surface-card p-3 sm:grid-cols-2">
             <label className="block">
               <span className="text-body-sm font-medium text-ink-primary">Owner party</span>
               <select
@@ -359,7 +370,7 @@ export function ActivityDetailPanel({ project, activityId, canEdit, onClose }: P
               type="button"
               className={cn(
                 'flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-body-sm transition sm:mt-5',
-                activity.isBlocked ? 'border-danger-500/30 bg-danger-50 text-danger-700' : 'border-black/[0.08] bg-surface-muted/40 text-ink-secondary'
+                activity.isBlocked ? 'border-danger-500/30 bg-danger-50 text-danger-700' : 'border-ink-primary/[0.08] bg-surface-muted/40 text-ink-secondary'
               )}
               disabled={!canEdit || updateActivity.isPending}
               onClick={() => void savePatch({ isBlocked: !activity.isBlocked }, { isBlocked: activity.isBlocked })}
@@ -369,13 +380,13 @@ export function ActivityDetailPanel({ project, activityId, canEdit, onClose }: P
             </button>
           </div>
 
-          <div className="order-5 border-b border-black/[0.08] pb-3">
+          <div className="order-5 border-b border-ink-primary/[0.08] pb-3">
             <div className="mb-1 flex items-center justify-between text-body-sm">
               <span className="font-medium text-ink-primary">
                 {Math.round(activity.percentComplete)}% complete{activity.jiraAutoRollup ? ' · Jira auto' : ''}
               </span>
               <select
-                className="rounded-md border border-black/[0.08] bg-surface-card px-2 py-1 text-[12px]"
+                className="rounded-md border border-ink-primary/[0.08] bg-surface-card px-2 py-1 text-xs"
                 value={activity.status}
                 disabled={!canEdit}
                 onChange={(e) => void savePatch({ status: e.target.value as ActivityStatus }, { status: activity.status })}
@@ -383,22 +394,22 @@ export function ActivityDetailPanel({ project, activityId, canEdit, onClose }: P
                 {ACTIVITY_STATUSES.map((status) => <option key={status} value={status}>{ACTIVITY_STATUS_LABEL[status]}</option>)}
               </select>
             </div>
-            <div className="h-1.5 overflow-hidden rounded-pill bg-black/[0.06]">
+            <div className="h-1.5 overflow-hidden rounded-pill bg-ink-primary/[0.06]">
               <div className="h-full rounded-pill bg-primary-500" style={{ width: `${Math.max(0, Math.min(100, activity.percentComplete))}%` }} />
             </div>
-            {canEdit && <label className="mt-2 flex items-center justify-end gap-1 text-[12px] text-ink-secondary"><span>Completed</span><input className="input h-8 w-20 text-right" type="number" min={0} max={100} step={1} defaultValue={activity.percentComplete} onBlur={(e) => void savePatch({ percentComplete: Math.max(0, Math.min(100, Number(e.currentTarget.value))) }, { percentComplete: activity.percentComplete })} /><span>%</span></label>}
+            {canEdit && <label className="mt-2 flex items-center justify-end gap-1 text-xs text-ink-secondary"><span>Completed</span><input className="input h-8 w-20 text-right" type="number" min={0} max={100} step={1} defaultValue={activity.percentComplete} onBlur={(e) => void savePatch({ percentComplete: Math.max(0, Math.min(100, Number(e.currentTarget.value))) }, { percentComplete: activity.percentComplete })} /><span>%</span></label>}
           </div>
 
           {project.jiraLinked && (
-            <details className="group order-[12] overflow-hidden rounded-md border border-black/[0.08] bg-white">
-              <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2.5 text-[13px] font-medium text-ink-primary hover:bg-surface-hover">
+            <details className="group order-[12] overflow-hidden rounded-md border border-ink-primary/[0.08] bg-surface-card">
+              <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2.5 text-body-sm font-medium text-ink-primary hover:bg-surface-hover">
                 <ChevronRight className="size-3.5 text-ink-tertiary transition-transform group-open:rotate-90" /> Jira rollup
-                <span className="ml-auto text-[11px] font-normal text-ink-tertiary">{jiraAutoRollup ? 'Auto' : 'Manual'}</span>
+                <span className="ml-auto text-xs font-normal text-ink-tertiary">{jiraAutoRollup ? 'Auto' : 'Manual'}</span>
               </summary>
-              <div className="border-t border-black/[0.08] p-3">
+              <div className="border-t border-ink-primary/[0.08] p-3">
               <div className="mb-2 flex items-center justify-between gap-3">
                 <div>
-                  <div className="text-[12px] text-ink-tertiary">Map synced Jira issues to this activity. Manual % edits turn auto-rollup off.</div>
+                  <div className="text-xs text-ink-tertiary">Map synced Jira issues to this activity. Manual % edits turn auto-rollup off.</div>
                 </div>
                 <label className="flex items-center gap-2 text-body-sm text-ink-secondary">
                   <input
@@ -434,7 +445,7 @@ export function ActivityDetailPanel({ project, activityId, canEdit, onClose }: P
                   Save
                 </button>
               </div>
-              <div className="mt-2 text-[12px] text-ink-secondary">
+              <div className="mt-2 text-xs text-ink-secondary">
                 {jiraPreview.isFetching ? 'Previewing mapping…' : jiraPreview.data
                   ? `${jiraPreview.data.doneIssues}/${jiraPreview.data.totalIssues} done · ${jiraPreview.data.percentComplete}%${jiraPreview.data.weightedByPoints ? ' by points' : ''}${jiraPreview.data.sampleIssueKeys.length ? ` · ${jiraPreview.data.sampleIssueKeys.join(', ')}` : ''}`
                   : splitCsv(jiraMappingValues).length > 0 ? 'No synced issues matched yet.' : 'Enter mapping values to preview synced issues.'}
@@ -443,7 +454,7 @@ export function ActivityDetailPanel({ project, activityId, canEdit, onClose }: P
             </details>
           )}
 
-          <div className="order-6 grid grid-cols-3 overflow-hidden rounded-md border border-black/[0.08] bg-white text-center">
+          <div className="order-6 grid grid-cols-3 overflow-hidden rounded-md border border-ink-primary/[0.08] bg-surface-card text-center">
             <NumberMetric label="Estimated" value={activity.estimatedHours} suffix="h" disabled={!canEdit} onSave={(estimatedHours) => savePatch({ estimatedHours }, { estimatedHours: activity.estimatedHours })} />
             <NumberMetric label="Actual" value={activity.actualHours} suffix="h" disabled={!canEdit} onSave={(actualHours) => savePatch({ actualHours }, { actualHours: activity.actualHours })} />
             <NumberMetric label="Est. Cost" value={activity.estimatedCost} disabled={!canEdit} onSave={(estimatedCost) => savePatch({ estimatedCost }, { estimatedCost: activity.estimatedCost })} />
@@ -452,31 +463,31 @@ export function ActivityDetailPanel({ project, activityId, canEdit, onClose }: P
             <SelectMetric label="Risk" value={activity.risk ?? ''} values={RISK_LEVELS} disabled={!canEdit} onSave={(risk) => savePatch({ risk: risk || null }, { risk: activity.risk })} />
           </div>
 
-          <div className="order-8 flex items-center gap-2 pt-1 text-[14px] font-semibold text-ink-primary">
+          <div className="order-8 flex items-center gap-2 pt-1 text-sm font-semibold text-ink-primary">
             <ListChecks className="size-4 text-primary-500" /> Details
           </div>
 
-          <details className="group order-[11] overflow-hidden rounded-md border border-black/[0.08] bg-white">
-            <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2.5 text-[13px] font-medium text-ink-primary hover:bg-surface-hover">
+          <details className="group order-[11] overflow-hidden rounded-md border border-ink-primary/[0.08] bg-surface-card">
+            <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2.5 text-body-sm font-medium text-ink-primary hover:bg-surface-hover">
               <ChevronRight className="size-3.5 text-ink-tertiary transition-transform group-open:rotate-90" />
               <Link2 className="size-3.5 text-primary-500" /> Dependencies
-              <span className="ml-auto text-[11px] font-normal text-ink-tertiary">{incomingDependencies.length + outgoingDependencies.length}</span>
+              <span className="ml-auto text-xs font-normal text-ink-tertiary">{incomingDependencies.length + outgoingDependencies.length}</span>
             </summary>
-            <div className="border-t border-black/[0.08] p-3">
+            <div className="border-t border-ink-primary/[0.08] p-3">
             <div className="space-y-2">
               {incomingDependencies.map((dependency) => (
                 <div key={dependency.id} className="flex items-center gap-2 rounded-md bg-surface-muted/50 px-3 py-2 text-body-sm">
-                  <span className="rounded bg-primary-50 px-1.5 py-0.5 text-[11px] font-medium text-primary-700">Predecessor</span>
+                  <span className="rounded bg-primary-50 px-1.5 py-0.5 text-xs font-medium text-primary-700">Predecessor</span>
                   <span className="min-w-0 flex-1 truncate text-ink-primary">{activityTitleById.get(dependency.predecessorId) ?? 'Activity'}</span>
-                  <span className="text-[11px] text-ink-tertiary">{dependency.type}{dependency.lagDays ? ` ${dependency.lagDays > 0 ? '+' : ''}${dependency.lagDays}d` : ''}</span>
+                  <span className="text-xs text-ink-tertiary">{dependency.type}{dependency.lagDays ? ` ${dependency.lagDays > 0 ? '+' : ''}${dependency.lagDays}d` : ''}</span>
                   {canEdit && <button className="rounded p-1 text-ink-tertiary hover:bg-danger-50 hover:text-danger-600" onClick={() => deleteDependency.mutate({ dependencyId: dependency.id })} aria-label="Remove dependency"><X className="size-3.5" /></button>}
                 </div>
               ))}
               {outgoingDependencies.map((dependency) => (
                 <div key={dependency.id} className="flex items-center gap-2 rounded-md bg-surface-muted/50 px-3 py-2 text-body-sm">
-                  <span className="rounded bg-success-50 px-1.5 py-0.5 text-[11px] font-medium text-success-700">Successor</span>
+                  <span className="rounded bg-success-50 px-1.5 py-0.5 text-xs font-medium text-success-700">Successor</span>
                   <span className="min-w-0 flex-1 truncate text-ink-primary">{activityTitleById.get(dependency.successorId) ?? 'Activity'}</span>
-                  <span className="text-[11px] text-ink-tertiary">{dependency.type}{dependency.lagDays ? ` ${dependency.lagDays > 0 ? '+' : ''}${dependency.lagDays}d` : ''}</span>
+                  <span className="text-xs text-ink-tertiary">{dependency.type}{dependency.lagDays ? ` ${dependency.lagDays > 0 ? '+' : ''}${dependency.lagDays}d` : ''}</span>
                   {canEdit && <button className="rounded p-1 text-ink-tertiary hover:bg-danger-50 hover:text-danger-600" onClick={() => deleteDependency.mutate({ dependencyId: dependency.id })} aria-label="Remove dependency"><X className="size-3.5" /></button>}
                 </div>
               ))}
@@ -509,22 +520,22 @@ export function ActivityDetailPanel({ project, activityId, canEdit, onClose }: P
           {activity.status === 'APPROVAL_REQUESTED' && activity.waitingSince && (
             <div className={cn('order-7 rounded-md border px-3 py-2', daysOverSla > 0 ? 'border-danger-500/30 bg-danger-50 text-danger-700' : 'border-warning-500/30 bg-warning-50 text-warning-700')}>
               <div className="text-body-sm font-semibold">Awaiting client approval - {waitingDays} business days</div>
-              <div className="text-[12px]">SLA: {APPROVAL_SLA_DAYS} days{daysOverSla > 0 ? ` - breached by ${daysOverSla} days` : ''}</div>
+              <div className="text-xs">SLA: {APPROVAL_SLA_DAYS} days{daysOverSla > 0 ? ` - breached by ${daysOverSla} days` : ''}</div>
             </div>
           )}
 
           <div className="order-7">
             <div className="mb-2 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-[14px] font-semibold text-ink-primary"><ListChecks className="size-4 text-primary-500" /> Subtasks</div>
+              <div className="flex items-center gap-2 text-sm font-semibold text-ink-primary"><ListChecks className="size-4 text-primary-500" /> Subtasks</div>
               <span className="text-body-sm text-ink-tertiary">{ctx.subtasks.length}</span>
             </div>
             <div className="space-y-2">
               {ctx.subtasks.length === 0 ? (
                 <div className="text-body-sm text-ink-tertiary">No subtasks.</div>
               ) : ctx.subtasks.map((subtask) => (
-                <div key={subtask.id} className="flex items-center justify-between border-b border-black/[0.06] bg-white px-2 py-1.5 last:border-0">
+                <div key={subtask.id} className="flex items-center justify-between border-b border-ink-primary/[0.06] bg-surface-card px-2 py-1.5 last:border-0">
                   <span className="truncate text-body-sm text-ink-primary">{subtask.title}</span>
-                  <span className="text-[11px] text-ink-tertiary">{Math.round(subtask.percentComplete)}%</span>
+                  <span className="text-xs text-ink-tertiary">{Math.round(subtask.percentComplete)}%</span>
                 </div>
               ))}
             </div>
@@ -538,7 +549,7 @@ export function ActivityDetailPanel({ project, activityId, canEdit, onClose }: P
             )}
           </div>
 
-          <div className="order-[13] rounded-md border border-black/[0.08] bg-white p-3">
+          <div className="order-[13] rounded-md border border-ink-primary/[0.08] bg-surface-card p-3">
             <div className="mb-3 flex items-center gap-2 text-body font-medium text-ink-primary">
               <Paperclip className="size-4 text-primary-500" /> Files
               <span className="ml-auto text-body-sm font-normal text-ink-tertiary">{activityAttachments.data?.length ?? 0}</span>
@@ -554,11 +565,27 @@ export function ActivityDetailPanel({ project, activityId, canEdit, onClose }: P
               }}
             />
             <div className="space-y-2">
-              {activityAttachments.isLoading ? <div className="text-body-sm text-ink-tertiary">Loading files...</div> : activityAttachments.data?.map((attachment) => (
+              {activityAttachments.isLoading ? <div className="space-y-1.5" role="status" aria-label="Loading files"><Skeleton className="h-8 w-full" /><Skeleton className="h-8 w-2/3" /></div> : activityAttachments.data?.map((attachment) => (
                 <div key={attachment.id} className="flex items-center gap-2 rounded-md bg-surface-muted/50 px-3 py-2 text-body-sm">
                   <Paperclip className="size-3.5 text-ink-tertiary" />
-                  <a className="min-w-0 flex-1 truncate font-medium text-primary-700 hover:underline" href={attachment.storagePath} target="_blank" rel="noreferrer">{attachment.fileName}</a>
-                  <span className="text-[11px] text-ink-tertiary">{formatBytes(attachment.fileSize)}</span>
+                  <a className="min-w-0 flex-1 truncate font-medium text-primary-700 hover:underline" href={`/api/projects/${project.id}/activities/${attachment.activityId}/attachments/${attachment.id}`} target="_blank" rel="noreferrer">{attachment.fileName}</a>
+                  <span className="text-xs text-ink-tertiary">{formatBytes(attachment.fileSize)}</span>
+                  {canEdit ? (
+                    <select
+                      className="h-7 rounded border border-ink-primary/[0.08] bg-surface-card px-1 text-xs text-ink-secondary"
+                      value={attachment.visibility}
+                      disabled={attachmentVisibility.isPending}
+                      onChange={(event) => attachmentVisibility.mutate({ attachmentId: attachment.id, visibility: event.target.value as 'INTERNAL' | 'CLIENT_VISIBLE' })}
+                      aria-label={`Who can see ${attachment.fileName}`}
+                    >
+                      <option value="INTERNAL">Internal</option>
+                      <option value="CLIENT_VISIBLE">Client-visible</option>
+                    </select>
+                  ) : (
+                    <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium', attachment.visibility === 'CLIENT_VISIBLE' ? 'bg-success-50 text-success-700' : 'bg-surface-muted text-ink-secondary')}>
+                      {attachment.visibility === 'CLIENT_VISIBLE' ? 'Client-visible' : 'Internal'}
+                    </span>
+                  )}
                   {canEdit && <button className="rounded p-1 text-ink-tertiary hover:bg-danger-50 hover:text-danger-600" onClick={() => deleteAttachment.mutate({ attachmentId: attachment.id })} aria-label={`Delete ${attachment.fileName}`}><Trash2 className="size-3.5" /></button>}
                 </div>
               ))}
@@ -571,14 +598,14 @@ export function ActivityDetailPanel({ project, activityId, canEdit, onClose }: P
             )}
           </div>
 
-          <div className="order-[14] rounded-md border border-black/[0.08] bg-white p-3">
+          <div data-comment-composer className="order-[14] rounded-md border border-ink-primary/[0.08] bg-surface-card p-3">
             <div className="mb-2 flex items-center gap-2 text-body font-medium text-ink-primary">
               <MessageSquare className="size-4" /> Comments
               <span className="ml-auto text-body-sm font-normal text-ink-tertiary">{activityComments.data?.length ?? activity._count.comments}</span>
             </div>
             <div className="mb-3 space-y-2">
               {activityComments.isLoading ? (
-                <div className="rounded-md bg-surface-muted/50 px-3 py-2 text-body-sm text-ink-tertiary">Loading comments...</div>
+                <div className="space-y-2" role="status" aria-label="Loading comments"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-4/5" /></div>
               ) : activityComments.data && activityComments.data.length > 0 ? (
                 <div className="space-y-3">
                   {activityComments.data.map((comment) => (
@@ -600,12 +627,12 @@ export function ActivityDetailPanel({ project, activityId, canEdit, onClose }: P
               <div className="mb-2 flex items-center gap-2 rounded-md border border-primary-500/20 bg-primary-50 px-2 py-1 text-body-sm text-primary-700">
                 <Reply className="size-3.5" />
                 Replying to {replyTo.author.name}
-                <button className="ml-auto text-[12px] underline" onClick={() => setReplyTo(null)}>Cancel</button>
+                <button className="ml-auto text-xs underline" onClick={() => setReplyTo(null)}>Cancel</button>
               </div>
             )}
             <div className="mb-2 flex gap-2">
               {(['INTERNAL', 'CLIENT_VISIBLE'] as const).map((visibility) => (
-                <label key={visibility} className="flex items-center gap-1 rounded-md border border-black/[0.08] px-2 py-1 text-body-sm">
+                <label key={visibility} className="flex items-center gap-1 rounded-md border border-ink-primary/[0.08] px-2 py-1 text-body-sm">
                   <input type="radio" checked={commentVisibility === visibility} onChange={() => setCommentVisibility(visibility)} />
                   {visibility === 'INTERNAL' ? 'Internal' : 'Client-visible'}
                 </label>
@@ -619,6 +646,17 @@ export function ActivityDetailPanel({ project, activityId, canEdit, onClose }: P
               placeholder="Add a comment..."
               onSubmit={() => void submitComment()}
             />
+            <AttachmentPicker
+              className="mt-2"
+              scope="ACTIVITY"
+              entityId={activity.id}
+              staged={stagedAttachments}
+              onStagedChange={setStagedAttachments}
+              disabled={addComment.isPending}
+            />
+            {commentVisibility === 'CLIENT_VISIBLE' && stagedAttachments.length > 0 && (
+              <p className="mt-1 text-xs text-ink-tertiary">Attachments stay internal — the client sees the comment text only.</p>
+            )}
             <div className="mt-2 flex justify-end">
               <button
                 className="btn btn-primary btn-sm"
@@ -670,7 +708,7 @@ export function ActivityDetailPanel({ project, activityId, canEdit, onClose }: P
                   <div className="text-body-sm text-ink-secondary">Owner</div>
                   <div className="mt-1 flex gap-2">
                     {OWNER_PARTIES.map((owner) => (
-                      <label key={owner} className="flex items-center gap-1 rounded-md border border-black/[0.08] px-2 py-1 text-body-sm">
+                      <label key={owner} className="flex items-center gap-1 rounded-md border border-ink-primary/[0.08] px-2 py-1 text-body-sm">
                         <input type="radio" checked={slipOwner === owner} onChange={() => setSlipOwner(owner)} />
                         {owner === '360GROUND' ? '360Ground' : labelize(owner)}
                       </label>
@@ -747,35 +785,37 @@ function CommentItem({
   onDelete: (commentId: string) => void
 }) {
   return (
-    <div className={cn(depth > 0 && 'ml-4 border-l border-black/[0.08] pl-3')}>
-      <div className="rounded-md border border-black/[0.08] bg-surface-card p-2">
+    <div className={cn(depth > 0 && 'ml-4 border-l border-ink-primary/[0.08] pl-3')}>
+      <div className="rounded-md border border-ink-primary/[0.08] bg-surface-card p-2">
         <div className="mb-1 flex flex-wrap items-center gap-2">
           <span className="text-body-sm font-medium text-ink-primary">{comment.author.name}</span>
-          {comment.isClientAuthor && <span className="rounded-full bg-primary-50 px-2 py-0.5 text-[11px] font-medium text-primary-700">Client</span>}
-          <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-medium', comment.visibility === 'CLIENT_VISIBLE' ? 'bg-success-50 text-success-700' : 'bg-surface-muted text-ink-secondary')}>
+          {comment.isClientAuthor && <span className="rounded-full bg-primary-50 px-2 py-0.5 text-xs font-medium text-primary-700">Client</span>}
+          <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium', comment.visibility === 'CLIENT_VISIBLE' ? 'bg-success-50 text-success-700' : 'bg-surface-muted text-ink-secondary')}>
             {comment.visibility === 'CLIENT_VISIBLE' ? 'Client-visible' : 'Internal'}
           </span>
-          <span className="ml-auto text-[11px] text-ink-tertiary">{formatDateTime(comment.createdAt)}</span>
+          <span className="ml-auto text-xs text-ink-tertiary">{formatDateTime(comment.createdAt)}</span>
         </div>
         <div
           className="prose prose-sm max-w-none text-body-sm text-ink-secondary [&_.mention]:font-medium [&_.mention]:text-primary-700"
           dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(comment.content) }}
         />
+        {/* Internal-only: the portal comment reads never carry these. */}
+        <AttachmentList attachments={(comment as ActivityCommentNode & { attachments?: CommentAttachmentDto[] }).attachments ?? []} />
         <div className="mt-2 flex items-center gap-2">
-          <button className="text-[12px] font-medium text-primary-700 hover:underline" onClick={() => onReply(comment)}>
+          <button className="text-xs font-medium text-primary-700 hover:underline" onClick={() => onReply(comment)}>
             Reply
           </button>
           {canEdit && (
             <>
               <select
-                className="rounded-md border border-black/[0.08] bg-surface-card px-2 py-1 text-[12px]"
+                className="rounded-md border border-ink-primary/[0.08] bg-surface-card px-2 py-1 text-xs"
                 value={comment.visibility}
                 onChange={(e) => onVisibility(comment.id, e.target.value as Visibility)}
               >
                 <option value="INTERNAL">Internal</option>
                 <option value="CLIENT_VISIBLE">Client-visible</option>
               </select>
-              <button className="text-[12px] font-medium text-danger-600 hover:underline" onClick={() => onDelete(comment.id)}>
+              <button className="text-xs font-medium text-danger-600 hover:underline" onClick={() => onDelete(comment.id)}>
                 Delete
               </button>
             </>
@@ -804,9 +844,9 @@ function CommentItem({
 function DateField({ label, value, disabled, onSave }: { label: string; value: string | null; disabled: boolean; onSave: (value: string | null) => void | Promise<void> }) {
   return (
     <div className="block">
-      <span className="text-[10px] text-ink-tertiary">{label}</span>
+      <span className="text-xs text-ink-tertiary">{label}</span>
       <ProjectDatePicker
-        className="mt-0.5 h-8 border-transparent bg-transparent px-1 text-[11px] hover:border-black/[0.1]"
+        className="mt-0.5 h-8 border-transparent bg-transparent px-1 text-xs hover:border-ink-primary/[0.1]"
         value={dateOnly(value)}
         disabled={disabled}
         ariaLabel={`${label} date`}
@@ -822,21 +862,21 @@ function DateField({ label, value, disabled, onSave }: { label: string; value: s
 
 function NumberMetric({ label, value, suffix = '', disabled, onSave }: { label: string; value: number | null; suffix?: string; disabled: boolean; onSave: (value: number | null) => void | Promise<void> }) {
   return (
-    <label className="border-b border-r border-black/[0.08] px-2 py-2.5">
-      <div className="text-[10px] font-medium uppercase text-ink-tertiary">{label}</div>
+    <label className="border-b border-r border-ink-primary/[0.08] px-2 py-2.5">
+      <div className="text-xs font-medium uppercase text-ink-tertiary">{label}</div>
       <div className="mt-0.5 flex items-center justify-center gap-1">
         <input
           type="number"
           min={0}
           disabled={disabled}
           defaultValue={value ?? ''}
-          className="h-7 w-16 rounded border border-transparent bg-transparent px-1 text-center text-[13px] font-medium text-ink-primary outline-none hover:border-black/[0.1] focus:border-primary-400"
+          className="h-7 w-16 rounded border border-transparent bg-transparent px-1 text-center text-body-sm font-medium text-ink-primary outline-none hover:border-ink-primary/[0.1] focus:border-primary-400"
           onBlur={(e) => {
             const next = e.target.value === '' ? null : Number(e.target.value)
             if (next !== value) void onSave(next)
           }}
         />
-        {suffix && <span className="text-[11px] text-ink-tertiary">{suffix}</span>}
+        {suffix && <span className="text-xs text-ink-tertiary">{suffix}</span>}
       </div>
     </label>
   )
@@ -844,9 +884,9 @@ function NumberMetric({ label, value, suffix = '', disabled, onSave }: { label: 
 
 function SelectMetric({ label, value, values, disabled, onSave }: { label: string; value: string; values: readonly string[]; disabled: boolean; onSave: (value: string) => void | Promise<void> }) {
   return (
-    <label className="border-b border-r border-black/[0.08] px-2 py-2.5 text-left">
-      <span className="text-[10px] font-medium uppercase text-ink-tertiary">{label}</span>
-      <select className="mt-0.5 h-7 w-full rounded border border-transparent bg-transparent px-1 text-center text-[12px] font-medium outline-none hover:border-black/[0.1] focus:border-primary-400" value={value} disabled={disabled} onChange={(e) => void onSave(e.target.value)}>
+    <label className="border-b border-r border-ink-primary/[0.08] px-2 py-2.5 text-left">
+      <span className="text-xs font-medium uppercase text-ink-tertiary">{label}</span>
+      <select className="mt-0.5 h-7 w-full rounded border border-transparent bg-transparent px-1 text-center text-xs font-medium outline-none hover:border-ink-primary/[0.1] focus:border-primary-400" value={value} disabled={disabled} onChange={(e) => void onSave(e.target.value)}>
         <option value="">-</option>
         {values.map((v) => <option key={v} value={v}>{labelize(v)}</option>)}
       </select>

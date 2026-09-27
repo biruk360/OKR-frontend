@@ -91,16 +91,16 @@ export default function ObjectiveProgressTimeline({
     <div className="h-[220px] w-full">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 10, right: 16, left: -8, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
           <XAxis
             dataKey="date"
-            tick={{ fontSize: 11, fill: '#6B7280' }}
-            axisLine={{ stroke: '#E5E7EB' }}
+            tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+            axisLine={{ stroke: 'hsl(var(--border))' }}
             tickLine={false}
           />
           <YAxis
-            tick={{ fontSize: 11, fill: '#6B7280' }}
-            axisLine={{ stroke: '#E5E7EB' }}
+            tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+            axisLine={{ stroke: 'hsl(var(--border))' }}
             tickLine={false}
             domain={[0, 100]}
             ticks={[0, 25, 50, 75, 100]}
@@ -108,8 +108,9 @@ export default function ObjectiveProgressTimeline({
           />
           <Tooltip
             contentStyle={{
-              background: 'white',
-              border: '1px solid #E5E7EB',
+              background: 'hsl(var(--popover))',
+              color: 'hsl(var(--popover-foreground))',
+              border: '1px solid hsl(var(--border))',
               borderRadius: 6,
               fontSize: 12,
             }}
@@ -123,7 +124,7 @@ export default function ObjectiveProgressTimeline({
             type="monotone"
             dataKey="expected"
             name="Expected"
-            stroke="#9CA3AF"
+            stroke="hsl(var(--muted-foreground))"
             strokeDasharray="4 4"
             strokeWidth={2}
             dot={false}
@@ -133,9 +134,9 @@ export default function ObjectiveProgressTimeline({
             type="monotone"
             dataKey="actual"
             name="Actual"
-            stroke="#2563EB"
+            stroke="var(--ap-accent)"
             strokeWidth={2}
-            dot={{ r: 3, strokeWidth: 2, fill: 'white' }}
+            dot={{ r: 3, strokeWidth: 2, fill: 'hsl(var(--card))' }}
             activeDot={{ r: 5 }}
             connectNulls
           />
@@ -144,14 +145,14 @@ export default function ObjectiveProgressTimeline({
             x={data[data.length - 1]?.date}
             y={Math.max(0, Math.min(100, currentProgress))}
             r={5}
-            fill="#2563EB"
-            stroke="white"
+            fill="var(--ap-accent)"
+            stroke="hsl(var(--card))"
             strokeWidth={2}
             label={{
               value: `${Math.round(currentProgress)}% (Current)`,
               position: 'top',
               fontSize: 11,
-              fill: '#2563EB',
+              fill: 'var(--ap-accent)',
             }}
           />
         </LineChart>

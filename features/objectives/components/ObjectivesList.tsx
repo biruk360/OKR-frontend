@@ -21,6 +21,7 @@ import UnarchiveObjectiveButton from './UnarchiveObjectiveButton'
 import DeleteObjectiveButton from './DeleteObjectiveButton'
 import CloneObjectiveButton from './CloneObjectiveButton'
 import { pickCurrentTimeframe } from '@/lib/timeframe-utils'
+import { EmptyState, FilterSelect } from '@/components/ui'
 
 interface ObjectivesListProps {
   objectives: any[] // More flexible type to handle partial user data
@@ -104,57 +105,48 @@ export default function ObjectivesList({
             />
           </div>
           
-          <div>
-            <label className="block text-sm font-medium text-muted-foreground mb-1">Level</label>
-            <select
-              value={filters.level}
-              onChange={(e) => setFilters({ ...filters, level: e.target.value })}
-              className="input"
-            >
-              <option value="">All Levels</option>
-              <option value="COMPANY">Company</option>
-              <option value="DEPARTMENT">Department</option>
-              <option value="INDIVIDUAL">Individual</option>
-            </select>
+          <div className="flex items-end">
+            <FilterSelect
+              label="Level"
+              className="w-full"
+              value={filters.level || undefined}
+              onValueChange={(v) => setFilters({ ...filters, level: v ?? '' })}
+              placeholder="All Levels"
+              options={[
+                { value: 'COMPANY', label: 'Company' },
+                { value: 'DEPARTMENT', label: 'Department' },
+                { value: 'INDIVIDUAL', label: 'Individual' },
+              ]}
+            />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-muted-foreground mb-1">Timeframe</label>
-            <select
-              value={filters.timeframe}
-              onChange={(e) => setFilters({ ...filters, timeframe: e.target.value })}
-              className="input"
-            >
-              <option value="">All Timeframes</option>
-              {timeframes.map((timeframe) => {
+          <div className="flex items-end">
+            <FilterSelect
+              label="Timeframe"
+              className="w-full"
+              value={filters.timeframe || undefined}
+              onValueChange={(v) => setFilters({ ...filters, timeframe: v ?? '' })}
+              placeholder="All Timeframes"
+              options={timeframes.map((timeframe) => {
                 const typeLabel = timeframe.type === 'MONTHLY' ? 'Monthly' :
                                  timeframe.type === 'QUARTERLY' ? 'Quarterly' :
                                  timeframe.type === 'SIX_MONTH' ? '6-Month' :
                                  timeframe.type === 'YEARLY' ? 'Yearly' : 'Quarterly'
-                return (
-                  <option key={timeframe.id} value={timeframe.id}>
-                    {timeframe.name} ({typeLabel})
-                  </option>
-                )
+                return { value: timeframe.id, label: `${timeframe.name} (${typeLabel})` }
               })}
-            </select>
+            />
           </div>
 
           {departments.length > 0 && (
-            <div>
-              <label className="block text-sm font-medium text-muted-foreground mb-1">Department</label>
-              <select
-                value={filters.department}
-                onChange={(e) => setFilters({ ...filters, department: e.target.value })}
-                className="input"
-              >
-                <option value="">All Departments</option>
-                {departments.map((department) => (
-                  <option key={department.id} value={department.id}>
-                    {department.name}
-                  </option>
-                ))}
-              </select>
+            <div className="flex items-end">
+              <FilterSelect
+                label="Department"
+                className="w-full"
+                value={filters.department || undefined}
+                onValueChange={(v) => setFilters({ ...filters, department: v ?? '' })}
+                placeholder="All Departments"
+                options={departments.map((department) => ({ value: department.id, label: department.name }))}
+              />
             </div>
           )}
         </div>
@@ -162,16 +154,15 @@ export default function ObjectivesList({
 
       {/* Objectives List */}
       {filteredObjectives.length === 0 ? (
-        <div className="text-center py-12">
-          <Target className="mx-auto h-12 w-12 text-muted-foreground" />
-          <h3 className="mt-2 text-sm font-medium text-foreground">No objectives found</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {objectives.length === 0 
-              ? "Get started by creating your first objective."
-              : "Try adjusting your filters to see more results."
-            }
-          </p>
-        </div>
+        <EmptyState
+          icon={Target}
+          title="No objectives found"
+          description={
+            objectives.length === 0
+              ? 'Get started by creating your first objective.'
+              : 'Try adjusting your filters to see more results.'
+          }
+        />
       ) : (
         <div className="grid gap-4">
           {filteredObjectives.map((objective) => (
@@ -191,7 +182,7 @@ export default function ObjectivesList({
                       {objective.parentObjective && (
                         <Link
                           href={`/dashboard/objectives/${objective.parentObjective.id}`}
-                          className="inline-flex items-center text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                          className="inline-flex items-center text-xs text-primary-600 hover:text-primary-800 hover:underline"
                         >
                           <LinkIcon className="h-3 w-3 mr-1" />
                           Aligned to: {objective.parentObjective.title}
@@ -229,10 +220,10 @@ export default function ObjectivesList({
                   )}
 
                   {objective.parentObjective && (
-                    <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-md">
+                    <div className="mt-2 p-2 bg-primary-50 border border-primary-200 rounded-md">
                       <div className="flex items-center">
-                        <LinkIcon className="h-3 w-3 text-blue-600 mr-1" />
-                        <span className="text-xs text-blue-700">
+                        <LinkIcon className="h-3 w-3 text-primary-600 mr-1" />
+                        <span className="text-xs text-primary-700">
                           Aligned to: 
                           <Link 
                             href={`/dashboard/objectives/${objective.parentObjective.id}`}
@@ -254,8 +245,8 @@ export default function ObjectivesList({
                           className="h-5 w-5 rounded-full mr-2"
                         />
                       ) : (
-                        <div className="h-5 w-5 rounded-full bg-blue-500 flex items-center justify-center mr-2">
-                          <User className="h-3 w-3 text-white" />
+                        <div className="h-5 w-5 rounded-full bg-primary-500 flex items-center justify-center mr-2">
+                          <User className="h-3 w-3 text-primary-foreground" />
                         </div>
                       )}
                       <span className="font-medium text-muted-foreground">{objective.owner.name}</span>
@@ -264,7 +255,7 @@ export default function ObjectivesList({
                       <Calendar className="h-4 w-4 mr-1" />
                       <span>{objective.timeframe.name}</span>
                       {objective.timeframe.type && (
-                        <span className="ml-1 text-xs bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded">
+                        <span className="ml-1 text-xs bg-primary-100 text-primary-800 px-1.5 py-0.5 rounded">
                           {objective.timeframe.type === 'MONTHLY' ? 'Monthly' :
                            objective.timeframe.type === 'QUARTERLY' ? 'Quarterly' :
                            objective.timeframe.type === 'SIX_MONTH' ? '6-Month' :
@@ -298,7 +289,7 @@ export default function ObjectivesList({
                     <div className="text-lg font-semibold text-foreground">
                       {Math.round(objective.progress)}%
                     </div>
-                    <div className="w-24 bg-gray-200 rounded-full h-2 mt-1">
+                    <div className="w-24 bg-surface-muted rounded-full h-2 mt-1">
                       <div
                         className={`h-2 rounded-full transition-all duration-300 ${
                           getProgressColor(objective.progress).split(' ')[0].replace('text-', 'bg-')

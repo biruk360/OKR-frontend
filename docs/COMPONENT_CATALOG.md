@@ -1,10 +1,12 @@
 # Component Catalog
 
 > **Purpose:** Inventory of all reusable components. AI and developers check this before creating anything new. Updated after every component change.
+>
+> **2026-09-25 remediation (okr-mgt-75):** catalogued through the final state — Waves 1–3, Wave 4 G1–G7 (OKR Explorer / Insights components, `LinkTabs`, portal tabs, AI-guided creation, filters sort, scrum drafts), and H2–H5 / C1–C6 (comment attachments for activities and scrum, OKR realtime, thin-page `*.server.ts` loaders). **Removed 2026-09-25:** the whole `features/goals` module, `OKRLevelView`, `PlansList`, `TimelineBoard`, `ProgressPagePrintButton` (routes retired, see *OKR Explorer & Insights*).
 
 ## Auth / Sign-in (`features/auth`)
 
-> Import from the barrel: `import { SignInScreen, AuthBackdrop, AuthHero, CompanySignature, SignInForm, useWallpaper } from '@/features/auth'`
+> Import from the barrel: `import { SignInScreen, AuthBackdrop, AuthHero, CompanySignature, SignInForm, SignUpForm, ForgotPasswordForm, ResetPasswordForm, AuthCard, AuthScreenLayout, useWallpaper } from '@/features/auth'`
 
 | Component | Props | Purpose |
 |-----------|-------|---------|
@@ -14,9 +16,15 @@
 | `CompanySignature` | `align?` ('start' \| 'center'), `className?` | House signature — 360Ground™ & Eldix IT Technology PLC set as one typographic lockup, with a hairline rule. Left-aligned in the hero, centred in the footer below `lg`. |
 | `SignInForm` | — | Credentials card — one grouped inset field block (mono micro-labels, hairline divider, row-lift + left-bar focus signature), solid-accent CTA with a `⏎` hint, single note line for validation / Caps Lock, custom remember-me mark, host eyebrow. `react-hook-form`; safe `callbackUrl` redirect. |
 
+| `AuthScreenLayout` | `children`, `footnote?` | **New 2026-09-25 (F7).** The sign-in frame (photo backdrop, editorial hero on large viewports, card column) for the secondary auth screens — same grid/breakpoints as `SignInScreen`. |
+| `AuthCard` (+ `AuthFieldGroup`, `AuthFieldRow`, `AuthNote`, `AuthAlert`, `AuthSubmitButton`, `AUTH_INPUT_CLASS`, `AUTH_LINK_CLASS`) | see file | **New.** Glass card and field idiom shared by forgot/reset (visually identical to `SignInForm`, which keeps its own copy). oklch literals on purpose — it sits on a photograph, not an app surface. |
+| `ForgotPasswordForm` | — | **New.** `react-hook-form` + `forgotPasswordSchema`; success copy is conditional because the API never reveals whether the email exists. |
+| `ResetPasswordForm` | — | **New.** Choose a new password from `/auth/reset-password?token=…` (reset 1 h or invite 7 d token). Must render under Suspense. |
+| `SignUpForm` | — | **New.** No role picker (server forces EMPLOYEE); shows a "pending activation" state because new accounts are inactive until an admin activates them. |
+
 Hook: `useWallpaper()` → `{ current, previous, imageReady, source, index, count, paused, togglePaused, next }`. Fetches `/api/wallpaper`, picks a frame that differs from the previous visit, preloads before swapping, auto-rotates every 20 s (off under `prefers-reduced-motion`).
 
-Services: `safeCallbackUrl(raw)` (open-redirect guard), `fetchWallpapers(signal)`, `pickStartIndex(images, lastShownId)`, `FALLBACK_SCENES`.
+Services: `safeCallbackUrl(raw)` (open-redirect guard), `fetchWallpapers(signal)`, `pickStartIndex(images, lastShownId)`, `FALLBACK_SCENES`, `registerSchema` / `signUpFormSchema` (+ `PASSWORD_MIN_LENGTH`/`MAX`), `forgotPasswordSchema`, `resetPasswordFormSchema`, `zodFormResolver` (Zod → react-hook-form resolver, no new dependency).
 
 ## OKR Period Close (`components/shared`, `components/period-close-report`)
 
@@ -52,13 +60,21 @@ Hooks (TanStack Query) exported from the same barrel: `usePlans`, `usePlan`, `us
 
 ## Daily Scrum (`features/scrum`)
 
-> Import from the barrel: `import { ScrumHome } from '@/features/scrum'`
+> Import from the barrel: `import { ScrumHome, ScrumWinsPage, ScrumSettingsPage, ScrumActivityPanel } from '@/features/scrum'`
 
 | Component | Props | Purpose |
 |-----------|-------|---------|
-| `ScrumHome` | — | P0 foundation page for `/dashboard/scrum`; shows setup status using existing `PageHeader`, `StatCard`, and `EmptyState`. Submission form, calendar wall, and analytics components are pending P1/P2+. |
+| `ScrumHome` | `ScrumHomeProps` | `/dashboard/scrum`: submit/update form, month/week/day/streak/analytics views, filters + saved views, deep links, blockers, celebrate, absences. |
+| `ScrumWinsPage` | `currentUserId` | Wins feed with author and Celebrate. |
+| `ScrumSettingsPage` | — | Scrum settings form (gated by `canReadScrumSettings`/`canWriteScrumSettings`). |
+| `ScrumActivityPanel` | see file | Daily scrum activity panel injected on objective/KR/project pages (S11.2). |
+| `ScrumUpdateCard` (internal, forwardRef) | update, member map, actions | **New 2026-09-25 (F4).** One update card: celebrate, comment thread, blocker resolve/escalate. |
+| `ScrumMonthView` / `ScrumWeekView` / `ScrumDayView` / `ScrumStreakView` / `ScrumAnalyticsView` / `ScrumPanelSkeleton` (internal, `ScrumCalendarViews.tsx`) | see file | **New (F4).** Calendar views; month dots and week days open the day view. |
+| `ScrumResolveBlockerDialog` / `ScrumEscalateBlockerDialog` (internal) | see file | **New (F4).** Resolve (note ≥5 chars) / escalate on the shared `Modal`. |
+| `ScrumAbsenceModal` (internal) | see file | **New (F4).** Record an excused absence for self or a report. |
+| `ScrumSavedViewsMenu` (internal) | see file | **New (F4).** Save/apply/delete filter views (`ConfirmDialog` on delete). |
 
-Services exported from the same barrel: working-day utilities and `serializeScrumUpdate()` mood privacy serializer.
+Services exported from the same barrel: working-day utilities, `serializeScrumUpdate()` mood privacy serializer, `access` (`canEditScrumUpdateResolved`, `canActOnScrumUpdate`, `canReadScrumSettings`, `canProxyFor`, …), `html` (`escapeScrumHtml`, `sanitizeScrumRichText` — allowlist, server-side), `view-state` (`parseScrumDeepLink`, `isoWeekBounds`, `normalizeSavedViewFilters`, …), `mood-alert` (`shouldSendTeamMoodAlert`, thresholds 3 reporters / 50 %). `drafts` (G7, 2026-09-25): `SCRUM_DRAFT_STATUS` (`'DRAFT'`), `SUBMITTED_SCRUM_STATUSES`, `SUBMITTED_SCRUM_UPDATE_WHERE` / `excludeScrumDrafts(where)` — **spread into every scrum read that counts attendance, submissions, metrics, wins, analytics or the calendar** (`drafts.test.ts` enforces it) — and `isScrumDraft`. `ScrumUpdateCard` comments take file attachments (`CommentAttachment` `SCRUM`) through `AttachmentPicker`.
 
 ## AI Automations (`features/automations`)
 
@@ -126,6 +142,7 @@ Hooks and API client are exported from the same barrel. Server-side scoring, pol
 | `Eyebrow` | `children`, `size?` ('sm' 9.5px/.12em \| 'md' 10px/.1em \| 'default' 11px), `align?`, `mono?`, `as?`, `className?` | 249 hand-rolled eyebrows across 94 files (3 sizes, 5 tracking values, 4 weights, 4 colour tokens) | NEW — ⚠ **the default is non-mono on purpose.** Not one of the 249 existing eyebrows is mono, so a mono default would be 249 regressions. `default` reproduces the 54-occurrence majority exactly; `mono` is opt-in for the redesigned surfaces. |
 | `SectionHeading` | `title`, `right?`, `size?`, `mono?`, `bordered?`, `as?`, `className?` | 7 hand-rolled card/section header rows (`AppleDashboard.tsx:68` and `AppleAnalytics.tsx:22` are byte-identical) | NEW — extraction, not net-new: lifted out of `ui/dashboard/DashboardCard.tsx`, which now consumes it. |
 | `FilterSelect` | `label`, `value?`, `onValueChange`, `options[]` ({value,label,hint?,disabled?}), `placeholder?`, `clearable?`, `onRemove?`, `searchThreshold?` (6), `width?`, `menuWidth?` (190), `disabled?`, `emptyLabel?` | ~25 native `<select>` filters + 2 hand-rolled popovers | NEW — ⚠ **a thin styled wrapper over `ui/select.tsx` (Radix), deliberately.** A div-based popover would lose listbox roles, type-ahead and arrow-key roving. **Single-select only** — Radix Select has no multi-select mode and the accessible multi-select pattern is a checkbox group, not a listbox. |
+| `FilterMultiSelect` | `label`, `values[]`, `onValuesChange`, `options[]` ({value,label,hint?,leading?: ReactNode,disabled?}), `placeholder?` ('All'), `summary?` ((selected) => string; default `N selected`), `ariaLabel?`, `searchThreshold?` (6), `menuWidth?` (260), `align?`, `renderTrigger?` (({text,count,open}) => node), `triggerClassName?`, `triggerStyle?`, `disabled?`, `emptyLabel?`, `clearLabel?` ('Clear') | Sprint board's native assignee `<select>` | NEW 2026-09-25 — the multi-select companion to `FilterSelect`, built on Radix `DropdownMenuCheckboxItem` (`menuitemcheckbox`, arrow-key roving, type-ahead). Menu stays open while toggling; search box past the threshold; Clear row when anything is selected. Spec: `docs/card_comments_links_board_filter_REQUIREMENTS.md` AFL-9. |
 | `EntityPicker` | `value`, `onChange`, `selectable?` ('keyResult' \| 'objective' \| 'both'), `objectives?`, `query?`, `recentKey?`, `showRecents?`, `placeholder?`, `width?`, `disabledIds?`, `disabled?`, `emptyLabel?` | 11 independent OKR search-and-pick implementations | NEW — promoted from `components/sprints/LinkToOkrPopover.tsx` (the most complete: recents, cascading expand, both entity types) and generalised. Fetches via `useOkrOptions`. The original file stays in place until its call sites migrate. |
 | `MiniBadge` | `children`, `color?` (legacy), `tone?` (neutral/accent/ok/warn/danger/ahead), `mono?`, `className?` | Count/status pills | PROMOTED to the main barrel from `ui/dashboard/`. **This is also the count chip — do not add a `CountChip`.** `color` still wins over `tone` so the 10 existing call sites are byte-identical. |
 | `Progress` | `value`, `height?` (6), `fill?` (`--ap-ok`), `track?` (`--ap-kr-bar-bg`), `className?` | 7 hand-rolled `ProgressBar` copies (`OkrAttainmentSection`, `NestedObjectivesList`, `SprintBoardClient`, `SprintsListClient`, `ResultsList`, `OkrHierarchyTable`, `OkrsAllClient`) | ADOPT — primitive now matches the design (6px, 99px radius, tokenised track/fill) and is Radix-backed so the value reaches assistive tech. **The 7 call sites are not migrated yet.** |
@@ -211,6 +228,9 @@ import { Target, CheckSquare } from 'lucide-react'
 |-----------|------|-------|-------------|
 | `ActivityLogPanel` | `components/shared/ActivityLogPanel.tsx` | `entityType`, `entityId` | Displays activity audit trail for any entity |
 | `CommentAttachments` | `components/shared/CommentAttachments.tsx` | `attachments` | Renders a comment's attachments. Also exports **`useAttachmentViewer(attachments)`** — the single owner of how an attachment opens (`open`, `markBroken`, `isBroken`, `viewer`). Any new attachment surface must use this hook, not its own click handler; `lib/attachments/viewer-invariants.test.ts` enforces it. |
+| `UserAvatar` / `UserAvatarStack` | `components/shared/UserAvatar.tsx` | `UserAvatar`: `user` ({id,name,avatar?}), `size?`, `ring?`, `className?`, **`tooltip?`** (default true), `tooltipDetail?`, `tooltipSide?` (forwards refs) · `UserAvatarStack`: `users`, `size?`, `max?`, `showNames?`, `detail?` ((u) => string) | The one avatar. Every avatar shows the person's full name in a styled hover card (UNH, `docs/user_name_hover_REQUIREMENTS.md`); pass `tooltip={false}` only where the full name is printed beside it. The stack's "+N" lists the hidden names. Colours from `lib/user-color.ts`. Never used under `/portal` (project invariant 4). |
+| `PersonTooltip` / `PeopleTooltip` | `components/shared/UserAvatar.tsx` | `PersonTooltip`: `person` ({id?,name?,email?,avatar?}), `detail?`, `children` (ref-able trigger), `side?`, `align?`, `whenTruncated?` (opens only when the child text is clipped), `disabled?` · `PeopleTooltip`: `people`, `children`, `heading?`, `side?`, `limit?` (8) | The hover card itself: 28px avatar, full name, optional secondary line from data already on the page (never fetches). Radix Tooltip via the app-wide `TooltipProvider` in `app/providers.tsx`; 180 ms fade/scale, off under reduced motion; renders above `Modal`. Wrap clipped names with `whenTruncated`. |
+| `LinkPreviewList` / `LinkPreviewCard` | `components/shared/LinkPreview.tsx` | `html`, `className?` / `url` | Link previews (favicon, site name, title, 2-line description, thumbnail, domain) for up to 3 URLs found in rich-text HTML. Rendered in the card modal (comments, replies, `CardDescription`) and, since 2026-09-25 (G2), in OKR comments (`OkrComments`). Uses `useLinkPreview`. Renders text nodes only, never page HTML; https-only images with no referrer. Client code imports `@/lib/link-preview/extract` and `/types` directly — the `@/lib/link-preview` barrel is server-only. |
 | `CopyLinkButton` | `components/shared/CopyLinkButton.tsx` | `value` \| `getValue`, `label?`, `copiedLabel?`, `successMessage?`, `errorMessage?`, `iconOnly?`, `title?` | The single copy-to-clipboard control. Falls back to `document.execCommand` where `navigator.clipboard` is unavailable (non-HTTPS origins, older Safari) and reports a real failure instead of a false success. Use this rather than calling `navigator.clipboard.writeText` inline. |
 | `AttachmentLightbox` | `components/shared/AttachmentLightbox.tsx` | `items`, `startId`, `onClose` | Full-size preview for images and PDFs, with arrows, download, size and failure placeholder. Built on `components/ui/Modal`. Reached through `useAttachmentViewer`, not directly. |
 | `EntityLink` | `components/shared/EntityLink.tsx` | `entity`, `type` | Navigation link to objective/KR/todo detail |
@@ -218,6 +238,8 @@ import { Target, CheckSquare } from 'lucide-react'
 | `LiveAnnouncer` + `announce()` | `components/shared/LiveAnnouncer.tsx` | none (mounted once in `app/layout.tsx`) | The app's only `aria-live` region. Call `announce('message')` or `announce('message', 'assertive')` from anywhere — no context, no prop drilling. Use for changes with no focus change (kanban moves, optimistic saves, bulk actions). |
 | `notificationIcon()` / `notificationTypeLabel()` | `components/shared/notification-icon.ts` | `type: string` | Icon + tone for a notification, keyed off its `type`/`eventKey`. Shared by the header bell, `/dashboard/notifications` and the sprint Inbox so one event cannot render three different ways. Not a component — a mapping. |
 | `MoveOkrModal` | `components/shared/MoveOkrModal.tsx` | `open`, `onClose`, `kind: 'OBJECTIVE' \| 'KEY_RESULT'`, `entity`, `disabledIds?`, `onMoved?` | Re-parent an objective or re-file a key result. One modal for both because the interaction is identical; they differ only in the field name and in what the picker refuses. Built on `EntityPicker` + `useOkrOptions`. Surfaces the server's rejection verbatim — "would create a circular dependency", "must be in the same timeframe" — rather than a generic failure. |
+| `LinkTabs` | `components/shared/LinkTabs.tsx` | `items: { key, label, href, icon? }[]`, `activeKey`, `ariaLabel`, `variant?: 'tabs' \| 'segmented'`, `className?` | **New 2026-09-25 (G6).** URL-synced tab strip — each tab is a plain `<Link>` to its own URL (server pages, no client state). `tabs` = underlined page tabs, `segmented` = compact preset pills. Used by the OKR Explorer (views + levels) and Insights. Reuse it for any tab strip whose state belongs in the URL. |
+| `OkrComments` | `components/shared/OkrComments.tsx` | see file | OKR comment thread (objective page since 2026-09-25, `KeyResultDetailClient`): link previews (G2), file attachments, live updates on the OKR private channel (H3). Server side gated by `canAccessOkrComments`. |
 
 ## Layout Components (`components/layout/`)
 
@@ -225,11 +247,11 @@ import { Target, CheckSquare } from 'lucide-react'
 |-----------|------|-------------|
 | `DashboardShell` | `components/layout/DashboardShell.tsx` | Main dashboard layout wrapper (sidebar + header + content) |
 
-## Feature Components (Current — Pre-Refactor)
+## Feature Components
 
-> These will be migrated to `features/[name]/` in Phase 5. Listed here for reference.
+> The Phase 5 migration is done: objectives, key results, todos and sprints live under `features/[name]/components/` and are imported from their barrels (`features/goals` was deleted 2026-09-25). The old `components/objectives|keyresults|goals` folders no longer exist.
 
-### Objectives (`components/objectives/`)
+### Objectives (`features/objectives/components/`)
 
 | Component | Type | Notes |
 |-----------|------|-------|
@@ -248,8 +270,11 @@ import { Target, CheckSquare } from 'lucide-react'
 | `CloneObjectiveButton` | Trigger | Opens CloneObjectiveModal |
 | `ArchiveObjectiveButton` | Action | Direct archive action |
 | `UnarchiveObjectiveButton` | Action | Direct unarchive action |
+| `ObjectiveActionsMenu` | Menu | Objective overflow menu; onDelete wired and every item gated by `lib/okr/action-permissions.ts` (`canDeleteObjective`, `canCloneObjective`) — 2026-09-25 F2. |
 
-### Key Results (`components/keyresults/`)
+Services (barrel): `createObjectiveSchema` / `createObjectiveResolver` / `buildCreateObjectivePayload` / `childLevelFor` (`services/create-objective-schema.ts`), `conservativeObjectivePermissions` / `NO_OBJECTIVE_PERMISSIONS` (`services/objective-permission-flags.ts`).
+
+### Key Results (`features/key-results/components/`)
 
 | Component | Type | Notes |
 |-----------|------|-------|
@@ -258,9 +283,11 @@ import { Target, CheckSquare } from 'lucide-react'
 | `DeleteKeyResultModal` | Confirm modal | MIGRATED to ConfirmDialog |
 | `ArchiveKeyResultModal` | Confirm modal | MIGRATED to ConfirmDialog |
 | `ArchiveObjectiveButton` | Trigger | MIGRATED — now uses ConfirmDialog (warning variant) instead of `window.confirm()` |
-| `OKRLevelView` | Server component | NEW — shared view for Company + Department OKR pages (`level` prop) |
+| ~~`OKRLevelView`~~ | — | **Deleted 2026-09-25** — the Company/Department OKR pages became OKR Explorer level presets (`?level=company\|department`). |
 | `CloneKeyResultModal` | Form modal | MIGRATED to Modal |
-| `CreateCheckInModal` | Form modal | NOT YET MIGRATED — has sticky header + internal scroll + chart; needs Modal extension |
+| `CreateCheckInModal` | Form modal | On `Modal` (`stickyHeader`, internal scroll) with the progress chart |
+| `KeyResultActionsMenu` | Menu | KR lifecycle actions; clone gated by `canCloneKeyResult` (2026-09-25 F2) |
+| `KeyResultDetailClient` | Page client | KR detail; renders `OkrComments` with link previews (G2) |
 | `KeyResultsList` | List | KR list under an objective |
 | `AddKeyResultButton` | Trigger | Opens AddKeyResultModal |
 | `EditKeyResultButton` | Trigger | Opens EditKeyResultModal |
@@ -269,16 +296,20 @@ import { Target, CheckSquare } from 'lucide-react'
 | `ArchiveKeyResultButton` | Trigger | Opens ArchiveKeyResultModal |
 | `UnarchiveKeyResultButton` | Action | Direct unarchive action |
 
-### Todos (`components/todos/`)
+### Todos (`features/todos/components/` + card modal in `components/todos/`)
 
 | Component | Type | Notes |
 |-----------|------|-------|
+| `LazyTodoCardModal` | Lazy wrapper | **New 2026-09-25 (P3).** `next/dynamic(TodoCardModal, { ssr: false })`. **Use this, not `TodoCardModal`,** from pages/boards — used by the dashboard layout, `GlobalInitiativeDetail`, `TodosPageClient`, `WorkBoardClient`, `SprintBoardClient`. |
+| `TodoCardModal` | Card modal | Split 2,778 → 1,143 lines (Wave 3) into the `Card*` pieces below; still the orchestrator. |
+| `CardHeader` · `CardAttributes` · `CardDescription` · `CardChecklists` · `CardAttachments` · `CardComments` · `CardActivityFeed` (`ActivityFeed`) · `CardDatesPanel` (`DatesPanel`) · `CardPickers` (`CardMemberPicker`, `CardLabelsPanel`) · `CardRail` (+ `CardActionCluster`) · `CardLinkedOkr` (`LinkedOkrCard`) · `CardModalBits` (`Avatar`, `DueDateBadge`, `StatusPill`, `PriorityPill`, `ChecklistProgress`) | Card modal sections | Internal to the card modal: header/breadcrumb/meta; members-labels-due-priority grid; Tiptap description + link previews; checklists; attachment grid via `useAttachmentViewer`; comment composer/thread/attachments; activity; dates popover; member/label pickers; right rail; linked OKR card; small shared bits. Types in `cardModalTypes.ts`, date helpers in `cardDateUtils.ts`. |
+| `CardCommentUploads` (`components/todos/CardCommentUploads.ts`) | Helpers | **New (G2).** `stageCardCommentFiles`, `discardStagedCardCommentFiles`, `cardCommentAttachmentSrc`, `isCommentAttachmentUrl` — card comment files go through `/api/comment-attachments` (`commentType: 'TODO'`). |
+| `useTodoStatusToggle` | Hook | Single status-toggle implementation used by `ToDoList` (the `MyTasksList` duplicate was deleted 2026-09-25). |
 | `EditTodoModal` | Form modal | MIGRATED to Modal |
 | `DeleteTodoModal` | Confirm modal | MIGRATED to ConfirmDialog |
 | `AssignUserModal` | Form modal | MIGRATED to Modal |
 | `SetDueDateModal` | Form modal | MIGRATED to Modal |
 | `ToDoList` | List | Main todo list with status toggle |
-| `MyTasksList` | List | User's assigned tasks (DUPLICATES toggle logic from ToDoList) |
 | `EditTodoButton` | Trigger | Opens EditTodoModal |
 | `DeleteTodoButton` | Trigger | Opens DeleteTodoModal |
 | `AssignUserButton` | Trigger | Opens AssignUserModal |
@@ -288,8 +319,13 @@ import { Target, CheckSquare } from 'lucide-react'
 
 | Component | Type | Notes |
 |-----------|------|-------|
-| `MyOKRsPage` | Page component | User's OKR overview (has duplicate stat card markup) |
-| Various dashboard widgets | Widgets | Stats, charts, quick actions |
+| `MyOKRsPage` | Page component | My OKRs: the viewer's own and contributed objectives (rendered under `CheckInQueue` on `/dashboard/my-okrs`) |
+| `AppleDashboard` | Page component | Home dashboard; opens the check-in picker on `?checkin=1` (`useOpenCheckInPicker` from `components/cmdk/check-in-due-hints.ts`) |
+| `CheckInQueue` | Widget | **New 2026-09-25 (F1).** Due check-ins (from `lib/okr/check-in-queue.ts` `loadCheckInQueue`) on My OKRs |
+| `SectionError` | Error boundary body | **New (Wave 3).** Props `{ error, reset, section }`. Reports to `/api/client-errors`, recovers stale chunks, renders `EmptyState` + "Try again". Use it as the body of any dashboard `error.tsx`. |
+| `CheckInBanner`, `HeroStats`, `NeedsAttention`, `QuickStats`, `TeamActivityFeed`, `UserOkrTree`, `AppleAnalytics` | Widgets | Live home/analytics widgets |
+
+> **Deleted 2026-09-25** (orphans, nothing imported them): `AtAGlanceRow`, `ConfidenceTracker`, `DashboardStats`, `MyActivityFeed`, `RecentObjectives`, `SprintWidget`, `TopSummaryBoxes`.
 
 > `ProgressOverview.tsx` was **deleted** 2026-09-18. It rendered a hardcoded
 > 7-point 2024 series behind a fake 1s loading delay as "Average progress across
@@ -297,16 +333,27 @@ import { Target, CheckSquare } from 'lucide-react'
 > one mount would have shipped a fabricated chart. `/api/filters/progress-timeseries`
 > and `/api/my/nav-progress` return the real series if the widget is ever rebuilt.
 
-### Goals (`components/goals/`)
+### OKR Explorer & Insights (2026-09-25, G6)
 
-| Component | Type | Notes |
-|-----------|------|-------|
-| `CreateGoalModal` | Form modal | MIGRATED to Modal + useReferenceData |
-| `GoalsTable` | List | Table view with empty state (duplicate) |
-| `GoalsFeedView` | List | Feed view with empty state (duplicate) |
-| `GoalsListView` | List | List view |
-| `GoalsFilterBar` | Filter | Filter bar for goals |
-| `MyTeamView` | List | Team goals with empty state (duplicate) |
+| Component | File | Props | Notes |
+|-----------|------|-------|-------|
+| `OkrsAllClient` | `app/dashboard/okrs-all/OkrsAllClient.tsx` | `currentUser`, `createPermissions` (from `canCreateObjective`), `scope?: ExplorerScope` | Explorer **List** view: KPIs, filter strip, rows, detail drawer, bulk archive/restore. Split into `OkrsAllFilterStrip`, `OkrsAllListChrome`, `OkrsAllRows`, `OkrsAllDetailDrawer`, `OkrsAllPrimitives`, `OkrsAllTabsBar`, `okrs-all-utils.ts`. |
+| `OkrHierarchyTable` | `components/hierarchy/OkrHierarchyTable.tsx` | `scope?: ExplorerScope` | Explorer **Tree** view (moved from `app/dashboard/okr-hierarchy/`); reads `/api/okr-hierarchy`; filter pills locked by the level preset are hidden (`lockedScopeKeys`). |
+| `ExplorerTimelineView` | `app/dashboard/okrs-all/ExplorerTimelineView.tsx` | — | Explorer **Timeline** view: `PlansGantt` loaded client-only (dhtmlx touches `window`). |
+| `ExplorerMapView` | `app/dashboard/okrs-all/ExplorerMapView.tsx` | `viewer`, `timeframeId?`, `mode?` | Explorer **Map** view: strategy map (`features/strategy-map`) + `OKRHierarchy` org mode over `loadAlignmentMapData`. |
+| `ExplorerCreateHandoff` | `app/dashboard/okrs-all/ExplorerCreateHandoff.tsx` | — | Renders no button: opens `CreateObjectiveModal` for the Cmd-K "Create objective" intent and for `?createUnder=<objectiveId>` (the map's "Add aligned objective", parent pre-filled) — the hand-offs that used to land on the retired `/dashboard/objectives`. |
+| `ProgressDashboardPanel` / `ProgressTrackingPanel` | `components/insights/` | `{ data }` | Insights **Progress** tab (`view=dashboard` / `tracking`); data from `lib/okr/insights-data.ts`. `ProgressReportWeeklyBars` is the 10-week status chart. |
+| `PeriodClosePicker` | `components/insights/PeriodClosePicker.tsx` | — | Insights **Period close** tab: pick a timeframe → `/dashboard/okrs-all/period-report/[timeframeId]`. |
+| `PrintButton` | `components/insights/PrintButton.tsx` | — | Print action in the Insights header (Progress tab). |
+
+Helpers: `lib/okr/explorer-params.ts` — `EXPLORER_VIEWS` (`list`, `tree`, `timeline`, `map`, `analyze`), `EXPLORER_LEVELS` (`all`, `company`, `department`, `mine`, `team`), `LEVEL_AWARE_VIEWS`, `parseExplorerView/Level`, `explorerHref`, `scopeForLevel`, `lockedScopeKeys`, `INSIGHTS_TABS`, `PROGRESS_VIEWS`, `parseInsightsTab`, `insightsHref`. Retired routes: `lib/retired-routes.js` (`RETIRED_ROUTE_REDIRECTS`, `retiredRouteRedirects()` for `next.config.js`).
+
+### Goals (`features/goals/`) — REMOVED 2026-09-25
+
+> The whole module (`CreateGoalModal`, `GoalsFeedView`, `GoalsFilterBar`, `GoalsListView`, `GoalsPageClient`,
+> `GoalsSummaryDashboard`, `GoalsTabBar`, `GoalsTable`, `MyTeamView`, `services/goal-tab-queries.ts`,
+> `services/goals-api.ts`, `index.ts`) was deleted after `/dashboard/goals` was retired — it now redirects to
+> `/dashboard/okrs-all?level=mine`. Use the OKR Explorer (List view with the `mine` level) instead.
 
 ### Card visuals (`lib/card-visuals.ts`)
 
@@ -325,7 +372,13 @@ Import these instead of writing hex literals.
 
 | Component | File | Props | Description |
 |-----------|------|-------|-------------|
+| `SprintBoardHeader` | `features/sprints/components/SprintBoardHeader.tsx` | `SprintBoardHeaderProps` | **New 2026-09-25 (G1).** Board header, actions (Members, share via `CopyLinkButton`, AI) and the filter row: people (`FilterMultiSelect`), labels (incl. "no label"), due, watching, linked. |
+| `SprintBoardLane` | `features/sprints/components/SprintBoardLane.tsx` | `SprintBoardLaneProps` | **New (G1).** One kanban list. |
+| `AddTaskInline` | `features/sprints/components/SprintAddTaskInline.tsx` | see file | **New (G1).** Inline add-card composer. |
+| `useBoardKeyboardMove` | `features/sprints/components/useBoardKeyboardMove.ts` | hook | **New (G1).** Keyboard lift/move/drop with live announcements. |
+| Board types | `features/sprints/components/sprintBoardTypes.ts` | — | `BoardUser`, `BoardTodo`, `BoardColumn`, `BoardSprint`, `BoardData`. |
 | `SprintInboxView` | `features/sprints/components/SprintInboxView.tsx` | `dark?` | The board's Inbox tab. Renders the notification feed from `useNotificationStore` with per-row mark-read and a Mark-all-read action. Replaced a static "Inbox is coming soon" panel — a selectable dock tab that went nowhere. |
+| `SprintMembersDialog` | `features/sprints/components/SprintMembersDialog.tsx` | `sprintId`, `open`, `onClose` (see file) | Invite-only boards: list participants, add via `FilterMultiSelect` over `useUsersForSelection`, remove with confirmation. Calls `POST/DELETE /api/sprints/[id]/participants` one person at a time, so a stale dialog can't wipe out someone auto-invited meanwhile. Opened from the board header's **Members** button. |
 
 ### Sprint board lists (`features/sprints/`)
 
@@ -334,12 +387,12 @@ Import these instead of writing hex literals.
 | `AddListColumn` (default) | `features/sprints/components/SprintListManager.tsx` | `sprintId`, `dark?`, `onCreated` | Trailing "+ Add another list" column. Inline name input + required status mapping; keeps the typed name on a duplicate-name 409. |
 | `ListHeaderMenu` | `features/sprints/components/SprintListManager.tsx` | `sprintId`, `lane` (`LaneSummary`), `lanes`, `disabled?`, `onChanged` | Per-lane "…" menu: rename, change status mapping (warns with the affected card count), archive (requires a destination when the lane holds cards). Disables archive for the last lane and the last Done lane, mirroring the server guards. |
 
-### Sprints (`components/sprints/`)
+### Sprints (`features/sprints/components/`, `components/sprints/`)
 
 | Component | Type | Notes |
 |-----------|------|-------|
-| `SprintBoardClient` | Board | Trello-style kanban board |
-| `SprintCardModal` | Form modal | Card detail/edit (has duplicate Owner, KrOption types) |
+| `SprintBoardClient` | Board | Trello-style kanban board, 1,210 → 757 lines (G1). Filters compiled by `lib/sprints/board-filters.ts`; live refresh via `useRealtimeRefresh` on `private-sprint-<id>`. |
+| `components/sprints/{AddToSprintDropdown,EndSprintModal,LinkToOkrPopover,ScheduleSprintModal}` | Misc | Sprint helpers still in `components/sprints/`. (`SprintCardModal` no longer exists — cards open `TodoCardModal`.) |
 
 ### Settings (`components/settings/`)
 
@@ -355,17 +408,21 @@ Import these instead of writing hex literals.
 | `BrandingManagement` | Page section | react-hook-form |
 | `IntegrationsManagement` | Page section | Existing email/Slack react-hook-form settings plus an Administrator-only `AiProviderSettingsPanel` slot. Props: `{ showAiProviderSettings? }`. |
 | `AiProviderSettingsPanel` | Page section | Project Creation P0.5–0.7 masked OpenAI credential insert/rotation/removal, approved model, caps, live connection testing, distinct safe outcomes, needs-verification state, last-verified display, and an independent project-creation AI master toggle. Uses react-hook-form/Controller, Skeleton, Checkbox, Button, and ConfirmDialog; full key is write-only and cleared after save. |
+| `SettingsSelect` | Form select | **New 2026-09-25 (Wave 3 area A).** `components/settings/SettingsSelect.tsx`. Props `value`, `onValueChange`, `options: {value,label,group?,disabled?}[]`, `placeholder?` ('Select…'), `disabled?`, `id?`, `className?`, `size?` ('sm'\|'default'), `aria-label?`. Thin option-list wrapper over Radix `components/ui/select` replacing native `<select>` in Settings (17 files); `group` renders `SelectGroup` headings (replaces `<optgroup>`). `''` shows the placeholder — never pass `''` as an option value. Use `FilterSelect` for filter bars, this for labelled form fields. |
+| `UserDetail` | Page section | `/dashboard/settings/users/[id]` detail; ADMIN-only destructive actions (delete = anonymise). |
+| `TimeframeManagement` | Page section | Timeframe create/edit on react-hook-form + zod (`zodFormResolver`) since 2026-09-25 (G7); labels linked to controls. |
+| `ByRoleTab` (`permissions/`) | Tab panel | Role create/rename/delete (`RoleFormModal` + `ConfirmDialog`); system roles locked (2026-09-25 F6). |
 | `LetterPermissionsManagement` | Page section | 3-tab component: Role Matrix (toggle grid), User Overrides (per-user grant/revoke), Letter Types (LetterTypeDef CRUD). Consumes `/api/settings/letter-permissions/roles`, `/api/settings/letter-permissions/users`, `/api/letters/types`. ADMIN-only. |
 
 ### Permission Manager Tabs (`components/settings/permissions/`)
 
 | Component | Type | Notes |
 |-----------|------|-------|
-| `UserRolesPanel` | Panel | Props: `{ userId, userName, currentUserId }`. Four sections: Role Profiles (assign/remove), Individually Assigned Roles (assign with optional expiry/revoke), User-Specific Overrides (add/remove with doctypeKey, featureKey, action, overrideType, reason, expiresAt), Effective Permissions (read-only, with "Preview as User" button). Shows self-mod banner and hides all action buttons when `userId === currentUserId`. Uses `/api/permissions/users/{id}`, `.../profiles`, `.../roles`, `.../overrides`. |
+| `UserRolesPanel` | Panel | (2026-09-25 G7: removals/revocations confirm through `ConfirmDialog`.) Props: `{ userId, userName, currentUserId }`. Four sections: Role Profiles (assign/remove), Individually Assigned Roles (assign with optional expiry/revoke), User-Specific Overrides (add/remove with doctypeKey, featureKey, action, overrideType, reason, expiresAt), Effective Permissions (read-only, with "Preview as User" button). Shows self-mod banner and hides all action buttons when `userId === currentUserId`. Uses `/api/permissions/users/{id}`, `.../profiles`, `.../roles`, `.../overrides`. |
 | `EffectivePermissionsPreview` | Modal | Props: `{ userId, userName, onClose }`. Full-screen overlay modal. Three sections: (1) Nav Preview — simulated sidebar with green/gray dot per module + collapsible page sub-items; (2) Why can/can't they do X? — DocType + Action selectors with plain-English result (ok/no/warn); (3) DocType Permissions Table — grouped by module, collapsible, shows Read/Write/Create/Delete/Submit columns + Scope. Fetches `GET /api/permissions/preview/{userId}`. |
 | `ByDocTypeTab` | Tab panel | Select a DocType (grouped `<optgroup>` by module), fetch all roles + per-doctype role permissions from `GET /api/permissions/doctypes/{key}` + `GET /api/permissions/roles`. Renders Role × 9-Actions grid (checkbox cells) plus a per-row Scope dropdown (own/department/all). Each cell toggle fires `PUT /api/permissions/roles/{roleId}/permissions`. Scope change propagates to all granted actions for that role. Optimistic updates with rollback. |
 | `FieldLevelsTab` | Tab panel | Select a DocType, then renders fields table: fieldName, displayLabel, permLevel dropdown (0–3), isSensitive checkbox. Save button fires `PUT /api/permissions/doctypes/{key}/fields`. Preview panel below table shows "Level 0 visibility" and "Level 0+1 visibility" field lists derived from live state. |
-| `RecordScopingTab` | Tab panel | Role + DocType dual selectors. Fetches `GET /api/permissions/roles/{id}/scope-rules`, filters by doctypeKey client-side. Rules table: #, Field, Operator, Value Type, Status toggle (`PUT .../scope-rules/{ruleId}`), Delete (`DELETE .../scope-rules/{ruleId}`). Inline Add Rule form (fieldName, operator, valueType, staticValue) submits via `POST .../scope-rules`. Multi-rule AND note shown when >1 rule present. |
+| `RecordScopingTab` | Tab panel | (2026-09-25 G7: add-rule form on react-hook-form + zod.) Role + DocType dual selectors. Fetches `GET /api/permissions/roles/{id}/scope-rules`, filters by doctypeKey client-side. Rules table: #, Field, Operator, Value Type, Status toggle (`PUT .../scope-rules/{ruleId}`), Delete (`DELETE .../scope-rules/{ruleId}`). Inline Add Rule form (fieldName, operator, valueType, staticValue) submits via `POST .../scope-rules`. Multi-rule AND note shown when >1 rule present. |
 | `FeaturesTab` | Tab panel | Role selector; fetches `GET /api/permissions/roles/{id}/features`. Two-panel layout (40/60%). Left: feature tree grouped into Modules, Pages (OKR), Pages (Letters), Pages (DTP), Admin, Widgets; green dot = visible, gray = hidden. Right: visible + enabled toggles with 500ms debounce auto-save via `PUT .../features`; amber banner when parent feature is hidden (inherited OFF). |
 | `ExplainPanel` | Tab panel | Self-contained "Permission Check" panel. User dropdown (from `/api/users/for-selection`), DocType selector (8 hardcoded options), Action selector (read/write/create/delete/submit/export). On submit calls `GET /api/permissions/explain?userId=&doctypeKey=&action=`. Displays green/red allowed badge, explanation text, and detail rows (adminBypass, explicitDeny, explicitGrant, roleGrants, scopingApplied, scopeRules). No props. |
 
@@ -376,13 +433,15 @@ Strangler-pattern barrels. Import from these for new code:
 | Feature | Path | Contents |
 |---|---|---|
 | AI Automations | `features/automations/index.ts` | `AutomationList`, `AutomationDetail`, `AutomationForm`, `BriefingView`, `ModeBadge`, `StatusBadge`, `RunStatusBadge`, `TestRunPanel`, `automationsApi`, `useAutomations`, `useAutomation`, `useAutomationRuns`, `useAutomationSettings`, `useAutomationTools`, `useBriefing`, `useBriefings`, `useCompileInstruction`, `useCreateAutomation`, `useRunAutomationNow`, `useRunDetail`, `useSetMode`, `useSetStatus`, `useApproveBriefing`, `useDeleteAutomation`, `usePromoteFinding`, `useUpdateAutomation`, `useUpdateAutomationSettings` |
-| Objectives | `@/features/objectives` | 18 exports: modals, buttons, lists, `OKRLevelView`, + shared form/filter types |
-| Key Results | `@/features/key-results` | 16 exports: modals, buttons, chart, `KeyResultsList`, + confidence/form types |
-| Todos | `@/features/todos` | 11 exports: modals, buttons, `ToDoList`, `MyTasksList`, + form types |
-| Goals | `@/features/goals` | 9 exports: `GoalsListView`, `GoalsTable`, `GoalsFeedView`, filter bar, tabs |
-| Sprints | `@/features/sprints` | 3 exports: `SprintBoardClient`, `SprintCardModal`, `SprintsListClient` |
+| Objectives | `@/features/objectives` | modals, buttons, lists, `ObjectiveActionsMenu`, create-objective schema + permission-flag services, shared form/filter types |
+| Key Results | `@/features/key-results` | modals, buttons, chart, `KeyResultsList`, `KeyResultActionsMenu`, `KeyResultDetailClient`, confidence/form types |
+| Todos | `@/features/todos` | modals, buttons, `AddToDo`, `ToDoList`, form types (`MyTasksList` deleted 2026-09-25) |
+| Sprints | `@/features/sprints` | `SprintBoardClient`, `SprintsListClient`, `SprintBoardData` type |
+| Letters | `@/features/letters` | `LettersPageClient`, `LetterFormClient`, `LettersTable`, `CreateLetterModal`, `LetterStatusBadge`, `LetterStatusBar`, `CustomerLookup`, `LetterTypeSelect`, `SuperDocEditorClient`, `EnclosuresPanel`, `PdfPreviewPanel`, `MarkAsSentModal`, `RejectLetterModal`, **`LetterReportsClient`**, **`LetterTemplatesClient`** (both new 2026-09-25 G3) |
+| Auth | `@/features/auth` | see *Auth / Sign-in* above |
+| Scrum | `@/features/scrum` | see *Daily Scrum* above |
 
-Root barrel: `@/features` exposes namespace objects (`objectives`, `keyResults`, `todos`, `goals`, `sprints`) if a consumer needs multiple features.
+Root barrel: `@/features` exposes namespace objects (`objectives`, `keyResults`, `todos`, `sprints`, `performance`, `projects`, `scrum`) if a consumer needs multiple features.
 
 ## Shared Hooks (`hooks/`)
 
@@ -396,6 +455,8 @@ Root barrel: `@/features` exposes namespace objects (`objectives`, `keyResults`,
 | `useDepartments()` | `hooks/useDepartments.ts` | `{ departments, isLoading, isError, error, refetch }` | Fetch departments with counts (React Query cached) |
 | `useReferenceData({ users?, timeframes?, departments?, activeTimeframesOnly? })` | `hooks/useReferenceData.ts` | `{ users, timeframes, departments, isLoading, isError, errors, refetch }` | Combined hook for forms needing all three (parallel fetch) |
 | `useOkrOptions({ status?, ownerId?, timeframeId?, level?, limit?, requireKeyResults?, enabled? })` | `hooks/useOkrOptions.ts` | `{ objectives, isLoading, isError, error, refetch }` | Objectives **with nested key results** for any OKR picker (React Query cached, 60s stale). Replaces two competing fetch strategies for the same data: `LinkToOkrPopover` called `/api/objectives` *and* `/api/key-results` and re-joined them client-side; `/api/objectives` already returns `keyResults`, so one request does it. |
+| `useRealtimeRefresh({ channel, events, onRefresh, debounceMs?, maxWaitMs?, ignoreActorId?, shouldDefer?, enabled? })` | `hooks/useRealtimeRefresh.ts` | `void` | **New 2026-09-25 (G1).** Subscribes to a private Pusher channel and calls `onRefresh` debounced (400 ms, max wait 2 s); skips events whose actor is `ignoreActorId`; `shouldDefer` postpones while e.g. a drag is in flight. No-op without Pusher. Used by the sprint board; the payload is only a signal — always refetch. |
+| `useLinkPreview(url)` | `hooks/useLinkPreview.ts` | `{ preview, isLoading, isError }` | Page metadata from `GET /api/link-preview` (React Query, 24 h stale, no retry). Also exports `linkPreviewQueryKey` and the `LinkPreviewData` type. |
 
 ### Usage Examples
 
@@ -484,7 +545,7 @@ export const GET = withAuth(async () => {
 
 | Function | Description |
 |----------|-------------|
-| `cn(...inputs)` | Merge Tailwind classes (clsx + twMerge) |
+| `cn(...inputs)` | Merge Tailwind classes (clsx + `extendTailwindMerge`). Since 2026-09-25 it knows the custom font sizes (`display`, `page-title`, `section-title`, `overline`, `body`, `body-sm`, `caption`, `micro`), so `text-body-sm text-ink-secondary` no longer drops the size (`lib/utils-cn.test.ts`). |
 | `formatDate(date, format?)` | Format date string (date-fns) |
 | `formatRelativeTime(date)` | "3 hours ago" format |
 | `calculateProgress(current, target, start?)` | Progress percentage (0-100) |
@@ -499,12 +560,69 @@ export const GET = withAuth(async () => {
 | `canEditObjective(userRole, level)` | **DEPRECATED** — use `lib/permissions.ts` instead |
 
 
+## Design-system helpers (2026-09-25, Wave 3)
+
+| Export | File | Description |
+|--------|------|-------------|
+| Palette tokens as CSS variables | `tailwind.config.js`, `app/globals.css` | `surface-*`, `ink-*`, `primary/success/warning/danger-*` resolve to `rgb(var(--rgb-*) / <alpha-value>)`; dark values under `:root.dark` (toggled by `app/theme-body-class.tsx`). One accent: `--ap-accent-lch`. `primary`/`secondary` have `DEFAULT` + `foreground`. Light values are pinned to the old hex by `lib/design-tokens.test.ts`. |
+| `text-caption` (11px) / `text-micro` (10px) | `tailwind.config.js` | Size-only type tokens. **Never write `text-[11px]`/`text-[10px]`** — all were converted. |
+| `chartColors`, `ChartColor`, `STATUS_CHART_COLOR`, `chartAlpha(color, pct)`, `chartTooltipStyle`, `chartAxisTick` | `lib/chart-colors.ts` | Recharts colours from tokens — use instead of hex in any chart. |
+
+## Server libraries (2026-09-25 remediation)
+
+Not components — the shared server helpers new code must reuse.
+
+| Export(s) | File | Purpose |
+|-----------|------|---------|
+| `loadViewerContext`, `makeViewerContext`, `buildObjectiveVisibilityWhere`, `buildKeyResultVisibilityWhere`, `canViewObjectiveInMemory`, `canViewKeyResultInMemory`, `redactObjectiveForViewer`, `redactKeyResultForViewer`, `SEES_ALL_ROLES` | `lib/okr/visibility-scope.ts` | One OKR visibility rule, in SQL and in memory. Private rows are redacted unless ADMIN/EXECUTIVE, owner or owner's manager. `lib/permissions.ts` `canViewObjective`/`canViewKeyResult` delegate here. |
+| `canDeleteObjective`, `canCloneObjective`, `canCloneKeyResult` | `lib/okr/action-permissions.ts` (re-exported by `lib/permissions.ts`) | Prisma-free action gates for OKR menus (client-safe). |
+| `PROGRESS_HEALTHY_MIN` (70), `PROGRESS_WARNING_MIN` (40), `progressBand`, `countByGoalStatus`, `completionRate` | `lib/okr/progress-thresholds.ts` | Shared status thresholds. |
+| `loadCheckInQueue` · `classifyCheckInDue`, `summarizeCheckInsDue`, `momentumFromPeriodAverages` | `lib/okr/check-in-queue.ts` · `lib/okr/dashboard-home.ts` | Check-in queue and home dashboard derivations. |
+| `parseRetrospectiveInput`, `sanitizeRetroRichText` | `lib/okr/retrospective-input.ts` | Retrospective validation + sanitising (stored-XSS fix). |
+| `withCronAuth`, `checkCronAuth`, `verifyCronRequest`, `MIN_SECRET_LENGTH` (16) | `lib/cron-auth.ts` | **Every `/api/cron/*` route must use `withCronAuth`.** Header-only, timing-safe, fail-closed (503). |
+| `hitRateLimit`, `peekRateLimit`, `AUTH_RATE_LIMITS`, `clientIp`, `emailKey`, `rateLimitedResponse` | `lib/security/rate-limit.ts` | In-memory sliding-log limiter (per process) — 429 `RATE_LIMITED` with `Retry-After`. |
+| `generateAuthToken`, `hashAuthToken`, `authTokenLookupValues`, `HASHED_TOKEN_PREFIX`, `isAuthTimeStale`, `authTimeFromClaims` | `lib/security/auth-tokens.ts` | CSPRNG reset/activation tokens stored as `sha256:` hashes; session staleness vs `User.passwordChangedAt`. |
+| `verifyCredentials`, `reissueSessionCookie`, `SESSION_MAX_AGE` | `lib/auth.ts` | The one credentials check (NextAuth + `/api/auth/login`). |
+| `EMAIL_CADENCES`, `DEFAULT_EMAIL_CADENCE` (`BATCHED`), `SELECTABLE_CADENCES`, `CADENCE_LABEL`, `resolveEffectivePref`, `seedCadenceFor` | `lib/notifications/cadence.ts` | Email cadence vocabulary and preference resolution. |
+| `emit` (deferred delivery), `emitNow` (awaits delivery) · `createEmitter`, `mapWithConcurrency`, `DELIVERY_CONCURRENCY`, `RECIPIENT_CONCURRENCY` | `lib/notifications/dispatcher.ts` · `lib/notifications/fanout.ts` | Request handlers call `emit`; crons/scripts/workers call `emitNow`. |
+| `runAfterResponse(label, work)`, `flushBackgroundWork(timeoutMs?)`, `pendingBackgroundWork`, `setBackgroundScheduler` | `lib/background.ts` | Run slow side effects after the response; long-running scripts must `flushBackgroundWork()` before exit. |
+| `pruneRetainedTables`, `RETENTION_RULES`, `retentionDays` | `lib/retention/prune-tables.ts` | Nightly retention for append-only tables (env-overridable, min 7 days). |
+| `deletedAccountData`, `deletedAccountName`, `deletedAccountEmail`, `isDeletedAccountEmail` | `lib/users/deleted-account.ts` | Admin delete = anonymise, records kept. |
+| `webhookSecretMatches`, `isAskAllowed`, `allowedChatIdsFromEnv`, `checkAskRateLimit` | `lib/telegram/access.ts` | Telegram webhook secret + `/ask` allowlist and limits. |
+| `WIRED_AI_PROVIDERS`, `isWiredAiProvider` | `lib/ai/providers/wired.ts` | Only offer AI providers that are actually wired (`openai`). |
+| `compileBoardFilter`, `cardMatchesLabels`, `cardMatchesDue`, `isWatchingCard`, `countActiveFilters`, `readBoardFilters`/`serializeBoardFilters`, `NO_LABEL_FILTER_ID` | `lib/sprints/board-filters.ts` | Sprint board facets (G1). |
+| `sprintRealtimeChannel`, `parseSprintRealtimeChannel`, `SPRINT_REALTIME_EVENTS`, `isOwnRealtimeEvent` | `lib/sprints/realtime.ts` | `private-sprint-<id>` channel naming/events; server broadcasts with `broadcastSprintEvent` (`lib/pusher.ts`). |
+| `hydrateTodoCommentAttachments`, `resolveCommentAttachments`, `deleteTodoCommentAttachments`, `parseLegacyAttachmentIds` | `lib/attachments/todo-comments.ts` | To-do comments on `CommentAttachment` (G2). |
+| `persistProjectFile`, `resolveProjectAttachmentPath`, `deleteProjectFile`, `PROJECT_UPLOAD_ROOT` | `lib/attachments/project-storage.ts` | Private project activity uploads. |
+| `sanitizeLetterBodyHtml`, `escapeHtml`, `resolveLetterFont`, `isAllowedPdfRequestUrl` | `lib/letter-sanitize.ts` | Server-side letter HTML allowlist (no DOM needed) and PDF request allowlist. |
+| `buildLetterReadWhere`, `checkLetterReadAccess`, `letterReadGuard` | `lib/letter-access.ts` | Letter read scope for every letter read route. |
+| `buildLetterReport`, `parseReportFilters`, `aggregateLetterReport` | `lib/letter-reports.ts` | FR-16 report. |
+| `ensureLetterTemplatesSeeded`, `listLetterTemplates`, `parseLetterTemplateCreate/Update`, `resolveTemplateBodyForNewLetter` | `lib/letter-templates.ts` | `LetterTemplate` CRUD helpers. |
+| `persistEnclosureFile`, `readEnclosureFile`, `deleteEnclosureFile`, `LETTER_UPLOAD_ROOT` · `letterEnclosureDownloadUrl`, `LETTER_ENCLOSURE_ACCEPT` | `lib/letter-enclosure-storage.ts` · `lib/letter-enclosures.ts` | Real enclosure files (private storage). |
+| `grantPortalAccess`, `resetPortalCredential`, `revokePortalAccess`, `acceptPortalInvite`, `listProjectPortalAccounts` · `sendPortalInviteEmail` | `lib/projects/portal-accounts.ts` · `lib/projects/portal-account-audit.ts` | Client-portal account lifecycle. |
+| `scrubPortalPayload`, `redactForbiddenNames`, `loadPortalForbiddenNames`, `PORTAL_REDACTED_LABEL` | `features/projects/services/portal-serializer.ts` | Portal name redaction (every employee name, incl. inactive users). |
+| `safePortalCallbackUrl`, `PORTAL_HOME` | `lib/portal-callback-url.ts` | Portal sign-in redirect guard. |
+| `purgeExpiredProjectCreationDrafts` | `lib/projects/creation-draft-purge.ts` | Draft retention job. |
+| `canReadPortfolio`, `PORTFOLIO_READ_ROLES` | `lib/projects/portfolio-access.ts` | Portfolio page/API gate. |
+| `objectiveRealtimeChannel`, `keyResultRealtimeChannel`, `parseOkrRealtimeChannel`, `canSubscribeToOkrChannel`, `OKR_REALTIME_EVENTS`, `buildOkrRealtimePayload` | `lib/okr/realtime.ts` | **H3.** Pure contract for `private-objective-<id>` / `private-keyresult-<id>` (auth only when the viewer sees the entity unredacted; payloads are signals). Broadcast helpers live in `lib/pusher.ts`. |
+| `canAccessOkrComments` | `lib/okr/comment-access.ts` | **C2.** OKR comment read/post needs a full view of the objective/KR; missing, deleted and unviewable all answer not-found. |
+| `COMMENT_SCOPES` (`TODO`, `OKR`, `ACTIVITY`, `SCRUM`), scope access | `lib/attachments/access.ts` | **H2.** One permission check per comment-attachment scope. |
+| `withActivityCommentAttachments`, `ACTIVITY_COMMENT_TYPE` | `lib/attachments/activity-comments.ts` | Project activity comment files (internal only, never portal). |
+| `sweepAbandonedStagedAttachments`, `stagedCleanupCutoff`, `STAGED_ATTACHMENT_TTL_HOURS` (24) | `lib/attachments/staging-cleanup.ts` | Nightly staged-upload sweep (`/api/cron/attachment-staging-cleanup`). |
+| `purgeCommentAttachmentsAfterParentDelete`, `purgeCommentAttachmentsForEntity` | `lib/attachments/parent-delete.ts` | Call after a parent (scrum update, project activity) is deleted. |
+| `SCRUM_DRAFT_STATUS`, `SUBMITTED_SCRUM_UPDATE_WHERE`, `excludeScrumDrafts`, `isScrumDraft` | `features/scrum/services/drafts.ts` | **G7.** Keep drafts out of every counting read. |
+| `RETIRED_ROUTE_REDIRECTS`, `retiredRouteRedirects` | `lib/retired-routes.js` | **G6.** The 14 retired OKR/analytics routes (CommonJS, required by `next.config.js`). |
+| Ethiopian ↔ Gregorian conversion | `lib/dtp/ec-calendar.ts` | **B2.** JDN-based, leap year = `year % 4 === 3`; checked day-by-day 2020–2030. |
+| Thin-page loaders (`*.server.ts`) | `features/{admin-org,daily-trip-plan,key-results,letters,objectives,projects,sprints,todos}/services/*.server.ts`, `lib/{dashboards/home,notifications/notifications-page,okr/activity-feed,okr/comments-page,settings/settings-pages}.server.ts` | **H5/C3/C6.** Server-only data loaders; `app/**/page.tsx` must call these instead of importing Prisma. |
+| Project creation G4 services | `lib/projects/project-docx-template.ts`, `creation-docx-schedule.ts`, `creation-provenance.ts`, `creation-processing.ts` | Word TOR template (2.5), deterministic DOCX → schedule, server-owned provenance (2.6, 422 on client source edits), background upload processing + retry (2.7). |
+| AI-guided creation services | `lib/projects/ai-guided-{api,brief,ids,openai,prompt,revise,schedule,schema,service,tor-upload}.ts` | **G5/C5.** OpenAI-only brief → clarify → generate → revise/undo; `ai-guided-openai.ts` = strict `json_schema` + one repair round; `ai-guided-revise.ts` = HMAC preview token bound to draft id + version. |
+
 ## Plans
 
 | Component | Purpose |
 |-----------|---------|
-| `components/plans/PlansList` | Tability-style list view + List/Gantt toggle. Server-rendered rows with aggregated KR/initiative/NCS metrics. |
-| `components/plans/PlansGantt` | DHTMLX-Gantt view of all accessible objectives + nested KRs. Columns: title, assignee (avatar+name), status/confidence pill, progress %. Zoom: week/month/quarter/year. Clicking a bar routes to the objective/KR detail page. Data from `GET /api/gantt`. |
+| ~~`components/plans/PlansList`~~ | **Deleted 2026-09-25 (G6)** — `/dashboard/plans` redirects to the OKR Explorer Timeline view. |
+| `components/plans/PlansGantt` | Rendered by the OKR Explorer **Timeline** view (`ExplorerTimelineView`). DHTMLX-Gantt view of all accessible objectives + nested KRs. Columns: title, assignee (avatar+name), status/confidence pill, progress %. Zoom: week/month/quarter/year. Clicking a bar routes to the objective/KR detail page. Data from `GET /api/gantt`. |
 
 ## Project Management
 
@@ -525,6 +643,11 @@ export const GET = withAuth(async () => {
 | `features/projects/components/creation/DraftReviewWorkspace` | `{ draft, onDraftUpdated, onCommitted, onSaveExit, onRestartSource, onProgressChange }` | Story 1.9–1.10/P2.3 shared Manual/Import seven-panel react-hook-form workspace for complete review/editing, private-draft Gantt, controls, filters, undo/redo, restore/restart, optimistic save, XLSX export, and history-backed explicit cleanup decisions. Its one Create Project action derives actionable commit blockers, saves the current version, and opens the exact final confirmation before calling the dedicated atomic commit endpoint. |
 | `features/projects/components/creation/ChangeListPanel` | `{ changes, onAccept, onReject }` | Story 2.3 read-only cleanup evidence and decision surface: target/kind/original/proposed/reason/confidence/status, individual accept/reject, and safe grouped capitalization/whitespace controls with explicit exclusions. Nothing applies while proposed, and completed decisions direct users to Undo before save. |
 | `features/projects/components/creation/CommitConfirmDialog` | `{ open, draft, counts, acknowledgedWarnings, busy, error, onBack, onConfirm }` | Story 1.10 final explicit confirmation: repeats exact phase/milestone/activity/deliverable/dependency counts, project context, acknowledged unresolved-warning count, and Planning/unbaselined/no-assignment/client/portal/external-notification consequences with loading, retry, and back-to-review controls. |
+| `features/projects/components/creation/ai-guided/AiGuidedFlow` | `{ draft, aiFeatureEnabled, aiAvailable, onDraftUpdated, onProgressChange, onSaveExit, onCommitted }` | **New 2026-09-25 (G5).** AI branch of project creation: brief → clarifying questions → generated plan → shared review/commit. OpenAI only; hidden/refused when the project-creation AI flag is off. |
+| `features/projects/components/creation/ai-guided/AiBriefStep` | `{ brief, defaults, aiAvailable, hasSchedule, busyAction, onSubmit, onUploadTor?, onSaveExit, onCancelEdit? }` | **New (G5/C5).** react-hook-form brief; optional DOCX TOR upload fills the TOR field (editable). |
+| `features/projects/components/creation/ai-guided/ClarifyQuestions` | `{ questions, assumptions, busy, onSubmit, onBack }` | **New (G5).** Answer or skip AI questions; "continue with assumptions". |
+| `features/projects/components/creation/ai-guided/AiRevisionPanel` | `{ draft, normalized, aiAvailable, onDraftReplaced, onRequestError }` | **New (G5).** Constrained revision: preview (affected counts, diff, conflicts with direct edits) → apply → undo. |
+| `features/projects/components/creation/ai-guided/useAiGuided` | hooks | **New.** TanStack mutations for the `ai-guided/*` routes (`useSaveAiGuidedBrief`, `useClarifyAiGuidedDraft`, …) + `AiGuidedRequestError`. |
 | `components/customers/CustomerLookup` | `{ value, onChange, disabled? }` | Shared Odoo-backed customer picker with debounced search, degraded/manual-entry messaging, and tokenized loading/result states; reused by Letters and Manual project creation without a feature-to-feature import. |
 | `features/projects/components/TemplateListClient` | `{ user: { id, role } }` | A2 searchable/type-filterable system + custom template directory with project-type badges, type-linked creation, clone/delete controls, and builder navigation. |
 | `features/projects/components/TemplateBuilderClient` | `{ templateId?, userRole }` | A2 template editor: explicit project-type association, name/description, phase→milestone→activity tree, properties panel, native drag-and-drop, validation, save/create, and type-preserving clone. |
@@ -547,14 +670,24 @@ export const GET = withAuth(async () => {
 | `features/projects/components/portfolio/PortfolioReportPanel` | K3 cross-project performance report list/generate/download panel. |
 | `features/projects/components/charts/PortfolioChartsLibrary` | K2 portfolio chart catalog: C1 RAG wall, C6 delay by owner, C9 client health, C17 bubble, C18 Pareto, C20 bench forecast — all driven by real cross-project aggregation. |
 | `features/projects/components/registers/RaidRegister` | H1 RAID register with Risks/Assumptions/Issues/Dependencies tabs, type-specific create fields, 5×5 risk matrix, days-open display, client-visible controls, red overdue client dependency flag, and DelayEvent generation. |
-| `features/projects/components/registers/ChangeControlBoard` | H2 Change Control Board with CR create form, affected activity selection, workflow actions, rejection reason capture, client sign-off, pending report count, and approved scope-volatility total. |
+| `features/projects/components/registers/ChangeControlBoard` | (2026-09-25 C4: per-CR Internal / Client-visible toggle.) H2 Change Control Board with CR create form, affected activity selection, workflow actions, rejection reason capture, client sign-off, pending report count, and approved scope-volatility total. |
 | `features/projects/components/registers/StageGateRegister` | H3 Stage Gate register with per-phase entry/exit/deliverable/approval checklists, pass/waive/fail controls, waiver reason capture, and reportable gate status display. |
 | `features/projects/components/registers/ClientObligationsRegister` | H4 Client Obligations register with named responsible people, SLA business days, contractual/R6 controls, compliance rate, breach count, client health score, and CEO warning below 60. |
 | `features/projects/components/registers/CorrectionOfErrorsRegister` | H5 COE register with milestone/RED prompts, 5-Whys entry, root-cause counts, overdue CEO warning, systemic fix, template feedback, and Lessons Learned output. |
 | `features/projects/components/registers/PaymentMilestonesRegister` | H6 Payment Milestones register with linked approval trigger, ready-to-invoice state, invoice/paid actions, outstanding days, and overdue CEO warning. |
 | `features/projects/components/integrations/JiraIntegrationPanel` | G1/G4/G5 Project Settings integration panel for Jira site URL, email, write-only token, project key, Test Connection, Save, masked-token display, sync controls, developer Jira evidence metrics, and Jira adoption score warnings. |
+| `features/projects/components/dialogs/TextPromptDialog` | `{ open, onClose, onSubmit(value), title, label, message?, placeholder?, confirmLabel?, icon?, multiline?, minLength?, maxLength?, initialValue? }` | **New 2026-09-25 (F5).** Single-field prompt on the shared `Modal` — the replacement for `window.prompt` (Gantt, view switcher, stage gates, portal panel). Exported from `@/features/projects`. |
+| `features/projects/components/baseline/CommitBaselineDialog` | `{ open, onClose, projectId, activityCount, defaultNotes? }` | **New (F5).** Commit-baseline confirmation (replaces `window.confirm`). |
+| `features/projects/components/baseline/RebaselineDialog` | `{ open, onClose, projectId, baselineVersion }` | **New (F5).** Formal re-baseline with the old→new diff preview and a required reason ≥ `REBASELINE_REASON_MIN_LENGTH` (20). |
+| `features/projects/components/portal/PortalAccessPanel` | `{ projectId, projectClientName, canEdit }` | **New (F5).** Project settings panel: portal on/off (`portalEnabled`), list accounts with status (Active / Invite sent / Invite expired / Inactive), grant by invite link or password, resend invite, set password, revoke. Mounted in `ProjectDeliveryControlCenter`. |
+| `features/projects/components/RouteStates` | `ProjectRouteError({ error, reset, source, showMessage?, className? })`, `ProjectListSkeleton`, `ProjectWorkspaceSkeleton({ fullScreen? })`, `ProjectDashboardSkeleton({ label? })`, `PortalSkeleton` | **New (Wave 3 area B).** Bodies for the projects/portal `loading.tsx` and `error.tsx` files. |
+| `app/portal/PortalSignOutButton` · `app/portal/PortalProjectSwitcher` | — | **New (F5).** Portal sign-out and project switcher in the portal shell. |
+| `app/portal/accept-invite` | — | **New (F5).** Invite acceptance page (password ≥10). |
+| `app/portal/projects/[id]/PlannedVsActualTab` | `{ data: ClientPlannedVsActual }` | **New 2026-09-25 (G4).** Baseline vs current dates + signed slip per milestone/activity (from `/api/portal/projects/[id]/planned-vs-actual`). |
+| `app/portal/projects/[id]/ChangeRequestsTab` | `{ rows: readonly ClientChangeRequest[] }` | **New (C4).** Change requests marked `CLIENT_VISIBLE`, no names or cost. |
+| ~~`features/projects/components/ProjectDetailClient`~~ | — | **Deleted 2026-09-25** — dead code; `/dashboard/projects/[id]` redirects to `/projects/[id]` (`ProjectWorkspaceClient`). |
 | `features/projects/components/ScrumLogWidget` | G6 project-page quick-log widget for daily scrum date/time/duration/facilitator, In/Late/Out attendance, blockers/notes, R5 attendance report flags, and C16 people-by-date heatmap. |
-| `features/projects/services/portal-serializer` | I2 portal data serializer and SQL filter contract: scoped projects, client-visible comments/attachments/RAID, owner anonymization, forbidden user/cost/Jira key stripping, and employee-name redaction. |
+| `features/projects/services/portal-serializer` | I2 portal data serializer and SQL filter contract: scoped projects, client-visible comments/attachments/RAID, owner anonymization, forbidden user/cost/Jira key stripping, and employee-name redaction. 2026-09-25 (S5): comment bodies scrubbed of every user's name tokens (≥3 chars, inactive users included; mentions → `@360Ground`) via `scrubPortalPayload`/`redactForbiddenNames`; the `opts` argument is now required on every serializer. |
 | `features/projects/services/portal-project-query` | Shared portal project Prisma include shape used by portal routes/pages without exporting non-handler values from Next route modules. |
 | `features/projects/services/portal-dashboard` | I3 pure portal dashboard helpers for awaiting-action business-day counters, anonymized activity flattening, and delay-row mapping. |
 | `lib/projects/jira-crypto` | P6 6.1 AES-256-GCM helper for write-only Jira API tokens, backed by `JIRA_TOKEN_ENCRYPTION_KEY`. |

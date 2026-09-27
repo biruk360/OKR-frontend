@@ -2,6 +2,7 @@
 
 import { CheckCircle2, AlertTriangle, TrendingDown, TrendingUp, Minus } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
+import { chartColors, chartTooltipStyle } from '@/lib/chart-colors'
 
 export interface HeroStatsData {
   avgProgress: number
@@ -21,8 +22,8 @@ interface Props {
   data: HeroStatsData
 }
 
-const CHART_PRIMARY = '#0052cc'
-const AXIS = '#6b778c'
+const CHART_PRIMARY = chartColors.accent
+const AXIS = chartColors.axis
 
 export default function HeroStats({ data }: Props) {
   const total = data.onTrack + data.atRisk + data.offTrack
@@ -30,11 +31,11 @@ export default function HeroStats({ data }: Props) {
   const aheadOfPace = delta >= 0
 
   const scoreColor =
-    data.confidenceScore >= 65 ? 'text-emerald-700' :
-    data.confidenceScore >= 35 ? 'text-amber-700' :
-    'text-red-700'
+    data.confidenceScore >= 65 ? 'text-success-700' :
+    data.confidenceScore >= 35 ? 'text-warning-700' :
+    'text-danger-700'
 
-  const progressColor = aheadOfPace ? 'text-emerald-600' : 'text-red-600'
+  const progressColor = aheadOfPace ? 'text-success-600' : 'text-danger-600'
 
   // Momentum from real snaps or fall back to a flat line at current progress
   const momentumData = (data.momentumData && data.momentumData.length >= 2)
@@ -90,7 +91,7 @@ export default function HeroStats({ data }: Props) {
             style={{ left: `${Math.min(data.expectedProgress, 100)}%` }}
           />
         </div>
-        <div className="flex justify-between mt-1.5 text-[11px] text-muted-foreground">
+        <div className="flex justify-between mt-1.5 text-caption text-muted-foreground">
           <span>Actual {data.avgProgress}%</span>
           <span className={progressColor}>
             {aheadOfPace ? 'Ahead of pace' : 'Behind pace'} (expected {data.expectedProgress}%)
@@ -114,17 +115,17 @@ export default function HeroStats({ data }: Props) {
 
           <div className="flex-1 space-y-1.5">
             <div className="flex items-center gap-2 text-sm">
-              <CheckCircle2 className="size-4 text-emerald-600" />
+              <CheckCircle2 className="size-4 text-success-600" />
               <span className="font-medium">{data.onTrack}</span>
               <span className="text-muted-foreground">on track</span>
             </div>
             <div className="flex items-center gap-2 text-sm">
-              <AlertTriangle className="size-4 text-amber-600" />
+              <AlertTriangle className="size-4 text-warning-600" />
               <span className="font-medium">{data.atRisk}</span>
               <span className="text-muted-foreground">at risk</span>
             </div>
             <div className="flex items-center gap-2 text-sm">
-              <TrendingDown className="size-4 text-red-600" />
+              <TrendingDown className="size-4 text-danger-600" />
               <span className="font-medium">{data.offTrack}</span>
               <span className="text-muted-foreground">off track</span>
             </div>
@@ -134,13 +135,13 @@ export default function HeroStats({ data }: Props) {
         {total > 0 && (
           <div className="flex h-3 rounded-full overflow-hidden mt-4">
             {data.onTrack > 0 && (
-              <div className="bg-emerald-500 transition-all" style={{ width: `${(data.onTrack / total) * 100}%` }} />
+              <div className="bg-success-500 transition-all" style={{ width: `${(data.onTrack / total) * 100}%` }} />
             )}
             {data.atRisk > 0 && (
-              <div className="bg-amber-500 transition-all" style={{ width: `${(data.atRisk / total) * 100}%` }} />
+              <div className="bg-warning-500 transition-all" style={{ width: `${(data.atRisk / total) * 100}%` }} />
             )}
             {data.offTrack > 0 && (
-              <div className="bg-red-500 transition-all" style={{ width: `${(data.offTrack / total) * 100}%` }} />
+              <div className="bg-danger-500 transition-all" style={{ width: `${(data.offTrack / total) * 100}%` }} />
             )}
           </div>
         )}
@@ -151,11 +152,11 @@ export default function HeroStats({ data }: Props) {
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-semibold text-foreground">Momentum</h3>
           <div className="flex items-center gap-1">
-            {momentumTrend === 'up'     && <TrendingUp   className="h-3.5 w-3.5 text-emerald-600" strokeWidth={2} />}
+            {momentumTrend === 'up'     && <TrendingUp   className="h-3.5 w-3.5 text-success-600" strokeWidth={2} />}
             {momentumTrend === 'down'   && <TrendingDown className="h-3.5 w-3.5 text-destructive"  strokeWidth={2} />}
             {momentumTrend === 'stable' && <Minus        className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={2} />}
             <span className={`text-xs font-medium ${
-              momentumTrend === 'up' ? 'text-emerald-600' :
+              momentumTrend === 'up' ? 'text-success-600' :
               momentumTrend === 'down' ? 'text-destructive' :
               'text-muted-foreground'
             }`}>
@@ -192,8 +193,8 @@ export default function HeroStats({ data }: Props) {
                   tickFormatter={(v) => `${v}%`}
                 />
                 <Tooltip
-                  contentStyle={{ backgroundColor: '#fff', border: '1px solid #dfe1e6', borderRadius: 6, fontSize: 11 }}
-                  labelStyle={{ color: '#172b4d', fontWeight: 600 }}
+                  contentStyle={{ ...chartTooltipStyle, borderRadius: 6, fontSize: 11 }}
+                  labelStyle={{ color: chartColors.foreground, fontWeight: 600 }}
                   formatter={(v: number) => [`${v.toFixed(1)}%`, 'Progress']}
                   labelFormatter={(v) => new Date(v).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
                 />
@@ -203,7 +204,7 @@ export default function HeroStats({ data }: Props) {
                   stroke={CHART_PRIMARY}
                   strokeWidth={2}
                   dot={{ fill: CHART_PRIMARY, strokeWidth: 0, r: 2 }}
-                  activeDot={{ r: 4, stroke: CHART_PRIMARY, strokeWidth: 2, fill: '#fff' }}
+                  activeDot={{ r: 4, stroke: CHART_PRIMARY, strokeWidth: 2, fill: chartColors.surface }}
                 />
               </LineChart>
             </ResponsiveContainer>

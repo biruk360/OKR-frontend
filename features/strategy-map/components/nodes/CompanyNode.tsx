@@ -24,9 +24,9 @@ export function CompanyNode({ data }: { data: Data }) {
         <Crown className="size-4" />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-[10px] font-bold uppercase tracking-widest opacity-80">Company</p>
+        <p className="text-micro font-bold uppercase tracking-widest opacity-80">Company</p>
         <p className="truncate text-sm font-semibold">{data.name}</p>
-        <p className="truncate text-[11px] opacity-80">
+        <p className="truncate text-caption opacity-80">
           {data.ceoName ? `CEO: ${data.ceoName}` : 'No CEO set'}
         </p>
       </div>

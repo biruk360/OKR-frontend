@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { blockerSimilarity, decideBlockerLifecycle } from './blocker-lifecycle'
+import { blockerSimilarity, decideBlockerLifecycle, shouldNotifyRecurringBlocker, shouldPromptSameBlocker } from './blocker-lifecycle'
 
 const settings = {
   timezone: 'Africa/Addis_Ababa',
@@ -72,5 +72,56 @@ describe('blocker lifecycle', () => {
 
     assert.equal(decision.shouldAskSameBlocker, true)
     assert.ok(blockerSimilarity('Client approved questionnaire', 'Client not approved questionnaire') >= 0.65)
+  })
+})
+
+describe('same-blocker confirmation', () => {
+  const base = {
+    previousText: 'Waiting for client approval on launch scope',
+    previousCategory: 'CLIENT_APPROVAL',
+    previousStatus: 'OPEN',
+    previousFirstRaisedAt: new Date('2026-07-08T09:00:00.000Z'),
+    text: 'Waiting for client approval on launch scope',
+    category: 'CLIENT_APPROVAL',
+    now: new Date('2026-07-13T09:00:00.000Z'),
+    settings,
+  }
+
+  it('restarts the clock when the submitter says it is a new blocker', () => {
+    const decision = decideBlockerLifecycle({ ...base, sameBlockerConfirmed: false })
+    assert.equal(decision.status, 'OPEN')
+    assert.equal(decision.firstRaisedAt?.toISOString(), base.now.toISOString())
+  })
+
+  it('keeps the first-raised date when the submitter confirms a fuzzy match', () => {
+    const decision = decideBlockerLifecycle({ ...base, text: 'Client approval on launch scope still pending', sameBlockerConfirmed: true })
+    assert.equal(decision.firstRaisedAt?.toISOString(), '2026-07-08T09:00:00.000Z')
+    assert.equal(decision.status, 'RECURRING')
+  })
+
+  it('never carries a resolved blocker clock into a new blocker', () => {
+    const decision = decideBlockerLifecycle({ ...base, previousStatus: 'RESOLVED' })
+    assert.equal(decision.status, 'OPEN')
+    assert.equal(decision.firstRaisedAt?.toISOString(), base.now.toISOString())
+  })
+
+  it('does not keep a new blocker escalated just because the previous one was', () => {
+    const decision = decideBlockerLifecycle({ ...base, previousStatus: 'ESCALATED', sameBlockerConfirmed: false })
+    assert.equal(decision.status, 'OPEN')
+  })
+
+  it('prompts only for similar blockers in the same category', () => {
+    assert.equal(shouldPromptSameBlocker({ previousText: base.previousText, previousCategory: 'CLIENT_APPROVAL', text: base.text, category: 'CLIENT_APPROVAL' }), true)
+    assert.equal(shouldPromptSameBlocker({ previousText: base.previousText, previousCategory: 'CLIENT_APPROVAL', text: base.text, category: 'TECHNICAL' }), false)
+    assert.equal(shouldPromptSameBlocker({ previousText: base.previousText, previousCategory: 'CLIENT_APPROVAL', text: 'Laptop broke', category: 'CLIENT_APPROVAL' }), false)
+    assert.equal(shouldPromptSameBlocker({ previousText: null, previousCategory: null, text: base.text, category: 'CLIENT_APPROVAL' }), false)
+  })
+
+  it('notifies recurring only on the first move into RECURRING', () => {
+    assert.equal(shouldNotifyRecurringBlocker({ status: 'RECURRING', previousDayStatus: 'OPEN' }), true)
+    assert.equal(shouldNotifyRecurringBlocker({ status: 'RECURRING', previousDayStatus: 'RECURRING' }), false)
+    assert.equal(shouldNotifyRecurringBlocker({ status: 'RECURRING', previousDayStatus: 'OPEN', existingSameDayStatus: 'RECURRING' }), false)
+    assert.equal(shouldNotifyRecurringBlocker({ status: 'OPEN', previousDayStatus: null }), false)
+    assert.equal(shouldNotifyRecurringBlocker({ status: 'ESCALATED', previousDayStatus: 'RECURRING' }), false)
   })
 })

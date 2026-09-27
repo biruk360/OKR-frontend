@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { recordActivity } from '@/lib/activity-log'
+import { withCronAuth } from '@/lib/cron-auth'
 
 /**
  * Sprint v2 lifecycle tick.
  *
- * Hit hourly via VPS cron — NOT YET wired in production. Add to crontab:
- *   0 * * * * curl -H 'Authorization: Bearer $CRON_SECRET' https://your-host/api/cron/sprint-tick
+ * Hit hourly via VPS cron — scheduled by scripts/install-crontab.sh (which
+ * sends the header in double quotes so $CRON_SECRET actually expands).
  *
  * Authentication: shared secret in `Authorization: Bearer <CRON_SECRET>` header.
  *
@@ -17,23 +18,8 @@ import { recordActivity } from '@/lib/activity-log'
  *     requires owner input (incomplete-handling) via /api/sprints/[id]/end.
  *     Phase 4 will emit a notification here.
  */
-export async function POST(request: NextRequest) {
-  return handle(request)
-}
-export async function GET(request: NextRequest) {
-  return handle(request)
-}
 
 async function handle(request: NextRequest) {
-  const secret = process.env.CRON_SECRET
-  if (!secret) {
-    return NextResponse.json({ success: false, error: 'CRON_SECRET not configured' }, { status: 500 })
-  }
-  const auth = request.headers.get('authorization') || ''
-  if (auth !== `Bearer ${secret}`) {
-    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
-  }
-
   const now = new Date()
   const toStart = await prisma.sprint.findMany({
     where: { state: 'PLANNING', startDate: { lte: now } },
@@ -54,3 +40,6 @@ async function handle(request: NextRequest) {
 
   return NextResponse.json({ success: true, data: { started: toStart.length, expired } })
 }
+
+export const POST = withCronAuth(handle)
+export const GET = POST

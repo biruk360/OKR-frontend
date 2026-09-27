@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useId } from 'react'
 import { Crown, UserPlus, Users, X } from 'lucide-react'
-import { Button, ConfirmDialog, Label, Modal } from '@/components/ui'
+import { Button, ConfirmDialog, EmptyState, Label, Modal } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import { useUsersForSelection } from '@/hooks'
 import type { EvaluationDetail, PanelMember } from '../types'
@@ -12,6 +12,7 @@ import { NativeSelect } from './NativeSelect'
 type PanelRow = PanelMember & { name: string }
 
 export function PanelManager({ evaluation }: { evaluation: EvaluationDetail }) {
+  const uid = useId()
   const [open, setOpen] = useState(false)
   const [panel, setPanel] = useState<PanelRow[]>([])
   const [selectedUserId, setSelectedUserId] = useState('')
@@ -78,10 +79,16 @@ export function PanelManager({ evaluation }: { evaluation: EvaluationDetail }) {
         }
       >
         <div className="space-y-4 py-2">
-          <div>
-            <Label>Panel members</Label>
+          <div role="group" aria-labelledby={`${uid}-members`}>
+            <Label id={`${uid}-members`}>Panel members</Label>
             {panel.length === 0 ? (
-              <p className="mt-1 text-sm text-muted-foreground">No evaluators assigned.</p>
+              <EmptyState
+                bare
+                className="mt-1"
+                icon={Users}
+                title="No evaluators assigned"
+                description="Add evaluators below to build the panel."
+              />
             ) : (
               <div className="mt-1 divide-y divide-border rounded-md border border-border">
                 {panel.map((member) => (
@@ -99,6 +106,7 @@ export function PanelManager({ evaluation }: { evaluation: EvaluationDetail }) {
                         variant="ghost"
                         className={cn(member.role === 'LEAD' && 'text-primary')}
                         title={member.role === 'LEAD' ? 'Current lead' : 'Set as lead'}
+                        aria-label={member.role === 'LEAD' ? `${member.name} is the lead evaluator` : `Set ${member.name} as lead evaluator`}
                         disabled={member.role === 'LEAD'}
                         onClick={() => setPanel((current) => current.map((item) => ({ ...item, role: item.evaluatorId === member.evaluatorId ? 'LEAD' : 'EVALUATOR' })))}
                       >
@@ -108,6 +116,7 @@ export function PanelManager({ evaluation }: { evaluation: EvaluationDetail }) {
                         size="sm"
                         variant="ghost"
                         title="Remove evaluator"
+                        aria-label={`Remove ${member.name} from the panel`}
                         onClick={() => setPanel((current) => current.filter((item) => item.evaluatorId !== member.evaluatorId))}
                       >
                         <X className="size-3.5" />
@@ -120,9 +129,10 @@ export function PanelManager({ evaluation }: { evaluation: EvaluationDetail }) {
             {panel.length > 0 && !hasLead && <p className="mt-1 text-xs text-danger-600">Exactly one lead evaluator is required.</p>}
           </div>
           <div>
-            <Label>Add evaluator</Label>
+            <Label htmlFor={`${uid}-add-evaluator`}>Add evaluator</Label>
             <div className="mt-1 flex gap-2">
               <NativeSelect
+                id={`${uid}-add-evaluator`}
                 value={selectedUserId}
                 onChange={(event) => setSelectedUserId(event.target.value)}
               >

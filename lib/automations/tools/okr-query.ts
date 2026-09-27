@@ -151,11 +151,14 @@ export const todoScopeWhere: ScopeWhereBuilder = (actor, requested) => {
   if (scope === 'DEPARTMENT') {
     if (actor.departmentIds.length === 0) return anyOf(mine)
     const dept = { in: actor.departmentIds }
+    // Invite-only sprint boards (2026-09-25): a sprint card is reachable only
+    // through a board the actor may view (owner / participant) — never through
+    // the department or the linked OKR (lib/todos/access.ts `canReadTodo`).
     return anyOf([
       ...mine,
-      { objective: { departmentId: dept, isPrivate: false } },
-      { keyResult: { isPrivate: false, objective: { departmentId: dept, isPrivate: false } } },
-      { sprint: { departmentId: dept } },
+      { objective: { departmentId: dept, isPrivate: false }, sprintId: null },
+      { keyResult: { isPrivate: false, objective: { departmentId: dept, isPrivate: false } }, sprintId: null },
+      { sprint: { OR: [{ ownerId: actor.userId }, { participants: { some: { userId: actor.userId } } }] } },
     ])
   }
   return anyOf([
@@ -216,8 +219,10 @@ export const projectScopeWhere: ScopeWhereBuilder = (actor, requested) => {
 }
 
 /**
- * Sprint. Mirrors `canViewSprint`: ADMIN/EXECUTIVE any, otherwise owner,
- * participant, or a sprint scoped to one of the actor's departments.
+ * Sprint. Mirrors `canViewSprint` / `sprintVisibilityWhere` (invite-only boards,
+ * 2026-09-25): ADMIN/EXECUTIVE any (ORG), everyone else — DEPARTMENT_LEAD
+ * included — only sprints they own or participate in. Department membership
+ * grants nothing, so DEPARTMENT scope is the same as OWNER here.
  */
 export const sprintScopeWhere: ScopeWhereBuilder = (actor, requested) => {
   const scope = effectiveScope(requested, actor.role)
@@ -226,9 +231,6 @@ export const sprintScopeWhere: ScopeWhereBuilder = (actor, requested) => {
     { participants: { some: { userId: actor.userId } } },
   ]
   if (scope === 'ORG') return {}
-  if (scope === 'DEPARTMENT' && actor.departmentIds.length > 0) {
-    return anyOf([...mine, { departmentId: { in: actor.departmentIds } }])
-  }
   return anyOf(mine)
 }
 

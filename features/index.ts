@@ -14,7 +14,6 @@
 export * as objectives from './objectives'
 export * as keyResults from './key-results'
 export * as todos from './todos'
-export * as goals from './goals'
 export * as sprints from './sprints'
 export * as performance from './performance'
 export * as projects from './projects'

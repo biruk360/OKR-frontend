@@ -1,5 +1,12 @@
 import Pusher from 'pusher'
 import PusherClient from 'pusher-js'
+import { sprintRealtimeChannel } from '@/lib/sprints/realtime'
+import {
+  buildOkrRealtimePayload,
+  keyResultEventChannels,
+  objectiveRealtimeChannel,
+  type OkrRealtimeEvent,
+} from '@/lib/okr/realtime'
 
 /**
  * Lazy-init Pusher so the build / type-collection step doesn't crash when
@@ -97,7 +104,10 @@ export const pusherClient = new Proxy({}, {
   },
 }) as unknown as PusherClient
 
-// Real-time event types
+// Real-time event types. OBJECTIVE_UPDATED / KEY_RESULT_UPDATED / COMMENT_ADDED
+// are legacy names with no subscriber; OKR detail pages use the per-kind events
+// in OKR_REALTIME_EVENTS (lib/okr/realtime.ts) via broadcastObjectiveEvent /
+// broadcastKeyResultEvent below.
 export const PUSHER_EVENTS = {
   OBJECTIVE_UPDATED: 'objective-updated',
   KEY_RESULT_UPDATED: 'key-result-updated',
@@ -148,9 +158,69 @@ export async function broadcastSprintEvent(
   const s = getPusherServer()
   if (!s) return
   try {
-    await s.trigger(`sprint-${sprintId}`, eventName, payload)
+    // Private channel: authorised per viewer by canViewSprint in /api/pusher/auth.
+    await s.trigger(sprintRealtimeChannel(sprintId), eventName, payload)
   } catch (error) {
     console.error('[broadcastSprintEvent] failed:', error)
+  }
+}
+
+/**
+ * OKR realtime — tell open objective detail pages that something changed.
+ * Private channel `private-objective-<id>`, authorised in /api/pusher/auth only
+ * for viewers who see the objective UNREDACTED. Payload is ids + kind + actorId
+ * (lib/okr/realtime.ts); the page refetches through its permission-checked path.
+ *
+ * Fire-and-forget: returns synchronously, never throws, never delays or fails
+ * the mutation that called it. Call it AFTER the write has committed.
+ */
+export function broadcastObjectiveEvent(
+  objectiveId: string | null | undefined,
+  kind: OkrRealtimeEvent,
+  actorId: string | null | undefined,
+): void {
+  if (!objectiveId) return
+  try {
+    const s = getPusherServer()
+    if (!s) return
+    const payload = buildOkrRealtimePayload({ entity: 'objective', id: objectiveId, kind, actorId })
+    void s.trigger(objectiveRealtimeChannel(objectiveId), kind, payload).catch((error: unknown) => {
+      console.error('[broadcastObjectiveEvent] failed:', error)
+    })
+  } catch (error) {
+    console.error('[broadcastObjectiveEvent] failed:', error)
+  }
+}
+
+/**
+ * OKR realtime — key-result change. Sent to `private-keyresult-<id>` and, when
+ * `objectiveId` is known, relayed to the parent `private-objective-<id>` (the
+ * objective page lists the KR and its progress). Same fire-and-forget contract
+ * as broadcastObjectiveEvent.
+ */
+export function broadcastKeyResultEvent(
+  keyResultId: string | null | undefined,
+  objectiveId: string | null | undefined,
+  kind: OkrRealtimeEvent,
+  actorId: string | null | undefined,
+): void {
+  if (!keyResultId) return
+  try {
+    const s = getPusherServer()
+    if (!s) return
+    const payload = buildOkrRealtimePayload({
+      entity: 'keyResult',
+      id: keyResultId,
+      kind,
+      actorId,
+      objectiveId,
+      keyResultId,
+    })
+    void s.trigger(keyResultEventChannels(keyResultId, objectiveId), kind, payload).catch((error: unknown) => {
+      console.error('[broadcastKeyResultEvent] failed:', error)
+    })
+  } catch (error) {
+    console.error('[broadcastKeyResultEvent] failed:', error)
   }
 }
 

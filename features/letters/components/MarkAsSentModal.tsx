@@ -55,8 +55,8 @@ export default function MarkAsSentModal({ open, onClose, onSubmit }: Props) {
                 onClick={() => setMethod(m)}
                 className={`flex-1 rounded-md border px-3 py-2 text-sm ${
                   method === m
-                    ? 'border-blue-500 bg-blue-50 text-blue-700'
-                    : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                    ? 'border-primary-500 bg-primary-50 text-primary-700'
+                    : 'border-border bg-surface-card text-foreground hover:border-ink-tertiary'
                 }`}
               >
                 {t(`send.method.${m}` as any)}
@@ -82,7 +82,7 @@ export default function MarkAsSentModal({ open, onClose, onSubmit }: Props) {
             placeholder={t('send.tracking.placeholder')}
           />
         </div>
-        {error && <p className="text-xs text-red-600">{error}</p>}
+        {error && <p className="text-xs text-danger-600">{error}</p>}
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="outline" onClick={onClose} disabled={submitting}>{t('send.cancel')}</Button>
           <Button onClick={handle} disabled={submitting}>

@@ -18,7 +18,6 @@ import {
   Key,
   Layout,
   Kanban,
-  SlidersHorizontal,
   Sparkles,
   MapPin,
   Truck,
@@ -29,12 +28,20 @@ import {
   Library,
   Bot,
 } from 'lucide-react'
+import { canReadPortfolio } from '@/lib/projects/portfolio-access'
 
 export interface NavItem {
   name: string
   href: string
   icon: LucideIcon
   featureKey?: string
+  /**
+   * Role rule for pages gated by the legacy `session.user.role` rather than an
+   * RBAC feature key. Must be the same pure predicate the page and its API
+   * routes use (e.g. `canReadPortfolio`), so nav and server never disagree.
+   * Fails closed: hidden when the caller does not supply the viewer's role.
+   */
+  roleGate?: (role: string | null | undefined) => boolean
 }
 
 export interface NavGroup {
@@ -53,16 +60,9 @@ export const navigationGroups: NavGroup[] = [
     defaultOpen: true,
   },
   {
-    name: 'Filters',
-    icon: SlidersHorizontal,
-    items: [{ name: 'Filters', href: '/dashboard/filters', icon: SlidersHorizontal }],
-    defaultOpen: false,
-  },
-  {
     name: 'My Work',
     icon: User,
     items: [
-      { name: 'Goals', href: '/dashboard/goals', icon: Target },
       { name: 'My OKRs', href: '/dashboard/my-okrs', icon: User },
       { name: 'To-dos', href: '/dashboard/todos', icon: CheckSquare },
       { name: 'Work Board', href: '/dashboard/work', icon: Kanban },
@@ -76,30 +76,20 @@ export const navigationGroups: NavGroup[] = [
     icon: Kanban,
     items: [
       { name: 'Projects', href: '/dashboard/projects', icon: Kanban },
-      { name: 'Portfolio', href: '/dashboard/projects/portfolio', icon: TrendingUp },
+      { name: 'Portfolio', href: '/dashboard/projects/portfolio', icon: TrendingUp, roleGate: canReadPortfolio },
     ],
     defaultOpen: false,
   },
   {
+    // One browse surface: level presets (All / Company / Department / Mine /
+    // My team) and views (List / Tree / Timeline / Map / Analyze) live inside
+    // the Explorer (?level= / ?view=). Retired pages redirect: lib/retired-routes.js.
     name: 'OKRs',
     icon: Target,
     items: [
       { name: 'OKR Explorer', href: '/dashboard/okrs-all', icon: Target },
-      { name: 'Plans', href: '/dashboard/plans', icon: FileText },
-      { name: 'Company OKRs', href: '/dashboard/company-okrs', icon: Building2 },
-      { name: 'Department OKRs', href: '/dashboard/department-okrs', icon: Users },
-      { name: 'Strategy map', href: '/dashboard/alignment-map', icon: Network },
-      { name: 'Objectives', href: '/dashboard/objectives', icon: Target },
-    ],
-    defaultOpen: true,
-  },
-  {
-    name: 'Views',
-    icon: Network,
-    items: [
-      { name: 'OKR Hierarchy', href: '/dashboard/okr-hierarchy', icon: Network },
-      { name: 'Timeline', href: '/dashboard/timeline', icon: Calendar },
-      { name: 'Progress Dashboard', href: '/dashboard/progress-report', icon: BarChart3 },
+      { name: 'Key Results', href: '/dashboard/key-results', icon: Key },
+      { name: 'Insights', href: '/dashboard/insights', icon: BarChart3 },
     ],
     defaultOpen: true,
   },
@@ -131,17 +121,6 @@ export const navigationGroups: NavGroup[] = [
     defaultOpen: false,
   },
   {
-    name: 'Tracking & Analytics',
-    icon: TrendingUp,
-    items: [
-      { name: 'Progress Tracking', href: '/dashboard/progress', icon: TrendingUp },
-      { name: 'Reports', href: '/dashboard/reports', icon: FileText },
-      { name: 'Initiative Report', href: '/dashboard/initiative-report', icon: FileText },
-      { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
-    ],
-    defaultOpen: false,
-  },
-  {
     name: 'Communication',
     icon: MessageSquare,
     items: [
@@ -156,6 +135,9 @@ export const navigationGroups: NavGroup[] = [
     icon: FileText,
     items: [
       { name: 'Letters', href: '/dashboard/letters', icon: FileText },
+      { name: 'Letter Reports', href: '/dashboard/letters/reports', icon: FileText },
+      // Same ADMIN-only key the templates page and API check (canAdministerLetters).
+      { name: 'Letter Templates', href: '/dashboard/letters/templates', icon: FileText, featureKey: 'button.letter.admin' },
     ],
     defaultOpen: false,
   },
@@ -203,14 +185,23 @@ export function getFlatNavItems(): NavItem[] {
   return navigationGroups.flatMap((g) => g.items)
 }
 
+export interface NavVisibilityContext {
+  /** The viewer's `session.user.role`; required to show `roleGate` items. */
+  role?: string | null
+}
+
 export function getVisibleNavigationGroups(
   canFeature: (featureKey: string) => boolean,
+  ctx: NavVisibilityContext = {},
 ): NavGroup[] {
+  const itemVisible = (item: NavItem) =>
+    (!item.featureKey || canFeature(item.featureKey)) &&
+    (!item.roleGate || item.roleGate(ctx.role))
   return navigationGroups
     .filter((group) => !group.featureKey || canFeature(group.featureKey))
     .map((group) => ({
       ...group,
-      items: group.items.filter((item) => !item.featureKey || canFeature(item.featureKey)),
+      items: group.items.filter(itemVisible),
     }))
     .filter((group) => group.items.length > 0)
 }

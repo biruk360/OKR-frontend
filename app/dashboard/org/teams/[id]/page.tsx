@@ -1,22 +1,16 @@
 import { getServerSessionSafe } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { loadTeamProfile } from '@/features/admin-org/services/org-pages.server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Building2, HelpCircle, Users, Crown } from 'lucide-react'
-import { canViewObjective, canManageUsers, type UserRole } from '@/lib/permissions'
+import { ArrowLeft, Building2, HelpCircle, Users, Crown, ListChecks, Target } from 'lucide-react'
 import { PageTitleSetter } from '@/components/layout/DashboardTitleContext'
 import ProfileOrgMinimap from '@/components/profile/ProfileOrgMinimap'
-import {
-  computeProfilePlanMetrics,
-  formatKrValueLabel,
-} from '@/lib/profileMetrics'
-import {
-  getKrDisplayStatus,
-  statusLabel,
-  type KrDisplayStatus,
-} from '@/lib/reportDashboard'
+import { formatKrValueLabel } from '@/lib/profileMetrics'
+import { statusLabel, type KrDisplayStatus } from '@/lib/reportDashboard'
 import { cn } from '@/lib/utils'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { resolveParams } from '@/lib/resolve-route-params'
+import { PersonTooltip } from '@/components/shared/UserAvatar'
 
 interface PageProps {
   params: { id: string } | Promise<{ id: string }>
@@ -25,13 +19,13 @@ interface PageProps {
 function confidenceDot(status: KrDisplayStatus) {
   switch (status) {
     case 'on_track':
-      return 'bg-emerald-500'
+      return 'bg-success-500'
     case 'at_risk':
-      return 'bg-[#fd7e14]'
+      return 'bg-warning-500'
     case 'off_track':
-      return 'bg-red-500'
+      return 'bg-danger-500'
     default:
-      return 'bg-gray-400'
+      return 'bg-ink-secondary'
   }
 }
 
@@ -42,167 +36,18 @@ export default async function TeamProfilePage({ params }: PageProps) {
   const { id } = await resolveParams(params)
   if (!id) notFound()
 
-  const department = await prisma.department.findFirst({
-    where: { id, isActive: true },
-    include: {
-      memberships: {
-        where: { endedAt: null },
-        include: {
-          user: { select: { id: true, name: true, email: true, avatar: true, role: true } },
-        },
-      },
-    },
-  })
-
-  if (!department) notFound()
-
-  const memberIds = department.memberships.map((m) => m.userId)
-
-  const objectivesRaw = await prisma.objective.findMany({
-    where: { departmentId: department.id, status: 'ACTIVE' },
-    include: {
-      keyResults: {
-        where: { status: 'ACTIVE' },
-        include: {
-          todos: { select: { status: true } },
-          owner: { select: { id: true, name: true, avatar: true } },
-        },
-      },
-    },
-    orderBy: { updatedAt: 'desc' },
-  })
-
-  const visibleKeyResults: {
-    id: string
-    title: string
-    unit: string
-    currentValue: number
-    startValue: number
-    targetValue: number
-    progress: number
-    confidence: string
-    objective: { id: string; title: string }
-    owner: { id: string; name: string; avatar: string | null }
-    todos: { status: string }[]
-  }[] = []
-
-  for (const obj of objectivesRaw) {
-    const { canView } = await canViewObjective(
-      session.user.role as UserRole,
-      session.user.id,
-      {
-        level: obj.level,
-        ownerId: obj.ownerId,
-        departmentId: obj.departmentId,
-        isPrivate: obj.isPrivate,
-      }
-    )
-    if (!canView) continue
-    for (const kr of obj.keyResults) {
-      visibleKeyResults.push({
-        ...kr,
-        objective: { id: obj.id, title: obj.title },
-      })
-    }
-  }
-
-  const metrics = computeProfilePlanMetrics(visibleKeyResults)
-
-  const teamTodosRaw =
-    memberIds.length === 0
-      ? []
-      : await prisma.todo.findMany({
-          where: {
-            assigneeId: { in: memberIds },
-            status: { not: 'CANCELLED' },
-          },
-          include: {
-            assignee: { select: { id: true, name: true } },
-            keyResult: {
-              include: {
-                objective: {
-                  select: {
-                    id: true,
-                    title: true,
-                    level: true,
-                    ownerId: true,
-                    departmentId: true,
-                    isPrivate: true,
-                  },
-                },
-              },
-            },
-          },
-          orderBy: { updatedAt: 'desc' },
-          take: 80,
-        })
-
-  const visibleTodos: typeof teamTodosRaw = []
-  for (const t of teamTodosRaw) {
-    // Team view only surfaces KR-linked todos scoped to the team's department.
-    if (!t.keyResult) continue
-    const obj = t.keyResult.objective
-    if (obj.departmentId !== department.id) continue
-    const { canView } = await canViewObjective(
-      session.user.role as UserRole,
-      session.user.id,
-      {
-        level: obj.level,
-        ownerId: obj.ownerId,
-        departmentId: obj.departmentId,
-        isPrivate: obj.isPrivate,
-      }
-    )
-    if (canView) visibleTodos.push(t)
-  }
-
-  const latestStandup =
-    memberIds.length > 0
-      ? await prisma.keyResultCheckIn.findFirst({
-          where: {
-            createdById: { in: memberIds },
-            keyResult: {
-              objective: { departmentId: department.id },
-            },
-          },
-          orderBy: { createdAt: 'desc' },
-          include: {
-            keyResult: { select: { id: true, title: true } },
-            createdBy: { select: { id: true, name: true } },
-          },
-        })
-      : null
-
-  const canManage = canManageUsers(session.user.role as UserRole)
-  const manageHref = canManage ? '/dashboard/settings/teams' : undefined
-
-  const krsWithStatus = visibleKeyResults.map((kr) => {
-    const displayStatus = getKrDisplayStatus({
-      unit: kr.unit,
-      targetValue: kr.targetValue,
-      startValue: kr.startValue,
-      currentValue: kr.currentValue,
-      progress: kr.progress,
-      confidence: kr.confidence,
-    })
-    return { kr, displayStatus }
-  })
-
-  krsWithStatus.sort((a, b) => {
-    const order = (s: KrDisplayStatus) =>
-      s === 'pending' || s === 'not_measurable' ? 0 : s === 'at_risk' ? 1 : 2
-    return order(a.displayStatus) - order(b.displayStatus)
-  })
-
-  const pendingCount = krsWithStatus.filter(
-    (x) => x.displayStatus === 'pending' || x.displayStatus === 'not_measurable'
-  ).length
-
-  const minimapMembers = department.memberships.map((m) => ({
-    id: m.user.id,
-    name: m.user.name,
-    avatar: m.user.avatar,
-  }))
+  const data = await loadTeamProfile(session.user, id)
+  if (!data) notFound()
+  const {
+    department,
+    metrics,
+    visibleTodos,
+    latestStandup,
+    manageHref,
+    krsWithStatus,
+    pendingCount,
+    minimapMembers,
+  } = data
 
   return (
     <>
@@ -219,8 +64,8 @@ export default async function TeamProfilePage({ params }: PageProps) {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
           <aside className="lg:col-span-4 space-y-4">
             <div className="bg-card rounded-lg border border-border shadow-sm p-6 text-center">
-              <div className="mx-auto h-20 w-20 rounded-2xl bg-emerald-100 flex items-center justify-center">
-                <Building2 className="h-10 w-10 text-emerald-700" />
+              <div className="mx-auto h-20 w-20 rounded-2xl bg-success-100 flex items-center justify-center">
+                <Building2 className="h-10 w-10 text-success-700" />
               </div>
               <h1 className="mt-4 text-xl font-bold text-foreground">{department.name}</h1>
               {department.description ? (
@@ -235,21 +80,21 @@ export default async function TeamProfilePage({ params }: PageProps) {
             <div className="bg-card rounded-lg border border-border shadow-sm p-4">
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  <p className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">
                     Key results
                   </p>
                   <p className="text-lg font-semibold tabular-nums text-foreground mt-1">
                     {metrics.avgKrProgress}%
                   </p>
-                  <div className="mt-1 h-1.5 w-full rounded-full bg-sky-100 overflow-hidden">
+                  <div className="mt-1 h-1.5 w-full rounded-full bg-primary-100 overflow-hidden">
                     <div
-                      className="h-full rounded-full bg-sky-500"
+                      className="h-full rounded-full bg-primary-500"
                       style={{ width: `${Math.min(metrics.avgKrProgress, 100)}%` }}
                     />
                   </div>
                 </div>
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  <p className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">
                     Initiatives
                   </p>
                   <p className="text-lg font-semibold tabular-nums text-foreground mt-1">
@@ -259,7 +104,7 @@ export default async function TeamProfilePage({ params }: PageProps) {
                   </p>
                 </div>
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center justify-center gap-0.5">
+                  <p className="text-micro font-semibold uppercase tracking-wide text-muted-foreground flex items-center justify-center gap-0.5">
                     Confidence
                     <span title="Approximate score from key result confidence (NCS-style)">
                       <HelpCircle className="h-3 w-3 text-muted-foreground" />
@@ -268,9 +113,9 @@ export default async function TeamProfilePage({ params }: PageProps) {
                   <p className="text-lg font-semibold tabular-nums text-foreground mt-1">
                     {metrics.ncsScore} NCS
                   </p>
-                  <div className="mt-1 h-1.5 w-full rounded-full bg-amber-100 overflow-hidden">
+                  <div className="mt-1 h-1.5 w-full rounded-full bg-warning-100 overflow-hidden">
                     <div
-                      className="h-full rounded-full bg-amber-500"
+                      className="h-full rounded-full bg-warning-500"
                       style={{ width: `${Math.min(metrics.ncsScore, 100)}%` }}
                     />
                   </div>
@@ -282,7 +127,7 @@ export default async function TeamProfilePage({ params }: PageProps) {
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-sm font-semibold text-foreground">Org network</h2>
                 {manageHref && (
-                  <Link href={manageHref} className="text-xs font-medium text-blue-600 hover:text-blue-800">
+                  <Link href={manageHref} className="text-xs font-medium text-primary-600 hover:text-primary-800">
                     Manage
                   </Link>
                 )}
@@ -292,19 +137,19 @@ export default async function TeamProfilePage({ params }: PageProps) {
                   const head = department.memberships.find((m) => m.role === 'HEAD')
                   if (!head) {
                     return (
-                      <li className="flex items-center gap-2 rounded bg-amber-50 px-2 py-1.5 text-xs font-medium text-amber-700">
+                      <li className="flex items-center gap-2 rounded bg-warning-50 px-2 py-1.5 text-xs font-medium text-warning-700">
                         <Crown className="h-3.5 w-3.5 shrink-0" />
                         No department head assigned
                       </li>
                     )
                   }
                   return (
-                    <li className="flex items-center gap-2 rounded bg-amber-50 px-2 py-1.5">
-                      <Crown className="h-4 w-4 shrink-0 text-amber-700" />
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-amber-700">Head</span>
+                    <li className="flex items-center gap-2 rounded bg-warning-50 px-2 py-1.5">
+                      <Crown className="h-4 w-4 shrink-0 text-warning-700" />
+                      <span className="text-micro font-bold uppercase tracking-widest text-warning-700">Head</span>
                       <Link
                         href={`/dashboard/org/users/${head.user.id}`}
-                        className="font-semibold text-foreground hover:text-blue-600"
+                        className="font-semibold text-foreground hover:text-primary-600"
                       >
                         {head.user.name}
                       </Link>
@@ -325,7 +170,7 @@ export default async function TeamProfilePage({ params }: PageProps) {
                             <Link
                               key={m.id}
                               href={`/dashboard/org/users/${m.user.id}`}
-                              className="font-medium hover:text-blue-600 mr-1"
+                              className="font-medium hover:text-primary-600 mr-1"
                             >
                               {m.user.name}
                             </Link>
@@ -349,7 +194,7 @@ export default async function TeamProfilePage({ params }: PageProps) {
                   </p>
                   <Link
                     href={`/dashboard/key-results/${latestStandup.keyResultId}`}
-                    className="font-medium text-blue-600 hover:underline mt-1 block"
+                    className="font-medium text-primary-600 hover:underline mt-1 block"
                   >
                     {latestStandup.keyResult.title}
                   </Link>
@@ -369,7 +214,7 @@ export default async function TeamProfilePage({ params }: PageProps) {
                 </h2>
               </div>
               {department.memberships.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No members assigned yet.</p>
+                <EmptyState bare className="py-6 px-4" icon={<Users className="size-5 text-muted-foreground" />} title="No members assigned yet" />
               ) : (
                 <ul className="space-y-1.5">
                   {[...department.memberships]
@@ -392,7 +237,7 @@ export default async function TeamProfilePage({ params }: PageProps) {
                               className="h-7 w-7 rounded-full object-cover shrink-0"
                             />
                           ) : (
-                            <div className="h-7 w-7 rounded-full bg-blue-500 flex items-center justify-center text-[11px] font-semibold text-white shrink-0">
+                            <div className="h-7 w-7 rounded-full bg-primary-500 flex items-center justify-center text-caption font-semibold text-primary-foreground shrink-0">
                               {(m.user.name ?? '?').slice(0, 1).toUpperCase()}
                             </div>
                           )}
@@ -402,10 +247,10 @@ export default async function TeamProfilePage({ params }: PageProps) {
                                 {m.user.name}
                               </p>
                               {m.role === 'HEAD' && (
-                                <Crown className="h-3 w-3 shrink-0 text-amber-600" />
+                                <Crown className="h-3 w-3 shrink-0 text-warning-600" />
                               )}
                             </div>
-                            <p className="truncate text-[11px] text-muted-foreground">
+                            <p className="truncate text-caption text-muted-foreground">
                               {m.user.role
                                 ? m.user.role.replace(/_/g, ' ').toLowerCase()
                                 : m.user.email}
@@ -423,13 +268,13 @@ export default async function TeamProfilePage({ params }: PageProps) {
             <section className="bg-card rounded-lg border border-border shadow-sm">
               <div className="px-4 py-3 border-b border-border">
                 <h2 className="text-base font-semibold text-foreground">Active key results</h2>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mt-1">
+                <p className="text-micro font-semibold uppercase tracking-wider text-muted-foreground mt-1">
                   Pending check-ins
                   {pendingCount > 0 ? ` · ${pendingCount} need attention` : ''}
                 </p>
               </div>
               {krsWithStatus.length === 0 ? (
-                <p className="p-6 text-sm text-muted-foreground">No visible key results for this team.</p>
+                <EmptyState bare className="py-6 px-4" icon={<Target className="size-5 text-muted-foreground" />} title="No visible key results for this team" />
               ) : (
                 <ul className="divide-y divide-border">
                   {krsWithStatus.map(({ kr, displayStatus }) => {
@@ -447,7 +292,7 @@ export default async function TeamProfilePage({ params }: PageProps) {
                         <div className="min-w-0 flex-1">
                           <Link
                             href={`/dashboard/key-results/${kr.id}`}
-                            className="text-sm font-medium text-foreground hover:text-blue-600 line-clamp-2"
+                            className="text-sm font-medium text-foreground hover:text-primary-600 line-clamp-2"
                           >
                             {kr.title}
                           </Link>
@@ -458,9 +303,14 @@ export default async function TeamProfilePage({ params }: PageProps) {
                             <p className="text-xs text-muted-foreground max-w-[140px] truncate" title={valueHint}>
                               {valueHint}
                             </p>
-                            <p className="text-[11px] text-muted-foreground">{statusText}</p>
+                            <p className="text-caption text-muted-foreground">{statusText}</p>
                           </div>
-                          <Link href={`/dashboard/org/users/${kr.owner.id}`} className="shrink-0">
+                          <PersonTooltip person={kr.owner} detail="Key result owner">
+                          <Link
+                            href={`/dashboard/org/users/${kr.owner.id}`}
+                            className="shrink-0"
+                            aria-label={`Owner: ${kr.owner.name}`}
+                          >
                             {kr.owner.avatar ? (
                               <img
                                 src={kr.owner.avatar}
@@ -468,11 +318,12 @@ export default async function TeamProfilePage({ params }: PageProps) {
                                 className="h-8 w-8 rounded-full object-cover"
                               />
                             ) : (
-                              <div className="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center text-xs font-medium text-white">
+                              <div className="h-8 w-8 rounded-full bg-primary-500 flex items-center justify-center text-xs font-medium text-primary-foreground">
                                 {kr.owner.name.slice(0, 1).toUpperCase()}
                               </div>
                             )}
                           </Link>
+                          </PersonTooltip>
                         </div>
                       </li>
                     )
@@ -486,7 +337,7 @@ export default async function TeamProfilePage({ params }: PageProps) {
                 <h2 className="text-base font-semibold text-foreground">Active initiatives</h2>
               </div>
               {visibleTodos.length === 0 ? (
-                <p className="p-6 text-sm text-muted-foreground">No initiatives for this team</p>
+                <EmptyState bare className="py-6 px-4" icon={<ListChecks className="size-5 text-muted-foreground" />} title="No initiatives for this team" />
               ) : (
                 <ul className="divide-y divide-border">
                   {visibleTodos.map((t) => (

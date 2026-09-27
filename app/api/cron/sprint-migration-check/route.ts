@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { withCronAuth } from '@/lib/cron-auth'
 
 /**
  * Sprint v2 migration health check (Phase 2).
@@ -22,23 +23,8 @@ import { prisma } from '@/lib/prisma'
  *
  * Healthy state once Phase 2 has shipped: `unmigrated` should be 0.
  */
-export async function GET(request: NextRequest) {
-  return handle(request)
-}
-export async function POST(request: NextRequest) {
-  return handle(request)
-}
 
 async function handle(request: NextRequest) {
-  const secret = process.env.CRON_SECRET
-  if (!secret) {
-    return NextResponse.json({ success: false, error: 'CRON_SECRET not configured' }, { status: 500 })
-  }
-  const auth = request.headers.get('authorization') || ''
-  if (auth !== `Bearer ${secret}`) {
-    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
-  }
-
   // Use raw queries — `sprint_activity_migration` is not a Prisma model.
   const [activitiesRow, migratedRow, todosWithSprintIdRow, unmigratedRow] = await Promise.all([
     prisma.$queryRawUnsafe<Array<{ count: bigint }>>(
@@ -69,3 +55,6 @@ async function handle(request: NextRequest) {
     },
   })
 }
+
+export const POST = withCronAuth(handle)
+export const GET = POST

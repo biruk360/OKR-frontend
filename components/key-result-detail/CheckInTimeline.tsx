@@ -36,9 +36,9 @@ function dotColor(c: CheckIn): string {
 }
 
 function pillStyle(c: string | null | undefined): { bg: string; fg: string; label: string } {
-  if (c === 'ON_TRACK') return { bg: 'rgba(52,199,89,0.12)', fg: 'var(--ap-green)', label: 'On track' }
-  if (c === 'AT_RISK') return { bg: 'rgba(255,149,0,0.12)', fg: 'var(--ap-orange)', label: 'At risk' }
-  if (c === 'OFF_TRACK') return { bg: 'rgba(255,59,48,0.12)', fg: 'var(--ap-red)', label: 'Off track' }
+  if (c === 'ON_TRACK') return { bg: 'var(--ap-ok-bg)', fg: 'var(--ap-ok-fg)', label: 'On track' }
+  if (c === 'AT_RISK') return { bg: 'var(--ap-warn-bg)', fg: 'var(--ap-warn-fg)', label: 'At risk' }
+  if (c === 'OFF_TRACK') return { bg: 'var(--ap-danger-bg)', fg: 'var(--ap-danger-fg)', label: 'Off track' }
   return { bg: 'var(--ap-bg-sunken)', fg: 'var(--ap-fg-muted)', label: '—' }
 }
 
@@ -73,7 +73,7 @@ export default function CheckInTimeline({ checkIns, unit }: Props) {
                 ['--tw-ring-color' as any]: 'var(--ap-bg-raised)',
               } as any}
             />
-            <div className="flex flex-wrap items-baseline gap-1.5 text-[11px] text-muted-foreground">
+            <div className="flex flex-wrap items-baseline gap-1.5 text-caption text-muted-foreground">
               <time className="tabular-nums">{format(new Date(c.asOfDate), 'MMM d, yyyy')}</time>
               <span>·</span>
               <span>{c.createdBy?.name ?? 'Unknown'}</span>
@@ -81,17 +81,17 @@ export default function CheckInTimeline({ checkIns, unit }: Props) {
             <div className="mt-1 flex flex-wrap items-baseline gap-2">
               {prev ? (
                 <span
-                  className="text-[15px] font-semibold tabular-nums"
+                  className="text-body font-semibold tabular-nums"
                   style={{ letterSpacing: '-0.01em' }}
                 >
-                  {unit && <span className="text-[11px] text-muted-foreground font-normal mr-0.5">{unit}</span>}
+                  {unit && <span className="text-caption text-muted-foreground font-normal mr-0.5">{unit}</span>}
                   {formatAxisValue(prev.value)} → {formatAxisValue(c.value)}
                   {delta !== null && (
                     <span
-                      className="ml-2 text-[11px] font-semibold tabular-nums rounded-full px-1.5 py-0.5"
+                      className="ml-2 text-caption font-semibold tabular-nums rounded-full px-1.5 py-0.5"
                       style={{
-                        background: delta >= 0 ? 'rgba(52,199,89,0.12)' : 'rgba(255,59,48,0.12)',
-                        color: delta >= 0 ? 'var(--ap-green)' : 'var(--ap-red)',
+                        background: delta >= 0 ? 'var(--ap-ok-bg)' : 'var(--ap-danger-bg)',
+                        color: delta >= 0 ? 'var(--ap-ok-fg)' : 'var(--ap-danger-fg)',
                       }}
                     >
                       {delta >= 0 ? '+' : ''}
@@ -100,13 +100,13 @@ export default function CheckInTimeline({ checkIns, unit }: Props) {
                   )}
                 </span>
               ) : (
-                <span className="text-[15px] font-semibold tabular-nums" style={{ letterSpacing: '-0.01em' }}>
-                  {unit && <span className="text-[11px] text-muted-foreground font-normal mr-0.5">{unit}</span>}
+                <span className="text-body font-semibold tabular-nums" style={{ letterSpacing: '-0.01em' }}>
+                  {unit && <span className="text-caption text-muted-foreground font-normal mr-0.5">{unit}</span>}
                   {formatAxisValue(c.value)}
                 </span>
               )}
               <span
-                className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-micro font-semibold"
                 style={{ background: pill.bg, color: pill.fg }}
               >
                 <span className="size-1.5 rounded-full" style={{ background: pill.fg }} />
@@ -114,7 +114,7 @@ export default function CheckInTimeline({ checkIns, unit }: Props) {
               </span>
             </div>
             {c.analysis && (
-              <p className="mt-1.5 text-[12px] text-muted-foreground italic whitespace-pre-wrap">{c.analysis}</p>
+              <p className="mt-1.5 text-xs text-muted-foreground italic whitespace-pre-wrap">{c.analysis}</p>
             )}
           </li>
         )

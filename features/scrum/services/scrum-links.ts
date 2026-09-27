@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
+import { SUBMITTED_SCRUM_UPDATE_WHERE } from './drafts'
 import { SCRUM_LINK_CONTEXTS } from '@/types/scrum'
 
 export const scrumLinkInputSchema = z.object({
@@ -135,7 +136,7 @@ export async function validateLinkOwnership(
 
 export async function getSuggestedLinks(subjectUserId: string) {
   const recent = await prisma.scrumUpdate.findMany({
-    where: { userId: subjectUserId },
+    where: { userId: subjectUserId, ...SUBMITTED_SCRUM_UPDATE_WHERE },
     orderBy: { scrumDate: 'desc' },
     take: 3,
     include: { links: true },

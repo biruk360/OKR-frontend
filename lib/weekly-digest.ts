@@ -498,9 +498,13 @@ function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string))
 }
 
+/** Users whose digests are built in parallel (read queries only). */
+const DIGEST_CONCURRENCY = 10
+
 /**
  * Generate and queue digests for every active user. Idempotent within a calendar day.
  */
+
 export async function runWeeklyDigest(): Promise<{ generated: number; skipped: number; errors: number }> {
   const users = await prisma.user.findMany({
     where: { isActive: true },
@@ -514,49 +518,74 @@ export async function runWeeklyDigest(): Promise<{ generated: number; skipped: n
   let skipped = 0
   let errors = 0
 
-  for (const user of users) {
-    try {
-      const state = await prisma.emailDigestState.findUnique({ where: { userId: user.id } })
-      if (state?.lastSentAt && state.lastSentAt >= startOfToday) {
-        skipped++
+  // One batched state read instead of one per user.
+  const states = new Map(
+    (await prisma.emailDigestState.findMany({
+      where: { userId: { in: users.map((u) => u.id) } },
+      select: { userId: true, lastSentAt: true },
+    })).map((st) => [st.userId, st]),
+  )
+  const pending = users.filter((user) => {
+    const state = states.get(user.id)
+    const done = !!state?.lastSentAt && state.lastSentAt >= startOfToday
+    if (done) skipped++
+    return !done
+  })
+
+  // Digest building (read queries only) runs DIGEST_CONCURRENCY users at a time;
+  // sends stay sequential so SMTP never sees parallel connections.
+  for (let i = 0; i < pending.length; i += DIGEST_CONCURRENCY) {
+    const batch = pending.slice(i, i + DIGEST_CONCURRENCY)
+    const built = await Promise.all(
+      batch.map((user) =>
+        buildUserDigest(user.id).then(
+          (digest) => ({ user, digest, err: null as unknown }),
+          (err: unknown) => ({ user, digest: null, err }),
+        ),
+      ),
+    )
+
+    for (const { user, digest, err } of built) {
+      if (err) {
+        console.error('[weekly-digest] error for user', user.id, err)
+        errors++
         continue
       }
-
-      const digest = await buildUserDigest(user.id)
       if (!digest) {
         skipped++
         continue
       }
+      try {
+        const text = renderDigestText(user.name, digest)
+        const html = renderDigestHtml(user.name, digest)
 
-      const text = renderDigestText(user.name, digest)
-      const html = renderDigestHtml(user.name, digest)
+        await sendMail({
+          to: user.email,
+          toName: user.name,
+          subject: `Your weekly OKR digest — ${digest.avgProgress}% progress, ${digest.confidenceScore}/100 confidence`,
+          text,
+          html,
+          template: 'weekly-digest',
+          metadata: {
+            userId: user.id,
+            avgProgress: digest.avgProgress,
+            confidenceScore: digest.confidenceScore,
+            overdueCount: digest.overdueCheckIns.length,
+            ownedObjectives: digest.objectives.length,
+            ownedKeyResults: digest.keyResults.length,
+          },
+        })
 
-      await sendMail({
-        to: user.email,
-        toName: user.name,
-        subject: `Your weekly OKR digest — ${digest.avgProgress}% progress, ${digest.confidenceScore}/100 confidence`,
-        text,
-        html,
-        template: 'weekly-digest',
-        metadata: {
-          userId: user.id,
-          avgProgress: digest.avgProgress,
-          confidenceScore: digest.confidenceScore,
-          overdueCount: digest.overdueCheckIns.length,
-          ownedObjectives: digest.objectives.length,
-          ownedKeyResults: digest.keyResults.length,
-        },
-      })
-
-      await prisma.emailDigestState.upsert({
-        where: { userId: user.id },
-        create: { userId: user.id, lastSentAt: new Date(), lastDigestCadence: 'WEEKLY' },
-        update: { lastSentAt: new Date(), lastDigestCadence: 'WEEKLY' },
-      })
-      generated++
-    } catch (err) {
-      console.error('[weekly-digest] error for user', user.id, err)
-      errors++
+        await prisma.emailDigestState.upsert({
+          where: { userId: user.id },
+          create: { userId: user.id, lastSentAt: new Date(), lastDigestCadence: 'WEEKLY' },
+          update: { lastSentAt: new Date(), lastDigestCadence: 'WEEKLY' },
+        })
+        generated++
+      } catch (e) {
+        console.error('[weekly-digest] error for user', user.id, e)
+        errors++
+      }
     }
   }
 

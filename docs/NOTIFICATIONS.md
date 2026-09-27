@@ -13,19 +13,45 @@ Single-source reference for every notification event in the OKR system: what fir
 ## 1. How a notification flows
 
 ```
-domain code → emit(eventKey, payload)
-                ├─ resolveRecipients()         ← role-based routing per event
-                ├─ getUserPrefsBulk()          ← per-user override (or org default)
-                ├─ redact()                    ← per-recipient privacy mask
-                ├─ renderTemplate()            ← subject/text/html
-                ├─ write Notification (in-app)
-                └─ email:
-                     IMMEDIATE → sendMail() now
-                     DAILY/WEEKLY/MONTHLY → enqueue to EmailDigestQueue
-                                           → drained by /api/cron/notifications?job=…
+domain code → await emit(eventKey, payload)
+                ├─ resolveRecipients()         ← role-based routing per event   ┐ awaited by the caller
+                ├─ owner/manager redaction scope (private entities only)        ┘ (reads the state it just wrote)
+                └─ runAfterResponse ──────────────────────────────────────────── after the HTTP response
+                     ├─ getUserPrefsBulk()     ← per-user override (or org default)
+                     ├─ redact() + renderTemplate() per recipient
+                     ├─ Notification rows      ← ONE createManyAndReturn (ids feed the Pusher payload)
+                     ├─ EmailDigestQueue       ← ONE dedupe findMany + ONE createMany
+                     └─ per recipient, 5 at a time: Pusher broadcast, IMMEDIATE sendMail()
+                          BATCHED/DAILY/WEEKLY/MONTHLY → drained by /api/cron/notifications?job=…
 ```
 
-Cadence is resolved as: **per-user pref → org default → hard-coded `IMMEDIATE`**. The `ACCOUNT` category is mandatory and cannot be disabled.
+### Delivery is non-blocking (PERF-2, 2026-09-25)
+
+`emit()` resolves as soon as recipients are resolved; delivery runs via
+[`lib/background.ts`](../lib/background.ts) `runAfterResponse` and is logged,
+never thrown, if it fails (`[notifications] delivery failed …`). The mechanics
+live in [`lib/notifications/fanout.ts`](../lib/notifications/fanout.ts):
+
+- **Process-wide limiter** — at most `DELIVERY_CONCURRENCY` (2) emits deliver at
+  once, each working on `RECIPIENT_CONCURRENCY` (5) recipients at a time, so a
+  burst cannot exhaust the Prisma pool.
+- **Per-key ordering** — deliveries for the same `eventKey + entityId` run in
+  order, so the digest-queue dedupe (read, then insert) never races itself.
+- **`emitNow()`** — same thing, but resolves after delivery. Use it wherever the
+  next step depends on the rows/emails existing: cron jobs (`jobs.ts` already
+  does), digests, and short-lived scripts that `process.exit()` when done.
+- **`writeDirectNotifications()`** applies the same split: the preference gate
+  and its return value are computed before it resolves; the `createMany` and
+  Pusher broadcast are deferred. Pass `{ deliver: 'now' }` or call
+  `writeDirectNotificationsNow()` when you record a delivery status.
+- **`flushBackgroundWork(timeoutMs)`** waits for every scheduled job — call it
+  before a worker or script exits.
+
+Production is a long-lived PM2 process, so detached work runs to completion.
+On a serverless host that freezes after the response this must move to
+`after()` / a queue — `runAfterResponse` is the one place to change.
+
+Cadence is resolved as: **mandatory category (`ACCOUNT`, always IMMEDIATE) → per-user pref → org default → hard-coded `BATCHED`**, implemented once in `resolveEffectivePref()` ([`lib/notifications/cadence.ts`](../lib/notifications/cadence.ts)). A `DISABLED` cadence resolves to email off. The `ACCOUNT` category is mandatory and cannot be disabled.
 
 ---
 
@@ -199,10 +225,13 @@ From [`lib/permissions.ts`](../lib/permissions.ts).
 
 ## 7. Per-user preferences
 
-- UI: `/dashboard/settings/notifications` — toggle in-app + email, pick IMMEDIATE / DAILY / WEEKLY / MONTHLY per category.
+- UI: `/dashboard/settings/notifications` — toggle in-app + email, pick BATCHED ("Every 10 minutes (batched)", the default) / IMMEDIATE / DAILY / WEEKLY / MONTHLY / DISABLED per category.
 - Org defaults UI (admin): `/dashboard/settings/notification-defaults`.
-- `ACCOUNT` is forced ON / IMMEDIATE — cannot be disabled.
-- Resolution order: `NotificationPreference` row → `OrgNotificationDefault` row → hard-coded `{ inApp:true, email:true, IMMEDIATE }`.
+- Both pages derive their rows from `ALL_CATEGORIES` + `CATEGORY_LABEL` (`lib/notifications/events.ts`) and their cadence options from `SELECTABLE_CADENCES` + `CADENCE_LABEL` (`lib/notifications/cadence.ts`) — one source, so a new category can't render untitled. Both APIs reject an unknown cadence with 400 instead of coercing it to IMMEDIATE.
+- `ACCOUNT` is forced ON / IMMEDIATE — cannot be disabled; its rows are ignored by the resolver.
+- Resolution order: mandatory → `NotificationPreference` row → `OrgNotificationDefault` row → hard-coded `{ inApp:true, email:true, BATCHED }`. An unrecognised stored cadence falls back to the next layer's cadence, never to IMMEDIATE.
+- `ensureOrgDefaults()` seeds new org rows as BATCHED (ACCOUNT: IMMEDIATE). Rows seeded as IMMEDIATE by the old code are converted by `scripts/notifications-set-batched-defaults.ts` (dry-run default, `--apply` to write; only rows exactly equal to the old seed `{inApp:true,email:true,IMMEDIATE}` on non-mandatory categories; per-user rows untouched).
+- @mentions on to-do comments email only via `emit('USER_MENTIONED')` → the dispatcher, so the COMMENT preference is honoured and nobody gets a second, preference-blind email.
 
 ---
 
@@ -269,6 +298,7 @@ There's `/api/email/test` for outbound mail. Add a `?dryRun=1` flag to `/api/cro
 | Add a new event | [`events.ts`](../lib/notifications/events.ts) + [`templates/index.ts`](../lib/email/templates/index.ts) + recipient case in [`dispatcher.ts`](../lib/notifications/dispatcher.ts) |
 | Change who receives what | [`dispatcher.ts:resolveRecipients`](../lib/notifications/dispatcher.ts) |
 | Change who can do what | [`permissions.ts`](../lib/permissions.ts) |
+| Delivery scheduling / concurrency | [`fanout.ts`](../lib/notifications/fanout.ts) + [`lib/background.ts`](../lib/background.ts) |
 | Tweak digest formatting | [`jobs.ts:runDigestDrain`](../lib/notifications/jobs.ts) |
 | Adjust cron cadence | external scheduler hitting `/api/cron/notifications?job=…` (see [CRON.md](./CRON.md)) |
 | Per-user prefs API | [`app/api/notifications/preferences/route.ts`](../app/api/notifications/preferences/route.ts) |

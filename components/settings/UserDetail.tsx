@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, Controller } from 'react-hook-form'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import UserRolesPanel from '@/components/settings/permissions/UserRolesPanel'
+import { SettingsSelect } from './SettingsSelect'
 
 export interface ManagedUser {
   id: string
@@ -84,9 +85,6 @@ function formatDate(value: string | Date) {
   })
 }
 
-const selectClass =
-  'h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none transition-colors duration-[180ms] ease-apple focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30'
-
 export default function UserDetail({ user: initialUser, currentUserId, currentUserRole }: UserDetailProps) {
   const router = useRouter()
   const [user, setUser] = useState(initialUser)
@@ -101,6 +99,7 @@ export default function UserDetail({ user: initialUser, currentUserId, currentUs
 
   const {
     register,
+    control,
     handleSubmit,
     reset,
     setError,
@@ -205,7 +204,7 @@ export default function UserDetail({ user: initialUser, currentUserId, currentUs
         headers: { 'Content-Type': 'application/json' },
       })
       if (response.ok) {
-        toast.success('User deleted successfully')
+        toast.success('User deleted and anonymised')
         router.push('/dashboard/settings/users')
         router.refresh()
       } else {
@@ -295,6 +294,7 @@ export default function UserDetail({ user: initialUser, currentUserId, currentUs
                 Reset password
               </Button>
             )}
+            {isAdmin && (
             <Button
               variant="destructive"
               size="sm"
@@ -305,6 +305,7 @@ export default function UserDetail({ user: initialUser, currentUserId, currentUs
               <Trash2 className="size-4" />
               Delete
             </Button>
+            )}
           </div>
         </div>
       </header>
@@ -378,13 +379,18 @@ export default function UserDetail({ user: initialUser, currentUserId, currentUs
 
                 <div className="space-y-1.5">
                   <Label htmlFor="role">Role</Label>
-                  <select id="role" {...register('role')} className={selectClass}>
-                    {ROLE_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
+                  <Controller
+                    control={control}
+                    name="role"
+                    render={({ field }) => (
+                      <SettingsSelect
+                        id="role"
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        options={ROLE_OPTIONS}
+                      />
+                    )}
+                  />
                 </div>
 
                 <div className="space-y-1.5">
@@ -491,7 +497,7 @@ export default function UserDetail({ user: initialUser, currentUserId, currentUs
                         {m.department.name}
                       </Link>
                       {m.role === 'HEAD' && (
-                        <span className="rounded-pill bg-warning-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-warning-700">
+                        <span className="rounded-pill bg-warning-50 px-1.5 py-0.5 text-xs font-bold uppercase tracking-wide text-warning-700">
                           Head
                         </span>
                       )}
@@ -566,7 +572,7 @@ export default function UserDetail({ user: initialUser, currentUserId, currentUs
         icon={UserIcon}
         title="Delete user"
         message={`Are you sure you want to delete ${user.name}?`}
-        description="This action cannot be undone. All data associated with this user will be permanently deleted."
+        description="The account is deactivated and anonymised: the name is replaced by the job title with “(deleted account)”, the email is scrubbed and sign-in is revoked. Their objectives, check-ins and history are kept."
         confirmLabel="Delete user"
         loadingLabel="Deleting…"
         isLoading={isBusy}

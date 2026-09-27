@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { sendMail } from '@/lib/email'
 import { absoluteUrl } from '@/lib/notifications/deep-link'
@@ -30,7 +31,7 @@ function krLink(id: string): string {
 
 // ─── Score computation ───
 
-interface KrForCalc {
+export interface KrForCalc {
   id: string
   title: string
   startValue: number
@@ -41,8 +42,8 @@ interface KrForCalc {
   ownerId: string
   objectiveId: string
   createdAt: Date
-  updatedAt: Date
-  _count: { checkIns: number; todos: number }
+  updatedAt?: Date
+  _count?: { checkIns: number; todos: number }
   objective: {
     id: string
     title: string
@@ -52,7 +53,9 @@ interface KrForCalc {
     timeframe: { startDate: Date; endDate: Date }
     departmentId: string | null
   }
-  todos: { status: string }[]
+  /** Linked initiatives. Either this or `todoStats` (pre-aggregated counts) is required. */
+  todos?: { status: string }[]
+  todoStats?: { total: number; completed: number }
   checkIns: { asOfDate: Date; value: number }[]
 }
 
@@ -97,8 +100,10 @@ export function computeKrConfidence(kr: KrForCalc, now: Date = new Date()): Scor
   }
 
   // Initiative completion ratio
-  const totalInitiatives = kr.todos.length
-  const completedInitiatives = kr.todos.filter((t) => t.status === 'COMPLETED').length
+  const totalInitiatives = kr.todoStats ? kr.todoStats.total : (kr.todos?.length ?? 0)
+  const completedInitiatives = kr.todoStats
+    ? kr.todoStats.completed
+    : (kr.todos ?? []).filter((t) => t.status === 'COMPLETED').length
   const initiativeCompletionPct = totalInitiatives > 0 ? (completedInitiatives / totalInitiatives) * 100 : 50
 
   // Staleness: days since last check-in or last update
@@ -148,14 +153,223 @@ export function computeKrConfidence(kr: KrForCalc, now: Date = new Date()): Scor
   }
 }
 
+// ─── Loading + batching helpers (shared by the daily and bi-weekly jobs) ───
+
+type Confidence = 'ON_TRACK' | 'AT_RISK' | 'OFF_TRACK'
+
+const DAY_MS = 86400_000
+/**
+ * KRs whose objective window ended more than this long ago are out of scope for
+ * the crons. The grace lets the first bi-weekly run after a period closes record
+ * one final assessment; after that the KR's confidence stays as last computed.
+ */
+export const ENDED_GRACE_DAYS = 14
+/** Mirrors the velocity window in computeKrConfidence. */
+const VELOCITY_WINDOW_DAYS = 14
+/** Mirrors the historic `checkIns: { take: 30 }` per KR. */
+const MAX_CHECKINS_PER_KR = 30
+/** Rows per `$transaction([...])` write batch. */
+const WRITE_CHUNK = 100
+/** Ids per `IN (...)` read. */
+const READ_CHUNK = 1000
+
+/** Worst-of rollup: any OFF_TRACK → OFF_TRACK, else any AT_RISK → AT_RISK, else ON_TRACK. */
+export function worstOfConfidences(list: Iterable<string>): Confidence {
+  let worst: Confidence = 'ON_TRACK'
+  for (const c of Array.from(list)) {
+    if (c === 'OFF_TRACK') return 'OFF_TRACK'
+    if (c === 'AT_RISK') worst = 'AT_RISK'
+  }
+  return worst
+}
+
+/**
+ * Only KRs in a timeframe that has not ended (effective end = objective.endDate
+ * override, else timeframe.endDate — the same end computeKrConfidence uses), with
+ * a short grace window. Ended periods used to be rescored on every run for nothing.
+ */
+export function inScopeKrWhere(now: Date): Prisma.KeyResultWhereInput {
+  const cutoff = new Date(now.getTime() - ENDED_GRACE_DAYS * DAY_MS)
+  return {
+    status: 'ACTIVE',
+    objective: {
+      OR: [
+        { endDate: { gte: cutoff } },
+        { endDate: null, timeframe: { endDate: { gte: cutoff } } },
+      ],
+    },
+  }
+}
+
+const krBaseSelect = {
+  id: true,
+  title: true,
+  startValue: true,
+  targetValue: true,
+  currentValue: true,
+  progress: true,
+  confidence: true,
+  ownerId: true,
+  objectiveId: true,
+  createdAt: true,
+  objective: {
+    select: {
+      id: true,
+      title: true,
+      ownerId: true,
+      startDate: true,
+      endDate: true,
+      departmentId: true,
+      timeframe: { select: { startDate: true, endDate: true } },
+    },
+  },
+} satisfies Prisma.KeyResultSelect
+
+type KrBase = Prisma.KeyResultGetPayload<{ select: typeof krBaseSelect }>
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const out: T[][] = []
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size))
+  return out
+}
+
+/**
+ * Assemble the scoring input from batched reads. Produces the same score as the
+ * old per-KR include (`todos` + newest 30 check-ins): the scorer only looks at
+ * check-ins inside the velocity window plus the single latest check-in.
+ *
+ * - `recentCheckIns`: this KR's check-ins with asOfDate >= now - 14d, newest first.
+ * - `lastCheckInAt`: this KR's newest check-in date overall (null if none).
+ */
+export function buildKrForCalc(
+  base: KrBase | KrForCalc,
+  todoStats: { total: number; completed: number },
+  recentCheckIns: Array<{ asOfDate: Date; value: number }>,
+  lastCheckInAt: Date | null,
+): KrForCalc {
+  const checkIns = recentCheckIns.slice(0, MAX_CHECKINS_PER_KR)
+  // No check-in inside the window: the latest one (outside the window) still
+  // drives the staleness penalty. Its value is never read — it is older than
+  // the velocity window, so computeKrConfidence filters it out.
+  if (checkIns.length === 0 && lastCheckInAt) checkIns.push({ asOfDate: lastCheckInAt, value: 0 })
+  return { ...(base as KrForCalc), todos: undefined, todoStats, checkIns }
+}
+
+/** Newest check-in date per KR (one grouped query per id chunk). */
+async function loadLastCheckInAt(krIds: string[]): Promise<Map<string, Date>> {
+  const out = new Map<string, Date>()
+  for (const ids of chunk(krIds, READ_CHUNK)) {
+    const rows = await prisma.keyResultCheckIn.groupBy({
+      by: ['keyResultId'],
+      where: { keyResultId: { in: ids } },
+      _max: { asOfDate: true },
+    })
+    for (const r of rows) if (r._max.asOfDate) out.set(r.keyResultId, r._max.asOfDate)
+  }
+  return out
+}
+
+/** Todo counts + in-window check-ins for a set of KRs, then the scoring input for each. */
+async function hydrateKrs(
+  bases: KrBase[],
+  lastCheckIns: Map<string, Date>,
+  now: Date,
+): Promise<KrForCalc[]> {
+  const todoStats = new Map<string, { total: number; completed: number }>()
+  const recent = new Map<string, Array<{ asOfDate: Date; value: number }>>()
+  const windowStart = new Date(now.getTime() - VELOCITY_WINDOW_DAYS * DAY_MS)
+
+  for (const ids of chunk(bases.map((k) => k.id), READ_CHUNK)) {
+    const [todoGroups, checkIns] = await Promise.all([
+      prisma.todo.groupBy({
+        by: ['keyResultId', 'status'],
+        where: { keyResultId: { in: ids } },
+        _count: { _all: true },
+      }),
+      prisma.keyResultCheckIn.findMany({
+        where: { keyResultId: { in: ids }, asOfDate: { gte: windowStart } },
+        select: { keyResultId: true, asOfDate: true, value: true },
+        orderBy: { asOfDate: 'desc' },
+      }),
+    ])
+    for (const g of todoGroups) {
+      if (!g.keyResultId) continue
+      const s = todoStats.get(g.keyResultId) ?? { total: 0, completed: 0 }
+      s.total += g._count._all
+      if (g.status === 'COMPLETED') s.completed += g._count._all
+      todoStats.set(g.keyResultId, s)
+    }
+    for (const c of checkIns) {
+      const list = recent.get(c.keyResultId)
+      if (list) list.push({ asOfDate: c.asOfDate, value: c.value })
+      else recent.set(c.keyResultId, [{ asOfDate: c.asOfDate, value: c.value }])
+    }
+  }
+
+  return bases.map((kr) =>
+    buildKrForCalc(
+      kr,
+      todoStats.get(kr.id) ?? { total: 0, completed: 0 },
+      recent.get(kr.id) ?? [],
+      lastCheckIns.get(kr.id) ?? null,
+    ),
+  )
+}
+
+/**
+ * Run writes in `$transaction([...])` batches of WRITE_CHUNK items. If a batch
+ * fails, retry its items one by one so a single bad row costs one error, not a
+ * hundred (preserves the old per-row error accounting).
+ */
+async function writeInChunks<T>(
+  items: T[],
+  build: (item: T) => Prisma.PrismaPromise<unknown>[],
+  onItemError: (item: T, err: unknown) => void,
+): Promise<T[]> {
+  const ok: T[] = []
+  for (const batch of chunk(items, WRITE_CHUNK)) {
+    const ops = batch.flatMap(build)
+    try {
+      if (ops.length > 0) await prisma.$transaction(ops)
+      ok.push(...batch)
+    } catch {
+      for (const item of batch) {
+        try {
+          const itemOps = build(item)
+          if (itemOps.length > 0) await prisma.$transaction(itemOps)
+          ok.push(item)
+        } catch (err) {
+          onItemError(item, err)
+        }
+      }
+    }
+  }
+  return ok
+}
+
+function krSnapshotUpsert(
+  kr: KrForCalc,
+  result: ScoreResult,
+  periodStart: string,
+  factors: string,
+): Prisma.PrismaPromise<unknown> {
+  const data = { confidence: result.confidence, score: result.score, factors, previousConf: kr.confidence }
+  return prisma.confidenceSnapshot.upsert({
+    where: { entityType_entityId_periodStart: { entityType: 'KEY_RESULT', entityId: kr.id, periodStart } },
+    create: { entityType: 'KEY_RESULT', entityId: kr.id, periodStart, ...data },
+    update: data,
+  })
+}
+
 /**
  * Daily auto-confidence recompute for *stale* OKRs only.
  *
- * Triggered once per day. For each active KR whose last user-driven update
- * (i.e. last KeyResultCheckIn.asOfDate) is more than `staleDays` ago, recompute
- * confidence using the same scoring function used by the bi-weekly job, then
- * propagate to the parent objective's goalStatus. Snapshots are stored with
- * today's date as the periodStart so we get one row per (entity, day).
+ * Triggered once per day. For each active KR in a not-yet-ended timeframe whose
+ * last user-driven update (i.e. last KeyResultCheckIn.asOfDate) is more than
+ * `staleDays` ago, recompute confidence using the same scoring function used by
+ * the bi-weekly job, then propagate to the parent objective's goalStatus.
+ * Snapshots are stored with today's date as the periodStart so we get one row
+ * per (entity, day).
  *
  * Does NOT send emails — daily noise would be excessive. The bi-weekly job
  * still owns the emailing.
@@ -168,96 +382,78 @@ export async function runDailyAutoConfidence(opts: { staleDays?: number; now?: D
 }> {
   const now = opts.now ?? new Date()
   const staleDays = opts.staleDays ?? 14
-  const cutoff = new Date(now.getTime() - staleDays * 86400_000)
+  const cutoff = new Date(now.getTime() - staleDays * DAY_MS)
   const periodStart = now.toISOString().slice(0, 10)
 
-  let scanned = 0
-  let staleProcessed = 0
-  let objectivesUpdated = 0
   let errors = 0
 
-  // Stale = no check-in since cutoff. We pull all active KRs and filter in JS to
-  // keep the query simple; volume is bounded by org size (typically <10k KRs).
-  const krs = await prisma.keyResult.findMany({
-    where: { status: 'ACTIVE' },
-    include: {
-      objective: {
-        select: {
-          id: true,
-          title: true,
-          ownerId: true,
-          startDate: true,
-          endDate: true,
-          departmentId: true,
-          timeframe: { select: { startDate: true, endDate: true } },
-        },
-      },
-      todos: { select: { status: true } },
-      checkIns: {
-        select: { asOfDate: true, value: true },
-        orderBy: { asOfDate: 'desc' },
-        take: 30,
-      },
-      _count: { select: { checkIns: true, todos: true } },
-    },
-  })
-  scanned = krs.length
+  // Stale = no check-in since cutoff. Base rows first (narrow select), then the
+  // newest check-in per KR in one grouped query; only stale KRs get hydrated.
+  const bases = await prisma.keyResult.findMany({ where: inScopeKrWhere(now), select: krBaseSelect })
+  const scanned = bases.length
+  const lastCheckIns = await loadLastCheckInAt(bases.map((k) => k.id))
+  const staleBases = bases.filter((kr) => (lastCheckIns.get(kr.id) ?? kr.createdAt) < cutoff)
+  const staleKrs = await hydrateKrs(staleBases, lastCheckIns, now)
 
-  // Map of objectiveId → list of recomputed confidences for the worst-of rollup.
-  const perObjective = new Map<string, Array<'ON_TRACK' | 'AT_RISK' | 'OFF_TRACK'>>()
-
-  for (const kr of krs) {
-    const lastCheckIn = kr.checkIns[0]?.asOfDate ?? kr.createdAt
-    if (lastCheckIn >= cutoff) continue // user updated recently — skip
+  const scored: Array<{ kr: KrForCalc; result: ScoreResult }> = []
+  for (const kr of staleKrs) {
     try {
-      const result = computeKrConfidence(kr as unknown as KrForCalc, now)
-      await prisma.confidenceSnapshot.upsert({
-        where: { entityType_entityId_periodStart: { entityType: 'KEY_RESULT', entityId: kr.id, periodStart } },
-        create: {
-          entityType: 'KEY_RESULT', entityId: kr.id, periodStart,
-          confidence: result.confidence, score: result.score,
-          factors: JSON.stringify({ ...result.factors, source: 'daily-auto', staleDays }),
-          previousConf: kr.confidence,
-        },
-        update: {
-          confidence: result.confidence, score: result.score,
-          factors: JSON.stringify({ ...result.factors, source: 'daily-auto', staleDays }),
-          previousConf: kr.confidence,
-        },
-      })
-      if (kr.confidence !== result.confidence) {
-        await prisma.keyResult.update({ where: { id: kr.id }, data: { confidence: result.confidence } })
-      }
-      if (!perObjective.has(kr.objectiveId)) perObjective.set(kr.objectiveId, [])
-      perObjective.get(kr.objectiveId)!.push(result.confidence)
-      staleProcessed++
+      scored.push({ kr, result: computeKrConfidence(kr, now) })
     } catch (err) {
       console.error(`[auto-confidence] failed for KR ${kr.id}:`, err)
       errors++
     }
   }
 
-  // Rollup objective goalStatus = worst-of(stale recomputed children + non-stale current confidences)
-  for (const [objectiveId] of Array.from(perObjective.entries())) {
-    try {
-      const allChildren = await prisma.keyResult.findMany({
-        where: { objectiveId, status: 'ACTIVE' },
-        select: { confidence: true },
-      })
-      const worst: 'ON_TRACK' | 'AT_RISK' | 'OFF_TRACK' = allChildren.some((c) => c.confidence === 'OFF_TRACK')
-        ? 'OFF_TRACK'
-        : allChildren.some((c) => c.confidence === 'AT_RISK')
-        ? 'AT_RISK'
-        : 'ON_TRACK'
-      await prisma.objective.update({ where: { id: objectiveId }, data: { goalStatus: worst } })
-      objectivesUpdated++
-    } catch (err) {
-      console.error(`[auto-confidence] objective rollup failed for ${objectiveId}:`, err)
+  const written = await writeInChunks(
+    scored,
+    ({ kr, result }) => {
+      const ops: Prisma.PrismaPromise<unknown>[] = [
+        krSnapshotUpsert(kr, result, periodStart, JSON.stringify({ ...result.factors, source: 'daily-auto', staleDays })),
+      ]
+      if (kr.confidence !== result.confidence) {
+        ops.push(prisma.keyResult.update({ where: { id: kr.id }, data: { confidence: result.confidence } }))
+      }
+      return ops
+    },
+    ({ kr }, err) => {
+      console.error(`[auto-confidence] failed for KR ${kr.id}:`, err)
       errors++
+    },
+  )
+  const staleProcessed = written.length
+
+  // Rollup objective goalStatus = worst-of(all ACTIVE children, which now include
+  // the recomputed stale ones). One batched read instead of one per objective.
+  const objectiveIds = Array.from(new Set(written.map(({ kr }) => kr.objectiveId)))
+  const childConfidences = new Map<string, string[]>()
+  for (const ids of chunk(objectiveIds, READ_CHUNK)) {
+    const rows = await prisma.keyResult.findMany({
+      where: { objectiveId: { in: ids }, status: 'ACTIVE' },
+      select: { objectiveId: true, confidence: true },
+    })
+    for (const r of rows) {
+      const list = childConfidences.get(r.objectiveId)
+      if (list) list.push(r.confidence)
+      else childConfidences.set(r.objectiveId, [r.confidence])
     }
   }
 
-  return { scanned, staleProcessed, objectivesUpdated, errors }
+  const objectivesDone = await writeInChunks(
+    objectiveIds,
+    (objectiveId) => [
+      prisma.objective.update({
+        where: { id: objectiveId },
+        data: { goalStatus: worstOfConfidences(childConfidences.get(objectiveId) ?? []) },
+      }),
+    ],
+    (objectiveId, err) => {
+      console.error(`[auto-confidence] objective rollup failed for ${objectiveId}:`, err)
+      errors++
+    },
+  )
+
+  return { scanned, staleProcessed, objectivesUpdated: objectivesDone.length, errors }
 }
 
 // ─── Bi-weekly period helpers ───
@@ -284,137 +480,83 @@ export interface ConfidenceRunResult {
 
 export async function runConfidenceCalculation(now: Date = new Date()): Promise<ConfidenceRunResult> {
   const periodStart = currentPeriodStart(now)
-  let krsProcessed = 0
-  let objectivesUpdated = 0
-  let snapshotsCreated = 0
   let emailsSent = 0
   let errors = 0
 
-  // Fetch all active KRs with the data needed for scoring
-  const krs = await prisma.keyResult.findMany({
-    where: { status: 'ACTIVE' },
-    include: {
-      objective: {
-        select: {
-          id: true,
-          title: true,
-          ownerId: true,
-          startDate: true,
-          endDate: true,
-          departmentId: true,
-          timeframe: { select: { startDate: true, endDate: true } },
-        },
-      },
-      todos: { select: { status: true } },
-      checkIns: {
-        select: { asOfDate: true, value: true },
-        orderBy: { asOfDate: 'desc' },
-        take: 30,
-      },
-      _count: { select: { checkIns: true, todos: true } },
-    },
-  })
+  // Active KRs in not-yet-ended timeframes, with the data needed for scoring.
+  const bases = await prisma.keyResult.findMany({ where: inScopeKrWhere(now), select: krBaseSelect })
+  const lastCheckIns = await loadLastCheckInAt(bases.map((k) => k.id))
+  const krs = await hydrateKrs(bases, lastCheckIns, now)
 
-  // Score each KR
-  const krResults: Array<{ kr: typeof krs[0]; result: ScoreResult }> = []
-
+  // Score each KR (pure), then persist in batched transactions.
+  const scored: Array<{ kr: KrForCalc; result: ScoreResult }> = []
   for (const kr of krs) {
     try {
-      const result = computeKrConfidence(kr as unknown as KrForCalc, now)
-
-      // Persist snapshot (upsert so re-runs within the same period are idempotent)
-      await prisma.confidenceSnapshot.upsert({
-        where: {
-          entityType_entityId_periodStart: {
-            entityType: 'KEY_RESULT',
-            entityId: kr.id,
-            periodStart,
-          },
-        },
-        create: {
-          entityType: 'KEY_RESULT',
-          entityId: kr.id,
-          periodStart,
-          confidence: result.confidence,
-          score: result.score,
-          factors: JSON.stringify(result.factors),
-          previousConf: kr.confidence,
-        },
-        update: {
-          confidence: result.confidence,
-          score: result.score,
-          factors: JSON.stringify(result.factors),
-          previousConf: kr.confidence,
-        },
-      })
-      snapshotsCreated++
-
-      // Update the KR's live confidence field
-      if (kr.confidence !== result.confidence) {
-        await prisma.keyResult.update({
-          where: { id: kr.id },
-          data: { confidence: result.confidence },
-        })
-      }
-
-      krResults.push({ kr, result })
-      krsProcessed++
+      scored.push({ kr, result: computeKrConfidence(kr, now) })
     } catch (err) {
       console.error(`[confidence-calc] failed for KR ${kr.id}:`, err)
       errors++
     }
   }
 
-  // Aggregate objective-level confidence: worst-of-children
-  const objectiveIds = Array.from(new Set(krs.map((kr) => kr.objectiveId)))
-  for (const objId of objectiveIds) {
-    try {
-      const childResults = krResults.filter((r) => r.kr.objectiveId === objId)
-      if (childResults.length === 0) continue
+  // Snapshot upsert (idempotent within a period) + live KR confidence.
+  const krResults = await writeInChunks(
+    scored,
+    ({ kr, result }) => {
+      const ops: Prisma.PrismaPromise<unknown>[] = [
+        krSnapshotUpsert(kr, result, periodStart, JSON.stringify(result.factors)),
+      ]
+      if (kr.confidence !== result.confidence) {
+        ops.push(prisma.keyResult.update({ where: { id: kr.id }, data: { confidence: result.confidence } }))
+      }
+      return ops
+    },
+    ({ kr }, err) => {
+      console.error(`[confidence-calc] failed for KR ${kr.id}:`, err)
+      errors++
+    },
+  )
+  const krsProcessed = krResults.length
+  const snapshotsCreated = krResults.length
 
-      const worstConfidence = childResults.some((r) => r.result.confidence === 'OFF_TRACK')
-        ? 'OFF_TRACK'
-        : childResults.some((r) => r.result.confidence === 'AT_RISK')
-        ? 'AT_RISK'
-        : 'ON_TRACK'
+  // Aggregate objective-level confidence: worst-of-children (grouped once, not
+  // re-filtered per objective).
+  const byObjective = new Map<string, Array<{ kr: KrForCalc; result: ScoreResult }>>()
+  for (const r of krResults) {
+    const list = byObjective.get(r.kr.objectiveId)
+    if (list) list.push(r)
+    else byObjective.set(r.kr.objectiveId, [r])
+  }
 
-      const avgScore = Math.round(
-        childResults.reduce((sum, r) => sum + r.result.score, 0) / childResults.length
-      )
+  const objectiveRollups = Array.from(byObjective.entries()).map(([objId, childResults]) => ({
+    objId,
+    worstConfidence: worstOfConfidences(childResults.map((r) => r.result.confidence)),
+    avgScore: Math.round(childResults.reduce((sum, r) => sum + r.result.score, 0) / childResults.length),
+    childCount: childResults.length,
+  }))
 
-      await prisma.confidenceSnapshot.upsert({
-        where: {
-          entityType_entityId_periodStart: {
-            entityType: 'OBJECTIVE',
-            entityId: objId,
-            periodStart,
-          },
-        },
-        create: {
-          entityType: 'OBJECTIVE',
-          entityId: objId,
-          periodStart,
-          confidence: worstConfidence,
-          score: avgScore,
-          factors: JSON.stringify({ method: 'worst-of-children', childCount: childResults.length }),
-        },
-        update: {
-          confidence: worstConfidence,
-          score: avgScore,
-          factors: JSON.stringify({ method: 'worst-of-children', childCount: childResults.length }),
-        },
-      })
-
-      await prisma.objective.update({
-        where: { id: objId },
-        data: { goalStatus: worstConfidence },
-      })
-      objectivesUpdated++
-    } catch (err) {
+  const objectivesDone = await writeInChunks(
+    objectiveRollups,
+    ({ objId, worstConfidence, avgScore, childCount }) => {
+      const data = {
+        confidence: worstConfidence,
+        score: avgScore,
+        factors: JSON.stringify({ method: 'worst-of-children', childCount }),
+      }
+      return [
+        prisma.confidenceSnapshot.upsert({
+          where: { entityType_entityId_periodStart: { entityType: 'OBJECTIVE', entityId: objId, periodStart } },
+          create: { entityType: 'OBJECTIVE', entityId: objId, periodStart, ...data },
+          update: data,
+        }),
+        prisma.objective.update({ where: { id: objId }, data: { goalStatus: worstConfidence } }),
+      ]
+    },
+    ({ objId }, err) => {
       console.error(`[confidence-calc] failed for objective ${objId}:`, err)
       errors++
-    }
-  }
+    },
+  )
 
   // Send email digests
   try {
@@ -424,13 +566,13 @@ export async function runConfidenceCalculation(now: Date = new Date()): Promise<
     errors++
   }
 
-  return { krsProcessed, objectivesUpdated, snapshotsCreated, emailsSent, errors }
+  return { krsProcessed, objectivesUpdated: objectivesDone.length, snapshotsCreated, emailsSent, errors }
 }
 
 // ─── Email digests ───
 
 async function sendConfidenceEmails(
-  krResults: Array<{ kr: any; result: ScoreResult }>,
+  krResults: Array<{ kr: KrForCalc; result: ScoreResult }>,
   periodStart: string
 ): Promise<number> {
   let sent = 0
@@ -510,9 +652,18 @@ async function sendConfidenceEmails(
     },
   })
 
+  const byDepartment = new Map<string, typeof krResults>()
+  for (const r of krResults) {
+    const deptId = r.kr.objective.departmentId
+    if (!deptId) continue
+    const list = byDepartment.get(deptId)
+    if (list) list.push(r)
+    else byDepartment.set(deptId, [r])
+  }
+
   for (const lead of deptLeads) {
-    const deptIds = lead.departmentMemberships.map((m) => m.departmentId)
-    const deptKrs = krResults.filter((r) => deptIds.includes(r.kr.objective.departmentId))
+    const deptIds = Array.from(new Set(lead.departmentMemberships.map((m) => m.departmentId)))
+    const deptKrs = deptIds.flatMap((id) => byDepartment.get(id) ?? [])
     if (deptKrs.length === 0) continue
 
     const offTrack = deptKrs.filter((i) => i.result.confidence === 'OFF_TRACK')

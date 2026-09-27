@@ -17,6 +17,10 @@ import {
   ArrowLeft, ChevronDown, RotateCcw, Copy, Trash2, Quote, Calendar,
 } from 'lucide-react'
 import StatusPill from '@/components/shared/StatusPill'
+import { Modal } from '@/components/ui/Modal'
+import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 interface ReportTodo {
@@ -103,7 +107,7 @@ function CompletionRing({ rate }: { rate: number | null }) {
           style={{ transition: 'stroke-dashoffset .4s cubic-bezier(.2,.8,.2,1)' }}
         />
       </svg>
-      <span className="absolute inset-0 flex items-center justify-center font-mono text-[13px] font-semibold tabular-nums">
+      <span className="absolute inset-0 flex items-center justify-center font-mono text-body-sm font-semibold tabular-nums">
         {rate === null ? '—' : `${pct}%`}
       </span>
     </div>
@@ -152,11 +156,11 @@ function TaskGroup({
             transition: 'transform 150ms',
           }}
         />
-        <span className="text-[10px] font-semibold uppercase tracking-[0.6px]" style={{ color: 'var(--ap-fg-subtle)' }}>
+        <span className="text-micro font-semibold uppercase tracking-[0.6px]" style={{ color: 'var(--ap-fg-subtle)' }}>
           {title}
         </span>
         <span
-          className="rounded-[6px] px-1.5 py-px text-[10px] font-semibold tabular-nums"
+          className="rounded-[6px] px-1.5 py-px text-micro font-semibold tabular-nums"
           style={{ background: toneStyles.bg, color: toneStyles.fg }}
         >
           {todos.length}
@@ -164,7 +168,7 @@ function TaskGroup({
       </button>
       {open && (
         todos.length === 0 ? (
-          <p className="px-4 py-3 text-[12px]" style={{ color: 'var(--ap-fg-faint)' }}>None</p>
+          <p className="px-4 py-3 text-xs" style={{ color: 'var(--ap-fg-faint)' }}>None</p>
         ) : (
           <ul>
             {todos.map(t => (
@@ -172,10 +176,10 @@ function TaskGroup({
                 key={t.id}
                 className="flex h-[40px] items-center gap-2.5 px-4 transition-colors hover:bg-[var(--ap-bg-hover)]"
               >
-                <span className="min-w-0 flex-1 truncate text-[13px]" style={{ color: 'var(--ap-fg)' }}>{t.title}</span>
+                <span className="min-w-0 flex-1 truncate text-body-sm" style={{ color: 'var(--ap-fg)' }}>{t.title}</span>
                 {renderMeta?.(t)}
                 {t.assignee?.name && (
-                  <span className="shrink-0 text-[11px]" style={{ color: 'var(--ap-fg-subtle)' }}>{t.assignee.name}</span>
+                  <span className="shrink-0 text-caption" style={{ color: 'var(--ap-fg-subtle)' }}>{t.assignee.name}</span>
                 )}
               </li>
             ))}
@@ -268,13 +272,21 @@ export function SprintReportClient({ sprintId, canEdit, canDelete }: Props) {
 
   if (error) {
     return (
-      <div className="p-8 text-[13px]" style={{ color: 'var(--ap-danger-fg)' }}>
+      <div className="p-8 text-body-sm" style={{ color: 'var(--ap-danger-fg)' }}>
         {error} — <Link href="/dashboard/sprints" className="underline">back to sprints</Link>
       </div>
     )
   }
   if (!report) {
-    return <div className="p-8 text-[13px]" style={{ color: 'var(--ap-fg-subtle)' }}>Loading report…</div>
+    return (
+      <div className="mx-auto max-w-[860px] space-y-4 px-4 py-6" aria-busy="true">
+        <span className="sr-only">Loading report…</span>
+        <Skeleton className="h-4 w-20" />
+        <SkeletonCard />
+        <Skeleton className="h-24 w-full" />
+        <Skeleton className="h-40 w-full" />
+      </div>
+    )
   }
 
   const { sprint, counts, groups } = report
@@ -284,7 +296,7 @@ export function SprintReportClient({ sprintId, canEdit, canDelete }: Props) {
     <div className="mx-auto max-w-[860px] space-y-4 px-4 py-6">
       <Link
         href="/dashboard/sprints"
-        className="inline-flex items-center gap-1 text-[12px] transition-colors"
+        className="inline-flex items-center gap-1 text-xs transition-colors"
         style={{ color: 'var(--ap-fg-muted)' }}
       >
         <ArrowLeft size={13} /> Sprints
@@ -296,18 +308,18 @@ export function SprintReportClient({ sprintId, canEdit, canDelete }: Props) {
         style={{ background: 'var(--ap-bg-raised)', border: '0.5px solid var(--ap-border)', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0.5px 0 rgba(0,0,0,0.03)' }}
       >
         <div className="flex flex-wrap items-center gap-2.5">
-          <h1 className="text-[20px] font-semibold" style={{ letterSpacing: '-0.02em' }}>{sprint.name}</h1>
+          <h1 className="text-xl font-semibold" style={{ letterSpacing: '-0.02em' }}>{sprint.name}</h1>
           <StatusPill status={sprint.state.toLowerCase().replace('_', '-')} />
           {report.reopen.reopened && (
             <span
-              className="rounded-[6px] px-2 py-0.5 text-[10px] font-semibold"
+              className="rounded-[6px] px-2 py-0.5 text-micro font-semibold"
               style={{ background: 'var(--ap-warn-bg)', color: 'var(--ap-warn-fg)' }}
             >
               REOPENED {report.reopen.reopened.by?.name ? `by ${report.reopen.reopened.by.name}` : ''}
             </span>
           )}
         </div>
-        <div className="mt-1.5 flex flex-wrap items-center gap-3 text-[12px]" style={{ color: 'var(--ap-fg-muted)' }}>
+        <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs" style={{ color: 'var(--ap-fg-muted)' }}>
           <span className="inline-flex items-center gap-1">
             <Calendar size={12} />
             {fmtDate(sprint.startDate)} → {fmtDate(sprint.endDate, true)}
@@ -324,7 +336,7 @@ export function SprintReportClient({ sprintId, canEdit, canDelete }: Props) {
             style={{ background: 'var(--ap-bg-sunken)', borderLeft: '2px solid var(--ap-border-strong)' }}
           >
             <Quote size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--ap-fg-faint)' }} />
-            <p className="whitespace-pre-wrap text-[13px] leading-relaxed" style={{ color: 'var(--ap-fg-muted)' }}>
+            <p className="whitespace-pre-wrap text-body-sm leading-relaxed" style={{ color: 'var(--ap-fg-muted)' }}>
               {sprint.reflectionNote}
             </p>
           </div>
@@ -339,8 +351,8 @@ export function SprintReportClient({ sprintId, canEdit, canDelete }: Props) {
         >
           <CompletionRing rate={counts.completionRate} />
           <div>
-            <div className="text-[10px] font-semibold uppercase tracking-[0.6px]" style={{ color: 'var(--ap-fg-subtle)' }}>Completion</div>
-            <div className="text-[12px]" style={{ color: 'var(--ap-fg-muted)' }}>{counts.completed} of {counts.total} tasks</div>
+            <div className="text-micro font-semibold uppercase tracking-[0.6px]" style={{ color: 'var(--ap-fg-subtle)' }}>Completion</div>
+            <div className="text-xs" style={{ color: 'var(--ap-fg-muted)' }}>{counts.completed} of {counts.total} tasks</div>
           </div>
         </div>
         {[
@@ -358,14 +370,14 @@ export function SprintReportClient({ sprintId, canEdit, canDelete }: Props) {
             className="rounded-[var(--ap-radius-card)] p-4"
             style={{ background: 'var(--ap-bg-raised)', border: '0.5px solid var(--ap-border)' }}
           >
-            <div className="text-[10px] font-semibold uppercase tracking-[0.6px]" style={{ color: 'var(--ap-fg-subtle)' }}>{s.label}</div>
-            <div className="mt-1 text-[20px] font-semibold tabular-nums" style={{ letterSpacing: '-0.02em' }}>{s.value}</div>
+            <div className="text-micro font-semibold uppercase tracking-[0.6px]" style={{ color: 'var(--ap-fg-subtle)' }}>{s.label}</div>
+            <div className="mt-1 text-xl font-semibold tabular-nums" style={{ letterSpacing: '-0.02em' }}>{s.value}</div>
           </div>
         ))}
       </div>
 
       {report.backfilled && (
-        <p className="text-[12px]" style={{ color: 'var(--ap-fg-faint)' }}>
+        <p className="text-xs" style={{ color: 'var(--ap-fg-faint)' }}>
           This sprint was closed before detailed reporting existed — counts are reconstructed; per-task dispositions aren&apos;t available.
         </p>
       )}
@@ -374,14 +386,14 @@ export function SprintReportClient({ sprintId, canEdit, canDelete }: Props) {
       <div className="space-y-3">
         <TaskGroup title="Completed" tone="ok" todos={groups.completed}
           renderMeta={t => t.completedAt && (
-            <span className="shrink-0 text-[11px] tabular-nums" style={{ color: 'var(--ap-fg-subtle)' }}>{fmtDate(t.completedAt)}</span>
+            <span className="shrink-0 text-caption tabular-nums" style={{ color: 'var(--ap-fg-subtle)' }}>{fmtDate(t.completedAt)}</span>
           )} />
         <TaskGroup title="Carried to next sprint" tone="accent" todos={groups.carriedToNext}
           renderMeta={t => (
             <span className="flex shrink-0 items-center gap-1.5">
               {(t.carryoverCount ?? 0) > 0 && (
                 <span
-                  className="rounded-[6px] px-1.5 py-px text-[10px] font-semibold"
+                  className="rounded-[6px] px-1.5 py-px text-micro font-semibold"
                   style={{
                     background: (t.carryoverCount ?? 0) >= 2 ? 'var(--ap-warn-bg)' : 'var(--ap-none-bg)',
                     color: (t.carryoverCount ?? 0) >= 2 ? 'var(--ap-warn-fg)' : 'var(--ap-none-fg)',
@@ -391,7 +403,7 @@ export function SprintReportClient({ sprintId, canEdit, canDelete }: Props) {
                 </span>
               )}
               {t.toSprintId && (
-                <Link href={`/dashboard/sprints/${t.toSprintId}`} className="text-[12px] font-medium" style={{ color: 'var(--ap-accent)' }}>
+                <Link href={`/dashboard/sprints/${t.toSprintId}`} className="text-xs font-medium" style={{ color: 'var(--ap-accent)' }}>
                   → {t.toSprintName ?? 'Next sprint'}
                 </Link>
               )}
@@ -413,13 +425,13 @@ export function SprintReportClient({ sprintId, canEdit, canDelete }: Props) {
                 type="button"
                 onClick={() => setShowReopen(true)}
                 disabled={!report.reopen.available}
-                className="inline-flex items-center gap-1.5 rounded-[var(--ap-radius-sm)] px-3 py-1.5 text-[13px] font-medium transition-colors disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-[var(--ap-radius-sm)] px-3 py-1.5 text-body-sm font-medium transition-colors disabled:opacity-50"
                 style={{ background: 'rgba(120,120,128,0.12)', color: 'var(--ap-accent)' }}
                 title={report.reopen.available ? undefined : `Reopen window (${report.reopen.windowDays} days) has expired`}
               >
                 <RotateCcw size={14} /> Reopen sprint
               </button>
-              <span className="text-[11px]" style={{ color: 'var(--ap-fg-subtle)' }}>
+              <span className="text-caption" style={{ color: 'var(--ap-fg-subtle)' }}>
                 {report.reopen.available
                   ? `Available for ${windowDaysLeft} more day${windowDaysLeft === 1 ? '' : 's'}`
                   : 'Reopen window expired'}
@@ -431,7 +443,7 @@ export function SprintReportClient({ sprintId, canEdit, canDelete }: Props) {
               type="button"
               onClick={cloneSprint}
               disabled={cloning}
-              className="inline-flex items-center gap-1.5 rounded-[var(--ap-radius-sm)] px-3 py-1.5 text-[13px] font-medium transition-colors"
+              className="inline-flex items-center gap-1.5 rounded-[var(--ap-radius-sm)] px-3 py-1.5 text-body-sm font-medium transition-colors"
               style={{ color: 'var(--ap-fg-muted)' }}
             >
               <Copy size={14} /> {cloning ? 'Cloning…' : 'Clone as new sprint'}
@@ -441,7 +453,7 @@ export function SprintReportClient({ sprintId, canEdit, canDelete }: Props) {
             <button
               type="button"
               onClick={() => setConfirmDelete(true)}
-              className="ml-auto inline-flex items-center gap-1.5 rounded-[var(--ap-radius-sm)] px-3 py-1.5 text-[13px] font-medium"
+              className="ml-auto inline-flex items-center gap-1.5 rounded-[var(--ap-radius-sm)] px-3 py-1.5 text-body-sm font-medium"
               style={{ background: 'var(--ap-danger-bg)', color: 'var(--ap-danger-fg)' }}
             >
               <Trash2 size={14} /> Delete sprint
@@ -451,79 +463,63 @@ export function SprintReportClient({ sprintId, canEdit, canDelete }: Props) {
       )}
 
       {/* Reopen dialog */}
-      {showReopen && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }}>
-          <div
-            className="w-full max-w-[480px] rounded-[var(--ap-radius-lg)] p-5"
-            style={{ background: 'var(--ap-bg-raised)', boxShadow: '0 30px 60px -20px rgba(0,0,0,0.25), 0 10px 20px -10px rgba(0,0,0,0.1)' }}
-          >
-            <h2 className="text-[15px] font-semibold">Reopen {sprint.name}?</h2>
-            <p className="mt-1.5 text-[12px] leading-relaxed" style={{ color: 'var(--ap-fg-muted)' }}>
-              The sprint becomes active again. Tasks already moved stay where they are — select any you want to bring back.
-            </p>
-            {groups.carriedToNext.length > 0 && (
-              <div className="mt-3 max-h-[200px] space-y-1 overflow-y-auto">
-                {groups.carriedToNext.map(t => (
-                  <label key={t.id} className="flex cursor-pointer items-center gap-2 rounded-[8px] px-2 py-1.5 text-[13px] hover:bg-[var(--ap-bg-hover)]">
-                    <input
-                      type="checkbox"
-                      className="accent-[#007AFF]"
-                      checked={bringBack.has(t.id)}
-                      onChange={e => {
-                        const next = new Set(bringBack)
-                        if (e.target.checked) next.add(t.id)
-                        else next.delete(t.id)
-                        setBringBack(next)
-                      }}
-                    />
-                    <span className="min-w-0 flex-1 truncate">{t.title}</span>
-                    <span className="text-[11px]" style={{ color: 'var(--ap-fg-subtle)' }}>in {t.toSprintName}</span>
-                  </label>
-                ))}
-              </div>
-            )}
-            <div className="mt-4 flex justify-end gap-2">
-              <button type="button" onClick={() => setShowReopen(false)}
-                className="rounded-[var(--ap-radius-sm)] px-3 py-1.5 text-[13px] font-medium"
-                style={{ color: 'var(--ap-fg-muted)' }}>
-                Cancel
-              </button>
-              <button type="button" onClick={reopen} disabled={reopening}
-                className="rounded-[var(--ap-radius-sm)] px-3 py-1.5 text-[13px] font-semibold disabled:opacity-50"
-                style={{ background: 'var(--ap-accent)', color: '#fff' }}>
-                {reopening ? 'Reopening…' : `Reopen${bringBack.size > 0 ? ` · bring back ${bringBack.size}` : ''}`}
-              </button>
-            </div>
+      <Modal
+        open={showReopen}
+        onClose={() => setShowReopen(false)}
+        title={`Reopen ${sprint.name}?`}
+        icon={RotateCcw}
+        size="sm"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setShowReopen(false)} disabled={reopening}>
+              Cancel
+            </Button>
+            <Button onClick={reopen} disabled={reopening}>
+              {reopening ? 'Reopening…' : `Reopen${bringBack.size > 0 ? ` · bring back ${bringBack.size}` : ''}`}
+            </Button>
+          </>
+        }
+      >
+        <p className="text-xs leading-relaxed" style={{ color: 'var(--ap-fg-muted)' }}>
+          The sprint becomes active again. Tasks already moved stay where they are — select any you want to bring back.
+        </p>
+        {groups.carriedToNext.length > 0 && (
+          <div className="mt-3 max-h-[200px] space-y-1 overflow-y-auto">
+            {groups.carriedToNext.map(t => (
+              <label key={t.id} className="flex cursor-pointer items-center gap-2 rounded-[8px] px-2 py-1.5 text-body-sm hover:bg-[var(--ap-bg-hover)]">
+                <input
+                  type="checkbox"
+                  className="accent-[var(--ap-accent)]"
+                  checked={bringBack.has(t.id)}
+                  onChange={e => {
+                    const next = new Set(bringBack)
+                    if (e.target.checked) next.add(t.id)
+                    else next.delete(t.id)
+                    setBringBack(next)
+                  }}
+                />
+                <span className="min-w-0 flex-1 truncate">{t.title}</span>
+                <span className="text-caption" style={{ color: 'var(--ap-fg-subtle)' }}>in {t.toSprintName}</span>
+              </label>
+            ))}
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
 
       {/* Delete confirm */}
-      {confirmDelete && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }}>
-          <div
-            className="w-full max-w-[440px] rounded-[var(--ap-radius-lg)] p-5"
-            style={{ background: 'var(--ap-bg-raised)', boxShadow: '0 30px 60px -20px rgba(0,0,0,0.25), 0 10px 20px -10px rgba(0,0,0,0.1)' }}
-          >
-            <h2 className="text-[15px] font-semibold">Delete {sprint.name}?</h2>
-            <p className="mt-1.5 text-[12px] leading-relaxed" style={{ color: 'var(--ap-fg-muted)' }}>
-              The sprint and its board are removed. Tasks stay in the system (unassigned from any sprint), and the completion summary is retained for reporting history. This cannot be undone.
-            </p>
-            <div className="mt-4 flex justify-end gap-2">
-              <button type="button" onClick={() => setConfirmDelete(false)}
-                className="rounded-[var(--ap-radius-sm)] px-3 py-1.5 text-[13px] font-medium"
-                style={{ color: 'var(--ap-fg-muted)' }}>
-                Keep sprint
-              </button>
-              <button type="button" onClick={deleteSprint} disabled={deleting}
-                className="rounded-[var(--ap-radius-sm)] px-3 py-1.5 text-[13px] font-semibold disabled:opacity-50"
-                style={{ background: 'var(--ap-danger)', color: '#fff' }}>
-                {deleting ? 'Deleting…' : 'Delete sprint'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={deleteSprint}
+        title="Delete sprint"
+        message={`Delete ${sprint.name}?`}
+        description="The sprint and its board are removed. Tasks stay in the system (unassigned from any sprint), and the completion summary is retained for reporting history. This cannot be undone."
+        variant="danger"
+        confirmLabel="Delete sprint"
+        cancelLabel="Keep sprint"
+        isLoading={deleting}
+        loadingLabel="Deleting…"
+      />
     </div>
   )
 }

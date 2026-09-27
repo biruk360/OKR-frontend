@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useId } from 'react'
 import { useForm } from 'react-hook-form'
 import { BarChart3, Link2, Target } from 'lucide-react'
 import { Button, Checkbox, EmptyState, Input, Label } from '@/components/ui'
@@ -15,6 +15,7 @@ import { SectionCard } from './SectionCard'
 type MetricMappingForm = { criterionId: string; employeeId: string; search: string }
 
 export function MetricMappingManager({ templateId, tiers }: { templateId: string; tiers: PerformanceTier[] }) {
+  const uid = useId()
   const metrics = useMemo(() => tiers.flatMap((tier) => tier.criteria).filter((criterion) => criterion.type === 'METRIC'), [tiers])
   const mappings = useMetricMappings(templateId)
   const save = useSaveMetricMappings(templateId)
@@ -55,15 +56,15 @@ export function MetricMappingManager({ templateId, tiers }: { templateId: string
       </p>
       <div className="grid gap-3 md:grid-cols-2">
         <div>
-          <Label>Metric criterion</Label>
-          <NativeSelect {...register('criterionId')}>
+          <Label htmlFor={`${uid}-criterion`}>Metric criterion</Label>
+          <NativeSelect id={`${uid}-criterion`} {...register('criterionId')}>
             <option value="">Select metric</option>
             {metrics.map((criterion) => <option key={criterion.id} value={criterion.id}>{criterion.title}</option>)}
           </NativeSelect>
         </div>
         <div>
-          <Label>Employee</Label>
-          <NativeSelect {...register('employeeId')}>
+          <Label htmlFor={`${uid}-employee`}>Employee</Label>
+          <NativeSelect id={`${uid}-employee`} {...register('employeeId')}>
             <option value="">Select employee</option>
             {users.map((user) => <option key={user.id} value={user.id}>{user.name ?? user.email}</option>)}
           </NativeSelect>
@@ -72,8 +73,8 @@ export function MetricMappingManager({ templateId, tiers }: { templateId: string
       {criterionId && employeeId && (
         <>
           <div>
-            <Label>Search employee Key Results</Label>
-            <Input {...register('search')} placeholder="Search active Key Results" />
+            <Label htmlFor={`${uid}-kr-search`}>Search employee Key Results</Label>
+            <Input id={`${uid}-kr-search`} {...register('search')} placeholder="Search active Key Results" />
           </div>
           {keyResults.isLoading ? (
             <div className="space-y-2">
@@ -105,8 +106,8 @@ export function MetricMappingManager({ templateId, tiers }: { templateId: string
               Save metric sources
             </Button>
           </div>
-          <div className="space-y-2">
-            <Label className="inline-flex items-center gap-1.5"><BarChart3 className="size-3.5" /> Daily Scrum metrics</Label>
+          <div className="space-y-2" role="group" aria-labelledby={`${uid}-scrum-metrics`}>
+            <Label id={`${uid}-scrum-metrics`} className="inline-flex items-center gap-1.5"><BarChart3 className="size-3.5" aria-hidden /> Daily Scrum metrics</Label>
             <div className="grid gap-2 rounded-lg border p-2" style={{ borderColor: 'var(--ap-border)' }}>
               {SCRUM_PERFORMANCE_METRICS.map((metricKey) => (
                 <label key={metricKey} className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 text-sm hover:bg-muted/50">

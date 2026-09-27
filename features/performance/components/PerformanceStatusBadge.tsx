@@ -10,15 +10,21 @@ export function humanizeEnum(value: string): string {
 
 type Tone = { bg: string; fg: string; dot: string }
 
-// Tints mirror components/shared/StatusPill.tsx (Apple Pro rgba tints + --ap vars).
+// Semantic --ap-* status pairs (tint bg / readable fg / solid dot) so every tone
+// follows dark mode. Teal has no status token, so it is derived from the sky
+// label swatch: a translucent wash plus a fg mixed toward --ap-fg for contrast.
 const TONES: Record<string, Tone> = {
-  blue: { bg: 'rgba(0,122,255,0.12)', fg: 'var(--ap-accent)', dot: 'var(--ap-accent)' },
-  teal: { bg: 'rgba(48,176,199,0.14)', fg: '#0E7C8C', dot: '#30B0C7' },
-  purple: { bg: 'rgba(175,82,222,0.14)', fg: '#7A2BB8', dot: '#AF52DE' },
-  warning: { bg: 'rgba(255,149,0,0.14)', fg: '#B86200', dot: '#FF9500' },
-  success: { bg: 'rgba(52,199,89,0.12)', fg: 'var(--ap-green)', dot: 'var(--ap-green)' },
-  danger: { bg: 'rgba(255,59,48,0.12)', fg: 'var(--ap-red)', dot: 'var(--ap-red)' },
-  neutral: { bg: 'rgba(120,120,128,0.12)', fg: 'var(--ap-fg-muted)', dot: 'var(--ap-fg-muted)' },
+  blue: { bg: 'var(--ap-accent-soft)', fg: 'var(--ap-accent-on-soft)', dot: 'var(--ap-accent)' },
+  teal: {
+    bg: 'color-mix(in oklab, var(--ap-card-sky) 16%, transparent)',
+    fg: 'color-mix(in oklab, var(--ap-card-sky) 45%, var(--ap-fg))',
+    dot: 'var(--ap-card-sky)',
+  },
+  purple: { bg: 'var(--ap-ahead-bg)', fg: 'var(--ap-ahead-fg)', dot: 'var(--ap-ahead)' },
+  warning: { bg: 'var(--ap-warn-bg)', fg: 'var(--ap-warn-fg)', dot: 'var(--ap-warn)' },
+  success: { bg: 'var(--ap-ok-bg)', fg: 'var(--ap-ok-fg)', dot: 'var(--ap-ok)' },
+  danger: { bg: 'var(--ap-danger-bg)', fg: 'var(--ap-danger-fg)', dot: 'var(--ap-danger)' },
+  neutral: { bg: 'var(--ap-none-bg)', fg: 'var(--ap-none-fg)', dot: 'var(--ap-none)' },
 }
 
 const STATUS_TONE: Record<string, keyof typeof TONES> = {
@@ -57,7 +63,7 @@ export function PerformanceStatusBadge({ status, className }: { status: string; 
   const tone = TONES[STATUS_TONE[status] ?? 'neutral']
   return (
     <span
-      className={cn('inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold', className)}
+      className={cn('inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-caption font-semibold', className)}
       style={{ background: tone.bg, color: tone.fg }}
     >
       <span className="size-1.5 rounded-full" style={{ background: tone.dot }} />

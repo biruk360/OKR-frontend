@@ -8,7 +8,8 @@ import {
   apiNotFound,
   withAuth,
 } from '@/lib/api'
-import { canCreateSprint, type UserRole } from '@/lib/permissions'
+import { canCreateSprint, canViewSprint, type UserRole } from '@/lib/permissions'
+import { inviteToSprint } from '@/lib/sprints/participants'
 import { recordActivity } from '@/lib/activity-log'
 
 /**
@@ -41,12 +42,22 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
   })
   if (!source) return apiNotFound('Source sprint not found')
 
+  // Cloning reads the source — its goal, lanes, participants and (with
+  // includeIncompleteTodos) its tasks — so it needs the same view right as
+  // opening it. Checked before anything else about the source is disclosed.
+  const role = session.user.role as UserRole
+  const canViewSource = await canViewSprint(role, session.user.id, {
+    ownerId: source.ownerId,
+    departmentId: source.departmentId,
+    participants: source.participants,
+  })
+  if (!canViewSource) return apiForbidden('Insufficient permissions to view the source sprint')
+
   const sourceClosed = source.state === 'COMPLETED' || source.state === 'CANCELLED'
   if (sourceClosed && includeIncompleteTodos) {
     return apiBadRequest('Cannot copy tasks from a closed sprint — its tasks were already dispositioned')
   }
 
-  const role = session.user.role as UserRole
   const allowedCreate = await canCreateSprint(role, session.user.id, source.departmentId)
   if (!allowedCreate) return apiForbidden('Insufficient permissions to clone sprint in this scope')
 
@@ -116,6 +127,8 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
         },
       })
     }
+    // Invite-only sprints: the copied cards' assignees are invited to the clone.
+    await inviteToSprint(prisma, created.id, incomplete.map((t) => t.assigneeId))
   }
 
   await recordActivity({

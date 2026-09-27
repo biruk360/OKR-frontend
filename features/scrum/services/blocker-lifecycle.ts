@@ -15,6 +15,11 @@ export interface BlockerDecisionInput {
     recurringThresholdDays?: number | null
     escalationThresholdDays?: number | null
   }
+  /**
+   * The submitter's answer to "Is this the same blocker as yesterday?".
+   * `true` = same blocker (keeps first-raised date), `false` = a new blocker
+   * (restarts the clock), `undefined` = not asked → auto-match on ≥0.8 similarity.
+   */
   sameBlockerConfirmed?: boolean
 }
 
@@ -35,7 +40,9 @@ export function decideBlockerLifecycle(input: BlockerDecisionInput): BlockerDeci
   const similarity = blockerSimilarity(input.previousText ?? '', input.text)
   const sameCategory = !!input.category && input.category === input.previousCategory
   const likelySame = sameCategory && similarity >= 0.8
-  const confirmed = input.sameBlockerConfirmed || likelySame
+  // A resolved blocker never carries its clock into a new one.
+  const previousOpen = !!input.previousText?.trim() && input.previousStatus !== 'RESOLVED'
+  const confirmed = previousOpen && (input.sameBlockerConfirmed ?? likelySame)
   const firstRaisedAt = confirmed && input.previousFirstRaisedAt ? input.previousFirstRaisedAt : input.now
   const daysOpen = Math.max(1, scrumBusinessDaysBetween(firstRaisedAt, input.now, input.settings))
   const recurringThreshold = input.settings.recurringThresholdDays ?? 2
@@ -46,7 +53,7 @@ export function decideBlockerLifecycle(input: BlockerDecisionInput): BlockerDeci
 
   // Once escalated, a blocker stays escalated until it is resolved (status here is
   // freshly computed and can only be OPEN/RECURRING/ESCALATED).
-  if (input.previousStatus === 'ESCALATED') status = 'ESCALATED'
+  if (confirmed && input.previousStatus === 'ESCALATED') status = 'ESCALATED'
 
   return {
     hasBlocker: true,
@@ -56,6 +63,39 @@ export function decideBlockerLifecycle(input: BlockerDecisionInput): BlockerDeci
     similarity,
     shouldAskSameBlocker: sameCategory && similarity >= 0.65 && similarity < 0.8,
   }
+}
+
+/** Similarity at/above which the submit form asks "Is this the same blocker as yesterday?". */
+export const SAME_BLOCKER_PROMPT_SIMILARITY = 0.65
+
+/**
+ * Client-side gate for the same-blocker confirm prompt (spec S5.1): the previous
+ * working day has an unresolved blocker in the same category whose text is
+ * similar to what is being submitted now.
+ */
+export function shouldPromptSameBlocker(input: {
+  previousText?: string | null
+  previousCategory?: string | null
+  text?: string | null
+  category?: string | null
+}): boolean {
+  if (!input.previousText?.trim() || !input.text?.trim()) return false
+  if (!input.category || input.category !== input.previousCategory) return false
+  return blockerSimilarity(input.previousText, input.text) >= SAME_BLOCKER_PROMPT_SIMILARITY
+}
+
+/**
+ * SCRUM_BLOCKER_RECURRING fires once, on the save that first moves a blocker
+ * into RECURRING — not again on same-day re-saves or on later days.
+ */
+export function shouldNotifyRecurringBlocker(input: {
+  status: BlockerStatus | null
+  previousDayStatus?: string | null
+  existingSameDayStatus?: string | null
+}): boolean {
+  if (input.status !== 'RECURRING') return false
+  const alreadyFlagged = (value?: string | null) => value === 'RECURRING' || value === 'ESCALATED'
+  return !alreadyFlagged(input.previousDayStatus) && !alreadyFlagged(input.existingSameDayStatus)
 }
 
 export function blockerSimilarity(a: string, b: string): number {

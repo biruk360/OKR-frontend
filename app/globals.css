@@ -39,124 +39,15 @@
   body {
     @apply bg-background text-foreground antialiased;
   }
-
-  /*
-    Notion-inspired design tokens — applied via the .notion-surface scope (or
-    individual notion-* component classes). The existing Apple-styled components
-    keep working; pages opt in to this aesthetic by wrapping content in `notion-surface`.
-
-    Reference: Notion's actual stylesheet (greyscale-first palette, dense rows,
-    no shadows except for popovers, subtle borders, system font stack).
-  */
-  .notion-surface {
-    --notion-text: rgb(55, 53, 47);
-    --notion-text-secondary: rgba(55, 53, 47, 0.65);
-    --notion-text-tertiary: rgba(55, 53, 47, 0.5);
-    --notion-border: rgba(55, 53, 47, 0.16);
-    --notion-border-strong: rgba(55, 53, 47, 0.24);
-    --notion-divider: rgba(55, 53, 47, 0.09);
-    --notion-hover: rgba(55, 53, 47, 0.06);
-    --notion-active: rgba(55, 53, 47, 0.10);
-    --notion-selected: rgba(35, 131, 226, 0.14);
-    --notion-bg: #ffffff;
-    --notion-bg-sidebar: rgb(247, 247, 245);
-    --notion-bg-secondary: rgb(251, 251, 250);
-
-    --notion-blue: rgb(35, 131, 226);
-    --notion-blue-bg: rgba(35, 131, 226, 0.10);
-    --notion-green: rgb(15, 123, 108);
-    --notion-green-bg: rgba(15, 123, 108, 0.10);
-    --notion-yellow: rgb(174, 117, 0);
-    --notion-yellow-bg: rgba(255, 196, 38, 0.16);
-    --notion-red: rgb(187, 53, 38);
-    --notion-red-bg: rgba(255, 80, 70, 0.10);
-    --notion-purple: rgb(105, 64, 165);
-
-    --notion-radius-sm: 3px;
-    --notion-radius: 4px;
-    --notion-radius-md: 6px;
-
-    --notion-font: -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display",
-      "Segoe UI", Helvetica, "Apple Color Emoji", Arial, sans-serif, "Apple Color Emoji",
-      "Segoe UI Emoji", "Segoe UI Symbol";
-
-    background: var(--notion-bg);
-    color: var(--notion-text);
-    font-family: var(--notion-font);
-    font-size: 14px;
-    line-height: 1.5;
-    -webkit-font-smoothing: antialiased;
-  }
-
-  /*
-    Compact design tokens — applied via the .atlas-surface scope.
-    Design goals: high density, neutral greys, tight rows, small type, flat cards.
-    Coexists with .notion-surface (two distinct aesthetics for different page types).
-
-    Naming: "atlas" is just a bucket identifier in this codebase. The palette is a
-    generic accessible N-scale (neutral greys) + semantic primary / success / warning
-    / danger derived from standard WCAG-contrast design guidance.
-  */
-  .atlas-surface {
-    /* N-scale neutrals (lightest -> darkest) */
-    --atlas-n0:  #ffffff;
-    --atlas-n10: #f4f5f7;
-    --atlas-n20: #ebecf0;
-    --atlas-n30: #dfe1e6;
-    --atlas-n40: #c1c7d0;
-    --atlas-n50: #a5adba;
-    --atlas-n70: #7a869a;
-    --atlas-n100: #6b778c;
-    --atlas-n200: #5e6c84;
-    --atlas-n400: #42526e;
-    --atlas-n700: #172b4d;
-    --atlas-n800: #091e42;
-
-    /* Semantic */
-    --atlas-primary:    #0052cc;
-    --atlas-primary-hover: #0747a6;
-    --atlas-primary-bg: #deebff;
-    --atlas-success:    #00875a;
-    --atlas-success-bg: #e3fcef;
-    --atlas-warning:    #ff8b00;
-    --atlas-warning-bg: #fffae6;
-    --atlas-danger:     #de350b;
-    --atlas-danger-bg:  #ffebe6;
-    --atlas-purple:     #403294;
-    --atlas-purple-bg:  #eae6ff;
-
-    /* Sizing — all compact */
-    --atlas-radius-sm: 3px;
-    --atlas-radius:    3px;
-    --atlas-radius-md: 6px;
-    --atlas-btn-h:     28px;
-    --atlas-btn-h-sm:  24px;
-    --atlas-input-h:   32px;
-    --atlas-row-h:     32px;
-
-    /* Subtle elevations (cards stay flat; only popovers get shadow) */
-    --atlas-shadow-card:    0 0 0 1px var(--atlas-n30);
-    --atlas-shadow-popover: 0 4px 8px -2px rgba(9,30,66,0.25), 0 0 1px rgba(9,30,66,0.31);
-
-    --atlas-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-      "Helvetica Neue", Arial, sans-serif;
-
-    background: var(--atlas-n10);
-    color: var(--atlas-n800);
-    font-family: var(--atlas-font);
-    font-size: 14px;
-    line-height: 20px;
-    -webkit-font-smoothing: antialiased;
-  }
 }
 
 @layer components {
   .btn {
-    @apply inline-flex items-center justify-center rounded-lg text-body font-medium transition-colors duration-[180ms] ease-apple focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-app disabled:opacity-50 disabled:pointer-events-none;
+    @apply inline-flex items-center justify-center rounded-lg text-body font-medium transition-colors duration-[180ms] ease-apple ap-focus-ring disabled:opacity-50 disabled:pointer-events-none;
   }
 
   .btn-primary {
-    @apply btn bg-primary-500 text-white hover:bg-primary-700 h-10 py-2 px-4 shadow-none;
+    @apply btn bg-primary-500 text-primary-foreground hover:bg-primary-700 h-10 py-2 px-4 shadow-none;
   }
 
   .btn-secondary {
@@ -164,7 +55,7 @@
   }
 
   .btn-outline {
-    @apply btn border border-surface-muted bg-white text-ink-primary hover:bg-surface-hover h-10 py-2 px-4;
+    @apply btn border border-surface-muted bg-surface-card text-ink-primary hover:bg-surface-hover h-10 py-2 px-4;
   }
 
   .btn-ghost {
@@ -184,7 +75,7 @@
   }
 
   .input {
-    @apply flex h-10 w-full rounded-lg border border-surface-muted bg-white px-3 py-2 text-body file:border-0 file:bg-transparent file:text-body-sm file:font-medium placeholder:text-ink-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-50;
+    @apply flex h-10 w-full rounded-lg border border-surface-muted bg-surface-card px-3 py-2 text-body file:border-0 file:bg-transparent file:text-body-sm file:font-medium placeholder:text-ink-secondary ap-focus-ring disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .label {
@@ -201,7 +92,7 @@
   }
 
   .badge {
-    @apply inline-flex items-center rounded-pill px-2.5 py-0.5 text-body-sm font-semibold transition-colors duration-[180ms] ease-apple focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
+    @apply inline-flex items-center rounded-pill px-2.5 py-0.5 text-body-sm font-semibold transition-colors duration-[180ms] ease-apple ap-focus-ring;
   }
 
   .badge-default {
@@ -228,663 +119,22 @@
     @apply border-t border-ink-secondary/20;
   }
 
+  /* THE focus ring (DESIGN_SYSTEM.md §12, apple_pro_ux_guide §9): a 2px solid
+     outline in the ring colour with a 2px offset, keyboard focus only. Every
+     components/ui primitive uses this class; do not hand-roll another style.
+     Specificity (0,2,0) beats a base `outline-none`. `-inset` is for elements
+     whose parent clips (scroll viewports, dense day grids). */
+  .ap-focus-ring:focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+  .ap-focus-ring-inset:focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: -2px;
+  }
+
   .skeleton {
     @apply animate-shimmer rounded-md bg-gradient-to-r from-surface-muted via-surface-hover to-surface-muted bg-[length:200%_100%];
-  }
-
-  /* ─── Notion atom classes ───
-     Used inside `.notion-surface` regions. Keep these tight, neutral, and shadow-free. */
-
-  .notion-card {
-    background: var(--notion-bg);
-    border: 1px solid var(--notion-border);
-    border-radius: var(--notion-radius-md);
-    overflow: hidden;
-  }
-
-  .notion-divider {
-    border-top: 1px solid var(--notion-divider);
-  }
-
-  .notion-h1 {
-    font-size: 28px;
-    line-height: 1.2;
-    font-weight: 700;
-    letter-spacing: -0.01em;
-    color: var(--notion-text);
-  }
-
-  .notion-h2 {
-    font-size: 18px;
-    line-height: 1.3;
-    font-weight: 600;
-    color: var(--notion-text);
-  }
-
-  .notion-eyebrow {
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--notion-text-tertiary);
-  }
-
-  .notion-text {
-    font-size: 14px;
-    color: var(--notion-text);
-  }
-
-  .notion-text-secondary {
-    font-size: 13px;
-    color: var(--notion-text-secondary);
-  }
-
-  .notion-text-tertiary {
-    font-size: 12px;
-    color: var(--notion-text-tertiary);
-  }
-
-  .notion-button {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    height: 28px;
-    padding: 0 10px;
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--notion-text);
-    background: transparent;
-    border: 1px solid transparent;
-    border-radius: var(--notion-radius);
-    transition: background-color 80ms ease;
-    cursor: pointer;
-  }
-  .notion-button:hover {
-    background: var(--notion-hover);
-  }
-  .notion-button:active {
-    background: var(--notion-active);
-  }
-
-  .notion-button-bordered {
-    border-color: var(--notion-border);
-    background: var(--notion-bg);
-  }
-
-  .notion-button-primary {
-    background: var(--notion-blue);
-    color: #fff;
-    border-color: var(--notion-blue);
-  }
-  .notion-button-primary:hover {
-    background: rgb(28, 116, 200);
-  }
-
-  .notion-button-danger {
-    color: var(--notion-red);
-  }
-  .notion-button-danger:hover {
-    background: var(--notion-red-bg);
-  }
-
-  .notion-input {
-    width: 100%;
-    height: 32px;
-    padding: 4px 8px;
-    font-size: 14px;
-    color: var(--notion-text);
-    background: var(--notion-bg-secondary);
-    border: 1px solid var(--notion-border);
-    border-radius: var(--notion-radius);
-    transition: border-color 80ms ease, background 80ms ease;
-  }
-  .notion-input:focus {
-    outline: none;
-    border-color: var(--notion-blue);
-    background: var(--notion-bg);
-    box-shadow: 0 0 0 3px rgba(35, 131, 226, 0.16);
-  }
-
-  .notion-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    height: 20px;
-    padding: 0 6px;
-    font-size: 12px;
-    font-weight: 500;
-    border-radius: var(--notion-radius-sm);
-    background: var(--notion-hover);
-    color: var(--notion-text-secondary);
-    white-space: nowrap;
-  }
-  .notion-pill[data-tone='blue'] {
-    background: var(--notion-blue-bg);
-    color: var(--notion-blue);
-  }
-  .notion-pill[data-tone='green'] {
-    background: var(--notion-green-bg);
-    color: var(--notion-green);
-  }
-  .notion-pill[data-tone='yellow'] {
-    background: var(--notion-yellow-bg);
-    color: var(--notion-yellow);
-  }
-  .notion-pill[data-tone='red'] {
-    background: var(--notion-red-bg);
-    color: var(--notion-red);
-  }
-  .notion-pill[data-tone='gray'] {
-    background: var(--notion-hover);
-    color: var(--notion-text-secondary);
-  }
-
-  .notion-row {
-    display: flex;
-    align-items: center;
-    min-height: 32px;
-    padding: 0 8px;
-    border-radius: var(--notion-radius);
-    transition: background-color 80ms ease;
-  }
-  .notion-row:hover {
-    background: var(--notion-hover);
-  }
-
-  .notion-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 14px;
-  }
-  .notion-table thead th {
-    text-align: left;
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--notion-text-tertiary);
-    padding: 8px 12px;
-    border-bottom: 1px solid var(--notion-divider);
-    background: var(--notion-bg);
-  }
-  .notion-table tbody td {
-    padding: 8px 12px;
-    border-bottom: 1px solid var(--notion-divider);
-    color: var(--notion-text);
-    vertical-align: middle;
-  }
-  .notion-table tbody tr {
-    transition: background-color 80ms ease;
-  }
-  .notion-table tbody tr:hover {
-    background: var(--notion-bg-secondary);
-  }
-
-  .notion-progress {
-    height: 4px;
-    width: 100%;
-    background: var(--notion-divider);
-    border-radius: 2px;
-    overflow: hidden;
-  }
-  .notion-progress-fill {
-    height: 100%;
-    background: var(--notion-blue);
-    transition: width 180ms ease;
-  }
-
-  .notion-tab {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 10px;
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--notion-text-secondary);
-    border-bottom: 2px solid transparent;
-    cursor: pointer;
-    transition: color 80ms ease, border-color 80ms ease;
-  }
-  .notion-tab:hover {
-    color: var(--notion-text);
-  }
-  .notion-tab[aria-selected='true'] {
-    color: var(--notion-text);
-    border-bottom-color: var(--notion-text);
-  }
-
-  .notion-icon-button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    height: 24px;
-    width: 24px;
-    border-radius: var(--notion-radius);
-    color: var(--notion-text-tertiary);
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    transition: background-color 80ms ease, color 80ms ease;
-  }
-  .notion-icon-button:hover {
-    background: var(--notion-hover);
-    color: var(--notion-text);
-  }
-
-  .notion-checkbox {
-    appearance: none;
-    width: 14px;
-    height: 14px;
-    border: 1.5px solid var(--notion-border-strong);
-    border-radius: 3px;
-    cursor: pointer;
-    flex-shrink: 0;
-    transition: background-color 80ms ease, border-color 80ms ease;
-    position: relative;
-  }
-  .notion-checkbox:checked {
-    background: var(--notion-blue);
-    border-color: var(--notion-blue);
-  }
-  .notion-checkbox:checked::after {
-    content: '';
-    position: absolute;
-    left: 3px;
-    top: 0px;
-    width: 4px;
-    height: 8px;
-    border: solid white;
-    border-width: 0 2px 2px 0;
-    transform: rotate(45deg);
-  }
-
-  .notion-avatar {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: var(--notion-hover);
-    color: var(--notion-text-secondary);
-    font-size: 10px;
-    font-weight: 600;
-    flex-shrink: 0;
-    overflow: hidden;
-  }
-  .notion-avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  /* ─── Atlas atom classes (compact design) ─── */
-
-  .atlas-h1 {
-    font-size: 20px;
-    line-height: 24px;
-    font-weight: 600;
-    color: var(--atlas-n800);
-    letter-spacing: -0.005em;
-  }
-
-  .atlas-h2 {
-    font-size: 16px;
-    line-height: 20px;
-    font-weight: 600;
-    color: var(--atlas-n800);
-  }
-
-  .atlas-eyebrow {
-    font-size: 11px;
-    font-weight: 700;
-    line-height: 16px;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--atlas-n200);
-  }
-
-  .atlas-text {
-    font-size: 14px;
-    color: var(--atlas-n800);
-  }
-  .atlas-text-secondary {
-    font-size: 13px;
-    color: var(--atlas-n200);
-  }
-  .atlas-text-tertiary {
-    font-size: 12px;
-    color: var(--atlas-n100);
-  }
-  .atlas-link {
-    color: var(--atlas-primary);
-    text-decoration: none;
-  }
-  .atlas-link:hover {
-    text-decoration: underline;
-  }
-
-  .atlas-card {
-    background: var(--atlas-n0);
-    border: 1px solid var(--atlas-n30);
-    border-radius: var(--atlas-radius-md);
-  }
-  .atlas-divider {
-    border-top: 1px solid var(--atlas-n30);
-  }
-
-  .atlas-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    height: var(--atlas-btn-h);
-    padding: 0 10px;
-    font-size: 13px;
-    font-weight: 500;
-    line-height: 1;
-    color: var(--atlas-n700);
-    background: var(--atlas-n20);
-    border: none;
-    border-radius: var(--atlas-radius);
-    cursor: pointer;
-    transition: background-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
-  }
-  .atlas-btn:hover {
-    background: var(--atlas-n30);
-  }
-  .atlas-btn:focus-visible {
-    outline: none;
-    box-shadow: 0 0 0 2px var(--atlas-primary);
-  }
-  .atlas-btn:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
-  }
-  .atlas-btn-sm {
-    height: var(--atlas-btn-h-sm);
-    padding: 0 8px;
-    font-size: 12px;
-  }
-  .atlas-btn-primary {
-    background: var(--atlas-primary);
-    color: var(--atlas-n0);
-  }
-  .atlas-btn-primary:hover {
-    background: var(--atlas-primary-hover);
-  }
-  .atlas-btn-ghost {
-    background: transparent;
-    color: var(--atlas-n200);
-  }
-  .atlas-btn-ghost:hover {
-    background: var(--atlas-n20);
-    color: var(--atlas-n700);
-  }
-  .atlas-btn-danger {
-    color: var(--atlas-danger);
-    background: transparent;
-  }
-  .atlas-btn-danger:hover {
-    background: var(--atlas-danger-bg);
-  }
-
-  .atlas-icon-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    background: transparent;
-    border: none;
-    border-radius: var(--atlas-radius);
-    color: var(--atlas-n200);
-    cursor: pointer;
-    transition: background-color 120ms ease, color 120ms ease;
-  }
-  .atlas-icon-btn:hover {
-    background: var(--atlas-n20);
-    color: var(--atlas-n700);
-  }
-
-  .atlas-input {
-    width: 100%;
-    height: var(--atlas-input-h);
-    padding: 4px 8px;
-    font-size: 14px;
-    color: var(--atlas-n800);
-    background: var(--atlas-n10);
-    border: 2px solid transparent;
-    border-radius: var(--atlas-radius);
-    transition: background-color 120ms ease, border-color 120ms ease;
-  }
-  .atlas-input:hover:not(:focus) {
-    background: var(--atlas-n20);
-  }
-  .atlas-input:focus {
-    outline: none;
-    background: var(--atlas-n0);
-    border-color: var(--atlas-primary);
-  }
-  .atlas-input::placeholder {
-    color: var(--atlas-n100);
-  }
-
-  .atlas-select {
-    /* Use alongside .atlas-input for native <select> */
-    appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%235e6c84' d='M5 6L0 0h10z'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 8px center;
-    padding-right: 24px;
-  }
-
-  .atlas-checkbox {
-    appearance: none;
-    width: 14px;
-    height: 14px;
-    border: 2px solid var(--atlas-n70);
-    border-radius: 2px;
-    background: var(--atlas-n0);
-    cursor: pointer;
-    position: relative;
-    flex-shrink: 0;
-    transition: background-color 120ms ease, border-color 120ms ease;
-  }
-  .atlas-checkbox:checked {
-    background: var(--atlas-primary);
-    border-color: var(--atlas-primary);
-  }
-  .atlas-checkbox:checked::after {
-    content: '';
-    position: absolute;
-    left: 2px;
-    top: -1px;
-    width: 4px;
-    height: 8px;
-    border: solid var(--atlas-n0);
-    border-width: 0 2px 2px 0;
-    transform: rotate(45deg);
-  }
-
-  /* Lozenges — Atlassian's term for small status chips. Short, uppercase, bold. */
-  .atlas-lozenge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    height: 16px;
-    padding: 0 4px;
-    font-size: 11px;
-    font-weight: 700;
-    line-height: 16px;
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
-    border-radius: 3px;
-    white-space: nowrap;
-    background: var(--atlas-n30);
-    color: var(--atlas-n400);
-  }
-  .atlas-lozenge[data-tone='primary'] {
-    background: var(--atlas-primary-bg);
-    color: var(--atlas-primary);
-  }
-  .atlas-lozenge[data-tone='success'] {
-    background: var(--atlas-success-bg);
-    color: var(--atlas-success);
-  }
-  .atlas-lozenge[data-tone='warning'] {
-    background: var(--atlas-warning-bg);
-    color: #974f0c;
-  }
-  .atlas-lozenge[data-tone='danger'] {
-    background: var(--atlas-danger-bg);
-    color: var(--atlas-danger);
-  }
-  .atlas-lozenge[data-tone='purple'] {
-    background: var(--atlas-purple-bg);
-    color: var(--atlas-purple);
-  }
-
-  /* A chip is the lozenge's softer cousin — lowercase, used for tags / filters / links. */
-  .atlas-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    height: 20px;
-    padding: 0 6px;
-    font-size: 12px;
-    font-weight: 500;
-    line-height: 1;
-    border-radius: 3px;
-    color: var(--atlas-n200);
-    background: var(--atlas-n20);
-    white-space: nowrap;
-  }
-  .atlas-chip[data-tone='primary'] {
-    color: var(--atlas-primary);
-    background: var(--atlas-primary-bg);
-  }
-
-  .atlas-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 14px;
-  }
-  .atlas-table thead th {
-    text-align: left;
-    padding: 8px 12px;
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--atlas-n200);
-    border-bottom: 2px solid var(--atlas-n30);
-    background: var(--atlas-n0);
-  }
-  .atlas-table tbody td {
-    padding: 8px 12px;
-    border-bottom: 1px solid var(--atlas-n20);
-    color: var(--atlas-n800);
-    vertical-align: middle;
-  }
-  .atlas-table tbody tr {
-    transition: background-color 120ms ease;
-  }
-  .atlas-table tbody tr:hover {
-    background: var(--atlas-n10);
-  }
-  .atlas-table tbody tr:last-child td {
-    border-bottom: 0;
-  }
-
-  .atlas-row {
-    display: flex;
-    align-items: center;
-    min-height: var(--atlas-row-h);
-    padding: 0 8px;
-    border-radius: var(--atlas-radius);
-    transition: background-color 120ms ease;
-  }
-  .atlas-row:hover {
-    background: var(--atlas-n10);
-  }
-
-  .atlas-progress {
-    height: 4px;
-    width: 100%;
-    background: var(--atlas-n30);
-    border-radius: 2px;
-    overflow: hidden;
-  }
-  .atlas-progress-fill {
-    height: 100%;
-    background: var(--atlas-primary);
-    transition: width 180ms ease;
-  }
-
-  .atlas-tab {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 10px;
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--atlas-n200);
-    border-bottom: 2px solid transparent;
-    cursor: pointer;
-    transition: color 120ms ease, border-color 120ms ease;
-  }
-  .atlas-tab:hover {
-    color: var(--atlas-n700);
-  }
-  .atlas-tab[aria-selected='true'] {
-    color: var(--atlas-primary);
-    border-bottom-color: var(--atlas-primary);
-  }
-
-  .atlas-avatar {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    background: var(--atlas-n30);
-    color: var(--atlas-n700);
-    font-size: 11px;
-    font-weight: 600;
-    flex-shrink: 0;
-    overflow: hidden;
-  }
-  .atlas-avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .atlas-menu {
-    background: var(--atlas-n0);
-    border: 1px solid var(--atlas-n30);
-    border-radius: var(--atlas-radius-md);
-    box-shadow: var(--atlas-shadow-popover);
-    padding: 4px;
-    min-width: 200px;
-  }
-  .atlas-menu-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    width: 100%;
-    padding: 6px 8px;
-    font-size: 13px;
-    color: var(--atlas-n800);
-    background: transparent;
-    border: none;
-    border-radius: var(--atlas-radius);
-    cursor: pointer;
-    text-align: left;
-  }
-  .atlas-menu-item:hover {
-    background: var(--atlas-n10);
   }
 }
 
@@ -942,9 +192,9 @@
 }
 /* ═══════════════════════════════════════════════════════════════════════════
    Apple Pro theme — macOS Sonoma / iOS 17 flavored.
-   Applied via the `.apple-pro-surface` (or `.theme-apple-full`) scope so it
-   coexists with `.notion-surface` and `.atlas-surface`. Dark mode nests under
-   `.dark .apple-pro-surface`.
+   Applied via the `.apple-pro-surface` (or `.theme-apple-full`) scope. Dark
+   mode nests under `.dark .apple-pro-surface`. (The unused `.notion-*` and
+   `.atlas-*` aesthetics that used to live above were removed 2026-09-25.)
    ═══════════════════════════════════════════════════════════════════════════ */
 
 /* Custom properties live on :root so they ALWAYS resolve, in every context —
@@ -986,7 +236,12 @@
   /* Clears 3:1 only. Decorative, disabled, or large text — never body copy. */
   --ap-fg-faint: oklch(0.658 0.01 262);
 
-  --ap-accent: oklch(0.52 0.17 255);
+  /* The ONE brand accent. Stored as bare oklch channels so Tailwind's
+     primary-500/600 (tailwind.config.js) can read the same variable and add an
+     opacity modifier — `bg-primary-500/10` and `var(--ap-accent)` are the same
+     blue by construction, not by two hand-copied values. */
+  --ap-accent-lch: 0.52 0.17 255;
+  --ap-accent: oklch(var(--ap-accent-lch));
   --ap-accent-hover: oklch(0.45 0.17 255);
   --ap-accent-soft: oklch(0.95 0.024 255);
   --ap-accent-fg: #FFFFFF;
@@ -1039,6 +294,50 @@
   --ap-card-lime: #51E898;
   --ap-card-pink: #FF78CB;
   --ap-card-slate: #344563;
+
+  /* ──────────────────────────────────────────────────────────────────
+     Tailwind palette tokens (surface-*, ink-*, primary-*, success-*,
+     warning-*, danger-*). tailwind.config.js reads these as
+     `rgb(var(--rgb-x) / <alpha-value>)`, so each holds bare R G B channels —
+     a full colour here would break every `/NN` opacity modifier.
+     Light values are the original config hexes, unchanged; the dark block
+     below retargets them. primary-500/600 read --ap-accent-lch instead, and
+     the 50–300 washes are alpha over the matching 500 channels.
+     ────────────────────────────────────────────────────────────────── */
+  --rgb-surface-app:      242 242 247;   /* #F2F2F7 */
+  --rgb-surface-card:     255 255 255;   /* #FFFFFF */
+  --rgb-surface-sidebar:  249 249 251;   /* #F9F9FB */
+  --rgb-surface-hover:    249 249 251;   /* #F9F9FB */
+  --rgb-surface-muted:    229 229 234;   /* #E5E5EA */
+  --rgb-ink-primary:      29 29 31;      /* #1D1D1F */
+  --rgb-ink-secondary:    142 142 147;   /* #8E8E93 */
+  --rgb-ink-tertiary:     209 209 214;   /* #D1D1D6 */
+  --rgb-primary-400:      51 149 255;    /* #3395FF */
+  --rgb-primary-700:      0 81 213;      /* #0051D5 */
+  --rgb-primary-800:      0 61 158;      /* #003D9E */
+  --rgb-primary-900:      0 47 120;      /* #002F78 */
+  --rgb-success-400:      95 212 126;    /* #5FD47E */
+  --rgb-success-500:      52 199 89;     /* #34C759 */
+  --rgb-success-600:      52 199 89;     /* #34C759 */
+  --rgb-success-700:      36 138 61;     /* #248A3D */
+  --rgb-success-800:      27 107 48;     /* #1B6B30 */
+  --rgb-success-900:      20 80 38;      /* #145026 */
+  --rgb-warning-300:      255 204 0;     /* #FFCC00 */
+  --rgb-warning-400:      255 179 64;    /* #FFB340 */
+  --rgb-warning-500:      255 149 0;     /* #FF9500 */
+  --rgb-warning-600:      224 131 0;     /* #E08300 */
+  --rgb-warning-700:      179 104 0;     /* #B36800 */
+  --rgb-warning-800:      138 80 0;      /* #8A5000 */
+  --rgb-warning-900:      102 60 0;      /* #663C00 */
+  --rgb-danger-400:       255 98 89;     /* #FF6259 */
+  --rgb-danger-500:       255 59 48;     /* #FF3B30 */
+  --rgb-danger-600:       224 52 42;     /* #E0342A */
+  --rgb-danger-700:       179 42 34;     /* #B32A22 */
+  --rgb-danger-800:       134 32 25;     /* #862019 */
+  --rgb-danger-900:       92 22 18;      /* #5C1612 */
+  /* Multiplier on every 50–300 wash. 1 in light (the original alphas);
+     raised in dark, where a 12% wash over a near-black card disappears. */
+  --ap-tint-scale: 1;
 
   /* ──────────────────────────────────────────────────────────────────
      Map shadcn/Tailwind tokens → Apple Pro palette so every existing
@@ -1142,7 +441,8 @@
   --ap-fg-subtle: oklch(0.68 0.010 262);
   --ap-fg-faint: oklch(0.52 0.010 262);
 
-  --ap-accent: oklch(0.66 0.17 255);
+  --ap-accent-lch: 0.66 0.17 255;
+  --ap-accent: oklch(var(--ap-accent-lch));
   --ap-accent-hover: oklch(0.72 0.15 255);
   --ap-accent-soft: oklch(0.32 0.07 255);
   --ap-accent-fg: oklch(0.16 0.012 262);
@@ -1217,6 +517,48 @@
   --sidebar-accent-foreground: 218 12% 95%;
   --sidebar-border: 218 11% 21%;
   --sidebar-ring: 213 92% 61%;
+
+  /* Tailwind palette tokens, dark. Derived from the --ap-* dark values above
+     (surfaces = --ap-bg / -raised / -hover / --ap-border; status 500s =
+     --ap-ok / -warn / -danger). Shades above 500 get LIGHTER here, because
+     they are used as text on tints: text-danger-700 on bg-danger-50 must
+     still read on a dark card. Contrast (WCAG): ink-primary ≥ 11.3:1 and
+     ink-secondary ≥ 5.5:1 on every surface; ink-tertiary ≥ 3.0:1 (it is the
+     disabled/decorative tier); every 600/700 ≥ 4.6:1 on card and on its own
+     50 wash. White text on a dark 500 fill is ~3.1:1 — use
+     text-primary-foreground (dark ink in dark mode) on filled buttons. */
+  --rgb-surface-app:      17 20 25;      /* oklch(0.19 0.012 262) */
+  --rgb-surface-card:     28 31 38;      /* oklch(0.24 0.014 262) */
+  --rgb-surface-sidebar:  22 26 32;      /* oklch(0.215 0.013 262) */
+  --rgb-surface-hover:    37 41 48;      /* oklch(0.28 0.015 262) */
+  --rgb-surface-muted:    47 51 58;      /* oklch(0.32 0.014 262) */
+  --rgb-ink-primary:      241 242 244;   /* oklch(0.96 0.003 262) */
+  --rgb-ink-secondary:    167 171 177;   /* oklch(0.74 0.01 262) */
+  --rgb-ink-tertiary:     122 125 131;   /* oklch(0.59 0.01 262) */
+  --rgb-primary-400:      42 128 226;    /* oklch(0.6 0.17 255) */
+  --rgb-primary-700:      146 193 253;   /* oklch(0.8 0.1 255) */
+  --rgb-primary-800:      174 212 255;   /* oklch(0.86 0.08 255) */
+  --rgb-primary-900:      196 225 255;   /* oklch(0.9 0.06 255) */
+  --rgb-success-400:      54 165 88;     /* oklch(0.64 0.15 150) */
+  --rgb-success-500:      76 184 106;    /* oklch(0.7 0.15 150) */
+  --rgb-success-600:      76 184 106;    /* oklch(0.7 0.15 150) */
+  --rgb-success-700:      143 225 161;   /* oklch(0.84 0.12 150) */
+  --rgb-success-800:      168 235 181;   /* oklch(0.88 0.1 150) */
+  --rgb-success-900:      196 242 204;   /* oklch(0.92 0.07 150) */
+  --rgb-warning-300:      237 204 72;    /* oklch(0.85 0.15 95) */
+  --rgb-warning-400:      220 147 46;    /* oklch(0.72 0.14 70) */
+  --rgb-warning-500:      240 166 70;    /* oklch(0.78 0.14 70) */
+  --rgb-warning-600:      248 182 93;    /* oklch(0.82 0.13 72) */
+  --rgb-warning-700:      251 199 124;   /* oklch(0.86 0.11 75) */
+  --rgb-warning-800:      254 211 151;   /* oklch(0.89 0.09 75) */
+  --rgb-warning-900:      255 223 177;   /* oklch(0.92 0.07 75) */
+  --rgb-danger-400:       226 73 71;     /* oklch(0.62 0.19 25) */
+  --rgb-danger-500:       247 93 89;     /* oklch(0.68 0.19 25) */
+  --rgb-danger-600:       253 115 109;   /* oklch(0.72 0.17 25) */
+  --rgb-danger-700:       255 165 157;   /* oklch(0.82 0.12 25) */
+  --rgb-danger-800:       255 184 176;   /* oklch(0.86 0.1 25) */
+  --rgb-danger-900:       255 205 199;   /* oklch(0.9 0.07 25) */
+  --ap-tint-scale: 1.6;
 }
 
 /* Typography defaults.
@@ -1374,9 +716,9 @@
   border-radius: var(--ap-radius-sm);
   transition: outline 0.12s ease;
 }
-.ap-input:focus {
-  outline: 2px solid var(--ap-accent);
-  outline-offset: 1px;
+.ap-input:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
   border-color: transparent;
 }
 
@@ -1469,22 +811,19 @@
   box-shadow: var(--ap-shadow-md, 0 2px 8px rgba(0,0,0,0.06));
 }
 
-.ap-focus-ring:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.35);
-  transition: box-shadow var(--ap-duration-fast, 150ms) var(--ap-ease-out, cubic-bezier(0.16, 1, 0.3, 1));
-}
-
-/* Global focus ring for inputs/buttons/selects under the Apple Pro theme. */
-.theme-apple-full input:focus-visible,
-.theme-apple-full button:focus-visible,
-.theme-apple-full select:focus-visible,
-.apple-pro-surface input:focus-visible,
-.apple-pro-surface button:focus-visible,
-.apple-pro-surface select:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.35);
-  transition: box-shadow var(--ap-duration-fast, 150ms) var(--ap-ease-out, cubic-bezier(0.16, 1, 0.3, 1));
+/* Global focus indicator for native controls under the Apple Pro theme.
+   ONE focus style app-wide — see .ap-focus-ring (top of this file) and
+   docs/DESIGN_SYSTEM.md §12. Deliberately high-specificity (0,2,1) so a
+   component's `focus:outline-none` cannot leave a control with no indicator.
+   The two --tw-ring-* resets silence Tailwind `focus:ring-*` utilities on the
+   same element (previously the 3px glow overwrote them via box-shadow), so a
+   control never shows a ring AND an outline; ordinary `shadow-*` survives. */
+.theme-apple-full :is(input, button, select, textarea, summary, a[href]):focus-visible,
+.apple-pro-surface :is(input, button, select, textarea, summary, a[href]):focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+  --tw-ring-offset-shadow: 0 0 #0000;
+  --tw-ring-shadow: 0 0 #0000;
 }
 
 @keyframes ap-modal-in {
@@ -1493,6 +832,31 @@
 }
 .ap-modal-enter {
   animation: ap-modal-in var(--ap-duration-base, 200ms) var(--ap-spring, cubic-bezier(0.32, 0.72, 0, 1));
+}
+
+/* Person hover card — components/shared/UserAvatar (PersonTooltip /
+   PeopleTooltip). docs/user_name_hover_REQUIREMENTS.md UNH-3. Plain keyframes
+   rather than tw-animate utilities: those ship Tailwind v4 `@utility` rules
+   this Tailwind v3 build does not compile. 180ms ease-apple fade + scale from
+   the trigger; the global prefers-reduced-motion block collapses it to instant
+   while still firing animationend, so Radix Presence unmounts on close. */
+@keyframes ap-person-tip-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes ap-person-tip-out {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(0.96); }
+}
+.ap-person-tip {
+  transform-origin: var(--radix-tooltip-content-transform-origin);
+}
+.ap-person-tip[data-state='delayed-open'],
+.ap-person-tip[data-state='instant-open'] {
+  animation: ap-person-tip-in 180ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.ap-person-tip[data-state='closed'] {
+  animation: ap-person-tip-out 120ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 /* ─── Print styles for reports ──────────────────────────────────────────── */

@@ -34,11 +34,22 @@ export function displayTitle(input: RedactInput): string {
   }
 }
 
-/** Strip sensitive values (numbers, descriptions) from a template data blob. */
+/**
+ * Template-data keys that can carry a private entity's content: numbers,
+ * descriptions, and the free-text previews templates print (comment `snippet`
+ * for USER_MENTIONED / COMMENT_ON_OWNED_ENTITY, scrum `commentPreview` /
+ * `blockerSummary`, and the aligned child objective's `childTitle`).
+ */
+export const REDACTED_DATA_KEYS = [
+  'description', 'currentValue', 'startValue', 'targetValue', 'unit', 'analysis', 'content',
+  'snippet', 'commentPreview', 'blockerSummary', 'childTitle',
+] as const
+
+/** Strip sensitive values (numbers, descriptions, free-text previews) from a template data blob. */
 export function redactData<T extends Record<string, unknown>>(data: T, redacted: boolean): T {
   if (!redacted) return data
   const out: Record<string, unknown> = { ...data }
-  for (const k of ['description', 'currentValue', 'startValue', 'targetValue', 'unit', 'analysis', 'content']) {
+  for (const k of REDACTED_DATA_KEYS) {
     if (k in out) out[k] = undefined
   }
   return out as T

@@ -43,14 +43,14 @@ export default function AddToDo({ onAddTodo }: AddToDoProps) {
         onChange={(e) => setTitle(e.target.value)}
         onKeyPress={handleKeyPress}
         placeholder="Add an initiative…"
-        className="flex-1 bg-transparent text-[13px] text-[color:var(--ap-fg)] placeholder:text-[color:var(--ap-fg-subtle)] focus:outline-none"
+        className="flex-1 bg-transparent text-body-sm text-[color:var(--ap-fg)] placeholder:text-[color:var(--ap-fg-subtle)] focus:outline-none"
         disabled={isLoading}
       />
       {title.trim() && (
         <button
           type="submit"
           disabled={isLoading}
-          className="btn-outline btn-primary h-6 px-2 text-[12px]"
+          className="btn-outline btn-primary h-6 px-2 text-xs"
         >
           {isLoading ? '…' : 'Add'}
         </button>

@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/ui/PageHeader'
 import { PerformanceHome } from '@/features/performance'
 import { requirePerformancePage } from '@/lib/performance'
 
@@ -5,17 +6,10 @@ export default async function MyPerformancePage() {
   await requirePerformancePage('page.performance.my', 'evaluation')
   return (
     <div className="space-y-4">
-      <div
-        className="rounded-[var(--ap-radius-md)] border bg-card px-5 pt-5 pb-4"
-        style={{ borderColor: 'var(--ap-border)' }}
-      >
-        <h1 className="text-[24px] font-semibold leading-tight" style={{ letterSpacing: '-0.02em' }}>
-          My Performance
-        </h1>
-        <p className="mt-1 text-[13px] text-muted-foreground" style={{ maxWidth: 720 }}>
-          Track review status, finalized results, and development focus areas.
-        </p>
-      </div>
+      <PageHeader
+        title="My Performance"
+        description="Track review status, finalized results, and development focus areas."
+      />
       <PerformanceHome />
     </div>
   )

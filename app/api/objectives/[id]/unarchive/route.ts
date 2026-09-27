@@ -11,6 +11,8 @@ import {
   apiNotFound,
   withAuth,
 } from '@/lib/api'
+import { broadcastKeyResultEvent, broadcastObjectiveEvent } from '@/lib/pusher'
+import { OKR_REALTIME_EVENTS } from '@/lib/okr/realtime'
 
 export const POST = withAuth<RouteIdParams>(async (_request, { session, params }) => {
   const { id } = await resolveParams(params)
@@ -59,5 +61,14 @@ export const POST = withAuth<RouteIdParams>(async (_request, { session, params }
     metadata: { title: existing.title, level: existing.level },
   })
 
+  broadcastObjectiveEvent(id, OKR_REALTIME_EVENTS.UNARCHIVED, session.user.id)
+  // Child KR pages show this objective's state too: signal each KR channel
+  // (ids only, KR channel only — the objective channel was signalled above).
+  void prisma.keyResult
+    .findMany({ where: { objectiveId: id, status: { not: 'DELETED' } }, select: { id: true } })
+    .then((krs) => {
+      for (const kr of krs) broadcastKeyResultEvent(kr.id, null, OKR_REALTIME_EVENTS.UPDATED, session.user.id)
+    })
+    .catch((error: unknown) => console.error('[objective unarchive] KR broadcast failed:', error))
   return apiSuccess(result, { message: 'Objective restored.' })
 })

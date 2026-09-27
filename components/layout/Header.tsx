@@ -209,7 +209,7 @@ export default function Header({ user, onMobileNavOpen }: HeaderProps) {
             >
               <Search className="size-[14px] shrink-0" />
               <span className="flex-1 truncate text-left">Search cards, OKRs, people…</span>
-              <kbd className="shrink-0 rounded-[4px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-[5px] py-[2px] font-mono text-[10px] leading-none text-[var(--ap-fg-subtle)]">
+              <kbd className="shrink-0 rounded-[4px] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] px-[5px] py-[2px] font-mono text-micro leading-none text-[var(--ap-fg-subtle)]">
                 ⌘K
               </kbd>
             </button>
@@ -249,7 +249,7 @@ export default function Header({ user, onMobileNavOpen }: HeaderProps) {
                     <button
                       type="button"
                       onClick={() => void markAllRead()}
-                      className="text-[11px] font-medium text-[var(--ap-accent)] hover:underline"
+                      className="text-caption font-medium text-[var(--ap-accent)] hover:underline"
                     >
                       Mark all read
                     </button>
@@ -289,10 +289,10 @@ export default function Header({ user, onMobileNavOpen }: HeaderProps) {
                                   <span className="size-1.5 shrink-0 rounded-full" style={{ background: 'var(--ap-accent)' }} />
                                 )}
                               </span>
-                              <span className="mt-0.5 line-clamp-2 block text-[11px] text-[var(--ap-fg-subtle)]">
+                              <span className="mt-0.5 line-clamp-2 block text-caption text-[var(--ap-fg-subtle)]">
                                 {n.message}
                               </span>
-                              <span className="mt-0.5 block text-[10px] tabular-nums text-[var(--ap-fg-subtle)]">
+                              <span className="mt-0.5 block text-micro tabular-nums text-[var(--ap-fg-subtle)]">
                                 {formatDistanceToNowStrict(new Date(n.createdAt), { addSuffix: true })}
                               </span>
                             </span>

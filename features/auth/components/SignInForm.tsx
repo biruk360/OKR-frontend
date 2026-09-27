@@ -122,7 +122,14 @@ export default function SignInForm() {
     try {
       const result = await signIn('credentials', { email, password, redirect: false })
       if (result?.error) {
-        setError('root', { message: 'That email and password do not match an account.' })
+        // lib/auth.ts authorize() throws RATE_LIMITED when the IP/account limit is hit.
+        setError('root', {
+          message: result.error === 'RATE_LIMITED'
+            ? 'Too many sign-in attempts. Please wait a few minutes and try again.'
+            // One message for wrong password, unknown email and not-yet-activated
+            // accounts — the server returns the same failure for all three.
+            : 'We couldn’t sign you in. Check your email and password. New accounts need administrator activation before first sign-in.',
+        })
         return
       }
 
@@ -176,7 +183,7 @@ export default function SignInForm() {
             server cannot know it, and guessing would be a hydration mismatch.
             The line keeps its height so the card never reflows on hydration. */}
         <p
-          className="h-[13px] text-[10px] tracking-[0.08em] text-white/40"
+          className="h-[13px] text-micro tracking-[0.08em] text-white/40"
           style={{ fontFamily: 'var(--ap-font-mono)' }}
         >
           {host}
@@ -319,7 +326,7 @@ export default function SignInForm() {
               {/* A keyboard hint instead of the usual arrow. */}
               <kbd
                 aria-hidden
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[11px] font-normal text-white/45"
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-caption font-normal text-white/45"
                 style={{ fontFamily: 'var(--ap-font-mono)' }}
               >
                 ⏎

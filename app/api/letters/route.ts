@@ -3,7 +3,8 @@ import { prisma } from '@/lib/prisma'
 import { CreateLetterForm, LetterStatus } from '@/types'
 import { checkLetterPermissionV2 } from '@/lib/letter-permissions'
 import { recordActivity } from '@/lib/activity-log'
-import { allocateLetterReference, LETTER_TEMPLATES } from '@/lib/letters'
+import { allocateLetterReference } from '@/lib/letters'
+import { resolveTemplateBodyForNewLetter } from '@/lib/letter-templates'
 import {
   apiSuccess,
   apiPaginated,
@@ -12,7 +13,7 @@ import {
   apiForbidden,
   withAuth,
 } from '@/lib/api'
-import { buildScopeFilter } from '@/lib/apply-scope'
+import { buildLetterReadWhere } from '@/lib/letter-access'
 
 const LETTER_STATUSES: LetterStatus[] = ['DRAFT', 'SUBMITTED', 'APPROVED', 'SENT', 'ARCHIVED']
 
@@ -59,12 +60,16 @@ export const GET = withAuth(async (request: NextRequest, { session }) => {
     where.AND = [...(where.AND || []), { updatedAt: { gt: sinceDate } }]
   }
 
-  const scopeFilter = await buildScopeFilter(session.user.id, 'letter')
+  // Same read gate + RecordScopeRule scope as the single-letter routes. AND
+  // (not spread) so a scope `OR` can't overwrite the search `OR` or vice versa.
+  const readWhere = await buildLetterReadWhere(session.user.id)
+  if (!readWhere) return apiForbidden('You are not permitted to view letters')
+  const scopedWhere = { AND: [where, readWhere] }
 
   const skip = (page - 1) * limit
   const [letters, total] = await Promise.all([
     prisma.letter.findMany({
-      where: { ...where, ...(scopeFilter ?? {}) },
+      where: scopedWhere,
       orderBy: { date: 'desc' },
       skip,
       take: limit,
@@ -75,7 +80,7 @@ export const GET = withAuth(async (request: NextRequest, { session }) => {
         _count: { select: { enclosures: true } },
       },
     }),
-    prisma.letter.count({ where: { ...where, ...(scopeFilter ?? {}) } }),
+    prisma.letter.count({ where: scopedWhere }),
   ])
 
   return apiPaginated(letters, { page, limit, total })
@@ -86,7 +91,7 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
     return apiForbidden('You are not permitted to create letters')
   }
 
-  const body = (await request.json()) as CreateLetterForm & { letterTypeId?: string; id?: string }
+  const body = (await request.json()) as CreateLetterForm & { letterTypeId?: string; id?: string; templateId?: string | null }
   const subject = (body.subject || '').trim()
   if (subject.length < 3 || subject.length > 255) {
     return apiBadRequest('Subject must be 3–255 characters')
@@ -116,6 +121,20 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
   const customerName = (body.customerName || '').trim()
   const date = body.date ? new Date(body.date) : new Date()
   if (Number.isNaN(date.getTime())) return apiBadRequest('Invalid date')
+
+  // Starting body: explicit client body > chosen/default DB template for the
+  // type > built-in constant > generic placeholder (lib/letter-templates.ts).
+  let startingBody: string | null = body.bodyContent ?? null
+  let templateId: string | null = null
+  if (startingBody === null) {
+    const resolved = await resolveTemplateBodyForNewLetter({
+      typeCode: typeDef.code,
+      templateId: typeof body.templateId === 'string' && body.templateId ? body.templateId : null,
+    })
+    if (resolved.error) return apiBadRequest(resolved.error)
+    startingBody = resolved.body
+    templateId = resolved.templateId
+  }
 
   const referenceNumber = await allocateLetterReference(typeDef.code, date)
 
@@ -155,11 +174,7 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
       closing: body.closing ?? null,
       senderDepartment: body.senderDepartment ?? null,
       signatoryId: body.signatoryId ?? null,
-      bodyContent:
-        body.bodyContent ??
-        (body.letterType && body.letterType in LETTER_TEMPLATES
-          ? LETTER_TEMPLATES[body.letterType as keyof typeof LETTER_TEMPLATES]
-          : `<p>Write the body of this ${typeDef.name.toLowerCase()} here.</p>`),
+      bodyContent: startingBody ?? `<p>Write the body of this ${typeDef.name.toLowerCase()} here.</p>`,
       preparedById: session.user.id,
     },
     include: {
@@ -174,7 +189,7 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
     letterId: letter.id,
     action: 'CREATED',
     actorId: session.user.id,
-    metadata: { referenceNumber: letter.referenceNumber, letterType: typeDef.code },
+    metadata: { referenceNumber: letter.referenceNumber, letterType: typeDef.code, templateId },
   })
 
   return apiSuccess(letter, { status: 201 })

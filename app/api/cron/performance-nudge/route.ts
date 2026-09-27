@@ -1,7 +1,8 @@
 import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { emit } from '@/lib/notifications/dispatcher'
+import { emitNow } from '@/lib/notifications/dispatcher'
+import { withCronAuth } from '@/lib/cron-auth'
 
 function isoWeekKey(date: Date): string {
   const utc = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))
@@ -12,15 +13,9 @@ function isoWeekKey(date: Date): string {
   return `${utc.getUTCFullYear()}-W${String(week).padStart(2, '0')}`
 }
 
-export async function POST(request: NextRequest) {
+// Auth: withCronAuth (lib/cron-auth.ts) — `Authorization: Bearer $CRON_SECRET`, fail-closed.
+export const POST = withCronAuth(async (request: NextRequest) => {
   const url = new URL(request.url)
-  const expected = process.env.CRON_SECRET
-  if (expected) {
-    const auth = request.headers.get('authorization') || ''
-    const key = auth.replace(/^Bearer\s+/i, '') || url.searchParams.get('key') || ''
-    if (key !== expected) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
   // Only send on the configured weekly nudge day (ISO weekday, Monday = 1).
   // `?force=1` bypasses the day gate for manual runs; idempotency per weekKey still holds.
   const settings = await prisma.performanceSettings.upsert({
@@ -58,7 +53,7 @@ export async function POST(request: NextRequest) {
     // Route through the dispatcher so the nudge honors the employee's channel
     // preferences and actually reaches email (in-app row + email/digest queue).
     // Payload stays score-free by contract (spec G2).
-    await emit('PERF_WEEKLY_FOCUS', {
+    await emitNow('PERF_WEEKLY_FOCUS', {
       explicitRecipients: [employee.employeeId],
       data: { weekKey, focusText: message, focusIds: focuses.map((focus) => focus.id), scoreFree: true },
     })
@@ -68,7 +63,7 @@ export async function POST(request: NextRequest) {
     delivered++
   }
   return NextResponse.json({ success: true, weekKey, delivered })
-}
+})
 
 export const GET = POST
 

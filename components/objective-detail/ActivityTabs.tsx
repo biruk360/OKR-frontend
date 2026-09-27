@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Calendar, User as UserIcon, Users as UsersIcon, Target, Database, Building2 } from 'lucide-react'
+import { Calendar, User as UserIcon, Users as UsersIcon, Target, Building2 } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ActivityLogPanel } from '@/components/shared/ActivityLogPanel'
 import RisksPanel from '@/components/shared/RisksPanel'
@@ -9,6 +9,7 @@ import ViewersList from '@/components/shared/ViewersList'
 import { useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useViewTracker } from '@/hooks/useViewTracker'
+import { PersonTooltip } from '@/components/shared/UserAvatar'
 
 interface UserLite { id: string; name: string; avatar?: string | null; email?: string | null }
 
@@ -27,6 +28,8 @@ interface Props {
   activityElementId: string
   users: Array<{ id: string; name: string | null; email: string }>
   details?: DetailsContext
+  /** Server-computed canEditObjective — POST /api/risks rejects everyone else. */
+  canReportRisk?: boolean
 }
 
 function initialsOf(name: string): string {
@@ -43,7 +46,7 @@ function timeframeTypeLabel(type: string): string {
   }
 }
 
-export default function ActivityTabs({ objectiveId, activityElementId, users, details }: Props) {
+export default function ActivityTabs({ objectiveId, activityElementId, users, details, canReportRisk = false }: Props) {
   const { data: session } = useSession()
   const [risksCount, setRisksCount] = useState<number | null>(null)
   const [viewersCount, setViewersCount] = useState<number | null>(null)
@@ -61,7 +64,7 @@ export default function ActivityTabs({ objectiveId, activityElementId, users, de
             <TabsTrigger
               key={v}
               value={v}
-              className="rounded-none border-b-2 border-transparent px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground data-[state=active]:border-[var(--ap-accent)] data-[state=active]:text-[var(--ap-fg)] data-[state=active]:shadow-none data-[state=active]:bg-transparent"
+              className="rounded-none border-b-2 border-transparent px-3 py-2 text-caption font-semibold uppercase tracking-wide text-muted-foreground data-[state=active]:border-[var(--ap-accent)] data-[state=active]:text-[var(--ap-fg)] data-[state=active]:shadow-none data-[state=active]:bg-transparent"
             >
               {v === 'details' ? 'Details' : v === 'activity' ? 'Activity' : v === 'risks' ? `Risks${risksCount !== null ? ` (${risksCount})` : ''}` : `Viewers${viewersCount !== null ? ` (${viewersCount})` : ''}`}
             </TabsTrigger>
@@ -79,15 +82,15 @@ export default function ActivityTabs({ objectiveId, activityElementId, users, de
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={details.owner.avatar} alt={details.owner.name} className="size-8 rounded-full object-cover" />
                   ) : (
-                    <span className="flex size-8 items-center justify-center rounded-full text-[11px] font-semibold text-white"
-                      style={{ background: 'var(--ap-accent)' }}>
+                    <span className="flex size-8 items-center justify-center rounded-full text-caption font-semibold"
+                      style={{ background: 'var(--ap-accent)', color: 'var(--ap-accent-fg)' }}>
                       {initialsOf(details.owner.name)}
                     </span>
                   )}
                   <div className="min-w-0">
-                    <p className="text-[13px] font-medium truncate">{details.owner.name}</p>
+                    <p className="text-body-sm font-medium truncate">{details.owner.name}</p>
                     {details.owner.email && (
-                      <p className="text-[11px] text-muted-foreground truncate">{details.owner.email}</p>
+                      <p className="text-caption text-muted-foreground truncate">{details.owner.email}</p>
                     )}
                   </div>
                 </div>
@@ -96,15 +99,15 @@ export default function ActivityTabs({ objectiveId, activityElementId, users, de
               {/* Timeframe */}
               <Field icon={<Calendar className="size-3" />} label="Timeframe">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[13px] font-medium">{details.timeframe.name}</span>
+                  <span className="text-body-sm font-medium">{details.timeframe.name}</span>
                   <span
-                    className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                    className="inline-flex items-center rounded-full px-2 py-0.5 text-micro font-semibold"
                     style={{ background: 'var(--ap-accent-soft)', color: 'var(--ap-accent)' }}
                   >
                     {timeframeTypeLabel(details.timeframe.type)}
                   </span>
                 </div>
-                <p className="text-[11px] text-muted-foreground mt-1 tabular-nums">
+                <p className="text-caption text-muted-foreground mt-1 tabular-nums">
                   {new Date(details.timeframe.startDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
                   {' → '}
                   {new Date(details.timeframe.endDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
@@ -118,10 +121,10 @@ export default function ActivityTabs({ objectiveId, activityElementId, users, de
                     {details.parentObjective && (
                       <Link
                         href={`/dashboard/objectives/${details.parentObjective.id}`}
-                        className="block rounded-[var(--ap-radius-sm)] border px-2.5 py-1.5 text-[12px] hover:bg-[var(--ap-bg-hover)]"
+                        className="block rounded-[var(--ap-radius-sm)] border px-2.5 py-1.5 text-xs hover:bg-[var(--ap-bg-hover)]"
                         style={{ borderColor: 'var(--ap-border)' }}
                       >
-                        <span className="text-[10px] uppercase tracking-wide text-muted-foreground mr-1.5">Parent</span>
+                        <span className="text-micro uppercase tracking-wide text-muted-foreground mr-1.5">Parent</span>
                         <span className="font-medium">{details.parentObjective.title}</span>
                       </Link>
                     )}
@@ -129,7 +132,7 @@ export default function ActivityTabs({ objectiveId, activityElementId, users, de
                       <Link
                         key={c.id}
                         href={`/dashboard/objectives/${c.id}`}
-                        className="block rounded-[var(--ap-radius-sm)] border px-2.5 py-1.5 text-[12px] hover:bg-[var(--ap-bg-hover)]"
+                        className="block rounded-[var(--ap-radius-sm)] border px-2.5 py-1.5 text-xs hover:bg-[var(--ap-bg-hover)]"
                         style={{ borderColor: 'var(--ap-border)' }}
                       >
                         {c.title}
@@ -141,7 +144,7 @@ export default function ActivityTabs({ objectiveId, activityElementId, users, de
 
               {/* Measurement */}
               <Field icon={<Target className="size-3" />} label="Measurement">
-                <p className="text-[12px]">
+                <p className="text-xs">
                   <span className="font-semibold tabular-nums">{details.measurementCount}</span>{' '}
                   <span className="text-muted-foreground">key result{details.measurementCount === 1 ? '' : 's'} tracked</span>
                 </p>
@@ -150,26 +153,29 @@ export default function ActivityTabs({ objectiveId, activityElementId, users, de
               {/* Collaborators */}
               <Field icon={<UsersIcon className="size-3" />} label="Collaborators">
                 {details.collaborators.length === 0 ? (
-                  <p className="text-[12px] italic text-muted-foreground">None — add via Edit Objective</p>
+                  <p className="text-xs italic text-muted-foreground">None — add via Edit Objective</p>
                 ) : (
                   <div className="flex flex-wrap gap-1">
                     {details.collaborators.slice(0, 12).map(c => (
-                      c.avatar ? (
+                      // Full name on hover (docs/user_name_hover_REQUIREMENTS.md UNH-2).
+                      <PersonTooltip key={c.id} person={c} detail="Collaborator">
+                      {c.avatar ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img key={c.id} src={c.avatar} alt={c.name} title={c.name}
+                        <img src={c.avatar} alt={c.name}
                           className="size-7 rounded-full object-cover ring-2"
                           style={{ ['--tw-ring-color' as any]: 'var(--ap-bg-raised)' } as any} />
                       ) : (
-                        <span key={c.id} title={c.name}
-                          className="flex size-7 items-center justify-center rounded-full text-[10px] font-semibold ring-2"
+                        <span role="img" aria-label={c.name}
+                          className="flex size-7 items-center justify-center rounded-full text-micro font-semibold ring-2"
                           style={{
                             background: 'var(--ap-bg-sunken)',
                             color: 'var(--ap-fg-muted)',
                             ['--tw-ring-color' as any]: 'var(--ap-bg-raised)',
                           } as any}>
-                          {initialsOf(c.name)}
+                          <span aria-hidden>{initialsOf(c.name)}</span>
                         </span>
-                      )
+                      )}
+                      </PersonTooltip>
                     ))}
                   </div>
                 )}
@@ -178,25 +184,13 @@ export default function ActivityTabs({ objectiveId, activityElementId, users, de
               {/* Department */}
               {details.department && (
                 <Field icon={<Building2 className="size-3" />} label="Department">
-                  <p className="text-[12px]">{details.department.name}</p>
+                  <p className="text-xs">{details.department.name}</p>
                 </Field>
               )}
 
-              {/* Data source (placeholder) */}
-              <Field icon={<Database className="size-3" />} label="Data source">
-                <button
-                  type="button"
-                  className="text-[12px] rounded-[var(--ap-radius-sm)] border-dashed border px-2.5 py-1.5 w-full text-left text-muted-foreground hover:bg-[var(--ap-bg-hover)]"
-                  style={{ borderColor: 'var(--ap-border-strong)' }}
-                  title="Coming soon"
-                  disabled
-                >
-                  Connect a data source
-                </button>
-              </Field>
             </div>
           ) : (
-            <div className="px-4 py-6 text-[12px] text-muted-foreground">No details available.</div>
+            <div className="px-4 py-6 text-xs text-muted-foreground">No details available.</div>
           )}
         </TabsContent>
 
@@ -211,6 +205,7 @@ export default function ActivityTabs({ objectiveId, activityElementId, users, de
             parent={{ type: 'objective', id: objectiveId }}
             currentUserId={userId}
             currentUserRole={userRole}
+            canReport={canReportRisk}
             onCountChange={setRisksCount}
           />
         </TabsContent>
@@ -228,7 +223,7 @@ export default function ActivityTabs({ objectiveId, activityElementId, users, de
 function Field({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
   return (
     <div>
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5 mb-1.5">
+      <p className="text-micro font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5 mb-1.5">
         {icon} {label}
       </p>
       {children}

@@ -32,9 +32,10 @@ export default function AlignsToParentBadge({
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="inline-flex items-center text-sm text-blue-800 bg-blue-50 px-3 py-1.5 rounded-md border border-blue-200 hover:bg-blue-100"
+        aria-expanded={open}
+        className="inline-flex items-center text-sm text-primary-800 bg-primary-50 px-3 py-1.5 rounded-md border border-primary-200 hover:bg-primary-100"
       >
-        <span className="mr-1.5 text-blue-600" aria-hidden>
+        <span className="mr-1.5 text-primary-600" aria-hidden>
           ↳
         </span>
         <LinkIcon className="h-4 w-4 mr-1 shrink-0" />
@@ -45,7 +46,7 @@ export default function AlignsToParentBadge({
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Parent goal</p>
           <Link
             href={`/dashboard/objectives/${parent.id}`}
-            className="mt-1 block text-sm font-semibold text-blue-700 hover:underline line-clamp-2"
+            className="mt-1 block text-sm font-semibold text-primary-700 hover:underline line-clamp-2"
           >
             {parent.title}
           </Link>
@@ -59,7 +60,7 @@ export default function AlignsToParentBadge({
           </div>
           <Link
             href={`/dashboard/objectives/${parent.id}`}
-            className="mt-3 block text-center text-xs text-blue-600 hover:underline"
+            className="mt-3 block text-center text-xs text-primary-600 hover:underline"
           >
             Open parent objective
           </Link>

@@ -193,9 +193,10 @@ test('todos: DEPARTMENT is scoped to the actor departments, not the whole org', 
     OR: [
       { assigneeId: 'u1' },
       { creatorId: 'u1' },
-      { objective: { departmentId: { in: ['d1'] }, isPrivate: false } },
-      { keyResult: { isPrivate: false, objective: { departmentId: { in: ['d1'] }, isPrivate: false } } },
-      { sprint: { departmentId: { in: ['d1'] } } },
+      { objective: { departmentId: { in: ['d1'] }, isPrivate: false }, sprintId: null },
+      { keyResult: { isPrivate: false, objective: { departmentId: { in: ['d1'] }, isPrivate: false } }, sprintId: null },
+      // Invite-only boards: sprint cards only through a board the actor may view.
+      { sprint: { OR: [{ ownerId: 'u1' }, { participants: { some: { userId: 'u1' } } }] } },
     ],
   })
 })
@@ -271,16 +272,13 @@ test('projects: only ADMIN/EXECUTIVE reach the unfiltered portfolio, and only at
   assert.notDeepEqual(projectScopeWhere(actor('EMPLOYEE'), 'ORG'), {})
 })
 
-test('sprints: mirrors canViewSprint — owner, participant, or department sprint', () => {
+test('sprints: mirrors canViewSprint — invite-only: owner or participant, never the department', () => {
   assert.deepEqual(sprintScopeWhere(actor('EMPLOYEE'), 'OWNER'), {
     OR: [{ ownerId: 'u1' }, { participants: { some: { userId: 'u1' } } }],
   })
+  // A DEPARTMENT_LEAD is not shown the department's sprints they were not invited to.
   assert.deepEqual(sprintScopeWhere(actor('DEPARTMENT_LEAD', ['d1']), 'DEPARTMENT'), {
-    OR: [
-      { ownerId: 'u1' },
-      { participants: { some: { userId: 'u1' } } },
-      { departmentId: { in: ['d1'] } },
-    ],
+    OR: [{ ownerId: 'u1' }, { participants: { some: { userId: 'u1' } } }],
   })
   assert.deepEqual(sprintScopeWhere(actor('ADMIN'), 'ORG'), {})
   assert.notDeepEqual(sprintScopeWhere(actor('DEPARTMENT_LEAD'), 'ORG'), {})

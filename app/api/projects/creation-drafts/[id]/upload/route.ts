@@ -2,18 +2,15 @@ import { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { apiBadRequest, apiConflict, apiForbidden, apiSuccess, apiValidationError, withAuth } from '@/lib/api'
 import { canCreateProject } from '@/lib/permissions'
+import { runAfterResponse } from '@/lib/background'
 import {
   ProjectCreationDraftNotFoundError,
   getProjectCreationDraft,
   toProjectCreationDraftResponse,
-  updateProjectCreationDraft,
 } from '@/lib/projects/creation-draft'
 import { projectCreationImportErrorResponse } from '@/lib/projects/creation-import-api'
 import {
-  inspectProjectCreationSpreadsheet,
   resolveProjectCreationImportLimits,
-  toPublicProjectCreationSpreadsheetInspection,
-  validateProjectCreationSpreadsheet,
   validateProjectCreationImportFile,
 } from '@/lib/projects/creation-import'
 import {
@@ -22,11 +19,11 @@ import {
   type SecureProjectCreationUploadResult,
 } from '@/lib/projects/creation-upload-security'
 import {
-  extractProjectCreationDocx,
-  projectCreationDocxExtractionToSchedule,
-  summarizeProjectCreationDocxExtraction,
-} from '@/lib/projects/docx-extract'
-import { createEmptyProjectCreationValidationJson } from '@/lib/projects/creation-normalize'
+  beginProjectCreationProcessing,
+  buildProjectCreationImportStatusView,
+  readProjectCreationProcessingState,
+  runProjectCreationUploadProcessing,
+} from '@/lib/projects/creation-processing'
 
 interface RouteParams {
   id: string
@@ -37,6 +34,11 @@ const uploadFieldsSchema = z.object({
   sheetName: z.string().trim().min(1).max(100).optional(),
 }).strict()
 
+/**
+ * Story 2.7: the request only validates, malware-scans, and privately stores the file,
+ * then marks the draft PROCESSING. Parsing/validation (spreadsheets) and extraction
+ * (DOCX) run after the response; the client polls GET for the status view.
+ */
 export const POST = withAuth<RouteParams>(async (request: NextRequest, { session, params }) => {
   if (!canCreateProject({
     role: session.user.role,
@@ -52,7 +54,7 @@ export const POST = withAuth<RouteParams>(async (request: NextRequest, { session
     sheetName: form.get('sheetName') || undefined,
   })
   if (!parsedFields.success) {
-    return apiValidationError('Invalid spreadsheet upload', parsedFields.error.flatten())
+    return apiValidationError('Invalid project file upload', parsedFields.error.flatten())
   }
   const file = form.get('file')
   if (!(file instanceof File)) return apiBadRequest('Choose a CSV, XLS, XLSX, or DOCX project file.')
@@ -77,67 +79,16 @@ export const POST = withAuth<RouteParams>(async (request: NextRequest, { session
       maxFileBytes: limits.maxFileBytes,
     })
     const bytes = new Uint8Array(await file.arrayBuffer())
+    // Scan-before-processing: nothing is parsed or extracted until the file is stored clean.
     retainedUpload = await secureProjectCreationUpload({
       draftId: draft.id,
       extension: validatedFile.extension,
       bytes,
     })
-    if (validatedFile.kind === 'DOCX') {
-      const extraction = await extractProjectCreationDocx(bytes)
-      const updated = await updateProjectCreationDraft({
-        id: params.id,
-        actorUserId: session.user.id,
-        expectedVersion: parsedFields.data.version,
-        scheduleJson: projectCreationDocxExtractionToSchedule(extraction),
-        validationJson: createEmptyProjectCreationValidationJson(),
-        sourceMetadata: {
-          fileName: validatedFile.safeFileName,
-          mimeType: retainedUpload.detectedMimeType,
-          size: file.size,
-          hash: retainedUpload.hash,
-          sourceRef: retainedUpload.sourceRef,
-          scanStatus: retainedUpload.scanStatus,
-          outcome: 'DOCX_EXTRACTED',
-          mappingMode: 'NONE',
-        },
-      })
-      const previousSourceRef = draft.sourceRef
-      const committedSourceRef = retainedUpload.sourceRef
-      retainedUpload = null
-      if (previousSourceRef && previousSourceRef !== committedSourceRef) {
-        await deleteSecureProjectCreationUpload(previousSourceRef).catch(() => undefined)
-      }
-      return apiSuccess({
-        stage: 'DOCX_EXTRACTED',
-        draft: toProjectCreationDraftResponse(updated),
-        inspection: null,
-        documentExtraction: summarizeProjectCreationDocxExtraction(extraction),
-        summary: { phases: 0, milestones: 0, activities: 0, dependencies: 0, deliverables: 0 },
-        aiUsed: false,
-        commitBlocked: false,
-      })
-    }
-    const inspection = inspectProjectCreationSpreadsheet(bytes, {
-      sheetName: parsedFields.data.sheetName,
-    })
-
-    const validated = !inspection.requiresSheetSelection && !inspection.requiresMapping
-      ? await validateProjectCreationSpreadsheet(inspection, undefined, { maxRows: limits.maxRows })
-      : null
-    const outcome = inspection.requiresSheetSelection
-      ? 'SHEET_SELECTION_REQUIRED'
-      : inspection.requiresMapping
-      ? 'MAPPING_REQUIRED'
-      : validated?.hasBlockingErrors
-      ? 'VALIDATION_FAILED'
-      : 'PARSED'
-    const updated = await updateProjectCreationDraft({
+    const { draft: processing } = await beginProjectCreationProcessing({
       id: params.id,
       actorUserId: session.user.id,
       expectedVersion: parsedFields.data.version,
-      scheduleJson: validated?.scheduleJson,
-      validationJson: validated?.validationJson,
-      clearMethodData: validated ? undefined : true,
       sourceMetadata: {
         fileName: validatedFile.safeFileName,
         mimeType: retainedUpload.detectedMimeType,
@@ -145,36 +96,55 @@ export const POST = withAuth<RouteParams>(async (request: NextRequest, { session
         hash: retainedUpload.hash,
         sourceRef: retainedUpload.sourceRef,
         scanStatus: retainedUpload.scanStatus,
-        outcome,
-        mappingMode: validated ? 'EXACT' : 'NONE',
       },
     })
     const previousSourceRef = draft.sourceRef
-    const committedSourceRef = retainedUpload.sourceRef
+    const committedUpload = retainedUpload
     retainedUpload = null
-    if (previousSourceRef && previousSourceRef !== committedSourceRef) {
+    if (previousSourceRef && previousSourceRef !== committedUpload.sourceRef) {
       await deleteSecureProjectCreationUpload(previousSourceRef).catch(() => undefined)
     }
 
+    runAfterResponse('project-creation-upload-processing', () => runProjectCreationUploadProcessing({
+      draftId: processing.id,
+      actorUserId: session.user.id,
+      jobVersion: processing.version,
+      sourceRef: committedUpload.sourceRef,
+      sourceHash: committedUpload.hash,
+      sheetName: parsedFields.data.sheetName ?? null,
+      maxRows: limits.maxRows,
+    }))
+
     return apiSuccess({
-      stage: inspection.requiresSheetSelection
-        ? 'SHEET_SELECTION'
-        : inspection.requiresMapping
-        ? 'MAPPING'
-        : validated?.hasBlockingErrors
-        ? 'VALIDATION_ERRORS'
-        : 'READY_FOR_REVIEW',
-      draft: toProjectCreationDraftResponse(updated),
-      inspection: toPublicProjectCreationSpreadsheetInspection(inspection),
-      documentExtraction: null,
-      summary: validated?.summary ?? null,
-      aiUsed: false,
-      commitBlocked: validated?.hasBlockingErrors ?? false,
-    })
+      ...buildProjectCreationImportStatusView(processing, null),
+      draft: toProjectCreationDraftResponse(processing),
+    }, { status: 202 })
   } catch (error) {
     if (retainedUpload) {
       await deleteSecureProjectCreationUpload(retainedUpload.sourceRef).catch(() => undefined)
     }
+    return projectCreationImportErrorResponse(error)
+  }
+})
+
+/** Polling endpoint: current processing stage, inspection/summary, or categorised failure. */
+export const GET = withAuth<RouteParams>(async (_request, { session, params }) => {
+  try {
+    const draft = await getProjectCreationDraft({
+      id: params.id,
+      actorUserId: session.user.id,
+      actorRole: session.user.role,
+    })
+    if (draft.ownerUserId !== session.user.id) throw new ProjectCreationDraftNotFoundError()
+    if (draft.sourceMethod !== 'FILE_IMPORT') {
+      return apiConflict('This draft is not using file import.', { reasonCode: 'INVALID_SOURCE_METHOD' })
+    }
+    const state = draft.status === 'PROCESSING' ? null : await readProjectCreationProcessingState(draft.sourceRef)
+    return apiSuccess({
+      ...buildProjectCreationImportStatusView(draft, state),
+      draft: toProjectCreationDraftResponse(draft),
+    })
+  } catch (error) {
     return projectCreationImportErrorResponse(error)
   }
 })

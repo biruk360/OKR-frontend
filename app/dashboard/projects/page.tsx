@@ -3,6 +3,7 @@ import { getServerSessionSafe } from '@/lib/auth'
 import { canCreateProject } from '@/lib/permissions'
 import { ProjectsListClient } from '@/features/projects'
 import { getAiProviderAdminSettings } from '@/lib/ai/admin-settings'
+import { canReadPortfolio } from '@/lib/projects/portfolio-access'
 
 export const metadata = { title: 'Projects' }
 
@@ -30,6 +31,7 @@ export default async function ProjectsPage({
       aiFeatureEnabled={aiSettings?.featureEnabled === true}
       aiAvailable={aiSettings?.available === true}
       currentUserId={session.user.id}
+      canViewPortfolio={canReadPortfolio(session.user.role)}
       initialDraftId={canCreate ? initialDraftId : null}
     />
   )

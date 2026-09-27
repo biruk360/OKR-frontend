@@ -41,8 +41,9 @@ export default function CreateCheckInButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className={`inline-flex items-center gap-1 px-2 py-1 text-sm text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50 rounded ${className}`}
+        className={`inline-flex items-center gap-1 px-2 py-1 text-sm text-success-700 hover:text-success-800 hover:bg-success-50 rounded ${className}`}
         title="Create check-in"
+        aria-label="Create check-in"
       >
         <ClipboardCheck className="h-4 w-4 shrink-0" />
         <span className="hidden sm:inline">Check-in</span>

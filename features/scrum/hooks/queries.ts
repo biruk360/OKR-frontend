@@ -13,6 +13,9 @@ export const scrumKeys = {
   settings: ['scrum', 'settings'] as const,
   linkable: (userId?: string, ownerOnly = true) => ['scrum', 'linkable', userId ?? 'me', ownerOnly ? 'owned' : 'all'] as const,
   proxySubjects: ['scrum', 'proxy-subjects'] as const,
+  update: (id?: string) => ['scrum', 'update', id ?? 'none'] as const,
+  comments: (id: string) => ['scrum', 'comments', id] as const,
+  savedViews: ['scrum', 'saved-views'] as const,
 }
 
 export function useScrumPrefill(userId?: string, date?: string) {
@@ -24,7 +27,12 @@ export function useScrumCalendar(params: Record<string, string | boolean | undef
 }
 
 export function useScrumAnalytics(params: Record<string, string | undefined>) {
-  return useQuery({ queryKey: scrumKeys.analytics(params), queryFn: () => scrumApi.analytics(params) })
+  return useQuery({
+    queryKey: scrumKeys.analytics(params),
+    queryFn: () => scrumApi.analytics(params),
+    // 403 = not a manager; retrying will not change that.
+    retry: (failureCount, error) => (error as { status?: number })?.status !== 403 && failureCount < 3,
+  })
 }
 
 export function useScrumSettings() {
@@ -50,6 +58,115 @@ export function useSaveScrumUpdate() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: scrumKeys.all })
       toast.success('Daily scrum saved')
+    },
+    onError: (err: Error) => toast.error(err.message),
+  })
+}
+
+/**
+ * Save the form as a server-side draft. Deliberately does not invalidate the
+ * prefill/calendar queries: a draft changes no team data, and refetching the
+ * prefill would reset the form the user is still typing in.
+ */
+export function useSaveScrumDraft() {
+  return useMutation({ mutationFn: scrumApi.saveDraft })
+}
+
+export function useDiscardScrumDraft() {
+  return useMutation({
+    mutationFn: scrumApi.discardDraft,
+    onError: (err: Error) => toast.error(err.message),
+  })
+}
+
+export function useScrumUpdate(id?: string) {
+  return useQuery({
+    queryKey: scrumKeys.update(id),
+    queryFn: () => scrumApi.getUpdate(id!),
+    enabled: !!id,
+    retry: false,
+  })
+}
+
+export function useScrumComments(updateId: string, enabled = true) {
+  return useQuery({ queryKey: scrumKeys.comments(updateId), queryFn: () => scrumApi.comments(updateId), enabled })
+}
+
+export function useAddScrumComment(updateId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: { body: string; mentions?: string[] }) => scrumApi.comment(updateId, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: scrumKeys.comments(updateId) })
+      qc.invalidateQueries({ queryKey: ['scrum', 'calendar'] })
+      toast.success('Comment added')
+    },
+    onError: (err: Error) => toast.error(err.message),
+  })
+}
+
+export function useCelebrateScrumWin() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (updateId: string) => scrumApi.celebrate(updateId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['scrum', 'calendar'] })
+      qc.invalidateQueries({ queryKey: scrumKeys.wins })
+      toast.success('Win celebrated')
+    },
+    onError: (err: Error) => toast.error(err.message),
+  })
+}
+
+export function useScrumBlockerAction() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ updateId, ...body }: { updateId: string; action: 'resolve' | 'escalate'; resolutionNote?: string; escalatedToUserId?: string | null }) =>
+      scrumApi.blockerAction(updateId, body),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: scrumKeys.all })
+      toast.success(vars.action === 'resolve' ? 'Blocker resolved' : 'Blocker escalated')
+    },
+    onError: (err: Error) => toast.error(err.message),
+  })
+}
+
+export function useRecordScrumAbsence() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: scrumApi.absences,
+    onSuccess: (rows: unknown) => {
+      qc.invalidateQueries({ queryKey: scrumKeys.all })
+      const count = Array.isArray(rows) ? rows.length : 0
+      toast.success(count === 1 ? 'Absence recorded' : `Absence recorded for ${count} working days`)
+    },
+    onError: (err: Error) => toast.error(err.message),
+  })
+}
+
+export function useScrumSavedViews() {
+  return useQuery({ queryKey: scrumKeys.savedViews, queryFn: scrumApi.savedViews })
+}
+
+export function useCreateScrumSavedView() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: scrumApi.createSavedView,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: scrumKeys.savedViews })
+      toast.success('View saved')
+    },
+    onError: (err: Error) => toast.error(err.message),
+  })
+}
+
+export function useDeleteScrumSavedView() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: scrumApi.deleteSavedView,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: scrumKeys.savedViews })
+      toast.success('View deleted')
     },
     onError: (err: Error) => toast.error(err.message),
   })

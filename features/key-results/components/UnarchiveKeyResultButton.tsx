@@ -57,12 +57,13 @@ export default function UnarchiveKeyResultButton({
   return (
     <button
       onClick={handleUnarchive}
-      className={`inline-flex items-center px-2 py-1 text-sm text-green-600 hover:text-green-700 hover:bg-green-50 rounded ${className}`}
+      className={`inline-flex items-center px-2 py-1 text-sm text-success-700 hover:text-success-800 hover:bg-success-50 rounded ${className}`}
       title="Restore key result"
+      aria-label="Restore key result"
       disabled={isLoading}
     >
       {isLoading ? (
-        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
+        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-success-700"></div>
       ) : (
         <RotateCcw className="h-4 w-4" />
       )}

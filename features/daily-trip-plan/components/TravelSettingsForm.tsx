@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useId, cloneElement, isValidElement } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
+import { Skeleton, SkeletonRow } from '@/components/ui/Skeleton'
 import { useDtpSettings, useUpdateSettings } from '../hooks/queries'
 import type { DtpSettings } from '../types'
 
@@ -22,7 +23,7 @@ export function TravelSettingsForm() {
 
   useEffect(() => { if (data?.settings) setForm(data.settings) }, [data?.settings])
 
-  if (isLoading) return <div className="p-6 text-sm text-muted-foreground">Loading…</div>
+  if (isLoading) return <div className="space-y-3 p-6" aria-busy="true" aria-label="Loading"><Skeleton className="h-6 w-48" />{Array.from({ length: 4 }).map((_, i) => <SkeletonRow key={i} />)}</div>
   if (!data) return <div className="p-6 text-sm text-danger-700">Failed to load.</div>
 
   function set<K extends keyof DtpSettings>(k: K, v: DtpSettings[K]) {
@@ -136,10 +137,11 @@ export function TravelSettingsForm() {
         <div className="flex flex-wrap gap-4">
           <Label className="flex items-center gap-2"><Checkbox checked={!!form.notifyInApp} onCheckedChange={(v) => set('notifyInApp', !!v)} />In-app</Label>
           <Label className="flex items-center gap-2"><Checkbox checked={!!form.notifyEmail} onCheckedChange={(v) => set('notifyEmail', !!v)} />Email</Label>
-          <Label className="flex items-center gap-2"><Checkbox checked={!!form.notifySms} onCheckedChange={(v) => set('notifySms', !!v)} />SMS (TODO)</Label>
-          <Label className="flex items-center gap-2"><Checkbox checked={!!form.notifyTelegram} onCheckedChange={(v) => set('notifyTelegram', !!v)} />Telegram (TODO)</Label>
+          {/* SMS and Telegram delivery are not wired for trip plans yet, so their
+              toggles are hidden. They are left out of the save below, so any
+              stored notifySms / notifyTelegram value is kept as-is. */}
         </div>
-        <SaveBar onSave={() => saveSection(['notifyInApp', 'notifyEmail', 'notifySms', 'notifyTelegram'])} busy={update.isPending} />
+        <SaveBar onSave={() => saveSection(['notifyInApp', 'notifyEmail'])} busy={update.isPending} />
       </Section>
     </div>
   )
@@ -154,13 +156,24 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  const uid = useId()
   return (
     <div>
-      <Label className="text-xs">{label}</Label>
-      <div className="mt-1">{children}</div>
+      <Label id={`${uid}-label`} htmlFor={isValidElement(children) ? `${uid}-control` : undefined} className="text-xs">{label}</Label>
+      <div className="mt-1">{withFieldIds(children, `${uid}-control`, `${uid}-label`)}</div>
     </div>
   )
 }
+/** Give a Field's single control the label's id so the <Label> is programmatically linked. */
+function withFieldIds(children: React.ReactNode, controlId: string, labelId: string) {
+  if (!isValidElement(children)) return children
+  const props = children.props as { id?: string; 'aria-labelledby'?: string }
+  return cloneElement(children as React.ReactElement<Record<string, unknown>>, {
+    id: props.id ?? controlId,
+    'aria-labelledby': props['aria-labelledby'] ?? labelId,
+  })
+}
+
 function SaveBar({ onSave, busy }: { onSave: () => void; busy?: boolean }) {
   return (
     <div className="pt-1">

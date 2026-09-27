@@ -8,15 +8,19 @@
 |-------|-----------|-------------|
 | `/` | `app/page.tsx` | Root redirect |
 | `/auth/signin` | `app/auth/signin/page.tsx` | Sign-in page — thin route over `SignInScreen` (`features/auth`); rotating photo backdrop |
-| `/auth/signup` | `app/auth/signup/page.tsx` | Sign-up page |
+| `/auth/signup` | `app/auth/signup/page.tsx` | Sign-up (`SignUpForm`, centred card). Creates an **inactive EMPLOYEE** account; an admin must activate it (2026-09-25). No role picker |
+| `/auth/forgot-password` | `app/auth/forgot-password/page.tsx` | Request a reset link (`ForgotPasswordForm`); same answer whether or not the email exists |
+| `/auth/reset-password` | `app/auth/reset-password/page.tsx` | Set a new password from an emailed token (`ResetPasswordForm`) |
+| `/projects/snapshots/[snapshotId]` | `app/projects/snapshots/[snapshotId]/page.tsx` | Public read-only project snapshot (APPROVED `PUBLIC_SNAPSHOT` reports only) |
 
 ## Client Portal Routes
 
 | Route | Page File | Description |
 |-------|-----------|-------------|
-| `/portal` | `app/portal/page.tsx` | Client portal project list / internal preview entry |
-| `/portal/signin` | `app/portal/signin/page.tsx` | Separate client portal sign-in |
-| `/portal/projects/[id]` | `app/portal/projects/[id]/page.tsx` | Client project dashboard with anonymized schedule, actions, comments, and reports |
+| `/portal` | `app/portal/page.tsx` | Client portal project list / internal preview entry; project switcher + sign-out (`PortalProjectSwitcher`, `PortalSignOutButton`) |
+| `/portal/signin` | `app/portal/signin/page.tsx` | Separate client portal sign-in; `callbackUrl` restricted to `/portal` paths (`lib/portal-callback-url.ts`) |
+| `/portal/accept-invite` | `app/portal/accept-invite/page.tsx` | **New 2026-09-25.** Portal invitee sets a password from a single-use invite token (validated by `/api/portal/invite`) |
+| `/portal/projects/[id]` | `app/portal/projects/[id]/page.tsx` | Client project dashboard with anonymized schedule, actions, comments (employee names redacted), client-visible attachments and reports. Tabs added 2026-09-25: **Planned vs Actual** (`PlannedVsActualTab`, baseline vs current + slip, G4) and **Change Requests** (`ChangeRequestsTab`, only CRs the PM marked `CLIENT_VISIBLE`, no names/cost, C4). Loader: `features/projects/services/portal-pages.server.ts` |
 
 ## Dashboard Routes (Authenticated)
 
@@ -42,47 +46,71 @@
 ### Dashboard Home
 | Route | Page File | Feature | Description |
 |-------|-----------|---------|-------------|
-| `/dashboard` | `app/dashboard/page.tsx` | dashboard | Main dashboard overview |
+| `/dashboard` | `app/dashboard/page.tsx` | dashboard | Main dashboard overview. Check-in button / `?checkin=1` opens the check-in picker; team feed (30 days / 80 rows) is scoped to own department + direct reports, sprint-visibility filtered, private OKRs redacted |
+
+> Every dashboard area listed below now has `loading.tsx` (skeleton) and `error.tsx` (retryable boundary) files — added 2026-09-25 (Wave 3).
 
 ### My Work
 | Route | Page File | Feature | Description |
 |-------|-----------|---------|-------------|
-| `/dashboard/goals` | `app/dashboard/goals/page.tsx` | goals | Goals listing (table, feed, team views) |
-| `/dashboard/my-okrs` | `app/dashboard/my-okrs/page.tsx` | dashboard | User's own OKRs |
-| `/dashboard/my-tasks` | `app/dashboard/my-tasks/page.tsx` | todos | User's assigned tasks |
-| `/dashboard/todos` | `app/dashboard/todos/page.tsx` | todos | All to-dos / initiatives |
-| `/dashboard/scrum` | `app/dashboard/scrum/page.tsx` | scrum | Daily Scrum foundation page; submission loop and team wall pending |
-| `/dashboard/sprints` | `app/dashboard/sprints/page.tsx` | sprints | Sprint list |
-| `/dashboard/sprints/[id]` | `app/dashboard/sprints/[id]/page.tsx` | sprints | Sprint board detail (kanban). Header has "Generate AI tasks" entry that opens a modal scoped to one team member; proposed todos land in the PENDING column after approval. |
+| `/dashboard/my-okrs` | `app/dashboard/my-okrs/page.tsx` | dashboard | The viewer's own and contributed objectives with the "Needs a check-in" queue on top (`CheckInQueue`, `loadCheckInQueue`). Everyone else's OKRs → OKR Explorer. `/dashboard/goals` redirects to `/dashboard/okrs-all?level=mine` (2026-09-25) |
+| `/dashboard/my-tasks` | `app/dashboard/my-tasks/page.tsx` | todos | **Redirect only** (2026-09-25) → `/dashboard/todos?scope=assigned`; kept for old links |
+| `/dashboard/todos` | `app/dashboard/todos/page.tsx` | todos | All to-dos / initiatives; `?scope=assigned` preselects "Assigned to me" |
+| `/dashboard/work` | `app/dashboard/work/page.tsx` | todos | Work Board (visibility surface `work`; portal sessions 404) |
+| `/dashboard/scrum` | `app/dashboard/scrum/page.tsx` | scrum | Daily Scrum: submit/update, month wall, week + day views, deep links `?date=`/`?update=`/`?view=`, saved views, blockers, celebrate, absences |
+| `/dashboard/scrum/wins` | `app/dashboard/scrum/wins/page.tsx` | scrum | Wins feed with Celebrate |
+| `/dashboard/scrum/settings` | `app/dashboard/scrum/settings/page.tsx` | scrum | Scrum settings; redirects to `/dashboard/scrum` without `canReadScrumSettings` |
+| `/dashboard/sprints` | `app/dashboard/sprints/page.tsx` | sprints | Sprint list (invite-only visibility) |
+| `/dashboard/sprints/[id]` | `app/dashboard/sprints/[id]/page.tsx` | sprints | Sprint board detail (kanban). Header (`SprintBoardHeader`): Members, filter facets — people, labels (incl. "no label"), due (overdue/today/this week/none), watching, linked — persisted per sprint; "Generate AI tasks". Board refreshes live on the private `private-sprint-<id>` Pusher channel when configured (2026-09-25 G1) |
+| `/dashboard/sprints/[id]/report` | `app/dashboard/sprints/[id]/report/page.tsx` | sprints | Sprint report (`canViewSprint`) |
 | `/dashboard/sprints/ai/[planId]` | `app/dashboard/sprints/ai/[planId]/page.tsx` | sprints-ai | AI sprint plan review + approve. Shows subject user, KR relationships per task, accept/discard/regenerate. |
 
 ### OKRs
+
+> **OKR page consolidation (2026-09-25, G6 — approved IA).** One browse page (OKR Explorer), one reporting page
+> (Insights), plus My OKRs under *My Work*. Sidebar group *OKRs*: OKR Explorer, Key Results, Insights
+> (`lib/dashboard-navigation.ts`). Query params are parsed by `lib/okr/explorer-params.ts`; tabs render with
+> `components/shared/LinkTabs.tsx`.
+
 | Route | Page File | Feature | Description |
 |-------|-----------|---------|-------------|
-| `/dashboard/plans` | `app/dashboard/plans/page.tsx` | plans | Planning page |
-| `/dashboard/company-okrs` | `app/dashboard/company-okrs/page.tsx` | objectives | Company-level OKRs (DUPLICATE of department-okrs) |
-| `/dashboard/department-okrs` | `app/dashboard/department-okrs/page.tsx` | objectives | Department-level OKRs (DUPLICATE of company-okrs) |
-| `/dashboard/alignment-map` | `app/dashboard/alignment-map/page.tsx` | objectives | OKR alignment / strategy map |
-| `/dashboard/filters` | `app/dashboard/filters/page.tsx` | filters | Filters Workspace — three-tab analytical surface (Objectives / Key Results / Initiatives) with segments, filter bar, KPI tiles, histogram, grouped results |
-| `/dashboard/objectives` | `app/dashboard/objectives/page.tsx` | objectives | All objectives list |
-| `/dashboard/objectives/[id]` | `app/dashboard/objectives/[id]/page.tsx` | objectives | Objective detail view |
-| `/dashboard/key-results/[id]` | `app/dashboard/key-results/[id]/page.tsx` | key-results | Key result detail view |
+| `/dashboard/okrs-all` | `app/dashboard/okrs-all/page.tsx` | objectives | **OKR Explorer.** `?view=` `list` (default — `OkrsAllClient`: KPIs, filters, bulk archive/restore, role-aware Create menu via `ExplorerCreateHandoff`) · `tree` (`components/hierarchy/OkrHierarchyTable`) · `timeline` (`ExplorerTimelineView` → `PlansGantt`, `/api/gantt`) · `map` (`ExplorerMapView` — strategy map + org/combined modes, `?timeframeId=`, `?mode=`) · `analyze` (`FiltersWorkspace`). `?level=` `all` · `company` · `department` · `mine` · `team` (List and Tree only; narrows the shared visibility scope) |
+| `/dashboard/key-results` | `app/dashboard/key-results/page.tsx` | filters | Key-results index: thin route over `FiltersWorkspace`, defaults to `?tab=key-results&segment=kr-owned` |
+| `/dashboard/insights` | `app/dashboard/insights/page.tsx` | reports | **Insights.** `?tab=` `overview` (default, `AppleAnalytics`) · `progress` (`&view=dashboard` default \| `tracking`; `ProgressDashboardPanel` / `ProgressTrackingPanel`, print button) · `reports` (`ReportDashboardClient`) · `initiatives` (`InitiativeReportClient`) · `period-close` (`PeriodClosePicker`). Only the active tab's data loads (`lib/okr/insights-data.ts`), each with its previous scoping |
+| `/dashboard/objectives/[id]` | `app/dashboard/objectives/[id]/page.tsx` | objectives | Objective detail (404 unless `canViewObjective`). Comment thread (`OkrComments`) and live refresh on `private-objective-<id>` (`ObjectiveRealtimeRefresher`, H3). Loader: `features/objectives/services/objective-detail.server.ts` |
+| `/dashboard/key-results/[id]` | `app/dashboard/key-results/[id]/page.tsx` | key-results | Key result detail. Loader: `features/key-results/services/key-result-detail.server.ts` |
 | `/dashboard/okrs-all/period-report/[timeframeId]` | `app/dashboard/okrs-all/period-report/[timeframeId]/page.tsx` | reports | Department/org-scoped end-of-period close report, close queue, and PDF export |
 
-### Tracking & Analytics
-| Route | Page File | Feature | Description |
-|-------|-----------|---------|-------------|
-| `/dashboard/progress` | `app/dashboard/progress/page.tsx` | reports | Progress tracking |
-| `/dashboard/reports` | `app/dashboard/reports/page.tsx` | reports | Reports & analytics |
-| `/dashboard/initiative-report` | `app/dashboard/initiative-report/page.tsx` | reports | Daily initiative updates report |
-| `/dashboard/analytics` | `app/dashboard/analytics/page.tsx` | reports | Analytics dashboard |
+### Retired routes (permanent redirects, 2026-09-25)
+
+Defined once in `lib/retired-routes.js` and applied by `next.config.js` `redirects()` (308; the request's query
+string is carried over). `lib/okr/route-consolidation.test.ts` checks every source redirects, every destination
+is a real page, and no source file still links to a retired route. The page files were deleted.
+
+| Retired route | Redirects to |
+|---------------|--------------|
+| `/dashboard/objectives` | `/dashboard/okrs-all?level=all` |
+| `/dashboard/company-okrs` | `/dashboard/okrs-all?level=company` |
+| `/dashboard/department-okrs` | `/dashboard/okrs-all?level=department` |
+| `/dashboard/goals` | `/dashboard/okrs-all?level=mine` |
+| `/dashboard/plans` | `/dashboard/okrs-all?view=timeline` |
+| `/dashboard/timeline` | `/dashboard/okrs-all?view=timeline` |
+| `/dashboard/okr-hierarchy` | `/dashboard/okrs-all?view=tree` |
+| `/dashboard/alignment-map` | `/dashboard/okrs-all?view=map` |
+| `/dashboard/filters` | `/dashboard/okrs-all?view=analyze` |
+| `/dashboard/analytics` | `/dashboard/insights?tab=overview` |
+| `/dashboard/progress-report` | `/dashboard/insights?tab=progress` |
+| `/dashboard/progress` | `/dashboard/insights?tab=progress&view=tracking` |
+| `/dashboard/reports` | `/dashboard/insights?tab=reports` |
+| `/dashboard/initiative-report` | `/dashboard/insights?tab=initiatives` |
 
 ### Project Management
 | Route | Page File | Feature | Description |
 |-------|-----------|---------|-------------|
+| `/projects/[id]` | `app/projects/[id]/page.tsx` | projects | Full-screen project workspace (`ProjectWorkspaceClient`); `/dashboard/projects/[id]` redirects here. The unused `ProjectDetailClient` was deleted 2026-09-25 |
 | `/dashboard/projects` | `app/dashboard/projects/page.tsx` | projects | Project list plus authorized Manual/Import/AI creation; Manual uses compact responsive steps and type-linked schedule selection; `?creationDraft=<id>` resumes a saved draft |
-| `/dashboard/projects/[id]` | `app/dashboard/projects/[id]/page.tsx` | projects | Project detail workspace with Gantt, registers, Delay Ledger, portal/Jira settings, scrum log, charts, and confirmed soft archive under Project settings |
-| `/dashboard/projects/portfolio` | `app/dashboard/projects/portfolio/page.tsx` | projects | Project portfolio view |
+| `/dashboard/projects/[id]` | `app/dashboard/projects/[id]/page.tsx` | projects | Redirect → `/projects/[id]` (the full-screen workspace with Gantt, registers, Delay Ledger, portal access/Jira settings, scrum log, charts, and confirmed soft archive under Project settings) |
+| `/dashboard/projects/portfolio` | `app/dashboard/projects/portfolio/page.tsx` | projects | Project portfolio view; `canReadPortfolio` (`lib/projects/portfolio-access.ts`), others redirected to `/dashboard/projects` |
 | `/dashboard/projects/templates` | `app/dashboard/projects/templates/page.tsx` | projects | Search/filter reusable schedules by project type; create, clone, edit, or delete custom templates |
 | `/dashboard/projects/templates/new` | `app/dashboard/projects/templates/new/page.tsx` | projects | Create a project-type-linked reusable schedule |
 | `/dashboard/projects/templates/[id]` | `app/dashboard/projects/templates/[id]/page.tsx` | projects | View system schedules or edit a custom template and its project-type association |
@@ -112,7 +140,9 @@
 | Route | Page File | Feature | Description |
 |-------|-----------|---------|-------------|
 | `/dashboard/letters` | `app/dashboard/letters/page.tsx` | letters | Letters list (filters, search, status tabs) |
-| `/dashboard/letters/[id]` | `app/dashboard/letters/[id]/page.tsx` | letters | Letter form: details, body, enclosures, PDF preview, activity log + workflow transitions |
+| `/dashboard/letters/[id]` | `app/dashboard/letters/[id]/page.tsx` | letters | Letter form: details, body, enclosures (real file upload), PDF preview (sandboxed iframe), activity log + workflow transitions |
+| `/dashboard/letters/reports` | `app/dashboard/letters/reports/page.tsx` | letters | **New 2026-09-25 (FR-16).** `LetterReportsClient` (recharts) — letters by status, type, month and customer, plus preparers and signatories; scoped server-side by `GET /api/letters/reports` to the letters the viewer may read |
+| `/dashboard/letters/templates` | `app/dashboard/letters/templates/page.tsx` | letters | **New 2026-09-25.** `LetterTemplatesClient` — letter body template management; letter-admin only (`button.letter.admin`, ADMIN), others redirected to `/dashboard/letters` |
 
 ### People & Organization
 | Route | Page File | Feature | Description |
@@ -135,7 +165,12 @@
 | `/dashboard/settings/profile` | `app/dashboard/settings/profile/page.tsx` | settings | Profile settings |
 | `/dashboard/settings/account` | `app/dashboard/settings/account/page.tsx` | settings | Account settings |
 | `/dashboard/settings/notifications` | `app/dashboard/settings/notifications/page.tsx` | settings | Notification preferences |
-| `/dashboard/settings/users` | `app/dashboard/settings/users/page.tsx` | settings | User management (ADMIN) |
+| `/dashboard/settings/users` | `app/dashboard/settings/users/page.tsx` | settings | User management (ADMIN). Only ADMIN creates/deletes users; delete anonymises (2026-09-25) |
+| `/dashboard/settings/users/[id]` | `app/dashboard/settings/users/[id]/page.tsx` | settings | User detail (`UserDetail`) |
+| `/dashboard/settings/permissions` | `app/dashboard/settings/permissions/page.tsx` | settings | Permission manager (roles incl. create/delete UI, doctypes, fields, scopes, features) |
+| `/dashboard/settings/notification-defaults` | `app/dashboard/settings/notification-defaults/page.tsx` | settings | Org notification defaults (ADMIN); 15 categories, BATCHED cadence option |
+| `/dashboard/admin/ai-logs` | `app/dashboard/admin/ai-logs/page.tsx` | admin | AI generation logs (`canManageOrg`) |
+| `/dashboard/admin/org` | `app/dashboard/admin/org/page.tsx` | admin | Org administration workspace (`canManageOrg`) |
 | `/dashboard/settings/teams` | `app/dashboard/settings/teams/page.tsx` | settings | Team management (ADMIN) |
 | `/dashboard/settings/timeframes` | `app/dashboard/settings/timeframes/page.tsx` | settings | Timeframe management |
 | `/dashboard/settings/okr-rules` | `app/dashboard/settings/okr-rules/page.tsx` | settings | OKR rules config |
@@ -150,6 +185,11 @@
 | Method | Route | Description |
 |--------|-------|-------------|
 | GET | `/api/wallpaper` | **Unauthenticated.** Backdrop photos for the sign-in screen (Bing image-of-the-day, memoised 6 h; falls back to built-in CSS scenes) |
+| GET/POST | `/api/auth/[...nextauth]` | NextAuth credentials (`verifyCredentials`: rate-limited, passwordless/inactive/unknown all return the same `invalid`; JWT carries `authTime`) |
+| POST | `/api/auth/login` | Bearer login for API clients — same `verifyCredentials`; 429 + `Retry-After` when rate-limited |
+| POST | `/api/auth/register` | **Public.** Always creates an inactive EMPLOYEE (body `role` ignored); identical 201 for new and existing emails; rate-limited per IP; admins notified after the response |
+| POST | `/api/auth/forgot-password` | **Public.** Constant-time answer; lookup + hashed token + email run after the response; rate-limited per IP and email |
+| POST | `/api/auth/reset-password` | **Public.** Consume a hashed reset token; sets `User.passwordChangedAt` (older sessions are rejected) |
 
 ### Objectives
 | Method | Route | Description |
@@ -182,7 +222,10 @@
 | Method | Route | Description |
 |--------|-------|-------------|
 | GET/POST | `/api/todos` | List / Create |
-| GET/PUT/DELETE | `/api/todos/[id]` | Read / Update / Delete |
+| GET/PUT/DELETE | `/api/todos/[id]` | Read / Update / Delete (GET 404s without `canReadTodo`) |
+| GET/POST | `/api/todos/[id]/comments` | Card comments. Attachments are `CommentAttachment` rows (`commentType: 'TODO'`, 2026-09-25 G2); legacy `attachmentIds` JSON still rendered, rows win |
+| POST/GET | `/api/comment-attachments` | Stage/list comment attachments for `commentType` `TODO` (read/write → `canReadTodo`/`canWriteTodo`), `OKR`, `ACTIVITY` (project activity, internal only) and `SCRUM` (2026-09-25 H2) — `lib/attachments/access.ts` |
+| GET/DELETE | `/api/comment-attachments/[id]` | Stream / remove one comment attachment |
 | GET/POST | `/api/initiatives/[id]/updates` | Daily initiative updates |
 
 ### Sprints
@@ -209,8 +252,8 @@
 ### Organization
 | Method | Route | Description |
 |--------|-------|-------------|
-| GET/POST | `/api/users` | List / Create |
-| GET/PUT/DELETE | `/api/users/[id]` | Read / Update / Delete |
+| GET/POST | `/api/users` | List / Create (**create is ADMIN-only**, 2026-09-25) |
+| GET/PATCH/DELETE | `/api/users/[id]` | Read / Update / Delete. **DELETE is ADMIN-only and anonymises**: name → "<job title> (deleted account)", records kept (`lib/users/deleted-account.ts`); last active ADMIN protected |
 | GET | `/api/users/for-selection` | Users for dropdowns |
 | GET | `/api/users/me/direct-reports` | Manager's direct reports |
 | GET | `/api/users/me/departments` | User's departments |
@@ -229,7 +272,7 @@
 | GET/PUT | `/api/user-preferences` | User view preferences |
 | GET/PUT | `/api/settings/okr-rules` | OKR rules config |
 | GET/PUT | `/api/settings/branding` | Branding config |
-| GET/PUT | `/api/settings/integrations` | Integrations config |
+| GET/POST | `/api/settings/integrations` | Integrations config — **ADMIN-only** (EXECUTIVE removed 2026-09-25); secrets returned masked (`••••••••` + last 4), a still-masked value on save leaves the secret unchanged |
 | GET/PUT/DELETE | `/api/settings/integrations/ai` | Administrator-only masked OpenAI project-creation credential, model, caps, and independently audited feature-flag administration |
 | POST | `/api/settings/integrations/ai/test` | Administrator-only live OpenAI credential test with safe distinct outcomes |
 | GET/PUT | `/api/settings/letter-permissions/roles` | Letter role × permission matrix (ADMIN) |
@@ -286,12 +329,22 @@
 | Method | Route | Description |
 |--------|-------|-------------|
 | GET/PATCH/DELETE | `/api/projects/[id]` | Read/update a scoped project or atomically soft-archive it with a required `ARCHIVED` audit; archived projects leave the active directory while records remain retained |
-| POST | `/api/projects/creation-drafts` | Create an authorized, creator-owned manual/import/AI draft with version-1 normalized project metadata |
-| GET/PATCH/DELETE | `/api/projects/creation-drafts/[id]` | Load, strict-schema/version-save editable seven-panel review data, or discard a private creation draft and its retained source; Administrators may inspect but only the creator may mutate |
+| POST | `/api/projects/creation-drafts` | Create an authorized, creator-owned manual/import/AI draft with version-1 normalized project metadata; AI methods are refused while the project-creation AI flag is off |
+| GET/PATCH/DELETE | `/api/projects/creation-drafts/[id]` | (2026-09-25: a PATCH that adds, removes or changes a provenance source record is rejected with **422** — `lib/projects/creation-provenance.ts`.) Load, strict-schema/version-save editable seven-panel review data, or discard a private creation draft and its retained source; Administrators may inspect but only the creator may mutate |
 | POST | `/api/projects/creation-drafts/[id]/commit` | Owner-only, versioned, commit-time-reauthorized atomic and idempotent conversion of a ready normalized draft into one Planning/unbaselined project and full schedule, with required audits and no external notification |
 | POST | `/api/projects/creation-drafts/[id]/upload` | Owner-only CSV/XLS/XLSX/DOCX safety scan and private generated-name retention; spreadsheets continue through deterministic inspection/validation, while DOCX preserves ordered heading/paragraph/table source references under untrusted-data framing. Unsafe, encrypted, macro-enabled, suspicious archives, malware, and unavailable scanning fail closed before parsing/extraction |
 | POST | `/api/projects/creation-drafts/[id]/analyze` | Owner-only re-scan and approval of an edited deterministic mapping; revalidates the same hashed source, active assignees, schedule, and dependency graph, then replaces the private retained source and saves normalized data/report plus safe audit metadata |
 | POST | `/api/projects/creation-drafts/[id]/mapping-proposal` | Owner-only, versioned, rate-limited optional OpenAI column proposal over the integrity-checked retained spreadsheet; returns strict editable original/proposed/reason/confidence evidence without updating the draft or applying values |
+| GET | `/api/projects/creation-drafts/[id]/upload` | **New 2026-09-25 (Story 2.7).** Processing status of the retained upload; the UI polls it while the draft is PROCESSING. The POST now answers **202** and processes in the background (`lib/projects/creation-processing.ts`); DOCX sources are turned into a draft schedule deterministically (`lib/projects/creation-docx-schedule.ts`) |
+| POST | `/api/projects/creation-drafts/[id]/upload/retry` | **New (2.7).** Reprocess the retained, already-scanned file (no re-upload); idempotent, restarts stale jobs |
+| POST | `/api/projects/creation-drafts/[id]/assumptions/bulk-decision` | **New.** Accept or reject every pending assumption in one phase or all remaining; atomic, version-checked, audited once |
+| PUT | `/api/projects/creation-drafts/[id]/ai-guided/brief` | **New (P3, G5).** Save the AI-guided brief |
+| POST | `/api/projects/creation-drafts/[id]/ai-guided/clarify` | **New.** OpenAI clarifying questions for the brief |
+| POST | `/api/projects/creation-drafts/[id]/ai-guided/answers` | **New.** Save answers to the clarifying questions |
+| POST | `/api/projects/creation-drafts/[id]/ai-guided/generate` | **New.** Generate the draft plan (strict `json_schema`, one repair round); audit `AI_PLAN_GENERATED` |
+| POST | `/api/projects/creation-drafts/[id]/ai-guided/revise` | **New.** Constrained revision: preview (no write) or apply from the signed preview token; audit `AI_PLAN_REVISED` |
+| POST | `/api/projects/creation-drafts/[id]/ai-guided/undo` | **New.** Undo the last applied revision; audit `AI_PLAN_REVISION_UNDONE` |
+| POST | `/api/projects/creation-drafts/[id]/ai-guided/tor-upload` | **New (C5).** DOCX TOR upload through the import security path (ClamAV fail-closed); returns extracted text, no AI call |
 | GET | `/api/projects/creation-templates?format=csv\|xlsx` | Authorized project-less schedule template download; shared generator also serves the existing project-scoped template endpoint |
 | GET/POST | `/api/projects/templates` | List reusable schedules with type/count metadata or create a custom project-type-linked template |
 | GET/PATCH/DELETE | `/api/projects/templates/[id]` | Read a full template, update a custom template/type link, or delete a custom template; system templates are immutable |
@@ -316,6 +369,20 @@
 | POST | `/api/projects/[id]/ai-assistant` | Constrained AI assistant: generate capped, data-grounded executive summary, risk detection, delay pattern, or estimate suggestion |
 | POST | `/api/cron/client-report` | Bi-weekly R2 draft generation for active projects |
 | POST | `/api/cron/wbr-pack` | Weekly WBR pack generation for CEO and PMs |
+| GET/POST | `/api/cron/project-creation-draft-purge` | **New 2026-09-25.** Nightly purge of expired project-creation drafts and their private retained sources (`lib/projects/creation-draft-purge.ts`) |
+| GET/POST | `/api/projects/[id]/portal-users` | **New 2026-09-25.** List / grant client-portal accounts for a project (project write access); invite link (7-day, single-use) or set password; audited |
+| PATCH/DELETE | `/api/projects/[id]/portal-users/[portalUserId]` | **New.** PATCH `{action:'RESEND_INVITE'}` or `{action:'SET_PASSWORD'}` (ends the account's portal sessions); DELETE revokes this project (account deactivated when it has none left); audited |
+
+### Client Portal API (`/api/portal/*`, portal session only — every response through `portal-serializer.ts`)
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET/POST | `/api/portal/invite` | **Public, rate-limited.** GET validates an invite token; POST sets the password (single-use token) |
+| GET | `/api/portal/projects/[id]/attachments` | **New.** Client-visible activity attachments only (`CLIENT_VISIBLE` filter in SQL, Invariant 5) |
+| GET | `/api/portal/projects/[id]/activities/[activityId]/attachments/[attachmentId]` | **New.** Stream one client-visible attachment (`portalActivityAttachmentWhere`) |
+| GET | `/api/portal/projects/[id]/planned-vs-actual` | **New 2026-09-25 (G4).** Baseline vs current dates + signed slip for every milestone and activity |
+| GET | `/api/portal/projects/[id]/change-requests` | **New (C4).** Only change requests with `visibility = 'CLIENT_VISIBLE'` (SQL filter, Invariant 5); no requester/approver names or cost |
+
+> Internal: `PATCH /api/projects/[id]/change-requests/[crId]` accepts `visibility: 'INTERNAL' | 'CLIENT_VISIBLE'` (default INTERNAL).
 
 ### Notifications
 | Method | Route | Description |
@@ -324,7 +391,7 @@
 | PATCH | `/api/notifications/[id]` | Mark one read/unread. Scoped to the session user via `updateMany`; 404 on a miss. |
 | DELETE | `/api/notifications/[id]` | Dismiss one. Same ownership scoping. |
 | POST | `/api/notifications/mark-all-read` | Clear the user's unread count. |
-| POST | `/api/pusher/auth` | Pusher private-channel authorization. Only authorizes `private-user-<your own id>`; any other channel is 403. Returns 503 when Pusher is unconfigured so the client degrades to polling. |
+| POST | `/api/pusher/auth` | Pusher private-channel authorization. Authorizes `private-user-<your own id>`, (2026-09-25 G1) `private-sprint-<id>` when `canViewSprint`, and (H3) `private-objective-<id>` / `private-keyresult-<id>` when the viewer sees that objective / key result unredacted; any other channel is 403. Returns 503 when Pusher is unconfigured so the client degrades to polling. |
 | GET/PATCH | `/api/notifications/preferences` | Per-category in-app/email/cadence prefs. |
 
 ### Account
@@ -336,16 +403,27 @@
 | Method | Route | Description |
 |--------|-------|-------------|
 | GET | `/api/initiative-report` | Daily initiative report data |
+| GET | `/api/okr-hierarchy` | OKR hierarchy feed — role/record-scoped via `lib/okr/visibility-scope.ts` (per-KR initiative counts only) |
+| GET | `/api/okr-hierarchy/initiatives?keyResultId=…` | **New 2026-09-25.** On-demand initiative rows for ≤50 KRs; same visibility rule as the main feed; portal sessions 403 |
+| GET | `/api/link-preview?url=` | SSRF-safe page metadata for comment/description link previews (now also used by OKR comments, 2026-09-25 G2) |
 | POST | `/api/cron/confidence-calc` | Bi-weekly confidence snapshots |
 | POST | `/api/cron/weekly-digest` | Weekly email digest |
 | GET/POST | `/api/cron/todo-recurrence` | Generates the next occurrence of each recurring card (DTE-5). Daily. |
 | GET/POST | `/api/cron/automations-prune` | AI Automations retention sweep. Nightly. |
+| GET/POST | `/api/cron/attachment-staging-cleanup` | **New 2026-09-25 (H2).** Nightly (00:50 UTC) delete of staged comment uploads unclaimed for 24 h, then their files (`lib/attachments/staging-cleanup.ts`) |
 | GET | `/api/health` | Health check |
 | POST | `/api/client-errors` | Client error logging |
 
 > The full cron schedule — which routes run, when, and which exist but are
 > deliberately unscheduled — is `docs/CRON.md`, installed by
 > `scripts/install-crontab.sh`.
+>
+> **Cron auth (2026-09-25):** every `/api/cron/*` route is wrapped in `withCronAuth` (`lib/cron-auth.ts`):
+> `Authorization: Bearer $CRON_SECRET` or `x-cron-secret` only (`?key=` ignored), timing-safe compare,
+> **503 `CRON_NOT_CONFIGURED`** when `CRON_SECRET` is unset or shorter than 16 chars, 401 on a wrong token.
+> Newly scheduled: `permission-cleanup` (00:15 UTC), `project-creation-draft-purge` (00:40), `prune-notifications`
+> (00:45, now its own route and also prunes other append-only tables — `lib/retention/`), `notifications?job=batch`
+> (every 10 min, BATCHED cadence), `performance-nudge` (daily 05:00), `client-report`/`wbr-pack` (Mon 03:00), `jira-sync` (*/30), `attachment-staging-cleanup` (00:50).
 
 > AI Automations is not driven by a `/api/cron/*` route for the work itself: the
 > tick only enqueues `AutomationRun` rows, and the long-lived pm2 worker
@@ -382,7 +460,7 @@
 |--------|-------|-------------|
 | GET | `/api/letters` | List letters; supports `status`, `letterType`, `search`, `mine`, `includeArchived`, `page`, `limit`. |
 | POST | `/api/letters` | Create a draft letter and allocate its `360G/LT/{CL\|OF\|GR}/{SEQ}/{YEAR}` reference. |
-| GET | `/api/letters/[id]` | Letter detail incl. preparedBy, signatory, enclosures. |
+| GET | `/api/letters/[id]` | Letter detail incl. preparedBy, signatory, enclosures. Out-of-scope letters 404 (`letterReadGuard`, also on html/pdf/docx/activity/duplicate and workflow routes). |
 | PATCH | `/api/letters/[id]` | Update editable fields (locked after submission for non-admins). |
 | DELETE | `/api/letters/[id]` | Delete a DRAFT letter (admin can delete any). |
 | POST | `/api/letters/[id]/submit` | DRAFT → SUBMITTED. |
@@ -393,10 +471,14 @@
 | DELETE | `/api/letters/[id]/archive` | Admin-only unarchive. |
 | GET | `/api/letters/[id]/activity` | Activity log entries for the shared `ActivityLogPanel`. |
 | POST | `/api/letters/[id]/views` | No-op view beacon (panel compatibility). |
-| POST | `/api/letters/[id]/pdf` | Render letter with resolved placeholders; returns HTML + missing-placeholder list. |
-| POST | `/api/letters/[id]/enclosures` | Register an enclosure (PDF/DOCX/XLSX/PNG/JPG, ≤25 MB). |
-| DELETE | `/api/letters/[id]/enclosures/[enclosureId]` | Remove an enclosure (uploader or admin, DRAFT only). |
-| GET | `/api/letters/odoo/contacts?q=…` | Mocked Odoo contact typeahead (≥2 chars). |
+| GET/POST | `/api/letters/[id]/pdf` | Real PDF via Puppeteer (`renderLetterToPdf`); page JavaScript off, network requests intercepted (only data:/about:/blob: and Google Fonts). `?font` checked against the font catalog. |
+| POST | `/api/letters/[id]/enclosures` | **Real multipart upload** (field `file`, 2026-09-25 G3): magic-byte validated, stored privately under `LETTER_UPLOAD_DIR` (default `var/uploads/letters`). Letter admin, or `letter.write` + DRAFT + preparer. |
+| GET | `/api/letters/[id]/enclosures/[enclosureId]` | **New.** Stream an enclosure file (`letterReadGuard`). |
+| DELETE | `/api/letters/[id]/enclosures/[enclosureId]` | Remove an enclosure (same rule as upload). |
+| GET | `/api/letters/reports` | **New (FR-16).** Aggregated letter report (`byStatus`, `byType`, `byMonth`, `byCustomer`, preparers, signatories; ≤20,000 rows, `truncated` flag); scoped by `buildLetterReadWhere`, 403 without read scope. |
+| GET/POST | `/api/letters/templates` | **New.** GET: active templates (letter admin, `letter.create` or `letter.read`; `?letterType`; `?includeArchived` admin-only). POST: create (letter admin; body sanitised; audited). Seeds from the old `LETTER_TEMPLATES` constants on first read. |
+| PATCH/DELETE | `/api/letters/templates/[templateId]` | **New.** Update / archive / unarchive (PATCH) or soft-archive (DELETE); letter admin only; audited. |
+| GET | `/api/letters/odoo/contacts?q=…` | Odoo `res.partner` typeahead (≥2 chars); falls back to a mock roster when `ODOO_URL`/`ODOO_DB`/`ODOO_USER` are unset. |
 
 ### Telegram Bot
 | Method | Route | Description |

@@ -1,6 +1,11 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { canViewObjective } from '@/lib/permissions'
+import type { Prisma } from '@prisma/client'
+import {
+  buildObjectiveVisibilityWhere,
+  loadViewerContext,
+  redactObjectiveForViewer,
+} from '@/lib/okr/visibility-scope'
 import { getDescendantObjectiveIds } from '@/lib/objectiveProgress'
 import { apiSuccess, apiBadRequest, withAuth } from '@/lib/api'
 
@@ -13,7 +18,7 @@ const LEVELS = new Set(['COMPANY', 'DEPARTMENT', 'INDIVIDUAL'])
 export const GET = withAuth(async (request: NextRequest, { session }) => {
   const { searchParams } = new URL(request.url)
   const timeframeId = searchParams.get('timeframeId')
-  const q = (searchParams.get('q') || '').trim().toLowerCase()
+  const q = (searchParams.get('q') || '').trim()
   const excludeObjectiveId = searchParams.get('excludeObjectiveId')
   const levelFilter = searchParams.get('level')
   const activeTimeframeOnly = searchParams.get('activeTimeframeOnly') !== 'false'
@@ -34,19 +39,24 @@ export const GET = withAuth(async (request: NextRequest, { session }) => {
     desc.forEach((id) => excludeIds.add(id))
   }
 
-  const where: Record<string, unknown> = {
-    timeframeId,
-    status: 'ACTIVE',
-    ...(excludeIds.size > 0 ? { id: { notIn: Array.from(excludeIds) } } : {}),
-  }
+  const ctx = await loadViewerContext({ id: session.user.id, role: session.user.role })
 
-  if (levelFilter && LEVELS.has(levelFilter)) {
-    where.level = levelFilter
+  const filters: Prisma.ObjectiveWhereInput[] = [
+    buildObjectiveVisibilityWhere(ctx),
+    { timeframeId, status: 'ACTIVE' },
+  ]
+  if (excludeIds.size > 0) filters.push({ id: { notIn: Array.from(excludeIds) } })
+  if (levelFilter && LEVELS.has(levelFilter)) filters.push({ level: levelFilter })
+  if (q) {
+    // Search in the database, and only over titles the viewer may read — a
+    // redacted objective must not be discoverable by its hidden title.
+    filters.push(buildObjectiveVisibilityWhere(ctx, { includeRedacted: false }))
+    filters.push({ title: { contains: q, mode: 'insensitive' } })
   }
 
   const objectives = await prisma.objective.findMany({
-    where,
-    take: q ? 200 : 80,
+    where: { AND: filters },
+    take: 80,
     orderBy: [{ level: 'asc' }, { title: 'asc' }],
     include: {
       owner: { select: { id: true, name: true, avatar: true } },
@@ -55,30 +65,21 @@ export const GET = withAuth(async (request: NextRequest, { session }) => {
     },
   })
 
-  const filtered = q ? objectives.filter((o) => o.title.toLowerCase().includes(q)) : objectives
-  const capped = filtered.slice(0, 80)
-
-  const processed: any[] = []
-  for (const obj of capped) {
-    const visibility = await canViewObjective(session.user.role as any, session.user.id, {
-      level: obj.level,
-      ownerId: obj.ownerId,
-      departmentId: obj.departmentId,
-      isPrivate: obj.isPrivate,
-    })
-    if (!visibility.canView) continue
-    processed.push({
+  // One context load for the whole list (was 1–2 queries per row).
+  const processed = objectives.map((obj) => {
+    const shown = redactObjectiveForViewer(ctx, obj)
+    return {
       id: obj.id,
-      title: visibility.isRedacted ? '[Private Objective]' : obj.title,
-      description: visibility.isRedacted ? null : obj.description,
+      title: shown.title,
+      description: shown.description,
       level: obj.level,
       goalStatus: obj.goalStatus,
       progress: obj.progress,
       owner: obj.owner,
       department: obj.department,
       timeframe: obj.timeframe,
-    })
-  }
+    }
+  })
 
   return apiSuccess(processed)
 })

@@ -5,6 +5,8 @@ import { Calendar, Inbox, Link2, Target } from 'lucide-react'
 import { KanbanDropLine } from '@/components/shared/KanbanDropLine'
 import type { TodoRow, UserOption } from './TodosPageClient'
 import { isOverdue } from '@/lib/todos/due-tone'
+import { userInitials } from '@/lib/user-color'
+import { PersonTooltip } from '@/components/shared/UserAvatar'
 
 const COLUMNS: Array<{ key: string; label: string; color: string }> = [
   { key: 'PENDING',     label: 'To do',       color: 'var(--ap-none)' },
@@ -130,10 +132,10 @@ export default function TodoKanbanView({
             {/* Column header */}
             <div className="flex items-center gap-2 px-3 py-2 border-b border-border">
               <span className="h-2 w-2 rounded-full" style={{ background: col.color }} />
-              <span className="text-[12px] font-semibold text-foreground uppercase tracking-wide">
+              <span className="text-xs font-semibold text-foreground uppercase tracking-wide">
                 {col.label}
               </span>
-              <span className="ml-auto text-[11px] text-muted-foreground">{colRows.length}</span>
+              <span className="ml-auto text-caption text-muted-foreground">{colRows.length}</span>
             </div>
 
             {/* Cards */}
@@ -142,11 +144,11 @@ export default function TodoKanbanView({
               <KanbanDropLine active={!!indicator && indicator.colKey === col.key && indicator.afterIndex === -1} />
 
               {isEmpty && indicator?.colKey === col.key ? (
-                <div className="flex min-h-[60px] items-center justify-center rounded-lg border-2 border-dashed border-primary/40 bg-primary/5 text-[11px] text-primary">
+                <div className="flex min-h-[60px] items-center justify-center rounded-lg border-2 border-dashed border-primary/40 bg-primary/5 text-caption text-primary">
                   Drop here
                 </div>
               ) : isEmpty ? (
-                <div className="flex flex-col items-center gap-1 py-6 text-[11px] text-muted-foreground">
+                <div className="flex flex-col items-center gap-1 py-6 text-caption text-muted-foreground">
                   <Inbox className="size-4 opacity-60" />
                   <span>No items</span>
                 </div>
@@ -198,9 +200,9 @@ function KanbanCard({
       className="mt-1.5 cursor-pointer rounded-[var(--ap-radius-md)] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] p-2 transition hover:border-[var(--ap-border-strong)]"
       style={{ opacity: isDragging ? 0.4 : undefined }}
     >
-      <div className="text-[13px] font-medium text-foreground break-words">{row.title}</div>
+      <div className="text-body-sm font-medium text-foreground break-words">{row.title}</div>
       {(row.keyResult || row.objective) && (
-        <div className="mt-1 text-[11px] text-muted-foreground truncate">
+        <div className="mt-1 text-caption text-muted-foreground truncate">
           {row.keyResult ? (
             <span className="inline-flex items-center gap-0.5"><Link2 className="h-2.5 w-2.5" /> {row.keyResult.title}</span>
           ) : row.objective ? (
@@ -209,21 +211,26 @@ function KanbanCard({
         </div>
       )}
       <div className="mt-2 flex items-center gap-1.5">
+        {/* Full name on hover (UNH-2); "Unassigned" keeps its plain title. */}
+        <PersonTooltip person={row.assignee ?? {}} detail="Assignee" disabled={!row.assignee}>
         <span
+          role="img"
+          aria-label={row.assignee?.name ?? 'Unassigned'}
           className="inline-flex items-center justify-center rounded-full bg-muted text-xs font-semibold"
           style={{ width: 20, height: 20, fontSize: 9 }}
-          title={row.assignee?.name ?? 'Unassigned'}
+          title={row.assignee ? undefined : 'Unassigned'}
         >
           {row.assignee?.avatar ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={row.assignee.avatar} alt="" className="rounded-full w-full h-full object-cover" />
           ) : row.assignee ? (
-            row.assignee.name.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase()
+            <span aria-hidden>{userInitials(row.assignee.name)}</span>
           ) : '—'}
         </span>
+        </PersonTooltip>
         {row.dueDate && (
           <span
-            className={`inline-flex items-center gap-0.5 text-[11px] ${
+            className={`inline-flex items-center gap-0.5 text-caption ${
               overdue ? 'text-destructive font-medium' : 'text-muted-foreground'
             }`}
           >

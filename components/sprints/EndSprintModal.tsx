@@ -20,6 +20,7 @@ import { AlertTriangle } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/button'
 import { AppleDateRangePicker, toIso } from '@/components/ui/date-picker'
+import { Skeleton } from '@/components/ui/Skeleton'
 
 type PerAction = 'next' | 'backlog' | 'cancel'
 
@@ -213,20 +214,25 @@ export default function EndSprintModal({ open, onClose, sprintId, onClosed }: Pr
     >
       {loadError ? (
         <div className="py-8 text-center">
-          <p className="text-[13px]" style={{ color: 'var(--ap-danger-fg)' }}>{loadError}</p>
+          <p className="text-body-sm" style={{ color: 'var(--ap-danger-fg)' }}>{loadError}</p>
           <button
             type="button"
             onClick={load}
-            className="mt-3 rounded-[var(--ap-radius-sm)] px-3 py-1.5 text-[13px] font-medium"
+            className="mt-3 rounded-[var(--ap-radius-sm)] px-3 py-1.5 text-body-sm font-medium"
             style={{ background: 'rgba(120,120,128,0.12)', color: 'var(--ap-accent)' }}
           >
             Try again
           </button>
         </div>
       ) : loading || !preflight ? (
-        <div className="py-10 text-center text-[13px]" style={{ color: 'var(--ap-fg-subtle)' }}>Loading…</div>
+        <div className="space-y-3 py-4" aria-busy="true">
+          <span className="sr-only">Loading…</span>
+          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-4 w-2/3" />
+          <Skeleton className="h-24 w-full" />
+        </div>
       ) : (
-        <div className="space-y-4 text-[13px]">
+        <div className="space-y-4 text-body-sm">
           {/* Summary card (UX-02) */}
           <div
             className="rounded-[var(--ap-radius-md)] p-4"
@@ -234,16 +240,16 @@ export default function EndSprintModal({ open, onClose, sprintId, onClosed }: Pr
           >
             <div className="flex items-baseline justify-between gap-3">
               <div>
-                <div className="text-[15px] font-semibold" style={{ letterSpacing: '-0.01em' }}>
+                <div className="text-body font-semibold" style={{ letterSpacing: '-0.01em' }}>
                   {preflight.sprint.name}
                 </div>
-                <div className="mt-0.5 text-[11px]" style={{ color: 'var(--ap-fg-subtle)' }}>
+                <div className="mt-0.5 text-caption" style={{ color: 'var(--ap-fg-subtle)' }}>
                   {fmtDate(preflight.sprint.startDate)} → {fmtDate(preflight.sprint.endDate)}
                 </div>
               </div>
               <div className="text-right">
-                <span className="text-[20px] font-semibold tabular-nums" style={{ letterSpacing: '-0.02em' }}>{pct}%</span>
-                <span className="ml-1 text-[11px]" style={{ color: 'var(--ap-fg-subtle)' }}>done</span>
+                <span className="text-xl font-semibold tabular-nums" style={{ letterSpacing: '-0.02em' }}>{pct}%</span>
+                <span className="ml-1 text-caption" style={{ color: 'var(--ap-fg-subtle)' }}>done</span>
               </div>
             </div>
             <div className="mt-3 h-[8px] overflow-hidden rounded-full" style={{ background: 'var(--ap-kr-bar-bg)' }}>
@@ -252,7 +258,7 @@ export default function EndSprintModal({ open, onClose, sprintId, onClosed }: Pr
                 style={{ width: `${pct}%`, background: 'var(--ap-green)', transitionTimingFunction: 'cubic-bezier(.2,.8,.2,1)' }}
               />
             </div>
-            <div className="mt-2 flex gap-4 text-[11px]" style={{ color: 'var(--ap-fg-muted)' }}>
+            <div className="mt-2 flex gap-4 text-caption" style={{ color: 'var(--ap-fg-muted)' }}>
               <span><strong className="tabular-nums">{counts.completed}</strong> completed</span>
               <span><strong className="tabular-nums">{counts.incomplete}</strong> incomplete</span>
               {goalPct !== null && (
@@ -265,7 +271,7 @@ export default function EndSprintModal({ open, onClose, sprintId, onClosed }: Pr
           </div>
 
           {counts.incomplete === 0 ? (
-            <p className="text-[13px]" style={{ color: 'var(--ap-fg-muted)' }}>
+            <p className="text-body-sm" style={{ color: 'var(--ap-fg-muted)' }}>
               Everything is done — nothing to disposition. One click and this sprint is complete. 🎉
             </p>
           ) : (
@@ -273,7 +279,7 @@ export default function EndSprintModal({ open, onClose, sprintId, onClosed }: Pr
               {/* Incomplete tasks */}
               <div>
                 <div className="mb-2 flex items-center justify-between">
-                  <span className="text-[10px] font-semibold uppercase tracking-[0.6px]" style={{ color: 'var(--ap-fg-subtle)' }}>
+                  <span className="text-micro font-semibold uppercase tracking-[0.6px]" style={{ color: 'var(--ap-fg-subtle)' }}>
                     Incomplete tasks ({counts.incomplete})
                   </span>
                   <div className="flex gap-1">
@@ -282,7 +288,7 @@ export default function EndSprintModal({ open, onClose, sprintId, onClosed }: Pr
                         key={a}
                         type="button"
                         onClick={() => setAll(a)}
-                        className="rounded-[7px] px-2 py-0.5 text-[11px] font-medium transition-colors"
+                        className="rounded-[7px] px-2 py-0.5 text-caption font-medium transition-colors"
                         style={{
                           background: 'rgba(120,120,128,0.12)',
                           color: 'var(--ap-fg-muted)',
@@ -304,16 +310,16 @@ export default function EndSprintModal({ open, onClose, sprintId, onClosed }: Pr
                     >
                       {t.carryoverCount >= 2 && (
                         <span
-                          className="shrink-0 rounded-[6px] px-1.5 py-px text-[10px] font-semibold"
+                          className="shrink-0 rounded-[6px] px-1.5 py-px text-micro font-semibold"
                           style={{ background: 'var(--ap-warn-bg)', color: 'var(--ap-warn-fg)' }}
                           title={`Carried ${t.carryoverCount} times — consider splitting or descoping`}
                         >
                           ↪ ×{t.carryoverCount}
                         </span>
                       )}
-                      <span className="min-w-0 flex-1 truncate text-[13px]">{t.title}</span>
+                      <span className="min-w-0 flex-1 truncate text-body-sm">{t.title}</span>
                       <span
-                        className="shrink-0 rounded-[6px] px-1.5 py-px font-mono text-[10px] font-semibold"
+                        className="shrink-0 rounded-[6px] px-1.5 py-px font-mono text-micro font-semibold"
                         style={{ background: 'var(--ap-none-bg)', color: 'var(--ap-none-fg)' }}
                       >
                         {t.status.replace('_', ' ')}
@@ -326,7 +332,7 @@ export default function EndSprintModal({ open, onClose, sprintId, onClosed }: Pr
                               key={a}
                               type="button"
                               onClick={() => setActions(prev => ({ ...prev, [t.id]: a }))}
-                              className="rounded-[7px] px-2 py-0.5 text-[11px] transition-all"
+                              className="rounded-[7px] px-2 py-0.5 text-caption transition-all"
                               style={{
                                 fontWeight: active ? 600 : 500,
                                 background: active ? 'var(--ap-bg-raised)' : 'transparent',
@@ -347,7 +353,7 @@ export default function EndSprintModal({ open, onClose, sprintId, onClosed }: Pr
               {/* Destination */}
               {needsDestination && (
                 <div>
-                  <span className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.6px]" style={{ color: 'var(--ap-fg-subtle)' }}>
+                  <span className="mb-2 block text-micro font-semibold uppercase tracking-[0.6px]" style={{ color: 'var(--ap-fg-subtle)' }}>
                     Move {summary.next} task{summary.next === 1 ? '' : 's'} to
                   </span>
                   <div className="space-y-1.5">
@@ -360,9 +366,9 @@ export default function EndSprintModal({ open, onClose, sprintId, onClosed }: Pr
                           background: destination === d.id ? 'var(--ap-accent-soft)' : 'transparent',
                         }}
                       >
-                        <input type="radio" name="dest" checked={destination === d.id} onChange={() => setDestination(d.id)} className="accent-[#007AFF]" />
-                        <span className="flex-1 text-[13px] font-medium">{d.name}</span>
-                        <span className="text-[11px]" style={{ color: 'var(--ap-fg-subtle)' }}>
+                        <input type="radio" name="dest" checked={destination === d.id} onChange={() => setDestination(d.id)} className="accent-[var(--ap-accent)]" />
+                        <span className="flex-1 text-body-sm font-medium">{d.name}</span>
+                        <span className="text-caption" style={{ color: 'var(--ap-fg-subtle)' }}>
                           {fmtDate(d.startDate)} → {fmtDate(d.endDate)} · {d.state.toLowerCase()}
                         </span>
                       </label>
@@ -375,8 +381,8 @@ export default function EndSprintModal({ open, onClose, sprintId, onClosed }: Pr
                       }}
                     >
                       <span className="flex items-center gap-2.5">
-                        <input type="radio" name="dest" checked={destination === 'new'} onChange={() => setDestination('new')} className="accent-[#007AFF]" />
-                        <span className="text-[13px] font-medium">+ New sprint</span>
+                        <input type="radio" name="dest" checked={destination === 'new'} onChange={() => setDestination('new')} className="accent-[var(--ap-accent)]" />
+                        <span className="text-body-sm font-medium">+ New sprint</span>
                       </span>
                       {destination === 'new' && (
                         <span className="mt-2.5 block space-y-2" onClick={e => e.preventDefault()}>
@@ -384,7 +390,7 @@ export default function EndSprintModal({ open, onClose, sprintId, onClosed }: Pr
                             value={newName}
                             onChange={e => setNewName(e.target.value)}
                             placeholder="Sprint name"
-                            className="w-full rounded-[var(--ap-radius-sm)] px-2.5 py-1.5 text-[13px]"
+                            className="w-full rounded-[var(--ap-radius-sm)] px-2.5 py-1.5 text-body-sm"
                             style={{
                               background: 'rgba(120,120,128,0.10)',
                               border: '0.5px solid var(--ap-border)',
@@ -409,7 +415,7 @@ export default function EndSprintModal({ open, onClose, sprintId, onClosed }: Pr
 
           {/* Reflection */}
           <div>
-            <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.6px]" style={{ color: 'var(--ap-fg-subtle)' }}>
+            <span className="mb-1.5 block text-micro font-semibold uppercase tracking-[0.6px]" style={{ color: 'var(--ap-fg-subtle)' }}>
               Reflection (optional)
             </span>
             <textarea
@@ -417,7 +423,7 @@ export default function EndSprintModal({ open, onClose, sprintId, onClosed }: Pr
               onChange={e => setReflection(e.target.value)}
               rows={3}
               placeholder="What went well? What didn't? — shown on the sprint report"
-              className="w-full resize-none rounded-[var(--ap-radius-sm)] px-2.5 py-2 text-[13px]"
+              className="w-full resize-none rounded-[var(--ap-radius-sm)] px-2.5 py-2 text-body-sm"
               style={{
                 background: 'rgba(120,120,128,0.10)',
                 border: '0.5px solid var(--ap-border)',
@@ -429,7 +435,7 @@ export default function EndSprintModal({ open, onClose, sprintId, onClosed }: Pr
 
           {summary.next > 0 && (preflight.incompleteTodos.some(t => t.carryoverCount >= 2 && actions[t.id] === 'next')) && (
             <div
-              className="flex items-start gap-2 rounded-[var(--ap-radius-sm)] px-3 py-2 text-[12px]"
+              className="flex items-start gap-2 rounded-[var(--ap-radius-sm)] px-3 py-2 text-xs"
               style={{ background: 'var(--ap-warn-bg)', color: 'var(--ap-warn-fg)' }}
             >
               <AlertTriangle size={14} className="mt-0.5 shrink-0" />

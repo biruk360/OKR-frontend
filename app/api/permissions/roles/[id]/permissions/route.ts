@@ -54,9 +54,9 @@ export const GET = withRole<RouteIdParams>(['ADMIN'], async (_req: NextRequest, 
   // Group by module
   const byModule: Record<string, typeof permissions> = {}
   for (const perm of permissions) {
-    const module = perm.doctype.module
-    if (!byModule[module]) byModule[module] = []
-    byModule[module].push(perm)
+    const moduleKey = perm.doctype.module
+    if (!byModule[moduleKey]) byModule[moduleKey] = []
+    byModule[moduleKey].push(perm)
   }
 
   return apiSuccess({ role, byModule })
@@ -164,9 +164,9 @@ export const PUT = withRole<RouteIdParams>(['ADMIN'], async (req: NextRequest, {
   // Group updated results by module for consistency with GET
   const byModule: Record<string, typeof updated> = {}
   for (const perm of updated) {
-    const module = perm.doctype.module
-    if (!byModule[module]) byModule[module] = []
-    byModule[module].push(perm)
+    const moduleKey = perm.doctype.module
+    if (!byModule[moduleKey]) byModule[moduleKey] = []
+    byModule[moduleKey].push(perm)
   }
 
   return apiSuccess({ byModule }, { message: 'DocType permissions updated successfully' })

@@ -4,6 +4,7 @@ import {
   canCreateKeyResultForObjective,
   canEditKeyResultWithObjectiveContext,
   canDeleteKeyResult,
+  canCloneKeyResult,
 } from '@/lib/permissions'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import {
@@ -68,7 +69,8 @@ export const GET = withAuth<RouteIdParams>(async (_request, { session, params })
   }
 
   const canDelete = canDeleteKeyResult(role, userId, objective.ownerId)
-  const canCloneKeyResults = role === 'ADMIN' || userId === objective.ownerId
+  // Same rule as POST /api/keyresults/[id]/clone (role gate + ADMIN or objective owner).
+  const canCloneKeyResults = canCloneKeyResult(role, userId, objective.ownerId)
 
   return apiSuccess({
     canCreate,

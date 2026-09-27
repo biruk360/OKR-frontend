@@ -1,0 +1,25 @@
+{
+  "root": true,
+  "extends": "next/core-web-vitals",
+  "plugins": [
+    "@typescript-eslint"
+  ],
+  "ignorePatterns": [
+    "node_modules/",
+    ".next/",
+    ".next-dev/",
+    "project-scaffold/",
+    "design-import/",
+    "public/",
+    "next-env.d.ts"
+  ],
+  "rules": {
+    "react-hooks/rules-of-hooks": "error",
+    "react-hooks/exhaustive-deps": "warn",
+    "react/no-unescaped-entities": "warn",
+    "@next/next/no-img-element": "warn",
+    "jsx-a11y/alt-text": "warn",
+    "import/no-anonymous-default-export": "warn",
+    "@next/next/no-assign-module-variable": "error"
+  }
+}

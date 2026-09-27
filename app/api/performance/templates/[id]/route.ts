@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { apiBadRequest, apiForbidden, apiNotFound, apiSuccess, withAuth } from '@/lib/api'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { assertTemplateEditable, canManageTemplates, canReadTemplates, hasPerformancePermission, isPerformanceAdmin } from '@/lib/performance'
+import { recordActivity, type ChangeMap } from '@/lib/activity-log'
 
 export const GET = withAuth<RouteIdParams>(async (_request, { session, params }) => {
   const actor = { userId: session.user.id, role: session.user.role }
@@ -65,5 +66,25 @@ export const PATCH = withAuth<RouteIdParams>(async (request: NextRequest, { sess
       include: { family: true },
     })
   })
+  const changes: ChangeMap = {}
+  if (existing.family.name !== updated.family.name) changes.name = { from: existing.family.name, to: updated.family.name }
+  if ((existing.family.roleLabel ?? null) !== (updated.family.roleLabel ?? null)) {
+    changes.roleLabel = { from: existing.family.roleLabel ?? null, to: updated.family.roleLabel ?? null }
+  }
+  if (JSON.stringify(existing.gatekeeperJson) !== JSON.stringify(updated.gatekeeperJson)) {
+    changes.gatekeeper = { from: existing.gatekeeperJson, to: updated.gatekeeperJson }
+  }
+  if (JSON.stringify(existing.bandsJson) !== JSON.stringify(updated.bandsJson)) {
+    changes.bands = { from: existing.bandsJson, to: updated.bandsJson }
+  }
+  if (Object.keys(changes).length > 0) {
+    await recordActivity({
+      entityType: 'PERFORMANCE_SETTINGS',
+      action: 'UPDATED',
+      actorId: session.user.id,
+      changes,
+      metadata: { entity: 'SCORECARD_TEMPLATE', templateId: id, familyId: existing.familyId, version: existing.version },
+    })
+  }
   return apiSuccess(updated)
 })

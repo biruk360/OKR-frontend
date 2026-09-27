@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useId } from 'react'
 import { ChevronDown, ChevronUp, Library, Plus, Save, Sparkles } from 'lucide-react'
 import { Button, EmptyState, Input, Label, Textarea } from '@/components/ui'
 import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton'
@@ -82,7 +82,7 @@ export function CultureLibraryManager() {
       >
         <div>
           <h2 className="text-lg font-semibold" style={{ letterSpacing: '-0.01em' }}>Culture Library</h2>
-          <p className="text-[13px] text-muted-foreground">
+          <p className="text-body-sm text-muted-foreground">
             {entries.length} reusable criterion{entries.length === 1 ? '' : 's'} available for scorecard templates.
           </p>
         </div>
@@ -196,6 +196,7 @@ function EntryEditor({
   isSaving: boolean
 }) {
   const title = entry.definitionJson?.title ?? ''
+  const uid = useId()
   const anchors = entry.definitionJson?.anchors ?? {}
 
   function updateTitle(value: string) {
@@ -220,12 +221,12 @@ function EntryEditor({
     <div className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-[1fr_8rem]">
         <div>
-          <Label>{isNew ? 'Criterion title' : 'Title'}</Label>
-          <Input value={title} onChange={(event) => updateTitle(event.target.value)} placeholder="e.g. Judgment" />
+          <Label htmlFor={`${uid}-title`}>{isNew ? 'Criterion title' : 'Title'}</Label>
+          <Input id={`${uid}-title`} value={title} onChange={(event) => updateTitle(event.target.value)} placeholder="e.g. Judgment" />
         </div>
         <div>
-          <Label>Code</Label>
-          <Input
+          <Label htmlFor={`${uid}-code`}>Code</Label>
+          <Input id={`${uid}-code`}
             value={entry.code}
             disabled={!isNew}
             onChange={(event) => onChange({ ...entry, code: event.target.value.toUpperCase() })}
@@ -243,8 +244,8 @@ function EntryEditor({
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
-                <Label className="text-xs text-muted-foreground">English</Label>
-                <Textarea
+                <Label className="text-xs text-muted-foreground" htmlFor={`${uid}-${key}-en`}>English</Label>
+                <Textarea id={`${uid}-${key}-en`}
                   value={anchorEn(anchors[key])}
                   onChange={(event) => updateAnchor(key, event.target.value, anchorAm(anchors[key]))}
                   rows={2}
@@ -252,8 +253,8 @@ function EntryEditor({
                 />
               </div>
               <div>
-                <Label className="text-xs text-muted-foreground">Amharic</Label>
-                <Textarea
+                <Label className="text-xs text-muted-foreground" htmlFor={`${uid}-${key}-am`}>Amharic</Label>
+                <Textarea id={`${uid}-${key}-am`}
                   value={anchorAm(anchors[key])}
                   onChange={(event) => updateAnchor(key, anchorEn(anchors[key]), event.target.value)}
                   rows={2}

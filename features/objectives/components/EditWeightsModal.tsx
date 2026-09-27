@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
-import { Modal } from '@/components/ui'
+import { Modal, EmptyState } from '@/components/ui'
+import { Skeleton } from '@/components/ui/Skeleton'
 
 interface WeightRow {
   id: string
@@ -105,11 +106,15 @@ export default function EditWeightsModal({
         </p>
 
         {loading ? (
-          <div className="py-8 text-center text-sm text-muted-foreground">Loading…</div>
+          <div className="space-y-2 py-2" aria-busy="true" aria-label="Loading weights">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-9 w-full" />
+            ))}
+          </div>
         ) : rows.length === 0 ? (
-          <div className="py-8 text-center text-sm text-muted-foreground">No key results or sub-objectives yet.</div>
+          <EmptyState bare title="No key results or sub-objectives yet." />
         ) : (
-          <div className="border rounded-md overflow-hidden">
+          <div className="border rounded-md overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-muted text-xs uppercase text-muted-foreground">
                 <tr>
@@ -124,7 +129,7 @@ export default function EditWeightsModal({
                   <tr key={row.id} className="border-t">
                     <td className="px-3 py-2">
                       <span
-                        className={`inline-block text-[10px] font-semibold mr-2 px-1.5 py-0.5 rounded ${row.kind === 'KR' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}
+                        className={`inline-block text-micro font-semibold mr-2 px-1.5 py-0.5 rounded ${row.kind === 'KR' ? 'bg-primary-100 text-primary-700' : 'bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300'}`}
                       >
                         {row.kind}
                       </span>
@@ -163,7 +168,7 @@ export default function EditWeightsModal({
             type="button"
             disabled={saving || loading}
             onClick={handleSave}
-            className="px-4 py-2 text-sm rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
+            className="px-4 py-2 text-sm rounded-md bg-primary-600 text-primary-foreground hover:bg-primary-700 disabled:opacity-60"
           >
             {saving ? 'Saving…' : 'Save weights'}
           </button>

@@ -27,6 +27,30 @@ export function addMinutes(time: string, mins: number): string {
   return formatHHMM(parseHHMM(time) + mins)
 }
 
+/**
+ * Minutes since the trip date's 00:00 → an "HH:MM" leg time that does NOT wrap
+ * at midnight: 00:30 on the following day is "24:30". Leg times are stored this
+ * way so the Run Sheet's `orderBy: scheduledTime asc` keeps a late return pickup
+ * after the evening legs (string order == time order up to 99:59). Negative
+ * values clamp to "00:00" — a leg can't be scheduled before its trip date's run
+ * sheet starts. Render with `displayLegTime`.
+ */
+export function formatLegTime(totalMin: number): string {
+  const m = Math.max(0, Math.round(totalMin))
+  const h = Math.floor(m / 60)
+  const mm = m % 60
+  return `${String(h).padStart(2, '0')}:${String(mm).padStart(2, '0')}`
+}
+
+/** "24:30" → "00:30 (+1)"; an in-day "HH:MM" is returned unchanged. */
+export function displayLegTime(time: string): string {
+  const m = time.match(/^(\d{2,}):([0-5]\d)$/)
+  if (!m) return time
+  const total = parseInt(m[1], 10) * 60 + parseInt(m[2], 10)
+  const days = Math.floor(total / (24 * 60))
+  return days > 0 ? `${formatHHMM(total)} (+${days})` : time
+}
+
 export function diffMinutes(later: string, earlier: string): number {
   return parseHHMM(later) - parseHHMM(earlier)
 }

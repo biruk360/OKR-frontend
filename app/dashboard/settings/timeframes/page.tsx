@@ -1,8 +1,8 @@
 import { getServerSessionSafe } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
 import TimeframeManagement from '@/components/settings/TimeframeManagement'
 import { redirect } from 'next/navigation'
 import { canManageTimeframes } from '@/lib/permissions'
+import { loadTimeframesSettings } from '@/lib/settings/settings-pages.server'
 
 export default async function TimeframesSettingsPage() {
   const session = await getServerSessionSafe()
@@ -17,9 +17,7 @@ export default async function TimeframesSettingsPage() {
   }
 
   // Get all timeframes for management
-  const timeframes = await prisma.timeframe.findMany({
-    orderBy: { startDate: 'desc' }
-  })
+  const timeframes = await loadTimeframesSettings()
 
   return (
     <div className="space-y-6">
@@ -27,4 +25,3 @@ export default async function TimeframesSettingsPage() {
     </div>
   )
 }
-

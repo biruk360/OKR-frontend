@@ -17,6 +17,7 @@
  */
 
 import { prisma } from '../lib/prisma'
+import { TODO_PARTICIPANT_SCOPE_RULE } from '../lib/todos/visibility'
 
 // ---------------------------------------------------------------------------
 // 1. System roles
@@ -986,6 +987,8 @@ const FEATURES: Record<string, RoleVisibilityMap> = {
   'button.letter.delete':                  { ADMIN: true,  EXECUTIVE: false, DEPARTMENT_LEAD: false, EMPLOYEE: false },
   'button.letter.unarchive':               { ADMIN: true,  EXECUTIVE: false, DEPARTMENT_LEAD: false, EMPLOYEE: false },
   'button.letter.send':                    { ADMIN: true,  EXECUTIVE: true,  DEPARTMENT_LEAD: true,  EMPLOYEE: false },
+  // Letter administrator (`letter.view_all` in lib/letter-permissions.ts): edit/delete/force-archive any letter.
+  'button.letter.admin':                   { ADMIN: true,  EXECUTIVE: false, DEPARTMENT_LEAD: false, EMPLOYEE: false },
   'button.dtp.approve':                    { ADMIN: true,  EXECUTIVE: false, DEPARTMENT_LEAD: true,  EMPLOYEE: false },
   'button.dtp.reject':                     { ADMIN: true,  EXECUTIVE: false, DEPARTMENT_LEAD: true,  EMPLOYEE: false },
   'button.dtp.assign-driver':              { ADMIN: true,  EXECUTIVE: false, DEPARTMENT_LEAD: false, EMPLOYEE: false },
@@ -1134,12 +1137,15 @@ const SCOPE_RULE_DEFS: ScopeRuleDef[] = [
     operator: 'equals',
     valueType: 'user_id',
   },
+  // EMPLOYEE to-do scope = participant scope (user decision 2026-09-25): assignee ·
+  // creator · card member · watcher (read only) · owner/participant of the card's
+  // sprint. Resolved by `is_participant` in lib/apply-scope.ts →
+  // todoParticipantScopeWhere (lib/todos/visibility.ts). Replaces the old
+  // `assigneeId equals user_id` rule; existing DBs are migrated by
+  // scripts/update-employee-todo-scope.ts (this seed only creates missing rules).
   {
     roleKey: 'EMPLOYEE',
-    doctypeKey: 'todo',
-    fieldName: 'assigneeId',
-    operator: 'equals',
-    valueType: 'user_id',
+    ...TODO_PARTICIPANT_SCOPE_RULE,
   },
   {
     roleKey: 'DEPARTMENT_LEAD',

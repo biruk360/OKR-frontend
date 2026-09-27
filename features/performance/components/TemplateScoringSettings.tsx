@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useId } from 'react'
 import { Plus, Save, Trash2 } from 'lucide-react'
 import { Button, Input, Label } from '@/components/ui'
 import { useSaveTemplateSettings } from '../hooks/useTemplateSettings'
@@ -52,6 +52,7 @@ export function TemplateScoringSettings({ templateId, editable, tiers, gatekeepe
   bandsJson: Array<Record<string, unknown>>
 }) {
   const saveSettings = useSaveTemplateSettings(templateId)
+  const uid = useId()
   const [gatekeeper, setGatekeeper] = useState<GatekeeperDraft>({ tierName: '', threshold: 0 })
   const [bands, setBands] = useState<BandDraft[]>([])
 
@@ -76,8 +77,8 @@ export function TemplateScoringSettings({ templateId, editable, tiers, gatekeepe
     <SectionCard title="Gatekeeper & decision bands" contentClassName="space-y-4 px-4 py-4">
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <Label>Gatekeeper tier</Label>
-            <NativeSelect
+            <Label htmlFor={`${uid}-gatekeeper-tier`}>Gatekeeper tier</Label>
+            <NativeSelect id={`${uid}-gatekeeper-tier`}
               value={gatekeeper.tierName}
               disabled={!editable}
               onChange={(event) => setGatekeeper((current) => ({ ...current, tierName: event.target.value }))}
@@ -87,8 +88,8 @@ export function TemplateScoringSettings({ templateId, editable, tiers, gatekeepe
             </NativeSelect>
           </div>
           <div>
-            <Label>Threshold (points)</Label>
-            <Input
+            <Label htmlFor={`${uid}-threshold`}>Threshold (points)</Label>
+            <Input id={`${uid}-threshold`}
               type="number"
               value={gatekeeper.threshold}
               disabled={!editable}
@@ -96,8 +97,8 @@ export function TemplateScoringSettings({ templateId, editable, tiers, gatekeepe
             />
           </div>
         </div>
-        <div className="space-y-2">
-          <Label>Decision bands (highest minimum first, final band at 0)</Label>
+        <div className="space-y-2" role="group" aria-labelledby={`${uid}-bands`}>
+          <Label id={`${uid}-bands`}>Decision bands (highest minimum first, final band at 0)</Label>
           {bands.map((band, index) => (
             <div key={index} className="flex items-center gap-2">
               <Input
@@ -115,7 +116,7 @@ export function TemplateScoringSettings({ templateId, editable, tiers, gatekeepe
                 onChange={(event) => updateBand(index, { label: event.target.value })}
               />
               {editable && (
-                <Button variant="outline" size="sm" onClick={() => setBands((current) => current.filter((_, bandIndex) => bandIndex !== index))}>
+                <Button variant="outline" size="sm" aria-label="Remove band" title="Remove band" onClick={() => setBands((current) => current.filter((_, bandIndex) => bandIndex !== index))}>
                   <Trash2 className="size-4" />
                 </Button>
               )}

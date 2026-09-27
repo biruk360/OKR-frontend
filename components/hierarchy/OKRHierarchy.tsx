@@ -89,7 +89,7 @@ const dashedEdge = {
   type: 'smoothstep' as const,
   animated: false,
   style: {
-    stroke: '#9ca3af',
+    stroke: 'var(--ap-fg-faint)',
     strokeWidth: 1.5,
     strokeDasharray: '6 4',
   },
@@ -330,8 +330,8 @@ const OKRHierarchy = ({
 
   const frameClass =
     layout === 'fullscreen'
-      ? 'h-full min-h-0 w-full bg-[#f4f4f5]'
-      : 'h-[min(640px,calc(100vh-12rem))] min-h-[400px] w-full rounded-lg border border-border bg-[#f4f4f5]'
+      ? 'h-full min-h-0 w-full bg-surface-app'
+      : 'h-[min(640px,calc(100vh-12rem))] min-h-[400px] w-full rounded-lg border border-border bg-surface-app'
 
   return (
     <div className={frameClass}>
@@ -351,7 +351,7 @@ const OKRHierarchy = ({
         defaultEdgeOptions={dashedEdge}
       >
         <Controls showInteractive={false} className="!shadow-md" />
-        <Background color="#d4d4d8" gap={20} size={1} />
+        <Background color="var(--ap-border-strong)" gap={20} size={1} />
       </ReactFlow>
       <AddAlignedObjectiveModal
         open={!!alignTarget}
@@ -367,7 +367,7 @@ const OKRHierarchy = ({
           // pattern lets the Objectives page open its CreateObjectiveModal
           // pre-linked to this parent.
           if (alignTarget) {
-            router.push(`/dashboard/objectives?createUnder=${alignTarget.parentObjectiveId}`)
+            router.push(`/dashboard/okrs-all?view=map&createUnder=${alignTarget.parentObjectiveId}`)
           }
         }}
       />

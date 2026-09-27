@@ -65,7 +65,7 @@ export function PortfolioWbrPanel() {
         <div className="overflow-x-auto">
           <table className="w-full text-body-sm">
             <thead>
-              <tr className="border-b border-black/[0.08] text-left text-ink-tertiary">
+              <tr className="border-b border-ink-primary/[0.08] text-left text-ink-tertiary">
                 <th className="px-2 py-1.5 font-medium">Period</th>
                 <th className="px-2 py-1.5 font-medium">Headline</th>
                 <th className="px-2 py-1.5 font-medium">SPI</th>
@@ -74,7 +74,7 @@ export function PortfolioWbrPanel() {
                 <th className="px-2 py-1.5 font-medium">PDF</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-black/[0.04]">
+            <tbody className="divide-y divide-ink-primary/[0.04]">
               {reports.map((report) => {
                 const noPlan = report.contentJson?.delayLedgerSummary?.noRecoveryPlanCount ?? 0
                 return (
@@ -84,7 +84,7 @@ export function PortfolioWbrPanel() {
                     <td className="px-2 py-2 tabular-nums">{report.contentJson?.portfolioSpi == null ? '-' : report.contentJson.portfolioSpi.toFixed(2)}</td>
                     <td className="px-2 py-2 tabular-nums">{report.contentJson?.redItems?.length ?? 0}</td>
                     <td className="px-2 py-2">
-                      <span className={cn('rounded-pill px-2 py-0.5 text-[12px] font-medium', noPlan ? 'bg-danger-50 text-danger-700' : 'bg-success-50 text-success-700')}>
+                      <span className={cn('rounded-pill px-2 py-0.5 text-xs font-medium', noPlan ? 'bg-danger-50 text-danger-700' : 'bg-success-50 text-success-700')}>
                         {noPlan ? `${noPlan} no plan` : 'Covered'}
                       </span>
                     </td>

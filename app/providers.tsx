@@ -10,6 +10,7 @@ import {
 } from '@tanstack/react-query'
 import { Suspense, useEffect, useState } from 'react'
 import { CrashReporter } from '@/components/CrashReporter'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { reportClientError, serializeUnknownError } from '@/lib/client-error-report'
 import {
   clearStaleChunkReloadGuard,
@@ -93,10 +94,16 @@ export function Providers({
   return (
     <SessionProvider session={session}>
       <QueryClientProvider client={queryClient}>
-        <Suspense fallback={null}>
-          <CrashReporter />
-        </Suspense>
-        {children}
+        {/* One app-wide provider so every Radix Tooltip (notably the person
+            hover card on every UserAvatar) shares open/skip delays: moving
+            along an avatar stack opens the next card instantly.
+            docs/user_name_hover_REQUIREMENTS.md UNH-1. */}
+        <TooltipProvider delayDuration={180} skipDelayDuration={300}>
+          <Suspense fallback={null}>
+            <CrashReporter />
+          </Suspense>
+          {children}
+        </TooltipProvider>
       </QueryClientProvider>
     </SessionProvider>
   )

@@ -16,7 +16,7 @@ jobs:
   build:
     name: Build & typecheck
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     env:
       DATABASE_URL: "file:./dev.db"
       NEXTAUTH_SECRET: "ci-placeholder-secret"
@@ -50,6 +50,15 @@ jobs:
           npm run test:attachments
           npm run test:automations
 
+      - name: Module unit tests
+        run: |
+          npm run test:projects
+          npm run test:okr
+          npm run test:performance
+          npm run test:link-preview
+          npm run test:letters
+          npm run test:core
+
       - name: Security invariants
         # Static guards: every API route carries an auth wrapper (or a named
         # exemption that proves its own guard), card sharing mints no tokens and
@@ -61,6 +70,11 @@ jobs:
 
       - name: TypeScript check
         run: npx tsc --noEmit
+
+      - name: Lint
+        # .eslintrc.json (next/core-web-vitals). Errors fail the build — notably
+        # react-hooks/rules-of-hooks; style rules are warnings only.
+        run: npm run lint
 
       - name: Next.js build
         run: npm run build

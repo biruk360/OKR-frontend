@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { withRoleOrFeature } from '@/lib/api/withAuth'
-import { apiSuccess, apiBadRequest, apiNotFound } from '@/lib/api/apiResponse'
+import { apiSuccess, apiBadRequest, apiNotFound, apiConflict } from '@/lib/api/apiResponse'
 
 export const GET = withRoleOrFeature<RouteIdParams>(['ADMIN'], 'page.settings.permissions', async (_request, { params }) => {
   const { id } = await resolveParams(params)
@@ -101,9 +101,10 @@ export const DELETE = withRoleOrFeature<RouteIdParams>(['ADMIN'], 'page.settings
   }
 
   if (role._count.userRoles > 0) {
-    return apiSuccess(
-      { error: 'HAS_USERS', count: role._count.userRoles },
-      { status: 409 }
+    const count = role._count.userRoles
+    return apiConflict(
+      `This role is assigned to ${count} ${count === 1 ? 'user' : 'users'}. Reassign them before deleting it.`,
+      { code: 'HAS_USERS', count },
     )
   }
 

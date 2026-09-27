@@ -113,7 +113,8 @@ describe('Project creation AI column mapping', () => {
     assert.match(mappingStep, /AI proposal:/)
     assert.match(mappingStep, /confidence/)
     assert.match(importStep, /useProposeProjectCreationImportMapping/)
-    assert.match(importStep, /useAnalyzeProjectCreationImport/)
+    // Story 2.7: mapping approval reuses the retained upload (no second file upload).
+    assert.match(importStep, /useApproveRetainedProjectCreationMapping/)
     for (const modelId of PROJECT_CREATION_AI_MODEL_ALLOWLIST) {
       assert.ok(estimateCostUsd({ modelId, inputTokens: 1_000, cachedTokens: 0, outputTokens: 100 }) > 0)
     }

@@ -19,10 +19,10 @@ interface Props {
 }
 
 const reasonConfig: Record<NeedsAttentionItem['reason'], { label: string; className: string; icon: typeof AlertTriangle }> = {
-  off_track: { label: 'Off track', className: 'bg-red-100 text-red-700', icon: TrendingDown },
-  at_risk: { label: 'At risk', className: 'bg-amber-100 text-amber-700', icon: AlertTriangle },
-  overdue: { label: 'Overdue', className: 'bg-red-100 text-red-700', icon: Clock },
-  blocked: { label: 'Blocked', className: 'bg-orange-100 text-orange-700', icon: AlertTriangle },
+  off_track: { label: 'Off track', className: 'bg-danger-100 text-danger-700', icon: TrendingDown },
+  at_risk: { label: 'At risk', className: 'bg-warning-100 text-warning-700', icon: AlertTriangle },
+  overdue: { label: 'Overdue', className: 'bg-danger-100 text-danger-700', icon: Clock },
+  blocked: { label: 'Blocked', className: 'bg-warning-100 text-warning-700', icon: AlertTriangle },
 }
 
 export default function NeedsAttention({ items }: Props) {
@@ -47,11 +47,11 @@ export default function NeedsAttention({ items }: Props) {
                   href={item.href}
                   className="flex items-start gap-3 px-4 py-3 hover:bg-muted transition-colors"
                 >
-                  <Icon className="size-4 shrink-0 mt-0.5 text-amber-500" />
+                  <Icon className="size-4 shrink-0 mt-0.5 text-warning-500" />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium truncate">{item.title}</p>
                     <div className="flex items-center gap-2 mt-1">
-                      <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold ${config.className}`}>
+                      <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-micro font-semibold ${config.className}`}>
                         {config.label}
                       </span>
                       <span className="text-xs text-muted-foreground tabular-nums">

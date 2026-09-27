@@ -83,6 +83,8 @@ interface KeyResultActionsMenuProps {
    * Archive/Delete/Check-in). Use this as the "overflow" menu alongside those buttons.
    */
   extrasOnly?: boolean
+  /** Extra items (e.g. navigation) rendered at the top of the menu. */
+  extraItems?: ActionsMenuItem[]
 }
 
 export default function KeyResultActionsMenu({
@@ -97,6 +99,7 @@ export default function KeyResultActionsMenu({
   chartElementId,
   onChanged,
   extrasOnly = false,
+  extraItems = [],
 }: KeyResultActionsMenuProps) {
   const router = useRouter()
   const [archiveOpen, setArchiveOpen] = useState(false)
@@ -175,6 +178,8 @@ export default function KeyResultActionsMenu({
   }
 
   const items: ActionsMenuItem[] = [
+    ...extraItems,
+    ...(extraItems.length > 0 ? [{ key: 'd0', label: '', divider: true, onSelect: () => {} }] : []),
     {
       key: 'checkin',
       label: 'Check-in',
@@ -277,7 +282,7 @@ export default function KeyResultActionsMenu({
           setArchiveOpen(true)
         }
       },
-      hidden: extrasOnly || isClosed,
+      hidden: extrasOnly || isClosed || !canEdit,
     },
     {
       key: 'delete',

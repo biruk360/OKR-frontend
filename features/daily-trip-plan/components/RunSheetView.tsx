@@ -1,7 +1,10 @@
 'use client'
 
-import { Printer, Navigation, CheckCircle2, AlertCircle } from 'lucide-react'
+import { Printer, Navigation, CheckCircle2, AlertCircle, Route } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { PageHeader } from '@/components/ui/PageHeader'
+import { Skeleton, SkeletonRow } from '@/components/ui/Skeleton'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { useRunSheet, useSetLegStatus } from '../hooks/queries'
 import { formatEthiopian } from '@/lib/dtp/ec-calendar'
 
@@ -13,8 +16,8 @@ interface Props {
 }
 
 const LEG_TYPE_STYLES: Record<string, string> = {
-  DROPOFF: 'bg-primary/10 text-primary-700 border border-primary-200',
-  RETURN_PICKUP: 'bg-purple-100 text-purple-800 border border-purple-200',
+  DROPOFF: 'bg-primary-50 text-primary-700 border border-primary-200',
+  RETURN_PICKUP: 'bg-[color:var(--ap-ahead-bg)] text-[color:var(--ap-ahead-fg)] border border-[color:var(--ap-ahead-bg)]',
 }
 
 export function RunSheetView({ driverId, date, driverMode }: Props) {
@@ -23,25 +26,32 @@ export function RunSheetView({ driverId, date, driverMode }: Props) {
   const sheet = q.data
   const dateObj = new Date(`${date}T00:00:00Z`)
 
-  if (q.isLoading) return <div className="p-6 text-sm text-muted-foreground">Loading…</div>
+  if (q.isLoading) return <SheetSkeleton />
   if (q.isError) return <div className="p-6 text-sm text-danger-700">Failed to load run sheet.</div>
-  if (!sheet) return <div className="p-6 text-sm text-muted-foreground">No run sheet found for this driver and date.</div>
+  if (!sheet) {
+    return (
+      <EmptyState
+        icon={Route}
+        title="No run sheet"
+        description="No run sheet found for this driver and date."
+      />
+    )
+  }
 
   return (
     <div className="space-y-4 print:space-y-2">
-      <header className="flex items-start justify-between gap-3 print:flex-col">
-        <div>
-          <h1 className="text-2xl font-semibold">Daily Run Sheet</h1>
-          <p className="text-sm text-muted-foreground">
-            {sheet.driverName} · {sheet.vehiclePlate ?? '— no vehicle —'} · {date} · {formatEthiopian(dateObj)}
-          </p>
-        </div>
-        <Button onClick={() => window.print()} className="print:hidden">
-          <Printer className="mr-2 h-4 w-4" /> Print / PDF
-        </Button>
-      </header>
+      <PageHeader
+        className="mb-0"
+        title="Daily Run Sheet"
+        description={`${sheet.driverName} · ${sheet.vehiclePlate ?? "— no vehicle —"} · ${date} · ${formatEthiopian(dateObj)}`}
+        actions={
+          <Button onClick={() => window.print()} className="print:hidden">
+            <Printer className="mr-2 h-4 w-4" /> Print / PDF
+          </Button>
+        }
+      />
 
-      <div className="rounded-lg border border-border bg-card overflow-hidden print:border-0">
+      <div className="overflow-x-auto rounded-lg border border-border bg-card print:border-0">
         <table className="w-full text-sm">
           <thead className="bg-muted/40 text-left">
             <tr>
@@ -66,7 +76,7 @@ export function RunSheetView({ driverId, date, driverMode }: Props) {
                 <td className="px-3 py-2 tabular-nums">{i + 1}</td>
                 <td className="px-3 py-2 tabular-nums whitespace-nowrap">{l.scheduledTime}</td>
                 <td className="px-3 py-2">
-                  <span className={'inline-flex items-center rounded-pill px-2 py-0.5 text-[11px] font-medium ' + (LEG_TYPE_STYLES[l.legType] ?? 'bg-muted text-muted-foreground border border-border')}>
+                  <span className={'inline-flex items-center rounded-pill px-2 py-0.5 text-caption font-medium ' + (LEG_TYPE_STYLES[l.legType] ?? 'bg-muted text-muted-foreground border border-border')}>
                     {l.legType === 'DROPOFF' ? 'Drop-off' : 'Return pickup'}
                   </span>
                 </td>
@@ -114,6 +124,20 @@ export function RunSheetView({ driverId, date, driverMode }: Props) {
           Maps key exists and a real polyline can be drawn here. */}
       <div className="rounded-lg border border-dashed border-border bg-muted/30 h-64 flex items-center justify-center text-sm text-muted-foreground print:hidden">
         Route map not available yet
+      </div>
+    </div>
+  )
+}
+
+function SheetSkeleton() {
+  return (
+    <div className="space-y-4" aria-busy="true" aria-label="Loading sheet">
+      <Skeleton className="h-8 w-64" />
+      <Skeleton className="h-4 w-96 max-w-full" />
+      <div className="space-y-2">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <SkeletonRow key={i} />
+        ))}
       </div>
     </div>
   )

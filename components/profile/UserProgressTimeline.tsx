@@ -90,11 +90,11 @@ export default function UserProgressTimeline({
         <h2 className="text-sm font-semibold text-foreground">Overall Progress Timeline</h2>
         <div className="text-xs text-muted-foreground flex items-center gap-3">
           <span className="flex items-center gap-1">
-            <span className="inline-block h-2 w-4 border-t-2 border-dashed border-gray-400" />
+            <span className="inline-block h-2 w-4 border-t-2 border-dashed border-ink-secondary" />
             Expected
           </span>
           <span className="flex items-center gap-1">
-            <span className="inline-block h-2 w-4 bg-blue-500 rounded" />
+            <span className="inline-block h-2 w-4 bg-primary-400 rounded" />
             Actual
           </span>
         </div>
@@ -102,15 +102,15 @@ export default function UserProgressTimeline({
       <div style={{ width: '100%', height: 220 }}>
         <ResponsiveContainer>
           <LineChart data={data} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#eef2f6" />
-            <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#6b7280' }} />
-            <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#6b7280' }} unit="%" />
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+            <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
+            <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} unit="%" />
             <Tooltip formatter={(v: any) => (v == null ? '—' : `${v}%`)} />
             <Legend wrapperStyle={{ display: 'none' }} />
             <Line
               type="monotone"
               dataKey="expected"
-              stroke="#94a3b8"
+              stroke="rgb(var(--rgb-ink-secondary))"
               strokeDasharray="4 4"
               dot={false}
               strokeWidth={2}
@@ -118,9 +118,9 @@ export default function UserProgressTimeline({
             <Line
               type="monotone"
               dataKey="actual"
-              stroke="#3b82f6"
+              stroke="rgb(var(--rgb-primary-400))"
               strokeWidth={2}
-              dot={{ r: 3, fill: '#3b82f6' }}
+              dot={{ r: 3, fill: 'rgb(var(--rgb-primary-400))' }}
               connectNulls
             />
             {nowWithin ? (
@@ -128,14 +128,14 @@ export default function UserProgressTimeline({
                 x={format(new Date(now), 'MMM d')}
                 y={Math.round(currentProgress)}
                 r={5}
-                fill="#2563eb"
-                stroke="#ffffff"
+                fill="var(--ap-accent)"
+                stroke="rgb(var(--rgb-surface-card))"
                 strokeWidth={2}
                 label={{
                   value: `${Math.round(currentProgress)}% (Current)`,
                   position: 'top',
                   fontSize: 10,
-                  fill: '#2563eb',
+                  fill: 'var(--ap-accent)',
                 }}
               />
             ) : null}

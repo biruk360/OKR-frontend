@@ -8,6 +8,7 @@ import {
 } from '../hooks/useOrgData'
 import type { OrgDepartment, OrgTree } from '../types'
 import { Avatar } from './shared/Avatar'
+import { PersonTooltip } from '@/components/shared/UserAvatar'
 
 export function DepartmentsTab({ tree }: { tree: OrgTree }) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
@@ -62,23 +63,23 @@ function DepartmentCard({ dept, open, onToggle }: { dept: OrgDepartment; open: b
         <div className="min-w-0 flex-1">
           <p className="truncate text-[14px] font-semibold" style={{ color: 'var(--ap-fg)' }}>{dept.name}</p>
           {dept.description && (
-            <p className="truncate text-[11px]" style={{ color: 'var(--ap-fg-subtle)' }}>{dept.description}</p>
+            <p className="truncate text-caption" style={{ color: 'var(--ap-fg-subtle)' }}>{dept.description}</p>
           )}
         </div>
         <div className="flex items-center gap-3">
           {dept.head ? (
-            <span className="flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+            <span className="flex items-center gap-1.5 rounded-full px-2 py-0.5 text-caption font-semibold"
               style={{ background: 'rgba(180,83,9,0.10)', color: '#b45309' }}>
               <Crown className="size-3" />
               {dept.head.name ?? dept.head.email}
             </span>
           ) : (
-            <span className="rounded-full px-2 py-0.5 text-[11px] font-medium"
+            <span className="rounded-full px-2 py-0.5 text-caption font-medium"
               style={{ background: 'rgba(180,83,9,0.10)', color: '#b45309' }}>
               No head
             </span>
           )}
-          <span className="rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums"
+          <span className="rounded-full px-2 py-0.5 text-caption font-semibold tabular-nums"
             style={{ background: 'rgba(0,122,255,0.10)', color: 'var(--ap-accent)' }}>
             {dept.members.length} {dept.members.length === 1 ? 'member' : 'members'}
           </span>
@@ -105,7 +106,7 @@ function MembersPanel({ dept }: { dept: OrgDepartment }) {
   return (
     <div className="border-t px-4 py-3" style={{ borderColor: 'var(--ap-border)', background: 'var(--ap-bg-raised)' }}>
       <div className="mb-2 flex items-center justify-between">
-        <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--ap-fg-subtle)' }}>
+        <p className="text-micro font-bold uppercase tracking-widest" style={{ color: 'var(--ap-fg-subtle)' }}>
           Members
         </p>
         {!adding && (
@@ -168,10 +169,12 @@ function MembersPanel({ dept }: { dept: OrgDepartment }) {
             >
               <Avatar name={m.user.name ?? m.user.email} />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[13px] font-medium" style={{ color: 'var(--ap-fg)' }}>
-                  {m.user.name ?? m.user.email}
-                </p>
-                <p className="truncate text-[11px]" style={{ color: 'var(--ap-fg-subtle)' }}>
+                <PersonTooltip person={m.user} whenTruncated>
+                  <p className="truncate text-[13px] font-medium" style={{ color: 'var(--ap-fg)' }}>
+                    {m.user.name ?? m.user.email}
+                  </p>
+                </PersonTooltip>
+                <p className="truncate text-caption" style={{ color: 'var(--ap-fg-subtle)' }}>
                   {m.user.email}
                 </p>
               </div>

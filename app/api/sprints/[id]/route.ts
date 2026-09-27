@@ -9,14 +9,14 @@ import {
   apiNotFound,
   withAuth,
 } from '@/lib/api'
-import { canEditSprint, canDeleteSprint, type UserRole } from '@/lib/permissions'
+import { canEditSprint, canDeleteSprint, canViewSprint, type UserRole } from '@/lib/permissions'
 import { recordActivity } from '@/lib/activity-log'
 import { broadcastSprintEvent } from '@/lib/pusher'
 import { isSprintBackgroundKey } from '@/lib/sprint-backgrounds'
 import { executeSprintClose, CloseError } from '@/lib/sprints/close-sprint'
 
 /** Full sprint with columns (board fetch). */
-export const GET = withAuth<RouteIdParams>(async (_request, { params }) => {
+export const GET = withAuth<RouteIdParams>(async (_request, { session, params }) => {
   const { id } = await resolveParams(params)
   if (!id) return apiBadRequest('Invalid sprint id')
 
@@ -30,6 +30,15 @@ export const GET = withAuth<RouteIdParams>(async (_request, { params }) => {
   })
 
   if (!sprint) return apiNotFound('Not found')
+
+  // CPM-9 — same visibility gate as the board, /columns and /report.
+  const allowed = await canViewSprint(session.user.role as UserRole, session.user.id, {
+    ownerId: sprint.ownerId,
+    departmentId: sprint.departmentId,
+    participants: sprint.participants.map(p => ({ userId: p.userId })),
+  })
+  if (!allowed) return apiForbidden('You do not have access to this sprint')
+
   return apiSuccess(sprint)
 })
 

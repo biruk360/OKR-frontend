@@ -12,6 +12,7 @@ import {
   createEmptyProjectCreationProjectJson,
   projectCreationProjectJsonSchema,
 } from '@/lib/projects/creation-normalize'
+import { refuseAiSourceMethodWhenDisabled } from '@/lib/projects/ai-guided-api'
 
 const projectJsonSchema = projectCreationProjectJsonSchema.refine(
   isProjectCreationDraftJsonWithinLimit,
@@ -35,6 +36,10 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
   if (!parsed.success) {
     return apiValidationError('Invalid project creation draft', parsed.error.flatten())
   }
+
+  // AC36: AI methods are refused (no draft written) while the project-creation AI flag is off.
+  const aiRefusal = await refuseAiSourceMethodWhenDisabled(parsed.data.sourceMethod)
+  if (aiRefusal) return aiRefusal
 
   const draft = await createProjectCreationDraft({
     ownerUserId: session.user.id,

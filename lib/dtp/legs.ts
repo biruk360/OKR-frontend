@@ -11,7 +11,7 @@
  */
 
 import { prisma } from '@/lib/prisma'
-import { addMinutes } from './time'
+import { formatLegTime, parseHHMM } from './time'
 import { getDtpSettings } from './settings'
 
 const DEFAULT_TRAVEL_MIN = 10
@@ -24,7 +24,7 @@ export interface GeneratedLeg {
   toLabel: string
   toLat: number | null
   toLng: number | null
-  scheduledTime: string // HH:MM
+  scheduledTime: string // HH:MM on the trip date; hours ≥ 24 = next day (see formatLegTime)
   estimatedTrafficMin: number
   passengerIds: string
   tripStopId: string
@@ -66,8 +66,10 @@ export async function generateLegsForPlan(planId: string): Promise<GeneratedLeg[
 
     const passengers = [plan.requesterId, ...s.withWhom.split(',').filter(Boolean)].join(',')
 
-    // DROPOFF: cursor → stop, scheduled to arrive at plannedStart.
-    const dropoffSchedule = addMinutes(s.plannedStart, -DEFAULT_TRAVEL_MIN)
+    // DROPOFF: cursor → stop, scheduled to arrive at plannedStart. Times never
+    // wrap at midnight (formatLegTime): a pre-00:00 departure clamps to 00:00.
+    const startMin = parseHHMM(s.plannedStart)
+    const dropoffSchedule = formatLegTime(startMin - DEFAULT_TRAVEL_MIN)
     out.push({
       legType: 'DROPOFF',
       fromLabel: cursor.label,
@@ -86,7 +88,8 @@ export async function generateLegsForPlan(planId: string): Promise<GeneratedLeg[
     if (s.tripMode === 'ROUND_TRIP') {
       // RETURN_PICKUP: stop → pickupBackTo, at plannedStart + dwell.
       const ret = resolveReturnTarget(s, plan.stops[i + 1] ?? null, office)
-      const pickupTime = addMinutes(s.plannedStart, s.dwellMinutes)
+      // Past midnight this carries into the next day ("24:30"), not "00:30".
+      const pickupTime = formatLegTime(startMin + s.dwellMinutes)
       out.push({
         legType: 'RETURN_PICKUP',
         fromLabel: s.destinationName,

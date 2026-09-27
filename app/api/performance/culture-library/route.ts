@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { apiBadRequest, apiForbidden, apiSuccess, withAuth } from '@/lib/api'
 import { hasPerformancePermission, isPerformanceAdmin } from '@/lib/performance'
+import { recordActivity } from '@/lib/activity-log'
 
 const CODE_PATTERN = /^[A-Z][A-Z0-9_-]*$/
 
@@ -54,6 +55,19 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
       definitionJson: (definitionJson ?? null) as Prisma.InputJsonValue,
       isActive,
     },
+  })
+  await recordActivity({
+    entityType: 'PERFORMANCE_SETTINGS',
+    action: 'CREATED',
+    actorId: session.user.id,
+    changes: {
+      code: { from: null, to: code },
+      name: { from: null, to: name },
+      version: { from: null, to: version },
+      type: { from: null, to: type },
+      isActive: { from: null, to: isActive },
+    },
+    metadata: { entity: 'CRITERION_LIBRARY_ENTRY', libraryEntryId: entry.id },
   })
   return apiSuccess(entry)
 })

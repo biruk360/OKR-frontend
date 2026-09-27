@@ -73,17 +73,17 @@ export default function LetterDatePicker({
   return (
     <div className="space-y-1">
       {label && (
-        <label htmlFor={inputId} className="text-sm font-medium text-gray-700">
+        <label htmlFor={inputId} className="text-sm font-medium text-foreground">
           {label}
         </label>
       )}
       <div className="flex flex-wrap items-stretch gap-2">
-        <div className="inline-flex overflow-hidden rounded-md border border-gray-200 bg-white text-xs">
+        <div className="inline-flex overflow-hidden rounded-md border border-border bg-surface-card text-xs">
           <button
             type="button"
             disabled={disabled}
             onClick={() => onModeChange('GC')}
-            className={`px-2.5 py-1 ${mode === 'GC' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
+            className={`px-2.5 py-1 ${mode === 'GC' ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-surface-hover'}`}
             title={modeLabel?.toggle || 'Calendar'}
           >
             {modeLabel?.gc || 'GC'}
@@ -92,7 +92,7 @@ export default function LetterDatePicker({
             type="button"
             disabled={disabled}
             onClick={() => onModeChange('EC')}
-            className={`px-2.5 py-1 ${mode === 'EC' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
+            className={`px-2.5 py-1 ${mode === 'EC' ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-surface-hover'}`}
           >
             {modeLabel?.ec || 'EC'}
           </button>
@@ -100,14 +100,14 @@ export default function LetterDatePicker({
 
         {mode === 'GC' ? (
           <div className="relative">
-            <Calendar className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-gray-400" />
+            <Calendar className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
             <input
               id={inputId}
               type="date"
               value={value}
               disabled={disabled}
               onChange={(e) => onChange(e.target.value)}
-              className="h-9 rounded-md border border-gray-200 bg-white pl-7 pr-2 text-sm"
+              className="h-9 rounded-md border border-border bg-surface-card pl-7 pr-2 text-sm"
             />
           </div>
         ) : (
@@ -116,7 +116,7 @@ export default function LetterDatePicker({
               disabled={disabled}
               value={ec.day}
               onChange={(e) => setEC('d', Number(e.target.value))}
-              className="h-9 rounded-md border border-gray-200 bg-white px-2 text-sm"
+              className="h-9 rounded-md border border-border bg-surface-card px-2 text-sm"
               aria-label="Day"
             >
               {Array.from({ length: ec.month === 13 ? (ec.year % 4 === 3 ? 6 : 5) : 30 }, (_, i) => i + 1).map((d) => (
@@ -127,7 +127,7 @@ export default function LetterDatePicker({
               disabled={disabled}
               value={ec.month}
               onChange={(e) => setEC('m', Number(e.target.value))}
-              className="h-9 rounded-md border border-gray-200 bg-white px-2 text-sm"
+              className="h-9 rounded-md border border-border bg-surface-card px-2 text-sm"
               aria-label="Month"
             >
               {ecMonths.map((name, i) => (
@@ -138,7 +138,7 @@ export default function LetterDatePicker({
               disabled={disabled}
               value={ec.year}
               onChange={(e) => setEC('y', Number(e.target.value))}
-              className="h-9 rounded-md border border-gray-200 bg-white px-2 text-sm"
+              className="h-9 rounded-md border border-border bg-surface-card px-2 text-sm"
               aria-label="Year"
             >
               {ecYears.map((y) => (
@@ -148,7 +148,7 @@ export default function LetterDatePicker({
           </div>
         )}
 
-        <span className="self-center text-xs text-gray-500">
+        <span className="self-center text-xs text-muted-foreground">
           {mode === 'GC'
             ? `EC: ${ec.day} ${ecMonths[ec.month - 1]} ${ec.year}`
             : `GC: ${value}`}

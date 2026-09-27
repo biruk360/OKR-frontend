@@ -7,6 +7,7 @@ import {
   canViewKeyResult,
   redactObjective,
   redactKeyResult,
+  canDeleteObjective,
 } from '@/lib/permissions'
 import { recalcNodeAndAncestors, wouldCreateAlignmentCycle } from '@/lib/objectiveProgress'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
@@ -21,6 +22,8 @@ import {
   withAuth,
 } from '@/lib/api'
 import { filterFieldsByPermLevel } from '@/lib/field-filter'
+import { broadcastObjectiveEvent } from '@/lib/pusher'
+import { OKR_REALTIME_EVENTS } from '@/lib/okr/realtime'
 
 export const GET = withAuth<RouteIdParams>(async (_request, { session, params }) => {
   const { id } = await resolveParams(params)
@@ -321,6 +324,7 @@ export const PUT = withAuth<RouteIdParams>(async (request: NextRequest, { sessio
     session.user.id,
   )
 
+  broadcastObjectiveEvent(id, OKR_REALTIME_EVENTS.UPDATED, session.user.id)
   return apiSuccess(updatedObjective, { message: 'Objective updated successfully' })
 })
 
@@ -334,12 +338,7 @@ export const DELETE = withAuth<RouteIdParams>(async (_request, { session, params
   const locked = await objectiveLockResponse(id)
   if (locked) return locked
 
-  const canDelete =
-    session.user.role === 'ADMIN' ||
-    session.user.role === 'EXECUTIVE' ||
-    existingObjective.ownerId === session.user.id
-
-  if (!canDelete) {
+  if (!canDeleteObjective(session.user.role, session.user.id, existingObjective)) {
     return apiForbidden('Insufficient permissions to delete this objective')
   }
 
@@ -361,5 +360,6 @@ export const DELETE = withAuth<RouteIdParams>(async (_request, { session, params
     metadata: { objectiveId: id, title: existingObjective.title, level: existingObjective.level },
   })
 
+  broadcastObjectiveEvent(id, OKR_REALTIME_EVENTS.DELETED, session.user.id)
   return apiSuccess(null, { message: 'Objective deleted successfully' })
 })

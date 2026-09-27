@@ -16,5 +16,15 @@ export { default as EnclosuresPanel } from './components/EnclosuresPanel'
 export { default as PdfPreviewPanel } from './components/PdfPreviewPanel'
 export { default as MarkAsSentModal } from './components/MarkAsSentModal'
 export { default as RejectLetterModal } from './components/RejectLetterModal'
+export { default as LetterReportsClient } from './components/LetterReportsClient'
+export { default as LetterTemplatesClient } from './components/LetterTemplatesClient'
 
-export type { LetterDetail, LetterListItem, LetterEnclosureWithUploader, OdooContact } from './types'
+export type {
+  LetterDetail,
+  LetterListItem,
+  LetterEnclosureWithUploader,
+  LetterReport,
+  LetterTemplateDraft,
+  LetterTemplateRecord,
+  OdooContact,
+} from './types'

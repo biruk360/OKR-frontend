@@ -8,6 +8,7 @@ import Mention from '@tiptap/extension-mention'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { cn } from '@/lib/utils'
+import { PersonTooltip } from '@/components/shared/UserAvatar'
 import type { UserForSelection } from '@/hooks/useUsersForSelection'
 import {
   Bold, Italic, List, ListOrdered, Code, Undo2, Redo2,
@@ -68,7 +69,7 @@ function MentionList({
       // document.body, and the card modal is a Radix modal Dialog, which sets
       // `pointer-events: none` on the body while open. Without this the list
       // renders but no click ever reaches it.
-      className="pointer-events-auto fixed z-[200] max-h-[320px] w-56 overflow-y-auto rounded-xl border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] shadow-[var(--ap-shadow-lg)]"
+      className="pointer-events-auto fixed z-[200] max-h-[320px] w-56 overflow-y-auto rounded-xl border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] shadow-[shadow:var(--ap-shadow-lg)]"
       style={{ top, left: Math.min(anchorRect.left, window.innerWidth - 240) }}
     >
       {items.map((item, index) => (
@@ -83,14 +84,16 @@ function MentionList({
           onMouseDown={(e) => { e.preventDefault(); command(item) }}
           onMouseEnter={() => onHover(index)}
           className={cn(
-            'flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-[var(--ap-fg)] transition-colors',
+            'flex w-full items-center gap-2 px-3 py-2 text-left text-body-sm text-[var(--ap-fg)] transition-colors',
             index === selectedIndex ? 'bg-[var(--ap-bg-hover)]' : 'hover:bg-[var(--ap-bg-hover)]',
           )}
         >
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--ap-accent-soft)] text-[10px] font-semibold text-[var(--ap-accent)]">
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--ap-accent-soft)] text-micro font-semibold text-[var(--ap-accent)]">
             {item.label.slice(0, 2).toUpperCase()}
           </span>
-          <span className="truncate">{item.label}</span>
+          <PersonTooltip person={{ id: item.id, name: item.label }} whenTruncated side="right">
+            <span className="truncate">{item.label}</span>
+          </PersonTooltip>
         </button>
       ))}
     </div>,
@@ -245,7 +248,7 @@ export function MentionEditor({ value, onChange, placeholder, users = [], onSubm
 
       <EditorContent
         editor={editor}
-        className="prose prose-sm max-w-none px-3 py-2 text-[13px] text-[var(--ap-fg)] focus-within:outline-none [&_.mention]:text-[var(--ap-accent)] [&_.mention]:font-medium"
+        className="prose prose-sm max-w-none px-3 py-2 text-body-sm text-[var(--ap-fg)] focus-within:outline-none [&_.mention]:text-[var(--ap-accent)] [&_.mention]:font-medium"
         style={{ minHeight }}
         onKeyDown={(e) => {
           if (onSubmit && e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {

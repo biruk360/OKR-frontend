@@ -10,6 +10,7 @@ import {
   withAuth,
 } from '@/lib/api'
 import { canEditSprint, type UserRole } from '@/lib/permissions'
+import { inviteToSprint } from '@/lib/sprints/participants'
 import { recordActivity } from '@/lib/activity-log'
 import { emit } from '@/lib/notifications'
 import { canReopen, buildBringBackPatch, REOPEN_WINDOW_DAYS } from '@/lib/sprints/end-sprint'
@@ -91,7 +92,7 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
     for (const todoId of bringBackTodoIds) {
       const todo = await tx.todo.findUnique({
         where: { id: todoId },
-        select: { carryoverCount: true, sprintId: true },
+        select: { carryoverCount: true, sprintId: true, assigneeId: true, members: { select: { userId: true } } },
       })
       if (!todo) continue
       const fromSprintId = todo.sprintId
@@ -99,6 +100,8 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
         where: { id: todoId },
         data: buildBringBackPatch(todo, id),
       })
+      // Invite-only sprints: a card moving (back) onto this board invites its people.
+      await inviteToSprint(tx, id, [todo.assigneeId, ...todo.members.map((m) => m.userId)])
       await recordActivity({
         entityType: 'TODO', todoId, sprintId: id,
         action: 'INITIATIVE_SPRINT_CHANGED',

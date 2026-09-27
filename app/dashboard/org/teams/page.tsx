@@ -1,7 +1,8 @@
 import { getServerSessionSafe } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { loadTeamsDirectory } from '@/features/admin-org/services/org-pages.server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { Users, Building2, User, Target } from 'lucide-react'
 
 export default async function TeamsDirectoryPage() {
@@ -11,23 +12,7 @@ export default async function TeamsDirectoryPage() {
     redirect('/auth/signin')
   }
 
-  // Get all departments (teams)
-  const departments = await prisma.department.findMany({
-    where: { isActive: true },
-    include: {
-      memberships: {
-        include: {
-          user: {
-            select: { id: true, name: true, email: true, avatar: true, role: true }
-          }
-        }
-      },
-      _count: {
-        select: { memberships: true, objectives: true }
-      }
-    },
-    orderBy: { name: 'asc' }
-  })
+  const departments = await loadTeamsDirectory()
 
   return (
     <div className="space-y-4">
@@ -43,12 +28,12 @@ export default async function TeamsDirectoryPage() {
           <Link
             key={department.id}
             href={`/dashboard/org/teams/${department.id}`}
-            className="block bg-card rounded-lg border border-border p-6 hover:shadow-md transition-shadow focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+            className="block bg-card rounded-lg border border-border p-6 hover:shadow-md transition-shadow ap-focus-ring"
           >
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <Building2 className="h-6 w-6 text-blue-600" />
+                <div className="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center">
+                  <Building2 className="h-6 w-6 text-primary-600" />
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold text-foreground">{department.name}</h3>
@@ -81,7 +66,7 @@ export default async function TeamsDirectoryPage() {
                         className="h-6 w-6 rounded-full"
                       />
                     ) : (
-                      <div className="h-6 w-6 rounded-full bg-gray-300 flex items-center justify-center">
+                      <div className="h-6 w-6 rounded-full bg-surface-muted flex items-center justify-center">
                         <span className="text-xs font-medium text-muted-foreground">
                           {membership.user.name.charAt(0).toUpperCase()}
                         </span>
@@ -102,13 +87,11 @@ export default async function TeamsDirectoryPage() {
       </div>
 
       {departments.length === 0 && (
-        <div className="text-center py-12 bg-card rounded-lg border border-border">
-          <Users className="mx-auto h-12 w-12 text-muted-foreground" />
-          <h3 className="mt-2 text-sm font-medium text-foreground">No teams found</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Teams will appear here once they are created.
-          </p>
-        </div>
+        <EmptyState
+          icon={<Users className="h-10 w-10 text-muted-foreground" />}
+          title="No teams found"
+          description="Teams will appear here once they are created."
+        />
       )}
     </div>
   )

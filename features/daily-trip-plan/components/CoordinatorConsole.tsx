@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useId } from 'react'
 import Link from 'next/link'
 import { Filter, Search } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -8,6 +8,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { FilterSelect } from '@/components/ui/FilterSelect'
+import { SkeletonRow } from '@/components/ui/Skeleton'
 import { StatusBadge } from './StatusBadge'
 import { usePlans } from '../hooks/queries'
 import type { DtpPlanSummary } from '../types'
@@ -22,6 +24,7 @@ const PENDING_STATUSES = ['SUBMITTED', 'MANAGER_ENDORSED', 'UNDER_REVIEW', 'ADJU
  * can drill in. The KPI strip is computed from the visible plan list.
  */
 export function CoordinatorConsole() {
+  const uid = useId()
   const [date, setDate] = useState(() => {
     const d = new Date()
     d.setUTCDate(d.getUTCDate() + 1)
@@ -72,26 +75,28 @@ export function CoordinatorConsole() {
         <CardHeader className="pb-3 flex flex-row items-center justify-between gap-3">
           <CardTitle className="text-base">Pending plans</CardTitle>
           <div className="flex flex-wrap items-center gap-2">
-            <Label className="text-xs text-muted-foreground">Date</Label>
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-auto" />
-            <div className="flex items-center gap-1">
-              <Filter className="h-4 w-4 text-muted-foreground" />
-              <select className="h-9 rounded-md border border-input bg-background px-2 text-sm" value={flag ?? ''} onChange={(e) => setFlag(e.target.value || undefined)}>
-                <option value="">All</option>
-                <option value="late">Late only</option>
-                <option value="emergency">Emergency only</option>
-              </select>
-            </div>
+            <Label htmlFor={`${uid}-date`} className="text-xs text-muted-foreground">Date</Label>
+            <Input id={`${uid}-date`} type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-auto" />
+            <FilterSelect
+              label="Show"
+              placeholder="All"
+              value={flag}
+              onValueChange={(next) => setFlag(next as typeof flag)}
+              options={[
+                { value: 'late', label: 'Late only' },
+                { value: 'emergency', label: 'Emergency only' },
+              ]}
+            />
             <div className="relative">
               <Search className="pointer-events-none absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input className="pl-8 w-56" placeholder="Search by name or email" value={search} onChange={(e) => setSearch(e.target.value)} />
+              <Input className="pl-8 w-56" aria-label="Search by name or email" placeholder="Search by name or email" value={search} onChange={(e) => setSearch(e.target.value)} />
             </div>
             <Button variant="ghost" size="sm" onClick={() => plans.refetch()}>Refresh</Button>
           </div>
         </CardHeader>
         <CardContent>
           {plans.isLoading ? (
-            <div className="text-sm text-muted-foreground">Loading…</div>
+            <div className="space-y-2" aria-busy="true" aria-label="Loading">{Array.from({ length: 3 }).map((_, i) => <SkeletonRow key={i} />)}</div>
           ) : filtered.length === 0 ? (
             <EmptyState title="No pending plans" description="Nothing waiting for your decision on this date." />
           ) : (
@@ -124,7 +129,7 @@ function PlanRow({ plan }: { plan: DtpPlanSummary }) {
       <div className="flex min-w-0 items-center gap-3">
         <span
           aria-hidden
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary-700 text-xs font-semibold"
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-50 text-primary-700 text-xs font-semibold"
         >
           {initials}
         </span>
@@ -135,10 +140,10 @@ function PlanRow({ plan }: { plan: DtpPlanSummary }) {
           <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
             <span className="text-xs text-muted-foreground">{date.toISOString().slice(0, 10)} · {formatEthiopian(date)}</span>
             <StatusBadge status={plan.status} />
-            {plan.late && <span className="rounded-pill bg-warning-50 text-warning-700 border border-warning-200 px-2 py-0.5 text-[11px] font-medium">Late</span>}
-            {plan.adjusted && <span className="rounded-pill bg-purple-100 text-purple-800 border border-purple-200 px-2 py-0.5 text-[11px] font-medium">Adjusted</span>}
-            {plan.emergency && <span className="rounded-pill bg-danger-50 text-danger-700 border border-danger-200 px-2 py-0.5 text-[11px] font-medium">Emergency</span>}
-            {plan.priority === 'URGENT' && <span className="rounded-pill bg-danger-50 text-danger-700 border border-danger-200 px-2 py-0.5 text-[11px] font-medium">Urgent</span>}
+            {plan.late && <span className="rounded-pill bg-warning-50 text-warning-700 border border-warning-200 px-2 py-0.5 text-caption font-medium">Late</span>}
+            {plan.adjusted && <span className="rounded-pill bg-[color:var(--ap-ahead-bg)] text-[color:var(--ap-ahead-fg)] border border-[color:var(--ap-ahead-bg)] px-2 py-0.5 text-caption font-medium">Adjusted</span>}
+            {plan.emergency && <span className="rounded-pill bg-danger-50 text-danger-700 border border-danger-200 px-2 py-0.5 text-caption font-medium">Emergency</span>}
+            {plan.priority === 'URGENT' && <span className="rounded-pill bg-danger-50 text-danger-700 border border-danger-200 px-2 py-0.5 text-caption font-medium">Urgent</span>}
           </div>
         </div>
       </div>

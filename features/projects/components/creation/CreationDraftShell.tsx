@@ -34,12 +34,12 @@ const METHOD_CONTENT = {
   AI_GUIDED: {
     icon: Sparkles,
     title: 'AI-guided setup',
-    description: 'Your draft is ready for a guided brief. Every generated value will remain editable and require confirmation.',
+    description: 'Describe the project or paste its TOR. AI proposes an editable plan in this private draft; every generated value stays editable and must be accepted before creation.',
   },
   AI_TOR: {
     icon: Sparkles,
     title: 'TOR-guided setup',
-    description: 'Your draft is ready for TOR input. Document content will be treated as untrusted project data.',
+    description: 'Paste the TOR text. Document content is treated as untrusted project data, and every generated value must be accepted before creation.',
   },
 } as const
 
@@ -90,7 +90,7 @@ export function CreationDraftShell({
                 current ? 'border-primary bg-primary/5' : 'border-border bg-surface-card',
               )}>
                 <span className={cn(
-                  'flex size-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold',
+                  'flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold',
                   complete || current ? 'bg-primary text-primary-foreground' : 'bg-surface-muted text-ink-secondary',
                 )}>
                   {complete ? <Check className="size-3" /> : index + 1}

@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { stripHtml } from './prefill'
+import { escapeScrumHtml } from './html'
 
 export type ScrumItemStatus = 'PENDING' | 'DONE' | 'CARRIED' | 'NOT_DONE'
 
@@ -54,9 +55,14 @@ export function parseHtmlToItems(htmlOrText: string, defaultStatus: ScrumItemSta
     .map((text, index) => ({ id: `item-${index}`, text, status: defaultStatus }))
 }
 
+/**
+ * Items are plain text (see `parseHtmlToItems`, which decodes entities), so
+ * every line is HTML-escaped before being wrapped in `<p>` — never concatenate
+ * raw item text into markup.
+ */
 export function serializeItemsToHtml(items: ScrumItem[] = []): string {
   const lines = items.map((item) => `• ${item.text}`).join('\n')
-  return lines ? `<p>${lines.replace(/\n/g, '</p><p>')}</p>` : ''
+  return lines ? `<p>${lines.split('\n').map(escapeScrumHtml).join('</p><p>')}</p>` : ''
 }
 
 export function buildYesterdayDoneHtml(items: ScrumItem[] = []): string {

@@ -20,6 +20,7 @@
 
 import { randomUUID } from 'crypto'
 import { prisma } from '../lib/prisma'
+import { flushBackgroundWork } from '../lib/background'
 import { executeRun } from '../lib/automations/runner'
 import {
   claimNextRun,
@@ -313,6 +314,9 @@ async function main(): Promise<void> {
     check('orphan attempt was incremented', (reclaimed?.attempt ?? 0) === 2, `attempt=${reclaimed?.attempt}`)
     check('orphan lease was cleared', reclaimed?.leaseOwner === null)
   } finally {
+    // Let deferred notification delivery land before the fixture is deleted
+    // and the pool closes.
+    await flushBackgroundWork(15_000)
     if (KEEP) {
       console.log(`\nFixture kept: automation ${automation.id}`)
     } else {
@@ -330,6 +334,7 @@ async function main(): Promise<void> {
 
 main().catch(async (error) => {
   console.error('\nSmoke test threw:', error)
+  await flushBackgroundWork(5_000)
   await prisma.$disconnect().catch(() => undefined)
   process.exit(1)
 })

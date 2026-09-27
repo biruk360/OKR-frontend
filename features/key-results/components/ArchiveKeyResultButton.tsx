@@ -29,8 +29,9 @@ export default function ArchiveKeyResultButton({
     <>
       <button
         onClick={() => setIsModalOpen(true)}
-        className={`inline-flex items-center px-2 py-1 text-sm text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded ${className}`}
+        className={`inline-flex items-center px-2 py-1 text-sm text-warning-600 hover:text-warning-700 hover:bg-warning-50 rounded ${className}`}
         title="Archive key result"
+        aria-label="Archive key result"
       >
         <Archive className="h-4 w-4" />
       </button>

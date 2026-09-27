@@ -1,12 +1,18 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { CreateObjectiveForm } from '@/types'
-import { canCreateObjective, canViewObjective, redactObjective } from '@/lib/permissions'
+import type { Prisma } from '@prisma/client'
+import { canCreateObjective } from '@/lib/permissions'
+import {
+  buildObjectiveVisibilityWhere,
+  loadViewerContext,
+  redactKeyResultForViewer,
+  redactObjectiveForViewer,
+} from '@/lib/okr/visibility-scope'
 import { recalcNodeAndAncestors } from '@/lib/objectiveProgress'
 import { recordActivity } from '@/lib/activity-log'
 import { normalizeCadence } from '@/lib/check-in-cadence'
 import { emit } from '@/lib/notifications'
-import { buildScopeFilter } from '@/lib/apply-scope'
 import {
   apiSuccess,
   apiPaginated,
@@ -15,87 +21,105 @@ import {
   withAuth,
 } from '@/lib/api'
 
+/**
+ * GET /api/objectives — paginated objective list.
+ *
+ * Filters (all optional, ANDed unless noted):
+ *   level, status (default ACTIVE), departmentId, timeframeId, search
+ *   ownerId        a single owner
+ *   ownerIds       several owners (comma-separated and/or repeated); merged with ownerId
+ *   contributorId  objectives this user is a contributor on (ObjectiveContributor).
+ *                  Given together with an owner filter the two are ORed —
+ *                  `ownerId=me&contributorId=me` is "mine or ones I contribute to".
+ *   page, limit (default 10)
+ *
+ * Without an owner / contributor / COMPANY|DEPARTMENT level filter, EMPLOYEE
+ * lists default to their own objectives and DEPARTMENT_LEAD lists to their own
+ * + their departments'. Every list is ANDed with the viewer's visibility where
+ * (not DELETED + objective record scope, lib/okr/visibility-scope.ts); private
+ * rows the viewer may not see in full — and nested key results, child and parent
+ * objectives — are redacted. A free-text search only matches rows the viewer
+ * sees unredacted, so it cannot probe private titles.
+ */
 export const GET = withAuth(async (request: NextRequest, { session }) => {
   const { searchParams } = new URL(request.url)
   const level = searchParams.get('level')
   const status = searchParams.get('status')
-  const ownerId = searchParams.get('ownerId')
   const departmentId = searchParams.get('departmentId')
   const timeframeId = searchParams.get('timeframeId')
   const search = searchParams.get('search')
-  const page = parseInt(searchParams.get('page') || '1')
-  const limit = parseInt(searchParams.get('limit') || '10')
+  const contributorId = searchParams.get('contributorId')
+  const ownerIds = Array.from(
+    new Set(
+      [...searchParams.getAll('ownerId'), ...searchParams.getAll('ownerIds')]
+        .flatMap((v) => v.split(','))
+        .map((v) => v.trim())
+        .filter(Boolean),
+    ),
+  )
+  const page = Math.max(1, parseInt(searchParams.get('page') || '1') || 1)
+  const limit = Math.max(1, parseInt(searchParams.get('limit') || '10') || 10)
 
-  const where: any = {}
+  // Visibility facts + record scope, loaded once for the request.
+  const viewerCtx = await loadViewerContext({ id: session.user.id, role: session.user.role })
 
-  const isEmployee = session.user.role === 'EMPLOYEE'
+  const and: Prisma.ObjectiveWhereInput[] = [
+    buildObjectiveVisibilityWhere(viewerCtx, { includeRedacted: !search }),
+  ]
+
   const requestingHigherLevel = level === 'COMPANY' || level === 'DEPARTMENT'
-  const hasOwnerFilter = Boolean(ownerId)
+  const hasPeopleFilter = ownerIds.length > 0 || Boolean(contributorId)
 
-  if (isEmployee && !hasOwnerFilter && !requestingHigherLevel) {
-    where.ownerId = session.user.id
-  } else if (session.user.role === 'DEPARTMENT_LEAD') {
-    const userDepartments = await prisma.departmentMembership.findMany({
-      where: { userId: session.user.id },
-      select: { departmentId: true },
-    })
-    const departmentIds = userDepartments.map((d) => d.departmentId)
-
-    where.OR = [
-      { ownerId: session.user.id },
-      { departmentId: { in: departmentIds } },
-    ]
-  }
-
-  if (level) where.level = level
-  if (status) where.status = status
-  else where.status = 'ACTIVE'
-  if (ownerId) where.ownerId = ownerId
-  if (departmentId) where.departmentId = departmentId
-  if (timeframeId) where.timeframeId = timeframeId
-
-  if (search) {
-    const searchConditions = [
-      { title: { contains: search, mode: 'insensitive' } },
-      { description: { contains: search, mode: 'insensitive' } },
-    ]
-
-    if (where.OR && Array.isArray(where.OR)) {
-      const existingConditions = { OR: where.OR }
-      where.AND = [existingConditions, { OR: searchConditions }]
-      delete where.OR
-    } else {
-      where.OR = searchConditions
+  if (!hasPeopleFilter && !requestingHigherLevel) {
+    if (session.user.role === 'EMPLOYEE') {
+      and.push({ ownerId: session.user.id })
+    } else if (session.user.role === 'DEPARTMENT_LEAD') {
+      and.push({
+        OR: [
+          { ownerId: session.user.id },
+          { departmentId: { in: Array.from(viewerCtx.departmentIds) } },
+        ],
+      })
     }
   }
 
-  // Apply record-scope filter (RBAC row-level scoping via RecordScopeRule).
-  // buildScopeFilter returns null when no rules are configured → no change to where.
-  const scopeFilter = await buildScopeFilter(session.user.id, 'objective')
-  if (scopeFilter) {
-    // Wrap both the existing where and the scope filter in a top-level AND so
-    // neither the role-based conditions nor the scope rules are clobbered.
-    const existingWhere = { ...where }
-    // Reset and rebuild as AND of both constraints.
-    for (const key of Object.keys(where)) delete where[key]
-    where.AND = [existingWhere, scopeFilter]
+  const people: Prisma.ObjectiveWhereInput[] = []
+  if (ownerIds.length === 1) people.push({ ownerId: ownerIds[0] })
+  else if (ownerIds.length > 1) people.push({ ownerId: { in: ownerIds } })
+  if (contributorId) people.push({ contributors: { some: { userId: contributorId } } })
+  if (people.length === 1) and.push(people[0])
+  else if (people.length > 1) and.push({ OR: people })
+
+  if (level) and.push({ level: level as Prisma.ObjectiveWhereInput['level'] })
+  and.push({ status: (status || 'ACTIVE') as Prisma.ObjectiveWhereInput['status'] })
+  if (departmentId) and.push({ departmentId })
+  if (timeframeId) and.push({ timeframeId })
+  if (search) {
+    and.push({
+      OR: [
+        { title: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+      ],
+    })
   }
 
+  const where: Prisma.ObjectiveWhereInput = { AND: and }
   const skip = (page - 1) * limit
+  const personSelect = { select: { id: true, name: true, avatar: true } } as const
 
   const [objectives, total] = await Promise.all([
     prisma.objective.findMany({
       where,
       include: {
-        owner: { select: { id: true, name: true, avatar: true } },
+        owner: personSelect,
         timeframe: true,
         department: { select: { id: true, name: true } },
-        parentObjective: { select: { id: true, title: true, level: true } },
+        parentObjective: { select: { id: true, title: true, level: true, ownerId: true, isPrivate: true } },
         objectiveLabels: { include: { label: true } },
         childObjectives: {
-          where: { status: 'ACTIVE' },
+          where: { AND: [{ status: 'ACTIVE' }, buildObjectiveVisibilityWhere(viewerCtx)] },
           include: {
-            owner: { select: { id: true, name: true, avatar: true } },
+            owner: personSelect,
             department: { select: { id: true, name: true } },
             _count: { select: { keyResults: true, childObjectives: true } },
           },
@@ -104,7 +128,7 @@ export const GET = withAuth(async (request: NextRequest, { session }) => {
         keyResults: {
           orderBy: { createdAt: 'asc' },
           include: {
-            owner: { select: { id: true, name: true, avatar: true } },
+            owner: personSelect,
             objective: { select: { id: true, ownerId: true } },
           },
         },
@@ -117,33 +141,24 @@ export const GET = withAuth(async (request: NextRequest, { session }) => {
     prisma.objective.count({ where }),
   ])
 
-  const processedObjectives = await Promise.all(
-    objectives.map(async (objective: any) => {
-      try {
-        const visibility = await canViewObjective(
-          session.user.role as any,
-          session.user.id,
-          {
-            level: objective.level,
-            ownerId: objective.ownerId,
-            departmentId: objective.departmentId,
-            isPrivate: objective.isPrivate || false,
-          }
-        )
+  const rows = objectives.map((objective) => {
+    const keyResults = objective.keyResults.map((kr) => redactKeyResultForViewer(viewerCtx, kr, objective))
+    const childObjectives = objective.childObjectives.map((child) => redactObjectiveForViewer(viewerCtx, child))
+    const parentObjective = objective.parentObjective
+      ? redactObjectiveForViewer(viewerCtx, objective.parentObjective)
+      : null
+    const base = redactObjectiveForViewer(viewerCtx, objective)
+    return {
+      ...base,
+      // A redacted objective does not expose its labels either.
+      objectiveLabels: base.isRedacted ? [] : objective.objectiveLabels,
+      keyResults,
+      childObjectives,
+      parentObjective,
+    }
+  })
 
-        if (!visibility.canView) return null
-        if (visibility.isRedacted) return redactObjective(objective)
-        return objective
-      } catch (error) {
-        console.error('Error processing objective visibility:', error)
-        return objective
-      }
-    })
-  )
-
-  const filteredObjectives = processedObjectives.filter((obj) => obj !== null)
-
-  return apiPaginated(filteredObjectives, { page, limit, total })
+  return apiPaginated(rows, { page, limit, total })
 })
 
 export const POST = withAuth(async (request: NextRequest, { session }) => {

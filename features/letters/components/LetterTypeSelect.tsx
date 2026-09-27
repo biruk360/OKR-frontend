@@ -1,9 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Check, Plus, ChevronDown, Loader2 } from 'lucide-react'
+import { Check, Plus, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button, Input, Modal, Label } from '@/components/ui'
+import { Skeleton } from '@/components/ui/Skeleton'
 import type { LetterTypeRecord } from '@/types'
 import { listLetterTypes, createLetterType } from '../services/lettersApi'
 
@@ -56,14 +57,14 @@ export default function LetterTypeSelect({ value, onChange, disabled, label, all
 
   return (
     <div className="space-y-1">
-      {label && <Label className="text-[12px]">{label}</Label>}
+      {label && <Label className="text-xs">{label}</Label>}
       <div className="relative">
         <button
           type="button"
           disabled={disabled}
           onClick={() => setOpen((o) => !o)}
           className={cn(
-            'flex h-10 w-full items-center justify-between gap-2 rounded-[var(--ap-radius-md)] border bg-card px-3 text-left text-[13px] transition-colors',
+            'flex h-10 w-full items-center justify-between gap-2 rounded-[var(--ap-radius-md)] border bg-card px-3 text-left text-body-sm transition-colors',
             'hover:border-[color:var(--ap-fg-muted)] focus:outline-none focus:ring-2 focus:ring-[color:var(--ap-accent)] focus:ring-offset-1',
             disabled && 'cursor-not-allowed opacity-60',
             !selected && 'text-muted-foreground'
@@ -74,10 +75,10 @@ export default function LetterTypeSelect({ value, onChange, disabled, label, all
             {selected ? (
               <>
                 <span className="font-medium">{selected.name}</span>
-                <span className="ml-2 text-[11px] text-muted-foreground">{selected.code}</span>
+                <span className="ml-2 text-caption text-muted-foreground">{selected.code}</span>
               </>
             ) : loading ? (
-              <span className="inline-flex items-center gap-1"><Loader2 className="size-3.5 animate-spin" /> Loading…</span>
+              <Skeleton className="inline-block h-3.5 w-32 align-middle" aria-label="Loading letter types" />
             ) : (
               'Select letter type…'
             )}
@@ -96,7 +97,7 @@ export default function LetterTypeSelect({ value, onChange, disabled, label, all
                 <TypeRow key={t.id} t={t} selected={t.id === value} onPick={pick} />
               ))}
               {custom.length > 0 && (
-                <li className="my-1 px-3 py-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                <li className="my-1 px-3 py-1 text-micro font-medium uppercase tracking-wider text-muted-foreground">
                   Custom
                 </li>
               )}
@@ -104,14 +105,14 @@ export default function LetterTypeSelect({ value, onChange, disabled, label, all
                 <TypeRow key={t.id} t={t} selected={t.id === value} onPick={pick} />
               ))}
               {(types?.length ?? 0) === 0 && !loading && (
-                <li className="px-3 py-2 text-[12px] text-muted-foreground">No letter types found.</li>
+                <li className="px-3 py-2 text-xs text-muted-foreground">No letter types found.</li>
               )}
             </ul>
             {allowCreate && (
               <button
                 type="button"
                 onClick={() => { setCreateOpen(true); setOpen(false) }}
-                className="flex w-full items-center gap-2 border-t px-3 py-2 text-[13px] text-[color:var(--ap-accent)] transition-colors hover:bg-[color:var(--ap-bg-sunken)]"
+                className="flex w-full items-center gap-2 border-t px-3 py-2 text-body-sm text-[color:var(--ap-accent)] transition-colors hover:bg-[color:var(--ap-bg-sunken)]"
                 style={{ borderColor: 'var(--ap-border)' }}
               >
                 <Plus className="size-3.5" /> Create new letter type
@@ -148,7 +149,7 @@ function TypeRow({
         type="button"
         onClick={() => onPick(t)}
         className={cn(
-          'flex w-full items-start justify-between gap-3 px-3 py-2 text-left text-[13px] transition-colors',
+          'flex w-full items-start justify-between gap-3 px-3 py-2 text-left text-body-sm transition-colors',
           'hover:bg-[color:var(--ap-bg-sunken)]',
           selected && 'bg-[color:var(--ap-bg-sunken)]'
         )}
@@ -156,12 +157,12 @@ function TypeRow({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="font-medium text-foreground">{t.name}</span>
-            <span className="rounded bg-[color:var(--ap-bg-sunken)] px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+            <span className="rounded bg-[color:var(--ap-bg-sunken)] px-1.5 py-0.5 font-mono text-micro text-muted-foreground">
               {t.code}
             </span>
           </div>
           {t.description && (
-            <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{t.description}</p>
+            <p className="mt-0.5 truncate text-caption text-muted-foreground">{t.description}</p>
           )}
         </div>
         {selected && <Check className="mt-0.5 size-4 text-[color:var(--ap-accent)]" />}
@@ -227,7 +228,7 @@ function CreateLetterTypeModal({
     <Modal open={open} onClose={onClose} title="Create letter type" size="sm">
       <div className="space-y-3 p-4">
         <div>
-          <Label htmlFor="lt-name" className="text-[12px]">Name</Label>
+          <Label htmlFor="lt-name" className="text-xs">Name</Label>
           <Input
             id="lt-name"
             value={name}
@@ -237,7 +238,7 @@ function CreateLetterTypeModal({
           />
         </div>
         <div>
-          <Label htmlFor="lt-code" className="text-[12px]">Code (2–4 letters)</Label>
+          <Label htmlFor="lt-code" className="text-xs">Code (2–4 letters)</Label>
           <Input
             id="lt-code"
             value={code}
@@ -246,12 +247,12 @@ function CreateLetterTypeModal({
             maxLength={4}
             className="font-mono uppercase"
           />
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            Used in reference numbers, e.g. <code className="text-[10px]">360G/LT/{code || 'NC'}/001/2026</code>
+          <p className="mt-1 text-caption text-muted-foreground">
+            Used in reference numbers, e.g. <code className="text-micro">360G/LT/{code || 'NC'}/001/2026</code>
           </p>
         </div>
         <div>
-          <Label htmlFor="lt-desc" className="text-[12px]">Description (optional)</Label>
+          <Label htmlFor="lt-desc" className="text-xs">Description (optional)</Label>
           <Input
             id="lt-desc"
             value={description}
@@ -260,7 +261,7 @@ function CreateLetterTypeModal({
             maxLength={200}
           />
         </div>
-        {error && <p className="text-[12px] text-red-600">{error}</p>}
+        {error && <p className="text-xs text-danger-600">{error}</p>}
         <div className="flex justify-end gap-2 pt-1">
           <Button variant="outline" onClick={() => { reset(); onClose() }} disabled={submitting}>Cancel</Button>
           <Button onClick={submit} disabled={submitting || name.trim().length < 2}>

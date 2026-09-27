@@ -5,6 +5,7 @@ import { Loader2, Save, AlertTriangle, Check } from 'lucide-react'
 import type { FontConfig } from 'superdoc'
 import { cn } from '@/lib/utils'
 import { LETTER_FONTS } from '../i18n'
+import { Skeleton } from '@/components/ui/Skeleton'
 
 // SuperDoc's runtime depends on window/document, Vue, Pinia, and Konva.
 // Loading it via a normal `import` from a Server Component file would crash
@@ -53,6 +54,11 @@ const SUPERDOC_TOOLBAR_FONTS: FontConfig[] = LETTER_FONTS.map((font) => {
 })
 
 // Keep this object stable: the React wrapper recreates SuperDoc when modules changes.
+// SuperDoc beacons usage to ingest.superdoc.dev by default; the app CSP
+// (next.config.js connect-src) blocks it, so turn it off rather than spam CSP
+// violations — and letter content metadata has no business leaving the app.
+const SUPERDOC_TELEMETRY = { enabled: false } as const
+
 const SUPERDOC_MODULES = {
   toolbar: {
     fonts: SUPERDOC_TOOLBAR_FONTS,
@@ -164,7 +170,7 @@ export default function SuperDocEditorClient({ letterId, docxUrl, editable, user
 
   if (loadError) {
     return (
-      <div className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+      <div className="flex items-start gap-2 rounded-md border border-danger-200 bg-danger-50 p-4 text-sm text-danger-700">
         <AlertTriangle className="mt-0.5 size-4" />
         <div>
           <div className="font-medium">Editor failed to load</div>
@@ -175,9 +181,13 @@ export default function SuperDocEditorClient({ letterId, docxUrl, editable, user
   }
   if (!SuperDocEditor) {
     return (
-      <div className="flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 p-6 text-sm text-gray-600">
-        <Loader2 className="size-4 animate-spin" />
-        Loading editor…
+      <div
+        className="space-y-3 rounded-md border border-border bg-muted/40 p-6"
+        aria-busy="true"
+        aria-label="Loading editor"
+      >
+        <Skeleton className="h-4 w-40" />
+        <Skeleton className="mx-auto h-[480px] w-full max-w-[640px]" />
       </div>
     )
   }
@@ -187,7 +197,7 @@ export default function SuperDocEditorClient({ letterId, docxUrl, editable, user
       <div className="flex items-center justify-end gap-2 text-xs">
         <SaveIndicator state={saveState} error={saveError} onRetry={persist} editable={editable} />
       </div>
-      <div className="overflow-auto rounded-md border border-gray-200 bg-gray-100/40">
+      <div className="overflow-auto rounded-md border border-border bg-muted/40">
         <SuperDocEditor
           ref={editorRef}
           document={docxUrl}
@@ -196,6 +206,7 @@ export default function SuperDocEditorClient({ letterId, docxUrl, editable, user
           user={{ id: user.id, name: user.name, email: user.email }}
           users={[{ id: user.id, name: user.name, email: user.email }]}
           modules={SUPERDOC_MODULES}
+          telemetry={SUPERDOC_TELEMETRY}
           rulers
           useLayoutEngine
           layoutEngineOptions={SUPERDOC_LAYOUT_ENGINE_OPTIONS}
@@ -231,31 +242,31 @@ function SaveIndicator({
   onRetry: () => void
   editable: boolean
 }) {
-  if (!editable) return <span className="text-gray-400">Read-only</span>
+  if (!editable) return <span className="text-muted-foreground">Read-only</span>
   if (state === 'saving') {
     return (
-      <span className="inline-flex items-center gap-1 text-gray-500">
+      <span className="inline-flex items-center gap-1 text-muted-foreground">
         <Loader2 className="size-3 animate-spin" /> Saving…
       </span>
     )
   }
   if (state === 'saved') {
     return (
-      <span className={cn('inline-flex items-center gap-1 text-emerald-600')}>
+      <span className={cn('inline-flex items-center gap-1 text-success-600')}>
         <Check className="size-3" /> Saved
       </span>
     )
   }
   if (state === 'error') {
     return (
-      <span className="inline-flex items-center gap-2 text-red-600">
+      <span className="inline-flex items-center gap-2 text-danger-600">
         <AlertTriangle className="size-3" /> {error || 'Save failed'}
         <button onClick={onRetry} className="underline">retry</button>
       </span>
     )
   }
   return (
-    <span className="inline-flex items-center gap-1 text-gray-400">
+    <span className="inline-flex items-center gap-1 text-muted-foreground">
       <Save className="size-3" /> Up to date
     </span>
   )

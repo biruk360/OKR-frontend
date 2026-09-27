@@ -5,13 +5,14 @@ import { CheckSquare, Square, ChevronDown, ChevronRight, User, Calendar } from '
 import { useSession } from 'next-auth/react'
 import toast from 'react-hot-toast'
 import { cn } from '@/lib/utils'
+import { Skeleton } from '@/components/ui/Skeleton'
 import { useInitiativeDetailStore } from '@/lib/stores/initiative-detail-store'
 import AddToDo from './AddToDo'
 import AssignUserButton from './AssignUserButton'
 import SetDueDateButton from './SetDueDateButton'
 import EditTodoButton from './EditTodoButton'
 import DeleteTodoButton from './DeleteTodoButton'
-import { UserAvatar } from '@/components/shared/UserAvatar'
+import { PersonTooltip, UserAvatar } from '@/components/shared/UserAvatar'
 import { userColor } from '@/lib/user-color'
 import { useTodoStatusToggle } from './useTodoStatusToggle'
 import { dueTone, DUE_TONE_STYLE } from '@/lib/todos/due-tone'
@@ -166,10 +167,9 @@ export default function ToDoList({
     }
   }
 
-  // Delete todo
+  // Delete todo. Confirmation already happened in DeleteTodoButton's
+  // ConfirmDialog; this used to ask a second time with window.confirm.
   const handleDeleteTodo = async (todoId: string) => {
-    if (!confirm('Are you sure you want to delete this initiative?')) return
-
     try {
       const response = await fetch(`/api/todos/${todoId}`, {
         method: 'DELETE',
@@ -291,7 +291,7 @@ export default function ToDoList({
   )
 
   const summaryRight = isLoading ? (
-    <span className="text-xs text-muted-foreground">Loading…</span>
+    <Skeleton className="ml-auto h-3 w-16" aria-hidden />
   ) : totalTodos > 0 ? (
     <span className="text-xs text-muted-foreground">
       {completedTodos}/{totalTodos} done · {completionPercentage}%
@@ -312,9 +312,9 @@ export default function ToDoList({
       ) : (
         <ChevronRight className="h-3.5 w-3.5 shrink-0 text-[color:var(--ap-fg-subtle)]" />
       )}
-      <span className="text-[13px] font-semibold text-[color:var(--ap-fg)]">Initiatives</span>
+      <span className="text-body-sm font-semibold text-[color:var(--ap-fg)]">Initiatives</span>
       {totalTodos > 0 && (
-        <span className="ml-1 inline-flex h-4 min-w-[18px] items-center justify-center rounded-sm bg-[color:var(--ap-bg-sunken)] px-1 text-[10px] font-semibold text-[color:var(--ap-fg-subtle)]">
+        <span className="ml-1 inline-flex h-4 min-w-[18px] items-center justify-center rounded-sm bg-[color:var(--ap-bg-sunken)] px-1 text-micro font-semibold text-[color:var(--ap-fg-subtle)]">
           {totalTodos}
         </span>
       )}
@@ -324,10 +324,11 @@ export default function ToDoList({
 
   const listBody =
     isLoading && expanded ? (
-      <div className="px-2 py-3 animate-pulse">
-        <div className="h-3 w-1/3 bg-[color:var(--ap-border)] rounded mb-2" />
-        <div className="h-3 w-3/4 bg-[color:var(--ap-border)] rounded mb-1" />
-        <div className="h-3 w-1/2 bg-[color:var(--ap-border)] rounded" />
+      <div className="space-y-1.5 px-2 py-3" aria-busy="true">
+        <span className="sr-only">Loading initiatives…</span>
+        <Skeleton className="h-3 w-1/3" />
+        <Skeleton className="h-3 w-3/4" />
+        <Skeleton className="h-3 w-1/2" />
       </div>
     ) : (
       <div className="px-1 pb-1">
@@ -356,14 +357,14 @@ export default function ToDoList({
                     type="checkbox"
                     checked={isDone}
                     onChange={() => handleToggleTodo(todo.id, todo.status)}
-                    className="appearance-none w-3.5 h-3.5 rounded border border-border"
+                    className="w-3.5 h-3.5 rounded border border-border accent-[var(--ap-accent)]"
                     aria-label={isDone ? 'Mark as pending' : 'Mark as completed'}
                   />
                   <button
                     type="button"
                     onClick={() => useInitiativeDetailStore.getState().open(todo.id)}
                     className={cn(
-                      'min-w-0 flex-1 truncate text-left text-sm hover:text-blue-600',
+                      'min-w-0 flex-1 truncate text-left text-sm hover:text-primary-600',
                       isDone
                         ? 'text-[color:var(--ap-fg-subtle)] line-through'
                         : 'text-[color:var(--ap-fg)]'
@@ -401,7 +402,7 @@ export default function ToDoList({
                         className="w-16 rounded border border-border bg-card px-1.5 py-0.5 text-xs text-right focus:outline-none focus:ring-1 focus:ring-ring"
                         aria-label={`Contribution in ${krUnit}`}
                       />
-                      <span className="text-[10px] text-muted-foreground uppercase tracking-wide">{krUnit}</span>
+                      <span className="text-micro text-muted-foreground uppercase tracking-wide">{krUnit}</span>
                     </span>
                   )}
 
@@ -411,13 +412,18 @@ export default function ToDoList({
                       <UserAvatar
                         user={{ id: todo.assignee.id, name: todo.assignee.name, avatar: todo.assignee.avatar ?? null }}
                         size={20}
+                        tooltip={false}
                       />
+                      {/* Name is printed beside the avatar; the hover card only
+                          appears when the 120px cap clips it (UNH-4, UNH-6). */}
+                      <PersonTooltip person={todo.assignee} detail="Assignee" whenTruncated>
                       <span
                         className="text-xs font-semibold truncate max-w-[120px]"
                         style={{ color: userColor(todo.assignee.id, todo.assignee.name) }}
                       >
                         {todo.assignee.name}
                       </span>
+                      </PersonTooltip>
                     </span>
                   )}
                   {todo.dueDate && (
@@ -430,7 +436,8 @@ export default function ToDoList({
                   )}
 
                   {/* Hover-revealed actions */}
-                  <span className="ml-1 hidden items-center gap-0.5 group-hover:flex">
+                  {/* focus-within keeps the actions reachable by keyboard. */}
+                  <span className="ml-1 hidden items-center gap-0.5 group-hover:flex group-focus-within:flex">
                     <EditTodoButton
                       todo={todo}
                       onSave={(title, description) => handleEditTodo(todo.id, title, description)}
@@ -451,7 +458,7 @@ export default function ToDoList({
             })}
           </ul>
         ) : (
-          <div className="px-2 py-2 text-[12px] text-[color:var(--ap-fg-subtle)]">
+          <div className="px-2 py-2 text-xs text-[color:var(--ap-fg-subtle)]">
             No initiatives yet — add one above.
           </div>
         )}

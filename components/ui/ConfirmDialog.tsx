@@ -31,11 +31,11 @@ const variants: Record<ConfirmVariant, VariantConfig> = {
   },
   warning: {
     icon: Archive,
-    iconClassName: 'text-orange-600',
-    alertIconClassName: 'text-orange-500',
-    alertBoxClassName: 'bg-orange-50 border border-orange-200 rounded-lg',
-    alertTitleClassName: 'text-orange-800',
-    alertTextClassName: 'text-orange-700',
+    iconClassName: 'text-warning-600',
+    alertIconClassName: 'text-warning-500',
+    alertBoxClassName: 'bg-warning-50 border border-warning-200 rounded-lg',
+    alertTitleClassName: 'text-warning-700',
+    alertTextClassName: 'text-warning-700',
     confirmVariant: 'default',
   },
   info: {

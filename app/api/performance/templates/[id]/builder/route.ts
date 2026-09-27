@@ -4,6 +4,16 @@ import { prisma } from '@/lib/prisma'
 import { apiBadRequest, apiForbidden, apiNotFound, apiSuccess, withAuth } from '@/lib/api'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { assertTemplateEditable, canManageTemplates, hasPerformancePermission } from '@/lib/performance'
+import { recordActivity } from '@/lib/activity-log'
+
+/** Compact, comparable outline of a template's tiers for the audit change map. */
+function outline(tiers: { name: string; maxPoints: number; criteria: { type: string; title: string; maxPoints: number }[] }[]) {
+  return tiers.map((tier) => ({
+    name: tier.name,
+    maxPoints: tier.maxPoints,
+    criteria: tier.criteria.map((c) => `${c.type}:${c.title} (${c.maxPoints})`),
+  }))
+}
 
 type CriterionInput = {
   type?: string
@@ -38,7 +48,10 @@ export const PUT = withAuth<RouteIdParams>(async (request: NextRequest, { sessio
   ])
   if (!allowed.every(Boolean)) return apiForbidden('You do not have permission to edit scorecard templates')
   const { id } = await resolveParams(params)
-  const existing = await prisma.scorecardTemplate.findUnique({ where: { id } })
+  const existing = await prisma.scorecardTemplate.findUnique({
+    where: { id },
+    include: { tiers: { orderBy: { position: 'asc' }, include: { criteria: { orderBy: { position: 'asc' } } } } },
+  })
   if (!existing) return apiNotFound('Scorecard template not found')
   try {
     assertTemplateEditable(existing.status)
@@ -100,5 +113,19 @@ export const PUT = withAuth<RouteIdParams>(async (request: NextRequest, { sessio
       include: { family: true, tiers: { orderBy: { position: 'asc' }, include: { criteria: { orderBy: { position: 'asc' } } } } },
     })
   })
+  const before = outline(existing.tiers)
+  const after = outline(updated?.tiers ?? [])
+  if (JSON.stringify(before) !== JSON.stringify(after) || existing.maxTotal !== maxTotal) {
+    await recordActivity({
+      entityType: 'PERFORMANCE_SETTINGS',
+      action: 'UPDATED',
+      actorId: session.user.id,
+      changes: {
+        tiers: { from: before, to: after },
+        ...(existing.maxTotal !== maxTotal ? { maxTotal: { from: existing.maxTotal, to: maxTotal } } : {}),
+      },
+      metadata: { entity: 'SCORECARD_TEMPLATE', event: 'BUILDER_SAVED', templateId: id, familyId: existing.familyId, version: existing.version },
+    })
+  }
   return apiSuccess(updated)
 })

@@ -89,14 +89,14 @@ export default function PlannerTimeGrid({ day, todos, onTodoClick, startHour = 7
       {/* All-day strip */}
       {allDay.length > 0 && (
         <div className="border-b px-3 py-2" style={{ borderColor: ruleColor }}>
-          <p className="mb-1 font-mono text-[10px] font-medium uppercase tracking-[0.1em]" style={{ color: subtleInk }}>All day</p>
+          <p className="mb-1 font-mono text-micro font-medium uppercase tracking-[0.1em]" style={{ color: subtleInk }}>All day</p>
           <div className="flex flex-wrap gap-1.5">
             {allDay.map((t) => (
               <button
                 key={t.id}
                 type="button"
                 onClick={() => onTodoClick(t.id)}
-                className="inline-flex h-[21px] max-w-full items-center truncate rounded-[var(--ap-radius-xs)] border px-[7px] text-[11px] font-semibold transition hover:brightness-95"
+                className="inline-flex h-[21px] max-w-full items-center truncate rounded-[var(--ap-radius-xs)] border px-[7px] text-caption font-semibold transition hover:brightness-95"
                 style={statusToTone(t.status)}
               >
                 {t.title}
@@ -121,7 +121,7 @@ export default function PlannerTimeGrid({ day, todos, onTodoClick, startHour = 7
                 style={{ top, height: HOUR_PX }}
               >
                 <span
-                  className="w-12 shrink-0 -translate-y-1/2 pl-2 font-mono text-[10px] tabular-nums"
+                  className="w-12 shrink-0 -translate-y-1/2 pl-2 font-mono text-micro tabular-nums"
                   style={{ color: subtleInk }}
                 >
                   {i < hours ? label : ''}
@@ -153,7 +153,7 @@ export default function PlannerTimeGrid({ day, todos, onTodoClick, startHour = 7
                 key={t.id}
                 type="button"
                 onClick={() => onTodoClick(t.id)}
-                className="absolute left-12 right-2 overflow-hidden rounded-[var(--ap-radius-xs)] border px-2 py-1 text-left text-[11px] font-medium shadow-[var(--ap-shadow-sm)] transition hover:brightness-95"
+                className="absolute left-12 right-2 overflow-hidden rounded-[var(--ap-radius-xs)] border px-2 py-1 text-left text-caption font-medium shadow-[shadow:var(--ap-shadow-sm)] transition hover:brightness-95"
                 style={{ ...statusToTone(t.status), top, height }}
                 title={`${t.startTime}–${t.endTime} ${t.title}`}
               >

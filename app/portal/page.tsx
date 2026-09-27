@@ -1,50 +1,32 @@
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
-import { Eye, LockKeyhole } from 'lucide-react'
-import { getServerSessionSafe } from '@/lib/auth'
-import { getPortalSessionSafe } from '@/lib/portal-auth'
-import { prisma } from '@/lib/prisma'
-import { portalProjectWhere } from '@/features/projects/services/portal-serializer'
+import { Eye, FolderOpen, LockKeyhole } from 'lucide-react'
+import { loadPortalHomePage, type PortalProjectRow } from '@/features/projects/services/portal-pages.server'
 import { ProjectProgress } from '@/features/projects/components/ProjectProgress'
+import { EmptyState } from '@/components/ui/EmptyState'
+import PortalSignOutButton from './PortalSignOutButton'
 
 export default async function PortalPage() {
-  const [portalSession, internalSession] = await Promise.all([
-    getPortalSessionSafe(),
-    getServerSessionSafe(),
-  ])
+  const data = await loadPortalHomePage()
 
-  if (!portalSession && !internalSession) redirect('/portal/signin')
-
-  if (portalSession) {
-    const projects = await prisma.project.findMany({
-      where: portalProjectWhere(portalSession.user.projectIds),
-      select: { id: true, code: true, name: true, ragStatus: true, percentComplete: true },
-      orderBy: { name: 'asc' },
-    })
+  if (data.mode === 'portal') {
     return (
-      <PortalShell title="Client Portal" subtitle={portalSession.user.clientName}>
-        <ProjectList projects={projects} />
+      <PortalShell title="Client Portal" subtitle={data.clientName} signOut>
+        <ProjectList projects={data.projects} />
       </PortalShell>
     )
   }
 
-  const previewProjects = await prisma.project.findMany({
-    where: internalPreviewWhere(internalSession!.user),
-    select: { id: true, code: true, name: true, ragStatus: true, percentComplete: true },
-    orderBy: { name: 'asc' },
-    take: 12,
-  })
   return (
     <PortalShell title="Client Portal Preview" subtitle="Viewing as client - this is what they see.">
       <div className="mb-4 rounded-card border border-warning-500/30 bg-warning-50 px-4 py-3 text-body-sm font-medium text-warning-700">
         <Eye className="mr-2 inline size-4" /> Viewing as client - this is what they see.
       </div>
-      <ProjectList projects={previewProjects} />
+      <ProjectList projects={data.projects} />
     </PortalShell>
   )
 }
 
-function PortalShell({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
+function PortalShell({ title, subtitle, children, signOut = false }: { title: string; subtitle: string; children: React.ReactNode; signOut?: boolean }) {
   return (
     <main className="min-h-screen bg-surface-muted px-6 py-8">
       <div className="mx-auto max-w-5xl">
@@ -53,7 +35,7 @@ function PortalShell({ title, subtitle, children }: { title: string; subtitle: s
             <h1 className="text-page-title text-ink-primary">{title}</h1>
             <p className="text-body text-ink-secondary">{subtitle}</p>
           </div>
-          <LockKeyhole className="size-6 text-ink-tertiary" />
+          {signOut ? <PortalSignOutButton /> : <LockKeyhole className="size-6 text-ink-tertiary" />}
         </div>
         {children}
       </div>
@@ -61,9 +43,9 @@ function PortalShell({ title, subtitle, children }: { title: string; subtitle: s
   )
 }
 
-function ProjectList({ projects }: { projects: { id: string; code: string; name: string; ragStatus: string; percentComplete: number }[] }) {
+function ProjectList({ projects }: { projects: PortalProjectRow[] }) {
   if (projects.length === 0) {
-    return <div className="rounded-card bg-surface-card p-6 text-body text-ink-secondary shadow-card">No portal-enabled projects are available.</div>
+    return <EmptyState icon={FolderOpen} title="No projects yet" description="No portal-enabled projects are available." />
   }
   return (
     <div className="grid gap-3">
@@ -76,18 +58,11 @@ function ProjectList({ projects }: { projects: { id: string; code: string; name:
             </div>
             <div className="text-right">
               <ProjectProgress actual={project.percentComplete} variant="value" showPlanned={false} className="text-body-sm font-medium text-ink-primary" />
-              <div className="text-[12px] text-ink-tertiary">{project.ragStatus}</div>
+              <div className="text-xs text-ink-tertiary">{project.ragStatus}</div>
             </div>
           </div>
         </Link>
       ))}
     </div>
   )
-}
-
-function internalPreviewWhere(user: { id: string; role: string; departmentId?: string | null }) {
-  if (user.role === 'ADMIN' || user.role === 'EXECUTIVE') {
-    return { portalEnabled: true, archivedAt: null }
-  }
-  return { portalEnabled: true, archivedAt: null, projectManagerId: user.id }
 }

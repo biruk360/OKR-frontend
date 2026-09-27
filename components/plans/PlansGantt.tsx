@@ -1,21 +1,25 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { gantt, type GanttStatic } from 'dhtmlx-gantt'
 import 'dhtmlx-gantt/codebase/dhtmlxgantt.css'
 import type { GanttPayload, GanttTask } from '@/app/api/gantt/route'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { FilterSelect } from '@/components/ui/FilterSelect'
 import { getConfidenceColor } from '@/lib/utils'
+import { STATUS_CHART_COLOR, chartColors } from '@/lib/chart-colors'
+import { Skeleton } from '@/components/ui/Skeleton'
+import { useTimeframes } from '@/hooks/useTimeframes'
+import { pickCurrentTimeframe } from '@/lib/timeframe-utils'
+
+/** `/api/gantt?timeframeId=all` — every timeframe (the API defaults to the active one). */
+const ALL_TIMEFRAMES = 'all'
 
 type ZoomLevel = 'week' | 'month' | 'quarter' | 'year'
 
-const STATUS_BAR_COLOR: Record<string, string> = {
-  ON_TRACK: '#34c759',
-  AT_RISK: '#ff9500',
-  OFF_TRACK: '#ff3b30',
-  CLOSED: '#8e8e93',
-}
+/** Theme-aware (CSS variable) status colours — see lib/chart-colors.ts. */
+const STATUS_BAR_COLOR = STATUS_CHART_COLOR
 
 function applyZoom(g: GanttStatic, level: ZoomLevel) {
   const config = g.config as unknown as { scales: unknown; scale_height: number }
@@ -59,6 +63,21 @@ export default function PlansGantt() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [empty, setEmpty] = useState(false)
+  // undefined → the API's default (the active timeframe, lib/okr/active-timeframe.ts).
+  const [timeframeId, setTimeframeId] = useState<string | undefined>(undefined)
+  const { timeframes } = useTimeframes()
+  // Mirror the server default so the picker names the timeframe being shown.
+  const defaultTimeframe = useMemo(() => {
+    const active = timeframes.filter((t) => t.isActive)
+    return pickCurrentTimeframe(active.length > 0 ? active : timeframes)
+  }, [timeframes])
+  const timeframeOptions = useMemo(
+    () => [
+      { value: ALL_TIMEFRAMES, label: 'All timeframes' },
+      ...timeframes.map((t) => ({ value: t.id, label: t.name })),
+    ],
+    [timeframes],
+  )
 
   useEffect(() => {
     if (!containerRef.current) return
@@ -87,9 +106,9 @@ export default function PlansGantt() {
           const task = raw as GanttTask
           const prefix =
             task.entityType === 'keyresult'
-              ? '<span style="display:inline-block;font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px;background:#dbeafe;color:#1d4ed8;margin-right:6px;vertical-align:middle;">KR</span>'
+              ? '<span style="display:inline-block;font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px;background:var(--ap-accent-soft);color:var(--ap-accent-on-soft);margin-right:6px;vertical-align:middle;">KR</span>'
               : task.level
-              ? `<span style="display:inline-block;font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px;background:#f1f5f9;color:#475569;margin-right:6px;vertical-align:middle;">${task.level.slice(0, 3)}</span>`
+              ? `<span style="display:inline-block;font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px;background:var(--ap-bg-sunken);color:var(--ap-fg-secondary);margin-right:6px;vertical-align:middle;">${task.level.slice(0, 3)}</span>`
               : ''
           return `${prefix}<span title="${escapeHtml(task.text)}">${escapeHtml(task.text)}</span>`
         },
@@ -110,7 +129,7 @@ export default function PlansGantt() {
             .toUpperCase()
           const avatar = task.ownerAvatar
             ? `<img src="${escapeHtml(task.ownerAvatar)}" alt="" style="width:22px;height:22px;border-radius:50%;object-fit:cover;margin-right:6px;vertical-align:middle;" />`
-            : `<span style="display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;border-radius:50%;background:#e2e8f0;color:#475569;font-size:10px;font-weight:600;margin-right:6px;vertical-align:middle;">${escapeHtml(initials || '—')}</span>`
+            : `<span style="display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;border-radius:50%;background:var(--ap-bg-hover);color:var(--ap-fg-secondary);font-size:10px;font-weight:600;margin-right:6px;vertical-align:middle;">${escapeHtml(initials || '—')}</span>`
           return `${avatar}<span style="vertical-align:middle;font-size:12px;">${escapeHtml(task.owner)}</span>`
         },
       },
@@ -122,12 +141,12 @@ export default function PlansGantt() {
         template: (raw: unknown) => {
           const task = raw as GanttTask
           if (task.entityType === 'objective' && task.goalStatus) {
-            const color = STATUS_BAR_COLOR[task.goalStatus] ?? '#94a3b8'
-            return `<span style="display:inline-block;padding:2px 6px;border-radius:10px;background:${color};color:white;font-size:10px;font-weight:600;">${task.goalStatus.replace(/_/g, ' ')}</span>`
+            const color = STATUS_BAR_COLOR[task.goalStatus] ?? chartColors.neutral
+            return `<span style="display:inline-block;padding:2px 6px;border-radius:10px;background:${color};color:var(--ap-accent-fg);font-size:10px;font-weight:600;">${task.goalStatus.replace(/_/g, ' ')}</span>`
           }
           if (task.entityType === 'keyresult' && task.confidence) {
             const color = getConfidenceColor(task.confidence)
-            return `<span style="display:inline-block;padding:2px 6px;border-radius:10px;background:${color};color:white;font-size:10px;font-weight:600;">${task.confidence.replace(/_/g, ' ')}</span>`
+            return `<span style="display:inline-block;padding:2px 6px;border-radius:10px;background:${color};color:var(--ap-accent-fg);font-size:10px;font-weight:600;">${task.confidence.replace(/_/g, ' ')}</span>`
           }
           return ''
         },
@@ -142,7 +161,7 @@ export default function PlansGantt() {
           const pct = Math.round((task.progress || 0) * 100)
           const extra =
             task.entityType === 'keyresult' && task.unit && task.targetValue != null
-              ? ` <span style="color:#64748b;font-size:10px;">${task.currentValue ?? 0}/${task.targetValue} ${task.unit}</span>`
+              ? ` <span style="color:var(--ap-fg-subtle);font-size:10px;">${task.currentValue ?? 0}/${task.targetValue} ${task.unit}</span>`
               : ''
           return `<span style="font-size:12px;font-weight:600;">${pct}%</span>${extra}`
         },
@@ -212,25 +231,6 @@ export default function PlansGantt() {
       title: new Date().toLocaleDateString(),
     })
 
-    fetch('/api/gantt', { cache: 'no-store' })
-      .then((r) => r.json())
-      .then((res) => {
-        if (!res.success) throw new Error(res.error || 'Failed to load')
-        const payload = res.data as GanttPayload
-        if (payload.data.length === 0) {
-          setEmpty(true)
-          setLoading(false)
-          return
-        }
-        g.clearAll()
-        g.parse(payload)
-        setLoading(false)
-      })
-      .catch((e) => {
-        setError(e?.message ?? 'Failed to load gantt data')
-        setLoading(false)
-      })
-
     return () => {
       if (typeof onTaskClick === 'string' || typeof onTaskClick === 'number') {
         g.detachEvent(String(onTaskClick))
@@ -239,6 +239,40 @@ export default function PlansGantt() {
       g.clearAll()
     }
   }, [router])
+
+  // Load (and reload on timeframe change) after the chart is initialised above.
+  useEffect(() => {
+    const g = ganttRef.current
+    if (!g) return
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+    setEmpty(false)
+    const qs = timeframeId ? `?timeframeId=${encodeURIComponent(timeframeId)}` : ''
+    fetch(`/api/gantt${qs}`, { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((res) => {
+        if (cancelled) return
+        if (!res.success) throw new Error(res.error || 'Failed to load')
+        const payload = res.data as GanttPayload
+        g.clearAll()
+        if (payload.data.length === 0) {
+          setEmpty(true)
+          setLoading(false)
+          return
+        }
+        g.parse(payload)
+        setLoading(false)
+      })
+      .catch((e) => {
+        if (cancelled) return
+        setError(e?.message ?? 'Failed to load gantt data')
+        setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [timeframeId])
 
   useEffect(() => {
     const g = ganttRef.current
@@ -251,26 +285,37 @@ export default function PlansGantt() {
     <div
       className="rounded-[var(--ap-radius-md)] border overflow-hidden"
       style={{
-        background: 'var(--ap-bg, #fff)',
-        borderColor: 'var(--ap-border, hsl(var(--border)))',
+        background: 'var(--ap-bg)',
+        borderColor: 'var(--ap-border)',
       }}
     >
       <div
         className="flex items-center justify-between gap-2 px-4 py-2.5 border-b"
         style={{
-          borderColor: 'var(--ap-border, hsl(var(--border)))',
-          background: 'rgba(120,120,128,0.04)',
+          borderColor: 'var(--ap-border)',
+          background: 'var(--ap-bg-sunken)',
         }}
       >
-        <div className="flex items-center gap-3 text-[11px]">
-          <LegendDot color="#34c759" label="On track" />
-          <LegendDot color="#ff9500" label="At risk" />
-          <LegendDot color="#ff3b30" label="Off track" />
-          <LegendDot color="#8e8e93" label="Closed" />
+        <div className="flex flex-wrap items-center gap-3 text-caption">
+          <FilterSelect
+            label="Timeframe"
+            value={timeframeId ?? defaultTimeframe?.id}
+            onValueChange={setTimeframeId}
+            options={timeframeOptions}
+            placeholder="Current timeframe"
+            clearable={timeframeId !== undefined}
+            menuWidth={220}
+          />
+          <LegendDot color={chartColors.success} label="On track" />
+          <LegendDot color={chartColors.warning} label="At risk" />
+          <LegendDot color={chartColors.danger} label="Off track" />
+          <LegendDot color={chartColors.neutral} label="Closed" />
         </div>
         <div
+          role="group"
+          aria-label="Zoom level"
           className="inline-flex h-8 items-center gap-0.5 rounded-[var(--ap-radius-sm)] p-0.5"
-          style={{ background: 'rgba(120,120,128,0.08)' }}
+          style={{ background: 'var(--ap-bg-hover)' }}
         >
           {(['week', 'month', 'quarter', 'year'] as ZoomLevel[]).map((z) => {
             const active = zoom === z
@@ -279,11 +324,12 @@ export default function PlansGantt() {
                 key={z}
                 type="button"
                 onClick={() => setZoom(z)}
-                className="h-7 px-2.5 text-[11px] font-medium rounded-[8px] transition-all"
+                aria-pressed={active}
+                className="h-7 px-2.5 text-caption font-medium rounded-[8px] transition-all"
                 style={{
-                  background: active ? 'var(--ap-accent, #007aff)' : 'transparent',
-                  color: active ? '#fff' : 'var(--ap-fg-muted, hsl(var(--muted-foreground)))',
-                  boxShadow: active ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
+                  background: active ? 'var(--ap-accent)' : 'transparent',
+                  color: active ? 'var(--ap-accent-fg)' : 'var(--ap-fg-muted)',
+                  boxShadow: active ? 'var(--ap-shadow-sm)' : 'none',
                 }}
               >
                 {z[0].toUpperCase() + z.slice(1)}
@@ -294,7 +340,7 @@ export default function PlansGantt() {
       </div>
 
       {error && (
-        <div className="px-4 py-8 text-center text-sm" style={{ color: 'var(--ap-red, #ff3b30)' }}>
+        <div role="alert" className="px-4 py-8 text-center text-sm" style={{ color: 'var(--ap-red)' }}>
           Failed to load: {error}
         </div>
       )}
@@ -303,13 +349,22 @@ export default function PlansGantt() {
           <EmptyState
             bare
             title="No plans to show"
-            description="No active objectives with a timeframe to display."
+            description={
+              timeframeId === ALL_TIMEFRAMES
+                ? 'No active objectives with a timeframe to display.'
+                : 'No active objectives in this timeframe. Try “All timeframes”.'
+            }
           />
         </div>
       )}
       {loading && !error && !empty && (
-        <div className="px-4 py-10 text-center text-sm" style={{ color: 'var(--ap-fg-muted, hsl(var(--muted-foreground)))' }}>
-          Loading…
+        <div className="space-y-2 px-4 py-4" aria-busy="true" aria-label="Loading plans">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-4">
+              <Skeleton className="h-4 w-72" />
+              <Skeleton className="h-4 flex-1" />
+            </div>
+          ))}
         </div>
       )}
 
@@ -335,7 +390,7 @@ export default function PlansGantt() {
           background: rgba(255, 255, 255, 0.32) !important;
         }
         .gantt_task_line.ap-bar .gantt_task_content {
-          color: #fff;
+          color: var(--ap-accent-fg);
           font-weight: 600;
           font-size: 11px;
           line-height: 22px;
@@ -351,11 +406,11 @@ export default function PlansGantt() {
           font-size: 10px;
           line-height: 18px;
         }
-        .gantt_task_line.ap-bar-blue { background: #007aff !important; }
-        .gantt_task_line.ap-bar-green { background: #34c759 !important; }
-        .gantt_task_line.ap-bar-amber { background: #ff9500 !important; }
-        .gantt_task_line.ap-bar-red { background: #ff3b30 !important; }
-        .gantt_task_line.ap-bar-gray { background: #8e8e93 !important; }
+        .gantt_task_line.ap-bar-blue { background: var(--ap-accent) !important; }
+        .gantt_task_line.ap-bar-green { background: var(--ap-green) !important; }
+        .gantt_task_line.ap-bar-amber { background: var(--ap-orange) !important; }
+        .gantt_task_line.ap-bar-red { background: var(--ap-red) !important; }
+        .gantt_task_line.ap-bar-gray { background: var(--ap-none) !important; }
 
         .gantt_task_cell,
         .gantt_grid_data .gantt_row,
@@ -363,7 +418,7 @@ export default function PlansGantt() {
         .gantt_task_row,
         .gantt_scale_cell,
         .gantt_scale_line {
-          border-color: var(--ap-border, #e5e5ea) !important;
+          border-color: var(--ap-border) !important;
         }
         .gantt_task_row.odd,
         .gantt_grid_data .gantt_row.odd {
@@ -371,7 +426,7 @@ export default function PlansGantt() {
         }
         .gantt_task_row.gantt_selected,
         .gantt_grid_data .gantt_row.gantt_selected {
-          background: rgba(0, 122, 255, 0.06) !important;
+          background: color-mix(in oklch, var(--ap-accent) 6%, transparent) !important;
         }
         .gantt_grid_scale,
         .gantt_scale_line {
@@ -379,7 +434,7 @@ export default function PlansGantt() {
         }
         .gantt_grid_head_cell,
         .gantt_scale_cell {
-          color: var(--ap-fg-muted, #6b7280) !important;
+          color: var(--ap-fg-muted) !important;
           font-weight: 600;
           font-size: 10px;
           text-transform: uppercase;
@@ -387,12 +442,12 @@ export default function PlansGantt() {
         }
 
         .today-marker {
-          background: var(--ap-accent, #007aff);
+          background: var(--ap-accent);
           width: 2px;
         }
         .today-marker .gantt_marker_content {
-          background: var(--ap-accent, #007aff);
-          color: white;
+          background: var(--ap-accent);
+          color: var(--ap-accent-fg);
           font-size: 10px;
           font-weight: 600;
           padding: 2px 6px;
@@ -400,9 +455,9 @@ export default function PlansGantt() {
         }
 
         .gantt_tooltip {
-          background: #fff !important;
-          color: var(--ap-fg, #111) !important;
-          border: 1px solid var(--ap-border, #e5e5ea) !important;
+          background: var(--ap-bg-raised) !important;
+          color: var(--ap-fg) !important;
+          border: 1px solid var(--ap-border) !important;
           border-radius: 10px !important;
           box-shadow: 0 6px 20px rgba(0, 0, 0, 0.10) !important;
           padding: 10px 12px !important;

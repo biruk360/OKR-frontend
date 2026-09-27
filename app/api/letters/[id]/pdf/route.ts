@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { recordActivity } from '@/lib/activity-log'
 import { renderLetterToPdf } from '@/lib/letter-pdf-puppeteer'
+import { letterReadGuard } from '@/lib/letter-access'
 import {
   apiBadRequest,
   apiError,
@@ -54,11 +55,9 @@ async function respond(req: NextRequest, letterId: string, opts?: { recordActor?
   try {
     const lang = pickLang(req)
     const font = pickFont(req)
-    // Puppeteer needs an absolute origin so asset URLs (fonts, logos)
-    // resolve. In dev this is http://localhost:3000; in prod it's whatever
-    // NEXTAUTH_URL is set to.
-    const origin = process.env.NEXTAUTH_URL || `http://localhost:${process.env.PORT || 3000}`
-    const { pdf, missing } = await renderLetterToPdf({ letter: letter as any, lang, origin, font })
+    // Fonts/logos are inlined by the renderer; Puppeteer runs with JS off and
+    // no network access beyond Google Fonts, so no app origin is needed.
+    const { pdf, missing } = await renderLetterToPdf({ letter: letter as any, lang, font })
 
     if (opts?.recordActor) {
       await recordActivity({
@@ -99,11 +98,15 @@ async function respond(req: NextRequest, letterId: string, opts?: { recordActor?
 export const POST = withAuth<RouteIdParams>(async (req, { session, params }) => {
   const { id } = await resolveParams(params)
   if (!id) return apiBadRequest('Invalid letter id')
+  const denied = await letterReadGuard(session.user.id, id)
+  if (denied) return denied
   return respond(req as NextRequest, id, { recordActor: session.user.id })
 })
 
-export const GET = withAuth<RouteIdParams>(async (req, { params }) => {
+export const GET = withAuth<RouteIdParams>(async (req, { session, params }) => {
   const { id } = await resolveParams(params)
   if (!id) return apiBadRequest('Invalid letter id')
+  const denied = await letterReadGuard(session.user.id, id)
+  if (denied) return denied
   return respond(req as NextRequest, id)
 })

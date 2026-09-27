@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react'
 import { Search, Calendar, Shield, User } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { EmptyState } from '@/components/ui'
+import { PageHeader } from '@/components/ui/PageHeader'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -75,13 +76,13 @@ function formatChangesPreview(changes: unknown): string {
 function actionBadgeClass(action: string): string {
   const a = action.toLowerCase()
   if (a.includes('create') || a.includes('add') || a.includes('insert')) {
-    return 'bg-success-subtle text-success-foreground'
+    return 'bg-success-50 text-success-700'
   }
   if (a.includes('delete') || a.includes('remove') || a.includes('archive')) {
-    return 'bg-danger-subtle text-danger-foreground'
+    return 'bg-danger-50 text-danger-700'
   }
   if (a.includes('update') || a.includes('edit') || a.includes('change')) {
-    return 'bg-warning-subtle text-warning-foreground'
+    return 'bg-warning-50 text-warning-700'
   }
   return 'bg-muted text-muted-foreground'
 }
@@ -137,18 +138,19 @@ export default function AuditLogsView({ initialLogs }: AuditLogsViewProps) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Audit Logs</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Security and compliance log of admin and system actions.
-        </p>
-      </div>
+      <PageHeader
+        className="mb-0"
+        title="Audit Logs"
+        description="Security and compliance log of admin and system actions."
+      />
 
       {/* Category Filter Tabs */}
-      <div className="flex flex-wrap gap-1 border-b border-border pb-0">
+      <div role="tablist" aria-label="Log categories" className="flex flex-wrap gap-1 border-b border-border pb-0">
         {CATEGORIES.map((cat) => (
           <button
             key={cat}
+            role="tab"
+            aria-selected={activeCategory === cat}
             onClick={() => setActiveCategory(cat)}
             className={[
               'flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-t-md border-b-2 transition-colors',
@@ -179,6 +181,7 @@ export default function AuditLogsView({ initialLogs }: AuditLogsViewProps) {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
             type="text"
+            aria-label="Search audit logs"
             placeholder="Search by entity type, action, or actor…"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}

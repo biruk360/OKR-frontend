@@ -2,7 +2,7 @@
 
 import { Check, CornerDownRight, Plus, Trash2, X } from 'lucide-react'
 import { useState } from 'react'
-import { Button, Input } from '@/components/ui'
+import { Button, FilterSelect, Input } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import type { ScrumItem, ScrumItemStatus } from '../services/items'
 
@@ -78,6 +78,8 @@ export function ScrumItemList({
                   type="button"
                   onClick={() => setStatus(index, 'DONE')}
                   title="Done"
+                  aria-label="Mark done"
+                  aria-pressed={item.status === 'DONE'}
                   className={cn(
                     'rounded p-1',
                     item.status === 'DONE' ? 'bg-success-100 text-success-700' : 'text-ink-tertiary hover:bg-surface-hover',
@@ -89,6 +91,8 @@ export function ScrumItemList({
                   type="button"
                   onClick={() => setStatus(index, 'CARRIED')}
                   title="Carry to today"
+                  aria-label="Carry to today"
+                  aria-pressed={item.status === 'CARRIED'}
                   className={cn(
                     'rounded p-1',
                     item.status === 'CARRIED' ? 'bg-primary-100 text-primary-700' : 'text-ink-tertiary hover:bg-surface-hover',
@@ -100,6 +104,8 @@ export function ScrumItemList({
                   type="button"
                   onClick={() => setStatus(index, 'NOT_DONE')}
                   title="Not done"
+                  aria-label="Mark not done"
+                  aria-pressed={item.status === 'NOT_DONE'}
                   className={cn(
                     'rounded p-1',
                     item.status === 'NOT_DONE' ? 'bg-danger-100 text-danger-700' : 'text-ink-tertiary hover:bg-surface-hover',
@@ -118,18 +124,20 @@ export function ScrumItemList({
                   item.status === 'DONE' && 'line-through',
                 )}
                 placeholder={placeholder}
+                aria-label={placeholder}
               />
               {(mode === 'today' || mode === 'blocker') && linkableOptions.length > 0 && (
                 <LinkSelector value={item} onChange={(patch) => update(index, patch)} options={linkableOptions} />
               )}
             </div>
-            <Button type="button" variant="ghost" size="sm" className="h-7 px-1 text-ink-tertiary" onClick={() => remove(index)}>
+            <Button type="button" variant="ghost" size="sm" className="h-7 px-1 text-ink-tertiary" aria-label="Remove item" title="Remove item" onClick={() => remove(index)}>
               <Trash2 className="size-3.5" />
             </Button>
           </div>
         ))}
         <div className="flex gap-2">
           <Input
+            aria-label={placeholder}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {
@@ -159,25 +167,26 @@ function LinkSelector({
   onChange: (patch: Partial<ScrumItem>) => void
   options: LinkableOption[]
 }) {
-  const selected = value.objectiveId ? `o:${value.objectiveId}` : value.keyResultId ? `k:${value.keyResultId}` : ''
+  const selected = value.objectiveId ? `o:${value.objectiveId}` : value.keyResultId ? `k:${value.keyResultId}` : undefined
   return (
-    <select
+    <FilterSelect
+      label="Link OKR (optional)"
+      placeholder="None"
       value={selected}
-      onChange={(e) => {
-        const [type, id] = e.target.value.split(':')
+      onValueChange={(next) => {
+        const [type, id] = (next ?? '').split(':')
         onChange({
           objectiveId: type === 'o' ? id : undefined,
           keyResultId: type === 'k' ? id : undefined,
         })
       }}
-      className="mt-1 max-w-xs rounded-md border border-border bg-card px-2 py-1 text-body-xs"
-    >
-      <option value="">Link OKR (optional)</option>
-      {options.map((opt) => (
-        <option key={`${opt.type}:${opt.id}`} value={`${opt.type === 'OBJECTIVE' ? 'o' : 'k'}:${opt.id}`}>
-          {opt.type === 'OBJECTIVE' ? 'Objective' : 'Key Result'}: {opt.title}
-        </option>
-      ))}
-    </select>
+      options={options.map((opt) => ({
+        value: `${opt.type === 'OBJECTIVE' ? 'o' : 'k'}:${opt.id}`,
+        label: `${opt.type === 'OBJECTIVE' ? 'Objective' : 'Key Result'}: ${opt.title}`,
+        hint: opt.subtitle,
+      }))}
+      className="mt-1 max-w-xs"
+      menuWidth={320}
+    />
   )
 }

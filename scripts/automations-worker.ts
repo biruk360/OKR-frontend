@@ -15,6 +15,7 @@
 
 import { randomUUID } from 'crypto'
 import { prisma } from '../lib/prisma'
+import { flushBackgroundWork } from '../lib/background'
 import { executeRun } from '../lib/automations/runner'
 import { claimNextRun, getAutomationSettings, heartbeatRun } from '../lib/automations/service'
 import { LEASE_HEARTBEAT_SECONDS, LEASE_TTL_SECONDS } from '../types/automations'
@@ -114,6 +115,10 @@ async function loop(): Promise<void> {
   // Let in-flight work finish before the process exits; the lease keeps it ours.
   const deadline = Date.now() + 30_000
   while (active > 0 && Date.now() < deadline) await sleep(250)
+  // Notification delivery is deferred (runAfterResponse); drain it before the
+  // Prisma pool closes and process.exit() cuts it off.
+  const flushed = await flushBackgroundWork(15_000)
+  if (!flushed.drained) log('background work still pending at exit', { pending: flushed.pending })
   await prisma.$disconnect()
   log('stopped')
   process.exit(0)
@@ -131,7 +136,8 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   })
 }
 
-loop().catch((error) => {
+loop().catch(async (error) => {
   console.error('[automations-worker] fatal', error)
+  await flushBackgroundWork(5_000)
   process.exit(1)
 })

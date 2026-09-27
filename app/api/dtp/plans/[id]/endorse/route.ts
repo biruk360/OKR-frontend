@@ -8,7 +8,7 @@ import type { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { apiSuccess, apiBadRequest, apiForbidden } from '@/lib/api'
 import { withAuth } from '@/lib/api/withAuth'
-import { transitionPlan, loadReadablePlan, readJson, badStatus } from '@/lib/dtp/api-helpers'
+import { tryTransitionPlan, transitionFailure, loadReadablePlan, readJson, badStatus } from '@/lib/dtp/api-helpers'
 import { resolveApprovalRouting } from '@/lib/dtp/settings'
 import { notifyDtpEvent } from '@/lib/dtp/notifier'
 import { canFeature } from '@/lib/rbac'
@@ -38,7 +38,7 @@ export const POST = withAuth<{ id: string }>(async (req: NextRequest, { session,
   if (plan.status !== 'SUBMITTED') return badStatus()
 
   if (body.decision === 'REJECT') {
-    const updated = await transitionPlan({
+    const transition = await tryTransitionPlan({
       planId: plan.id,
       from: plan.status as DtpStatus,
       to: 'RETURNED',
@@ -47,7 +47,8 @@ export const POST = withAuth<{ id: string }>(async (req: NextRequest, { session,
       payload: { by: 'manager', note: body.note ?? null },
       patch: { decisionNote: body.note ?? null },
     })
-    if (!updated) return badStatus()
+    if (!transition.ok) return transitionFailure(transition.reason)
+    const updated = transition.plan
     await notifyDtpEvent({
       eventKey: 'TRAVEL_PLAN_REJECTED',
       recipientIds: [plan.requesterId],
@@ -59,7 +60,7 @@ export const POST = withAuth<{ id: string }>(async (req: NextRequest, { session,
     return apiSuccess(updated)
   }
 
-  const updated = await transitionPlan({
+  const transition = await tryTransitionPlan({
     planId: plan.id,
     from: plan.status as DtpStatus,
     to: 'MANAGER_ENDORSED',
@@ -68,7 +69,8 @@ export const POST = withAuth<{ id: string }>(async (req: NextRequest, { session,
     payload: { by: 'manager', note: body.note ?? null },
     patch: { managerEndorsedAt: new Date(), managerEndorsedById: session.user.id },
   })
-  if (!updated) return badStatus()
+  if (!transition.ok) return transitionFailure(transition.reason)
+  const updated = transition.plan
 
   // Notify Coordinator + requester.
   const routing = await resolveApprovalRouting(plan.departmentId)

@@ -94,7 +94,7 @@ describe('Project Manager capability', () => {
     const service = readFileSync(path.join(ROOT, 'lib/projects/project-manager-capability.ts'), 'utf8')
     assert.match(service, /recordActivity\(\{/)
     assert.match(service, /\{ client: tx, required: true \}/)
-    assert.match(auth, /select: \{ role: true, isActive: true, isProjectManager: true \}/)
+    assert.match(auth, /select: \{ role: true, isActive: true, isProjectManager: true(, passwordChangedAt: true)? \}/)
     assert.match(projectsRoute, /isProjectManager: session\.user\.isProjectManager/)
     assert.match(projectsPage, /isProjectManager: session\.user\.isProjectManager/)
     assert.match(userDetail, /currentUserRole === 'ADMIN'/)

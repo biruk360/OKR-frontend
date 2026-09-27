@@ -2,8 +2,9 @@ import { prisma } from '@/lib/prisma'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { apiSuccess, apiBadRequest, apiNotFound, apiForbidden, withAuth } from '@/lib/api'
 import { recordActivity } from '@/lib/activity-log'
-import type { UserRole } from '@/types'
-import { canAccessAttachmentScope } from '@/lib/attachments/access'
+import { canViewSprint, type UserRole } from '@/lib/permissions'
+import { canReadTodo } from '@/lib/todos/access'
+import { inviteToSprint } from '@/lib/sprints/participants'
 
 /**
  * POST /api/todos/[id]/duplicate — copy a card (CDM-3).
@@ -27,16 +28,21 @@ export const POST = withAuth<RouteIdParams>(async (_req, { session, params }) =>
       members: { select: { userId: true } },
       labels: { select: { labelDefId: true } },
       checklists: { include: { items: { orderBy: { position: 'asc' } } }, orderBy: { position: 'asc' } },
-      sprint: { select: { state: true } },
+      sprint: { select: { state: true, ownerId: true, participants: { select: { userId: true } } } },
     },
   })
   if (!source) return apiNotFound('To-do not found')
 
-  const allowed = await canAccessAttachmentScope('TODO', id, {
-    id: session.user.id,
-    role: session.user.role as UserRole,
-  })
-  if (!allowed) return apiForbidden('You do not have access to this card')
+  // The source must be readable (404 otherwise, so ids cannot be probed), and a
+  // copy lands on the same board, so a sprint card may only be duplicated by
+  // someone who can view that sprint (invite-only boards).
+  if (!(await canReadTodo(session.user, id))) return apiNotFound('To-do not found')
+  if (source.sprintId && source.sprint) {
+    const canViewTarget = await canViewSprint(session.user.role as UserRole, session.user.id, source.sprint, {
+      userType: session.user.userType,
+    })
+    if (!canViewTarget) return apiForbidden('You do not have access to this sprint')
+  }
 
   if (source.sprint && (source.sprint.state === 'COMPLETED' || source.sprint.state === 'CANCELLED')) {
     return apiBadRequest('This sprint is closed and read-only')
@@ -75,6 +81,10 @@ export const POST = withAuth<RouteIdParams>(async (_req, { session, params }) =>
       },
       select: { id: true, title: true },
     })
+
+    // The copy's assignee and members are put on a sprint card — an invitation
+    // to its board (normally a no-op: they are on the original already).
+    await inviteToSprint(tx, source.sprintId, [source.assigneeId, ...source.members.map((m) => m.userId)])
 
     for (const list of source.checklists) {
       await tx.todoChecklist.create({

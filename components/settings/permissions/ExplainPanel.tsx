@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react'
 import { Loader2, CheckCircle2, XCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Skeleton } from '@/components/ui/Skeleton'
+import { SettingsSelect } from '../SettingsSelect'
 
 interface User {
   id: string
@@ -98,69 +100,54 @@ export default function ExplainPanel() {
   const selectedUser = users.find((u) => u.id === selectedUserId)
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
-      <div className="px-5 py-4 border-b border-gray-100">
-        <h3 className="text-sm font-semibold text-gray-900">Permission Check</h3>
+    <div className="rounded-lg border border-border bg-surface-card shadow-sm">
+      <div className="px-5 py-4 border-b border-border">
+        <h3 className="text-sm font-semibold text-ink-primary">Permission Check</h3>
       </div>
 
       <div className="px-5 py-4 space-y-4">
         <div className="flex flex-wrap gap-3 items-end">
           <div className="flex flex-col gap-1 min-w-[200px]">
-            <label className="text-xs font-medium text-gray-600">User</label>
+            <label htmlFor="explain-user" className="text-xs font-medium text-ink-secondary">User</label>
             {usersLoading ? (
-              <div className="flex items-center gap-1.5 h-9 px-3 rounded-md border border-gray-300 bg-gray-50 text-xs text-gray-400">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                Loading…
-              </div>
+              <Skeleton className="h-9 w-full" aria-label="Loading users" />
             ) : (
-              <select
+              <SettingsSelect
+                id="explain-user"
                 value={selectedUserId}
-                onChange={(e) => setSelectedUserId(e.target.value)}
-                className="h-9 px-3 rounded-md border border-gray-300 bg-white text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                {users.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.name} ({u.role})
-                  </option>
-                ))}
-              </select>
+                onValueChange={setSelectedUserId}
+                options={users.map((u) => ({ value: u.id, label: `${u.name} (${u.role})` }))}
+                placeholder="No users"
+              />
             )}
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-gray-600">DocType</label>
-            <select
+            <label htmlFor="explain-doctype" className="text-xs font-medium text-ink-secondary">DocType</label>
+            <SettingsSelect
+              id="explain-doctype"
               value={selectedDoctype}
-              onChange={(e) => setSelectedDoctype(e.target.value)}
-              className="h-9 px-3 rounded-md border border-gray-300 bg-white text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              {DOCTYPES.map((d) => (
-                <option key={d.value} value={d.value}>
-                  {d.label}
-                </option>
-              ))}
-            </select>
+              onValueChange={setSelectedDoctype}
+              options={DOCTYPES}
+              className="min-w-40"
+            />
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-gray-600">Action</label>
-            <select
+            <label htmlFor="explain-action" className="text-xs font-medium text-ink-secondary">Action</label>
+            <SettingsSelect
+              id="explain-action"
               value={selectedAction}
-              onChange={(e) => setSelectedAction(e.target.value)}
-              className="h-9 px-3 rounded-md border border-gray-300 bg-white text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              {ACTIONS.map((a) => (
-                <option key={a.value} value={a.value}>
-                  {a.label}
-                </option>
-              ))}
-            </select>
+              onValueChange={setSelectedAction}
+              options={ACTIONS}
+              className="min-w-32"
+            />
           </div>
 
           <button
             onClick={handleCheck}
             disabled={loading || !selectedUserId}
-            className="h-9 px-4 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+            className="h-9 px-4 rounded-md bg-primary-600 text-primary-foreground text-sm font-medium hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
           >
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
             Check Permission
@@ -168,7 +155,7 @@ export default function ExplainPanel() {
         </div>
 
         {error && (
-          <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+          <p className="text-sm text-danger-600 bg-danger-50 border border-danger-200 rounded-md px-3 py-2">
             {error}
           </p>
         )}
@@ -179,70 +166,70 @@ export default function ExplainPanel() {
               className={cn(
                 'flex items-start gap-3 rounded-lg px-4 py-3 border',
                 result.allowed
-                  ? 'bg-green-50 border-green-200'
-                  : 'bg-red-50 border-red-200'
+                  ? 'bg-success-50 border-success-200'
+                  : 'bg-danger-50 border-danger-200'
               )}
             >
               {result.allowed ? (
-                <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5 shrink-0" />
+                <CheckCircle2 className="h-5 w-5 text-success-700 mt-0.5 shrink-0" />
               ) : (
-                <XCircle className="h-5 w-5 text-red-600 mt-0.5 shrink-0" />
+                <XCircle className="h-5 w-5 text-danger-600 mt-0.5 shrink-0" />
               )}
               <div>
                 <span
                   className={cn(
                     'text-xs font-bold uppercase tracking-wide',
-                    result.allowed ? 'text-green-700' : 'text-red-700'
+                    result.allowed ? 'text-success-700' : 'text-danger-700'
                   )}
                 >
                   {result.allowed ? 'Allowed' : 'Denied'}
                 </span>
-                <p className="text-sm font-medium text-gray-800 mt-0.5">
+                <p className="text-sm font-medium text-ink-primary mt-0.5">
                   {selectedUser?.name ?? 'User'}{' '}
-                  <span className={result.allowed ? 'text-green-700' : 'text-red-700'}>
+                  <span className={result.allowed ? 'text-success-700' : 'text-danger-700'}>
                     {result.allowed ? 'CAN' : 'CANNOT'}
                   </span>{' '}
                   {selectedAction}{' '}
                   {DOCTYPES.find((d) => d.value === selectedDoctype)?.label ?? selectedDoctype}
                 </p>
-                <p className="text-sm text-gray-600 mt-1">{result.explanation}</p>
+                <p className="text-sm text-ink-secondary mt-1">{result.explanation}</p>
               </div>
             </div>
 
-            <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 space-y-1.5">
-              <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">
+            <div className="rounded-lg border border-border bg-surface-hover px-4 py-3 space-y-1.5">
+              <p className="text-xs font-semibold text-ink-secondary uppercase tracking-wide mb-2">
                 Details
               </p>
 
-              <div className="flex items-center gap-2 text-sm text-gray-700">
-                <span className="text-gray-500 w-32 shrink-0">Admin bypass:</span>
-                <span className={result.details.adminBypass ? 'text-amber-600 font-medium' : 'text-gray-500'}>
+              <div className="flex items-center gap-2 text-sm text-ink-primary">
+                <span className="text-ink-secondary w-32 shrink-0">Admin bypass:</span>
+                <span className={result.details.adminBypass ? 'text-warning-700 font-medium' : 'text-ink-secondary'}>
                   {result.details.adminBypass ? 'Yes' : 'No'}
                 </span>
               </div>
 
-              <div className="flex items-start gap-2 text-sm text-gray-700">
-                <span className="text-gray-500 w-32 shrink-0">Explicit deny:</span>
-                <span className={result.details.explicitDeny ? 'text-red-600 font-medium' : 'text-gray-500'}>
+              <div className="flex items-start gap-2 text-sm text-ink-primary">
+                <span className="text-ink-secondary w-32 shrink-0">Explicit deny:</span>
+                <span className={result.details.explicitDeny ? 'text-danger-600 font-medium' : 'text-ink-secondary'}>
                   {result.details.explicitDeny?.reason ?? 'None'}
                 </span>
               </div>
 
-              <div className="flex items-start gap-2 text-sm text-gray-700">
-                <span className="text-gray-500 w-32 shrink-0">Explicit grant:</span>
-                <span className={result.details.explicitGrant ? 'text-green-600 font-medium' : 'text-gray-500'}>
+              <div className="flex items-start gap-2 text-sm text-ink-primary">
+                <span className="text-ink-secondary w-32 shrink-0">Explicit grant:</span>
+                <span className={result.details.explicitGrant ? 'text-success-700 font-medium' : 'text-ink-secondary'}>
                   {result.details.explicitGrant?.reason ?? 'None'}
                 </span>
               </div>
 
               {result.details.roleGrants.length > 0 && (
-                <div className="flex items-start gap-2 text-sm text-gray-700">
-                  <span className="text-gray-500 w-32 shrink-0">Role grants:</span>
+                <div className="flex items-start gap-2 text-sm text-ink-primary">
+                  <span className="text-ink-secondary w-32 shrink-0">Role grants:</span>
                   <ul className="space-y-0.5">
                     {result.details.roleGrants.map((g, i) => (
                       <li key={i} className="font-medium">
                         {g.roleName} → {g.action} ={' '}
-                        <span className={g.granted ? 'text-green-600' : 'text-red-600'}>
+                        <span className={g.granted ? 'text-success-700' : 'text-danger-600'}>
                           {String(g.granted)}
                         </span>
                       </li>
@@ -251,19 +238,19 @@ export default function ExplainPanel() {
                 </div>
               )}
 
-              <div className="flex items-center gap-2 text-sm text-gray-700">
-                <span className="text-gray-500 w-32 shrink-0">Record scoping:</span>
-                <span className={result.details.scopingApplied ? 'text-blue-600 font-medium' : 'text-gray-500'}>
+              <div className="flex items-center gap-2 text-sm text-ink-primary">
+                <span className="text-ink-secondary w-32 shrink-0">Record scoping:</span>
+                <span className={result.details.scopingApplied ? 'text-primary-600 font-medium' : 'text-ink-secondary'}>
                   {result.details.scopingApplied ? 'On' : 'Off'}
                 </span>
               </div>
 
               {result.details.scopeRules.length > 0 && (
-                <div className="flex items-start gap-2 text-sm text-gray-700">
-                  <span className="text-gray-500 w-32 shrink-0">Scope rules:</span>
+                <div className="flex items-start gap-2 text-sm text-ink-primary">
+                  <span className="text-ink-secondary w-32 shrink-0">Scope rules:</span>
                   <ul className="space-y-0.5">
                     {result.details.scopeRules.map((r, i) => (
-                      <li key={i} className="font-mono text-xs text-gray-700">
+                      <li key={i} className="font-mono text-xs text-ink-primary">
                         {r.fieldName} {r.operator} {r.valueType}
                       </li>
                     ))}

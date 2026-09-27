@@ -90,8 +90,8 @@ export default function AttachmentLightbox({
           style={{ borderColor: 'var(--ap-border)' }}
         >
           <div className="min-w-0">
-            <p className="truncate text-[13px] font-semibold">{current.filename}</p>
-            <p className="text-[11px] text-[var(--ap-fg-subtle)]">
+            <p className="truncate text-body-sm font-semibold">{current.filename}</p>
+            <p className="text-caption text-[var(--ap-fg-subtle)]">
               {formatBytes(current.size)}
               {items.length > 1 && <> · {index + 1} of {items.length}</>}
             </p>
@@ -99,7 +99,7 @@ export default function AttachmentLightbox({
           <a
             href={current.url}
             download={current.filename}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-[8px] border px-2.5 py-1 text-[12px] font-600 hover:bg-[var(--ap-bg-hover)]"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-600 hover:bg-[var(--ap-bg-hover)]"
             style={{ borderColor: 'var(--ap-border)' }}
           >
             <Download className="h-3.5 w-3.5" /> Download
@@ -112,22 +112,22 @@ export default function AttachmentLightbox({
             // a broken-image glyph.
             <div className="flex flex-col items-center gap-2 py-12 text-center">
               <FileWarning className="h-8 w-8 text-[var(--ap-fg-subtle)]" />
-              <p className="text-[13px] font-600">This file could not be loaded</p>
-              <p className="text-[12px] text-[var(--ap-fg-subtle)]">It may have been removed.</p>
+              <p className="text-body-sm font-600">This file could not be loaded</p>
+              <p className="text-xs text-[var(--ap-fg-subtle)]">It may have been removed.</p>
             </div>
           ) : isImage(current.mimeType) ? (
             <img
               src={current.url}
               alt={current.filename}
               onError={() => setFailed(true)}
-              className="max-h-[70vh] max-w-full rounded-[8px] object-contain"
+              className="max-h-[70vh] max-w-full rounded-lg object-contain"
             />
           ) : (
-            <object data={current.url} type="application/pdf" className="h-[70vh] w-full rounded-[8px]">
+            <object data={current.url} type="application/pdf" className="h-[70vh] w-full rounded-lg">
               {/* PRV-4 fallback: some browsers refuse to embed PDFs. */}
               <div className="flex flex-col items-center gap-2 py-12 text-center">
-                <p className="text-[13px]">This PDF cannot be shown here.</p>
-                <a href={current.url} target="_blank" rel="noreferrer" className="text-[13px] font-600 text-[var(--ap-accent)] hover:underline">
+                <p className="text-body-sm">This PDF cannot be shown here.</p>
+                <a href={current.url} target="_blank" rel="noreferrer" className="text-body-sm font-600 text-[var(--ap-accent)] hover:underline">
                   Open in a new tab
                 </a>
               </div>

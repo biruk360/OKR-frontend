@@ -19,6 +19,8 @@ import {
   withAuth,
 } from '@/lib/api'
 import { filterFieldsByPermLevel } from '@/lib/field-filter'
+import { broadcastKeyResultEvent, broadcastObjectiveEvent } from '@/lib/pusher'
+import { OKR_REALTIME_EVENTS } from '@/lib/okr/realtime'
 
 export const GET = withAuth<RouteIdParams>(async (_request, { session, params }) => {
   const { id } = await resolveParams(params)
@@ -211,6 +213,10 @@ export const PUT = withAuth<RouteIdParams>(async (request: NextRequest, { sessio
     session.user.id,
   )
 
+  // Start/target changes move the KR's progress; everything else is a plain update.
+  const progressMoved = bounds.start !== existingKeyResult.startValue || bounds.target !== existingKeyResult.targetValue
+  broadcastKeyResultEvent(keyResultId, result.objectiveId, progressMoved ? OKR_REALTIME_EVENTS.KR_PROGRESS_CHANGED : OKR_REALTIME_EVENTS.UPDATED, session.user.id)
+  if (isMove) broadcastObjectiveEvent(existingKeyResult.objectiveId, OKR_REALTIME_EVENTS.UPDATED, session.user.id)
   return apiSuccess(result, { message: 'Key Result updated successfully.' })
 })
 
@@ -262,5 +268,6 @@ export const DELETE = withAuth<RouteIdParams>(async (_request, { session, params
     metadata: { keyResultId, title: existingKeyResult.title },
   })
 
+  broadcastKeyResultEvent(keyResultId, existingKeyResult.objectiveId, OKR_REALTIME_EVENTS.DELETED, session.user.id)
   return apiSuccess(result, { message: 'Key Result deleted successfully.' })
 })

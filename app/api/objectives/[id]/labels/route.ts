@@ -10,6 +10,8 @@ import {
   withAuth,
 } from '@/lib/api'
 import { recordActivity } from '@/lib/activity-log'
+import { broadcastObjectiveEvent } from '@/lib/pusher'
+import { OKR_REALTIME_EVENTS } from '@/lib/okr/realtime'
 
 export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { session, params }) => {
   const { id: objectiveId } = await resolveParams(params)
@@ -40,6 +42,7 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
       actorId: session.user.id,
       metadata: { labelAdded: { id: label.id, name: label.name } },
     })
+    broadcastObjectiveEvent(objectiveId, OKR_REALTIME_EVENTS.UPDATED, session.user.id)
     return apiSuccess(objectiveLabel, { status: 201 })
   } catch (error: any) {
     if (error?.code === 'P2002') {
@@ -73,5 +76,6 @@ export const DELETE = withAuth<RouteIdParams>(async (request: NextRequest, { ses
     metadata: { labelRemoved: label ? { id: label.id, name: label.name } : { id: labelId } },
   })
 
+  broadcastObjectiveEvent(objectiveId, OKR_REALTIME_EVENTS.UPDATED, session.user.id)
   return apiSuccess(null, { message: 'Label removed from objective' })
 })

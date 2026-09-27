@@ -94,6 +94,8 @@ export interface FilteredResult {
   ownerId?: string
   ownerAvatar?: string
   dueDate?: string
+  /** ISO timestamp — drives the "Last updated" sort and the CSV export. */
+  updatedAt?: string
   workStatus?: string
   entityType: FiltersTab
   // KR-specific

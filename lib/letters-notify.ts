@@ -1,24 +1,20 @@
 /**
- * Letter Management notifications — direct Notification inserts.
+ * Letter Management notifications.
  *
- * NOTE: The full notification pipeline (`lib/notifications/dispatcher.ts`) is
- * driven by a strict EventKey matrix defined in `docs/User_Permissions.md`.
- * Adding `LETTER_*` events properly requires extending: EventKey union,
- * EVENT_META, EventCategory, the dispatcher's `resolveRecipients` switch, the
- * redact rules, and the email-templates registry. That's a larger change owned
- * by the notifications subsystem.
- *
- * For now, transition routes call helpers here that write straight to the
- * `notifications` table (in-app only) so signatories / approvers / preparers
- * still get a bell-icon ping on every state change. Email integration is
- * deferred until the EventKey extension lands.
- *
- * TODO(notifications): replace these direct inserts with `emit('LETTER_*', ...)`
- * once EventKey is extended with letter events.
+ * Letter events are not in the dispatcher's EventKey vocabulary, so — like
+ * comments, DTP and travel — they go through the shared preference gate
+ * `writeDirectNotifications` (category LETTER): it writes the in-app rows for
+ * recipients who want them and returns who may be emailed. We then email
+ * those recipients ourselves (same pattern as lib/dtp/notifier.ts), recording
+ * the delivery on the notification row. sendMail's fake-recipient block-list
+ * still applies.
  */
 
 import { prisma } from '@/lib/prisma'
 import { writeDirectNotifications } from '@/lib/notifications/direct'
+import { absoluteUrl } from '@/lib/notifications/deep-link'
+import { sendMail } from '@/lib/email'
+import { escapeHtml } from '@/lib/letter-sanitize'
 import type { Letter } from '@prisma/client'
 
 interface NotifyArgs {
@@ -38,7 +34,9 @@ async function insert(args: NotifyArgs): Promise<void> {
   // `ADMIN` with a comment saying "until LETTER category is added", which meant
   // muting admin digests also muted letters. The shared gate applies the user's
   // preference; the direct write here applied none at all.
-  await writeDirectNotifications({
+  const deepLink = `/dashboard/letters/${args.letter.id}`
+  const startedAt = new Date()
+  const delivery = await writeDirectNotifications({
     category: 'LETTER',
     type: args.eventKey,
     eventKey: args.eventKey,
@@ -49,9 +47,41 @@ async function insert(args: NotifyArgs): Promise<void> {
       letterId: args.letter.id,
       referenceNumber: args.letter.referenceNumber,
       actorId: args.actorId,
-      deepLink: `/dashboard/letters/${args.letter.id}`,
+      deepLink,
     },
+    emailMode: 'IMMEDIATE',
   })
+
+  // Email is best-effort: a mail failure must never fail the transition.
+  if (delivery.emailable.length === 0) return
+  const link = absoluteUrl(deepLink)
+  const text = `${args.message}\n\nOpen the letter: ${link}`
+  const html = `<p>${escapeHtml(args.message)}</p><p><a href="${escapeHtml(link)}">Open the letter</a></p>`
+  await Promise.all(
+    delivery.emailable.map(async (u) => {
+      try {
+        const res = await sendMail({
+          to: u.email,
+          toName: u.name,
+          subject: args.title,
+          text,
+          html,
+          template: args.eventKey,
+          metadata: { letterId: args.letter.id, userId: u.id },
+        })
+        await prisma.notification.updateMany({
+          where: { userId: u.id, eventKey: args.eventKey, emailSent: false, createdAt: { gte: startedAt } },
+          data: {
+            emailSent: res.status === 'SENT' || res.status === 'LOGGED_ONLY',
+            emailAt: new Date(),
+            outboundEmailId: res.id,
+          },
+        })
+      } catch (err) {
+        console.error('[letters-notify] email send failed', { userId: u.id, eventKey: args.eventKey, err })
+      }
+    }),
+  )
 }
 
 async function resolveApprovers(): Promise<string[]> {

@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
-import { apiSuccess, apiBadRequest, apiNotFound, withAuth } from '@/lib/api'
+import { apiSuccess, apiBadRequest, apiForbidden, apiNotFound, withAuth } from '@/lib/api'
+import { canViewSprint, type UserRole } from '@/lib/permissions'
 import { getSprintLanes, resolveLane } from '@/lib/sprints/columns'
 
 /**
@@ -50,6 +51,14 @@ export const GET = withAuth<RouteIdParams>(async (_request, { session, params })
     },
   })
   if (!sprint) return apiNotFound('Sprint not found')
+
+  // CPM-9 — same visibility gate as /columns, /report and /todos/[id]/share.
+  const allowed = await canViewSprint(session.user.role as UserRole, session.user.id, {
+    ownerId: sprint.ownerId,
+    departmentId: sprint.departmentId,
+    participants: sprint.participants.map(p => ({ userId: p.userId })),
+  })
+  if (!allowed) return apiForbidden('You do not have access to this sprint')
 
   const lanes = await getSprintLanes(id)
 

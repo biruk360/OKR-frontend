@@ -59,8 +59,10 @@ export function mergeAdjustments(
 ): CoordinatorAdjustments {
   const out: CoordinatorAdjustments = { ...(prior ?? {}) }
   for (const [k, v] of Object.entries(next)) {
-    // Preserve the earliest "before" value across multiple Coordinator edits.
-    out[k] = { before: out[k]?.before ?? v.before, after: v.after }
+    // Preserve the earliest "before" value across multiple Coordinator edits —
+    // including an original `null` (the field was empty), so no `??` here.
+    const earlier = Object.prototype.hasOwnProperty.call(out, k) ? out[k] : undefined
+    out[k] = { before: earlier !== undefined ? earlier.before : v.before, after: v.after }
   }
   return out
 }

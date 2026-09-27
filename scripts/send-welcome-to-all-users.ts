@@ -2,7 +2,8 @@
  * Bulk-send the welcome / invitation email to every active user in the database.
  *
  * For each user:
- *   - Issues a fresh 7-day activation token (overwrites any existing one).
+ *   - Issues a fresh 7-day activation token (overwrites any existing one); only its
+ *     hash is stored, the raw value goes in the emailed link.
  *   - Sends the rich HTML invitation email (lib/email.sendUserInvitationEmail).
  *   - Logs result; continues on individual failures.
  *
@@ -18,10 +19,10 @@
  *   --email=<addr>     Only send to one specific email (handy for validation).
  */
 
-import crypto from 'crypto'
 import { prisma } from '../lib/prisma'
 import { sendMail } from '../lib/email'
 import { renderInvitationEmail } from '../lib/email/templates/invitation'
+import { generateAuthToken, hashAuthToken } from '../lib/security/auth-tokens'
 
 interface Args {
   commit: boolean
@@ -66,11 +67,14 @@ async function main() {
       continue
     }
     try {
-      const token = crypto.randomBytes(32).toString('hex')
+      // Only the SHA-256 hash is stored (lib/security/auth-tokens.ts); the raw
+      // token exists solely in the emailed link, so a leaked DB row is not a
+      // working activation link.
+      const token = generateAuthToken()
       await prisma.user.update({
         where: { id: u.id },
         data: {
-          activationToken: token,
+          activationToken: hashAuthToken(token),
           activationTokenExpires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         },
       })

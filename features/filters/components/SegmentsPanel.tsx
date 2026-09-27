@@ -34,7 +34,8 @@ export function SegmentsPanel({ tab, activeSegment, onSegmentSelect }: SegmentsP
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search segments…"
-            className="h-7 w-full rounded-lg bg-white/60 pl-8 pr-2 text-xs placeholder:text-[var(--ap-fg-subtle)] focus:outline-none focus:ring-2 focus:ring-[var(--ap-accent)]/30"
+            aria-label="Search segments"
+            className="h-7 w-full rounded-lg bg-[var(--ap-bg-raised)] pl-8 pr-2 text-xs placeholder:text-[var(--ap-fg-subtle)] focus:outline-none focus:ring-2 focus:ring-[var(--ap-accent)]/30"
             style={{ border: '1px solid var(--ap-border-strong)', color: 'var(--ap-fg)' }}
           />
         </div>
@@ -45,7 +46,7 @@ export function SegmentsPanel({ tab, activeSegment, onSegmentSelect }: SegmentsP
         {filteredGroups.map((group) => (
           <div key={group.group} className="mb-2">
             <p
-              className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-widest"
+              className="px-3 pb-1 pt-2 text-micro font-semibold uppercase tracking-widest"
               style={{ color: 'var(--ap-fg-subtle)' }}
             >
               {group.group}
@@ -58,13 +59,13 @@ export function SegmentsPanel({ tab, activeSegment, onSegmentSelect }: SegmentsP
                   type="button"
                   onClick={() => onSegmentSelect(item.id)}
                   className={cn(
-                    'mx-1.5 flex w-[calc(100%-12px)] items-center rounded-lg px-2.5 py-1.5 text-left text-[13px] font-medium transition-all duration-150',
+                    'mx-1.5 flex w-[calc(100%-12px)] items-center rounded-lg px-2.5 py-1.5 text-left text-body-sm font-medium transition-all duration-150',
                     active
                       ? 'font-semibold'
-                      : 'hover:bg-black/5'
+                      : 'hover:bg-[var(--ap-bg-hover)]'
                   )}
                   style={active
-                    ? { background: 'var(--ap-accent)', color: '#fff' }
+                    ? { background: 'var(--ap-accent)', color: 'var(--ap-accent-fg)' }
                     : { color: 'var(--ap-fg-muted)' }
                   }
                 >

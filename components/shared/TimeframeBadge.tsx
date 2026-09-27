@@ -16,7 +16,7 @@ export default function TimeframeBadge({ type, className = '' }: TimeframeBadgeP
   if (!typeLabel) return null
 
   return (
-    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 ${className}`}>
+    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-primary-100 text-primary-800 ${className}`}>
       {typeLabel}
     </span>
   )

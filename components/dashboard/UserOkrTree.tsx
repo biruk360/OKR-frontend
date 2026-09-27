@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { ChevronRight, ChevronDown, Target, Link2, Plus } from 'lucide-react'
+import { chartColors } from '@/lib/chart-colors'
 
 export interface OkrTreeObjective {
   id: string
@@ -26,9 +27,9 @@ interface Props {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  ON_TRACK: '#059669',
-  AT_RISK: '#d97706',
-  OFF_TRACK: '#dc2626',
+  ON_TRACK: chartColors.success,
+  AT_RISK: chartColors.warning,
+  OFF_TRACK: chartColors.danger,
 }
 
 export default function UserOkrTree({ objectives }: Props) {
@@ -42,7 +43,7 @@ export default function UserOkrTree({ objectives }: Props) {
     <section className="rounded-xl border border-border bg-card">
       <header className="flex items-center justify-between px-4 py-3 border-b border-border">
         <h3 className="text-sm font-semibold">My Active Objectives</h3>
-        <Link href="/dashboard/goals" className="text-xs text-primary-500 hover:underline">
+        <Link href="/dashboard/my-okrs" className="text-xs text-primary-500 hover:underline">
           View all
         </Link>
       </header>
@@ -69,7 +70,7 @@ export default function UserOkrTree({ objectives }: Props) {
                   }
                   <span
                     className="size-2 rounded-full shrink-0"
-                    style={{ background: STATUS_COLORS[obj.goalStatus] || '#c1c7d0' }}
+                    style={{ background: STATUS_COLORS[obj.goalStatus] || chartColors.neutral }}
                   />
                   <span className="text-sm font-medium truncate flex-1">{obj.title}</span>
                   <span className="text-xs text-muted-foreground tabular-nums font-medium ml-2">
@@ -78,7 +79,7 @@ export default function UserOkrTree({ objectives }: Props) {
                   <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden ml-1">
                     <div
                       className="h-full rounded-full transition-all"
-                      style={{ width: `${Math.min(obj.progress, 100)}%`, background: STATUS_COLORS[obj.goalStatus] || '#c1c7d0' }}
+                      style={{ width: `${Math.min(obj.progress, 100)}%`, background: STATUS_COLORS[obj.goalStatus] || chartColors.neutral }}
                     />
                   </div>
                 </button>
@@ -94,14 +95,14 @@ export default function UserOkrTree({ objectives }: Props) {
                         <Link2 className="size-3 text-muted-foreground shrink-0" />
                         <span
                           className="size-1.5 rounded-full shrink-0"
-                          style={{ background: STATUS_COLORS[kr.confidence] || '#c1c7d0' }}
+                          style={{ background: STATUS_COLORS[kr.confidence] || chartColors.neutral }}
                         />
                         <span className="text-xs truncate flex-1">{kr.title}</span>
-                        <span className="text-[11px] text-muted-foreground tabular-nums">
+                        <span className="text-caption text-muted-foreground tabular-nums">
                           {Math.round(kr.progress)}%
                         </span>
                         {kr.initiativeCount > 0 && (
-                          <span className="text-[10px] text-muted-foreground bg-muted rounded px-1">
+                          <span className="text-micro text-muted-foreground bg-muted rounded px-1">
                             {kr.initiativeCount}
                           </span>
                         )}
@@ -110,7 +111,7 @@ export default function UserOkrTree({ objectives }: Props) {
                     <div className="flex items-center gap-2 px-4 py-1.5">
                       <Link
                         href={`/dashboard/objectives/${obj.id}`}
-                        className="text-[11px] text-primary-500 hover:underline inline-flex items-center gap-1"
+                        className="text-caption text-primary-500 hover:underline inline-flex items-center gap-1"
                       >
                         <Plus className="size-3" /> Add initiative
                       </Link>

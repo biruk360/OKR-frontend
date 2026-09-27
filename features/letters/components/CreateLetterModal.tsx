@@ -1,12 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Modal, Button, Input, Label } from '@/components/ui'
 import CustomerLookup from './CustomerLookup'
 import LetterTypeSelect from './LetterTypeSelect'
-import { createLetter } from '../services/lettersApi'
+import { createLetter, listLetterTemplatesApi } from '../services/lettersApi'
 import { useT } from '../i18n'
-import type { LetterListItem } from '../types'
+import type { LetterListItem, LetterTemplateRecord } from '../types'
 
 interface Props {
   open: boolean
@@ -18,14 +18,30 @@ export default function CreateLetterModal({ open, onClose, onCreated }: Props) {
   const t = useT()
   const [subject, setSubject] = useState('')
   const [letterTypeId, setLetterTypeId] = useState<string | null>(null)
+  const [letterTypeCode, setLetterTypeCode] = useState<string | null>(null)
+  const [templates, setTemplates] = useState<LetterTemplateRecord[]>([])
+  const [templateId, setTemplateId] = useState<string>('')
   const [customerName, setCustomerName] = useState('')
   const [odooPartnerId, setOdooPartnerId] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Templates for the chosen type (FR-4). Empty choice = the server default.
+  useEffect(() => {
+    setTemplateId('')
+    if (!letterTypeCode) { setTemplates([]); return }
+    let cancelled = false
+    listLetterTemplatesApi({ letterType: letterTypeCode })
+      .then((rows) => { if (!cancelled) setTemplates(rows) })
+      .catch(() => { if (!cancelled) setTemplates([]) })
+    return () => { cancelled = true }
+  }, [letterTypeCode])
+
   function reset() {
     setSubject('')
     setLetterTypeId(null)
+    setLetterTypeCode(null)
+    setTemplateId('')
     setCustomerName('')
     setOdooPartnerId(null)
     setError(null)
@@ -40,6 +56,7 @@ export default function CreateLetterModal({ open, onClose, onCreated }: Props) {
       const letter = await createLetter({
         subject: subject.trim(),
         letterTypeId,
+        templateId: templateId || null,
         customerName: customerName.trim() || undefined,
         odooPartnerId,
       })
@@ -69,14 +86,36 @@ export default function CreateLetterModal({ open, onClose, onCreated }: Props) {
         <LetterTypeSelect
           label={t('create.type')}
           value={letterTypeId}
-          onChange={(id) => setLetterTypeId(id)}
+          onChange={(id, record) => {
+            setLetterTypeId(id)
+            setLetterTypeCode(record.code)
+          }}
         />
+
+        {templates.length > 0 && (
+          <Field label="Body template" htmlFor="cl-template">
+            <select
+              id="cl-template"
+              value={templateId}
+              onChange={(e) => setTemplateId(e.target.value)}
+              className="flex h-10 w-full rounded-[var(--ap-radius-md)] border bg-card px-3 text-body-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--ap-accent)] focus:ring-offset-1"
+              style={{ borderColor: 'var(--ap-border)' }}
+            >
+              <option value="">Default template for this type</option>
+              {templates.map((tpl) => (
+                <option key={tpl.id} value={tpl.id}>
+                  {tpl.name} ({tpl.language.toUpperCase()})
+                </option>
+              ))}
+            </select>
+          </Field>
+        )}
 
         <Field
           label={
             <>
               {t('create.customer')}{' '}
-              <span className="text-[11px] font-normal text-muted-foreground">
+              <span className="text-caption font-normal text-muted-foreground">
                 {t('create.customer.optional')}
               </span>
             </>
@@ -92,7 +131,7 @@ export default function CreateLetterModal({ open, onClose, onCreated }: Props) {
         </Field>
 
         {error && (
-          <div className="rounded-[var(--ap-radius-sm)] bg-red-50 px-3 py-2 text-[12px] text-red-700 dark:bg-red-900/20 dark:text-red-300">
+          <div className="rounded-[var(--ap-radius-sm)] bg-danger-50 px-3 py-2 text-xs text-danger-700">
             {error}
           </div>
         )}
@@ -125,7 +164,7 @@ function Field({
 }) {
   return (
     <div className="space-y-1">
-      <Label htmlFor={htmlFor} className="text-[12px]">{label}</Label>
+      <Label htmlFor={htmlFor} className="text-xs">{label}</Label>
       {children}
     </div>
   )

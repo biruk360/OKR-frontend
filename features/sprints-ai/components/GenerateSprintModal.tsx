@@ -1,12 +1,17 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import { Sparkles, Hand, Loader2 } from 'lucide-react'
+import { Sparkles, Hand, Loader2, Target, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { Modal } from '@/components/ui/Modal'
+import { Button } from '@/components/ui/button'
+import { EntityPicker, type EntityPickerValue } from '@/components/ui/EntityPicker'
 import { useUsersForSelection } from '@/hooks/useUsersForSelection'
+import { useOkrOptions } from '@/hooks/useOkrOptions'
+import { cn } from '@/lib/utils'
+import { AI_PROVIDER_LABELS, WIRED_AI_PROVIDERS, type WiredAiProviderId } from '@/lib/ai/providers/wired'
 
 interface Props {
   open: boolean
@@ -19,14 +24,20 @@ interface Props {
 
 type Scope = 'AUTO' | 'MANUAL'
 
+const sectionLabel = 'mb-2 text-overline uppercase text-ink-secondary'
+const selectClass =
+  'h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none transition-colors duration-[180ms] ease-apple focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 dark:bg-input/30'
+
 /**
  * Modal for generating AI tasks into an existing team sprint, scoped to one
  * subject user. Triggered from the sprint board header. The sprint must already
  * exist in PLANNING state with start/end dates.
  *
  * The user picker lets ADMIN/EXECUTIVE/DEPARTMENT_LEAD generate for any team
- * member; employees stay locked to themselves. MANUAL scope is disabled until
- * the OkrPicker refactor lands.
+ * member; employees stay locked to themselves. MANUAL scope sends the picked
+ * key results (and their objectives) as `keyResultIds` / `objectiveIds`, which
+ * POST /api/sprints/ai/generate requires to be non-empty and ACTIVE.
+ * The provider picker lists only providers wired in lib/ai/providers.
  */
 export function GenerateSprintModal({ open, onClose, sprintId, subjectUserId }: Props) {
   const router = useRouter()
@@ -42,12 +53,34 @@ export function GenerateSprintModal({ open, onClose, sprintId, subjectUserId }: 
   const { users, isLoading: loadingUsers } = useUsersForSelection({ enabled: open && canPickUser })
 
   const [scope, setScope] = useState<Scope>('AUTO')
-  const [provider, setProvider] = useState<'default' | 'openai' | 'anthropic' | 'gemini'>('default')
+  const [provider, setProvider] = useState<'default' | WiredAiProviderId>('default')
+  const [picked, setPicked] = useState<EntityPickerValue[]>([])
   const [submitting, setSubmitting] = useState(false)
+
+  // Active objectives with their ACTIVE key results only — the API rejects any
+  // non-active KR in MANUAL scope, so they are never offered.
+  const { objectives, isLoading: loadingOkrs } = useOkrOptions({
+    status: 'ACTIVE',
+    requireKeyResults: true,
+    enabled: open && scope === 'MANUAL',
+  })
+  const activeObjectives = useMemo(
+    () =>
+      objectives
+        .map((o) => ({ ...o, keyResults: o.keyResults.filter((k) => !k.status || k.status === 'ACTIVE') }))
+        .filter((o) => o.keyResults.length > 0),
+    [objectives],
+  )
+
+  const manualReady = scope !== 'MANUAL' || picked.length > 0
 
   async function submit() {
     if (!subject) {
       toast.error('No subject — sign in first.')
+      return
+    }
+    if (!manualReady) {
+      toast.error('Pick at least one key result.')
       return
     }
     setSubmitting(true)
@@ -59,6 +92,10 @@ export function GenerateSprintModal({ open, onClose, sprintId, subjectUserId }: 
           subjectUserId: subject,
           sprintId,
           mode: scope,
+          ...(scope === 'MANUAL' && {
+            keyResultIds: picked.map((p) => p.id),
+            objectiveIds: Array.from(new Set(picked.map((p) => p.objectiveId))),
+          }),
           ...(provider !== 'default' && { provider }),
         }),
       })
@@ -84,28 +121,17 @@ export function GenerateSprintModal({ open, onClose, sprintId, subjectUserId }: 
       onClose={onClose}
       title="Generate AI tasks"
       icon={Sparkles}
-      iconClassName="text-purple-500"
+      iconClassName="text-primary"
       size="md"
       footer={
         <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-[var(--ap-radius-sm)] border h-8 px-3 text-[12px] font-medium"
-            style={{ borderColor: 'var(--ap-border)' }}
-          >
+          <Button variant="outline" onClick={onClose} disabled={submitting}>
             Cancel
-          </button>
-          <button
-            type="button"
-            onClick={submit}
-            disabled={submitting || scope === 'MANUAL'}
-            className="inline-flex items-center gap-1.5 rounded-[var(--ap-radius-sm)] h-8 px-3 text-[12px] font-semibold text-white disabled:opacity-50"
-            style={{ background: 'linear-gradient(135deg, #7c3aed, #2563eb)' }}
-          >
-            {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+          </Button>
+          <Button onClick={submit} disabled={submitting || !manualReady}>
+            {submitting ? <Loader2 className="animate-spin" /> : <Sparkles />}
             {submitting ? 'Generating…' : 'Generate'}
-          </button>
+          </Button>
         </div>
       }
     >
@@ -113,15 +139,18 @@ export function GenerateSprintModal({ open, onClose, sprintId, subjectUserId }: 
         {/* Subject user (admin/exec/lead only) */}
         {canPickUser && (
           <section>
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+            <label htmlFor="ai-sprint-subject" className={cn('block', sectionLabel)}>
               Generate for
-            </div>
+            </label>
             <select
+              id="ai-sprint-subject"
               value={selectedSubject ?? ''}
-              onChange={(e) => setSelectedSubject(e.target.value || undefined)}
+              onChange={(e) => {
+                setSelectedSubject(e.target.value || undefined)
+                setPicked([])
+              }}
               disabled={loadingUsers}
-              className="rounded-[8px] border h-8 px-2 text-[13px] w-full max-w-sm"
-              style={{ borderColor: 'var(--ap-border)' }}
+              className={cn(selectClass, 'w-full max-w-sm')}
             >
               {sessionUserId && (
                 <option value={sessionUserId}>
@@ -136,38 +165,38 @@ export function GenerateSprintModal({ open, onClose, sprintId, subjectUserId }: 
                   </option>
                 ))}
             </select>
-            <div className="mt-1 text-[11px] text-muted-foreground">
-              Tasks will be proposed against this user's OKRs and assigned to them on accept.
-            </div>
+            <p className="mt-1 text-xs text-ink-secondary">
+              Tasks will be proposed against this user&apos;s OKRs and assigned to them on accept.
+            </p>
           </section>
         )}
 
-        {/* Provider (admin only) */}
+        {/* Provider (admin/exec only). Only wired providers are offered. */}
         {showProvider && (
           <section>
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-              AI Provider
-            </div>
+            <label htmlFor="ai-sprint-provider" className={cn('block', sectionLabel)}>
+              AI provider
+            </label>
             <select
+              id="ai-sprint-provider"
               value={provider}
               onChange={(e) => setProvider(e.target.value as typeof provider)}
-              className="rounded-[8px] border h-8 px-2 text-[13px] w-56"
-              style={{ borderColor: 'var(--ap-border)' }}
+              className={cn(selectClass, 'w-56')}
             >
               <option value="default">Org default</option>
-              <option value="openai">OpenAI</option>
-              <option value="anthropic">Anthropic (not yet wired)</option>
-              <option value="gemini">Gemini (not yet wired)</option>
+              {WIRED_AI_PROVIDERS.map((id) => (
+                <option key={id} value={id}>
+                  {AI_PROVIDER_LABELS[id]}
+                </option>
+              ))}
             </select>
           </section>
         )}
 
         {/* Scope */}
         <section>
-          <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-            Scope
-          </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className={sectionLabel}>Scope</div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <ScopeCard
               icon={Sparkles}
               title="Let AI pick OKRs"
@@ -178,16 +207,57 @@ export function GenerateSprintModal({ open, onClose, sprintId, subjectUserId }: 
             <ScopeCard
               icon={Hand}
               title="I'll choose OKRs"
-              subtitle="Pick specific objectives and key results to focus on."
+              subtitle="Pick specific key results to focus on."
               selected={scope === 'MANUAL'}
               onClick={() => setScope('MANUAL')}
-              disabled
-              disabledLabel="Coming soon"
             />
           </div>
+
           {scope === 'MANUAL' && (
-            <div className="mt-3 rounded-[8px] border p-3 text-[12px] text-muted-foreground" style={{ borderColor: 'var(--ap-border)' }}>
-              Manual OKR selection lands in a follow-up — for now use "Let AI pick OKRs".
+            <div className="mt-3 space-y-2 rounded-lg border border-border p-3">
+              <EntityPicker
+                value={null}
+                onChange={(value) => {
+                  if (value && value.kind === 'keyResult') {
+                    setPicked((current) => (current.some((p) => p.id === value.id) ? current : [...current, value]))
+                  }
+                }}
+                selectable="keyResult"
+                objectives={activeObjectives}
+                recentKey="ai-sprint-manual-okr-recent-v1"
+                placeholder={loadingOkrs ? 'Loading key results…' : 'Add a key result…'}
+                disabledIds={picked.map((p) => p.id)}
+                emptyLabel="No active key results match."
+                className="w-full"
+              />
+              {picked.length === 0 ? (
+                <p className="text-xs text-ink-secondary">
+                  Pick at least one active key result. The AI plans only around what you choose.
+                </p>
+              ) : (
+                <ul className="space-y-1.5">
+                  {picked.map((p) => (
+                    <li
+                      key={p.id}
+                      className="flex items-start gap-2 rounded-lg bg-muted/60 px-2.5 py-1.5 text-body-sm"
+                    >
+                      <Target className="mt-0.5 size-3.5 shrink-0 text-primary" />
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-ink-primary">{p.title}</div>
+                        <div className="truncate text-xs text-ink-secondary">{p.objectiveTitle}</div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        aria-label={`Remove ${p.title}`}
+                        onClick={() => setPicked((current) => current.filter((c) => c.id !== p.id))}
+                      >
+                        <X />
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           )}
         </section>
@@ -202,40 +272,26 @@ function ScopeCard({
   subtitle,
   selected,
   onClick,
-  disabled,
-  disabledLabel,
 }: {
   icon: typeof Sparkles
   title: string
   subtitle: string
   selected: boolean
   onClick: () => void
-  disabled?: boolean
-  disabledLabel?: string
 }) {
   return (
     <button
       type="button"
-      onClick={disabled ? undefined : onClick}
-      disabled={disabled}
-      className={`text-left rounded-[12px] border p-3 transition ${
-        disabled ? 'opacity-50 cursor-not-allowed' : 'hover:border-purple-400 cursor-pointer'
-      }`}
-      style={{
-        borderColor: selected ? 'rgb(124 58 237)' : 'var(--ap-border)',
-        background: selected ? 'rgba(124 58 237 / 0.05)' : 'transparent',
-      }}
+      onClick={onClick}
+      aria-pressed={selected}
+      className={cn(
+        'cursor-pointer rounded-card border p-3 text-left transition-colors duration-[180ms] ease-apple',
+        selected ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50',
+      )}
     >
-      <div className="flex items-center justify-between">
-        <Icon className="h-4 w-4 text-purple-600" />
-        {disabled && disabledLabel && (
-          <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-            {disabledLabel}
-          </span>
-        )}
-      </div>
-      <div className="mt-2 text-[13px] font-semibold">{title}</div>
-      <div className="mt-1 text-[11px] leading-snug text-muted-foreground">{subtitle}</div>
+      <Icon className="size-4 text-primary" />
+      <div className="mt-2 text-body-sm font-semibold text-ink-primary">{title}</div>
+      <div className="mt-1 text-xs leading-snug text-ink-secondary">{subtitle}</div>
     </button>
   )
 }

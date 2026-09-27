@@ -80,7 +80,7 @@ const PRIORITY_DOTS: Record<string, number> = {
 
 /** Shared geometry for every chip in the meta row (design: 21px / 6px radius). */
 const META_CHIP =
-  'inline-flex h-[21px] shrink-0 items-center gap-[5px] rounded-[var(--ap-radius-xs)] px-[7px] text-[11px] font-semibold'
+  'inline-flex h-[21px] shrink-0 items-center gap-[5px] rounded-[var(--ap-radius-xs)] px-[7px] text-caption font-semibold'
 
 function fmt(d: Date) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
@@ -150,7 +150,7 @@ export default function TaskCardTrello({ todo, onClick, onDragStart, onDragEnd, 
         'group cursor-pointer overflow-hidden rounded-[10px] border transition-[border-color,box-shadow] duration-150',
         dark
           ? 'border-[oklch(1_0_0_/_0.22)] shadow-[0_2px_10px_-2px_oklch(0.15_0.03_260_/_0.5)] hover:border-[oklch(0.82_0.08_255)] hover:shadow-[0_6px_18px_-4px_oklch(0.15_0.03_260_/_0.6)]'
-          : 'border-[var(--ap-border)] shadow-[var(--ap-shadow-card)] hover:border-[oklch(0.72_0.1_255)] hover:shadow-[var(--ap-shadow-md)]',
+          : 'border-[var(--ap-border)] shadow-[shadow:var(--ap-shadow-card)] hover:border-[oklch(0.72_0.1_255)] hover:shadow-[shadow:var(--ap-shadow-md)]',
         !isFullCover && 'bg-[var(--ap-bg-raised)]',
       )}
       style={{
@@ -252,7 +252,7 @@ export default function TaskCardTrello({ todo, onClick, onDragStart, onDragEnd, 
           {/* Carryover badge (FR-05 / UX-06) — amber at 2+ carries */}
           {(todo.carryoverCount ?? 0) > 0 && (
             <span
-              className="mt-0.5 inline-flex shrink-0 items-center gap-0.5 rounded-[var(--ap-radius-xs)] px-1.5 py-px text-[10px] font-semibold"
+              className="mt-0.5 inline-flex shrink-0 items-center gap-0.5 rounded-[var(--ap-radius-xs)] px-1.5 py-px text-micro font-semibold"
               style={{
                 background: (todo.carryoverCount ?? 0) >= 2 ? 'var(--ap-warn-bg)' : 'var(--ap-none-bg)',
                 color: (todo.carryoverCount ?? 0) >= 2 ? 'var(--ap-warn-fg)' : 'var(--ap-none-fg)',
@@ -372,7 +372,12 @@ export default function TaskCardTrello({ todo, onClick, onDragStart, onDragEnd, 
 
           {memberList.length > 0 && (
             <span className="ml-auto flex shrink-0 items-center">
-              <UserAvatarStack users={memberList} size={22} max={3} />
+              <UserAvatarStack
+                users={memberList}
+                size={22}
+                max={3}
+                detail={(u) => (todo.assignee?.id === u.id ? 'Assignee' : todo.members?.length ? 'Member' : null)}
+              />
             </span>
           )}
         </div>

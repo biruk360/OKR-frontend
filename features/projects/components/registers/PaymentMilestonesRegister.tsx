@@ -65,7 +65,7 @@ export function PaymentMilestonesRegister({ project, canEdit }: { project: Proje
       </div>
 
       {canEdit && (
-        <div className="mb-4 rounded-card border border-black/[0.08] p-3">
+        <div className="mb-4 rounded-card border border-ink-primary/[0.08] p-3">
           <div className="mb-2 text-body-sm font-medium text-ink-primary">New Payment Milestone</div>
           <div className="grid gap-2 lg:grid-cols-5">
             <input className="input lg:col-span-2" value={draft.name} onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))} placeholder="Milestone name" />
@@ -96,7 +96,7 @@ export function PaymentMilestonesRegister({ project, canEdit }: { project: Proje
         <div className="overflow-x-auto">
           <table className="w-full text-body-sm">
             <thead>
-              <tr className="border-b border-black/[0.08] text-left text-ink-tertiary">
+              <tr className="border-b border-ink-primary/[0.08] text-left text-ink-tertiary">
                 <th className="px-2 py-1.5 font-medium">Milestone</th>
                 <th className="px-2 py-1.5 font-medium">Trigger</th>
                 <th className="px-2 py-1.5 font-medium">Amount</th>
@@ -105,7 +105,7 @@ export function PaymentMilestonesRegister({ project, canEdit }: { project: Proje
                 {canEdit && <th className="px-2 py-1.5 font-medium">Actions</th>}
               </tr>
             </thead>
-            <tbody className="divide-y divide-black/[0.04]">
+            <tbody className="divide-y divide-ink-primary/[0.04]">
               {rows.map((row) => (
                 <PaymentRow
                   key={row.id}
@@ -135,15 +135,15 @@ function PaymentRow({ row, canEdit, triggerLabel, onUpdate, onDelete }: {
     <tr>
       <td className="max-w-sm px-2 py-2">
         <div className="font-medium text-ink-primary">{row.name}</div>
-        {row.contractClause && <div className="text-[12px] text-ink-tertiary">{row.contractClause}</div>}
+        {row.contractClause && <div className="text-xs text-ink-tertiary">{row.contractClause}</div>}
       </td>
       <td className="max-w-md px-2 py-2 text-ink-secondary">{triggerLabel ?? 'Manual'}</td>
       <td className="px-2 py-2 text-ink-secondary">{formatMoney(row.amount, row.currency)}</td>
       <td className="px-2 py-2">
-        <span className={cn('rounded-pill px-2 py-0.5 text-[12px] font-medium', STATUS_CLASS[row.invoiceStatus])}>
+        <span className={cn('rounded-pill px-2 py-0.5 text-xs font-medium', STATUS_CLASS[row.invoiceStatus])}>
           {labelize(row.invoiceStatus)}
         </span>
-        <div className="mt-1 text-[12px] text-ink-tertiary">Planned {fmtDate(row.plannedInvoiceDate)}</div>
+        <div className="mt-1 text-xs text-ink-tertiary">Planned {fmtDate(row.plannedInvoiceDate)}</div>
       </td>
       <td className="px-2 py-2">
         {row.isOverdue ? (
@@ -153,7 +153,7 @@ function PaymentRow({ row, canEdit, triggerLabel, onUpdate, onDelete }: {
         ) : (
           <span className="text-ink-tertiary">-</span>
         )}
-        {row.actualInvoiceDate && <div className="mt-1 text-[12px] text-ink-tertiary">Invoiced {fmtDate(row.actualInvoiceDate)}</div>}
+        {row.actualInvoiceDate && <div className="mt-1 text-xs text-ink-tertiary">Invoiced {fmtDate(row.actualInvoiceDate)}</div>}
       </td>
       {canEdit && (
         <td className="px-2 py-2">

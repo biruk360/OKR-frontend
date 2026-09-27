@@ -1,14 +1,23 @@
 # Trello-Parity Sprint Board — System Requirements
 
 > Status: **Phases 1–5 IMPLEMENTED; Phase 6 PARTIAL** (foundations, dynamic lists, card visuals,
-> card modal, sharing, keyboard card movement).
-> **Remaining:** the dnd-kit migration of both drag paths and PRF-4 virtualisation (which depends on
-> it), CDM-9 (blocked on assumption A3), and DTE-5 recurring (deferred by decision).
+> card modal, sharing, keyboard card movement). Verified against code 2026-09-25.
+> **Shipped since the last update:** **DTE-5 recurring cards** (2026-09-18 — `lib/todos/recurrence.ts`,
+> `lib/todos/recurrence-generator.ts`, `/api/cron/todo-recurrence`; see the 2026-09-18 entry in
+> `docs/CHANGELOG_AI.md`). **BRD-2 filter facets** — assignee multi-select (earlier), then **label,
+> due (overdue / today / this week / no date) and "Cards I'm watching"** on 2026-09-25
+> (`lib/sprints/board-filters.ts`, `SprintBoardHeader.tsx`). Recurring *sub-tasks* are a separate spec:
+> `docs/recurring_subtasks_REQUIREMENTS.md`.
+> **Remaining / deferred:** the dnd-kit migration of both board drag paths and PRF-4 virtualisation
+> (which depends on it) — deferred as a large post-release item; note `@dnd-kit/core|sortable|utilities`
+> are **already dependencies** (used by `features/projects/components/gantt/GanttChart.tsx`), so the
+> migration adds no new package. CDM-9 label rename/recolour is still blocked on assumption A3.
+> Custom fields are out of this spec and deferred.
 > `DTE-1` was implemented by extending the existing calendar rather than replacing it — see the
 > 2026-09-16 dates entry in `docs/CHANGELOG_AI.md`.
 > **A11Y-2 was implemented differently from the text below** — as a parallel keyboard path rather
 > than a replacement of HTML5 drag. See the 2026-09-16 entry in `docs/CHANGELOG_AI.md` for why.
-> Owner: TBD. Last updated: 2026-09-15.
+> Owner: TBD. Last updated: 2026-09-25.
 >
 > §4 "Verified baseline" describes the codebase **as it stood when this spec was written** and is
 > deliberately not rewritten as phases land — it is the record of what the plan was built against.

@@ -9,6 +9,9 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Progress } from '@/components/ui/progress'
+import { Modal } from '@/components/ui/Modal'
+import { Skeleton } from '@/components/ui/Skeleton'
+import { PersonTooltip } from '@/components/shared/UserAvatar'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -45,16 +48,22 @@ function StatusPill({ confidence }: { confidence?: string }) {
   )
 }
 
-function Avatar({ name, size = 'sm' }: { name: string | null | undefined; size?: 'sm' | 'md' }) {
-  const sz = size === 'sm' ? 'size-6 text-[11px]' : 'size-8 text-[13px]'
-  return (
+/** `detail` turns on the full-name hover card — pass it only where the name is
+ *  not printed beside the avatar (docs/user_name_hover_REQUIREMENTS.md UNH-6). */
+function Avatar({ name, size = 'sm', detail }: { name: string | null | undefined; size?: 'sm' | 'md'; detail?: string }) {
+  const sz = size === 'sm' ? 'size-6 text-caption' : 'size-8 text-body-sm'
+  const face = (
     <span
+      role={detail ? 'img' : undefined}
+      aria-label={detail ? (name ?? undefined) : undefined}
       className={cn('flex shrink-0 items-center justify-center rounded-full font-bold', sz)}
-      style={{ background: 'rgba(0,122,255,0.12)', color: 'var(--ap-accent)' }}
+      style={{ background: 'var(--ap-accent-soft)', color: 'var(--ap-accent)' }}
     >
       {(name ?? '?').charAt(0).toUpperCase()}
     </span>
   )
+  if (!detail || !name) return face
+  return <PersonTooltip person={{ name }} detail={detail}>{face}</PersonTooltip>
 }
 
 function CircleProgress({ value, label, sublabel }: { value: number; label: string; sublabel?: string }) {
@@ -73,7 +82,7 @@ function CircleProgress({ value, label, sublabel }: { value: number; label: stri
           {value}%
         </span>
       </div>
-      <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'var(--ap-fg-subtle)' }}>{label}</span>
+      <span className="text-micro font-semibold uppercase tracking-widest" style={{ color: 'var(--ap-fg-subtle)' }}>{label}</span>
       {sublabel && <span className="text-xs" style={{ color: 'var(--ap-fg-muted)' }}>{sublabel}</span>}
     </div>
   )
@@ -84,7 +93,7 @@ function SectionCard({ title, children }: { title?: string; children: React.Reac
     <div className="rounded-[var(--ap-radius-md)]" style={{ border: '1px solid var(--ap-border)', background: 'var(--ap-bg-raised)' }}>
       {title && (
         <div className="border-b px-4 py-2.5" style={{ borderColor: 'var(--ap-border)' }}>
-          <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--ap-fg-subtle)' }}>{title}</p>
+          <p className="text-micro font-bold uppercase tracking-widest" style={{ color: 'var(--ap-fg-subtle)' }}>{title}</p>
         </div>
       )}
       <div className="p-4">{children}</div>
@@ -97,7 +106,7 @@ function MetaRow({ icon: Icon, label, children }: { icon: any; label: string; ch
     <div className="flex items-start gap-3 py-2" style={{ borderBottom: '1px solid var(--ap-border)' }}>
       <Icon className="mt-0.5 size-4 shrink-0" style={{ color: 'var(--ap-fg-subtle)' }} />
       <span className="w-24 shrink-0 text-xs font-medium" style={{ color: 'var(--ap-fg-subtle)' }}>{label}</span>
-      <div className="flex-1 text-[13px]" style={{ color: 'var(--ap-fg)' }}>{children}</div>
+      <div className="flex-1 text-body-sm" style={{ color: 'var(--ap-fg)' }}>{children}</div>
     </div>
   )
 }
@@ -116,7 +125,7 @@ function KrRow({ kr, onClick }: { kr: ObjKR; onClick: () => void }) {
     >
       <span className="ap-status-dot mt-1 shrink-0" data-tone={tone} />
       <div className="min-w-0 flex-1">
-        <p className="text-[13px] font-medium leading-snug" style={{ color: 'var(--ap-fg)' }}>{kr.title}</p>
+        <p className="text-body-sm font-medium leading-snug" style={{ color: 'var(--ap-fg)' }}>{kr.title}</p>
         {kr.targetValue !== undefined && (
           <p className="mt-0.5 text-xs" style={{ color: 'var(--ap-fg-subtle)' }}>
             {kr.currentValue ?? 0} / {kr.targetValue} {kr.unit ?? '%'}
@@ -124,10 +133,10 @@ function KrRow({ kr, onClick }: { kr: ObjKR; onClick: () => void }) {
         )}
         <div className="mt-1.5 flex items-center gap-2">
           <Progress className="flex-1" height={4} value={pct} fill="var(--ap-accent)" track="var(--ap-border-strong)" aria-label="Progress" />
-          <span className="text-[10px] tabular-nums" style={{ color: 'var(--ap-fg-subtle)' }}>{pct}%</span>
+          <span className="text-micro tabular-nums" style={{ color: 'var(--ap-fg-subtle)' }}>{pct}%</span>
         </div>
       </div>
-      {kr.owner && <Avatar name={kr.owner.name} />}
+      {kr.owner && <Avatar name={kr.owner.name} detail="Key result owner" />}
       <ChevronRight className="size-3.5 shrink-0 self-center" style={{ color: 'var(--ap-fg-subtle)' }} />
     </button>
   )
@@ -156,7 +165,6 @@ export function ObjectiveDetailModal({ objectiveId, onClose, onOpenKr }: Props) 
       .finally(() => setLoading(false))
   }, [objectiveId])
 
-  if (!objectiveId) return null
 
   const krCount = data?.keyResults?.length ?? 0
   const initCount = data?.keyResults?.reduce((s, kr) => s + ((kr as any)._count?.todos ?? 0), 0) ?? 0
@@ -164,19 +172,19 @@ export function ObjectiveDetailModal({ objectiveId, onClose, onOpenKr }: Props) 
   const ncs = data?.confidence === 'ON_TRACK' ? 85 : data?.confidence === 'AT_RISK' ? 45 : data?.confidence === 'OFF_TRACK' ? 15 : 0
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-
-      {/* Modal */}
+    <Modal
+      open={!!objectiveId}
+      onClose={onClose}
+      // Accessible name only — the visible header below carries the timeframe + actions.
+      title={data?.title ?? 'Objective'}
+      hideHeader
+      showCloseButton={false}
+      size="2xl"
+      className="!gap-0 overflow-hidden !p-0 sm:max-w-5xl"
+    >
       <div
-        className="relative flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden"
-        style={{
-          background: 'var(--ap-bg)',
-          borderRadius: 'var(--ap-radius-lg)',
-          boxShadow: 'var(--ap-shadow-lg)',
-          border: '1px solid var(--ap-border)',
-        }}
+        className="relative flex max-h-[92vh] w-full flex-col overflow-hidden"
+        style={{ background: 'var(--ap-bg)', borderRadius: 'var(--ap-radius-lg)' }}
       >
         {/* ── Header ── */}
         <div
@@ -192,14 +200,14 @@ export function ObjectiveDetailModal({ objectiveId, onClose, onOpenKr }: Props) 
             <button
               type="button"
               onClick={() => router.push(`/dashboard/objectives/${objectiveId}`)}
-              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-85"
-              style={{ background: 'var(--ap-accent)' }}
+              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-85"
+              style={{ background: 'var(--ap-accent)', color: 'var(--ap-accent-fg)' }}
             >
-              <ExternalLink className="size-3.5" />
+              <ExternalLink className="size-3.5" aria-hidden />
               Open full page
             </button>
-            <button type="button" className="rounded-lg p-1.5 transition-colors hover:bg-black/8" onClick={onClose}>
-              <X className="size-4" style={{ color: 'var(--ap-fg-muted)' }} />
+            <button type="button" aria-label="Close" className="rounded-lg p-1.5 transition-colors hover:bg-[var(--ap-bg-hover)]" onClick={onClose}>
+              <X className="size-4" style={{ color: 'var(--ap-fg-muted)' }} aria-hidden />
             </button>
           </div>
         </div>
@@ -209,15 +217,23 @@ export function ObjectiveDetailModal({ objectiveId, onClose, onOpenKr }: Props) 
           {/* Left (main) */}
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 py-5">
             {loading ? (
-              <div className="flex items-center justify-center py-20">
-                <div className="size-6 animate-spin rounded-full border-2 border-[var(--ap-accent)] border-t-transparent" />
+              <div className="space-y-5" aria-busy="true" aria-label="Loading objective">
+                <Skeleton className="h-7 w-2/3" />
+                <div className="grid grid-cols-3 gap-3">
+                  <Skeleton className="h-32" />
+                  <Skeleton className="h-32" />
+                  <Skeleton className="h-32" />
+                </div>
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-16 w-full" />
+                <Skeleton className="h-16 w-full" />
               </div>
             ) : data ? (
               <div className="space-y-5">
                 {/* Title */}
                 <div className="flex items-start gap-2.5">
                   <Flag className="mt-0.5 size-5 shrink-0" style={{ color: 'var(--ap-accent)' }} />
-                  <h2 className="text-[20px] font-semibold leading-snug tracking-tight" style={{ color: 'var(--ap-fg)' }}>
+                  <h2 className="text-xl font-semibold leading-snug tracking-tight" style={{ color: 'var(--ap-fg)' }}>
                     {data.title}
                   </h2>
                 </div>
@@ -241,7 +257,7 @@ export function ObjectiveDetailModal({ objectiveId, onClose, onOpenKr }: Props) 
 
                 {/* Description */}
                 {data.description && (
-                  <p className="text-[13px] leading-relaxed" style={{ color: 'var(--ap-fg-muted)' }}>
+                  <p className="text-body-sm leading-relaxed" style={{ color: 'var(--ap-fg-muted)' }}>
                     {data.description}
                   </p>
                 )}
@@ -249,7 +265,7 @@ export function ObjectiveDetailModal({ objectiveId, onClose, onOpenKr }: Props) 
                 {/* Key Results */}
                 {data.keyResults && data.keyResults.length > 0 && (
                   <div>
-                    <p className="mb-3 text-[11px] font-bold uppercase tracking-widest" style={{ color: 'var(--ap-fg-subtle)' }}>
+                    <p className="mb-3 text-caption font-bold uppercase tracking-widest" style={{ color: 'var(--ap-fg-subtle)' }}>
                       Key Results ({krCount})
                     </p>
                     <div>
@@ -343,6 +359,6 @@ export function ObjectiveDetailModal({ objectiveId, onClose, onOpenKr }: Props) 
           </div>
         </div>
       </div>
-    </div>
+    </Modal>
   )
 }

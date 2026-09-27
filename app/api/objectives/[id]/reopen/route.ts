@@ -6,6 +6,8 @@ import { emit } from '@/lib/notifications'
 import { isWithinReopenWindow, validateReopenReason } from '@/lib/okr/period-close'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { apiBadRequest, apiConflict, apiForbidden, apiNotFound, apiSuccess, withAuth } from '@/lib/api'
+import { broadcastKeyResultEvent, broadcastObjectiveEvent } from '@/lib/pusher'
+import { OKR_REALTIME_EVENTS } from '@/lib/okr/realtime'
 
 export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { session, params }) => {
   const { id } = await resolveParams(params)
@@ -79,5 +81,14 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
     explicitRecipients: Array.from(new Set([objective.ownerId, objective.closedById, ...managerIds.map((row) => row.managerId)].filter(Boolean) as string[])),
     data: { change: 'reopened', reason: body.reason.trim(), deepLink: `/dashboard/objectives/${id}` },
   })
+  broadcastObjectiveEvent(id, OKR_REALTIME_EVENTS.REOPENED, session.user.id)
+  // Child KR pages show this objective's state too: signal each KR channel
+  // (ids only, KR channel only — the objective channel was signalled above).
+  void prisma.keyResult
+    .findMany({ where: { objectiveId: id, status: { not: 'DELETED' } }, select: { id: true } })
+    .then((krs) => {
+      for (const kr of krs) broadcastKeyResultEvent(kr.id, null, reopenKeyResults ? OKR_REALTIME_EVENTS.REOPENED : OKR_REALTIME_EVENTS.UPDATED, session.user.id)
+    })
+    .catch((error: unknown) => console.error('[objective reopen] KR broadcast failed:', error))
   return apiSuccess(result, { message: 'Objective reopened. The reopen remains permanently visible in its audit history.' })
 })

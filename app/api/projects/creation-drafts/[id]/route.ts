@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { z } from 'zod'
 import {
   apiConflict,
+  apiError,
   apiNotFound,
   apiSuccess,
   apiValidationError,
@@ -24,6 +25,8 @@ import {
   projectCreationValidationJsonSchema,
 } from '@/lib/projects/creation-normalize'
 import { deleteSecureProjectCreationUpload } from '@/lib/projects/creation-upload-security'
+import { ProjectCreationProvenanceError } from '@/lib/projects/creation-provenance'
+import { refuseAiSourceMethodWhenDisabled } from '@/lib/projects/ai-guided-api'
 
 interface RouteParams {
   id: string
@@ -83,6 +86,10 @@ function draftErrorResponse(error: unknown) {
   if (error instanceof ProjectCreationDraftStateError) {
     return apiConflict(error.message, { reasonCode: error.code, status: error.status })
   }
+  if (error instanceof ProjectCreationProvenanceError) {
+    // Story 2.6: provenance (source type/reference/basis/confidence/last editor) is server-owned.
+    return apiError(error.message, { status: 422, code: error.code, details: { sourceId: error.sourceId } })
+  }
   throw error
 }
 
@@ -105,6 +112,10 @@ export const PATCH = withAuth<RouteParams>(async (request: NextRequest, { sessio
     return apiValidationError('Invalid project creation draft update', parsed.error.flatten())
   }
 
+  // AC36: switching a draft into an AI method is refused while the flag is off.
+  const aiRefusal = await refuseAiSourceMethodWhenDisabled(parsed.data.sourceMethod)
+  if (aiRefusal) return aiRefusal
+
   try {
     const previous = parsed.data.sourceMethod === undefined
       ? null
@@ -122,6 +133,7 @@ export const PATCH = withAuth<RouteParams>(async (request: NextRequest, { sessio
       projectJson: parsed.data.projectJson,
       scheduleJson: parsed.data.scheduleJson,
       validationJson: parsed.data.validationJson,
+      enforceServerProvenance: true,
     })
     if (previous?.sourceRef && previous.sourceMethod !== draft.sourceMethod) {
       await deleteSecureProjectCreationUpload(previous.sourceRef).catch(() => undefined)

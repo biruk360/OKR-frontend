@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { apiBadRequest, apiForbidden, apiNotFound, apiSuccess, withAuth } from '@/lib/api'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { canManageTemplates } from '@/lib/performance'
+import { recordActivity } from '@/lib/activity-log'
 
 export const POST = withAuth<RouteIdParams>(async (_request, { session, params }) => {
   const actor = { userId: session.user.id, role: session.user.role }
@@ -13,6 +14,13 @@ export const POST = withAuth<RouteIdParams>(async (_request, { session, params }
   const archived = await prisma.scorecardTemplate.update({
     where: { id },
     data: { status: 'ARCHIVED', archivedAt: new Date() },
+  })
+  await recordActivity({
+    entityType: 'PERFORMANCE_SETTINGS',
+    action: 'ARCHIVED',
+    actorId: session.user.id,
+    changes: { status: { from: template.status, to: 'ARCHIVED' } },
+    metadata: { entity: 'SCORECARD_TEMPLATE', templateId: id, familyId: template.familyId, version: template.version },
   })
   return apiSuccess(archived)
 })

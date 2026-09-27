@@ -268,7 +268,7 @@ export function todoCard(d: TodoCardData): string {
   return card({
     eyebrow: d.eyebrowOverride ?? 'To-do',
     title: d.title,
-    href: d.href ?? `/dashboard/todos/${d.id}`,
+    href: d.href ?? `/dashboard/todos?open=${d.id}`,
     context: d.context,
     pills,
     meta,

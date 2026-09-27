@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Save, Upload, Building2 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
+import { PageHeader } from '@/components/ui/PageHeader'
 
 interface FormData {
   workspaceName: string
@@ -54,12 +55,11 @@ export default function BrandingManagement() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Branding</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Customize your workspace name and logo.
-        </p>
-      </div>
+      <PageHeader
+        className="mb-0"
+        title="Branding"
+        description="Customize your workspace name and logo."
+      />
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         {/* Workspace Name */}
@@ -79,7 +79,7 @@ export default function BrandingManagement() {
               placeholder="Enter workspace name"
             />
             {errors.workspaceName && (
-              <p className="mt-1 text-sm text-red-600">{errors.workspaceName.message}</p>
+              <p className="mt-1 text-sm text-danger-600">{errors.workspaceName.message}</p>
             )}
             <p className="mt-1 text-xs text-muted-foreground">
               This name will appear in the sidebar and throughout the application.
@@ -113,7 +113,7 @@ export default function BrandingManagement() {
         <div className="flex items-center justify-end">
           <button
             type="submit"
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-primary-foreground bg-primary-600 hover:bg-primary-700"
             disabled={isLoading}
           >
             <Save className="h-4 w-4 mr-2" />

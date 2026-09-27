@@ -10,7 +10,7 @@ export type AiFeatureKey = (typeof AI_FEATURE_KEYS)[keyof typeof AI_FEATURE_KEYS
 
 export const AI_PROVIDERS = ['anthropic', 'openai', 'gemini'] as const
 export type AiProviderId = (typeof AI_PROVIDERS)[number]
-export const DEFAULT_PROVIDER: AiProviderId = 'anthropic'
+export const DEFAULT_PROVIDER: AiProviderId = 'openai' // only OpenAI is wired (lib/ai/providers/wired.ts)
 
 /** Per-provider model defaults. Each pair is (planner, summary helper). */
 export const AI_MODELS: Record<AiProviderId, { planner: string; summary: string }> = {

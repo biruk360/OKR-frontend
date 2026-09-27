@@ -1,7 +1,7 @@
 'use client'
 
 import { useEditor, EditorContent, type Editor } from '@tiptap/react'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import StarterKit from '@tiptap/starter-kit'
 import Link from '@tiptap/extension-link'
 import Placeholder from '@tiptap/extension-placeholder'
@@ -20,6 +20,10 @@ import {
   Redo2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Modal } from '@/components/ui/Modal'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 
 interface Props {
   value: string
@@ -61,10 +65,17 @@ function ToolbarButton({
 }
 
 function Toolbar({ editor }: { editor: Editor }) {
+  const [linkOpen, setLinkOpen] = useState(false)
+  const [linkDraft, setLinkDraft] = useState('')
+
   const promptLink = () => {
-    const prev = editor.getAttributes('link').href ?? ''
-    const url = window.prompt('Link URL', prev)
-    if (url === null) return
+    setLinkDraft(editor.getAttributes('link').href ?? '')
+    setLinkOpen(true)
+  }
+
+  const applyLink = () => {
+    const url = linkDraft.trim()
+    setLinkOpen(false)
     if (url === '') {
       editor.chain().focus().extendMarkRange('link').unsetLink().run()
       return
@@ -162,6 +173,44 @@ function Toolbar({ editor }: { editor: Editor }) {
       >
         <Redo2 className="size-3.5" />
       </ToolbarButton>
+      <Modal
+        open={linkOpen}
+        onClose={() => setLinkOpen(false)}
+        title="Insert link"
+        icon={LinkIcon}
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={() => setLinkOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={applyLink}>
+              {linkDraft.trim() === '' ? 'Remove link' : 'Save link'}
+            </Button>
+          </>
+        }
+      >
+        <form
+          className="space-y-2"
+          onSubmit={(e) => {
+            // The editor may sit inside another form (comment boxes); never submit it.
+            e.preventDefault()
+            e.stopPropagation()
+            applyLink()
+          }}
+        >
+          <Label htmlFor="rte-link-url">Link URL</Label>
+          <Input
+            id="rte-link-url"
+            type="text"
+            inputMode="url"
+            autoFocus
+            placeholder="https://"
+            value={linkDraft}
+            onChange={(e) => setLinkDraft(e.target.value)}
+          />
+          <p className="text-xs text-muted-foreground">Leave empty to remove the link.</p>
+        </form>
+      </Modal>
     </div>
   )
 }
@@ -183,7 +232,7 @@ export default function RichTextEditor({
         openOnClick: false,
         autolink: true,
         HTMLAttributes: {
-          class: 'text-blue-600 underline underline-offset-2 hover:text-blue-700',
+          class: 'text-primary-600 underline underline-offset-2 hover:text-primary-700',
           rel: 'noopener noreferrer nofollow',
           target: '_blank',
         },

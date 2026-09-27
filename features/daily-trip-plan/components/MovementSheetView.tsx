@@ -2,6 +2,8 @@
 
 import { Printer, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { PageHeader } from '@/components/ui/PageHeader'
+import { Skeleton, SkeletonRow } from '@/components/ui/Skeleton'
 import { useMovementSheet } from '../hooks/queries'
 import { formatEthiopian } from '@/lib/dtp/ec-calendar'
 import { StatusBadge } from './StatusBadge'
@@ -23,24 +25,23 @@ export function MovementSheetView({ deptId, date }: Props) {
   const sheet = q.data
   const dateObj = new Date(`${date}T00:00:00Z`)
 
-  if (q.isLoading) return <div className="p-6 text-sm text-muted-foreground">Loading…</div>
+  if (q.isLoading) return <SheetSkeleton />
   if (q.isError || !sheet) return <div className="p-6 text-sm text-danger-700">Failed to load movement sheet.</div>
 
   return (
     <div className="space-y-4 print:space-y-2">
-      <header className="flex items-start justify-between gap-3 print:flex-col print:gap-0">
-        <div>
-          <h1 className="text-2xl font-semibold">Daily Movement Sheet</h1>
-          <p className="text-sm text-muted-foreground">
-            {sheet.departmentName ?? 'All departments'} · {date} · {formatEthiopian(dateObj)}
-          </p>
-        </div>
-        <Button onClick={() => window.print()} className="print:hidden">
-          <Printer className="mr-2 h-4 w-4" /> Print / PDF
-        </Button>
-      </header>
+      <PageHeader
+        className="mb-0"
+        title="Daily Movement Sheet"
+        description={`${sheet.departmentName ?? "All departments"} · ${date} · ${formatEthiopian(dateObj)}`}
+        actions={
+          <Button onClick={() => window.print()} className="print:hidden">
+            <Printer className="mr-2 h-4 w-4" /> Print / PDF
+          </Button>
+        }
+      />
 
-      <div className="rounded-lg border border-border bg-card overflow-hidden print:border-0">
+      <div className="overflow-x-auto rounded-lg border border-border bg-card print:border-0">
         <table className="w-full text-sm">
           <thead className="bg-muted/40 text-left">
             <tr>
@@ -109,6 +110,20 @@ function SignatureBlock({ label }: { label: string }) {
     <div>
       <div className="border-b border-border w-64 h-8" />
       <div className="text-xs text-muted-foreground mt-1">{label} — signature & date</div>
+    </div>
+  )
+}
+
+function SheetSkeleton() {
+  return (
+    <div className="space-y-4" aria-busy="true" aria-label="Loading sheet">
+      <Skeleton className="h-8 w-64" />
+      <Skeleton className="h-4 w-96 max-w-full" />
+      <div className="space-y-2">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <SkeletonRow key={i} />
+        ))}
+      </div>
     </div>
   )
 }

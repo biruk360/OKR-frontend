@@ -215,7 +215,7 @@ export function EntityPicker({
           <div
             role="dialog"
             aria-label={placeholder}
-            className="absolute z-50 mt-1 w-full rounded-[var(--ap-radius-card)] border bg-[var(--ap-bg-raised)] shadow-[var(--ap-shadow-pop-panel)]"
+            className="absolute z-50 mt-1 w-full rounded-[var(--ap-radius-card)] border bg-[var(--ap-bg-raised)] shadow-[shadow:var(--ap-shadow-pop-panel)]"
             style={{ borderColor: 'var(--ap-border)', minWidth: width }}
           >
             <div className="border-b p-2" style={{ borderColor: 'var(--ap-border)' }}>
@@ -241,7 +241,7 @@ export function EntityPicker({
             <div className="max-h-[320px] overflow-y-auto p-1">
               {showRecents && !search && recent.length > 0 && (
                 <div className="mb-1">
-                  <p className="px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--ap-fg-subtle)' }}>
+                  <p className="px-2 pb-1 pt-2 text-micro font-semibold uppercase tracking-wide" style={{ color: 'var(--ap-fg-subtle)' }}>
                     Recent
                   </p>
                   {recent.map((r) => (
@@ -255,7 +255,7 @@ export function EntityPicker({
                       <Target className="h-3 w-3 shrink-0" style={{ color: 'var(--ap-accent)' }} aria-hidden="true" />
                       <span className="truncate">{r.title}</span>
                       {r.kind === 'keyResult' && (
-                        <span className="ml-auto truncate text-[10px]" style={{ color: 'var(--ap-fg-subtle)' }}>
+                        <span className="ml-auto truncate text-micro" style={{ color: 'var(--ap-fg-subtle)' }}>
                           {r.objectiveTitle}
                         </span>
                       )}
@@ -301,7 +301,7 @@ export function EntityPicker({
                       >
                         <span className="truncate">{o.title}</span>
                         {canPickKeyResult && (
-                          <span className="ml-auto shrink-0 text-[10px]" style={{ color: 'var(--ap-fg-subtle)' }}>
+                          <span className="ml-auto shrink-0 text-micro" style={{ color: 'var(--ap-fg-subtle)' }}>
                             {o.keyResults.length} KR
                           </span>
                         )}
@@ -326,7 +326,7 @@ export function EntityPicker({
                           </button>
                         ))}
                         {o.keyResults.length === 0 && (
-                          <p className="px-2 py-1.5 text-[11px]" style={{ color: 'var(--ap-fg-subtle)' }}>
+                          <p className="px-2 py-1.5 text-caption" style={{ color: 'var(--ap-fg-subtle)' }}>
                             No key results yet.
                           </p>
                         )}

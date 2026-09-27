@@ -1,14 +1,19 @@
 'use client'
 
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, Controller } from 'react-hook-form'
 import Link from 'next/link'
-import { Plus, User, Shield, ShieldCheck, Calendar, ChevronRight, Search } from 'lucide-react'
+import { toast } from 'react-hot-toast'
+import { Plus, User, Shield, ShieldCheck, Calendar, ChevronRight, Search, Trash2, UserX } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Modal } from '@/components/ui/Modal'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { FilterSelect } from '@/components/ui/FilterSelect'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { PageHeader } from '@/components/ui/PageHeader'
+import { SettingsSelect } from './SettingsSelect'
 
 interface User {
   id: string
@@ -22,6 +27,8 @@ interface User {
   isProjectManager: boolean
   createdAt: string | Date
   lastLoginAt?: string | Date | null
+  /** Soft-deleted + anonymised account (DELETE /api/users/:id). */
+  isDeleted?: boolean
 }
 
 interface UserManagementProps {
@@ -44,6 +51,51 @@ function roleBadgeClass(role: string) {
   }
 }
 
+type StatusFilter = 'current' | 'active' | 'inactive' | 'deleted' | 'all'
+
+const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
+  { value: 'current', label: 'Current users' },
+  { value: 'active', label: 'Active' },
+  { value: 'inactive', label: 'Inactive / pending' },
+  { value: 'deleted', label: 'Deleted accounts' },
+  { value: 'all', label: 'All, including deleted' },
+]
+
+function matchesStatus(user: User, filter: StatusFilter) {
+  switch (filter) {
+    case 'current':
+      return !user.isDeleted
+    case 'active':
+      return !user.isDeleted && user.isActive
+    case 'inactive':
+      return !user.isDeleted && !user.isActive
+    case 'deleted':
+      return Boolean(user.isDeleted)
+    default:
+      return true
+  }
+}
+
+function StatusBadge({ user, compact }: { user: User; compact?: boolean }) {
+  const label = user.isDeleted ? 'Deleted' : user.isActive ? 'Active' : 'Inactive'
+  const tone = user.isDeleted
+    ? 'bg-muted text-muted-foreground'
+    : user.isActive
+      ? 'bg-success-50 text-success-700'
+      : 'bg-warning-50 text-warning-700'
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center rounded-pill font-medium',
+        compact ? 'px-2 py-0.5 text-xs' : 'px-2.5 py-0.5 text-xs',
+        tone,
+      )}
+    >
+      {label}
+    </span>
+  )
+}
+
 function formatDate(value: string | Date) {
   return new Date(value).toLocaleDateString(undefined, {
     year: 'numeric',
@@ -52,10 +104,44 @@ function formatDate(value: string | Date) {
   })
 }
 
-export default function UserManagement({ initialUsers }: UserManagementProps) {
+export default function UserManagement({ initialUsers, currentUserId, currentUserRole }: UserManagementProps) {
   const [users, setUsers] = useState(initialUsers)
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false)
   const [query, setQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('current')
+  const [deleteTarget, setDeleteTarget] = useState<User | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  // Only a super admin (ADMIN) can create or delete accounts — mirrors
+  // POST /api/users and DELETE /api/users/:id.
+  const isAdmin = currentUserRole === 'ADMIN'
+  const canDelete = (user: User) => isAdmin && !user.isDeleted && user.id !== currentUserId
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+    setIsDeleting(true)
+    try {
+      const res = await fetch(`/api/users/${deleteTarget.id}`, { method: 'DELETE' })
+      const body = await res.json().catch(() => null)
+      if (!res.ok || !body?.success) {
+        toast.error(body?.error || 'Failed to delete user')
+        return
+      }
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === deleteTarget.id
+            ? { ...u, name: body.data.name, email: body.data.email, isActive: false, isProjectManager: false, isDeleted: true }
+            : u,
+        ),
+      )
+      toast.success('User deleted and anonymised')
+      setDeleteTarget(null)
+    } catch {
+      toast.error('Could not reach the server')
+    } finally {
+      setIsDeleting(false)
+    }
+  }
 
   const handleUserCreated = (newUser: User) => {
     setUsers((prev) => [newUser, ...prev])
@@ -63,34 +149,34 @@ export default function UserManagement({ initialUsers }: UserManagementProps) {
   }
 
   const term = query.trim().toLowerCase()
-  const visibleUsers = term
-    ? users.filter((u) =>
-        [u.name, u.email, u.designation ?? '', u.role.replace(/_/g, ' ')]
-          .some((field) => field.toLowerCase().includes(term)),
-      )
-    : users
+  const visibleUsers = users
+    .filter((u) => matchesStatus(u, statusFilter))
+    .filter((u) =>
+      !term ||
+      [u.name, u.email, u.designation ?? '', u.role.replace(/_/g, ' ')]
+        .some((field) => field.toLowerCase().includes(term)),
+    )
 
   const detailHref = (id: string) => `/dashboard/settings/users/${id}`
 
   return (
     <div className="rounded-card border border-border bg-card shadow-card">
       {/* Header — stacks on mobile */}
-      <div className="flex flex-col gap-3 border-b border-border p-4 sm:flex-row sm:items-start sm:justify-between sm:p-6">
-        <div className="min-w-0">
-          <h1 className="text-page-title text-foreground">User management</h1>
-          <p className="mt-0.5 text-body-sm text-muted-foreground">
-            Select a user to manage their details, status, roles, and access.
-          </p>
-        </div>
-        <Button onClick={() => setIsAddUserModalOpen(true)} className="sm:shrink-0">
-          <Plus className="size-4" />
-          Add user
-        </Button>
-      </div>
+      <PageHeader
+        className="mb-0 border-b border-border p-4 sm:p-6"
+        title="User management"
+        description="Select a user to manage their details, status, roles, and access."
+        actions={isAdmin ? (
+          <Button onClick={() => setIsAddUserModalOpen(true)}>
+            <Plus className="size-4" />
+            Add user
+          </Button>
+        ) : undefined}
+      />
 
       {users.length > 0 && (
-        <div className="border-b border-border p-4 sm:px-6">
-          <div className="relative max-w-sm">
+        <div className="flex flex-col gap-3 border-b border-border p-4 sm:flex-row sm:items-center sm:px-6">
+          <div className="relative w-full max-w-sm">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={query}
@@ -100,16 +186,22 @@ export default function UserManagement({ initialUsers }: UserManagementProps) {
               className="pl-8"
             />
           </div>
+          <FilterSelect
+            label="Status"
+            value={statusFilter}
+            onValueChange={(v) => setStatusFilter((v as StatusFilter | undefined) ?? 'current')}
+            options={STATUS_OPTIONS}
+          />
         </div>
       )}
 
       {/* Mobile: stacked cards. Each card is one tap target to the user page. */}
       <ul className="divide-y divide-border md:hidden">
         {visibleUsers.map((user) => (
-          <li key={user.id}>
+          <li key={user.id} className={cn('flex items-center', user.isDeleted && 'opacity-60')}>
             <Link
               href={detailHref(user.id)}
-              className="flex items-center gap-3 p-4 transition-colors duration-[180ms] ease-apple hover:bg-muted/60"
+              className="flex min-w-0 flex-1 items-center gap-3 p-4 transition-colors duration-[180ms] ease-apple hover:bg-muted/60"
             >
               <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-50 text-sm font-semibold text-primary-700">
                 {(user.name || '?').slice(0, 1).toUpperCase()}
@@ -118,20 +210,13 @@ export default function UserManagement({ initialUsers }: UserManagementProps) {
                 <p className="truncate text-body-sm font-medium text-foreground">{user.name}</p>
                 <p className="truncate text-xs text-muted-foreground">{user.email}</p>
                 <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                  <span className={cn('inline-flex items-center gap-1 rounded-pill px-2 py-0.5 text-[11px] font-medium', roleBadgeClass(user.role))}>
+                  <span className={cn('inline-flex items-center gap-1 rounded-pill px-2 py-0.5 text-xs font-medium', roleBadgeClass(user.role))}>
                     <Shield className="size-2.5" />
                     {user.role.replace(/_/g, ' ')}
                   </span>
-                  <span
-                    className={cn(
-                      'inline-flex items-center rounded-pill px-2 py-0.5 text-[11px] font-medium',
-                      user.isActive ? 'bg-success-50 text-success-700' : 'bg-warning-50 text-warning-700',
-                    )}
-                  >
-                    {user.isActive ? 'Active' : 'Pending'}
-                  </span>
+                  <StatusBadge user={user} compact />
                   {user.isProjectManager && (
-                    <span className="inline-flex items-center gap-1 rounded-pill bg-primary-50 px-2 py-0.5 text-[11px] font-medium text-primary-700">
+                    <span className="inline-flex items-center gap-1 rounded-pill bg-primary-50 px-2 py-0.5 text-xs font-medium text-primary-700">
                       <ShieldCheck className="size-2.5" />
                       PM
                     </span>
@@ -140,6 +225,17 @@ export default function UserManagement({ initialUsers }: UserManagementProps) {
               </div>
               <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
             </Link>
+            {canDelete(user) && (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="mr-3 text-danger-600 hover:text-danger-700"
+                onClick={() => setDeleteTarget(user)}
+                aria-label={`Delete ${user.name}`}
+              >
+                <Trash2 className="size-4" />
+              </Button>
+            )}
           </li>
         ))}
       </ul>
@@ -174,7 +270,13 @@ export default function UserManagement({ initialUsers }: UserManagementProps) {
           </thead>
           <tbody className="divide-y divide-border bg-card">
             {visibleUsers.map((user) => (
-              <tr key={user.id} className="transition-colors duration-[180ms] ease-apple hover:bg-muted/60">
+              <tr
+                key={user.id}
+                className={cn(
+                  'transition-colors duration-[180ms] ease-apple hover:bg-muted/60',
+                  user.isDeleted && 'opacity-60',
+                )}
+              >
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-3">
                     <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-50 text-sm font-semibold text-primary-700">
@@ -211,14 +313,7 @@ export default function UserManagement({ initialUsers }: UserManagementProps) {
                   )}
                 </td>
                 <td className="whitespace-nowrap px-6 py-4">
-                  <span
-                    className={cn(
-                      'inline-flex items-center rounded-pill px-2.5 py-0.5 text-xs font-medium',
-                      user.isActive ? 'bg-success-50 text-success-700' : 'bg-warning-50 text-warning-700',
-                    )}
-                  >
-                    {user.isActive ? 'Active' : 'Pending'}
-                  </span>
+                  <StatusBadge user={user} />
                 </td>
                 <td className="hidden whitespace-nowrap px-6 py-4 text-body-sm text-muted-foreground xl:table-cell">
                   <span className="flex items-center gap-1.5">
@@ -230,12 +325,26 @@ export default function UserManagement({ initialUsers }: UserManagementProps) {
                   {user.lastLoginAt ? formatDate(user.lastLoginAt) : 'Never'}
                 </td>
                 <td className="whitespace-nowrap px-6 py-4 text-right">
-                  <Button variant="outline" size="sm" asChild>
-                    <Link href={detailHref(user.id)}>
-                      Manage
-                      <ChevronRight className="size-3.5" />
-                    </Link>
-                  </Button>
+                  <div className="flex items-center justify-end gap-1.5">
+                    <Button variant="outline" size="sm" asChild>
+                      <Link href={detailHref(user.id)}>
+                        {user.isDeleted ? 'View' : 'Manage'}
+                        <ChevronRight className="size-3.5" />
+                      </Link>
+                    </Button>
+                    {canDelete(user) && (
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        className="text-danger-600 hover:text-danger-700"
+                        onClick={() => setDeleteTarget(user)}
+                        aria-label={`Delete ${user.name}`}
+                        title="Delete user"
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -248,12 +357,14 @@ export default function UserManagement({ initialUsers }: UserManagementProps) {
           <User className="mx-auto size-12 text-muted-foreground" />
           <h2 className="mt-2 text-body-sm font-medium text-foreground">No users</h2>
           <p className="mt-1 text-body-sm text-muted-foreground">Get started by creating a new user.</p>
-          <div className="mt-6">
-            <Button onClick={() => setIsAddUserModalOpen(true)}>
-              <Plus className="size-4" />
-              Add user
-            </Button>
-          </div>
+          {isAdmin && (
+            <div className="mt-6">
+              <Button onClick={() => setIsAddUserModalOpen(true)}>
+                <Plus className="size-4" />
+                Add user
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
@@ -261,10 +372,31 @@ export default function UserManagement({ initialUsers }: UserManagementProps) {
         <div className="px-4 py-12 text-center">
           <Search className="mx-auto size-10 text-muted-foreground" />
           <p className="mt-2 text-body-sm text-muted-foreground">
-            No users match &ldquo;{query}&rdquo;.
+            {term ? <>No users match &ldquo;{query}&rdquo;.</> : 'No users with this status.'}
           </p>
         </div>
       )}
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onClose={() => !isDeleting && setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        variant="danger"
+        icon={UserX}
+        title="Delete user"
+        message={deleteTarget ? `Delete ${deleteTarget.name}?` : ''}
+        description="The account is anonymised, not erased. The person can no longer sign in or receive email, and their name is replaced everywhere by their job title plus “(deleted account)”."
+        bulletsTitle="What happens"
+        bullets={[
+          'Sign-in is blocked and every open session ends immediately.',
+          'Name, email, photo and any pending invite or reset link are removed.',
+          'Their objectives, key results, check-ins, to-dos, comments and audit history stay in place.',
+          'This cannot be undone.',
+        ]}
+        confirmLabel="Delete and anonymise"
+        loadingLabel="Deleting…"
+        isLoading={isDeleting}
+      />
 
       {isAddUserModalOpen && (
         <AddUserModal
@@ -294,6 +426,7 @@ function AddUserModal({ isOpen, onClose, onUserCreated }: AddUserModalProps) {
 
   const {
     register,
+    control,
     handleSubmit,
     setError,
     reset,
@@ -326,9 +459,6 @@ function AddUserModal({ isOpen, onClose, onUserCreated }: AddUserModalProps) {
       setError('email', { message: 'An error occurred. Please try again.' })
     }
   }
-
-  const selectClass =
-    'h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none transition-colors duration-[180ms] ease-apple focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30'
 
   return (
     <Modal
@@ -392,12 +522,23 @@ function AddUserModal({ isOpen, onClose, onUserCreated }: AddUserModalProps) {
 
         <div className="space-y-1.5">
           <Label htmlFor="add-role">Role</Label>
-          <select id="add-role" {...register('role')} className={selectClass}>
-            <option value="EMPLOYEE">Employee</option>
-            <option value="DEPARTMENT_LEAD">Department Lead</option>
-            <option value="EXECUTIVE">Executive</option>
-            <option value="ADMIN">Administrator</option>
-          </select>
+          <Controller
+            control={control}
+            name="role"
+            render={({ field }) => (
+              <SettingsSelect
+                id="add-role"
+                value={field.value}
+                onValueChange={field.onChange}
+                options={[
+                  { value: 'EMPLOYEE', label: 'Employee' },
+                  { value: 'DEPARTMENT_LEAD', label: 'Department Lead' },
+                  { value: 'EXECUTIVE', label: 'Executive' },
+                  { value: 'ADMIN', label: 'Administrator' },
+                ]}
+              />
+            )}
+          />
         </div>
       </form>
     </Modal>

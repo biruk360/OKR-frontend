@@ -82,7 +82,7 @@ export default function SettingsNav({ userRole }: SettingsNavProps) {
   )
 
   return (
-    <nav className="space-y-1 relative z-10">
+    <nav aria-label="Settings" className="space-y-1 relative z-10">
       {navItems.map((item) => {
         const Icon = item.icon
         const isActive = pathname === item.href || 
@@ -92,14 +92,15 @@ export default function SettingsNav({ userRole }: SettingsNavProps) {
           <Link
             key={item.name}
             href={item.href}
+            aria-current={isActive ? 'page' : undefined}
             className={cn(
               'flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors relative z-10 cursor-pointer',
               isActive
-                ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                ? 'bg-primary-50 text-primary-700 border border-primary-200'
                 : 'text-muted-foreground hover:bg-muted hover:text-foreground'
             )}
           >
-            <Icon className="h-5 w-5" />
+            <Icon className="h-5 w-5" aria-hidden="true" />
             <span>{item.name}</span>
           </Link>
         )

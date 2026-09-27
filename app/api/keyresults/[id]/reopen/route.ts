@@ -6,6 +6,8 @@ import { emit } from '@/lib/notifications'
 import { isWithinReopenWindow, validateReopenReason } from '@/lib/okr/period-close'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { apiBadRequest, apiConflict, apiForbidden, apiNotFound, apiSuccess, withAuth } from '@/lib/api'
+import { broadcastKeyResultEvent } from '@/lib/pusher'
+import { OKR_REALTIME_EVENTS } from '@/lib/okr/realtime'
 
 export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { session, params }) => {
   const { id } = await resolveParams(params)
@@ -54,5 +56,6 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
     explicitRecipients: Array.from(new Set([keyResult.ownerId, keyResult.closedById, ...managerIds.map((row) => row.managerId)].filter(Boolean) as string[])),
     data: { change: 'reopened', reason: body.reason.trim(), deepLink: `/dashboard/key-results/${id}` },
   })
+  broadcastKeyResultEvent(id, keyResult.objectiveId, OKR_REALTIME_EVENTS.REOPENED, session.user.id)
   return apiSuccess(result, { message: 'Key Result reopened. The reopen remains permanently visible in its audit history.' })
 })

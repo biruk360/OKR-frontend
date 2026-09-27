@@ -1,13 +1,149 @@
 'use client'
 
 import { Fragment, useCallback, useEffect, useState } from 'react'
-import { AlertCircle, ChevronDown, ChevronRight, Copy, Loader2, RotateCcw } from 'lucide-react'
+import { useForm } from 'react-hook-form'
+import { AlertCircle, ChevronDown, ChevronRight, Copy, Loader2, Pencil, Plus, RotateCcw, ShieldPlus, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Modal } from '@/components/ui/Modal'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Skeleton } from '@/components/ui/Skeleton'
+import { SettingsSelect } from '../SettingsSelect'
 
 interface Role {
   id: string
   name: string
   key: string
+  description?: string | null
+  isSystem?: boolean
+  _count?: { userRoles: number }
+}
+
+interface RoleFormValues {
+  name: string
+  key: string
+  description: string
+}
+
+/** Mirrors the API's key normalisation (app/api/permissions/roles/route.ts). */
+function toRoleKey(value: string) {
+  return value.trim().toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '')
+}
+
+interface RoleFormModalProps {
+  mode: 'create' | 'rename'
+  role?: Role
+  onClose: () => void
+  onSaved: (role: Role) => void
+}
+
+/** Create a role, or rename an existing one (the key of a system role is fixed). */
+function RoleFormModal({ mode, role, onClose, onSaved }: RoleFormModalProps) {
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    setError,
+    watch,
+    formState: { errors, isSubmitting, dirtyFields },
+  } = useForm<RoleFormValues>({
+    defaultValues: {
+      name: role?.name ?? '',
+      key: role?.key ?? '',
+      description: role?.description ?? '',
+    },
+  })
+  const keyLocked = mode === 'rename' && Boolean(role?.isSystem)
+  const nameField = register('name', {
+    required: 'Name is required',
+    validate: (v) => v.trim().length > 0 || 'Name is required',
+  })
+
+  const onSubmit = async (values: RoleFormValues) => {
+    const payload: Record<string, string> = {
+      name: values.name.trim(),
+      description: values.description.trim(),
+    }
+    if (!keyLocked) payload.key = toRoleKey(values.key || values.name)
+    try {
+      const res = await fetch(
+        mode === 'create' ? '/api/permissions/roles' : `/api/permissions/roles/${encodeURIComponent(role!.id)}`,
+        {
+          method: mode === 'create' ? 'POST' : 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        },
+      )
+      const json = await res.json().catch(() => null)
+      if (!res.ok || !json?.success) {
+        const message: string = json?.error ?? 'Failed to save role'
+        setError(/key/i.test(message) ? 'key' : 'name', { message })
+        return
+      }
+      onSaved(json.data as Role)
+    } catch {
+      setError('name', { message: 'Could not reach the server' })
+    }
+  }
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={mode === 'create' ? 'New role' : 'Rename role'}
+      icon={mode === 'create' ? ShieldPlus : Pencil}
+      size="md"
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose} disabled={isSubmitting}>Cancel</Button>
+          <Button type="submit" form="role-form" disabled={isSubmitting}>
+            {isSubmitting ? 'Saving…' : mode === 'create' ? 'Create role' : 'Save'}
+          </Button>
+        </>
+      }
+    >
+      <form id="role-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="role-name">Name *</Label>
+          <Input
+            id="role-name"
+            placeholder="e.g. Finance Reviewer"
+            aria-invalid={Boolean(errors.name)}
+            {...nameField}
+            onChange={(event) => {
+              void nameField.onChange(event)
+              // Suggest a key from the name until the user edits the key.
+              if (mode === 'create' && !dirtyFields.key) setValue('key', toRoleKey(event.target.value))
+            }}
+          />
+          {errors.name && <p className="text-xs text-danger-600">{errors.name.message}</p>}
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="role-key">Key</Label>
+          <Input
+            id="role-key"
+            className="font-mono"
+            disabled={keyLocked}
+            aria-invalid={Boolean(errors.key)}
+            {...register('key', { setValueAs: (v: string) => toRoleKey(v ?? '') })}
+          />
+          <p className="text-xs text-muted-foreground">
+            {keyLocked
+              ? 'System role keys cannot be changed.'
+              : `Stored as ${toRoleKey(watch('key') || watch('name')) || '—'}. Used in code and imports.`}
+          </p>
+          {errors.key && <p className="text-xs text-danger-600">{errors.key.message}</p>}
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="role-description">Description</Label>
+          <Textarea id="role-description" rows={3} {...register('description')} />
+        </div>
+      </form>
+    </Modal>
+  )
 }
 
 interface Permission {
@@ -83,6 +219,20 @@ export default function ByRoleTab({ onConfigureFields }: ByRoleTabProps) {
   const [cloning, setCloning] = useState(false)
   const [resetting, setResetting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [roleForm, setRoleForm] = useState<'create' | 'rename' | null>(null)
+  const [confirmReset, setConfirmReset] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  const selectedRole = roles.find((role) => role.id === selectedRoleId)
+  const memberCount = selectedRole?._count?.userRoles ?? 0
+  const deleteBlockedReason = !selectedRole
+    ? null
+    : selectedRole.isSystem
+      ? 'System roles cannot be deleted.'
+      : memberCount > 0
+        ? `This role is assigned to ${memberCount} ${memberCount === 1 ? 'user' : 'users'}. Reassign them in the User Roles tab first.`
+        : null
 
   const loadPermissions = useCallback(async (roleId: string) => {
     if (!roleId) return
@@ -167,8 +317,38 @@ export default function ByRoleTab({ onConfigureFields }: ByRoleTabProps) {
     }
   }
 
+  function handleRoleSaved(saved: Role) {
+    setRoles((current) =>
+      current.some((role) => role.id === saved.id)
+        ? current.map((role) => (role.id === saved.id ? { ...role, ...saved } : role))
+        : [...current, saved],
+    )
+    setSelectedRoleId(saved.id)
+    setRoleForm(null)
+  }
+
+  async function handleDelete() {
+    if (!selectedRole) return
+    setDeleting(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/permissions/roles/${encodeURIComponent(selectedRole.id)}`, { method: 'DELETE' })
+      const json = await res.json().catch(() => null)
+      if (!res.ok || !json?.success) throw new Error(json?.error ?? 'Failed to delete role')
+      const remaining = roles.filter((role) => role.id !== selectedRole.id)
+      setRoles(remaining)
+      setSelectedRoleId(remaining[0]?.id ?? '')
+      setConfirmDelete(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete role')
+      setConfirmDelete(false)
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   async function handleReset() {
-    if (!window.confirm('Reset this role to the default permission matrix?')) return
+    setConfirmReset(false)
     setResetting(true)
     setError(null)
     try {
@@ -190,53 +370,98 @@ export default function ByRoleTab({ onConfigureFields }: ByRoleTabProps) {
   }, {})
 
   if (loadingRoles) {
-    return <div className="flex items-center justify-center py-16 text-gray-400"><Loader2 className="mr-2 h-5 w-5 animate-spin" />Loading roles…</div>
+    return (
+      <div className="space-y-5" aria-busy="true" aria-label="Loading roles">
+        <div className="flex flex-wrap items-center gap-3">
+          <Skeleton className="h-9 w-56" />
+          <Skeleton className="ml-auto h-8 w-80" />
+        </div>
+        {Array.from({ length: 6 }).map((_, i) => (
+          <Skeleton key={i} className="h-10 w-full" />
+        ))}
+      </div>
+    )
   }
 
   return (
     <div className="space-y-5">
-      {error && <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"><AlertCircle className="h-4 w-4" />{error}</div>}
+      {error && <div className="flex items-center gap-2 rounded-lg border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-700"><AlertCircle className="size-4" />{error}</div>}
 
       <div className="flex flex-wrap items-center gap-3">
-        <label className="text-sm font-medium text-gray-700">Role</label>
-        <select value={selectedRoleId} onChange={(event) => setSelectedRoleId(event.target.value)} className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm shadow-sm">
-          {roles.map((role) => <option key={role.id} value={role.id}>{role.name}</option>)}
-        </select>
-        <div className="ml-auto flex items-center gap-2">
-          {saving && <span className="flex items-center gap-1 text-xs text-gray-400"><Loader2 className="h-3 w-3 animate-spin" />Saving…</span>}
-          <button onClick={handleClone} disabled={!selectedRoleId || cloning} className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm disabled:opacity-50">
-            {cloning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Copy className="h-3.5 w-3.5" />}Clone Role
-          </button>
-          <button onClick={handleReset} disabled={!selectedRoleId || resetting} className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm disabled:opacity-50">
-            {resetting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}Reset Defaults
-          </button>
+        <label htmlFor="by-role-select" className="text-sm font-medium text-foreground">Role</label>
+        <SettingsSelect
+          id="by-role-select"
+          value={selectedRoleId}
+          onValueChange={setSelectedRoleId}
+          options={roles.map((role) => ({ value: role.id, label: `${role.name}${role.isSystem ? ' (system)' : ''}` }))}
+          className="w-auto min-w-56"
+        />
+        {selectedRole && (
+          <span className="text-xs text-muted-foreground">
+            {memberCount} {memberCount === 1 ? 'member' : 'members'}
+          </span>
+        )}
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          {saving && <span role="status" className="flex items-center gap-1 text-xs text-muted-foreground"><Loader2 className="size-3 animate-spin" />Saving…</span>}
+          <Button variant="outline" size="sm" onClick={() => setRoleForm('create')}>
+            <Plus />New role
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setRoleForm('rename')} disabled={!selectedRole}>
+            <Pencil />Rename
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleClone} disabled={!selectedRoleId || cloning}>
+            {cloning ? <Loader2 className="animate-spin" /> : <Copy />}Clone
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setConfirmReset(true)} disabled={!selectedRoleId || resetting}>
+            {resetting ? <Loader2 className="animate-spin" /> : <RotateCcw />}Reset defaults
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => setConfirmDelete(true)}
+            disabled={!selectedRole || Boolean(selectedRole?.isSystem)}
+            title={selectedRole?.isSystem ? 'System roles cannot be deleted' : undefined}
+          >
+            <Trash2 />Delete
+          </Button>
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-gray-200">
-        <table className="min-w-full divide-y divide-gray-200 text-sm">
-          <thead className="bg-gray-50"><tr>
-            <th className="w-56 px-3 py-2.5 text-left font-semibold text-gray-600">DocType</th>
-            {PERM_COLS.map((column) => <th key={column.key} title={column.title} className="w-12 px-2 py-2.5 text-center font-semibold text-gray-600">{column.label}</th>)}
-            <th className="w-16 px-2 py-2.5 text-center font-semibold text-gray-600">Scope</th>
-            {onConfigureFields && <th className="w-24 px-2 py-2.5 text-center font-semibold text-gray-600">Fields</th>}
+      <div className="overflow-x-auto rounded-lg border border-border">
+        <table className="min-w-full divide-y divide-border text-sm">
+          <thead className="bg-muted/50"><tr>
+            <th className="w-56 px-3 py-2.5 text-left font-semibold text-muted-foreground">DocType</th>
+            {PERM_COLS.map((column) => <th key={column.key} title={column.title} className="w-12 px-2 py-2.5 text-center font-semibold text-muted-foreground">{column.label}</th>)}
+            <th className="w-16 px-2 py-2.5 text-center font-semibold text-muted-foreground">Scope</th>
+            {onConfigureFields && <th className="w-24 px-2 py-2.5 text-center font-semibold text-muted-foreground">Fields</th>}
           </tr></thead>
-          <tbody className="divide-y divide-gray-100 bg-white">
-            {loadingPerms ? <tr><td colSpan={13} className="py-12 text-center text-gray-400"><Loader2 className="mr-2 inline h-4 w-4 animate-spin" />Loading permissions…</td></tr> : Object.keys(grouped).length === 0 ? (
-              <tr><td colSpan={13} className="py-10 text-center text-gray-400">No permissions configured for this role.</td></tr>
+          <tbody className="divide-y divide-border bg-card">
+            {loadingPerms ? (
+              Array.from({ length: 6 }).map((_, i) => (
+                <tr key={i} aria-hidden="true"><td colSpan={13} className="px-3 py-2"><Skeleton className="h-6 w-full" /></td></tr>
+              ))
+            ) : Object.keys(grouped).length === 0 ? (
+              <tr><td colSpan={13} className="py-10 text-center text-muted-foreground">No permissions configured for this role.</td></tr>
             ) : Object.keys(grouped).sort().map((moduleName) => (
               <Fragment key={moduleName}>
-                <tr onClick={() => setCollapsed((value) => ({ ...value, [moduleName]: !value[moduleName] }))} className="cursor-pointer bg-gray-50 hover:bg-gray-100">
-                  <td colSpan={13} className="px-3 py-2 text-xs font-semibold uppercase text-gray-700">
-                    <span className="inline-flex items-center gap-1">{collapsed[moduleName] ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}{moduleName} ({grouped[moduleName].length})</span>
+                <tr className="bg-muted/50 hover:bg-muted">
+                  <td colSpan={13} className="p-0 text-xs font-semibold uppercase text-foreground">
+                    <button
+                      type="button"
+                      aria-expanded={!collapsed[moduleName]}
+                      onClick={() => setCollapsed((value) => ({ ...value, [moduleName]: !value[moduleName] }))}
+                      className="flex w-full items-center gap-1 px-3 py-2 text-left uppercase"
+                    >
+                      {collapsed[moduleName] ? <ChevronRight className="size-3.5" /> : <ChevronDown className="size-3.5" />}{moduleName} ({grouped[moduleName].length})
+                    </button>
                   </td>
                 </tr>
                 {!collapsed[moduleName] && grouped[moduleName].map((permission) => (
-                  <tr key={permission.id} className="hover:bg-gray-50">
-                    <td className="px-3 py-2 pl-7 text-gray-800">{permission.doctype.displayName}</td>
-                    {PERM_COLS.map((column) => <td key={column.key} className="px-2 py-2 text-center"><input type="checkbox" checked={permission[column.key]} disabled={saving} onChange={() => toggle(permission.id, column.key)} className="h-4 w-4 rounded border-gray-300 text-blue-600" /></td>)}
-                    <td className="px-2 py-2 text-center"><button disabled={saving} onClick={() => toggle(permission.id, 'applyScoping')} className={cn('rounded-full px-2 py-0.5 text-xs font-medium', permission.applyScoping ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500')}>{permission.applyScoping ? 'ON' : 'OFF'}</button></td>
-                    {onConfigureFields && <td className="px-2 py-2 text-center"><button onClick={() => onConfigureFields(permission.doctypeKey)} className="text-xs text-blue-600 hover:underline">Configure</button></td>}
+                  <tr key={permission.id} className="hover:bg-muted/50">
+                    <td className="px-3 py-2 pl-7 text-foreground">{permission.doctype.displayName}</td>
+                    {PERM_COLS.map((column) => <td key={column.key} className="px-2 py-2 text-center"><input type="checkbox" aria-label={`${column.title} ${permission.doctype.displayName}`} checked={permission[column.key]} disabled={saving} onChange={() => toggle(permission.id, column.key)} className="size-4 rounded border-input accent-primary" /></td>)}
+                    <td className="px-2 py-2 text-center"><button disabled={saving} aria-label={`Record scoping for ${permission.doctype.displayName}`} aria-pressed={permission.applyScoping} onClick={() => toggle(permission.id, 'applyScoping')} className={cn('rounded-full px-2 py-0.5 text-xs font-medium', permission.applyScoping ? 'bg-success-50 text-success-700' : 'bg-muted text-muted-foreground')}>{permission.applyScoping ? 'ON' : 'OFF'}</button></td>
+                    {onConfigureFields && <td className="px-2 py-2 text-center"><button onClick={() => onConfigureFields(permission.doctypeKey)} className="text-xs text-primary hover:underline">Configure</button></td>}
                   </tr>
                 ))}
               </Fragment>
@@ -244,6 +469,44 @@ export default function ByRoleTab({ onConfigureFields }: ByRoleTabProps) {
           </tbody>
         </table>
       </div>
+
+      {roleForm && (
+        <RoleFormModal
+          mode={roleForm}
+          role={roleForm === 'rename' ? selectedRole : undefined}
+          onClose={() => setRoleForm(null)}
+          onSaved={handleRoleSaved}
+        />
+      )}
+
+      <ConfirmDialog
+        open={confirmReset}
+        onClose={() => setConfirmReset(false)}
+        onConfirm={handleReset}
+        variant="warning"
+        icon={RotateCcw}
+        title="Reset role permissions"
+        message={`Reset ${selectedRole?.name ?? 'this role'} to the default permission matrix?`}
+        description="Every document-type permission you changed for this role is replaced by the seeded defaults."
+        confirmLabel="Reset defaults"
+      />
+
+      <ConfirmDialog
+        open={confirmDelete}
+        onClose={() => !deleting && setConfirmDelete(false)}
+        onConfirm={handleDelete}
+        variant="danger"
+        title="Delete role"
+        message={`Delete ${selectedRole?.name ?? 'this role'}?`}
+        description={
+          deleteBlockedReason ??
+          'Its document-type, field and feature permissions are removed with it. This cannot be undone.'
+        }
+        disabled={Boolean(deleteBlockedReason)}
+        confirmLabel="Delete role"
+        loadingLabel="Deleting…"
+        isLoading={deleting}
+      />
     </div>
   )
 }

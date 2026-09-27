@@ -1,6 +1,17 @@
 import { clsx, type ClassValue } from "clsx"
-import { twMerge } from "tailwind-merge"
+import { extendTailwindMerge } from "tailwind-merge"
 import { format, formatDistanceToNow } from 'date-fns'
+
+// The design system's custom font sizes (tailwind.config.js `fontSize`) must be
+// registered, or tailwind-merge reads `text-body-sm` as a text *colour* and drops
+// it whenever a `text-ink-*` / `text-primary-*` class follows it in cn().
+const twMerge = extendTailwindMerge({
+  extend: {
+    classGroups: {
+      'font-size': [{ text: ['display', 'page-title', 'section-title', 'overline', 'body', 'body-sm', 'caption', 'micro'] }],
+    },
+  },
+})
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))

@@ -7,6 +7,8 @@
  * and add a template in lib/email/templates (dispatcher looks it up by key).
  */
 
+import type { EmailCadence } from './cadence'
+
 export type EventCategory =
   | 'ACCOUNT'
   | 'OBJECTIVE'
@@ -149,8 +151,9 @@ export type EventKey =
  * BATCHED = "at most one email per user per batch window" (default 10 minutes,
  * NOTIFICATION_BATCH_MINUTES). It is the default cadence: IMMEDIATE sent one
  * email per event, which for an active board meant a steady drip all day.
+ * The cadence list, labels and resolution rules live in ./cadence.ts.
  */
-export type DefaultCadence = 'IMMEDIATE' | 'BATCHED' | 'DAILY' | 'WEEKLY' | 'MONTHLY'
+export type DefaultCadence = EmailCadence
 
 export interface EventMeta {
   key: EventKey
@@ -277,10 +280,31 @@ export const EVENT_META: Record<EventKey, EventMeta> = {
   SCRUM_OBJECTIVE_NEGLECTED: { key: 'SCRUM_OBJECTIVE_NEGLECTED', category: 'SCRUM', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Objective neglected in daily scrum' },
 }
 
-export const ALL_CATEGORIES: EventCategory[] = [
-  'ACCOUNT', 'OBJECTIVE', 'KEY_RESULT', 'CHECK_IN', 'TODO', 'TIMEFRAME', 'ALIGNMENT', 'COMMENT', 'ADMIN', 'PERFORMANCE', 'PROJECT', 'SCRUM',
-  'TRAVEL', 'LETTER', 'AUTOMATION',
-]
+/**
+ * Human label per category for the preference UIs. A Record over EventCategory,
+ * so adding a category without a label is a type error — the settings pages
+ * derive their rows from ALL_CATEGORIES + this map and cannot drift.
+ */
+export const CATEGORY_LABEL: Record<EventCategory, string> = {
+  ACCOUNT: 'Account & security',
+  OBJECTIVE: 'Objectives',
+  KEY_RESULT: 'Key results',
+  CHECK_IN: 'Check-ins',
+  TODO: 'To-dos / initiatives',
+  TIMEFRAME: 'Timeframes',
+  ALIGNMENT: 'Alignment',
+  COMMENT: 'Comments & mentions',
+  ADMIN: 'Admin & system',
+  PERFORMANCE: 'Performance reviews',
+  PROJECT: 'Projects',
+  SCRUM: 'Daily scrum',
+  TRAVEL: 'Travel',
+  LETTER: 'Letters',
+  AUTOMATION: 'AI automations',
+}
+
+/** Every category, in preference-UI order. Derived from CATEGORY_LABEL so the two cannot diverge. */
+export const ALL_CATEGORIES: EventCategory[] = Object.keys(CATEGORY_LABEL) as EventCategory[]
 
 /** Categories the user may NOT disable (account/security emails bypass prefs). */
 export const MANDATORY_CATEGORIES: EventCategory[] = ['ACCOUNT']

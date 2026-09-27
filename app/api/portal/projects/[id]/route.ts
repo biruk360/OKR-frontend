@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { apiNotFound, apiSuccess } from '@/lib/api'
 import { withPortalProject } from '@/lib/api/withPortalAuth'
 import {
+  loadPortalForbiddenNames,
   portalProjectWhere,
   portalRaidItemWhere,
   portalReportWhere,
@@ -14,12 +15,12 @@ import { awaitingClientActions, portalDelayRows } from '@/features/projects/serv
 import { projectPortalInclude } from '@/features/projects/services/portal-project-query'
 
 export const GET = withPortalProject<{ id: string }>(async (_req, { session, params }) => {
-  const [project, users, delays, raidItems, reports] = await Promise.all([
+  const [project, forbiddenEmployeeNames, delays, raidItems, reports] = await Promise.all([
     prisma.project.findFirst({
       where: { ...portalProjectWhere(session.user.projectIds), id: params.id },
       include: projectPortalInclude,
     }),
-    prisma.user.findMany({ where: { isActive: true }, select: { name: true } }),
+    loadPortalForbiddenNames(prisma),
     prisma.delayEvent.findMany({
       where: { projectId: params.id },
       orderBy: { createdAt: 'desc' },
@@ -34,7 +35,6 @@ export const GET = withPortalProject<{ id: string }>(async (_req, { session, par
     }),
   ])
   if (!project) return apiNotFound('Project not found')
-  const forbiddenEmployeeNames = users.map((u) => u.name).filter(Boolean) as string[]
   const projectDto = serializeProjectForClient(project, { forbiddenEmployeeNames })
   const delayDtos = delays.map((delay) => serializeDelayForClient(delay, { forbiddenEmployeeNames }))
 

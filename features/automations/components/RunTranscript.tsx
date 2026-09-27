@@ -1,8 +1,10 @@
 'use client'
 
 import { format } from 'date-fns'
-import { AlertTriangle, Ban, Check, Loader2 } from 'lucide-react'
+import { AlertTriangle, Ban, Check } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
+import { Skeleton } from '@/components/ui/Skeleton'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { cn } from '@/lib/utils'
 import { useRunDetail } from '../hooks/useAutomations'
 import { RunStatusBadge } from './AutomationStatusBadges'
@@ -23,9 +25,11 @@ export function RunTranscript({ runId, onClose }: { runId: string | null; onClos
   return (
     <Modal open={Boolean(runId)} onClose={onClose} title="Run transcript" size="lg">
       {isLoading && (
-        <div className="flex items-center gap-2 py-8 text-body-sm text-ink-secondary">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Loading transcript…
+        <div className="space-y-3 py-4" aria-busy="true" aria-label="Loading transcript">
+          <Skeleton className="h-5 w-48" />
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-12 w-full" />
+          ))}
         </div>
       )}
 
@@ -65,7 +69,7 @@ export function RunTranscript({ runId, onClose }: { runId: string | null; onClos
             </h3>
 
             {run.steps.length === 0 && (
-              <p className="text-body-sm text-ink-secondary">No steps were recorded for this run.</p>
+              <EmptyState bare title="No steps recorded" description="No steps were recorded for this run." />
             )}
 
             <ol className="space-y-2">

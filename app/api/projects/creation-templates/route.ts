@@ -3,10 +3,13 @@ import { apiBadRequest, apiForbidden, withAuth } from '@/lib/api'
 import { canCreateProject } from '@/lib/permissions'
 import {
   createScheduleImportTemplate,
+  type ScheduleImportTemplateDownload,
   type ScheduleImportTemplateFormat,
 } from '@/lib/projects/schedule-import-template'
+import { createProjectDocxTemplate } from '@/lib/projects/project-docx-template'
 
-const FORMATS = new Set<ScheduleImportTemplateFormat>(['csv', 'xlsx'])
+type CreationTemplateFormat = ScheduleImportTemplateFormat | 'docx'
+const FORMATS = new Set<CreationTemplateFormat>(['csv', 'xlsx', 'docx'])
 
 export const GET = withAuth(async (request: NextRequest, { session }) => {
   if (!canCreateProject({
@@ -17,11 +20,14 @@ export const GET = withAuth(async (request: NextRequest, { session }) => {
   }
 
   const format = new URL(request.url).searchParams.get('format')
-  if (!format || !FORMATS.has(format as ScheduleImportTemplateFormat)) {
-    return apiBadRequest('Format must be csv or xlsx')
+  if (!format || !FORMATS.has(format as CreationTemplateFormat)) {
+    return apiBadRequest('Format must be csv, xlsx or docx')
   }
 
-  const template = createScheduleImportTemplate(format as ScheduleImportTemplateFormat)
+  // Spreadsheets share the schedule generator; the DOCX is the Story 2.5 TOR/work-plan template.
+  const template: ScheduleImportTemplateDownload = format === 'docx'
+    ? await createProjectDocxTemplate()
+    : createScheduleImportTemplate(format as ScheduleImportTemplateFormat)
   return new NextResponse(new Blob([Uint8Array.from(template.bytes)]), {
     headers: {
       'content-type': template.contentType,

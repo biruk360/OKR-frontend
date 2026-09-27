@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
-import { checkLetterPermissionV2 } from '@/lib/letter-permissions'
+import { canAdministerLetters, checkLetterPermissionV2 } from '@/lib/letter-permissions'
+import { letterReadGuard } from '@/lib/letter-access'
 import { recordActivity } from '@/lib/activity-log'
 import { ensureLetterDocumentDefaultFont } from '@/lib/letter-docx-font'
 import { convertLetterDocxToHtml } from '@/lib/letter-docx-html'
@@ -20,9 +21,12 @@ export const runtime = 'nodejs'
 // GET /api/letters/[id]/docx — stream the .docx blob for SuperDoc to load.
 // Returns an empty-template docx (just a single paragraph) for letters that
 // have never been saved through SuperDoc yet.
-export const GET = withAuth<RouteIdParams>(async (_req, { params }) => {
+export const GET = withAuth<RouteIdParams>(async (_req, { session, params }) => {
   const { id } = await resolveParams(params)
   if (!id) return apiBadRequest('Invalid letter id')
+
+  const denied = await letterReadGuard(session.user.id, id)
+  if (denied) return denied
 
   const letter = await prisma.letter.findUnique({
     where: { id },
@@ -83,7 +87,7 @@ export const PUT = withAuth<RouteIdParams>(async (req, { session, params }) => {
 
   const letter = await prisma.letter.findUnique({ where: { id } })
   if (!letter) return apiNotFound('Letter not found')
-  const canAdminDocx = await checkLetterPermissionV2(session.user.id, 'letter.view_all')
+  const canAdminDocx = await canAdministerLetters(session.user.id)
   const canWriteDocx = canAdminDocx || (
     await checkLetterPermissionV2(session.user.id, 'letter.write') &&
     letter.status === 'DRAFT' &&

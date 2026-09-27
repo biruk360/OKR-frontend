@@ -22,6 +22,7 @@ import {
 } from '@/lib/projects/creation-import'
 import {
   deleteSecureProjectCreationUpload,
+  readSecureProjectCreationUpload,
   secureProjectCreationUpload,
   type SecureProjectCreationUploadResult,
 } from '@/lib/projects/creation-upload-security'
@@ -73,10 +74,13 @@ export const POST = withAuth<RouteParams>(async (request: NextRequest, { session
   if (!parsedFields.success) {
     return apiValidationError('Invalid spreadsheet analysis request', parsedFields.error.flatten())
   }
-  const file = form.get('file')
-  if (!(file instanceof File)) return apiBadRequest('Choose the spreadsheet again to approve its mapping.')
+  // Story 2.7: the file may be omitted — the retained, already-scanned upload is then
+  // reused (e.g. after background processing or when resuming a saved draft).
+  const formFile = form.get('file')
+  const file = formFile instanceof File ? formFile : null
 
   let retainedUpload: SecureProjectCreationUploadResult | null = null
+  let existingSourceRef: string | null = null
   try {
     const draft = await getProjectCreationDraft({
       id: params.id,
@@ -84,29 +88,49 @@ export const POST = withAuth<RouteParams>(async (request: NextRequest, { session
       actorRole: session.user.role,
     })
     if (draft.ownerUserId !== session.user.id) throw new ProjectCreationDraftNotFoundError()
+    existingSourceRef = draft.sourceRef
     if (draft.sourceMethod !== 'FILE_IMPORT') {
       return apiConflict('This draft is not using file import.', { reasonCode: 'INVALID_SOURCE_METHOD' })
     }
 
     const limits = resolveProjectCreationImportLimits()
-    const validatedFile = validateProjectCreationSpreadsheetFile({
+    if (!file && (!draft.sourceRef || !draft.sourceHash || !draft.sourceFileName || !draft.sourceMimeType || !draft.sourceSize)) {
+      return apiBadRequest('Choose the spreadsheet again to approve its mapping.')
+    }
+    const validatedFile = validateProjectCreationSpreadsheetFile(file ? {
       name: file.name,
       type: file.type,
       size: file.size,
       maxFileBytes: limits.maxFileBytes,
+    } : {
+      name: draft.sourceFileName!,
+      type: '',
+      size: draft.sourceSize!,
+      maxFileBytes: limits.maxFileBytes,
     })
-    const bytes = new Uint8Array(await file.arrayBuffer())
+    const bytes = file
+      ? new Uint8Array(await file.arrayBuffer())
+      : await readSecureProjectCreationUpload(draft.sourceRef!)
     const sourceHash = hashProjectCreationImport(bytes)
     if (draft.sourceHash && draft.sourceHash !== sourceHash) {
-      return apiConflict('The selected file changed after its columns were inspected. Upload it again.', {
+      return apiConflict(file
+        ? 'The selected file changed after its columns were inspected. Upload it again.'
+        : 'The retained source file failed its integrity check. Upload it again.', {
         reasonCode: 'SOURCE_FILE_CHANGED',
       })
     }
-    retainedUpload = await secureProjectCreationUpload({
-      draftId: draft.id,
-      extension: validatedFile.extension,
-      bytes,
-    })
+    retainedUpload = file
+      ? await secureProjectCreationUpload({
+        draftId: draft.id,
+        extension: validatedFile.extension,
+        bytes,
+      })
+      : {
+        sourceRef: draft.sourceRef!,
+        hash: sourceHash,
+        detectedMimeType: draft.sourceMimeType!,
+        scanStatus: 'CLEAN',
+      }
     const inspection = inspectProjectCreationSpreadsheet(bytes, { sheetName: parsedFields.data.sheetName })
     const validated = await validateProjectCreationSpreadsheet(
       inspection,
@@ -122,7 +146,7 @@ export const POST = withAuth<RouteParams>(async (request: NextRequest, { session
       sourceMetadata: {
         fileName: validatedFile.safeFileName,
         mimeType: retainedUpload.detectedMimeType,
-        size: file.size,
+        size: file ? file.size : draft.sourceSize!,
         hash: retainedUpload.hash,
         sourceRef: retainedUpload.sourceRef,
         scanStatus: retainedUpload.scanStatus,
@@ -146,7 +170,7 @@ export const POST = withAuth<RouteParams>(async (request: NextRequest, { session
       commitBlocked: validated.hasBlockingErrors,
     })
   } catch (error) {
-    if (retainedUpload) {
+    if (retainedUpload && retainedUpload.sourceRef !== existingSourceRef) {
       await deleteSecureProjectCreationUpload(retainedUpload.sourceRef).catch(() => undefined)
     }
     return projectCreationImportErrorResponse(error)

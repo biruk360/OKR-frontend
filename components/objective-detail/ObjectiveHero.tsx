@@ -54,16 +54,16 @@ function initialsOf(name: string): string {
 /* iOS status pill — soft tint + dot prefix */
 function StatusPill({ status }: { status: ComputedStatus }) {
   const map: Record<ComputedStatus, { label: string; bg: string; fg: string; dot: string }> = {
-    'on-track':   { label: 'On track',  bg: 'rgba(52,199,89,0.12)',  fg: 'var(--ap-green)',  dot: 'var(--ap-green)' },
-    'at-risk':    { label: 'At risk',   bg: 'rgba(255,149,0,0.12)',  fg: 'var(--ap-orange)', dot: 'var(--ap-orange)' },
-    'off-track':  { label: 'Off track', bg: 'rgba(255,59,48,0.12)',  fg: 'var(--ap-red)',    dot: 'var(--ap-red)' },
-    'no-owner':   { label: 'Unassigned',bg: 'rgba(255,59,48,0.12)',  fg: 'var(--ap-red)',    dot: 'var(--ap-red)' },
-    'completed':  { label: 'Done',      bg: 'rgba(0,122,255,0.12)',  fg: 'var(--ap-accent)', dot: 'var(--ap-accent)' },
+    'on-track':   { label: 'On track',  bg: 'var(--ap-ok-bg)',  fg: 'var(--ap-green)',  dot: 'var(--ap-green)' },
+    'at-risk':    { label: 'At risk',   bg: 'var(--ap-warn-bg)',  fg: 'var(--ap-orange)', dot: 'var(--ap-orange)' },
+    'off-track':  { label: 'Off track', bg: 'var(--ap-danger-bg)',  fg: 'var(--ap-red)',    dot: 'var(--ap-red)' },
+    'no-owner':   { label: 'Unassigned',bg: 'var(--ap-danger-bg)',  fg: 'var(--ap-red)',    dot: 'var(--ap-red)' },
+    'completed':  { label: 'Done',      bg: 'var(--ap-accent-soft)',  fg: 'var(--ap-accent)', dot: 'var(--ap-accent)' },
   }
   const c = map[status]
   return (
     <span
-      className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
+      className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-caption font-semibold"
       style={{ background: c.bg, color: c.fg }}
     >
       <span className="size-1.5 rounded-full" style={{ background: c.dot }} />
@@ -75,11 +75,11 @@ function StatusPill({ status }: { status: ComputedStatus }) {
 /* ▲/▼ pace chip */
 function PaceChip({ delta }: { delta: number }) {
   const positive = delta >= 0
-  const bg = positive ? 'rgba(52,199,89,0.12)' : 'rgba(255,59,48,0.12)'
+  const bg = positive ? 'var(--ap-ok-bg)' : 'var(--ap-danger-bg)'
   const fg = positive ? 'var(--ap-green)' : 'var(--ap-red)'
   return (
     <span
-      className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums"
+      className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-micro font-semibold tabular-nums"
       style={{ background: bg, color: fg }}
     >
       {positive ? '▲' : '▼'}{Math.abs(delta)}pt
@@ -110,7 +110,7 @@ function ProgressRing({ value, status, size = 64 }: { value: number; status: Com
         />
       </svg>
       <span
-        className="absolute inset-0 flex items-center justify-center text-[14px] font-semibold tabular-nums"
+        className="absolute inset-0 flex items-center justify-center text-sm font-semibold tabular-nums"
         style={{ letterSpacing: '-0.02em' }}
       >
         {Math.round(pct)}%
@@ -130,8 +130,8 @@ function OwnerAvatar({ owner, summary }: { owner: Props['objective']['owner']; s
           // eslint-disable-next-line @next/next/no-img-element
           <img src={owner.avatar} alt={owner.name} className="size-7 rounded-full object-cover" />
         ) : (
-          <span className="flex size-7 items-center justify-center rounded-full text-[11px] font-semibold text-white"
-            style={{ background: 'var(--ap-accent)' }}>
+          <span className="flex size-7 items-center justify-center rounded-full text-caption font-semibold"
+            style={{ background: 'var(--ap-accent)', color: 'var(--ap-accent-fg)' }}>
             {initials}
           </span>
         )}
@@ -144,26 +144,26 @@ function OwnerAvatar({ owner, summary }: { owner: Props['objective']['owner']; s
               // eslint-disable-next-line @next/next/no-img-element
               <img src={owner.avatar} alt="" className="size-8 rounded-full object-cover" />
             ) : (
-              <span className="flex size-8 items-center justify-center rounded-full text-xs font-bold text-white"
-                style={{ background: 'var(--ap-accent)' }}>{initials}</span>
+              <span className="flex size-8 items-center justify-center rounded-full text-xs font-bold"
+                style={{ background: 'var(--ap-accent)', color: 'var(--ap-accent-fg)' }}>{initials}</span>
             )}
             <div>
-              <p className="text-[13px] font-semibold">{owner.name}</p>
-              <p className="text-[11px] text-muted-foreground">Objective Owner</p>
+              <p className="text-body-sm font-semibold">{owner.name}</p>
+              <p className="text-caption text-muted-foreground">Objective Owner</p>
             </div>
           </div>
           <div className="grid grid-cols-3 gap-2 rounded-[var(--ap-radius-sm)] p-2" style={{ background: 'var(--ap-bg-sunken)' }}>
             <div className="text-center">
-              <p className="text-[13px] font-semibold tabular-nums">{summary.objectiveCount}</p>
-              <p className="text-[10px] text-muted-foreground">OKRs</p>
+              <p className="text-body-sm font-semibold tabular-nums">{summary.objectiveCount}</p>
+              <p className="text-micro text-muted-foreground">OKRs</p>
             </div>
             <div className="text-center">
-              <p className="text-[13px] font-semibold tabular-nums">{summary.krCount}</p>
-              <p className="text-[10px] text-muted-foreground">KRs</p>
+              <p className="text-body-sm font-semibold tabular-nums">{summary.krCount}</p>
+              <p className="text-micro text-muted-foreground">KRs</p>
             </div>
             <div className="text-center">
-              <p className="text-[13px] font-semibold tabular-nums">{summary.avgProgress}%</p>
-              <p className="text-[10px] text-muted-foreground">Avg</p>
+              <p className="text-body-sm font-semibold tabular-nums">{summary.avgProgress}%</p>
+              <p className="text-micro text-muted-foreground">Avg</p>
             </div>
           </div>
         </div>
@@ -196,7 +196,7 @@ export default function ObjectiveHero({
     <div className="rounded-[var(--ap-radius-md)] border bg-card" style={{ borderColor: 'var(--ap-border)' }}>
       {/* Top: chip row */}
       <div className="px-5 pt-5 pb-3">
-        <div className="flex flex-wrap items-center gap-1.5 mb-3 text-[11px]">
+        <div className="flex flex-wrap items-center gap-1.5 mb-3 text-caption">
           <span className="inline-flex items-center rounded-full px-2 py-0.5 font-semibold"
             style={{ background: 'var(--ap-bg-sunken)', color: 'var(--ap-fg-muted)' }}>
             {levelLabel(objective.level)}
@@ -220,7 +220,7 @@ export default function ObjectiveHero({
           )}
           {objective.isPrivate && (
             <span className="inline-flex items-center rounded-full px-2 py-0.5 font-semibold"
-              style={{ background: 'rgba(255,149,0,0.12)', color: 'var(--ap-orange)' }}>
+              style={{ background: 'var(--ap-warn-bg)', color: 'var(--ap-orange)' }}>
               Private
             </span>
           )}
@@ -239,7 +239,7 @@ export default function ObjectiveHero({
 
         {/* Title */}
         <h1
-          className="text-[24px] font-semibold leading-tight"
+          className="text-2xl font-semibold leading-tight"
           style={{ letterSpacing: '-0.02em', textWrap: 'balance', maxWidth: 720 } as any}
         >
           {objective.title}
@@ -247,7 +247,7 @@ export default function ObjectiveHero({
 
         {objective.description && (
           <p
-            className="mt-2 text-[13px] text-muted-foreground"
+            className="mt-2 text-body-sm text-muted-foreground"
             style={{ maxWidth: 720, textWrap: 'pretty' } as any}
           >
             {objective.description}
@@ -255,11 +255,11 @@ export default function ObjectiveHero({
         )}
 
         {/* Meta row */}
-        <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-[12px] text-muted-foreground">
+        <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-muted-foreground">
           <div className="flex items-center gap-2">
             <OwnerAvatar owner={objective.owner} summary={ownerSummary} />
             <span className="font-medium" style={{ color: 'var(--ap-fg)' }}>{objective.owner.name}</span>
-            <span className="text-[11px] text-muted-foreground">· owner</span>
+            <span className="text-caption text-muted-foreground">· owner</span>
           </div>
           <span className="hidden sm:inline-block h-3.5 w-px" style={{ background: 'var(--ap-border)' }} />
           <div className="flex items-center gap-1.5">
@@ -282,7 +282,7 @@ export default function ObjectiveHero({
           )}
           <div className="ml-auto flex items-center gap-2">
             {onCheckIn && (
-              <Button size="sm" onClick={onCheckIn} className="rounded-[var(--ap-radius-sm)] h-8 px-3 text-[12px]">
+              <Button size="sm" onClick={onCheckIn} className="rounded-[var(--ap-radius-sm)] h-8 px-3 text-xs">
                 Check in
               </Button>
             )}
@@ -299,14 +299,14 @@ export default function ObjectiveHero({
         <div className="flex items-center gap-3 px-4 py-4 border-r" style={{ borderColor: 'var(--ap-border)' }}>
           <ProgressRing value={objective.progress} status={status} size={56} />
           <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Progress</p>
-            <p className="text-[11px] text-muted-foreground tabular-nums mt-0.5">Expected {Math.round(expectedProgress)}%</p>
+            <p className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">Progress</p>
+            <p className="text-caption text-muted-foreground tabular-nums mt-0.5">Expected {Math.round(expectedProgress)}%</p>
           </div>
         </div>
 
         {/* Status */}
         <div className="flex flex-col justify-center gap-1.5 px-4 py-4 border-r" style={{ borderColor: 'var(--ap-border)' }}>
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Status</p>
+          <p className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">Status</p>
           <div className="flex items-center gap-2">
             <StatusPill status={status} />
             <PaceChip delta={gap} />
@@ -315,9 +315,9 @@ export default function ObjectiveHero({
 
         {/* Confidence */}
         <div className="flex flex-col justify-center gap-1.5 px-4 py-4 border-r" style={{ borderColor: 'var(--ap-border)' }}>
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Confidence</p>
-          <p className="text-[18px] font-semibold tabular-nums leading-none" style={{ letterSpacing: '-0.02em' }}>
-            {confidence}<span className="text-[12px] text-muted-foreground font-normal">/100</span>
+          <p className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">Confidence</p>
+          <p className="text-lg font-semibold tabular-nums leading-none" style={{ letterSpacing: '-0.02em' }}>
+            {confidence}<span className="text-xs text-muted-foreground font-normal">/100</span>
           </p>
           <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ background: 'var(--ap-kr-bar-bg)' }}>
             <div className="h-full rounded-full"
@@ -330,9 +330,9 @@ export default function ObjectiveHero({
 
         {/* KRs */}
         <div className="flex flex-col justify-center gap-1.5 px-4 py-4 border-r" style={{ borderColor: 'var(--ap-border)' }}>
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Key Results</p>
-          <p className="text-[18px] font-semibold tabular-nums leading-none">{activeKrCount}</p>
-          <div className="flex items-center gap-2 text-[11px] text-muted-foreground tabular-nums">
+          <p className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">Key Results</p>
+          <p className="text-lg font-semibold tabular-nums leading-none">{activeKrCount}</p>
+          <div className="flex items-center gap-2 text-caption text-muted-foreground tabular-nums">
             <span className="inline-flex items-center gap-1"><span className="size-1.5 rounded-full" style={{ background: 'var(--ap-green)' }} />{buckets.on}</span>
             <span className="inline-flex items-center gap-1"><span className="size-1.5 rounded-full" style={{ background: 'var(--ap-orange)' }} />{buckets.risk}</span>
             <span className="inline-flex items-center gap-1"><span className="size-1.5 rounded-full" style={{ background: 'var(--ap-red)' }} />{buckets.off}</span>
@@ -344,12 +344,12 @@ export default function ObjectiveHero({
 
         {/* Deadline */}
         <div className="flex flex-col justify-center gap-1.5 px-4 py-4">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Deadline</p>
-          <p className={cn('text-[18px] font-semibold tabular-nums leading-none')}
+          <p className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">Deadline</p>
+          <p className={cn('text-lg font-semibold tabular-nums leading-none')}
             style={{ color: daysLeft < 7 ? 'var(--ap-red)' : daysLeft < 30 ? 'var(--ap-orange)' : 'var(--ap-fg)' }}>
             {daysLeft > 0 ? `${daysLeft}d` : 'Past due'}
           </p>
-          <p className="text-[11px] text-muted-foreground">{deadlineLabel}{weekLabel ? ` · ${weekLabel}` : ''}</p>
+          <p className="text-caption text-muted-foreground">{deadlineLabel}{weekLabel ? ` · ${weekLabel}` : ''}</p>
         </div>
       </div>
     </div>

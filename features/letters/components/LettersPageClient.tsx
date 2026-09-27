@@ -2,7 +2,8 @@
 
 import { useContext, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Search, FileText, ChevronLeft, ChevronRight } from 'lucide-react'
+import Link from 'next/link'
+import { Plus, Search, FileText, ChevronLeft, ChevronRight, BarChart3, LayoutTemplate } from 'lucide-react'
 import { Button, Input, PageHeader } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import type { LetterStatus, LetterTypeRecord } from '@/types'
@@ -14,6 +15,8 @@ import { LetterLangContext, useT, type LetterLang, type LetterFontId, DEFAULT_LE
 
 interface Props {
   user: { id: string; role: string }
+  /** Letter admin (ADMIN-only `button.letter.admin`) — shows template management. */
+  canAdminister?: boolean
 }
 
 const STATUS_TABS: Array<'ALL' | 'MINE' | LetterStatus> = [
@@ -32,7 +35,7 @@ export default function LettersPageClient(props: Props) {
   )
 }
 
-function LettersPageInner(_props: Props) {
+function LettersPageInner({ canAdminister = false }: Props) {
   const t = useT()
   const { lang, setLang } = useContext(LetterLangContext)
   const router = useRouter()
@@ -100,6 +103,18 @@ function LettersPageInner(_props: Props) {
         actions={
           <div className="flex items-center gap-2">
             <LangSwitch lang={lang} onChange={setLang} />
+            <Link href="/dashboard/letters/reports">
+              <Button variant="outline" className="h-10">
+                <BarChart3 className="mr-1.5 size-4" /> Reports
+              </Button>
+            </Link>
+            {canAdminister && (
+              <Link href="/dashboard/letters/templates">
+                <Button variant="outline" className="h-10">
+                  <LayoutTemplate className="mr-1.5 size-4" /> Templates
+                </Button>
+              </Link>
+            )}
             <Button onClick={() => setCreateOpen(true)} className="h-10">
               <Plus className="mr-1.5 size-4" /> {t('list.new')}
             </Button>
@@ -112,15 +127,17 @@ function LettersPageInner(_props: Props) {
         className="rounded-[var(--ap-radius-md)] border bg-card p-1.5 shadow-card"
         style={{ borderColor: 'var(--ap-border)' }}
       >
-        <div className="flex flex-wrap items-center gap-1">
+        <div className="flex flex-wrap items-center gap-1" role="group" aria-label="Filter letters by status">
           {STATUS_TABS.map((k) => {
             const active = tab === k
             return (
               <button
                 key={k}
+                type="button"
+                aria-pressed={active}
                 onClick={() => setTab(k as any)}
                 className={cn(
-                  'rounded-[var(--ap-radius-sm)] px-3 py-1.5 text-[13px] font-medium transition-colors',
+                  'rounded-[var(--ap-radius-sm)] px-3 py-1.5 text-body-sm font-medium transition-colors',
                   active
                     ? 'bg-foreground text-background shadow-sm'
                     : 'text-muted-foreground hover:bg-[color:var(--ap-bg-sunken)] hover:text-foreground'
@@ -144,15 +161,18 @@ function LettersPageInner(_props: Props) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t('list.search')}
+            aria-label={t('list.search')}
             className="h-9 pl-9"
           />
         </div>
         {types.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filter letters by type">
             <button
+              type="button"
+              aria-pressed={typeFilterId === null}
               onClick={() => setTypeFilterId(null)}
               className={cn(
-                'rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors',
+                'rounded-full px-2.5 py-1 text-caption font-medium transition-colors',
                 typeFilterId === null
                   ? 'bg-foreground text-background'
                   : 'bg-[color:var(--ap-bg-sunken)] text-muted-foreground hover:text-foreground'
@@ -163,16 +183,18 @@ function LettersPageInner(_props: Props) {
             {types.map((typ) => (
               <button
                 key={typ.id}
+                type="button"
+                aria-pressed={typeFilterId === typ.id}
                 onClick={() => setTypeFilterId(typ.id)}
                 className={cn(
-                  'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors',
+                  'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-caption font-medium transition-colors',
                   typeFilterId === typ.id
                     ? 'bg-foreground text-background'
                     : 'bg-[color:var(--ap-bg-sunken)] text-muted-foreground hover:text-foreground'
                 )}
                 title={typ.description ?? undefined}
               >
-                <FileText className="size-3" />
+                <FileText className="size-3" aria-hidden />
                 {typ.name}
               </button>
             ))}
@@ -188,16 +210,18 @@ function LettersPageInner(_props: Props) {
           className="flex items-center justify-between rounded-[var(--ap-radius-md)] border bg-card px-4 py-2.5 shadow-card"
           style={{ borderColor: 'var(--ap-border)' }}
         >
-          <span className="text-[12px] text-muted-foreground">
+          <span className="text-xs text-muted-foreground">
             {start}–{end} of {total} letters
           </span>
           <div className="flex items-center gap-1">
             <button
+              type="button"
+              aria-label="Previous page"
               disabled={page <= 1}
               onClick={() => setPage((p) => p - 1)}
-              className="flex h-8 w-8 items-center justify-center rounded-[8px] text-muted-foreground transition-colors hover:bg-[color:var(--ap-bg-sunken)] hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-[color:var(--ap-bg-sunken)] hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
             >
-              <ChevronLeft className="size-4" />
+              <ChevronLeft className="size-4" aria-hidden />
             </button>
             {Array.from({ length: totalPages }, (_, i) => i + 1)
               .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
@@ -208,13 +232,16 @@ function LettersPageInner(_props: Props) {
               }, [])
               .map((p, i) =>
                 p === '...' ? (
-                  <span key={`ellipsis-${i}`} className="px-1 text-[12px] text-muted-foreground">…</span>
+                  <span key={`ellipsis-${i}`} className="px-1 text-xs text-muted-foreground">…</span>
                 ) : (
                   <button
                     key={p}
+                    type="button"
+                    aria-label={`Page ${p}`}
+                    aria-current={page === p ? 'page' : undefined}
                     onClick={() => setPage(p as number)}
                     className={cn(
-                      'h-8 min-w-[32px] rounded-[8px] px-2 text-[12px] font-medium transition-colors',
+                      'h-8 min-w-[32px] rounded-lg px-2 text-xs font-medium transition-colors',
                       page === p
                         ? 'bg-foreground text-background'
                         : 'text-muted-foreground hover:bg-[color:var(--ap-bg-sunken)] hover:text-foreground'
@@ -225,11 +252,13 @@ function LettersPageInner(_props: Props) {
                 )
               )}
             <button
+              type="button"
+              aria-label="Next page"
               disabled={page >= totalPages}
               onClick={() => setPage((p) => p + 1)}
-              className="flex h-8 w-8 items-center justify-center rounded-[8px] text-muted-foreground transition-colors hover:bg-[color:var(--ap-bg-sunken)] hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-[color:var(--ap-bg-sunken)] hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
             >
-              <ChevronRight className="size-4" />
+              <ChevronRight className="size-4" aria-hidden />
             </button>
           </div>
         </div>
@@ -250,13 +279,17 @@ function LettersPageInner(_props: Props) {
 function LangSwitch({ lang, onChange }: { lang: LetterLang; onChange: (l: LetterLang) => void }) {
   return (
     <div
-      className="inline-flex h-10 overflow-hidden rounded-[var(--ap-radius-sm)] border bg-card text-[12px] shadow-sm"
+      role="group"
+      aria-label="Letter language"
+      className="inline-flex h-10 overflow-hidden rounded-[var(--ap-radius-sm)] border bg-card text-xs shadow-sm"
       style={{ borderColor: 'var(--ap-border)' }}
     >
       {(['en', 'am'] as LetterLang[]).map((l) => (
         <button
           key={l}
           type="button"
+          aria-pressed={lang === l}
+          aria-label={l === 'en' ? 'English' : 'Amharic'}
           onClick={() => onChange(l)}
           className={cn(
             'px-3 font-medium transition-colors',

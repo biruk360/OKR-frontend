@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useId } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowDown, ArrowUp, ExternalLink, FileX2, GripVertical, Library, Plus, Save, Trash2 } from 'lucide-react'
 import { Button, EmptyState, Input, Label, Textarea } from '@/components/ui'
@@ -53,6 +53,7 @@ const newRubric = (): BuilderCriterion => ({
 })
 
 export function TemplateBuilder({ templateId }: { templateId: string }) {
+  const uid = useId()
   const query = usePerformanceTemplate(templateId)
   const save = useSaveTemplateBuilder(templateId)
   const culture = useInsertCultureBlock(templateId)
@@ -171,7 +172,7 @@ export function TemplateBuilder({ templateId }: { templateId: string }) {
             <h2 className="text-lg font-semibold" style={{ letterSpacing: '-0.01em' }}>{query.data.family.name}</h2>
             <PerformanceStatusBadge status={query.data.status} />
           </div>
-          <p className="text-[13px] text-muted-foreground">Version {query.data.version} · {query.data.maxTotal} max points</p>
+          <p className="text-body-sm text-muted-foreground">Version {query.data.version} · {query.data.maxTotal} max points</p>
         </div>
         {editable && <Button onClick={() => save.mutate(tiers)} disabled={save.isPending}><Save className="mr-2 size-4" /> Save builder</Button>}
       </div>
@@ -198,8 +199,8 @@ export function TemplateBuilder({ templateId }: { templateId: string }) {
                 </span>
               )}
               <div className="grid flex-1 gap-3 sm:grid-cols-[1fr_10rem]">
-                <div><Label>Tier name</Label><Input value={tier.name} disabled={!editable} onChange={(event) => updateTier(tierIndex, { name: event.target.value })} /></div>
-                <div><Label>Tier max points</Label><Input type="number" value={tier.maxPoints} disabled={!editable} onChange={(event) => updateTier(tierIndex, { maxPoints: Number(event.target.value) })} /></div>
+                <div><Label htmlFor={`${uid}-t${tierIndex}-name`}>Tier name</Label><Input id={`${uid}-t${tierIndex}-name`} value={tier.name} disabled={!editable} onChange={(event) => updateTier(tierIndex, { name: event.target.value })} /></div>
+                <div><Label htmlFor={`${uid}-t${tierIndex}-max`}>Tier max points</Label><Input id={`${uid}-t${tierIndex}-max`} type="number" value={tier.maxPoints} disabled={!editable} onChange={(event) => updateTier(tierIndex, { maxPoints: Number(event.target.value) })} /></div>
               </div>
               {editable && (
                 <div className="flex gap-1">
@@ -236,8 +237,8 @@ export function TemplateBuilder({ templateId }: { templateId: string }) {
                   )}
                   <div className="grid flex-1 gap-3 sm:grid-cols-[8rem_1fr_7rem_auto]">
                     <div>
-                      <Label>Type</Label>
-                    <NativeSelect
+                      <Label htmlFor={`${uid}-t${tierIndex}-c${criterionIndex}-type`}>Type</Label>
+                    <NativeSelect id={`${uid}-t${tierIndex}-c${criterionIndex}-type`}
                       value={criterion.type}
                       disabled={!editable}
                       onChange={(event) => updateCriterion(tierIndex, criterionIndex, {
@@ -251,8 +252,8 @@ export function TemplateBuilder({ templateId }: { templateId: string }) {
                       <option value="METRIC">Metric</option>
                     </NativeSelect>
                   </div>
-                  <div><Label>Criterion title</Label><Input value={criterion.title} disabled={!editable} onChange={(event) => updateCriterion(tierIndex, criterionIndex, { title: event.target.value })} /></div>
-                  <div><Label>Max points</Label><Input type="number" value={criterion.maxPoints} disabled={!editable || criterion.type === 'RUBRIC'} onChange={(event) => updateCriterion(tierIndex, criterionIndex, { maxPoints: Number(event.target.value) })} /></div>
+                  <div><Label htmlFor={`${uid}-t${tierIndex}-c${criterionIndex}-title`}>Criterion title</Label><Input id={`${uid}-t${tierIndex}-c${criterionIndex}-title`} value={criterion.title} disabled={!editable} onChange={(event) => updateCriterion(tierIndex, criterionIndex, { title: event.target.value })} /></div>
+                  <div><Label htmlFor={`${uid}-t${tierIndex}-c${criterionIndex}-max`}>Max points</Label><Input id={`${uid}-t${tierIndex}-c${criterionIndex}-max`} type="number" value={criterion.maxPoints} disabled={!editable || criterion.type === 'RUBRIC'} onChange={(event) => updateCriterion(tierIndex, criterionIndex, { maxPoints: Number(event.target.value) })} /></div>
                   {editable && (
                     <div className="mt-6 flex gap-1">
                       <Button variant="outline" size="sm" disabled={criterionIndex === 0} aria-label="Move criterion up" onClick={() => moveCriterion(tierIndex, criterionIndex, -1)}><ArrowUp className="size-4" /></Button>
@@ -271,8 +272,8 @@ export function TemplateBuilder({ templateId }: { templateId: string }) {
                       return (
                         <div key={anchor} className="space-y-2">
                           <div>
-                            <Label>{anchor} anchor</Label>
-                            <Textarea
+                            <Label htmlFor={`${uid}-t${tierIndex}-c${criterionIndex}-a${anchor}-en`}>{anchor} anchor</Label>
+                            <Textarea id={`${uid}-t${tierIndex}-c${criterionIndex}-a${anchor}-en`}
                               value={en}
                               disabled={!editable}
                               placeholder="English description"
@@ -282,8 +283,8 @@ export function TemplateBuilder({ templateId }: { templateId: string }) {
                             />
                           </div>
                           <div>
-                            <Label>{anchor} anchor (Amharic, optional)</Label>
-                            <Textarea
+                            <Label htmlFor={`${uid}-t${tierIndex}-c${criterionIndex}-a${anchor}-am`}>{anchor} anchor (Amharic, optional)</Label>
+                            <Textarea id={`${uid}-t${tierIndex}-c${criterionIndex}-a${anchor}-am`}
                               value={am}
                               disabled={!editable}
                               placeholder="አማርኛ"
@@ -303,15 +304,15 @@ export function TemplateBuilder({ templateId }: { templateId: string }) {
                   return (
                     <div className="mt-4 space-y-3">
                       <div className="grid gap-3 sm:grid-cols-4">
-                        <div><Label>Target</Label><Input type="number" value={criterion.target ?? ''} disabled={!editable} onChange={(event) => updateCriterion(tierIndex, criterionIndex, { target: event.target.value === '' ? undefined : Number(event.target.value) })} /></div>
-                        <div><Label>Unit</Label><Input value={criterion.unit ?? ''} disabled={!editable} onChange={(event) => updateCriterion(tierIndex, criterionIndex, { unit: event.target.value })} /></div>
-                        <div><Label>Period label</Label><Input value={criterion.periodLabel ?? ''} placeholder="e.g. per month" disabled={!editable} onChange={(event) => updateCriterion(tierIndex, criterionIndex, { periodLabel: event.target.value })} /></div>
-                        <div><Label>Aggregation</Label><NativeSelect value={criterion.krAggregation ?? 'AVG'} disabled={!editable} onChange={(event) => updateCriterion(tierIndex, criterionIndex, { krAggregation: event.target.value })}><option>AVG</option><option>SUM</option><option>LATEST</option></NativeSelect></div>
+                        <div><Label htmlFor={`${uid}-t${tierIndex}-c${criterionIndex}-target`}>Target</Label><Input id={`${uid}-t${tierIndex}-c${criterionIndex}-target`} type="number" value={criterion.target ?? ''} disabled={!editable} onChange={(event) => updateCriterion(tierIndex, criterionIndex, { target: event.target.value === '' ? undefined : Number(event.target.value) })} /></div>
+                        <div><Label htmlFor={`${uid}-t${tierIndex}-c${criterionIndex}-unit`}>Unit</Label><Input id={`${uid}-t${tierIndex}-c${criterionIndex}-unit`} value={criterion.unit ?? ''} disabled={!editable} onChange={(event) => updateCriterion(tierIndex, criterionIndex, { unit: event.target.value })} /></div>
+                        <div><Label htmlFor={`${uid}-t${tierIndex}-c${criterionIndex}-period`}>Period label</Label><Input id={`${uid}-t${tierIndex}-c${criterionIndex}-period`} value={criterion.periodLabel ?? ''} placeholder="e.g. per month" disabled={!editable} onChange={(event) => updateCriterion(tierIndex, criterionIndex, { periodLabel: event.target.value })} /></div>
+                        <div><Label htmlFor={`${uid}-t${tierIndex}-c${criterionIndex}-agg`}>Aggregation</Label><NativeSelect id={`${uid}-t${tierIndex}-c${criterionIndex}-agg`} value={criterion.krAggregation ?? 'AVG'} disabled={!editable} onChange={(event) => updateCriterion(tierIndex, criterionIndex, { krAggregation: event.target.value })}><option>AVG</option><option>SUM</option><option>LATEST</option></NativeSelect></div>
                       </div>
                       <div className="grid gap-3 sm:grid-cols-[14rem_1fr]">
                         <div>
-                          <Label>Scoring rule</Label>
-                          <NativeSelect
+                          <Label htmlFor={`${uid}-t${tierIndex}-c${criterionIndex}-rule`}>Scoring rule</Label>
+                          <NativeSelect id={`${uid}-t${tierIndex}-c${criterionIndex}-rule`}
                             value={ruleType}
                             disabled={!editable}
                             onChange={(event) => updateCriterion(tierIndex, criterionIndex, { scoringRuleJson: DEFAULT_RULES[event.target.value] ?? DEFAULT_RULES.LINEAR_CAPPED })}
@@ -323,8 +324,8 @@ export function TemplateBuilder({ templateId }: { templateId: string }) {
                         </div>
                         {ruleType === 'LINEAR_CAPPED' && (
                           <div>
-                            <Label>Max score</Label>
-                            <Input type="number" value={rule.maxScore ?? 10} disabled={!editable} onChange={(event) => updateMetricRule(tierIndex, criterionIndex, rule, { maxScore: Number(event.target.value) })} />
+                            <Label htmlFor={`${uid}-t${tierIndex}-c${criterionIndex}-max-score`}>Max score</Label>
+                            <Input id={`${uid}-t${tierIndex}-c${criterionIndex}-max-score`} type="number" value={rule.maxScore ?? 10} disabled={!editable} onChange={(event) => updateMetricRule(tierIndex, criterionIndex, rule, { maxScore: Number(event.target.value) })} />
                             <p className="mt-1 text-xs text-muted-foreground">Scores actual ÷ target × max score, capped. Requires a positive target.</p>
                           </div>
                         )}
@@ -333,8 +334,8 @@ export function TemplateBuilder({ templateId }: { templateId: string }) {
                         )}
                       </div>
                       {ruleType === 'INVERSE_BANDS' && (
-                        <div className="space-y-2">
-                          <Label>Bands (actual ≤ threshold → score; leave threshold empty for “otherwise”)</Label>
+                        <div className="space-y-2" role="group" aria-labelledby={`${uid}-t${tierIndex}-c${criterionIndex}-bands`}>
+                          <Label id={`${uid}-t${tierIndex}-c${criterionIndex}-bands`}>Bands (actual ≤ threshold → score; leave threshold empty for “otherwise”)</Label>
                           {bands.map((band, bandIndex) => (
                             <div key={bandIndex} className="flex items-center gap-2">
                               <span className="text-xs text-muted-foreground">actual ≤</span>

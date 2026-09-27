@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { Sparkles, CheckCircle2, X, Loader2, RefreshCw, Trash2, AlertCircle, ArrowLeft, User } from 'lucide-react'
 import { PageHeader } from '@/components/ui/PageHeader'
+import { Skeleton } from '@/components/ui/Skeleton'
 
 interface PlanResponse {
   success: boolean
@@ -51,18 +52,18 @@ interface PlanResponse {
 }
 
 const DISPOSITION_BADGE: Record<string, string> = {
-  KEEP: 'bg-blue-100 text-blue-900',
-  SPLIT: 'bg-amber-100 text-amber-900',
-  RESCHEDULE: 'bg-slate-100 text-slate-900',
-  DESCOPE: 'bg-rose-100 text-rose-900',
-  ESCALATE: 'bg-purple-100 text-purple-900',
+  KEEP: 'bg-[var(--ap-accent-soft)] text-[var(--ap-accent-on-soft)]',
+  SPLIT: 'bg-[var(--ap-warn-bg)] text-[var(--ap-warn-fg)]',
+  RESCHEDULE: 'bg-[var(--ap-bg-sunken)] text-[var(--ap-fg)]',
+  DESCOPE: 'bg-[var(--ap-danger-bg)] text-[var(--ap-danger-fg)]',
+  ESCALATE: 'bg-[var(--ap-ahead-bg)] text-[var(--ap-ahead-fg)]',
 }
 
 const PRIORITY_BADGE: Record<string, string> = {
-  URGENT: 'bg-rose-100 text-rose-900',
-  HIGH: 'bg-amber-100 text-amber-900',
-  MEDIUM: 'bg-sky-100 text-sky-900',
-  LOW: 'bg-slate-100 text-slate-900',
+  URGENT: 'bg-[var(--ap-danger-bg)] text-[var(--ap-danger-fg)]',
+  HIGH: 'bg-[var(--ap-warn-bg)] text-[var(--ap-warn-fg)]',
+  MEDIUM: 'bg-[var(--ap-accent-soft)] text-[var(--ap-accent-on-soft)]',
+  LOW: 'bg-[var(--ap-bg-sunken)] text-[var(--ap-fg)]',
 }
 
 interface Props {
@@ -148,14 +149,18 @@ export function ReviewPlanClient({ planId }: Props) {
 
   if (isLoading) {
     return (
-      <div className="p-8 flex items-center gap-2 text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" /> Loading plan…
+      <div className="mx-auto max-w-5xl space-y-4 p-6" aria-busy="true">
+        <span className="sr-only">Loading plan…</span>
+        <Skeleton className="h-4 w-40" />
+        <Skeleton className="h-8 w-72" />
+        <Skeleton className="h-24 w-full" />
+        <Skeleton className="h-48 w-full" />
       </div>
     )
   }
   if (isError || !data?.success) {
     return (
-      <div className="p-8 text-rose-600 flex items-center gap-2">
+      <div className="p-8 text-[var(--ap-danger-fg)] flex items-center gap-2">
         <AlertCircle className="h-4 w-4" /> Failed to load plan.
         <button onClick={() => refetch()} className="ml-2 underline">Retry</button>
       </div>
@@ -181,7 +186,7 @@ export function ReviewPlanClient({ planId }: Props) {
       {/* Breadcrumb */}
       <Link
         href={backHref}
-        className="mb-3 inline-flex items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground"
+        className="mb-3 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="h-3.5 w-3.5" /> {backLabel}
       </Link>
@@ -194,7 +199,7 @@ export function ReviewPlanClient({ planId }: Props) {
             <button
               onClick={() => discard.mutate()}
               disabled={discard.isPending}
-              className="inline-flex items-center gap-1 rounded-[var(--ap-radius-sm)] border h-8 px-3 text-[12px] font-medium text-rose-600"
+              className="inline-flex items-center gap-1 rounded-[var(--ap-radius-sm)] border h-8 px-3 text-xs font-medium text-[var(--ap-danger-fg)]"
               style={{ borderColor: 'var(--ap-border)' }}
             >
               <Trash2 className="h-3.5 w-3.5" /> Discard
@@ -202,8 +207,8 @@ export function ReviewPlanClient({ planId }: Props) {
             <button
               onClick={() => accept.mutate()}
               disabled={accept.isPending || selectedTodoIds.size === 0}
-              className="inline-flex items-center gap-1 rounded-[var(--ap-radius-sm)] h-8 px-3 text-[12px] font-semibold text-white disabled:opacity-50"
-              style={{ background: 'linear-gradient(135deg, #10b981, #059669)' }}
+              className="inline-flex items-center gap-1 rounded-[var(--ap-radius-sm)] h-8 px-3 text-xs font-semibold disabled:opacity-50"
+              style={{ background: 'var(--ap-ok)', color: 'var(--ap-accent-fg)' }}
             >
               {accept.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
               Accept ({selectedTodoIds.size})
@@ -214,7 +219,7 @@ export function ReviewPlanClient({ planId }: Props) {
 
       {/* Subject + sprint context */}
       <div
-        className="mb-4 rounded-[12px] border p-4 text-[13px]"
+        className="mb-4 rounded-[12px] border p-4 text-body-sm"
         style={{ borderColor: 'var(--ap-border)', background: 'rgba(124 58 237 / 0.04)' }}
       >
         <div className="flex flex-wrap items-center gap-4">
@@ -223,20 +228,20 @@ export function ReviewPlanClient({ planId }: Props) {
               className="flex h-9 w-9 items-center justify-center rounded-full"
               style={{ background: 'rgba(124 58 237 / 0.12)' }}
             >
-              <User className="h-4 w-4 text-purple-600" />
+              <User className="h-4 w-4 text-[var(--ap-ahead)]" />
             </div>
             <div>
-              <div className="text-muted-foreground text-[11px] uppercase tracking-wide">Generated for</div>
-              <div className="font-semibold text-[14px]">
+              <div className="text-muted-foreground text-caption uppercase tracking-wide">Generated for</div>
+              <div className="font-semibold text-sm">
                 {plan.subject?.name ?? plan.subject?.email ?? 'Unknown user'}
               </div>
               {plan.subject?.email && plan.subject.name && (
-                <div className="text-[11px] text-muted-foreground">{plan.subject.email}</div>
+                <div className="text-caption text-muted-foreground">{plan.subject.email}</div>
               )}
             </div>
           </div>
           <div className="ml-auto text-right">
-            <div className="text-muted-foreground text-[11px] uppercase tracking-wide">Sprint</div>
+            <div className="text-muted-foreground text-caption uppercase tracking-wide">Sprint</div>
             <Link
               href={`/dashboard/sprints/${plan.sprint.id}`}
               className="font-medium hover:underline"
@@ -248,14 +253,14 @@ export function ReviewPlanClient({ planId }: Props) {
       </div>
 
       {/* Sprint window */}
-      <div className="mb-6 rounded-[12px] border p-4 text-[13px]" style={{ borderColor: 'var(--ap-border)' }}>
+      <div className="mb-6 rounded-[12px] border p-4 text-body-sm" style={{ borderColor: 'var(--ap-border)' }}>
         <div className="flex flex-wrap items-center gap-4">
           <div>
-            <div className="text-muted-foreground text-[11px] uppercase">Sprint window</div>
+            <div className="text-muted-foreground text-caption uppercase">Sprint window</div>
             <div>{fmt(plan.sprint.startDate)} → {fmt(plan.sprint.endDate)}</div>
           </div>
           {plan.carryoverSummary && (
-            <div className="ml-auto flex items-center gap-2 text-[11px]">
+            <div className="ml-auto flex items-center gap-2 text-caption">
               <span>{plan.carryoverSummary.total} carryover</span>
               {plan.carryoverSummary.kept > 0 && <Badge>K {plan.carryoverSummary.kept}</Badge>}
               {plan.carryoverSummary.split > 0 && <Badge>S {plan.carryoverSummary.split}</Badge>}
@@ -269,10 +274,10 @@ export function ReviewPlanClient({ planId }: Props) {
 
       {/* Rationale */}
       <section className="mb-6">
-        <h2 className="text-[12px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
           Rationale
         </h2>
-        <div className="rounded-[12px] border p-4 text-[13px] leading-relaxed whitespace-pre-wrap"
+        <div className="rounded-[12px] border p-4 text-body-sm leading-relaxed whitespace-pre-wrap"
              style={{ borderColor: 'var(--ap-border)', background: 'rgba(124 58 237 / 0.03)' }}>
           {plan.rationale}
         </div>
@@ -281,20 +286,20 @@ export function ReviewPlanClient({ planId }: Props) {
       {/* Carryover */}
       {plan.carryover.length > 0 && (
         <section className="mb-6">
-          <h2 className="text-[12px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
             Carried over from previous sprint
           </h2>
           <div className="space-y-2">
             {plan.carryover.map((c) => (
-              <div key={c.id} className="rounded-[var(--ap-radius-sm)] border p-3 flex items-center justify-between gap-3 text-[13px]"
+              <div key={c.id} className="rounded-[var(--ap-radius-sm)] border p-3 flex items-center justify-between gap-3 text-body-sm"
                    style={{ borderColor: 'var(--ap-border)' }}>
                 <div className="min-w-0">
                   <div className="font-medium truncate">{c.title}</div>
-                  <div className="text-[11px] text-muted-foreground">
+                  <div className="text-caption text-muted-foreground">
                     Carried {c.carryoverCount}× · due {fmt(c.dueDate)}
                   </div>
                 </div>
-                <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${DISPOSITION_BADGE[c.disposition] ?? 'bg-muted'}`}>
+                <span className={`rounded-full px-2 py-0.5 text-micro font-medium ${DISPOSITION_BADGE[c.disposition] ?? 'bg-muted'}`}>
                   {c.disposition}
                 </span>
               </div>
@@ -306,10 +311,10 @@ export function ReviewPlanClient({ planId }: Props) {
       {/* New tasks */}
       <section className="mb-8">
         <div className="flex items-center justify-between mb-2">
-          <h2 className="text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Proposed new tasks ({plan.proposedTodos.length})
           </h2>
-          <button onClick={toggleAll} className="text-[11px] underline text-muted-foreground">
+          <button onClick={toggleAll} className="text-caption underline text-muted-foreground">
             {selectedTodoIds.size === plan.proposedTodos.length ? 'Deselect all' : 'Select all'}
           </button>
         </div>
@@ -339,22 +344,22 @@ export function ReviewPlanClient({ planId }: Props) {
                   />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium text-[13px]">{t.title}</span>
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${PRIORITY_BADGE[t.priority] ?? 'bg-muted'}`}>
+                      <span className="font-medium text-body-sm">{t.title}</span>
+                      <span className={`rounded-full px-2 py-0.5 text-micro font-medium ${PRIORITY_BADGE[t.priority] ?? 'bg-muted'}`}>
                         {t.priority}
                       </span>
                       {t.ambitionLevel === 'STRETCH' && (
-                        <span className="rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-medium text-purple-900">
+                        <span className="rounded-full bg-[var(--ap-ahead-bg)] px-2 py-0.5 text-micro font-medium text-[var(--ap-ahead-fg)]">
                           STRETCH
                         </span>
                       )}
                     </div>
                     {t.description && (
-                      <div className="mt-1 text-[12px] text-muted-foreground">{t.description}</div>
+                      <div className="mt-1 text-xs text-muted-foreground">{t.description}</div>
                     )}
                     {t.keyResult && (
-                      <div className="mt-2 rounded-[8px] border-l-2 border-blue-400 bg-blue-50/40 px-2 py-1.5 text-[11px]">
-                        <div className="text-blue-900">
+                      <div className="mt-2 rounded-[8px] border-l-2 border-[var(--ap-accent)] bg-[var(--ap-accent-soft)] px-2 py-1.5 text-caption">
+                        <div className="text-[var(--ap-accent-on-soft)]">
                           <span className="font-semibold">→ contributes</span>{' '}
                           {t.progressValue != null && (
                             <span className="font-mono">
@@ -363,7 +368,7 @@ export function ReviewPlanClient({ planId }: Props) {
                           )}
                           to KR <span className="font-medium">{t.keyResult.title}</span>
                         </div>
-                        <div className="mt-0.5 text-[10px] text-muted-foreground">
+                        <div className="mt-0.5 text-micro text-muted-foreground">
                           {t.keyResult.objective && (
                             <>Objective: {t.keyResult.objective.title} · </>
                           )}
@@ -372,7 +377,7 @@ export function ReviewPlanClient({ planId }: Props) {
                         </div>
                       </div>
                     )}
-                    <div className="mt-1 text-[11px] text-muted-foreground flex flex-wrap gap-3">
+                    <div className="mt-1 text-caption text-muted-foreground flex flex-wrap gap-3">
                       {t.dueDate && <span>Due {fmt(t.dueDate)}</span>}
                       {t.taskType && t.taskType !== 'GENERAL' && <span>{t.taskType}</span>}
                     </div>
@@ -386,21 +391,21 @@ export function ReviewPlanClient({ planId }: Props) {
 
       {/* Regenerate */}
       <section className="rounded-[12px] border p-4" style={{ borderColor: 'var(--ap-border)' }}>
-        <h2 className="text-[12px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
           Not happy? Regenerate with feedback
         </h2>
         <textarea
           value={feedback}
           onChange={(e) => setFeedback(e.target.value)}
           placeholder="e.g. Fewer marketing tasks, focus on product KRs, or less ambitious."
-          className="w-full rounded-[var(--ap-radius-sm)] border p-2 text-[13px] min-h-[60px]"
+          className="w-full rounded-[var(--ap-radius-sm)] border p-2 text-body-sm min-h-[60px]"
           style={{ borderColor: 'var(--ap-border)' }}
         />
         <div className="mt-2 flex justify-end">
           <button
             onClick={() => regenerate.mutate()}
             disabled={regenerate.isPending || feedback.trim().length === 0}
-            className="inline-flex items-center gap-1 rounded-[var(--ap-radius-sm)] border h-8 px-3 text-[12px] font-medium disabled:opacity-50"
+            className="inline-flex items-center gap-1 rounded-[var(--ap-radius-sm)] border h-8 px-3 text-xs font-medium disabled:opacity-50"
             style={{ borderColor: 'var(--ap-border)' }}
           >
             {regenerate.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
@@ -414,7 +419,7 @@ export function ReviewPlanClient({ planId }: Props) {
 
 function Badge({ children }: { children: React.ReactNode }) {
   return (
-    <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide">
+    <span className="rounded-full bg-muted px-2 py-0.5 text-micro font-medium uppercase tracking-wide">
       {children}
     </span>
   )

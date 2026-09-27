@@ -15,7 +15,7 @@
 import { prisma } from '@/lib/prisma'
 import { apiSuccess, apiBadRequest } from '@/lib/api'
 import { withAuth } from '@/lib/api/withAuth'
-import { transitionPlan, loadReadablePlan, badStatus } from '@/lib/dtp/api-helpers'
+import { tryTransitionPlan, transitionFailure, loadReadablePlan, badStatus } from '@/lib/dtp/api-helpers'
 import { resolveApprovalRouting, getDtpSettings } from '@/lib/dtp/settings'
 import { notifyDtpEvent } from '@/lib/dtp/notifier'
 import { parseHHMM } from '@/lib/dtp/time'
@@ -38,7 +38,7 @@ export const POST = withAuth<{ id: string }>(async (_req, { session, params }) =
   cutoffDate.setUTCHours(Math.floor(cutoffMin / 60), cutoffMin % 60, 0, 0)
   const late = now > cutoffDate
 
-  const updated = await transitionPlan({
+  const transition = await tryTransitionPlan({
     planId: plan.id,
     from: plan.status as DtpStatus,
     to: 'SUBMITTED',
@@ -47,7 +47,8 @@ export const POST = withAuth<{ id: string }>(async (_req, { session, params }) =
     payload: { late, stopCount: plan.stops.length },
     patch: { submittedAt: new Date(), late },
   })
-  if (!updated) return badStatus()
+  if (!transition.ok) return transitionFailure(transition.reason)
+  const updated = transition.plan
 
   // Routing — gather coordinator + manager recipients.
   const routing = await resolveApprovalRouting(plan.departmentId)

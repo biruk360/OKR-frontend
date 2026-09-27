@@ -46,11 +46,11 @@ export default function OkrBreadcrumb({ nodes, right, className }: Props) {
         const Icon = n.kind === 'KR' ? Key : n.kind === 'OBJ' ? Target : Building2
         const badgeColour =
           n.kind === 'KR'
-            ? 'bg-blue-50 text-blue-700'
-            : 'bg-violet-50 text-violet-700'
+            ? 'bg-primary-50 text-primary-700'
+            : 'bg-[color:var(--ap-ahead-bg)] text-[color:var(--ap-ahead-fg)]'
         const content = (
           <span className="inline-flex items-center gap-1.5">
-            <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-semibold ${badgeColour}`}>
+            <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-caption font-semibold ${badgeColour}`}>
               <Icon className="h-3 w-3" />
               {n.code ?? n.kind}
             </span>
@@ -78,7 +78,7 @@ export default function OkrBreadcrumb({ nodes, right, className }: Props) {
         {last.status && <span className="uppercase tracking-wide">{last.status}</span>}
         {last.ownerName && (
           <span className="inline-flex items-center gap-1 text-muted-foreground">
-            <span className="h-5 w-5 rounded-full bg-emerald-500 text-[10px] text-white flex items-center justify-center">
+            <span className="h-5 w-5 rounded-full bg-success-500 text-micro text-primary-foreground flex items-center justify-center">
               {(last.ownerName[0] ?? '?').toUpperCase()}
             </span>
             {last.ownerName}

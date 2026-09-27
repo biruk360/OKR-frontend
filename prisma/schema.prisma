@@ -29,6 +29,9 @@ model User {
   isProjectManager       Boolean   @default(false)
   activationToken        String?
   activationTokenExpires DateTime?
+  /// Credential epoch. Sessions/bearer tokens whose authTime predates this are rejected
+  /// (lib/auth.ts). Set on change-password, reset-password completion and admin reset.
+  passwordChangedAt      DateTime?
   lastLoginAt            DateTime?
   createdAt              DateTime  @default(now())
   updatedAt              DateTime  @updatedAt
@@ -316,6 +319,8 @@ model Objective {
   @@index([closureStatus])
   @@index([rolledFromId])
   @@index([lineageRootId])
+  @@index([timeframeId, status])
+  @@index([parentObjectiveId, status])
   @@map("objectives")
 }
 
@@ -403,6 +408,8 @@ model KeyResult {
   @@index([closureStatus])
   @@index([rolledFromId])
   @@index([lineageRootId])
+  @@index([objectiveId, status])
+  @@index([ownerId])
   @@map("key_results")
 }
 
@@ -519,6 +526,13 @@ model Todo {
   recurrenceRule        String?
   /// Inclusive last date the series may generate. Null = open-ended.
   recurrenceEndsAt      DateTime?
+  /// Day of month (1–31) a MONTHLY/YEARLY series is anchored on; 31 means "the
+  /// last day of the month" (it clamps to 28/29/30 in short months). Only
+  /// meaningful for MONTHLY and YEARLY; null for every other rule, for
+  /// occurrences, and for legacy heads (the generator then infers it from
+  /// history). Set from the head's dueDate when the rule or due date is saved;
+  /// never changed by the generator advancing the cursor.
+  recurrenceAnchorDay   Int?
   /// Points at the series head for a generated occurrence; null on the head.
   recurrenceParentId    String?
   /// Optional primary assignee (legacy — Trello-style usage relies on TodoMember
@@ -599,6 +613,8 @@ model Todo {
   @@index([status, sortOrder])
   @@index([originalSprintId])
   @@index([carryoverCount])
+  @@index([keyResultId, status])
+  @@index([objectiveId])
   @@map("initiatives")
 }
 
@@ -785,6 +801,9 @@ model Comment {
   parent    Comment?   @relation("CommentReplies", fields: [parentId], references: [id])
   replies   Comment[]  @relation("CommentReplies")
 
+  @@index([objectiveId, createdAt])
+  @@index([keyResultId, createdAt])
+  @@index([parentId])
   @@map("comments")
 }
 
@@ -817,6 +836,7 @@ model Notification {
 
   @@index([userId, isRead, createdAt])
   @@index([eventKey, createdAt])
+  @@index([isRead, createdAt])
   @@map("notifications")
 }
 
@@ -829,7 +849,7 @@ model NotificationPreference {
   category     String // ACCOUNT | OBJECTIVE | KEY_RESULT | CHECK_IN | TODO | TIMEFRAME | ALIGNMENT | COMMENT | ADMIN
   inApp        Boolean  @default(true)
   email        Boolean  @default(true)
-  emailCadence String   @default("IMMEDIATE") // IMMEDIATE | DAILY | WEEKLY | DISABLED
+  emailCadence String   @default("BATCHED") // BATCHED | IMMEDIATE | DAILY | WEEKLY | DISABLED (see lib/notifications/cadence.ts)
   updatedAt    DateTime @updatedAt
   createdAt    DateTime @default(now())
 
@@ -846,7 +866,7 @@ model OrgNotificationDefault {
   category     String   @unique
   inApp        Boolean  @default(true)
   email        Boolean  @default(true)
-  emailCadence String   @default("IMMEDIATE")
+  emailCadence String   @default("BATCHED")
   updatedAt    DateTime @updatedAt
   createdAt    DateTime @default(now())
 
@@ -887,6 +907,7 @@ model EmailDigestQueue {
 
   @@index([userId, cadence, sentAt])
   @@index([sentAt])
+  @@index([cadence, sentAt, queuedAt])
   @@map("email_digest_queue")
 }
 
@@ -985,6 +1006,7 @@ model ObjectiveLabel {
   label     Label     @relation(fields: [labelId], references: [id], onDelete: Cascade)
 
   @@unique([objectiveId, labelId])
+  @@index([labelId])
   @@map("objective_labels")
 }
 
@@ -1035,6 +1057,8 @@ model ActivityLog {
   @@index([evaluationId, createdAt])
   @@index([projectId, createdAt])
   @@index([entityType, createdAt])
+  @@index([createdAt])
+  @@index([actorId, createdAt])
   @@map("activity_logs")
 }
 
@@ -1893,6 +1917,30 @@ model LetterTypeDef {
   @@map("letter_types")
 }
 
+/// Letter body templates (FR-4 default template per type; template management
+/// is a `letter:admin` screen). Replaces the LETTER_TEMPLATES constants in
+/// lib/letters.ts, which seed this table on first read when it is empty.
+/// `letterType` is a LetterTypeDef.code (CL/OF/GR/custom). `bodyHtml` is
+/// always stored sanitized (sanitizeLetterBodyHtml). Archive = isActive false.
+model LetterTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  letterType  String // LetterTypeDef.code
+  language    String   @default("en") // en | am
+  bodyHtml    String   @db.Text
+  isActive    Boolean  @default(true)
+  // Set only on rows seeded from the built-in constants ("builtin:CL:en"),
+  // so concurrent first reads cannot seed twice.
+  seedKey     String?  @unique
+  createdById String?
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([letterType, language, isActive])
+  @@map("letter_templates")
+}
+
 /// DB-driven letter permission matrix.
 /// Stores whether a given system role has a given letter permission.
 /// Seeded with defaults matching the original hardcoded rules in lib/permissions.ts.
@@ -1962,6 +2010,7 @@ model UserRole {
   role        Role      @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
   @@unique([userId, roleId])
+  @@index([roleId])
   @@map("user_roles")
 }
 
@@ -2718,6 +2767,7 @@ model Milestone {
   keyResult  KeyResult? @relation(fields: [keyResultId], references: [id])
 
   @@index([phaseId, position])
+  @@index([keyResultId])
   @@map("project_milestones")
 }
 
@@ -2804,6 +2854,7 @@ model ActivityDependency {
   successor     Activity @relation("Successor", fields: [successorId], references: [id], onDelete: Cascade)
 
   @@unique([predecessorId, successorId])
+  @@index([successorId])
   @@map("project_activity_dependencies")
 }
 
@@ -2857,6 +2908,7 @@ model ProjectMember {
   project       Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@unique([projectId, userId])
+  @@index([userId])
   @@map("project_members")
 }
 
@@ -2975,10 +3027,14 @@ model ChangeRequest {
   clientSignOffAt DateTime?
   rejectionReason String?
 
+  // Invariant #5: fail-safe INTERNAL; the portal reads only CLIENT_VISIBLE rows (SQL-level filter).
+  visibility String @default("INTERNAL") // INTERNAL | CLIENT_VISIBLE
+
   createdAt DateTime @default(now())
   project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId, status])
+  @@index([projectId, visibility])
   @@map("project_change_requests")
 }
 

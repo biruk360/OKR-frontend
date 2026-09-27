@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { apiBadRequest, apiForbidden, apiNotFound, apiSuccess, withAuth } from '@/lib/api'
 import { canScoreEvaluation } from '@/lib/performance'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
+import { recordActivity, type ChangeMap } from '@/lib/activity-log'
 
 type ScoreInput = { criterionId?: string; score?: number; remark?: string }
 
@@ -34,6 +35,24 @@ export const PUT = withAuth<RouteIdParams>(async (request: NextRequest, { sessio
     }
   }
 
+  const previous = await prisma.evaluatorScore.findMany({
+    where: { evaluationId: id, evaluatorId: session.user.id, criterionId: { in: scores.map((s) => s.criterionId!) } },
+    select: { criterionId: true, score: true, remark: true },
+  })
+  const before = new Map(previous.map((row) => [row.criterionId, row]))
+  const changes: ChangeMap = {}
+  for (const input of scores) {
+    const prior = before.get(input.criterionId!)
+    const nextScore = Number(input.score)
+    const nextRemark = input.remark?.trim() || null
+    if (!prior || prior.score !== nextScore || (prior.remark ?? null) !== nextRemark) {
+      changes[input.criterionId!] = {
+        from: prior ? { score: prior.score, remark: prior.remark ?? null } : null,
+        to: { score: nextScore, remark: nextRemark },
+      }
+    }
+  }
+
   await prisma.$transaction(async (tx) => {
     for (const input of scores) {
       await tx.evaluatorScore.upsert({
@@ -58,6 +77,19 @@ export const PUT = withAuth<RouteIdParams>(async (request: NextRequest, { sessio
       await tx.evaluation.update({ where: { id }, data: { status: 'IN_PROGRESS', startedAt: new Date() } })
     }
   })
+  if (Object.keys(changes).length > 0 || evaluation.status === 'ASSIGNED') {
+    await recordActivity({
+      entityType: 'EVALUATION',
+      evaluationId: id,
+      action: 'UPDATED',
+      actorId: session.user.id,
+      changes: {
+        ...changes,
+        ...(evaluation.status === 'ASSIGNED' ? { status: { from: 'ASSIGNED', to: 'IN_PROGRESS' } } : {}),
+      },
+      metadata: { kind: 'SCORES_SAVED', criteriaCount: scores.length },
+    })
+  }
   return apiSuccess({ saved: scores.length })
 })
 

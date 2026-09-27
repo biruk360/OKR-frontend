@@ -116,10 +116,10 @@ export default function EditKeyResultModal({
   if (!keyResult) return null
 
   return (
-    <Modal open={isOpen} onClose={onClose} title="Edit Key Result" icon={Target} iconClassName="text-blue-600" size="sm">
+    <Modal open={isOpen} onClose={onClose} title="Edit Key Result" icon={Target} iconClassName="text-primary-600" size="sm">
       <form onSubmit={handleSubmit(onSubmit)}>
         {inheritedDept && (
-          <div className="mb-4 flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800">
+          <div className="mb-4 flex items-center gap-2 rounded-md border border-primary-200 bg-primary-50 px-3 py-2 text-xs text-primary-800">
             <Building2 className="h-3.5 w-3.5 shrink-0" />
             <span>
               <span className="font-semibold uppercase tracking-wide">Department</span>
@@ -130,16 +130,16 @@ export default function EditKeyResultModal({
         )}
         <div className="mb-4">
           <label htmlFor="title" className="block text-sm font-medium text-muted-foreground mb-2">
-            Title <span className="text-red-500">*</span>
+            Title <span className="text-danger-500">*</span>
           </label>
           <input
             type="text"
             id="title"
             {...register('title', { required: 'Title is required' })}
-            className="w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-blue-500"
+            className="w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary-500"
             placeholder="Enter key result title"
           />
-          {errors.title && <p className="mt-1 text-sm text-red-600">{errors.title.message}</p>}
+          {errors.title && <p className="mt-1 text-sm text-danger-600">{errors.title.message}</p>}
         </div>
 
         <div className="mb-4">
@@ -150,19 +150,19 @@ export default function EditKeyResultModal({
             id="description"
             {...register('description')}
             rows={3}
-            className="w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-blue-500"
+            className="w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary-500"
             placeholder="Enter key result description (optional)"
           />
         </div>
 
         <div className="mb-4">
           <label htmlFor="owner" className="block text-sm font-medium text-muted-foreground mb-2">
-            Owner <span className="text-red-500">*</span>
+            Owner <span className="text-danger-500">*</span>
           </label>
           <select
             id="owner"
             {...register('ownerId', { required: 'Owner is required' })}
-            className="w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-blue-500"
+            className="w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary-500"
           >
             <option value="">Select an owner</option>
             {users.map((user) => (
@@ -171,7 +171,7 @@ export default function EditKeyResultModal({
               </option>
             ))}
           </select>
-          {errors.ownerId && <p className="mt-1 text-sm text-red-600">{errors.ownerId.message}</p>}
+          {errors.ownerId && <p className="mt-1 text-sm text-danger-600">{errors.ownerId.message}</p>}
         </div>
 
         <div className="grid grid-cols-2 gap-4 mb-4">
@@ -186,15 +186,15 @@ export default function EditKeyResultModal({
                 required: 'Start value is required',
                 min: { value: 0, message: 'Start value must be 0 or greater' },
               })}
-              className="w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-blue-500"
+              className="w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary-500"
               placeholder="0"
             />
-            {errors.startValue && <p className="mt-1 text-sm text-red-600">{errors.startValue.message}</p>}
+            {errors.startValue && <p className="mt-1 text-sm text-danger-600">{errors.startValue.message}</p>}
           </div>
 
           <div>
             <label htmlFor="targetValue" className="block text-sm font-medium text-muted-foreground mb-2">
-              Target Value <span className="text-red-500">*</span>
+              Target Value <span className="text-danger-500">*</span>
             </label>
             <input
               type="number"
@@ -203,10 +203,10 @@ export default function EditKeyResultModal({
                 required: 'Target value is required',
                 min: { value: 0.01, message: 'Target value must be greater than 0' },
               })}
-              className="w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-blue-500"
+              className="w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary-500"
               placeholder="100"
             />
-            {errors.targetValue && <p className="mt-1 text-sm text-red-600">{errors.targetValue.message}</p>}
+            {errors.targetValue && <p className="mt-1 text-sm text-danger-600">{errors.targetValue.message}</p>}
           </div>
         </div>
 
@@ -217,7 +217,7 @@ export default function EditKeyResultModal({
           <select
             id="unit"
             {...register('unit')}
-            className="w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-blue-500"
+            className="w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary-500"
           >
             <option value="%">% (percent)</option>
             <option value="pcs">pcs (pieces)</option>
@@ -238,19 +238,19 @@ export default function EditKeyResultModal({
         </div>
 
         {startValue >= targetValue && startValue > 0 && targetValue > 0 && (
-          <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-3">
+          <div className="mb-4 bg-danger-50 border border-danger-200 rounded-lg p-3">
             <div className="flex items-center">
-              <TrendingUp className="h-4 w-4 text-red-600 mr-2" />
-              <p className="text-sm text-red-700">Target Value must be greater than Start Value.</p>
+              <TrendingUp className="h-4 w-4 text-danger-600 mr-2" />
+              <p className="text-sm text-danger-700">Target Value must be greater than Start Value.</p>
             </div>
           </div>
         )}
 
         {targetValue !== keyResult.targetValue && (
-          <div className="mb-4 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+          <div className="mb-4 bg-warning-50 border border-warning-200 rounded-lg p-3">
             <div className="flex items-center">
-              <TrendingUp className="h-4 w-4 text-yellow-600 mr-2" />
-              <p className="text-sm text-yellow-700">
+              <TrendingUp className="h-4 w-4 text-warning-600 mr-2" />
+              <p className="text-sm text-warning-700">
                 Changing the target value will recalculate the progress percentage and update the parent objective&apos;s overall progress.
               </p>
             </div>
@@ -262,7 +262,7 @@ export default function EditKeyResultModal({
             <input
               type="checkbox"
               {...register('isPrivate')}
-              className="h-4 w-4 text-blue-600 focus:ring-ring border-border rounded"
+              className="h-4 w-4 text-primary-600 focus:ring-ring border-border rounded"
             />
             <span className="ml-2 text-sm text-muted-foreground">Make this key result private</span>
           </label>
@@ -277,12 +277,12 @@ export default function EditKeyResultModal({
           </button>
           <button
             type="submit"
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring disabled:opacity-50"
+            className="bg-primary-600 hover:bg-primary-700 text-primary-foreground px-4 py-2 rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring disabled:opacity-50"
             disabled={isLoading || (startValue >= targetValue && startValue > 0 && targetValue > 0)}
           >
             {isLoading ? (
               <div className="flex items-center">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2" />
                 Updating...
               </div>
             ) : (

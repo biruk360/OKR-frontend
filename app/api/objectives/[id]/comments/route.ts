@@ -3,12 +3,16 @@ import { claimAttachments, attachmentsForComments } from '@/lib/attachments/clai
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { apiSuccess, apiBadRequest, apiNotFound, withAuth } from '@/lib/api'
 import { recordActivity } from '@/lib/activity-log'
+import { canAccessOkrComments } from '@/lib/okr/comment-access'
 import { resolveMentions, fanOutCommentNotifications } from '@/lib/comments'
 import { emit } from '@/lib/notifications'
+import { broadcastObjectiveEvent } from '@/lib/pusher'
+import { OKR_REALTIME_EVENTS } from '@/lib/okr/realtime'
 
-export const GET = withAuth<RouteIdParams>(async (_req, { params }) => {
+export const GET = withAuth<RouteIdParams>(async (_req, { session, params }) => {
   const { id } = await resolveParams(params)
   if (!id) return apiBadRequest('Invalid id')
+  if (!(await canAccessOkrComments(session.user, 'OBJECTIVE', id))) return apiNotFound('Objective not found')
   const comments = await prisma.comment.findMany({
     where: { objectiveId: id },
     orderBy: { createdAt: 'asc' },
@@ -22,6 +26,7 @@ export const GET = withAuth<RouteIdParams>(async (_req, { params }) => {
 export const POST = withAuth<RouteIdParams>(async (req, { session, params }) => {
   const { id } = await resolveParams(params)
   if (!id) return apiBadRequest('Invalid id')
+  if (!(await canAccessOkrComments(session.user, 'OBJECTIVE', id))) return apiNotFound('Objective not found')
 
   const body = await req.json().catch(() => ({})) as { content?: string; attachmentIds?: unknown }
   const content = (body.content ?? '').trim()
@@ -33,6 +38,7 @@ export const POST = withAuth<RouteIdParams>(async (req, { session, params }) => 
       id: true,
       title: true,
       ownerId: true,
+      isPrivate: true,
       contributors: { select: { userId: true } },
       keyResults: { select: { ownerId: true } },
     },
@@ -80,6 +86,7 @@ export const POST = withAuth<RouteIdParams>(async (req, { session, params }) => 
     await emit('USER_MENTIONED', {
       actorId: session.user.id,
       entityType: 'OBJECTIVE', entityId: id, entityTitle: objective.title,
+      isPrivate: objective.isPrivate,
       explicitRecipients: mentionedIds,
       data: { actorName: session.user.name, snippet, deepLink: `/dashboard/objectives/${id}` },
     })
@@ -87,6 +94,7 @@ export const POST = withAuth<RouteIdParams>(async (req, { session, params }) => 
   await emit('COMMENT_ON_OWNED_ENTITY', {
     actorId: session.user.id,
     entityType: 'OBJECTIVE', entityId: id, entityTitle: objective.title,
+      isPrivate: objective.isPrivate,
     data: {
       actorName: session.user.name, snippet,
       ownedEntityType: 'OBJECTIVE', ownedEntityId: id,
@@ -104,5 +112,6 @@ export const POST = withAuth<RouteIdParams>(async (req, { session, params }) => 
     uploaderId: session.user.id,
   })
 
+  broadcastObjectiveEvent(id, OKR_REALTIME_EVENTS.COMMENT_ADDED, session.user.id)
   return apiSuccess({ ...comment, attachments }, { message: 'Comment added.' })
 })

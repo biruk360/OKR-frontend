@@ -1,9 +1,9 @@
 import { getServerSessionSafe } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { loadUsersDirectory } from '@/features/admin-org/services/org-pages.server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { User, Building2, Users, Target } from 'lucide-react'
-import { canManageUsers } from '@/lib/permissions'
 
 export default async function UsersDirectoryPage() {
   const session = await getServerSessionSafe()
@@ -12,25 +12,7 @@ export default async function UsersDirectoryPage() {
     redirect('/auth/signin')
   }
 
-  // Get all users
-  const users = await prisma.user.findMany({
-    where: { isActive: true },
-    include: {
-      departmentMemberships: {
-        include: {
-          department: {
-            select: { id: true, name: true }
-          }
-        }
-      },
-      _count: {
-        select: { ownedObjectives: true }
-      }
-    },
-    orderBy: { name: 'asc' }
-  })
-
-  const canManage = canManageUsers(session.user.role as any)
+  const { users, canManage } = await loadUsersDirectory(session.user)
 
   return (
     <div className="space-y-4">
@@ -43,7 +25,7 @@ export default async function UsersDirectoryPage() {
         {canManage && (
           <Link
             href="/dashboard/settings/users"
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-primary-foreground bg-primary-600 hover:bg-primary-700"
           >
             Manage Users
           </Link>
@@ -56,7 +38,7 @@ export default async function UsersDirectoryPage() {
           <Link
             key={user.id}
             href={`/dashboard/org/users/${user.id}`}
-            className="block bg-card rounded-lg border border-border p-6 hover:shadow-md transition-shadow focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+            className="block bg-card rounded-lg border border-border p-6 hover:shadow-md transition-shadow ap-focus-ring"
           >
             <div className="flex items-center space-x-4 mb-4">
               {user.avatar ? (
@@ -66,14 +48,14 @@ export default async function UsersDirectoryPage() {
                   className="h-12 w-12 rounded-full"
                 />
               ) : (
-                <div className="h-12 w-12 rounded-full bg-blue-500 flex items-center justify-center">
-                  <User className="h-6 w-6 text-white" />
+                <div className="h-12 w-12 rounded-full bg-primary-500 flex items-center justify-center">
+                  <User className="h-6 w-6 text-primary-foreground" />
                 </div>
               )}
               <div className="flex-1 min-w-0">
                 <h3 className="text-lg font-semibold text-foreground truncate">{user.name}</h3>
                 <p className="text-sm text-muted-foreground truncate">{user.email}</p>
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 mt-1">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-800 mt-1">
                   {user.role}
                 </span>
               </div>
@@ -102,10 +84,10 @@ export default async function UsersDirectoryPage() {
       </div>
 
       {users.length === 0 && (
-        <div className="text-center py-12 bg-card rounded-lg border border-border">
-          <Users className="mx-auto h-12 w-12 text-muted-foreground" />
-          <h3 className="mt-2 text-sm font-medium text-foreground">No users found</h3>
-        </div>
+        <EmptyState
+          icon={<Users className="h-10 w-10 text-muted-foreground" />}
+          title="No users found"
+        />
       )}
     </div>
   )

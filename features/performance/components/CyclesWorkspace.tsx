@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useId } from 'react'
 import { useForm } from 'react-hook-form'
 import { Building2, CalendarRange, ListChecks, Lock, Play, Plus } from 'lucide-react'
 import { Button, Checkbox, ConfirmDialog, EmptyState, Input, Label, Modal, Textarea } from '@/components/ui'
@@ -17,6 +17,7 @@ type CycleScope = 'ALL' | 'DEPARTMENTS'
 type CycleForm = { name: string; cadence: string; periodStart: string; periodEnd: string; scope: CycleScope; departmentIds: string[] }
 
 export function CyclesWorkspace() {
+  const uid = useId()
   const cycles = useReviewCycles()
   const create = useCreateReviewCycle()
   const openCycle = useOpenReviewCycle()
@@ -138,13 +139,13 @@ export function CyclesWorkspace() {
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Create review cycle" footer={<><Button variant="outline" onClick={() => setModalOpen(false)}>Cancel</Button><Button onClick={submit} disabled={create.isPending}>Create cycle</Button></>}>
         <form onSubmit={submit} className="grid gap-4 py-2 sm:grid-cols-2">
           <div className="sm:col-span-2">
-            <Label>Cycle name</Label>
-            <Input {...register('name', { required: 'Cycle name is required' })} placeholder="June 2026" />
+            <Label htmlFor={`${uid}-name`}>Cycle name</Label>
+            <Input id={`${uid}-name`} {...register('name', { required: 'Cycle name is required' })} placeholder="June 2026" />
             {errors.name && <p className="mt-1 text-xs text-danger-600">{errors.name.message}</p>}
           </div>
           <div>
-            <Label>Cadence</Label>
-            <NativeSelect {...register('cadence')}>
+            <Label htmlFor={`${uid}-cadence`}>Cadence</Label>
+            <NativeSelect id={`${uid}-cadence`} {...register('cadence')}>
               <option value="MONTHLY">Monthly</option>
               <option value="EVERY_TWO_MONTHS">Every two months</option>
               <option value="QUARTERLY">Quarterly</option>
@@ -152,25 +153,25 @@ export function CyclesWorkspace() {
           </div>
           <div />
           <div>
-            <Label>Period start</Label>
-            <Input type="date" {...register('periodStart', { required: 'Period start is required' })} />
+            <Label htmlFor={`${uid}-start`}>Period start</Label>
+            <Input id={`${uid}-start`} type="date" {...register('periodStart', { required: 'Period start is required' })} />
             {errors.periodStart && <p className="mt-1 text-xs text-danger-600">{errors.periodStart.message}</p>}
           </div>
           <div>
-            <Label>Period end</Label>
-            <Input type="date" {...register('periodEnd', { required: 'Period end is required' })} />
+            <Label htmlFor={`${uid}-end`}>Period end</Label>
+            <Input id={`${uid}-end`} type="date" {...register('periodEnd', { required: 'Period end is required' })} />
             {errors.periodEnd && <p className="mt-1 text-xs text-danger-600">{errors.periodEnd.message}</p>}
           </div>
           <div className="sm:col-span-2">
-            <Label>Scope</Label>
-            <NativeSelect {...register('scope')}>
+            <Label htmlFor={`${uid}-scope`}>Scope</Label>
+            <NativeSelect id={`${uid}-scope`} {...register('scope')}>
               <option value="ALL">All company</option>
               <option value="DEPARTMENTS">Specific departments</option>
             </NativeSelect>
           </div>
           {scope === 'DEPARTMENTS' && (
-            <div className="sm:col-span-2">
-              <Label>Departments</Label>
+            <div className="sm:col-span-2" role="group" aria-labelledby={`${uid}-departments`}>
+              <Label id={`${uid}-departments`}>Departments</Label>
               {departmentsLoading ? (
                 <div className="mt-2 space-y-2">
                   {Array.from({ length: 3 }).map((_, index) => <Skeleton key={index} className="h-4 w-1/2" />)}
@@ -210,8 +211,8 @@ export function CyclesWorkspace() {
         disabled={!overrideReason.trim()}
         extraContent={
           <div>
-            <Label>Override reason</Label>
-            <Textarea value={overrideReason} onChange={(event) => setOverrideReason(event.target.value)} placeholder="Why is this cycle being closed with incomplete evaluations?" />
+            <Label htmlFor={`${uid}-override-reason`}>Override reason</Label>
+            <Textarea id={`${uid}-override-reason`} value={overrideReason} onChange={(event) => setOverrideReason(event.target.value)} placeholder="Why is this cycle being closed with incomplete evaluations?" />
           </div>
         }
       />

@@ -20,6 +20,7 @@ import {
   canCreateKeyResultForObjective,
   canCreateObjective,
   canDeleteKeyResult,
+  canDeleteObjective,
   canEditKeyResult,
   canEditKeyResultWithObjectiveContext,
   canEditObjective,
@@ -113,6 +114,19 @@ async function sharesDepartment(userA: string, userB: string): Promise<boolean> 
 }
 
 /**
+ * Actions whose legacy rule depends on the specific resource (ownership, level,
+ * department, reporting line, authorship). A doctype grant never bypasses these.
+ */
+const RESOURCE_SCOPED_ACTIONS: ReadonlySet<Action> = new Set<Action>([
+  'objective.create', 'objective.edit', 'objective.delete', 'objective.archive', 'objective.view',
+  'objective.setVisibility', 'objective.align', 'objective.reparent', 'objective.approveAlignment',
+  'keyResult.create', 'keyResult.edit', 'keyResult.delete', 'keyResult.archive', 'keyResult.view',
+  'keyResult.clone', 'keyResult.checkIn',
+  'todo.edit', 'todo.delete', 'todo.assign', 'todo.complete', 'todo.setDueDate',
+  'comment.edit', 'comment.delete',
+])
+
+/**
  * Primary permission check. Returns boolean (not a reason) — callers should pair
  * with `apiForbidden()` at API boundaries. Use `canDetailed()` when you need
  * the reason string (e.g. for admin UIs).
@@ -170,11 +184,16 @@ export async function can(action: Action, ctx: CanContext): Promise<boolean> {
   if (dbMapping) {
     try {
       const dbResult = await resolveDocTypePermission(userId, dbMapping.doctypeKey, dbMapping.action)
-      // Only short-circuit to true — if DB returns false it could mean the permission
-      // tables exist but haven't been seeded yet. Fall through to legacy hardcoded logic
-      // so existing functionality keeps working until the seed script is run.
+      // A doctype grant is a CAPABILITY check ("this role may edit objectives"),
+      // not a row-level decision ("…this objective"). It may only short-circuit
+      // for actions that have no ownership / level / relationship rule, and for
+      // ADMIN (who passes every row-level rule anyway). For resource-scoped
+      // actions (objective.*, keyResult.*, todo.*, comment.edit/delete…) the
+      // grant is necessary-but-not-sufficient: the rules below still decide.
+      // A false result falls through too — it could mean the permission tables
+      // exist but haven't been seeded yet, so the legacy rules keep working.
       // Explicit deny overrides are handled inside resolveDocTypePermission (step 2).
-      if (dbResult) return true
+      if (dbResult && (role === 'ADMIN' || !RESOURCE_SCOPED_ACTIONS.has(action))) return true
     } catch {
       // DB unavailable — fall through to existing hardcoded logic
     }
@@ -208,7 +227,12 @@ export async function can(action: Action, ctx: CanContext): Promise<boolean> {
     const level = (ctx.objective?.level as ObjectiveLevel) || 'INDIVIDUAL'
     return canCreateObjective(role, level)
   }
-  if (action === 'objective.edit' || action === 'objective.delete' || action === 'objective.archive'
+  if (action === 'objective.delete') {
+    // Mirrors DELETE /api/objectives/[id]: ADMIN, EXECUTIVE or the owner.
+    if (!ctx.objective) return false
+    return canDeleteObjective(role, userId, ctx.objective)
+  }
+  if (action === 'objective.edit' || action === 'objective.archive'
       || action === 'objective.setVisibility' || action === 'objective.reparent') {
     if (!ctx.objective) return false
     return canEditObjective(role, userId, {

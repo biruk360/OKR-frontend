@@ -10,10 +10,16 @@
  * Because all three paths render the same bytes, the screen preview, the
  * printed paper, and the downloaded PDF are byte-identical in layout.
  *
- * Asset URLs: we use absolute paths (`/fonts/...`, `/branding/...`) so the
- * same HTML works whether the iframe loads it from the app or Puppeteer
- * fetches it from `http://localhost:3000`. The renderer takes `origin` so
- * tests can render against an arbitrary base URL.
+ * Assets: fonts and logos are inlined as data: URIs so the document is fully
+ * self-contained — Puppeteer renders it with JavaScript disabled and every
+ * network request blocked except Google Fonts (see lib/letter-pdf-puppeteer.ts).
+ * If a file cannot be read we fall back to a same-origin relative path. There
+ * is deliberately NO caller-supplied origin: it used to come from `?origin=`
+ * and was interpolated into <img src> unescaped (reflected XSS).
+ *
+ * Security: the stored body goes through the strict allowlist sanitizer in
+ * lib/letter-sanitize.ts; the font name is allowlisted; every other
+ * interpolated value is HTML-escaped.
  */
 
 import fs from 'fs'
@@ -21,6 +27,13 @@ import path from 'path'
 import type { Letter, LetterEnclosure, LetterTypeDef } from '@prisma/client'
 import { getLetterhead, type LetterheadInfo } from './letterhead'
 import { resolvePlaceholders } from './letters'
+import {
+  DEFAULT_LETTER_FONT_FAMILY,
+  LETTER_FONT_IMPORTS,
+  escapeHtml,
+  resolveLetterFont,
+  sanitizeLetterBodyHtml,
+} from './letter-sanitize'
 
 // Cache base64-encoded fonts in memory — they're read once per process.
 const fontB64Cache: Record<string, string> = {}
@@ -40,27 +53,28 @@ function fontDataUri(filename: string): string {
   return b64 ? `data:font/truetype;base64,${b64}` : ''
 }
 
-// ---------- Google Fonts catalog ----------
-// Subset of fonts available in the UI picker. Each entry maps the font family
-// name to the Google Fonts URL parameters needed to load it.
-const GOOGLE_FONTS_IMPORT: Record<string, string> = {
-  // Noto Sans Ethiopic family (also embedded locally as TTF)
-  'Noto Sans Ethiopic':  'https://fonts.googleapis.com/css2?family=Noto+Sans+Ethiopic:wdth,wght@75..125,100..900&display=swap',
-  'Noto Serif Ethiopic': 'https://fonts.googleapis.com/css2?family=Noto+Serif+Ethiopic:wdth,wght@75..125,100..900&display=swap',
-  // Roboto family
-  'Roboto':              'https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400&display=swap',
-  'Roboto Condensed':    'https://fonts.googleapis.com/css2?family=Roboto+Condensed:ital,wght@0,300;0,400;0,700;1,300;1,400&display=swap',
-  'Roboto Slab':         'https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@300;400;500;700&display=swap',
-  // Standard sans-serif
-  'Inter':               'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap',
-  'Open Sans':           'https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap',
-  'Lato':                'https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,300;0,400;0,700;1,300;1,400&display=swap',
-  // Standard serif
-  'Merriweather':        'https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,400;0,700;1,300;1,400&display=swap',
-  'Playfair Display':    'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap',
+// Logos are inlined too, so neither the iframe nor Puppeteer needs to fetch
+// anything from the app (and no origin has to be supplied by anyone).
+const logoUriCache: Record<string, string> = {}
+function logoSrc(absPath: string, fallbackRel: string): string {
+  if (logoUriCache[absPath]) return logoUriCache[absPath]
+  try {
+    const ext = path.extname(absPath).toLowerCase()
+    const mime = ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : ext === '.webp' ? 'image/webp' : 'image/png'
+    const uri = `data:${mime};base64,${fs.readFileSync(absPath).toString('base64')}`
+    logoUriCache[absPath] = uri
+    return uri
+  } catch {
+    return fallbackRel
+  }
 }
 
-const DEFAULT_FONT = 'Noto Sans Ethiopic'
+// ---------- Google Fonts catalog ----------
+// The allowlisted family → stylesheet map lives in lib/letter-sanitize.ts so
+// the `?font=` allowlist and the <link> list can never drift apart.
+const GOOGLE_FONTS_IMPORT: Readonly<Record<string, string>> = LETTER_FONT_IMPORTS
+
+const DEFAULT_FONT = DEFAULT_LETTER_FONT_FAMILY
 
 export interface RenderHtmlArgs {
   letter: Letter & {
@@ -73,31 +87,18 @@ export interface RenderHtmlArgs {
     enclosures: Pick<LetterEnclosure, 'fileName' | 'fileSize'>[]
     letterTypeDef?: Pick<LetterTypeDef, 'id' | 'code' | 'name'> | null
   }
-  /** Origin used to absolutise asset URLs (fonts, logos). Defaults to relative. */
-  origin?: string
   /** Letter content language for label-switching. Default 'en'. */
   lang?: 'en' | 'am'
-  /** Google Font family to use for the letter body. Default 'Noto Sans Ethiopic'. */
+  /**
+   * Font family for the letter body. Untrusted (comes from `?font=`): anything
+   * outside the LETTER_FONT_IMPORTS allowlist falls back to the default.
+   */
   font?: string
 }
 
 // ---------- HTML escaping ----------
 
-const ESC: Record<string, string> = {
-  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-}
-function esc(s: string | null | undefined): string {
-  if (!s) return ''
-  return String(s).replace(/[&<>"']/g, (c) => ESC[c])
-}
-
-// Mammoth's HTML output is already safe and matches what Tiptap emits; we
-// allow it through unmodified into the body.
-function sanitizeBody(html: string | null | undefined): string {
-  if (!html) return ''
-  // Strip script/style for safety regardless of source.
-  return String(html).replace(/<(script|style)[\s\S]*?<\/\1>/gi, '')
-}
+const esc = escapeHtml
 
 function formatBytes(n: number): string {
   if (n < 1024) return `${n} B`
@@ -116,7 +117,7 @@ function formatDate(d: Date): string {
 // Bundled TTFs under /public/fonts. Inter is substituted with Noto Sans
 // (similar metrics, already bundled) to avoid shipping yet another family.
 
-function src(filename: string, base: string): string {
+function src(filename: string, base = ''): string {
   // Embed as base64 data URI if readable — guarantees the font is available
   // during print and PDF generation without any network fetch.
   // Falls back to a URL (works in browser iframe but not in Puppeteer/print).
@@ -161,8 +162,11 @@ function collectInlineFonts(html: string): string[] {
   const fonts = new Set<string>()
   let match: RegExpExecArray | null
   const familyRe = /font-family\s*:\s*([^;"']+)/gi
+  // Sanitized attributes carry quotes as entities; restore them so quoted
+  // family names are still recognised.
+  const text = html.replace(/&#39;|&quot;/g, "'")
 
-  while ((match = familyRe.exec(html)) !== null) {
+  while ((match = familyRe.exec(text)) !== null) {
     match[1]
       .split(',')
       .map((family) => family.trim().replace(/^['"]|['"]$/g, ''))
@@ -417,12 +421,15 @@ const LABELS = {
 
 /**
  * Build the complete HTML document. Self-contained (no external network
- * dependencies once fonts/logos resolve under `origin`).
+ * dependencies: fonts and logos are inlined as data: URIs).
  */
-export function renderLetterHtml({ letter, origin = '', lang = 'en', font = DEFAULT_FONT }: RenderHtmlArgs): {
+export function renderLetterHtml({ letter, lang: rawLang = 'en', font: rawFont = DEFAULT_FONT }: RenderHtmlArgs): {
   html: string
   missing: string[]
 } {
+  // Both come from query strings — normalise before they reach markup/CSS.
+  const lang: 'en' | 'am' = rawLang === 'am' ? 'am' : 'en'
+  const font = resolveLetterFont(rawFont)
   const head: LetterheadInfo = getLetterhead()
   const lbl = LABELS[lang] ?? LABELS.en
 
@@ -441,18 +448,16 @@ export function renderLetterHtml({ letter, origin = '', lang = 'en', font = DEFA
 
   // Wrap the [MISSING: x] markers in a span so they render red in both
   // the preview and the printed PDF.
-  const bodyHtml = sanitizeBody(resolvedBody).replace(
+  const bodyHtml = sanitizeLetterBodyHtml(resolvedBody).replace(
     /\[MISSING:\s*([a-z_]+)\]/gi,
     '<span class="placeholder-missing">[MISSING: $1]</span>'
   )
   const fontsToLoad = [font, ...collectInlineFonts(bodyHtml)]
 
-  // Asset URLs. When `origin` is provided (Puppeteer needs absolute URLs
-  // because it loads the HTML as `file://` or a temp doc with no base),
-  // prepend it; otherwise relative paths work fine in the iframe.
-  const base = origin.replace(/\/$/, '')
-  const eldixLogoUrl = `${base}/branding/eldix-primary.png`
-  const groundLogoUrl = `${base}/branding/360ground.png`
+  // Asset URLs — inlined data: URIs (see logoSrc). Relative fallback only.
+  const base = ''
+  const eldixLogoUrl = head.eldixLogoPath ? logoSrc(head.eldixLogoPath, '/branding/eldix-primary.png') : ''
+  const groundLogoUrl = head.groundLogoPath ? logoSrc(head.groundLogoPath, '/branding/360ground.png') : ''
 
   // Right-rail HTML — contact info stack + spacer + brand block at bottom.
   const railHtml = `
@@ -562,7 +567,7 @@ export function renderLetterHtml({ letter, origin = '', lang = 'en', font = DEFA
   return {
     missing,
     html: `<!doctype html>
-<html lang="${lang}">
+<html lang="${esc(lang)}">
 <head>
 <meta charset="utf-8" />
 <title>${esc(refNumber)}</title>

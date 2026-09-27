@@ -8,7 +8,17 @@
  * - EMPLOYEE: Individual Contributor - Own objectives only
  */
 
+import type { Prisma } from '@prisma/client'
 import { prisma } from './prisma'
+import {
+  SEES_ALL_ROLES,
+  canViewKeyResultInMemory,
+  canViewObjectiveInMemory,
+  makeViewerContext,
+} from './okr/visibility-scope'
+
+// Pure delete/clone rules (Prisma-free so client components can share them).
+export { canDeleteObjective, canCloneObjective, canCloneKeyResult } from './okr/action-permissions'
 
 export type UserRole = 'ADMIN' | 'EXECUTIVE' | 'DEPARTMENT_LEAD' | 'EMPLOYEE'
 export type ObjectiveLevel = 'COMPANY' | 'DEPARTMENT' | 'INDIVIDUAL'
@@ -102,6 +112,38 @@ export async function canEditObjective(
   return false
 }
 
+// ---------------------------------------------------------------------------
+// OKR visibility. The decision lives in lib/okr/visibility-scope.ts
+// (`canViewObjectiveInMemory` / `canViewKeyResultInMemory`) so the per-object
+// checks below and the batched list/aggregate surfaces cannot drift apart. These
+// wrappers only load the one fact the rule needs per call — whether the viewer
+// currently manages the row owner(s). lib/okr/visibility-scope.test.ts is the
+// parity guard.
+//
+//   - every signed-in role may view every objective;
+//   - a private objective is redacted unless the viewer is ADMIN/EXECUTIVE, its
+//     owner, or the owner's current manager;
+//   - a KR is viewable iff its objective is; it is shown in full to
+//     ADMIN/EXECUTIVE, its owner and its owner's manager, otherwise redacted
+//     when the objective is redacted or the KR is private.
+// ---------------------------------------------------------------------------
+
+/** Of `ownerIds`, the ones the user currently manages (endedAt = null). */
+async function managedOwnerIds(
+  userRole: UserRole,
+  userId: string,
+  ownerIds: Array<string | null | undefined>,
+): Promise<string[]> {
+  if (SEES_ALL_ROLES.includes(userRole)) return []
+  const candidates = Array.from(new Set(ownerIds.filter((id): id is string => !!id && id !== userId)))
+  if (candidates.length === 0) return []
+  const rows = await prisma.managerRelationship.findMany({
+    where: { managerId: userId, directReportId: { in: candidates }, endedAt: null },
+    select: { directReportId: true },
+  })
+  return rows.map((r) => r.directReportId)
+}
+
 /**
  * Check if user can view an objective (considering visibility settings)
  */
@@ -115,58 +157,12 @@ export async function canViewObjective(
     isPrivate: boolean
   }
 ): Promise<{ canView: boolean; isRedacted: boolean }> {
-  // ADMIN and EXECUTIVE can always see full details
-  if (userRole === 'ADMIN' || userRole === 'EXECUTIVE') {
-    return { canView: true, isRedacted: false }
-  }
-  
-  // User can always see their own objectives in full
-  if (objective.ownerId === userId) {
-    return { canView: true, isRedacted: false }
-  }
-  
-  // Check if user is a manager of the objective owner
-  const isManager = await prisma.managerRelationship.findFirst({
-    where: {
-      managerId: userId,
-      directReportId: objective.ownerId,
-      endedAt: null
-    }
-  })
-  
-  if (isManager) {
-    // Managers can see their direct reports' objectives in full
-    return { canView: true, isRedacted: false }
-  }
-  
-  // For company objectives - everyone can view (with redaction if private)
-  if (objective.level === 'COMPANY') {
-    return { canView: true, isRedacted: objective.isPrivate }
-  }
-  
-  // For department objectives - check if user is in the same department
-  if (objective.level === 'DEPARTMENT' && objective.departmentId) {
-    const userInDepartment = await prisma.departmentMembership.findFirst({
-      where: {
-        userId,
-        departmentId: objective.departmentId
-      }
-    })
-    
-    if (userInDepartment) {
-      // Same department - can view (with redaction if private)
-      return { canView: true, isRedacted: objective.isPrivate }
-    }
-  }
-  
-  // For other departments or individual objectives - check visibility
-  if (!objective.isPrivate) {
-    // Public - can view
-    return { canView: true, isRedacted: false }
-  } else {
-    // Private - can view but redacted
-    return { canView: true, isRedacted: true }
-  }
+  // Only a private row can be redacted, so only then is the manager fact needed.
+  const directReportIds = objective.isPrivate
+    ? await managedOwnerIds(userRole, userId, [objective.ownerId])
+    : []
+  const ctx = makeViewerContext({ id: userId, role: userRole }, { directReportIds })
+  return canViewObjectiveInMemory(ctx, objective)
 }
 
 /**
@@ -191,60 +187,16 @@ export async function canViewKeyResult(
       isPrivate: true
     }
   })
-  
+
   if (!objective) {
     return { canView: false, isRedacted: false }
   }
-  
-  // Check objective visibility first
-  const objectiveVisibility = await canViewObjective(userRole, userId, {
-    level: objective.level,
-    ownerId: objective.ownerId,
-    departmentId: objective.departmentId,
-    isPrivate: objective.isPrivate
-  })
-  
-  if (!objectiveVisibility.canView) {
-    return { canView: false, isRedacted: false }
-  }
-  
-  // ADMIN and EXECUTIVE can always see full details
-  if (userRole === 'ADMIN' || userRole === 'EXECUTIVE') {
-    return { canView: true, isRedacted: false }
-  }
-  
-  // User can always see their own key results in full
-  if (keyResult.ownerId === userId) {
-    return { canView: true, isRedacted: false }
-  }
-  
-  // Check if user is a manager of the key result owner
-  const isManager = await prisma.managerRelationship.findFirst({
-    where: {
-      managerId: userId,
-      directReportId: keyResult.ownerId,
-      endedAt: null
-    }
-  })
-  
-  if (isManager) {
-    // Managers can see their direct reports' key results in full
-    return { canView: true, isRedacted: false }
-  }
-  
-  // If objective is redacted, key result should also be redacted
-  if (objectiveVisibility.isRedacted) {
-    return { canView: true, isRedacted: true }
-  }
-  
-  // Check key result visibility
-  if (!keyResult.isPrivate) {
-    // Public - can view
-    return { canView: true, isRedacted: false }
-  } else {
-    // Private - can view but redacted
-    return { canView: true, isRedacted: true }
-  }
+
+  const directReportIds = objective.isPrivate || keyResult.isPrivate
+    ? await managedOwnerIds(userRole, userId, [objective.ownerId, keyResult.ownerId])
+    : []
+  const ctx = makeViewerContext({ id: userId, role: userRole }, { directReportIds })
+  return canViewKeyResultInMemory(ctx, keyResult, canViewObjectiveInMemory(ctx, objective))
 }
 
 /**
@@ -393,14 +345,36 @@ export function canSetCeo(userRole: UserRole): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Sprint v2 (Phase 1) — sprint-scope permission helpers.
+// Sprint access — invite-only boards (2026-09-25, decision 1b).
+//
+//   view   ADMIN / EXECUTIVE: every sprint. Everyone else — DEPARTMENT_LEAD
+//          included — only sprints they OWN or are a SprintParticipant of.
+//          Department membership grants nothing. Client-portal sessions: never.
+//   list   `sprintVisibilityWhere(user)` — the same rule as a Prisma where, so
+//          every list (GET /api/sprints, /active, the switcher, destinations)
+//          shows exactly the sprints `canViewSprint` would open.
+//   edit   ADMIN / EXECUTIVE; the owner; a DEPARTMENT_LEAD of the sprint's
+//          department who has been invited. Edit never exceeds view.
+//
+// Being put on a card (assignee or member) is an invitation: the write paths
+// upsert a SprintParticipant via `inviteToSprint` (lib/sprints/participants.ts).
 // ---------------------------------------------------------------------------
 
-interface SprintCtx {
+export interface SprintCtx {
   ownerId: string
   departmentId?: string | null
   participants?: { userId: string }[]
 }
+
+/** The subset of the session user the sprint rules depend on. */
+export interface SprintViewer {
+  id: string
+  role: string
+  userType?: string | null
+}
+
+/** Roles that see every sprint ("super admin, company owner and other high level user types"). */
+export const SPRINT_VIEW_ALL_ROLES: readonly string[] = ['ADMIN', 'EXECUTIVE']
 
 async function isInDepartment(userId: string, departmentId: string): Promise<boolean> {
   const m = await prisma.departmentMembership.findFirst({
@@ -408,6 +382,28 @@ async function isInDepartment(userId: string, departmentId: string): Promise<boo
     select: { id: true },
   })
   return !!m
+}
+
+/** Owner or SprintParticipant — the "invited" relationship. */
+export function isSprintMember(userId: string, sprint: Pick<SprintCtx, 'ownerId' | 'participants'>): boolean {
+  return sprint.ownerId === userId || !!sprint.participants?.some((p) => p.userId === userId)
+}
+
+/** Pure view verdict. `canViewSprint` and `sprintVisibilityWhere` must agree with it. */
+export function sprintViewVerdict(user: SprintViewer, sprint: SprintCtx): boolean {
+  if (user.userType === 'CLIENT_PORTAL') return false
+  if (SPRINT_VIEW_ALL_ROLES.includes(user.role)) return true
+  return isSprintMember(user.id, sprint)
+}
+
+/**
+ * The view rule as a Prisma `where` for sprint lists. Unit-tested to agree with
+ * `sprintViewVerdict` (lib/sprints/access.test.ts).
+ */
+export function sprintVisibilityWhere(user: SprintViewer): Prisma.SprintWhereInput {
+  if (user.userType === 'CLIENT_PORTAL') return { id: { in: [] } }
+  if (SPRINT_VIEW_ALL_ROLES.includes(user.role)) return {}
+  return { OR: [{ ownerId: user.id }, { participants: { some: { userId: user.id } } }] }
 }
 
 /**
@@ -426,10 +422,14 @@ export async function canCreateSprint(
 }
 
 /**
- * Sprint v2: edit rights on a sprint.
+ * Edit rights on a sprint (settings, lanes, participants, lifecycle).
  * - ADMIN/EXECUTIVE: any.
- * - DEPARTMENT_LEAD: sprints scoped to their department, plus their own.
- * - EMPLOYEE: only their own sprints.
+ * - the owner.
+ * - DEPARTMENT_LEAD: sprints scoped to their department **that they were invited to**
+ *   (invite-only boards: a lead may not edit — or add themselves to — a board
+ *   they cannot see).
+ * - EMPLOYEE participants: no sprint-level edit (they may still edit every card
+ *   in the sprint — see `canWriteTodo` — and move cards, `canMoveSprintCards`).
  */
 export async function canEditSprint(
   userRole: UserRole,
@@ -438,14 +438,15 @@ export async function canEditSprint(
 ): Promise<boolean> {
   if (userRole === 'ADMIN' || userRole === 'EXECUTIVE') return true
   if (sprint.ownerId === userId) return true
-  if (userRole === 'DEPARTMENT_LEAD' && sprint.departmentId) {
+  if (userRole === 'DEPARTMENT_LEAD' && sprint.departmentId && isSprintMember(userId, sprint)) {
     return isInDepartment(userId, sprint.departmentId)
   }
   return false
 }
 
 /**
- * Sprint v2: delete rights. Employees may never delete; leads may delete dept sprints.
+ * Delete rights. Employees may never delete; an invited lead may delete their
+ * department's sprints. (DELETE /api/sprints/[id] additionally lets the owner.)
  */
 export async function canDeleteSprint(
   userRole: UserRole,
@@ -454,25 +455,38 @@ export async function canDeleteSprint(
 ): Promise<boolean> {
   if (userRole === 'ADMIN' || userRole === 'EXECUTIVE') return true
   if (userRole === 'EMPLOYEE') return false
-  if (userRole === 'DEPARTMENT_LEAD' && sprint.departmentId) {
+  if (userRole === 'DEPARTMENT_LEAD' && sprint.departmentId && isSprintMember(userId, sprint)) {
     return isInDepartment(userId, sprint.departmentId)
   }
   return false
 }
 
 /**
- * Sprint v2: visibility — participants and dept members can view.
+ * Invite-only visibility: ADMIN/EXECUTIVE see every sprint; everyone else only
+ * sprints they own or participate in. Pass `opts.userType` where the session is
+ * at hand so a client-portal session is refused explicitly.
  */
 export async function canViewSprint(
   userRole: UserRole,
   userId: string,
   sprint: SprintCtx,
+  opts?: { userType?: string | null },
 ): Promise<boolean> {
-  if (userRole === 'ADMIN' || userRole === 'EXECUTIVE') return true
-  if (sprint.ownerId === userId) return true
-  if (sprint.participants?.some(p => p.userId === userId)) return true
-  if (sprint.departmentId && (await isInDepartment(userId, sprint.departmentId))) return true
-  return false
+  return sprintViewVerdict({ id: userId, role: userRole, userType: opts?.userType ?? null }, sprint)
+}
+
+/**
+ * Board drag/drop reorder writes the status + position of the sprint's cards.
+ * Sprint participants may edit every card in their sprint (decision 4), so they
+ * may reorder too; otherwise the sprint edit rule applies.
+ */
+export async function canMoveSprintCards(
+  userRole: UserRole,
+  userId: string,
+  sprint: SprintCtx,
+): Promise<boolean> {
+  if (isSprintMember(userId, sprint)) return true
+  return canEditSprint(userRole, userId, sprint)
 }
 
 /**

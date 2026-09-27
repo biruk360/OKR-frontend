@@ -49,7 +49,7 @@ function StatusSelect({
       id={id}
       value={value ?? ''}
       onChange={(e) => onChange(e.target.value as TodoStatus)}
-      className="w-full rounded-[var(--ap-radius-sm)] border bg-card px-2 py-1.5 text-[13px] outline-none"
+      className="w-full rounded-[var(--ap-radius-sm)] border bg-card px-2 py-1.5 text-body-sm outline-none"
       style={{ borderColor: 'var(--ap-border-strong)' }}
     >
       {BOARD_STATUSES.map((st) => (
@@ -164,7 +164,7 @@ export function ListHeaderMenu({
           </>
         }
       >
-        <label htmlFor="lane-name" className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        <label htmlFor="lane-name" className="mb-1.5 block text-caption font-semibold uppercase tracking-wide text-muted-foreground">
           List name
         </label>
         <input
@@ -173,7 +173,7 @@ export function ListHeaderMenu({
           value={name}
           maxLength={60}
           onChange={(e) => setName(e.target.value)}
-          className="w-full rounded-[var(--ap-radius-sm)] border bg-card px-3 py-1.5 text-[13px] outline-none"
+          className="w-full rounded-[var(--ap-radius-sm)] border bg-card px-3 py-1.5 text-body-sm outline-none"
           style={{ borderColor: 'var(--ap-border-strong)' }}
         />
       </Modal>
@@ -202,7 +202,7 @@ export function ListHeaderMenu({
           </>
         }
       >
-        <div className="space-y-3 text-[13px]">
+        <div className="space-y-3 text-body-sm">
           <p className="text-muted-foreground">
             Cards in <span className="font-semibold text-foreground">{lane.name}</span> take this
             list&rsquo;s status. Progress, AI planning and the end-of-sprint flow all read that
@@ -211,7 +211,7 @@ export function ListHeaderMenu({
           <StatusSelect id="lane-status" value={nextStatus} onChange={setNextStatus} />
           {lane.cardCount > 0 && nextStatus !== lane.statusKey && (
             <div
-              className="rounded-[var(--ap-radius-sm)] px-3 py-2 text-[12px]"
+              className="rounded-[var(--ap-radius-sm)] px-3 py-2 text-xs"
               style={{ background: 'var(--ap-warn-bg)', color: 'var(--ap-warn-fg)' }}
             >
               This will change the status of {lane.cardCount} card{lane.cardCount === 1 ? '' : 's'}.
@@ -240,18 +240,18 @@ export function ListHeaderMenu({
           </>
         }
       >
-        <div className="space-y-3 text-[13px]">
+        <div className="space-y-3 text-body-sm">
           <p className="text-muted-foreground">
             Cards take the destination list&rsquo;s status, exactly as they would if you dragged them.
           </p>
-          <label htmlFor="move-all-to" className="block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <label htmlFor="move-all-to" className="block text-caption font-semibold uppercase tracking-wide text-muted-foreground">
             Move to
           </label>
           <select
             id="move-all-to"
             value={moveTo}
             onChange={(e) => setMoveTo(e.target.value)}
-            className="w-full rounded-[8px] border bg-card px-2 py-1.5 text-[13px] outline-none"
+            className="w-full rounded-[8px] border bg-card px-2 py-1.5 text-body-sm outline-none"
             style={{ borderColor: 'var(--ap-border)' }}
           >
             <option value="">Select a list…</option>
@@ -283,14 +283,14 @@ export function ListHeaderMenu({
         )}
         extraContent={lane.cardCount > 0 ? (
           <div className="mt-3">
-            <label htmlFor="lane-move-to" className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <label htmlFor="lane-move-to" className="mb-1.5 block text-caption font-semibold uppercase tracking-wide text-muted-foreground">
               Move cards to
             </label>
             <select
               id="lane-move-to"
               value={moveTo}
               onChange={(e) => setMoveTo(e.target.value)}
-              className="w-full rounded-[var(--ap-radius-sm)] border bg-card px-2 py-1.5 text-[13px] outline-none"
+              className="w-full rounded-[var(--ap-radius-sm)] border bg-card px-2 py-1.5 text-body-sm outline-none"
               style={{ borderColor: 'var(--ap-border-strong)' }}
             >
               <option value="">Select a list…</option>
@@ -298,7 +298,7 @@ export function ListHeaderMenu({
                 <option key={l.id} value={l.id}>{l.name}</option>
               ))}
             </select>
-            <p className="mt-1.5 text-[11px] text-muted-foreground">
+            <p className="mt-1.5 text-caption text-muted-foreground">
               Cards adopt the destination list&rsquo;s status. Nothing is deleted.
             </p>
           </div>
@@ -353,7 +353,7 @@ export default function AddListColumn({
         type="button"
         onClick={() => setOpen(true)}
         className={cn(
-          'flex h-[44px] w-[218px] shrink-0 items-center gap-[9px] rounded-[var(--ap-radius-card)] border border-dashed px-[14px] text-[13px] font-semibold backdrop-blur-md transition-colors',
+          'flex h-[44px] w-[218px] shrink-0 items-center gap-[9px] rounded-[var(--ap-radius-card)] border border-dashed px-[14px] text-body-sm font-semibold backdrop-blur-md transition-colors',
           dark
             ? 'border-[oklch(1_0_0_/_0.35)] bg-[oklch(1_0_0_/_0.12)] text-white hover:bg-[oklch(1_0_0_/_0.22)]'
             : 'border-[oklch(1_0_0_/_0.9)] bg-[oklch(1_0_0_/_0.45)] text-[var(--ap-fg-muted)] hover:bg-[oklch(1_0_0_/_0.75)]',
@@ -387,7 +387,7 @@ export default function AddListColumn({
         }}
         placeholder="List name…"
         aria-label="New list name"
-        className="w-full rounded-[var(--ap-radius-sm)] border px-2 py-1.5 text-[13px] outline-none"
+        className="w-full rounded-[var(--ap-radius-sm)] border px-2 py-1.5 text-body-sm outline-none"
         style={{
           background: 'var(--ap-bg-raised)',
           borderColor: 'var(--ap-border-strong)',
@@ -397,7 +397,7 @@ export default function AddListColumn({
       <div>
         <label
           htmlFor="new-lane-status"
-          className="mb-1 block text-[10px] font-semibold uppercase tracking-wide"
+          className="mb-1 block text-micro font-semibold uppercase tracking-wide"
           style={{ color: dark ? 'oklch(0.9 0.006 262)' : 'var(--ap-fg-subtle)' }}
         >
           Counts as
@@ -409,7 +409,7 @@ export default function AddListColumn({
           type="button"
           onClick={submit}
           disabled={!name.trim() || busy}
-          className="rounded-[var(--ap-radius-sm)] px-2.5 py-1 text-[12px] font-semibold disabled:opacity-50"
+          className="rounded-[var(--ap-radius-sm)] px-2.5 py-1 text-xs font-semibold disabled:opacity-50"
           style={{ background: 'var(--ap-accent)', color: 'var(--ap-accent-fg)' }}
         >
           {busy ? 'Adding…' : 'Add list'}

@@ -153,7 +153,7 @@ function StopCard({
             <span className="truncate">{stop.destinationName}</span>
             {stop.tripMode === 'ROUND_TRIP' ? <Repeat className="h-3.5 w-3.5 text-muted-foreground" aria-label="Round trip" /> : <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" aria-label="One way" />}
             {trafficFlag && (
-              <span className="inline-flex items-center gap-1 rounded-pill bg-warning-50 text-warning-700 border border-warning-200 px-2 py-0.5 text-[11px] font-medium">
+              <span className="inline-flex items-center gap-1 rounded-pill bg-warning-50 text-warning-700 border border-warning-200 px-2 py-0.5 text-caption font-medium">
                 <AlertTriangle className="h-3 w-3" /> Heavy traffic likely
               </span>
             )}
@@ -191,8 +191,8 @@ function DiffStrip({ diffJson }: { diffJson: string }) {
   const entries = Object.entries(diff)
   if (entries.length === 0) return null
   return (
-    <div className="mt-2 rounded-md border border-purple-200 bg-purple-50 p-2 text-xs">
-      <div className="font-medium text-purple-800 mb-1">Coordinator adjustments</div>
+    <div className="mt-2 rounded-md border border-[color:var(--ap-ahead-bg)] bg-[color:var(--ap-ahead-bg)] p-2 text-xs">
+      <div className="font-medium text-[color:var(--ap-ahead-fg)] mb-1">Coordinator adjustments</div>
       <ul className="space-y-0.5">
         {entries.map(([k, v]) => (
           <li key={k} className="font-mono">

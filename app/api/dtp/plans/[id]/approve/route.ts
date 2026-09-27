@@ -14,7 +14,7 @@ import type { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { apiSuccess, apiBadRequest, apiForbidden } from '@/lib/api'
 import { withAuth } from '@/lib/api/withAuth'
-import { transitionPlan, loadReadablePlan, readJson, badStatus } from '@/lib/dtp/api-helpers'
+import { tryTransitionPlan, transitionFailure, loadReadablePlan, readJson, badStatus } from '@/lib/dtp/api-helpers'
 import { canActAsCoordinator } from '@/lib/dtp/permissions'
 import { rebuildLegsForPlan } from '@/lib/dtp/legs'
 import { getDtpSettings, parseCsvIds } from '@/lib/dtp/settings'
@@ -47,7 +47,7 @@ export const POST = withAuth<{ id: string }>(async (req: NextRequest, { session,
   const adjustedPath = plan.adjusted && settings.adjustmentRequiresAcknowledgement && status !== 'ADJUSTED'
 
   if (adjustedPath) {
-    const updated = await transitionPlan({
+    const transition = await tryTransitionPlan({
       planId: plan.id,
       from: status,
       to: 'ADJUSTED',
@@ -56,7 +56,8 @@ export const POST = withAuth<{ id: string }>(async (req: NextRequest, { session,
       payload: { note: body.note ?? null },
       patch: { decisionNote: body.note ?? null, decidedById: session.user.id },
     })
-    if (!updated) return badStatus()
+    if (!transition.ok) return transitionFailure(transition.reason)
+    const updated = transition.plan
     await notifyDtpEvent({
       eventKey: 'TRAVEL_PLAN_ADJUSTED',
       recipientIds: [plan.requesterId],
@@ -69,7 +70,7 @@ export const POST = withAuth<{ id: string }>(async (req: NextRequest, { session,
   }
 
   // Direct approval path — set decision audit + clear coordinator-edit flag.
-  const updated = await transitionPlan({
+  const transition = await tryTransitionPlan({
     planId: plan.id,
     from: status,
     to: 'APPROVED',
@@ -82,7 +83,8 @@ export const POST = withAuth<{ id: string }>(async (req: NextRequest, { session,
       decisionNote: body.note ?? null,
     },
   })
-  if (!updated) return badStatus()
+  if (!transition.ok) return transitionFailure(transition.reason)
+  const updated = transition.plan
 
   // Generate legs (FR-09).
   await rebuildLegsForPlan(plan.id)

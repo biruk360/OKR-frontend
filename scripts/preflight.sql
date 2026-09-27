@@ -747,6 +747,21 @@ CREATE INDEX IF NOT EXISTS "initiatives_recurrenceParentId_idx"
   ON "public"."initiatives" ("recurrenceParentId");
 
 -- ─────────────────────────────────────────────────────────────────────────────
+-- Recurrence anchor day — 2026-09-25
+-- Engine: lib/todos/recurrence.ts · Backfill: scripts/backfill-recurrence-anchor.ts
+--
+--   * initiatives.recurrenceAnchorDay — day of month (1–31, 31 = last day) a
+--     MONTHLY/YEARLY series falls on. Null for other rules, occurrences and
+--     legacy heads (the generator then infers it from ActivityLog history).
+--
+-- Additive and nullable; safe to re-run. Existing heads are filled by the
+-- backfill script AFTER deploy, not here (the inference needs app code).
+-- ─────────────────────────────────────────────────────────────────────────────
+
+ALTER TABLE "public"."initiatives"
+  ADD COLUMN IF NOT EXISTS "recurrenceAnchorDay" INTEGER;
+
+-- ─────────────────────────────────────────────────────────────────────────────
 -- Comment attachments — 2026-09-22
 -- Spec: docs/comment_attachments_REQUIREMENTS.md ATT-1..ATT-3
 --
@@ -792,3 +807,51 @@ BEGIN
              ON DELETE CASCADE ON UPDATE CASCADE';
   END IF;
 END $$;
+
+-- Remediation 2026-09-25 (P1): performance indexes, built CONCURRENTLY so large tables
+
+-- -- (activity_logs, notifications, initiatives, comments, email_digest_queue) keep accepting writes.
+
+-- -- Names match Prisma's, so the following `prisma db push` finds them and does nothing.
+
+-- -- Must stay top-level (CONCURRENTLY cannot run inside a DO block or a transaction); deploy.sh runs
+
+-- -- psql -f without --single-transaction. If a build is interrupted it leaves an INVALID index —
+
+-- -- DROP INDEX CONCURRENTLY it and re-run.
+CREATE INDEX CONCURRENTLY IF NOT EXISTS "objectives_timeframeId_status_idx"
+  ON "public"."objectives" ("timeframeId", "status");
+CREATE INDEX CONCURRENTLY IF NOT EXISTS "objectives_parentObjectiveId_status_idx"
+  ON "public"."objectives" ("parentObjectiveId", "status");
+CREATE INDEX CONCURRENTLY IF NOT EXISTS "key_results_objectiveId_status_idx"
+  ON "public"."key_results" ("objectiveId", "status");
+CREATE INDEX CONCURRENTLY IF NOT EXISTS "key_results_ownerId_idx"
+  ON "public"."key_results" ("ownerId");
+CREATE INDEX CONCURRENTLY IF NOT EXISTS "initiatives_keyResultId_status_idx"
+  ON "public"."initiatives" ("keyResultId", "status");
+CREATE INDEX CONCURRENTLY IF NOT EXISTS "initiatives_objectiveId_idx"
+  ON "public"."initiatives" ("objectiveId");
+CREATE INDEX CONCURRENTLY IF NOT EXISTS "comments_objectiveId_createdAt_idx"
+  ON "public"."comments" ("objectiveId", "createdAt");
+CREATE INDEX CONCURRENTLY IF NOT EXISTS "comments_keyResultId_createdAt_idx"
+  ON "public"."comments" ("keyResultId", "createdAt");
+CREATE INDEX CONCURRENTLY IF NOT EXISTS "comments_parentId_idx"
+  ON "public"."comments" ("parentId");
+CREATE INDEX CONCURRENTLY IF NOT EXISTS "notifications_isRead_createdAt_idx"
+  ON "public"."notifications" ("isRead", "createdAt");
+CREATE INDEX CONCURRENTLY IF NOT EXISTS "email_digest_queue_cadence_sentAt_queuedAt_idx"
+  ON "public"."email_digest_queue" ("cadence", "sentAt", "queuedAt");
+CREATE INDEX CONCURRENTLY IF NOT EXISTS "objective_labels_labelId_idx"
+  ON "public"."objective_labels" ("labelId");
+CREATE INDEX CONCURRENTLY IF NOT EXISTS "activity_logs_createdAt_idx"
+  ON "public"."activity_logs" ("createdAt");
+CREATE INDEX CONCURRENTLY IF NOT EXISTS "activity_logs_actorId_createdAt_idx"
+  ON "public"."activity_logs" ("actorId", "createdAt");
+CREATE INDEX CONCURRENTLY IF NOT EXISTS "user_roles_roleId_idx"
+  ON "public"."user_roles" ("roleId");
+CREATE INDEX CONCURRENTLY IF NOT EXISTS "project_milestones_keyResultId_idx"
+  ON "public"."project_milestones" ("keyResultId");
+CREATE INDEX CONCURRENTLY IF NOT EXISTS "project_activity_dependencies_successorId_idx"
+  ON "public"."project_activity_dependencies" ("successorId");
+CREATE INDEX CONCURRENTLY IF NOT EXISTS "project_members_userId_idx"
+  ON "public"."project_members" ("userId");

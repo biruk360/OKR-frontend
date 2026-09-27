@@ -1,8 +1,8 @@
 import { getServerSessionSafe } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
 import UserManagement from '@/components/settings/UserManagement'
 import { redirect } from 'next/navigation'
 import { canManageUsers } from '@/lib/permissions'
+import { loadUsersSettings } from '@/lib/settings/settings-pages.server'
 
 export default async function UsersSettingsPage() {
   const session = await getServerSessionSafe()
@@ -16,21 +16,8 @@ export default async function UsersSettingsPage() {
     redirect('/dashboard/settings/profile')
   }
 
-  // Get all users for management
-  const users = await prisma.user.findMany({
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      role: true,
-      designation: true,
-      isActive: true,
-      isProjectManager: true,
-      createdAt: true,
-      lastLoginAt: true
-    },
-    orderBy: { createdAt: 'desc' }
-  })
+  // Get all users for management (deleted accounts flagged by the loader)
+  const users = await loadUsersSettings()
 
   return (
     <div className="space-y-6">

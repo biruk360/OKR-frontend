@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useId } from 'react'
 import { CalendarDays, Send, Trash2, Copy, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { Button } from '@/components/ui/button'
@@ -10,6 +10,7 @@ import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Skeleton, SkeletonRow } from '@/components/ui/Skeleton'
 import { formatEthiopian } from '@/lib/dtp/ec-calendar'
 import { StatusBadge } from './StatusBadge'
 import { StopList } from './StopList'
@@ -28,6 +29,7 @@ interface Props {
 }
 
 export function PlanEditor({ planId, isRequester }: Props) {
+  const uid = useId()
   const planQ = usePlan(planId)
   const inv = useInvalidatePlan()
   const transitions = usePlanTransition(planId)
@@ -35,7 +37,7 @@ export function PlanEditor({ planId, isRequester }: Props) {
   const [cloneState, setCloneState] = useState<{ open: boolean; date: string } | null>(null)
   const [confirmWithdraw, setConfirmWithdraw] = useState(false)
 
-  if (planQ.isLoading) return <div className="p-6 text-sm text-muted-foreground">Loading…</div>
+  if (planQ.isLoading) return <div className="space-y-3 p-6" aria-busy="true" aria-label="Loading"><Skeleton className="h-6 w-48" />{Array.from({ length: 4 }).map((_, i) => <SkeletonRow key={i} />)}</div>
   if (planQ.isError || !planQ.data) return <div className="p-6 text-sm text-danger-700">Failed to load plan.</div>
 
   const plan: DtpPlanWithStops = planQ.data.plan
@@ -59,15 +61,16 @@ export function PlanEditor({ planId, isRequester }: Props) {
             </div>
             <div className="flex items-center gap-2">
               <StatusBadge status={plan.status} />
-              {plan.late && <span className="rounded-pill bg-warning-50 text-warning-700 border border-warning-200 px-2 py-0.5 text-[11px] font-medium">Late</span>}
-              {plan.emergency && <span className="rounded-pill bg-danger-50 text-danger-700 border border-danger-200 px-2 py-0.5 text-[11px] font-medium">Emergency</span>}
+              {plan.late && <span className="rounded-pill bg-warning-50 text-warning-700 border border-warning-200 px-2 py-0.5 text-caption font-medium">Late</span>}
+              {plan.emergency && <span className="rounded-pill bg-danger-50 text-danger-700 border border-danger-200 px-2 py-0.5 text-caption font-medium">Emergency</span>}
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
             <PeopleStrip plan={plan} />
             <div className="flex flex-wrap items-center gap-3">
-              <Label className="text-xs text-muted-foreground">Priority</Label>
+              <Label id={`${uid}-priority`} className="text-xs text-muted-foreground">Priority</Label>
               <SelectButtons
+                labelledBy={`${uid}-priority`}
                 value={plan.priority}
                 onChange={async (v) => {
                   await dtpApi.patchPlan(planId, { priority: v as 'NORMAL' | 'URGENT' })
@@ -76,8 +79,9 @@ export function PlanEditor({ planId, isRequester }: Props) {
                 disabled={!editable}
                 options={[{ value: 'NORMAL', label: 'Normal' }, { value: 'URGENT', label: 'Urgent' }]}
               />
-              <Label className="text-xs text-muted-foreground ml-3">Default mode</Label>
+              <Label id={`${uid}-mode`} className="text-xs text-muted-foreground ml-3">Default mode</Label>
               <SelectButtons
+                labelledBy={`${uid}-mode`}
                 value={plan.defaultModeOfMovement}
                 onChange={async (v) => {
                   await dtpApi.patchPlan(planId, { defaultModeOfMovement: v })
@@ -97,9 +101,9 @@ export function PlanEditor({ planId, isRequester }: Props) {
         </Card>
 
         {plan.status === 'ADJUSTED' && (
-          <div className="rounded-card border border-purple-200 bg-purple-50 p-3 text-sm">
-            <p className="font-medium text-purple-800 mb-1">Coordinator made changes to your plan.</p>
-            <p className="text-purple-800/90">Review the side-by-side diff on each stop card below, then acknowledge to finalize approval.</p>
+          <div className="rounded-card border border-[color:var(--ap-ahead-bg)] bg-[color:var(--ap-ahead-bg)] p-3 text-sm">
+            <p className="font-medium text-[color:var(--ap-ahead-fg)] mb-1">Coordinator made changes to your plan.</p>
+            <p className="text-[color:var(--ap-ahead-fg)]">Review the side-by-side diff on each stop card below, then acknowledge to finalize approval.</p>
             <div className="mt-2">
               <Button
                 size="sm"
@@ -225,8 +229,8 @@ export function PlanEditor({ planId, isRequester }: Props) {
             </div>
           }
         >
-          <Label>Trip date</Label>
-          <Input type="date" value={cloneState.date} onChange={(e) => setCloneState({ ...cloneState, date: e.target.value })} />
+          <Label htmlFor={`${uid}-clone-date`}>Trip date</Label>
+          <Input id={`${uid}-clone-date`} type="date" value={cloneState.date} onChange={(e) => setCloneState({ ...cloneState, date: e.target.value })} />
         </Modal>
       )}
 
@@ -245,8 +249,8 @@ export function PlanEditor({ planId, isRequester }: Props) {
             </div>
           }
         >
-          <Label>Note for the requester</Label>
-          <Textarea rows={4} value={returnNote.note} onChange={(e) => setReturnNote({ ...returnNote, note: e.target.value })} />
+          <Label htmlFor={`${uid}-return-note`}>Note for the requester</Label>
+          <Textarea id={`${uid}-return-note`} rows={4} value={returnNote.note} onChange={(e) => setReturnNote({ ...returnNote, note: e.target.value })} />
         </Modal>
       )}
     </div>
@@ -351,7 +355,7 @@ function Avatar({ name }: { name: string }) {
   return (
     <span
       aria-hidden
-      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary-700 text-[11px] font-semibold"
+      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary-700 text-caption font-semibold"
     >
       {initials}
     </span>
@@ -374,9 +378,9 @@ function Totals({ plan }: { plan: DtpPlanWithStops }) {
   )
 }
 
-function SelectButtons({ value, onChange, options, disabled }: { value: string; onChange: (v: string) => void; options: { value: string; label: string }[]; disabled?: boolean }) {
+function SelectButtons({ value, onChange, options, disabled, labelledBy }: { value: string; onChange: (v: string) => void; options: { value: string; label: string }[]; disabled?: boolean; labelledBy?: string }) {
   return (
-    <div className="inline-flex flex-wrap gap-1.5" role="radiogroup">
+    <div className="inline-flex flex-wrap gap-1.5" role="radiogroup" aria-labelledby={labelledBy}>
       {options.map((o) => {
         const selected = value === o.value
         return (
@@ -387,9 +391,8 @@ function SelectButtons({ value, onChange, options, disabled }: { value: string; 
             onClick={() => onChange(o.value)}
             role="radio"
             aria-checked={selected}
-            aria-pressed={selected}
             className={
-              'inline-flex items-center justify-center rounded-pill border px-2.5 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 ' +
+              'inline-flex items-center justify-center rounded-pill border px-2.5 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ap-focus-ring ' +
               (selected
                 ? 'border-primary-200 bg-primary/10 text-primary-700'
                 : 'border-input bg-card text-foreground hover:bg-muted')

@@ -11,7 +11,9 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { Skeleton } from '@/components/ui/Skeleton'
 import { cn } from '@/lib/utils'
+import { PersonTooltip } from '@/components/shared/UserAvatar'
 
 type Severity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
 type Status = 'OPEN' | 'MITIGATING' | 'RESOLVED' | 'ACCEPTED'
@@ -36,24 +38,31 @@ interface Props {
   parent: { type: 'objective'; id: string } | { type: 'keyResult'; id: string }
   currentUserId: string
   currentUserRole: string
+  /**
+   * Whether the viewer may report a new risk (POST /api/risks requires edit
+   * rights on the parent). Callers should pass the server-computed flag;
+   * when omitted the button is shown and the API's 403 is surfaced.
+   */
+  canReport?: boolean
   /** Optional callback receiving the count whenever the list updates (lets parent show badge). */
   onCountChange?: (n: number) => void
 }
 
 const SEVERITY_RANK: Record<Severity, number> = { CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1 }
 
+// Palette channel variables (app/globals.css) so the chips follow dark mode.
 const SEVERITY_STYLE: Record<Severity, { bg: string; fg: string; label: string }> = {
-  CRITICAL: { bg: 'rgba(255, 59, 48, 0.14)', fg: '#C0392B', label: 'Critical' },
-  HIGH: { bg: 'rgba(255, 149, 0, 0.16)', fg: '#B5650F', label: 'High' },
-  MEDIUM: { bg: 'rgba(255, 204, 0, 0.20)', fg: '#8A6D00', label: 'Medium' },
-  LOW: { bg: 'rgba(142, 142, 147, 0.18)', fg: '#5C5C61', label: 'Low' },
+  CRITICAL: { bg: 'rgb(var(--rgb-danger-500) / 0.14)', fg: 'rgb(var(--rgb-danger-700))', label: 'Critical' },
+  HIGH: { bg: 'rgb(var(--rgb-warning-500) / 0.16)', fg: 'rgb(var(--rgb-warning-700))', label: 'High' },
+  MEDIUM: { bg: 'rgb(var(--rgb-warning-300) / 0.20)', fg: 'rgb(var(--rgb-warning-800))', label: 'Medium' },
+  LOW: { bg: 'rgb(var(--rgb-ink-secondary) / 0.18)', fg: 'var(--ap-fg-secondary)', label: 'Low' },
 }
 
 const STATUS_STYLE: Record<Status, { bg: string; fg: string; label: string }> = {
-  OPEN: { bg: 'rgba(255, 59, 48, 0.10)', fg: '#C0392B', label: 'Open' },
-  MITIGATING: { bg: 'rgba(255, 149, 0, 0.12)', fg: '#B5650F', label: 'Mitigating' },
-  RESOLVED: { bg: 'rgba(52, 199, 89, 0.14)', fg: '#1F7A3A', label: 'Resolved' },
-  ACCEPTED: { bg: 'rgba(142, 142, 147, 0.16)', fg: '#5C5C61', label: 'Accepted' },
+  OPEN: { bg: 'rgb(var(--rgb-danger-500) / 0.10)', fg: 'rgb(var(--rgb-danger-700))', label: 'Open' },
+  MITIGATING: { bg: 'rgb(var(--rgb-warning-500) / 0.12)', fg: 'rgb(var(--rgb-warning-700))', label: 'Mitigating' },
+  RESOLVED: { bg: 'rgb(var(--rgb-success-500) / 0.14)', fg: 'rgb(var(--rgb-success-700))', label: 'Resolved' },
+  ACCEPTED: { bg: 'rgb(var(--rgb-ink-secondary) / 0.16)', fg: 'var(--ap-fg-secondary)', label: 'Accepted' },
 }
 
 function initialsOf(name?: string | null): string {
@@ -72,7 +81,7 @@ async function fetchRisks(parent: Props['parent']): Promise<Risk[]> {
   return json.data as Risk[]
 }
 
-export default function RisksPanel({ parent, currentUserId, currentUserRole, onCountChange }: Props) {
+export default function RisksPanel({ parent, currentUserId, currentUserRole, canReport = true, onCountChange }: Props) {
   const qc = useQueryClient()
   const queryKey = risksQueryKey(parent)
   const { data: risks = [], isLoading } = useQuery({
@@ -110,30 +119,36 @@ export default function RisksPanel({ parent, currentUserId, currentUserRole, onC
     <div className="px-4 py-3 max-h-[460px] overflow-auto">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Risks</span>
-          <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-full text-[10px] font-semibold tabular-nums"
+          <span className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">Risks</span>
+          <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-full text-micro font-semibold tabular-nums"
             style={{ background: 'var(--ap-bg-sunken)', color: 'var(--ap-fg-muted)' }}>
             {risks.length}
           </span>
         </div>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-7 px-2 text-[12px] gap-1"
-          onClick={() => setAddOpen(true)}
-        >
-          <Plus className="size-3.5" /> Add risk
-        </Button>
+        {canReport && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 px-2 text-xs gap-1"
+            onClick={() => setAddOpen(true)}
+          >
+            <Plus className="size-3.5" /> Add risk
+          </Button>
+        )}
       </div>
 
       {isLoading ? (
-        <p className="text-[12px] text-muted-foreground italic">Loading…</p>
+        <div className="space-y-2" aria-busy="true" aria-label="Loading risks">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <Skeleton key={i} className="h-16 w-full rounded-[var(--ap-radius-sm)]" />
+          ))}
+        </div>
       ) : sorted.length === 0 ? (
         <EmptyState
           bare
           icon={AlertTriangle}
           title="No risks logged"
-          description="Flag a blocker if you spot one"
+          description={canReport ? 'Flag a blocker if you spot one' : 'Owners and editors can flag blockers here'}
         />
       ) : (
         <ul className="space-y-2">
@@ -152,7 +167,7 @@ export default function RisksPanel({ parent, currentUserId, currentUserRole, onC
         </ul>
       )}
 
-      {addOpen && (
+      {addOpen && canReport && (
         <RiskFormModal
           mode="add"
           parent={parent}
@@ -202,37 +217,40 @@ function RiskCard({
         <Pill bg={stat.bg} fg={stat.fg}>{stat.label}</Pill>
         <div className="ml-auto flex items-center gap-2">
           {canEdit && (
-            <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity">
-              <button onClick={onEdit} aria-label="Edit risk"
+            <div className="opacity-0 group-hover:opacity-100 focus-within:opacity-100 flex items-center gap-1 transition-opacity">
+              <button type="button" onClick={onEdit} aria-label="Edit risk"
                 className="p-1 rounded hover:bg-[var(--ap-bg-sunken)]">
                 <Pencil className="size-3 text-muted-foreground" />
               </button>
-              <button onClick={onDelete} aria-label="Delete risk"
+              <button type="button" onClick={onDelete} aria-label="Delete risk"
                 className="p-1 rounded hover:bg-[var(--ap-bg-sunken)]">
                 <Trash2 className="size-3 text-muted-foreground" />
               </button>
             </div>
           )}
+          {/* Full name on hover (docs/user_name_hover_REQUIREMENTS.md UNH-2). */}
+          <PersonTooltip person={risk.reporter} detail="Reported this risk">
           {risk.reporter.avatar ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={risk.reporter.avatar} alt={risk.reporter.name} title={risk.reporter.name}
+            <img src={risk.reporter.avatar} alt={risk.reporter.name}
               className="size-5 rounded-full object-cover" />
           ) : (
-            <span title={risk.reporter.name}
-              className="flex size-5 items-center justify-center rounded-full text-[9px] font-semibold text-white"
-              style={{ background: 'var(--ap-accent)' }}>
-              {initialsOf(risk.reporter.name)}
+            <span role="img" aria-label={risk.reporter.name}
+              className="flex size-5 items-center justify-center rounded-full text-[9px] font-semibold"
+              style={{ background: 'var(--ap-accent)', color: 'var(--ap-accent-fg)' }}>
+              <span aria-hidden>{initialsOf(risk.reporter.name)}</span>
             </span>
           )}
-          <span className="text-[10px] text-muted-foreground tabular-nums">
+          </PersonTooltip>
+          <span className="text-micro text-muted-foreground tabular-nums">
             {formatDistanceToNow(new Date(risk.createdAt), { addSuffix: true })}
           </span>
         </div>
       </div>
 
-      <p className="text-[14px] font-medium leading-snug">{risk.title}</p>
+      <p className="text-sm font-medium leading-snug">{risk.title}</p>
       {risk.description && (
-        <p className="text-[12px] text-muted-foreground line-clamp-2 mt-0.5">{risk.description}</p>
+        <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{risk.description}</p>
       )}
 
       {risk.mitigation && (
@@ -240,13 +258,13 @@ function RiskCard({
           <button
             type="button"
             onClick={() => setOpenMit((v) => !v)}
-            className="flex items-center gap-1 text-[10px] uppercase tracking-wide font-semibold text-muted-foreground hover:text-[var(--ap-fg)]"
+            className="flex items-center gap-1 text-micro uppercase tracking-wide font-semibold text-muted-foreground hover:text-[var(--ap-fg)]"
           >
             {openMit ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
             Mitigation
           </button>
           {openMit && (
-            <p className="mt-1 text-[12px] rounded-[8px] px-2.5 py-1.5"
+            <p className="mt-1 text-xs rounded-[8px] px-2.5 py-1.5"
               style={{ background: 'var(--ap-bg-sunken)' }}>
               {risk.mitigation}
             </p>
@@ -260,7 +278,7 @@ function RiskCard({
 function Pill({ bg, fg, children }: { bg: string; fg: string; children: React.ReactNode }) {
   return (
     <span
-      className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+      className="inline-flex items-center rounded-full px-2 py-0.5 text-micro font-semibold uppercase tracking-wide"
       style={{ background: bg, color: fg }}
     >
       {children}
@@ -357,17 +375,17 @@ function RiskFormModal({
     >
       <form id="risk-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4 p-1">
         <div>
-          <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1 block">Title</label>
+          <label className="text-caption font-semibold uppercase tracking-wide text-muted-foreground mb-1 block">Title</label>
           <Input
             {...register('title', { required: 'Title is required', minLength: { value: 2, message: 'Too short' } })}
             placeholder="What's the risk?"
             autoFocus
           />
-          {errors.title && <p className="mt-1 text-[11px] text-red-600">{errors.title.message}</p>}
+          {errors.title && <p className="mt-1 text-caption text-destructive">{errors.title.message}</p>}
         </div>
 
         <div>
-          <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1 block">Description</label>
+          <label className="text-caption font-semibold uppercase tracking-wide text-muted-foreground mb-1 block">Description</label>
           <Textarea
             {...register('description')}
             placeholder="Optional context — what's at stake, when it could hit"
@@ -376,7 +394,7 @@ function RiskFormModal({
         </div>
 
         <div>
-          <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5 block">Severity</label>
+          <label className="text-caption font-semibold uppercase tracking-wide text-muted-foreground mb-1.5 block">Severity</label>
           <Segmented
             options={[
               { value: 'LOW', label: 'Low' },
@@ -391,7 +409,7 @@ function RiskFormModal({
 
         {mode === 'edit' && (
           <div>
-            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5 block">Status</label>
+            <label className="text-caption font-semibold uppercase tracking-wide text-muted-foreground mb-1.5 block">Status</label>
             <Segmented
               options={[
                 { value: 'OPEN', label: 'Open' },
@@ -406,7 +424,7 @@ function RiskFormModal({
         )}
 
         <div>
-          <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1 block">Mitigation plan</label>
+          <label className="text-caption font-semibold uppercase tracking-wide text-muted-foreground mb-1 block">Mitigation plan</label>
           <Textarea
             {...register('mitigation')}
             placeholder="Optional — how we'll prevent or recover"
@@ -414,7 +432,7 @@ function RiskFormModal({
           />
         </div>
 
-        {error && <p className="text-[12px] text-red-600">{error}</p>}
+        {error && <p className="text-xs text-destructive">{error}</p>}
       </form>
     </Modal>
   )
@@ -432,8 +450,8 @@ function Segmented({
           type="button"
           onClick={() => onChange(opt.value)}
           className={cn(
-            'px-3 h-7 text-[12px] rounded-[6px] transition-colors',
-            value === opt.value ? 'bg-white shadow-sm font-medium' : 'text-muted-foreground hover:text-[var(--ap-fg)]',
+            'px-3 h-7 text-xs rounded-[6px] transition-colors',
+            value === opt.value ? 'bg-[var(--ap-bg-raised)] shadow-sm font-medium' : 'text-muted-foreground hover:text-[var(--ap-fg)]',
           )}
         >
           {opt.label}

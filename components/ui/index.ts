@@ -31,6 +31,13 @@ export type { SectionHeadingProps } from './SectionHeading'
 export { FilterSelect } from './FilterSelect'
 export type { FilterSelectProps, FilterSelectOption } from './FilterSelect'
 
+export { FilterMultiSelect } from './FilterMultiSelect'
+export type {
+  FilterMultiSelectProps,
+  FilterMultiSelectOption,
+  FilterMultiSelectTriggerState,
+} from './FilterMultiSelect'
+
 export { EntityPicker } from './EntityPicker'
 export type { EntityPickerProps, EntityPickerValue, EntityKind } from './EntityPicker'
 

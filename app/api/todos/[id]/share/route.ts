@@ -3,6 +3,7 @@ import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { apiSuccess, apiBadRequest, apiNotFound, apiForbidden, withAuth } from '@/lib/api'
 import { canViewSprint, type UserRole } from '@/lib/permissions'
 import { recordActivity } from '@/lib/activity-log'
+import { canReadTodo } from '@/lib/todos/access'
 
 /**
  * POST /api/todos/[id]/share — record that a card link was copied and return
@@ -36,11 +37,15 @@ export const POST = withAuth<RouteIdParams>(async (_request, { session, params }
   // cannot be used to probe which card ids exist.
   if (!todo || !todo.sprint) return apiNotFound('Card not available')
 
-  const allowed = await canViewSprint(session.user.role as UserRole, session.user.id, {
-    ownerId: todo.sprint.ownerId,
-    departmentId: todo.sprint.departmentId,
-    participants: todo.sprint.participants,
-  })
+  // The card read rule, and — because the link opens the sprint board — the
+  // (invite-only) sprint view rule. Either failing answers like a missing card.
+  const allowed =
+    (await canReadTodo(session.user, todo.id)) &&
+    (await canViewSprint(session.user.role as UserRole, session.user.id, {
+      ownerId: todo.sprint.ownerId,
+      departmentId: todo.sprint.departmentId,
+      participants: todo.sprint.participants,
+    }, { userType: session.user.userType }))
   if (!allowed) return apiNotFound('Card not available')
 
   await recordActivity({

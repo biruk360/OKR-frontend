@@ -1,9 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronDown, ChevronRight, Plus, Trash2, AlertTriangle, Diamond, Flag } from 'lucide-react'
+import { ChevronDown, ChevronRight, Plus, Trash2, AlertTriangle, Diamond, Flag, ListTree } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { ActivityStatusBadge } from './ProjectBadges'
 import type { PhaseNode, MilestoneNode, ActivityNode, ProjectDetail } from '../hooks/useProject'
 import {
@@ -32,7 +33,7 @@ export function ScheduleTree({ project, canEdit }: { project: ProjectDetail; can
   const [phaseName, setPhaseName] = useState('')
 
   if (project.phases.length === 0 && !canEdit) {
-    return <p className="rounded-card bg-surface-card p-6 text-center text-body-sm text-ink-secondary shadow-card">No schedule has been created yet.</p>
+    return <EmptyState icon={ListTree} title="No schedule yet" description="Phases, milestones and activities will appear here once the schedule is created." />
   }
 
   const phaseWeights = project.phases.map((p) => p.weight)
@@ -103,7 +104,7 @@ function PhaseRow({ projectId, objectiveId, phase, canEdit, baselined }: { proje
       </div>
 
       {open && (
-        <div className="divide-y divide-black/[0.04]">
+        <div className="divide-y divide-ink-primary/[0.04]">
           {phase.milestones.map((m) => (
             <MilestoneRow key={m.id} projectId={projectId} objectiveId={objectiveId} milestone={m} canEdit={canEdit} baselined={baselined} />
           ))}
@@ -255,7 +256,7 @@ function ActivityRow({ projectId, activity, subtasks, canEdit, baselined }: { pr
 
         {canEdit ? (
           <select
-            className="rounded-md border border-black/[0.08] bg-surface-card px-1.5 py-0.5 text-body-sm"
+            className="rounded-md border border-ink-primary/[0.08] bg-surface-card px-1.5 py-0.5 text-body-sm"
             value={activity.status}
             onChange={(e) => update.mutate({ activityId: activity.id, status: e.target.value })}
           >
@@ -268,7 +269,7 @@ function ActivityRow({ projectId, activity, subtasks, canEdit, baselined }: { pr
         <div className="flex w-24 items-center gap-1">
           <input
             type="number" min={0} max={100} disabled={!canEdit || hasSubtasks}
-            className="w-14 rounded-md border border-black/[0.08] bg-surface-card px-1.5 py-0.5 text-right text-body-sm tabular-nums disabled:opacity-60"
+            className="w-14 rounded-md border border-ink-primary/[0.08] bg-surface-card px-1.5 py-0.5 text-right text-body-sm tabular-nums disabled:opacity-60"
             value={Math.round(activity.percentComplete)}
             onChange={(e) => {
               const v = Math.max(0, Math.min(100, Number(e.target.value)))
@@ -279,7 +280,7 @@ function ActivityRow({ projectId, activity, subtasks, canEdit, baselined }: { pr
         </div>
 
         {activity.slipDays > 0 && (
-          <span className="rounded-pill bg-danger-50 px-1.5 py-0.5 text-[11px] font-medium text-danger-700" title="Days slipped vs baseline">+{activity.slipDays}d</span>
+          <span className="rounded-pill bg-danger-50 px-1.5 py-0.5 text-xs font-medium text-danger-700" title="Days slipped vs baseline">+{activity.slipDays}d</span>
         )}
 
         {canEdit && (
@@ -310,7 +311,7 @@ function ActivityRow({ projectId, activity, subtasks, canEdit, baselined }: { pr
       />
 
       {hasSubtasks && (
-        <div className="ml-4 border-l border-black/[0.06] pl-3">
+        <div className="ml-4 border-l border-ink-primary/[0.06] pl-3">
           {subtasks.map((s) => (
             <div key={s.id} className="flex items-center gap-2 py-0.5">
               <span className="min-w-0 flex-1 truncate text-body-sm text-ink-secondary">{s.title}</span>
@@ -421,7 +422,7 @@ function SlipReasonDialog({
 
 function WeightBadge({ label, compact }: { label: string; compact?: boolean }) {
   return (
-    <span className={cn('inline-flex items-center gap-1 rounded-pill bg-warning-50 text-warning-700', compact ? 'px-1.5 py-0.5 text-[11px]' : 'px-2.5 py-1 text-body-sm')}>
+    <span className={cn('inline-flex items-center gap-1 rounded-pill bg-warning-50 text-warning-700', compact ? 'px-1.5 py-0.5 text-xs' : 'px-2.5 py-1 text-body-sm')}>
       <AlertTriangle className={compact ? 'size-3' : 'size-3.5'} /> {label}
     </span>
   )

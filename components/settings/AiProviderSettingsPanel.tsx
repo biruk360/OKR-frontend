@@ -6,6 +6,7 @@ import { Controller, useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
 import { Button, Checkbox, ConfirmDialog } from '@/components/ui'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { SettingsSelect } from './SettingsSelect'
 
 interface AiProviderSettings {
   provider: 'openai'
@@ -225,7 +226,7 @@ export default function AiProviderSettingsPanel() {
                 />
                 <label htmlFor="project-creation-ai-enabled" className="cursor-pointer">
                   <span className="block text-body-sm font-semibold text-ink-primary">Enable AI-assisted project creation</span>
-                  <span className="mt-1 block text-body-xs text-ink-secondary">
+                  <span className="mt-1 block text-xs text-ink-secondary">
                     Independent of AI Sprint Planning. When disabled, project-creation AI options and endpoints remain unavailable.
                   </span>
                 </label>
@@ -262,16 +263,16 @@ export default function AiProviderSettingsPanel() {
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-card bg-surface-muted px-4 py-3">
             <div>
               <div className="text-body-sm font-semibold text-ink-primary">Current key: {settings.maskedKey}</div>
-              <div className="mt-1 text-body-xs text-ink-secondary">
+              <div className="mt-1 text-xs text-ink-secondary">
                 {databaseKeyConfigured ? settings.label || 'Stored in the encrypted database' : 'Managed by OPENAI_API_KEY on the server'}
               </div>
               {settings.lastVerifiedAt && (
-                <div className="mt-1 text-body-xs text-ink-secondary">
+                <div className="mt-1 text-xs text-ink-secondary">
                   Last verified {new Date(settings.lastVerifiedAt).toLocaleString()}
                 </div>
               )}
             </div>
-            <ShieldCheck className="size-5 text-success-600" />
+            <ShieldCheck className="size-5 text-success-700" />
           </div>
         )}
 
@@ -294,9 +295,20 @@ export default function AiProviderSettingsPanel() {
               <input className="input" placeholder="Production project key" {...register('label', { maxLength: 100 })} />
             </Field>
             <Field label="Project creation model" error={errors.model?.message} hint="Only models approved by the server can be selected.">
-              <select className="input" {...register('model', { required: 'Choose an approved model.' })}>
-                {settings.modelOptions.map((model) => <option key={model} value={model}>{model}</option>)}
-              </select>
+              <Controller
+                control={control}
+                name="model"
+                rules={{ required: 'Choose an approved model.' }}
+                render={({ field }) => (
+                  <SettingsSelect
+                    aria-label="Project creation model"
+                    value={field.value ?? ''}
+                    onValueChange={field.onChange}
+                    options={settings.modelOptions.map((model) => ({ value: model, label: model }))}
+                    placeholder="Choose a model…"
+                  />
+                )}
+              />
             </Field>
             <Field label="Daily generation cap" error={errors.dailyGenerationCap?.message} hint="Maximum successful project-plan generations per day.">
               <input className="input" type="number" min={1} max={1000} {...register('dailyGenerationCap', { valueAsNumber: true, required: true, min: 1, max: 1000 })} />
@@ -351,8 +363,8 @@ function Field({
     <label className="block text-body-sm font-medium text-ink-primary">
       {label}
       <span className="mt-1 block">{children}</span>
-      {error && <span className="mt-1 block text-body-xs text-danger-700">{error}</span>}
-      {!error && hint && <span className="mt-1 block text-body-xs font-normal text-ink-tertiary">{hint}</span>}
+      {error && <span className="mt-1 block text-xs text-danger-700">{error}</span>}
+      {!error && hint && <span className="mt-1 block text-xs font-normal text-ink-secondary">{hint}</span>}
     </label>
   )
 }

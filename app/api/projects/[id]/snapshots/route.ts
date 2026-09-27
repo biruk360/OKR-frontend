@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
+import { recordActivity } from '@/lib/activity-log'
 import { getReadableProject, getWritableProject } from '@/lib/projects/access'
 import { apiForbidden, apiNotFound, apiSuccess, apiValidationError, withAuth } from '@/lib/api'
 
@@ -53,6 +54,13 @@ export const POST = withAuth<{ id: string }>(async (_req, { session, params }) =
     data: { projectId: params.id, type: SNAPSHOT_TYPE, periodStart: now, periodEnd: now, status: 'APPROVED', contentJson, sentToEmails: [] },
     select: { id: true, generatedAt: true },
   })
+  await recordActivity({
+    entityType: 'PROJECT_REPORT',
+    projectId: params.id,
+    action: 'CREATED',
+    actorId: session.user.id,
+    metadata: { kind: SNAPSHOT_TYPE, reportId: snapshot.id },
+  })
   return apiSuccess(snapshot, { status: 201 })
 })
 
@@ -64,6 +72,13 @@ export const PATCH = withAuth<{ id: string }>(async (req: NextRequest, { session
   if (!contentJson) return apiNotFound('Project not found')
   const result = await prisma.projectReport.updateMany({ where: { id: parsed.data.snapshotId, projectId: params.id, type: SNAPSHOT_TYPE }, data: { contentJson, generatedAt: new Date() } })
   if (!result.count) return apiNotFound('Snapshot not found')
+  await recordActivity({
+    entityType: 'PROJECT_REPORT',
+    projectId: params.id,
+    action: 'UPDATED',
+    actorId: session.user.id,
+    metadata: { kind: SNAPSHOT_TYPE, reportId: parsed.data.snapshotId, refreshed: true },
+  })
   return apiSuccess({ id: parsed.data.snapshotId, refreshed: true })
 })
 
@@ -71,6 +86,15 @@ export const DELETE = withAuth<{ id: string }>(async (req: NextRequest, { sessio
   if (!await getWritableProject(session, params.id)) return apiForbidden()
   const parsed = z.object({ snapshotId: z.string().min(1) }).safeParse(await req.json().catch(() => null))
   if (!parsed.success) return apiValidationError('Invalid snapshot', parsed.error.flatten())
-  await prisma.projectReport.deleteMany({ where: { id: parsed.data.snapshotId, projectId: params.id, type: SNAPSHOT_TYPE } })
+  const result = await prisma.projectReport.deleteMany({ where: { id: parsed.data.snapshotId, projectId: params.id, type: SNAPSHOT_TYPE } })
+  if (result.count) {
+    await recordActivity({
+      entityType: 'PROJECT_REPORT',
+      projectId: params.id,
+      action: 'DELETED',
+      actorId: session.user.id,
+      metadata: { kind: SNAPSHOT_TYPE, reportId: parsed.data.snapshotId },
+    })
+  }
   return apiSuccess({ id: parsed.data.snapshotId, deleted: true })
 })

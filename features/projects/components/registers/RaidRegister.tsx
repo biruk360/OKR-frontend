@@ -66,7 +66,7 @@ export function RaidRegister({ projectId, canEdit }: { projectId: string; canEdi
           return (
             <button
               key={type}
-              className={cn('rounded-md px-3 py-1.5 text-body-sm font-medium', activeType === type ? 'bg-primary-500 text-white' : 'bg-surface-muted text-ink-secondary hover:text-ink-primary')}
+              className={cn('rounded-md px-3 py-1.5 text-body-sm font-medium', activeType === type ? 'bg-primary-500 text-primary-foreground' : 'bg-surface-muted text-ink-secondary hover:text-ink-primary')}
               onClick={() => switchType(type)}
             >
               {TYPE_LABEL[type]} <span className="ml-1 opacity-75">{count}</span>
@@ -83,7 +83,7 @@ export function RaidRegister({ projectId, canEdit }: { projectId: string; canEdi
       {activeType === 'RISK' && <RiskMatrix items={riskItems} />}
 
       {canEdit && (
-        <div className="mb-4 rounded-card border border-black/[0.08] p-3">
+        <div className="mb-4 rounded-card border border-ink-primary/[0.08] p-3">
           <div className="mb-2 text-body-sm font-medium text-ink-primary">Add {TYPE_LABEL[activeType].slice(0, -1)}</div>
           <div className="grid gap-2 md:grid-cols-4">
             <input className="input" value={draft.title} onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))} placeholder="Title" />
@@ -92,7 +92,7 @@ export function RaidRegister({ projectId, canEdit }: { projectId: string; canEdi
               <option value="">Unassigned</option>
               {users.map((u) => <option key={u.id} value={u.id}>{u.name ?? u.email}</option>)}
             </select>
-            <label className="flex items-center gap-2 rounded-md border border-black/[0.08] px-2 text-body-sm">
+            <label className="flex items-center gap-2 rounded-md border border-ink-primary/[0.08] px-2 text-body-sm">
               <input type="checkbox" checked={draft.clientVisible} onChange={(e) => setDraft((d) => ({ ...d, clientVisible: e.target.checked }))} />
               Client-visible
             </label>
@@ -113,7 +113,7 @@ export function RaidRegister({ projectId, canEdit }: { projectId: string; canEdi
         <div className="overflow-x-auto">
           <table className="w-full text-body-sm">
             <thead>
-              <tr className="border-b border-black/[0.08] text-left text-ink-tertiary">
+              <tr className="border-b border-ink-primary/[0.08] text-left text-ink-tertiary">
                 <th className="px-2 py-1.5 font-medium">Ref</th>
                 <th className="px-2 py-1.5 font-medium">Item</th>
                 <th className="px-2 py-1.5 font-medium">Owner</th>
@@ -124,7 +124,7 @@ export function RaidRegister({ projectId, canEdit }: { projectId: string; canEdi
                 {canEdit && <th className="px-2 py-1.5 font-medium">Actions</th>}
               </tr>
             </thead>
-            <tbody className="divide-y divide-black/[0.04]">
+            <tbody className="divide-y divide-ink-primary/[0.04]">
               {visible.map((item) => (
                 <RaidRow
                   key={item.id}
@@ -156,9 +156,9 @@ function RiskMatrix({ items }: { items: RaidItemNode[] }) {
 
   return (
     <div className="mb-4 grid gap-2 lg:grid-cols-[220px_1fr]">
-      <div className="rounded-card border border-black/[0.08] p-3">
+      <div className="rounded-card border border-ink-primary/[0.08] p-3">
         <div className="text-body-sm font-medium text-ink-primary">Risk Matrix</div>
-        <div className="mt-1 text-[12px] text-ink-tertiary">Probability × Impact. Red risks are counted by project confidence.</div>
+        <div className="mt-1 text-xs text-ink-tertiary">Probability × Impact. Red risks are counted by project confidence.</div>
       </div>
       <div className="grid grid-cols-5 gap-1">
         {[5, 4, 3, 2, 1].flatMap((probability) =>
@@ -166,7 +166,7 @@ function RiskMatrix({ items }: { items: RaidItemNode[] }) {
             const score = probability * impact
             const itemsInCell = cells.get(`${probability}:${impact}`) ?? []
             return (
-              <div key={`${probability}-${impact}`} className={cn('min-h-14 rounded-md border p-1 text-[11px]', matrixTone(score))}>
+              <div key={`${probability}-${impact}`} className={cn('min-h-14 rounded-md border p-1 text-xs', matrixTone(score))}>
                 <div className="flex justify-between font-medium">
                   <span>P{probability}/I{impact}</span>
                   <span>{score}</span>
@@ -220,7 +220,7 @@ function TypeFields({ type, draft, setDraft }: { type: RaidType; draft: RaidDraf
   }
   return (
     <div className="mt-2 grid gap-2 md:grid-cols-2">
-      <label className="flex items-center gap-2 rounded-md border border-black/[0.08] px-2 text-body-sm">
+      <label className="flex items-center gap-2 rounded-md border border-ink-primary/[0.08] px-2 text-body-sm">
         <input type="checkbox" checked={draft.validated} onChange={(e) => setDraft((d) => ({ ...d, validated: e.target.checked }))} />
         Validated
       </label>
@@ -241,20 +241,20 @@ function RaidRow({ item, canEdit, onUpdate, onDelete, onDelay }: {
       <td className="px-2 py-2 font-medium text-ink-primary">{item.refCode}</td>
       <td className="max-w-xs px-2 py-2">
         <div className="font-medium text-ink-primary">{item.title}</div>
-        {item.description && <div className="line-clamp-2 text-[12px] text-ink-tertiary">{item.description}</div>}
+        {item.description && <div className="line-clamp-2 text-xs text-ink-tertiary">{item.description}</div>}
       </td>
       <td className="px-2 py-2 text-ink-secondary">{item.owner?.name ?? 'Unassigned'}</td>
       <td className="px-2 py-2 text-ink-secondary">{typeSummary(item)}</td>
       <td className="px-2 py-2">
         {canEdit ? (
-          <select className="rounded-md border border-black/[0.08] bg-surface-card px-2 py-1" value={item.status} onChange={(e) => onUpdate({ status: e.target.value })}>
+          <select className="rounded-md border border-ink-primary/[0.08] bg-surface-card px-2 py-1" value={item.status} onChange={(e) => onUpdate({ status: e.target.value })}>
             {RAID_STATUSES.map((s) => <option key={s} value={s}>{labelize(s)}</option>)}
           </select>
         ) : labelize(item.status)}
       </td>
       <td className="px-2 py-2">
         {canEdit ? (
-          <button className={cn('rounded-md px-2 py-1 text-[12px] font-medium', item.clientVisible ? 'bg-success-50 text-success-700' : 'bg-surface-muted text-ink-secondary')} onClick={() => onUpdate({ clientVisible: !item.clientVisible })}>
+          <button className={cn('rounded-md px-2 py-1 text-xs font-medium', item.clientVisible ? 'bg-success-50 text-success-700' : 'bg-surface-muted text-ink-secondary')} onClick={() => onUpdate({ clientVisible: !item.clientVisible })}>
             <Eye className="mr-1 inline size-3" /> {item.clientVisible ? 'Visible' : 'Internal'}
           </button>
         ) : item.clientVisible ? 'Visible' : 'Internal'}

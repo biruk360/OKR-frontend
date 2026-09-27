@@ -4,12 +4,15 @@
  * Auth: this route is called by Telegram, not by an authenticated user.
  * Telegram is configured (via setWebhook) to send a fixed
  * `X-Telegram-Bot-Api-Secret-Token` header. We reject any request that does
- * not match TELEGRAM_WEBHOOK_SECRET.
+ * not match TELEGRAM_WEBHOOK_SECRET (constant-time, lib/telegram/access.ts).
  *
  * Behavior:
  *  - Persists the chat (upsert) and the message (every inbound update,
  *    per Stage 1 scrape mode = ALL).
- *  - If text starts with /ask, calls Claude and replies in the same chat.
+ *  - If text starts with /ask, and the chat is on TELEGRAM_ALLOWED_CHAT_IDS
+ *    (and not switched off via TelegramChat.isActive / askEnabled), and the
+ *    per-user / per-chat rate limits have room, calls the configured AI
+ *    provider (lib/ai/telegram-chat.ts, OpenAI by default) and replies.
  *  - Always returns 200 quickly so Telegram does not retry; errors are
  *    logged but not surfaced to the caller.
  */
@@ -22,6 +25,13 @@ import {
   type TelegramMessage,
   type TelegramUpdate,
 } from '@/lib/telegram/client'
+import {
+  allowedChatIdsFromEnv,
+  checkAskRateLimit,
+  deniedNoticeLimiter,
+  isAskAllowed,
+  webhookSecretMatches,
+} from '@/lib/telegram/access'
 import { answerAskCommand } from '@/lib/ai/telegram-chat'
 
 export const runtime = 'nodejs'
@@ -34,7 +44,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true }) // pretend success so Telegram stops retrying
   }
   const got = req.headers.get('x-telegram-bot-api-secret-token')
-  if (got !== expected) {
+  if (!webhookSecretMatches(got, expected)) {
     console.warn('[telegram] webhook secret mismatch')
     return NextResponse.json({ ok: true })
   }
@@ -64,8 +74,8 @@ async function handleMessage(msg: TelegramMessage, update: TelegramUpdate) {
   const text = msg.text ?? msg.caption ?? ''
   const cmd = parseCommand(text)
 
-  // Upsert chat record.
-  await prisma.telegramChat.upsert({
+  // Upsert chat record. isActive / askEnabled are admin-owned and never touched here.
+  const chat = await prisma.telegramChat.upsert({
     where: { chatId },
     create: {
       chatId,
@@ -78,6 +88,7 @@ async function handleMessage(msg: TelegramMessage, update: TelegramUpdate) {
       title: msg.chat.title ?? null,
       username: msg.chat.username ?? null,
     },
+    select: { chatId: true, isActive: true, askEnabled: true },
   })
 
   // Persist the message (skip duplicates from Telegram retries).
@@ -116,6 +127,42 @@ async function handleMessage(msg: TelegramMessage, update: TelegramUpdate) {
         text: 'Usage: /ask <your question>',
         replyToMessageId: msg.message_id,
       })
+      return
+    }
+
+    if (!isAskAllowed(chat, allowedChatIdsFromEnv())) {
+      console.warn('[telegram] /ask refused: chat not on TELEGRAM_ALLOWED_CHAT_IDS or disabled', {
+        chatId: chatId.toString(),
+        fromUserId: msg.from?.id ?? null,
+      })
+      if (deniedNoticeLimiter.check(chatId.toString()).allowed) {
+        await sendMessage({
+          chatId: msg.chat.id,
+          text: `/ask is not enabled in this chat. An administrator can enable it for chat ID ${chatId.toString()}.`,
+          replyToMessageId: msg.message_id,
+        })
+      }
+      return
+    }
+
+    const limit = checkAskRateLimit(chatId.toString(), msg.from?.id ? String(msg.from.id) : null)
+    if (!limit.allowed) {
+      console.warn('[telegram] /ask rate limited', {
+        chatId: chatId.toString(),
+        fromUserId: msg.from?.id ?? null,
+        scope: limit.scope,
+      })
+      if (limit.firstDenial) {
+        const minutes = Math.max(1, Math.ceil(limit.retryAfterMs / 60_000))
+        await sendMessage({
+          chatId: msg.chat.id,
+          text:
+            limit.scope === 'user'
+              ? `You have asked a lot of questions recently. Please try again in about ${minutes} min.`
+              : `This chat has reached its /ask limit for now. Please try again in about ${minutes} min.`,
+          replyToMessageId: msg.message_id,
+        })
+      }
       return
     }
 

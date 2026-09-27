@@ -53,7 +53,15 @@ export async function recalcObjectiveStoredProgress(tx: DbLike, objectiveId: str
     },
   })
   if (!obj) return 0
+  return storeObjectiveProgress(tx, objectiveId, obj)
+}
 
+/** Shared body of recalcObjectiveStoredProgress once the objective's rollup settings are known. */
+async function storeObjectiveProgress(
+  tx: DbLike,
+  objectiveId: string,
+  obj: { alignmentType: string | null; rollupCalculation: string | null },
+): Promise<number> {
   const children = await tx.objective.findMany({
     where: { parentObjectiveId: objectiveId, status: 'ACTIVE' },
     select: { progress: true, weight: true },
@@ -158,20 +166,33 @@ export async function recalcKrFromInitiatives(
 
 /** Recompute this objective, then each ancestor up to the root (e.g. after KR change or moving alignment). */
 export async function recalcNodeAndAncestors(tx: DbLike, startObjectiveId: string): Promise<void> {
+  // Each level depends on the freshly-stored progress of the level below, so the
+  // walk is inherently sequential (and stays inside the caller's transaction —
+  // invariant #9). The node lookup also fetches the rollup settings so each level
+  // costs one fewer query. `seen` guards against a corrupt parent cycle, which
+  // would otherwise loop forever.
+  const seen = new Set<string>()
   let cur: string | null = startObjectiveId
-  while (cur !== null) {
+  while (cur !== null && !seen.has(cur)) {
     const id: string = cur
+    seen.add(id)
     const node = await tx.objective.findUnique({
       where: { id },
-      select: { parentObjectiveId: true, isLocked: true },
+      select: {
+        parentObjectiveId: true,
+        isLocked: true,
+        alignmentType: true,
+        rollupCalculation: true,
+      },
     })
+    if (!node) return
     // A CLOSED (locked) objective's progress is frozen — never recompute it.
     // We still walk to ancestors: a locked child's frozen `progress` rolls up
     // into any unlocked parent as-is.
-    if (!node?.isLocked) {
-      await recalcObjectiveStoredProgress(tx, id)
+    if (!node.isLocked) {
+      await storeObjectiveProgress(tx, id, node)
     }
-    cur = node?.parentObjectiveId ?? null
+    cur = node.parentObjectiveId ?? null
   }
 }
 
@@ -211,17 +232,27 @@ export async function wouldCreateAlignmentCycle(
   return isAncestorOf(tx, childId, proposedParentId)
 }
 
-/** All objectives in the subtree under rootId (not including rootId). */
+/**
+ * All objectives in the subtree under rootId (not including rootId — unless a
+ * corrupt parent cycle leads back to it). Each id is visited at most once, so a
+ * cycle in `parentObjectiveId` (a → b → a) terminates instead of looping forever.
+ */
 export async function getDescendantObjectiveIds(tx: DbLike, rootId: string): Promise<string[]> {
   const out: string[] = []
+  const seen = new Set<string>()
   let frontier: string[] = [rootId]
   while (frontier.length > 0) {
     const children = await tx.objective.findMany({
       where: { parentObjectiveId: { in: frontier } },
       select: { id: true },
     })
-    frontier = children.map((c) => c.id)
-    out.push(...frontier)
+    frontier = []
+    for (const c of children) {
+      if (seen.has(c.id)) continue
+      seen.add(c.id)
+      frontier.push(c.id)
+      out.push(c.id)
+    }
   }
   return out
 }

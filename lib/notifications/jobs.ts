@@ -5,7 +5,10 @@
 
 import { prisma } from '@/lib/prisma'
 import { sendMail } from '@/lib/email'
-import { emit } from './dispatcher'
+// emitNow, not emit: these run from cron routes, where the job's next step (a
+// digest drain, the timeframe close, the response's counts) assumes delivery
+// has happened, and a sequential loop keeps a burst inside the Prisma pool.
+import { emitNow as emit } from './dispatcher'
 import { isCheckInOverdue, type CheckInCadence } from '@/lib/check-in-cadence'
 import { renderDigest, type DigestItem } from '@/lib/email/templates/digest'
 

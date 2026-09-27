@@ -1,6 +1,6 @@
 'use client'
 
-import { Download, FileSpreadsheet, FileText, Save } from 'lucide-react'
+import { Download, FileSpreadsheet, Save } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 interface ImportTemplateDownloadsProps {
@@ -19,6 +19,11 @@ const DOWNLOADS = [
     title: 'CSV file',
     description: 'A flat schedule with the same supported columns and example rows for any spreadsheet editor.',
   },
+  {
+    format: 'docx',
+    title: 'Word work plan',
+    description: 'Project overview, dates, scope, deliverables, milestones, activities, dependencies, assumptions, responsibilities, approvals and exclusions.',
+  },
 ] as const
 
 export function ImportTemplateDownloads({
@@ -36,12 +41,12 @@ export function ImportTemplateDownloads({
             {context === 'entry' ? 'Download a template before starting' : 'Download an import template'}
           </h3>
           <p className="mt-1 text-body text-ink-secondary">
-            These files do not require an existing project or draft. Complete one in your preferred spreadsheet editor and return here to import it.
+            These files do not require an existing project or draft. Complete one in your spreadsheet or word processor and return here to import it.
           </p>
         </div>
       </div>
 
-      <div className="mt-5 grid gap-3 sm:grid-cols-2">
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {DOWNLOADS.map((download) => (
           <div key={download.format} className="flex flex-col rounded-card border border-border bg-surface-muted p-4">
             <p className="text-body font-semibold text-ink-primary">{download.title}</p>
@@ -53,14 +58,6 @@ export function ImportTemplateDownloads({
             </Button>
           </div>
         ))}
-      </div>
-
-      <div className="mt-3 flex items-start gap-3 rounded-card border border-border bg-surface-muted p-4" aria-disabled="true">
-        <FileText className="mt-0.5 size-4 shrink-0 text-ink-tertiary" strokeWidth={1.75} />
-        <div>
-          <p className="text-body-sm font-semibold text-ink-secondary">Word template</p>
-          <p className="text-body-sm text-ink-tertiary">DOCX template download will be available in a later release.</p>
-        </div>
       </div>
 
       {onSaveExit && (

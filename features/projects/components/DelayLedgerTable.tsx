@@ -51,7 +51,7 @@ export function DelayLedgerTable({ projectId, canEdit }: { projectId: string; ca
           <span className="font-medium text-ink-primary">
             {c.getValue() ?? '(deleted activity)'}
             {c.row.original.isAutoDetected && (
-              <span className="ml-1.5 rounded-pill bg-surface-muted px-1.5 py-0.5 text-[10px] font-medium text-ink-secondary" title="Auto-detected by the approval clock">auto</span>
+              <span className="ml-1.5 rounded-pill bg-surface-muted px-1.5 py-0.5 text-xs font-medium text-ink-secondary" title="Auto-detected by the approval clock">auto</span>
             )}
             {c.row.original.daysLost > 7 && !c.row.original.recoveryPlan && (
               <AlertTriangle className="ml-1.5 inline size-3.5 text-warning-600" aria-label="Over 7 days without a recovery plan" />
@@ -75,7 +75,7 @@ export function DelayLedgerTable({ projectId, canEdit }: { projectId: string; ca
         header: 'SLA',
         cell: (c) =>
           c.getValue() != null ? (
-            <span className="rounded-pill bg-danger-50 px-1.5 py-0.5 text-[11px] font-medium text-danger-700">+{c.getValue()}d over</span>
+            <span className="rounded-pill bg-danger-50 px-1.5 py-0.5 text-xs font-medium text-danger-700">+{c.getValue()}d over</span>
           ) : (
             <span className="text-ink-tertiary">—</span>
           ),
@@ -215,7 +215,7 @@ export function DelayLedgerTable({ projectId, canEdit }: { projectId: string; ca
           <table className="w-full text-body-sm">
             <thead>
               {table.getHeaderGroups().map((hg) => (
-                <tr key={hg.id} className="border-b border-black/[0.08] text-left text-ink-tertiary">
+                <tr key={hg.id} className="border-b border-ink-primary/[0.08] text-left text-ink-tertiary">
                   {hg.headers.map((h) => (
                     <th key={h.id} className="px-2 py-1.5 font-medium">
                       {h.isPlaceholder ? null : flexRender(h.column.columnDef.header, h.getContext())}
@@ -224,7 +224,7 @@ export function DelayLedgerTable({ projectId, canEdit }: { projectId: string; ca
                 </tr>
               ))}
             </thead>
-            <tbody className="divide-y divide-black/[0.04]">
+            <tbody className="divide-y divide-ink-primary/[0.04]">
               {table.getRowModel().rows.map((row) => (
                 <tr key={row.id}>
                   {row.getVisibleCells().map((cell) => (
@@ -253,7 +253,7 @@ function FilterSelect({
 }) {
   return (
     <select
-      className="rounded-md border border-black/[0.08] bg-surface-card px-2 py-1 text-body-sm text-ink-secondary"
+      className="rounded-md border border-ink-primary/[0.08] bg-surface-card px-2 py-1 text-body-sm text-ink-secondary"
       value={value}
       onChange={(e) => onChange(e.target.value)}
     >

@@ -1,7 +1,9 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { SUBMITTED_SCRUM_UPDATE_WHERE } from '@/features/scrum/services/drafts'
 import { apiBadRequest, apiSuccess, withAuth } from '@/lib/api'
 import { serializeScrumUpdates } from '@/features/scrum/services/scrum-serializer'
+import { canViewScrumUser } from '@/features/scrum/services/access'
 
 export const GET = withAuth(async (request: NextRequest, { session }) => {
   const q = new URL(request.url).searchParams
@@ -14,15 +16,21 @@ export const GET = withAuth(async (request: NextRequest, { session }) => {
       ...(objectiveId ? { objectiveId } : {}),
       ...(keyResultId ? { keyResultId } : {}),
       ...(todoId ? { todoId } : {}),
+      update: SUBMITTED_SCRUM_UPDATE_WHERE,
     },
     include: { update: { include: { links: true, celebrations: true } } },
     orderBy: { createdAt: 'desc' },
     take: 100,
   })
-  const updates = links.map((link) => link.update)
+  // Only surface updates whose author the viewer may see (same rule as GET /updates/[id]).
+  const authorIds = [...new Set(links.map((link) => link.update.userId))]
+  const visible = new Set<string>()
+  await Promise.all(authorIds.map(async (id) => { if (await canViewScrumUser(session, id)) visible.add(id) }))
+  const visibleLinks = links.filter((link) => visible.has(link.update.userId))
+  const updates = visibleLinks.map((link) => link.update)
   return apiSuccess({
     count: updates.length,
-    contextCounts: links.reduce<Record<string, number>>((acc, link) => {
+    contextCounts: visibleLinks.reduce<Record<string, number>>((acc, link) => {
       acc[link.context] = (acc[link.context] ?? 0) + 1
       return acc
     }, {}),

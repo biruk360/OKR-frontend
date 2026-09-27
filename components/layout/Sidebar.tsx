@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef, type Dispatch, type 
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useSession } from 'next-auth/react'
 import { cn } from '@/lib/utils'
 import {
   getActiveNavContext,
@@ -15,6 +16,7 @@ import { useEffectivePermissions } from '@/hooks/useEffectivePermissions'
 import { Target, X, ChevronDown, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
+import { Sheet, SheetClose, SheetContent, SheetTitle } from '@/components/ui/sheet'
 
 const SIDEBAR_COLLAPSED_KEY = 'okr-sidebar-collapsed'
 
@@ -323,21 +325,48 @@ function CollapsedSidebarNav({ navigationGroups, pathname, flyout, setFlyout }: 
   )
 }
 
+/** Matches Tailwind `lg` — the breakpoint at which the desktop rail replaces the drawer. */
+const DESKTOP_NAV_QUERY = '(min-width: 1024px)'
+
+/**
+ * Mobile navigation drawer, built on the shared `Sheet` (Radix Dialog): it is a
+ * real modal dialog — `role="dialog"`, labelled by its title, Escape and
+ * scrim-click close it, focus is trapped inside while open and returned to the
+ * menu button on close, and the page behind is inert and scroll-locked.
+ */
 export function SidebarMobileDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
   const pathname = usePathname()
   const permissions = useEffectivePermissions()
+  const role = useSession().data?.user?.role
   const navigationGroups = useMemo(
-    () => getVisibleNavigationGroups(permissions.canFeature),
-    [permissions.data],
+    () => getVisibleNavigationGroups(permissions.canFeature, { role }),
+    [permissions.data, role],
   )
   const { openGroups, toggleGroup } = useNavOpenState(navigationGroups)
 
-  if (!open) return null
+  // The drawer is lg:hidden, but an open Radix dialog would still trap focus
+  // and lock scroll. If the viewport widens past lg while it is open, close it.
+  useEffect(() => {
+    if (!open || typeof window === 'undefined' || !window.matchMedia) return
+    const mq = window.matchMedia(DESKTOP_NAV_QUERY)
+    if (mq.matches) {
+      onClose()
+      return
+    }
+    const onChange = (e: MediaQueryListEvent) => { if (e.matches) onClose() }
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [open, onClose])
 
   return (
-    <div className="fixed inset-0 z-[100] lg:hidden">
-      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} aria-hidden />
-      <div className="fixed inset-y-0 left-0 flex w-[min(18rem,100vw)] max-w-full flex-col bg-[var(--ap-bg-raised)] shadow-xl">
+    <Sheet open={open} onOpenChange={(next) => { if (!next) onClose() }}>
+      <SheetContent
+        side="left"
+        showCloseButton={false}
+        aria-describedby={undefined}
+        overlayClassName="z-[100] bg-black/40 lg:hidden"
+        className="z-[100] gap-0 bg-[var(--ap-bg-raised)] text-[13px] leading-[1.45] text-[color:var(--ap-fg)] shadow-xl lg:hidden data-[side=left]:w-[min(18rem,100vw)] data-[side=left]:max-w-full data-[side=left]:border-r-0 data-[side=left]:sm:max-w-full"
+      >
         <div className="flex h-[52px] shrink-0 items-center gap-2.5 px-2.5">
           <span
             aria-hidden
@@ -345,27 +374,32 @@ export function SidebarMobileDrawer({ open, onClose }: { open: boolean; onClose:
           >
             <Target className="size-[14px]" />
           </span>
-          <span className="flex-1 truncate text-[14px] font-bold tracking-[-0.01em]">OKR System</span>
-          <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close menu">
-            <X className="size-4" />
-          </Button>
+          <SheetTitle className="flex-1 truncate font-sans text-[14px] font-bold tracking-[-0.01em] text-inherit">
+            OKR System
+          </SheetTitle>
+          <SheetClose asChild>
+            <Button variant="ghost" size="icon-sm" aria-label="Close menu">
+              <X className="size-4" />
+            </Button>
+          </SheetClose>
         </div>
         <ScrollArea className="flex-1">
-          <nav className="flex flex-col gap-px px-2.5 pb-6 pt-1">
+          <nav aria-label="Main" className="flex flex-col gap-px px-2.5 pb-6 pt-1">
             {renderExpandedGroupNav({ navigationGroups, pathname, openGroups, toggleGroup, onNavigate: onClose })}
           </nav>
         </ScrollArea>
-      </div>
-    </div>
+      </SheetContent>
+    </Sheet>
   )
 }
 
 export function SidebarDesktopColumn({ collapsed, onToggleCollapsed, className }: { collapsed: boolean; onToggleCollapsed: () => void; className?: string }) {
   const pathname = usePathname()
   const permissions = useEffectivePermissions()
+  const role = useSession().data?.user?.role
   const navigationGroups = useMemo(
-    () => getVisibleNavigationGroups(permissions.canFeature),
-    [permissions.data],
+    () => getVisibleNavigationGroups(permissions.canFeature, { role }),
+    [permissions.data, role],
   )
   const { openGroups, toggleGroup } = useNavOpenState(navigationGroups)
   const [flyout, setFlyout] = useState<FlyoutState | null>(null)

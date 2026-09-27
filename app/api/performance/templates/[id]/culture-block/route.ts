@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { apiBadRequest, apiForbidden, apiNotFound, apiSuccess, withAuth } from '@/lib/api'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { CULTURE_CRITERIA, CULTURE_LIBRARY_VERSION, canManageTemplates, hasPerformancePermission } from '@/lib/performance'
+import { recordActivity } from '@/lib/activity-log'
 
 export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { session, params }) => {
   const actor = { userId: session.user.id, role: session.user.role }
@@ -71,6 +72,16 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
         tiers: { orderBy: { position: 'asc' }, include: { criteria: { orderBy: { position: 'asc' } } } },
       },
     })
+  })
+  await recordActivity({
+    entityType: 'PERFORMANCE_SETTINGS',
+    action: 'UPDATED',
+    actorId: session.user.id,
+    changes: {
+      criteria: { from: tier.criteria.map((c) => c.code ?? c.title), to: [...tier.criteria.map((c) => c.code ?? c.title), ...missing.map((c) => c.code)] },
+      maxTotal: { from: template.maxTotal, to: updated?.maxTotal ?? null },
+    },
+    metadata: { entity: 'SCORECARD_TEMPLATE', event: 'CULTURE_BLOCK_INSERTED', templateId: id, tierId, inserted: missing.map((c) => c.code) },
   })
   return apiSuccess({ inserted: missing.length, template: updated })
 })

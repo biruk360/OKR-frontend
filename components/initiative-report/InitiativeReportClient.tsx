@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import { CheckCircle2, Search, ChevronDown, ChevronRight, Printer } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { Skeleton, SkeletonRow } from '@/components/ui/Skeleton'
+import { KpiCard } from '@/components/ui/dashboard'
 
 interface DayCell {
   date: string
@@ -115,37 +117,39 @@ export default function InitiativeReportClient() {
         {/* Hero */}
         <header className="flex flex-wrap items-end justify-between gap-3 px-1">
           <div>
-            <h1 className="text-[24px] font-semibold tracking-tight text-foreground">Initiative Report</h1>
-            <p className="mt-1 text-[13px] text-muted-foreground">
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">Initiative Report</h1>
+            <p className="mt-1 text-body-sm text-muted-foreground">
               Daily mandatory updates · {overallCompliance}% compliance
               {missingToday > 0 && (
                 <span style={{ color: 'var(--ap-red)' }}> · {missingToday} missing today</span>
               )}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 no-print">
             <input
               type="date"
+              aria-label="From date"
               value={from}
               onChange={(e) => setFrom(e.target.value)}
-              className="h-7 rounded-[var(--ap-radius-sm)] border bg-background px-2 text-[12px] outline-none"
+              className="h-7 rounded-[var(--ap-radius-sm)] border bg-background px-2 text-xs outline-none"
               style={{ borderColor: 'var(--ap-border)' }}
             />
-            <span className="text-[12px] text-muted-foreground">→</span>
+            <span className="text-xs text-muted-foreground">→</span>
             <input
               type="date"
+              aria-label="To date"
               value={to}
               onChange={(e) => setTo(e.target.value)}
-              className="h-7 rounded-[var(--ap-radius-sm)] border bg-background px-2 text-[12px] outline-none"
+              className="h-7 rounded-[var(--ap-radius-sm)] border bg-background px-2 text-xs outline-none"
               style={{ borderColor: 'var(--ap-border)' }}
             />
             <button
               type="button"
               onClick={() => typeof window !== 'undefined' && window.print()}
-              className="inline-flex items-center gap-1 h-7 rounded-[var(--ap-radius-sm)] border bg-card px-2.5 text-[12px] text-muted-foreground hover:text-foreground"
+              className="inline-flex items-center gap-1 h-7 rounded-[var(--ap-radius-sm)] border bg-card px-2.5 text-xs text-muted-foreground hover:text-foreground"
               style={{ borderColor: 'var(--ap-border)' }}
             >
-              <Printer className="h-3.5 w-3.5" /> Print
+              <Printer className="h-3.5 w-3.5" aria-hidden /> Print
             </button>
           </div>
         </header>
@@ -165,20 +169,21 @@ export default function InitiativeReportClient() {
             <input
               type="search"
               placeholder="Filter by initiative, owner or objective"
+              aria-label="Filter by initiative, owner or objective"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="h-8 w-full rounded-[var(--ap-radius-sm)] border bg-background pl-7 pr-2 text-[13px] outline-none"
+              className="h-8 w-full rounded-[var(--ap-radius-sm)] border bg-background pl-7 pr-2 text-body-sm outline-none"
               style={{ borderColor: 'var(--ap-border)' }}
             />
           </div>
         </div>
 
         {loading ? (
-          <div
-            className="rounded-[var(--ap-radius-md)] border bg-card p-8 text-center text-[13px] text-muted-foreground"
-            style={{ borderColor: 'var(--ap-border)' }}
-          >
-            Loading report…
+          <div className="space-y-2" aria-busy="true" aria-label="Loading report">
+            <Skeleton className="h-9 w-full" />
+            {Array.from({ length: 6 }).map((_, i) => (
+              <SkeletonRow key={i} />
+            ))}
           </div>
         ) : filteredRows.length === 0 ? (
           <EmptyState
@@ -190,17 +195,17 @@ export default function InitiativeReportClient() {
             className="rounded-[var(--ap-radius-md)] border bg-card overflow-x-auto"
             style={{ borderColor: 'var(--ap-border)' }}
           >
-            <table className="min-w-max w-full text-[13px]">
+            <table className="min-w-max w-full text-body-sm">
               <thead>
                 <tr style={{ background: 'var(--ap-bg-sunken)' }}>
                   <th
-                    className="text-left text-[10px] font-semibold uppercase tracking-wide text-muted-foreground px-3 py-2"
+                    className="text-left text-micro font-semibold uppercase tracking-wide text-muted-foreground px-3 py-2"
                     style={{ width: 280, position: 'sticky', left: 0, background: 'var(--ap-bg-sunken)', zIndex: 10 }}
                   >
                     Initiative
                   </th>
                   <th
-                    className="text-left text-[10px] font-semibold uppercase tracking-wide text-muted-foreground px-2 py-2"
+                    className="text-left text-micro font-semibold uppercase tracking-wide text-muted-foreground px-2 py-2"
                     style={{ width: 110 }}
                   >
                     Compliance
@@ -212,10 +217,10 @@ export default function InitiativeReportClient() {
                       style={{ width: 44 }}
                       title={d}
                     >
-                      <div className="text-[10px] font-semibold text-muted-foreground">
+                      <div className="text-micro font-semibold text-muted-foreground">
                         {new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'narrow' })}
                       </div>
-                      <div className="text-[10px] tabular-nums text-muted-foreground">
+                      <div className="text-micro tabular-nums text-muted-foreground">
                         {new Date(d + 'T12:00:00').getDate()}
                       </div>
                     </th>
@@ -232,7 +237,7 @@ export default function InitiativeReportClient() {
                     <tr key={row.id} className="border-t" style={{ borderColor: 'var(--ap-border)' }}>
                       <td
                         className="px-3 py-2"
-                        style={{ position: 'sticky', left: 0, background: 'var(--ap-bg, #ffffff)', zIndex: 5 }}
+                        style={{ position: 'sticky', left: 0, background: 'var(--ap-bg)', zIndex: 5 }}
                       >
                         <button
                           type="button"
@@ -244,10 +249,10 @@ export default function InitiativeReportClient() {
                             : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                           }
                           <div className="min-w-0">
-                            <div className="truncate text-[13px] font-medium text-foreground">
+                            <div className="truncate text-body-sm font-medium text-foreground">
                               {row.title}
                             </div>
-                            <div className="truncate text-[12px] text-muted-foreground">
+                            <div className="truncate text-xs text-muted-foreground">
                               {row.assignee.name}
                               {row.objectiveTitle && <> · {row.objectiveTitle}</>}
                             </div>
@@ -265,7 +270,7 @@ export default function InitiativeReportClient() {
                               style={{ width: `${row.compliancePct}%`, background: compTint }}
                             />
                           </div>
-                          <span className="text-[11px] tabular-nums text-muted-foreground">
+                          <span className="text-caption tabular-nums text-muted-foreground">
                             {row.compliancePct}%
                           </span>
                         </div>
@@ -277,6 +282,17 @@ export default function InitiativeReportClient() {
                             key={day.date}
                             className="text-center cursor-pointer"
                             style={{ padding: '4px 2px' }}
+                            role="button"
+                            tabIndex={0}
+                            aria-label={day.hasUpdate ? `Edit update for ${row.title} on ${day.date}` : `Add update for ${row.title} on ${day.date}`}
+                            onKeyDown={(e) => {
+                              if (e.target !== e.currentTarget) return
+                              if ((e.key === 'Enter' || e.key === ' ') && !isEditing) {
+                                e.preventDefault()
+                                setEditingCell({ initId: row.id, date: day.date })
+                                setEditContent(day.content || '')
+                              }
+                            }}
                             title={
                               day.hasUpdate
                                 ? `${day.authorName}: ${day.content?.slice(0, 100)}`
@@ -292,28 +308,28 @@ export default function InitiativeReportClient() {
                             {isEditing ? (
                               <div
                                 className="absolute z-20 mt-1 w-60 p-2 rounded-[var(--ap-radius-md)] border bg-card"
-                                style={{ borderColor: 'var(--ap-border)', boxShadow: '0 4px 12px rgba(0,0,0,0.12)' }}
+                                style={{ borderColor: 'var(--ap-border)', boxShadow: 'var(--ap-shadow-md)' }}
                               >
                                 <textarea
                                   autoFocus
                                   value={editContent}
                                   onChange={(e) => setEditContent(e.target.value)}
                                   rows={3}
-                                  className="w-full min-h-[64px] rounded-[var(--ap-radius-sm)] border bg-background p-2 text-[12px] outline-none"
+                                  className="w-full min-h-[64px] rounded-[var(--ap-radius-sm)] border bg-background p-2 text-xs outline-none"
                                   style={{ borderColor: 'var(--ap-border)' }}
                                   placeholder="What did you do today?"
                                 />
                                 <div className="mt-2 flex gap-1">
                                   <button
                                     onClick={(e) => { e.stopPropagation(); submitUpdate(row.id, day.date) }}
-                                    className="inline-flex h-6 items-center rounded-[8px] px-2 text-[11px] font-semibold text-white"
+                                    className="inline-flex h-6 items-center rounded-[8px] px-2 text-caption font-semibold text-[var(--ap-accent-fg)]"
                                     style={{ background: 'var(--ap-accent)' }}
                                   >
                                     Save
                                   </button>
                                   <button
                                     onClick={(e) => { e.stopPropagation(); setEditingCell(null) }}
-                                    className="inline-flex h-6 items-center rounded-[8px] border px-2 text-[11px] text-muted-foreground"
+                                    className="inline-flex h-6 items-center rounded-[8px] border px-2 text-caption text-muted-foreground"
                                     style={{ borderColor: 'var(--ap-border)' }}
                                   >
                                     Cancel
@@ -325,7 +341,7 @@ export default function InitiativeReportClient() {
                             ) : (
                               <div
                                 className="mx-auto h-3.5 w-3.5 rounded-[4px]"
-                                style={{ background: 'rgba(255,59,48,0.15)', border: '1px solid rgba(255,59,48,0.4)' }}
+                                style={{ background: 'color-mix(in oklch, var(--ap-red) 15%, transparent)', border: '1px solid color-mix(in oklch, var(--ap-red) 40%, transparent)' }}
                               />
                             )}
                           </td>
@@ -338,20 +354,6 @@ export default function InitiativeReportClient() {
             </table>
           </div>
         )}
-      </div>
-    </div>
-  )
-}
-
-function KpiCard({ label, value, tint }: { label: string; value: string | number; tint: string }) {
-  return (
-    <div
-      className="rounded-[var(--ap-radius-md)] border bg-card p-4"
-      style={{ borderColor: 'var(--ap-border)' }}
-    >
-      <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className="mt-1 text-[28px] font-semibold tabular-nums tracking-tight" style={{ color: tint }}>
-        {value}
       </div>
     </div>
   )

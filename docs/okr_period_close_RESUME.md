@@ -4,6 +4,12 @@
 > feature. The full plan is in `docs/okr_period_close_IMPLEMENTATION_INSTRUCTIONS.md` (7 phases) and
 > the spec is `docs/okr_period_close_and_rollover_requirements.md`. Follow both.
 
+> **✅ SHIPPED — this handoff is historical (verified 2026-09-25).** The feature was merged to `main`
+> as `ac4a747` "Add OKR period close and rollover (#7)" on 2026-07-20, followed by `e3fa967`
+> "Fix period-close deployment preflight (#8)". The "nothing committed / nothing pushed" statements
+> below describe the state *before* that merge and are no longer true. For current status see
+> `docs/FEATURE_STATUS.md`.
+
 ## Current completion marker — 2026-07-20
 
 - Phases 1–7 are implemented and verified against the localhost development app/database.
@@ -16,7 +22,7 @@
 
 ## Current state (as of last session)
 
-- **Branch:** `feature/okr-period-close` — **NOTHING is committed yet.** All work is uncommitted
+- **Branch (historical, pre-merge):** `feature/okr-period-close` — **NOTHING is committed yet** *(superseded: merged as `ac4a747`/PR #7)*. All work is uncommitted
   working-tree edits (~24 files). Nothing pushed to `origin`. Nothing on production. Do NOT assume
   prior work is saved anywhere but the working tree — verify with `git status` before touching files.
 - **Local dev DB** (`localhost:5432/okr_system`) already has the Phase 1 schema pushed. Production DB

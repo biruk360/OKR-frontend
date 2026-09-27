@@ -2,10 +2,8 @@ import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { generatePortfolioReport, PORTFOLIO_REPORT_TYPE } from '@/lib/projects/portfolio-report'
 import { apiForbidden, apiSuccess, withAuth } from '@/lib/api'
+import { canReadPortfolio } from '@/lib/projects/portfolio-access'
 
-function canReadPortfolio(role: string): boolean {
-  return role === 'ADMIN' || role === 'EXECUTIVE' || role === 'DEPARTMENT_LEAD'
-}
 
 export const GET = withAuth(async (_req: NextRequest, { session }) => {
   if (!canReadPortfolio(session.user.role)) return apiForbidden('Portfolio reports are restricted to executives and department leads')

@@ -169,7 +169,10 @@ describe('Project creation secure upload storage', () => {
 
     for (const route of [uploadRoute, analyzeRoute]) {
       assert.match(route, /secureProjectCreationUpload\(\{/)
-      assert.ok(route.indexOf('secureProjectCreationUpload({') < route.indexOf('inspectProjectCreationSpreadsheet('))
+      const parseStart = route.includes('inspectProjectCreationSpreadsheet(')
+        ? route.indexOf('inspectProjectCreationSpreadsheet(')
+        : route.indexOf('runAfterResponse(')
+      assert.ok(parseStart > 0 && route.indexOf('secureProjectCreationUpload({') < parseStart)
       assert.match(route, /sourceRef: retainedUpload\.sourceRef/)
       assert.match(route, /scanStatus: retainedUpload\.scanStatus/)
       assert.match(route, /deleteSecureProjectCreationUpload/)

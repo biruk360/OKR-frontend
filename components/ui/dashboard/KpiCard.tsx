@@ -8,7 +8,7 @@ interface Props {
 export function KpiCard({ label, value, tint }: Props) {
   return (
     <div className="rounded-[var(--ap-radius-md)] border bg-card p-4" style={{ borderColor: 'var(--ap-border)' }}>
-      <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>
       <div className="mt-1 text-[28px] font-semibold tabular-nums tracking-tight" style={{ color: tint }}>
         {value}
       </div>

@@ -3,6 +3,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { AlertCircle, Loader2, ToggleLeft, ToggleRight, Navigation } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { Skeleton } from '@/components/ui/Skeleton'
+import { SettingsSelect } from '../SettingsSelect'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -37,6 +40,7 @@ const MODULE_CHILDREN: Record<string, string[]> = {
     'button.letter.send',
     'button.letter.archive',
     'button.letter.delete',
+    'button.letter.admin',
     'tab.letter.enclosures',
     'tab.letter.pdf-preview',
   ],
@@ -138,11 +142,11 @@ function groupLabel(g: GroupKey) {
 
 function groupColor(g: GroupKey) {
   switch (g) {
-    case 'module':  return 'bg-green-100 text-green-700'
-    case 'page':    return 'bg-blue-100 text-blue-700'
-    case 'button':  return 'bg-purple-100 text-purple-700'
-    case 'tab':     return 'bg-orange-100 text-orange-700'
-    default:        return 'bg-gray-100 text-gray-600'
+    case 'module':  return 'bg-success-100 text-success-700'
+    case 'page':    return 'bg-primary-100 text-primary-700'
+    case 'button':  return 'bg-ink-primary/10 text-ink-primary'
+    case 'tab':     return 'bg-warning-100 text-warning-700'
+    default:        return 'bg-surface-app text-ink-secondary'
   }
 }
 
@@ -387,7 +391,7 @@ export default function FeaturesNavTab() {
     <div className="space-y-5">
       {/* Error banner */}
       {error && (
-        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="flex items-center gap-2 rounded-lg border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-700">
           <AlertCircle className="h-4 w-4 shrink-0" />
           {error}
         </div>
@@ -395,7 +399,7 @@ export default function FeaturesNavTab() {
 
       {/* Cascade hint */}
       {cascadeNote && (
-        <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+        <div className="flex items-center gap-2 rounded-lg border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-700">
           <AlertCircle className="h-4 w-4 shrink-0" />
           Hidden modules auto-hide their pages and buttons.
         </div>
@@ -403,35 +407,30 @@ export default function FeaturesNavTab() {
 
       {/* Header */}
       <div>
-        <h2 className="text-base font-semibold text-gray-900">Features &amp; Navigation</h2>
-        <p className="text-sm text-gray-500 mt-0.5">
+        <h2 className="text-base font-semibold text-ink-primary">Features &amp; Navigation</h2>
+        <p className="text-sm text-ink-secondary mt-0.5">
           Control which features and navigation items are visible per role. Toggle to enable or disable.
         </p>
       </div>
 
       {/* Role selector */}
       <div className="flex items-center gap-3">
-        <label htmlFor="role-select" className="text-sm font-medium text-gray-700 whitespace-nowrap">
+        <label htmlFor="role-select" className="text-sm font-medium text-ink-primary whitespace-nowrap">
           Role
         </label>
         {rolesLoading ? (
-          <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+          <Skeleton className="h-9 w-48" aria-label="Loading roles" />
         ) : (
-          <select
+          <SettingsSelect
             id="role-select"
             value={selectedRoleId}
-            onChange={e => setSelectedRoleId(e.target.value)}
-            className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            {roles.map(role => (
-              <option key={role.id} value={role.id}>
-                {role.label || role.name}
-              </option>
-            ))}
-          </select>
+            onValueChange={setSelectedRoleId}
+            options={roles.map(role => ({ value: role.id, label: role.label || role.name }))}
+            className="w-auto min-w-48"
+          />
         )}
         {saving && (
-          <span className="flex items-center gap-1 text-xs text-gray-400">
+          <span role="status" className="flex items-center gap-1 text-xs text-ink-secondary">
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
             Saving…
           </span>
@@ -439,16 +438,21 @@ export default function FeaturesNavTab() {
       </div>
 
       {/* Content */}
-      {featuresLoading ? (
-        <div className="flex items-center justify-center py-16 text-gray-400">
-          <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading features…
+      {loading ? (
+        <div className="space-y-2" aria-busy="true" aria-label="Loading features">
+          <Skeleton className="h-5 w-32" />
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-10 w-full" />
+          ))}
         </div>
       ) : allKeys.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 rounded-lg border border-dashed border-gray-200 text-gray-400 text-sm text-center">
-          <Navigation className="h-10 w-10 text-gray-300 mb-3" />
-          <p className="font-medium text-gray-500">No feature permissions configured</p>
-          <p className="mt-1 text-xs">Feature and navigation permissions for this role will appear here once defined.</p>
-        </div>
+        <EmptyState
+          bare
+          icon={Navigation}
+          className="rounded-lg border border-dashed border-border"
+          title="No feature permissions configured"
+          description="Feature and navigation permissions for this role will appear here once defined."
+        />
       ) : (
         <div className="space-y-6">
           {activeGroups.map(group => (
@@ -457,18 +461,18 @@ export default function FeaturesNavTab() {
                 <span className={cn('rounded-full px-2.5 py-0.5 text-xs font-semibold', groupColor(group))}>
                   {groupLabel(group)}
                 </span>
-                <span className="text-xs text-gray-400">({grouped[group].length})</span>
+                <span className="text-xs text-ink-secondary">({grouped[group].length})</span>
               </div>
-              <div className="overflow-x-auto rounded-lg border border-gray-200">
-                <table className="min-w-full divide-y divide-gray-200 text-sm">
-                  <thead className="bg-gray-50">
+              <div className="overflow-x-auto rounded-lg border border-border">
+                <table className="min-w-full divide-y divide-border text-sm">
+                  <thead className="bg-surface-hover">
                     <tr>
-                      <th className="px-3 py-2.5 text-left font-semibold text-gray-600">Feature Key</th>
-                      <th className="px-3 py-2.5 text-center font-semibold text-gray-600 w-28">Visible</th>
-                      <th className="px-3 py-2.5 text-center font-semibold text-gray-600 w-28">Enabled</th>
+                      <th className="px-3 py-2.5 text-left font-semibold text-ink-secondary">Feature Key</th>
+                      <th className="px-3 py-2.5 text-center font-semibold text-ink-secondary w-28">Visible</th>
+                      <th className="px-3 py-2.5 text-center font-semibold text-ink-secondary w-28">Enabled</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100 bg-white">
+                  <tbody className="divide-y divide-border bg-surface-card">
                     {grouped[group].map(featureKey => {
                       const perm = getPerm(featureKey)
                       const isModule = featureKey.startsWith('module.')
@@ -477,12 +481,12 @@ export default function FeaturesNavTab() {
                         <tr
                           key={featureKey}
                           className={cn(
-                            'hover:bg-gray-50 transition-colors',
-                            isModule && 'bg-green-50/40'
+                            'hover:bg-surface-hover transition-colors',
+                            isModule && 'bg-success-50/40'
                           )}
                         >
-                          <td className="px-3 py-2 font-medium text-gray-800 whitespace-nowrap">
-                            <code className="text-xs bg-gray-100 rounded px-1 py-0.5 text-gray-600">
+                          <td className="px-3 py-2 font-medium text-ink-primary whitespace-nowrap">
+                            <code className="text-xs bg-surface-app rounded px-1 py-0.5 text-ink-secondary">
                               {featureKey}
                             </code>
                           </td>
@@ -495,11 +499,14 @@ export default function FeaturesNavTab() {
                                 saving && 'opacity-50 cursor-not-allowed'
                               )}
                               title={perm.visible ? 'Hide' : 'Show'}
+                              role="switch"
+                              aria-checked={perm.visible}
+                              aria-label={`Visible: ${featureKey}`}
                             >
                               {perm.visible ? (
-                                <ToggleRight className="h-6 w-6 text-blue-600 hover:text-blue-700" />
+                                <ToggleRight className="h-6 w-6 text-primary-600 hover:text-primary-700" />
                               ) : (
-                                <ToggleLeft className="h-6 w-6 text-gray-300 hover:text-gray-400" />
+                                <ToggleLeft className="h-6 w-6 text-ink-secondary hover:text-ink-primary" />
                               )}
                             </button>
                           </td>
@@ -509,11 +516,14 @@ export default function FeaturesNavTab() {
                               disabled={saving}
                               className={cn('inline-flex items-center justify-center', saving && 'opacity-50 cursor-not-allowed')}
                               title={perm.enabled ? 'Disable' : 'Enable'}
+                              role="switch"
+                              aria-checked={perm.enabled}
+                              aria-label={`Enabled: ${featureKey}`}
                             >
                               {perm.enabled ? (
-                                <ToggleRight className="h-6 w-6 text-green-600 hover:text-green-700" />
+                                <ToggleRight className="h-6 w-6 text-success-700 hover:text-success-800" />
                               ) : (
-                                <ToggleLeft className="h-6 w-6 text-gray-300 hover:text-gray-400" />
+                                <ToggleLeft className="h-6 w-6 text-ink-secondary hover:text-ink-primary" />
                               )}
                             </button>
                           </td>

@@ -17,7 +17,7 @@ export function ObjectiveDeliveryPanel({ objectiveId }: Props) {
 
   if (isLoading) {
     return (
-      <div className="rounded-card border border-surface-border bg-surface p-4">
+      <div className="rounded-card border border-border bg-surface-card p-4">
         <Skeleton className="mb-3 h-5 w-40" />
         <Skeleton className="h-24 w-full" />
       </div>
@@ -26,7 +26,7 @@ export function ObjectiveDeliveryPanel({ objectiveId }: Props) {
 
   if (isError || !projects) {
     return (
-      <div className="rounded-card border border-surface-border bg-surface p-4">
+      <div className="rounded-card border border-border bg-surface-card p-4">
         <div className="flex items-center gap-2 text-body-sm text-warning-600">
           <AlertTriangle className="size-4" />
           <span>Could not load delivery projects.</span>
@@ -36,7 +36,7 @@ export function ObjectiveDeliveryPanel({ objectiveId }: Props) {
   }
 
   return (
-    <div className="rounded-card border border-surface-border bg-surface p-4">
+    <div className="rounded-card border border-border bg-surface-card p-4">
       <div className="mb-3 flex items-center gap-2 text-section-title text-ink-primary">
         <Truck className="size-5" />
         <h3>Delivery</h3>
@@ -60,7 +60,7 @@ export function ObjectiveDeliveryPanel({ objectiveId }: Props) {
               <Link
                 key={p.id}
                 href={`/projects/${p.id}`}
-                className="flex items-center justify-between rounded-lg border border-surface-border bg-surface-elevated p-3 transition-colors hover:border-primary-300"
+                className="flex items-center justify-between rounded-lg border border-border bg-surface-card p-3 transition-colors hover:border-primary-300"
               >
                 <div className="min-w-0">
                   <div className="truncate text-body font-medium text-ink-primary">

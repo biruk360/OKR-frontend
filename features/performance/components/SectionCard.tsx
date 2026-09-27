@@ -32,7 +32,7 @@ export function SectionCard({
           style={{ borderColor: 'var(--ap-border)' }}
         >
           {title ? (
-            <h2 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{title}</h2>
+            <h2 className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">{title}</h2>
           ) : <span />}
           {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
         </div>

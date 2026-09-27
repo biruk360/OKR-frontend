@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { INTERNAL_SESSION_COOKIES, PORTAL_SESSION_COOKIE, shouldBlockDashboardForPortalOnly } from '@/lib/portal-auth-edge'
+import { isBlockedStaticUploadPath } from '@/lib/attachments/static-paths'
 
 /**
  * Phase 4 — mark deprecated SprintActivity routes. Sunset date is 2 weeks
@@ -8,8 +9,29 @@ import { INTERNAL_SESSION_COOKIES, PORTAL_SESSION_COOKIE, shouldBlockDashboardFo
  */
 const DEPRECATION_SUNSET = '2026-05-11'
 
+/** What the matcher covered before the upload block: /api/sprints/** and /dashboard/**. */
+const IN_ORIGINAL_SCOPE = /^\/(?:api\/sprints|dashboard)(?:\/|$)/
+
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
+
+  // Legacy card and project-activity attachments under public/uploads/todos/
+  // and public/uploads/project-activities/ must not be served statically (no
+  // session check; an uploaded .html/.svg would run on our origin). Middleware
+  // runs before Next's public/ file handler, so this 404 closes the paths; the
+  // UI reads attachments through their authenticated API routes (NRG-1, UPL-7).
+  if (isBlockedStaticUploadPath(pathname)) {
+    return new NextResponse('Not found', {
+      status: 404,
+      headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' },
+    })
+  }
+
+  // The matcher below is broader than the two scopes this middleware existed
+  // for, only so the upload block above sees every spelling of that path.
+  // Anything else outside /api/sprints and /dashboard passes through untouched.
+  if (!IN_ORIGINAL_SCOPE.test(pathname)) return NextResponse.next()
+
   if (shouldBlockDashboardForPortalOnly({
     pathname,
     hasPortalSessionCookie: req.cookies.has(PORTAL_SESSION_COOKIE),
@@ -41,5 +63,17 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/api/sprints/:path*', '/dashboard/:path*'],
+  matcher: [
+    '/api/sprints/:path*',
+    '/dashboard/:path*',
+    // Legacy public card / project-activity uploads — answered 404 above
+    // (roots listed in lib/attachments/static-paths.ts). The matcher runs on the
+    // RAW path while the public/ file handler decodes it and resolves dot
+    // segments, so a plain '/uploads/todos/:path*' was bypassed by
+    // '/uploads/%74odos/…' or '/api/../uploads/todos/…'. Hence: every path
+    // outside /api/ and /_next/, plus any path carrying a dot segment
+    // (raw or encoded) — the handler normalises and decides.
+    '/((?!api/|_next/).*)',
+    '/:p(.*(?:\\.\\.|%2[eE]).*)',
+  ],
 }

@@ -86,14 +86,14 @@ export default function NavProgressCircles() {
             href={`/dashboard/objectives/${o.id}`}
             onMouseEnter={(e) => handleEnter(e, o.id)}
             onFocus={(e) => handleEnter(e, o.id)}
-            className={`relative block h-5 w-5 rounded-full border-2 border-white ring-1 ring-black/5 transition-transform hover:scale-110 ${statusColour[o.goalStatus] ?? 'bg-slate-400'}`}
+            className={`relative block h-5 w-5 rounded-full border-2 border-surface-card ring-1 ring-black/5 transition-transform hover:scale-110 ${statusColour[o.goalStatus] ?? 'bg-slate-400'}`}
             aria-label={`${o.title} — ${Math.round(o.progress)}%`}
           >
             <span className="sr-only">{o.title}</span>
           </Link>
         ))}
         {overflow > 0 && (
-          <span className="relative h-5 min-w-5 px-1 rounded-full border-2 border-white bg-slate-200 text-[10px] font-semibold text-slate-600 flex items-center justify-center ring-1 ring-black/5">
+          <span className="relative h-5 min-w-5 px-1 rounded-full border-2 border-surface-card bg-slate-200 text-micro font-semibold text-slate-600 flex items-center justify-center ring-1 ring-black/5">
             +{overflow}
           </span>
         )}
@@ -115,7 +115,7 @@ export default function NavProgressCircles() {
             <div className="flex items-center justify-between gap-2 mb-2">
               <Link
                 href={`/dashboard/objectives/${obj.id}`}
-                className="text-sm font-semibold text-foreground hover:text-blue-600 line-clamp-2"
+                className="text-sm font-semibold text-foreground hover:text-primary-600 line-clamp-2"
               >
                 {obj.title}
               </Link>
@@ -123,7 +123,7 @@ export default function NavProgressCircles() {
                 {Math.round(obj.progress)}%
               </span>
             </div>
-            <div className="flex items-center gap-2 mb-2 text-[11px] uppercase tracking-wide text-muted-foreground">
+            <div className="flex items-center gap-2 mb-2 text-caption uppercase tracking-wide text-muted-foreground">
               <span className={`inline-block h-1.5 w-1.5 rounded-full ${statusColour[obj.goalStatus] ?? 'bg-slate-400'}`} />
               {obj.goalStatus.replace(/_/g, ' ')}
               <span className="ml-auto">{obj.level}</span>
@@ -136,18 +136,18 @@ export default function NavProgressCircles() {
                   <li key={kr.id} className="flex items-center gap-2 text-xs">
                     <Link
                       href={`/dashboard/key-results/${kr.id}`}
-                      className="flex-1 min-w-0 truncate text-muted-foreground hover:text-blue-600"
+                      className="flex-1 min-w-0 truncate text-muted-foreground hover:text-primary-600"
                     >
                       {kr.title}
                     </Link>
                     <span className="tabular-nums text-muted-foreground">{Math.round(kr.progress)}%</span>
-                    <span className="text-[10px]" style={{ color: getConfidenceColor(kr.confidence) }}>
+                    <span className="text-micro" style={{ color: getConfidenceColor(kr.confidence) }}>
                       {kr.confidence.replace(/_/g, ' ')}
                     </span>
                   </li>
                 ))}
                 {obj.keyResults.length > 5 && (
-                  <li className="text-[11px] text-muted-foreground pt-1">
+                  <li className="text-caption text-muted-foreground pt-1">
                     +{obj.keyResults.length - 5} more key results
                   </li>
                 )}

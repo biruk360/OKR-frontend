@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { checkLetterPermissionV2 } from '@/lib/letter-permissions'
+import { letterReadGuard } from '@/lib/letter-access'
 import { allocateLetterReference } from '@/lib/letters'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { recordActivity } from '@/lib/activity-log'
@@ -18,6 +19,10 @@ export const POST = withAuth(async (_req, { session, params }) => {
 
   const canCreate = await checkLetterPermissionV2(session.user.id, 'letter.create')
   if (!canCreate) return apiForbidden('You do not have permission to create letters')
+
+  // Duplicating copies the body — it is a read of the source letter.
+  const denied = await letterReadGuard(session.user.id, id)
+  if (denied) return denied
 
   const original = await prisma.letter.findUnique({
     where: { id },

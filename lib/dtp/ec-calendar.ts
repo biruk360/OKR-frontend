@@ -1,17 +1,19 @@
 /**
- * Ethiopian ↔ Gregorian calendar conversion for DTP date displays.
- * Algorithm: standard Beyene/Anistas-style conversion via Julian Day Number.
+ * Ethiopian ↔ Gregorian calendar conversion for DTP date displays, via the
+ * Julian Day Number.
  *
- * Ethiopian year starts on Meskerem 1, which is 11 Sept (Gregorian) in a
- * Gregorian common year and 12 Sept in the year before a Gregorian leap year.
- * (i.e. EC year N starts on Sept 11/12 of GC year N+7 or N+8.)
+ * Amete Mihret era: twelve 30-day months + Pagume (5 days, 6 in a leap year).
+ * The Ethiopian leap year is year % 4 === 3 (e.g. 2011, 2015, 2019 EC) — the
+ * year that ENDS just before a Gregorian leap year's February. So Meskerem 1
+ * falls on 11 Sept (Gregorian), or 12 Sept when the following Gregorian year
+ * is a leap year (e.g. 2016 EC began 2023-09-12, 2017 EC began 2024-09-11).
  *
- * No external deps — small enough to inline. Verified against published
- * conversion tables for 2020-2030.
+ * No external deps. Checked day-by-day against the Dershowitz & Reingold
+ * reference conversion for 2020-2030 (lib/dtp/dtp.test.ts).
  */
 
-const ETHIOPIAN_EPOCH = 1724220.5 // JDN of Meskerem 1, year 1 EC
-const GREGORIAN_EPOCH = 1721425.5
+/** JDN of 1 Meskerem 1 EC (= 29 Aug 8 CE, Julian). */
+const ETHIOPIAN_EPOCH_JDN = 1724221
 
 const ETHIOPIAN_MONTHS = [
   'Meskerem', 'Tikimt', 'Hidar', 'Tahsas', 'Tir', 'Yekatit',
@@ -29,15 +31,25 @@ function gregorianToJdn(y: number, m: number, d: number): number {
 }
 
 function jdnToEthiopian(jdn: number): { year: number; month: number; day: number } {
-  const r = jdn - ETHIOPIAN_EPOCH
-  const n = Math.floor(r / 1461) // 4-year cycle
-  const r4 = r - 1461 * n
-  const yearInCycle = Math.floor(r4 / 365)
-  const year = 4 * n + Math.min(yearInCycle, 3) + 1
-  const dayOfYear = r4 - yearInCycle * 365 + (yearInCycle === 4 ? 4 : 0)
+  const days = jdn - ETHIOPIAN_EPOCH_JDN
+  const cycle = Math.floor(days / 1461) // 4-year cycle: years 1, 2, 3 (leap, 366 d), 4
+  const r = days - 1461 * cycle
+  let yearInCycle: number // 0-based
+  let dayOfYear: number // 0-based
+  if (r < 730) {
+    yearInCycle = Math.floor(r / 365)
+    dayOfYear = r - 365 * yearInCycle
+  } else if (r < 1096) {
+    yearInCycle = 2 // the leap year (year % 4 === 3)
+    dayOfYear = r - 730
+  } else {
+    yearInCycle = 3
+    dayOfYear = r - 1096
+  }
+  const year = 4 * cycle + yearInCycle + 1
   // Each month is 30 days, except month 13 (Pagume) = 5 or 6.
-  const month = Math.min(12, Math.floor(dayOfYear / 30)) + 1
-  const day = Math.floor(dayOfYear) - (month - 1) * 30 + 1
+  const month = Math.floor(dayOfYear / 30) + 1
+  const day = dayOfYear - (month - 1) * 30 + 1
   return { year, month, day }
 }
 
@@ -65,5 +77,3 @@ export function formatDual(date: Date): string {
   const iso = date.toISOString().slice(0, 10)
   return `${formatEthiopian(date)} · ${iso}`
 }
-
-void GREGORIAN_EPOCH // reserved for future Ethiopian → Gregorian helper

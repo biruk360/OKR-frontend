@@ -8,6 +8,8 @@
 import { useEffect, useState } from 'react'
 import { ChevronDown, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Skeleton } from '@/components/ui/Skeleton'
 
 export interface SprintOption {
   id: string
@@ -55,48 +57,59 @@ export default function AddToSprintDropdown({
 
   return (
     <div className={cn('relative inline-block w-full', className)}>
+      <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between gap-2 rounded-[var(--ap-radius-sm)] border bg-card px-3 py-1.5 text-left text-[12px] hover:bg-muted/40"
+        className={cn(
+          'flex w-full items-center justify-between gap-2 rounded-[var(--ap-radius-sm)] border bg-card px-3 py-1.5 text-left text-xs hover:bg-muted/40',
+          value && 'pr-12',
+        )}
         style={{ borderColor: 'var(--ap-border)' }}
       >
         <span className={cn('truncate', !selected && 'text-muted-foreground')}>
           {selected ? selected.name : placeholder ?? 'Add to sprint…'}
         </span>
-        <span className="flex items-center gap-1">
-          {value && (
-            <span
-              role="button"
-              tabIndex={0}
-              onClick={(e) => { e.stopPropagation(); onChange(null) }}
-              className="rounded p-0.5 hover:bg-muted"
-            >
-              <X className="h-3 w-3" />
-            </span>
-          )}
-          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-        </span>
+        <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
       </button>
+      </PopoverTrigger>
+      {/* A sibling of the trigger, not nested inside it: a button inside a
+          button is invalid and was unreachable by keyboard. */}
+      {value && (
+        <button
+          type="button"
+          onClick={() => onChange(null)}
+          aria-label="Remove from sprint"
+          className="absolute right-7 top-1/2 -translate-y-1/2 rounded p-0.5 hover:bg-muted"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      )}
 
-      {open && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div
-            className="absolute z-50 mt-1 w-full min-w-[260px] rounded-[12px] border bg-[var(--ap-bg-raised)] py-1 shadow-[var(--ap-shadow-lg)]"
-            style={{ borderColor: 'var(--ap-border)' }}
-          >
-            {!loaded && <p className="px-3 py-2 text-[12px] text-muted-foreground">Loading…</p>}
+      <PopoverContent
+        label="Choose a sprint"
+        align="start"
+        variant="menu"
+        className="rounded-[12px] border bg-[var(--ap-bg-raised)]"
+        style={{ borderColor: 'var(--ap-border)', width: 'var(--radix-popover-trigger-width)', minWidth: 260 }}
+      >
+            {!loaded && (
+              <div className="space-y-1.5 px-3 py-2" aria-busy="true">
+                <span className="sr-only">Loading sprints…</span>
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+              </div>
+            )}
 
             {loaded && active.length > 0 && (
               <div>
-                <p className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Active</p>
+                <p className="px-3 pb-1 pt-2 text-micro font-semibold uppercase tracking-wide text-muted-foreground">Active</p>
                 {active.map((s) => (
                   <button
                     key={s.id}
                     type="button"
                     onClick={() => { onChange(s.id); setOpen(false) }}
-                    className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] hover:bg-muted/60"
+                    className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs hover:bg-muted/60"
                   >
                     <span className="size-2 rounded-full" style={{ background: 'var(--ap-accent)' }} />
                     <span className="truncate">{s.name}</span>
@@ -107,13 +120,13 @@ export default function AddToSprintDropdown({
 
             {loaded && planning.length > 0 && (
               <div>
-                <p className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Upcoming</p>
+                <p className="px-3 pb-1 pt-2 text-micro font-semibold uppercase tracking-wide text-muted-foreground">Upcoming</p>
                 {planning.map((s) => (
                   <button
                     key={s.id}
                     type="button"
                     onClick={() => { onChange(s.id); setOpen(false) }}
-                    className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] hover:bg-muted/60"
+                    className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs hover:bg-muted/60"
                   >
                     <span className="size-2 rounded-full border" style={{ borderColor: 'var(--ap-accent)' }} />
                     <span className="truncate">{s.name}</span>
@@ -126,13 +139,12 @@ export default function AddToSprintDropdown({
             <button
               type="button"
               onClick={() => { onChange(null); setOpen(false) }}
-              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] hover:bg-muted/60"
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs hover:bg-muted/60"
             >
               <span className="text-muted-foreground">No sprint (backlog)</span>
             </button>
-          </div>
-        </>
-      )}
+      </PopoverContent>
+      </Popover>
     </div>
   )
 }

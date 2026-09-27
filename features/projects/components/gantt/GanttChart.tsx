@@ -22,8 +22,6 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import {
   CalendarDays,
-  ChevronDown,
-  ChevronRight,
   Clock,
   Columns,
   Copy,
@@ -33,7 +31,6 @@ import {
   EyeOff,
   FileText,
   GitBranch,
-  GripVertical,
   Image as ImageIcon,
   List,
   ListTree,
@@ -41,7 +38,6 @@ import {
   Minus,
   MessageSquare,
   PanelTop,
-  Pencil,
   Plus,
   RotateCcw,
   Search,
@@ -50,22 +46,17 @@ import {
 } from 'lucide-react'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Modal } from '@/components/ui/Modal'
-import { useUsersForSelection, type UserForSelection } from '@/hooks/useUsersForSelection'
+import { useUsersForSelection } from '@/hooks/useUsersForSelection'
 import { businessDaysBetween } from '@/lib/projects/business-days'
-import { rollupActivityStatus } from '@/lib/projects/rollup'
 import { AUTO_SECTION_ID, defaultTaskPlacement, ensureTaskPlacement } from '@/lib/projects/schedule-creation'
-import { compareScheduleItems, isOverdueActivity, type ScheduleSortMode } from '@/lib/projects/schedule-view'
 import { criticalPath, shiftSuccessorsFromChange } from '@/lib/projects/scheduling'
 import { useProjectViewStore } from '@/lib/stores/project-view-store'
 import { cn } from '@/lib/utils'
 import {
-  ACTIVITY_STATUS_LABEL,
-  ACTIVITY_STATUS_TOKEN,
   DEPENDENCY_TYPES,
   SLIP_REASONS,
   SLIP_REASON_LABEL,
   SLIP_REASON_OWNER,
-  type ActivityStatus,
   type DependencyType,
   type OwnerParty,
   type SlipReason,
@@ -82,53 +73,53 @@ import {
   useShiftActivitySchedule,
   useUpdateActivity,
   type ActivityDependencyNode,
-  type ActivityNode,
-  type MilestoneNode,
-  type PhaseNode,
   type ProjectDetail,
 } from '../../hooks/useProject'
 import { AiAssistantPanel } from '../ai/AiAssistantPanel'
-import { ProjectDatePicker } from '../ProjectDatePicker'
+import { CommitBaselineDialog } from '../baseline/CommitBaselineDialog'
+import { RebaselineDialog } from '../baseline/RebaselineDialog'
+import { TextPromptDialog } from '../dialogs/TextPromptDialog'
+import {
+  COLUMN_LABEL,
+  DEFAULT_TASK_COLUMN_WIDTH,
+  MAX_TASK_COLUMN_WIDTH,
+  MIN_TASK_COLUMN_WIDTH,
+  TASK_COLUMN_WIDTH_KEY,
+  ScheduleGridHeader,
+  ScheduleGridRow,
+  SCHEDULE_ROW_HEIGHT,
+  buildColumnTemplate,
+  buildRows,
+  fmtDate,
+  isOverdueRow,
+  isoDateOnly,
+  labelize,
+  renderColumn,
+  statusClass,
+  type GanttRow,
+  type GanttRowType,
+  type GanttSegment,
+  type GanttSort,
+  type OptionalColumn,
+} from './schedule-grid'
+
+// Re-exported so existing imports of the grid pieces from this module keep working.
+export {
+  COLUMN_LABEL,
+  DEFAULT_TASK_COLUMN_WIDTH,
+  MAX_TASK_COLUMN_WIDTH,
+  MIN_TASK_COLUMN_WIDTH,
+  SCHEDULE_ROW_HEIGHT,
+  ScheduleGridHeader,
+  ScheduleGridRow,
+  TASK_COLUMN_WIDTH_KEY,
+  buildColumnTemplate,
+  buildRows,
+}
+export type { GanttRow, GanttSegment, GanttSort, OptionalColumn } from './schedule-grid'
 
 type GanttScale = 'days' | 'weeks' | 'months' | 'quarters' | 'years'
-export type GanttSort = ScheduleSortMode
-export type GanttSegment = 'phase' | 'assignee' | 'status' | 'owner'
-export type OptionalColumn = 'owner' | 'assignee' | 'subtasks' | 'tags' | 'start' | 'workingDays' | 'due' | 'calendarDays' | 'priority' | 'risk' | 'status' | 'percent' | 'estimatedHours' | 'actualHours' | 'estimatedCost' | 'actualCost' | 'slipDays'
-type GanttRowType = 'phase' | 'milestone' | 'activity' | 'subactivity' | 'actions'
 type ExportFormat = 'pdf' | 'png' | 'csv' | 'xml'
-
-export interface GanttRow {
-  id: string
-  activityId: string | null
-  milestoneId: string | null
-  parentActivityId: string | null
-  parentId: string | null
-  type: GanttRowType
-  depth: number
-  title: string
-  position: number
-  status: string
-  assigneeId?: string | null
-  ownerParty?: string
-  percentComplete: number
-  priority?: string | null
-  risk?: string | null
-  estimatedHours?: number | null
-  actualHours?: number | null
-  estimatedCost?: number | null
-  actualCost?: number | null
-  tags: string[]
-  subtasksCount: number
-  slipDays: number
-  commentsCount: number
-  start: Date | null
-  end: Date | null
-  baselineStart: Date | null
-  baselineEnd: Date | null
-  isMilestone: boolean
-  waitingSince: Date | null
-  hasChildren: boolean
-}
 
 interface PendingScheduleChange {
   row: GanttRow
@@ -176,19 +167,14 @@ interface TimelineUnit {
   width: number
 }
 
-export const SCHEDULE_ROW_HEIGHT = 32
 const ROW_HEIGHT = SCHEDULE_ROW_HEIGHT
 const HEADER_HEIGHT = 48
 const MIN_LEFT_WIDTH = 520
 const DEFAULT_LEFT_WIDTH = 680
 const MAX_LEFT_WIDTH = 900
-export const MIN_TASK_COLUMN_WIDTH = 210
-export const DEFAULT_TASK_COLUMN_WIDTH = 260
-export const MAX_TASK_COLUMN_WIDTH = 420
 const MIN_ZOOM = 0.45
 const MAX_ZOOM = 1.8
 const LEFT_WIDTH_KEY = 'projects.gantt.leftWidth.v4'
-export const TASK_COLUMN_WIDTH_KEY = 'projects.gantt.taskColumnWidth.v1'
 const COLLAPSE_KEY = 'projects.gantt.collapsed'
 const PREFS_KEY = 'projects.gantt.toolbarPrefs.v2'
 const SEGMENT_KEY = 'projects.gantt.segment'
@@ -206,26 +192,6 @@ const DEFAULT_PREFS: GanttToolbarPrefs = {
   showLegend: false,
 }
 const BASE_UNIT_WIDTH: Record<GanttScale, number> = { days: 34, weeks: 58, months: 78, quarters: 110, years: 148 }
-export const COLUMN_LABEL: Record<OptionalColumn, string> = {
-  assignee: 'Assignee',
-  subtasks: 'Sub',
-  tags: 'Tags',
-  estimatedHours: 'EH',
-  actualHours: 'AH',
-  estimatedCost: 'EC',
-  actualCost: 'AC',
-  start: 'Start',
-  workingDays: 'WD',
-  due: 'Due',
-  calendarDays: 'CD',
-  status: 'Status',
-  priority: 'Priority',
-  risk: 'Risk',
-  percent: '%',
-  owner: 'Owner Party',
-  slipDays: 'Slip Days',
-}
-
 export function GanttChart({ project, canEdit, onActivityOpen }: { project: ProjectDetail; canEdit: boolean; onActivityOpen?: (activityId: string) => void }) {
   const parentRef = useRef<HTMLDivElement | null>(null)
   const addActivity = useAddActivity(project.id)
@@ -274,6 +240,9 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
   const initialTaskPlacement = defaultTaskPlacement(project.phases)
   const [newTaskPhaseId, setNewTaskPhaseId] = useState(initialTaskPlacement.sectionId)
   const [newTaskMilestoneId, setNewTaskMilestoneId] = useState(initialTaskPlacement.subsectionId)
+  const [commitBaselineOpen, setCommitBaselineOpen] = useState(false)
+  const [rebaselineOpen, setRebaselineOpen] = useState(false)
+  const [gateOverride, setGateOverride] = useState<{ message: string; apply: (reason: string) => Promise<void> } | null>(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -384,22 +353,24 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
   const resizeStart = (clientX: number) => {
     const startX = clientX
     const startWidth = leftWidth
-    const onMove = (event: MouseEvent) => {
+    const onMove = (event: PointerEvent) => {
       setLeftWidth(Math.min(MAX_LEFT_WIDTH, Math.max(MIN_LEFT_WIDTH, startWidth + event.clientX - startX)))
     }
     const onUp = () => {
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp)
     }
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onUp)
   }
 
   const resizeTaskColumnStart = (clientX: number) => {
     const startX = clientX
     const startTaskWidth = taskColumnWidth
     const startLeftWidth = leftWidth
-    const onMove = (event: MouseEvent) => {
+    const onMove = (event: PointerEvent) => {
       const requestedDelta = event.clientX - startX
       const minDelta = Math.max(MIN_TASK_COLUMN_WIDTH - startTaskWidth, MIN_LEFT_WIDTH - startLeftWidth)
       const maxDelta = Math.min(MAX_TASK_COLUMN_WIDTH - startTaskWidth, MAX_LEFT_WIDTH - startLeftWidth)
@@ -408,11 +379,13 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
       setLeftWidth(startLeftWidth + delta)
     }
     const onUp = () => {
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp)
     }
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onUp)
   }
 
   const setAllCollapsed = (nextCollapsed: boolean) => {
@@ -454,10 +427,11 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to update task'
       if (patch.status === 'STARTED' && /has not passed/i.test(message)) {
-        const reason = window.prompt(`${message}\n\nOverride reason:`)
-        if (reason?.trim()) {
-          await updateActivity.mutateAsync({ activityId: row.activityId, ...patch, gateOverrideReason: reason.trim() })
-        }
+        const activityId = row.activityId
+        setGateOverride({
+          message,
+          apply: async (reason) => { await updateActivity.mutateAsync({ activityId, ...patch, gateOverrideReason: reason }) },
+        })
       }
     }
   }
@@ -471,12 +445,21 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
       toast.error('Due date must be on or after the start date')
       return
     }
-    const change: PendingScheduleChange = {
+    requestScheduleChange({
       row,
       mode: field === 'start' ? 'resize-start' : 'resize-end',
       currentStart,
       currentEnd,
-    }
+    })
+  }
+
+  /**
+   * The single entry point for every schedule date change (grid date cells, bar
+   * drag/resize, keyboard nudges). Invariant #2: on a baselined project the write
+   * is held in `pendingChange` until a slip reason + owner are supplied in the
+   * dialog below; cancelling discards it and the bar reverts.
+   */
+  const requestScheduleChange = (change: PendingScheduleChange) => {
     if (project.baselineCommittedAt) {
       setPendingChange(change)
       setSlipReason('')
@@ -485,6 +468,16 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
     } else {
       void persistScheduleChange(change)
     }
+  }
+
+  /** Keyboard alternative to dragging a bar: move / resize by whole days. */
+  const nudgeBar = (row: GanttRow, mode: PendingScheduleChange['mode'], deltaDays: number) => {
+    if (linkingFrom || pendingChange || shiftSchedule.isPending) return
+    if (!row.activityId || row.type === 'phase' || !row.start || !row.end || deltaDays === 0) return
+    const currentStart = mode === 'resize-end' ? row.start : addDays(row.start, deltaDays)
+    const currentEnd = mode === 'resize-start' ? row.end : addDays(row.end, deltaDays)
+    if (currentEnd < currentStart) return
+    requestScheduleChange({ row, mode, currentStart, currentEnd })
   }
 
   const downloadExport = async (format: ExportFormat) => {
@@ -664,20 +657,21 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
     void persistScheduleChange(lastScheduleChange)
   }
 
+  // Both open confirmation dialogs: committing freezes the baseline for good
+  // (invariant #1), and a re-baseline needs a diff preview + ≥20-char reason.
   const commitBaselineFromToolbar = () => {
     if (project.baselineCommittedAt || commitBaseline.isPending) return
-    commitBaseline.mutate({ notes: 'Committed from Gantt toolbar' })
+    setCommitBaselineOpen(true)
   }
 
   const rebaselineFromToolbar = () => {
     if (!project.baselineCommittedAt || rebaseline.isPending) return
-    const reason = window.prompt('Reason for re-baseline?')
-    if (!reason?.trim()) return
-    rebaseline.mutate({ reason: reason.trim() })
+    setRebaselineOpen(true)
   }
 
-  const startBarDrag = (row: GanttRow, mode: PendingScheduleChange['mode'], event: React.MouseEvent) => {
+  const startBarDrag = (row: GanttRow, mode: PendingScheduleChange['mode'], event: React.PointerEvent) => {
     if (linkingFrom) return
+    if (event.pointerType === 'mouse' && event.button !== 0) return
     if (!row.activityId || row.type === 'phase' || !row.start || !row.end) return
     event.preventDefault()
     event.stopPropagation()
@@ -711,13 +705,24 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
         y: clientY,
       }
     }
-    const onMove = (move: MouseEvent) => {
+    const onMove = (move: PointerEvent) => {
+      if (move.pointerId !== event.pointerId) return
       const preview = buildPreview(move.clientX, move.clientY)
       if (preview) setDragPreview(preview)
     }
-    const onUp = (up: MouseEvent) => {
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
+    const detach = () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onCancel)
+    }
+    const onCancel = (cancel: PointerEvent) => {
+      if (cancel.pointerId !== event.pointerId) return
+      detach()
+      setDragPreview(null)
+    }
+    const onUp = (up: PointerEvent) => {
+      if (up.pointerId !== event.pointerId) return
+      detach()
       const deltaDays = pixelsToDays(up.clientX - startClientX, units)
       const currentStart = mode === 'resize-end' ? originStart : addDays(originStart, deltaDays)
       const currentEnd = mode === 'resize-start' ? originEnd : addDays(originEnd, deltaDays)
@@ -725,18 +730,11 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
         setDragPreview(null)
         return
       }
-      const change = { row, mode, currentStart, currentEnd }
-      if (project.baselineCommittedAt) {
-        setPendingChange(change)
-        setSlipReason('')
-        setSlipOwner('CLIENT')
-        setSlipDetail('')
-      } else {
-        void persistScheduleChange(change)
-      }
+      requestScheduleChange({ row, mode, currentStart, currentEnd })
     }
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onCancel)
   }
 
   const persistScheduleChange = async (change: PendingScheduleChange, slip?: { slipReason: SlipReason; slipOwner: OwnerParty; slipDetail: string }) => {
@@ -761,13 +759,13 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
     }
   }
 
-  const beginDependency = (activityId: string, event: React.MouseEvent) => {
+  const beginDependency = (activityId: string, event: React.SyntheticEvent) => {
     event.preventDefault()
     event.stopPropagation()
     setLinkingFrom(activityId)
   }
 
-  const completeDependency = (activityId: string, event: React.MouseEvent) => {
+  const completeDependency = (activityId: string, event: React.SyntheticEvent) => {
     event.preventDefault()
     event.stopPropagation()
     if (!linkingFrom || linkingFrom === activityId) return
@@ -776,16 +774,16 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
   }
 
   return (
-    <section className="rounded border border-black/[0.12] bg-surface-card shadow-sm">
-      <div className="flex flex-nowrap items-center gap-1 overflow-x-auto border-b border-black/[0.12] bg-white px-2 py-1 md:overflow-visible [&_.btn]:h-8 [&_.btn]:px-2 [&_.btn]:py-0 [&_.btn]:text-[11px] [&_select]:h-8 [&_select]:text-[11px]">
-        <div className="flex shrink-0 flex-nowrap items-center gap-1 border-r border-black/[0.10] pr-1">
-          <div className="flex h-8 items-center gap-1 rounded border border-black/[0.12] bg-white px-2">
+    <section className="rounded border border-ink-primary/[0.12] bg-surface-card shadow-sm">
+      <div className="flex flex-nowrap items-center gap-1 overflow-x-auto border-b border-ink-primary/[0.12] bg-surface-card px-2 py-1 md:overflow-visible [&_.btn]:h-8 [&_.btn]:px-2 [&_.btn]:py-0 [&_.btn]:text-xs [&_select]:h-8 [&_select]:text-xs">
+        <div className="flex shrink-0 flex-nowrap items-center gap-1 border-r border-ink-primary/[0.10] pr-1">
+          <div className="flex h-8 items-center gap-1 rounded border border-ink-primary/[0.12] bg-surface-card px-2">
             <Search className="size-3.5 text-ink-secondary" />
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search schedule"
-              className="w-28 bg-transparent text-[11px] text-ink-primary outline-none placeholder:text-ink-secondary"
+              className="w-28 bg-transparent text-xs text-ink-primary outline-none placeholder:text-ink-secondary"
             />
           </div>
           {canEdit && (
@@ -800,7 +798,7 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
           )}
         </div>
 
-        <div className="flex shrink-0 flex-nowrap items-center gap-1 border-r border-black/[0.10] pr-1">
+        <div className="flex shrink-0 flex-nowrap items-center gap-1 border-r border-ink-primary/[0.10] pr-1">
           <button className="btn btn-outline btn-sm" onClick={() => setAllCollapsed(false)} title="Expand all" aria-label="Expand all">
             <ListTree className="size-3.5" />
           </button>
@@ -812,7 +810,7 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
             <summary className="btn btn-outline btn-sm cursor-pointer list-none">
               <Download className="mr-1 size-3.5" /> Export
             </summary>
-            <div className="absolute left-0 top-9 z-30 w-56 rounded-md border border-black/[0.12] bg-white p-1 shadow-popover">
+            <div className="absolute left-0 top-9 z-30 w-56 rounded-md border border-ink-primary/[0.12] bg-surface-card p-1 shadow-popover">
               <button className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-body-sm text-ink-primary hover:bg-surface-hover" onClick={() => void downloadExport('pdf')}>
                 <FileText className="size-3.5" /> PDF
               </button>
@@ -839,7 +837,7 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
             <summary className="btn btn-outline btn-sm cursor-pointer list-none">
               {toolbarPrefs.showBaselines ? <Eye className="mr-1 size-3.5" /> : <EyeOff className="mr-1 size-3.5" />} Baseline
             </summary>
-            <div className="absolute left-0 top-9 z-30 w-64 space-y-2 rounded-md border border-black/[0.12] bg-white p-2 shadow-popover">
+            <div className="absolute left-0 top-9 z-30 w-64 space-y-2 rounded-md border border-ink-primary/[0.12] bg-surface-card p-2 shadow-popover">
               <label className="flex items-center justify-between gap-2 text-body-sm text-ink-primary">
                 <span>Show baseline bars</span>
                 <input type="checkbox" checked={toolbarPrefs.showBaselines} onChange={() => togglePreference('showBaselines')} />
@@ -865,7 +863,7 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
             <summary className="btn btn-outline btn-sm cursor-pointer list-none">
               <PanelTop className="mr-1 size-3.5" /> Options
             </summary>
-            <div className="absolute left-0 top-9 z-30 w-64 space-y-1 rounded-md border border-black/[0.12] bg-white p-2 shadow-popover">
+            <div className="absolute left-0 top-9 z-30 w-64 space-y-1 rounded-md border border-ink-primary/[0.12] bg-surface-card p-2 shadow-popover">
               <ToolbarCheck label="Dependencies" checked={toolbarPrefs.showDependencies} onChange={() => togglePreference('showDependencies')} />
               <ToolbarCheck label="Progress fill" checked={toolbarPrefs.showProgress} onChange={() => togglePreference('showProgress')} />
               <ToolbarCheck label="Critical path" checked={toolbarPrefs.showCriticalPath} onChange={() => togglePreference('showCriticalPath')} />
@@ -880,24 +878,24 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
         </div>
 
         <div className="flex shrink-0 flex-nowrap items-center gap-1">
-          <select aria-label="Group schedule by" className="h-9 rounded-md border border-black/[0.12] bg-white px-2 text-body-sm text-ink-primary" value={segment} onChange={(e) => setSegment(e.target.value as GanttSegment)}>
+          <select aria-label="Group schedule by" className="h-9 rounded-md border border-ink-primary/[0.12] bg-surface-card px-2 text-body-sm text-ink-primary" value={segment} onChange={(e) => setSegment(e.target.value as GanttSegment)}>
             <option value="phase">Phase</option>
             <option value="assignee">Assignee</option>
             <option value="status">Status</option>
             <option value="owner">Owner Party</option>
           </select>
-          <select aria-label="Sort schedule by" className="h-9 rounded-md border border-black/[0.12] bg-white px-2 text-body-sm text-ink-primary" value={sort} onChange={(e) => setSort(e.target.value as GanttSort)}>
+          <select aria-label="Sort schedule by" className="h-9 rounded-md border border-ink-primary/[0.12] bg-surface-card px-2 text-body-sm text-ink-primary" value={sort} onChange={(e) => setSort(e.target.value as GanttSort)}>
             <option value="manual">Sort: Manual order</option>
             <option value="automatic">Sort: Section, then start date</option>
           </select>
-          <select aria-label="Timeline scale" className="h-9 rounded-md border border-black/[0.12] bg-white px-2 text-body-sm text-ink-primary" value={scale} onChange={(e) => setScale(e.target.value as GanttScale)}>
+          <select aria-label="Timeline scale" className="h-9 rounded-md border border-ink-primary/[0.12] bg-surface-card px-2 text-body-sm text-ink-primary" value={scale} onChange={(e) => setScale(e.target.value as GanttScale)}>
             <option value="days">Days</option>
             <option value="weeks">Weeks</option>
             <option value="months">Months</option>
             <option value="quarters">Quarters</option>
             <option value="years">Years</option>
           </select>
-          <select aria-label="Dependency type" className="h-9 rounded-md border border-black/[0.12] bg-white px-2 text-body-sm text-ink-primary" value={dependencyType} onChange={(e) => setDependencyType(e.target.value as DependencyType)}>
+          <select aria-label="Dependency type" className="h-9 rounded-md border border-ink-primary/[0.12] bg-surface-card px-2 text-body-sm text-ink-primary" value={dependencyType} onChange={(e) => setDependencyType(e.target.value as DependencyType)}>
             {DEPENDENCY_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
           </select>
         </div>
@@ -918,11 +916,11 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
           <button className="btn btn-outline btn-sm" onClick={() => setShowAiAssistant(true)} title="Constrained AI Assistant" aria-label="Open AI assistant">
             <Sparkles className="size-3.5" />
           </button>
-          <div className="flex items-center rounded-md border border-black/[0.12] bg-white">
+          <div className="flex items-center rounded-md border border-ink-primary/[0.12] bg-surface-card">
             <button className="px-2 py-1.5 text-ink-primary hover:bg-surface-hover" onClick={() => setZoom((z) => Math.max(MIN_ZOOM, +(z - 0.1).toFixed(2)))} aria-label="Zoom out">
               <Minus className="size-3.5" />
             </button>
-            <span className="w-10 text-center text-[11px] font-medium text-ink-primary">{Math.round(zoom * 100)}%</span>
+            <span className="w-10 text-center text-xs font-medium text-ink-primary">{Math.round(zoom * 100)}%</span>
             <button className="px-2 py-1.5 text-ink-primary hover:bg-surface-hover" onClick={() => setZoom((z) => Math.min(MAX_ZOOM, +(z + 0.1).toFixed(2)))} aria-label="Zoom in">
               <Plus className="size-3.5" />
             </button>
@@ -931,14 +929,14 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
       </div>
 
       {toolbarPrefs.showCriticalPath && (
-        <div className="border-b border-danger-500/20 bg-danger-50 px-3 py-1.5 text-[11px] font-medium text-danger-700">
+        <div className="border-b border-danger-500/20 bg-danger-50 px-3 py-1.5 text-xs font-medium text-danger-700">
           Critical path is highlighted in red on dated activities.
         </div>
       )}
 
       {toolbarPrefs.showLegend && (
-      <div className="border-b border-black/[0.10] bg-white px-2 py-1">
-        <div className="flex flex-wrap items-center gap-3 text-[11px] font-medium text-ink-secondary">
+      <div className="border-b border-ink-primary/[0.10] bg-surface-card px-2 py-1">
+        <div className="flex flex-wrap items-center gap-3 text-xs font-medium text-ink-secondary">
           <span className="inline-flex items-center gap-1"><span className="size-3 rounded-pill bg-project-baseline opacity-50" /> Baseline</span>
           <span className="inline-flex items-center gap-1"><span className="size-3 rounded-pill bg-project-status-started" /> Current</span>
           <span className="inline-flex items-center gap-1"><span className="size-3 rotate-45 bg-project-status-approved" /> Milestone</span>
@@ -949,7 +947,7 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
       )}
 
       {toolbarPrefs.showMinimap && (
-      <div className="border-b border-black/[0.10] bg-white px-2 py-1">
+      <div className="border-b border-ink-primary/[0.10] bg-surface-card px-2 py-1">
         <GanttMinimap
           start={range.start}
           end={range.end}
@@ -961,26 +959,27 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
 
       <div
         ref={parentRef}
-        className="relative isolate h-[calc(100vh-205px)] min-h-[420px] overflow-auto bg-white"
+        className="relative isolate h-[calc(100vh-205px)] min-h-[420px] overflow-auto bg-surface-card"
         onScroll={(e) => setScrollLeft((e.currentTarget as HTMLDivElement).scrollLeft)}
       >
         <div className="relative" style={{ width: leftWidth + timelineWidth, minWidth: '100%' }}>
           <div
-            className="sticky top-0 z-20 grid border-b border-black/[0.12] bg-white"
+            className="sticky top-0 z-20 grid border-b border-ink-primary/[0.12] bg-surface-card"
             style={{ gridTemplateColumns: `${leftWidth}px ${timelineWidth}px`, height: HEADER_HEIGHT }}
           >
-            <div className="z-40 border-r border-black/[0.14] bg-white shadow-[2px_0_0_rgba(0,0,0,0.04)] md:sticky md:left-0">
+            <div className="z-40 border-r border-ink-primary/[0.14] bg-surface-card shadow-[2px_0_0_rgba(0,0,0,0.04)] md:sticky md:left-0">
               <ScheduleGridHeader columns={visibleColumns} columnTemplate={columnTemplate} onResizeTaskColumnStart={resizeTaskColumnStart} />
               <button
-                className="absolute right-[-4px] top-0 h-full w-2 cursor-col-resize bg-transparent hover:bg-primary-100"
+                className="absolute right-[-4px] top-0 h-full w-2 cursor-col-resize touch-none bg-transparent hover:bg-primary-100"
                 aria-label="Resize task list"
-                onMouseDown={(e) => resizeStart(e.clientX)}
+                type="button"
+                onPointerDown={(e) => { e.preventDefault(); resizeStart(e.clientX) }}
               />
             </div>
             <div className="relative overflow-hidden">
-              <div className="flex h-6 border-b border-black/[0.10] bg-surface-hover">
+              <div className="flex h-6 border-b border-ink-primary/[0.10] bg-surface-hover">
                 {groups.map((g) => (
-                  <div key={g.key} className="border-r border-black/[0.10] px-2 py-0.5 text-[10px] font-semibold text-ink-primary" style={{ width: g.width }}>
+                  <div key={g.key} className="border-r border-ink-primary/[0.10] px-2 py-0.5 text-xs font-semibold text-ink-primary" style={{ width: g.width }}>
                     {g.label}
                   </div>
                 ))}
@@ -989,7 +988,7 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
                 {units.map((u) => (
                   <div
                     key={u.key}
-                    className={cn('border-r border-black/[0.08] px-1 py-0.5 text-center text-[10px] font-medium text-ink-secondary', toolbarPrefs.showWeekends && isWeekendUnit(u) && 'bg-warning-500/[0.10]')}
+                    className={cn('border-r border-ink-primary/[0.08] px-1 py-0.5 text-center text-xs font-medium text-ink-secondary', toolbarPrefs.showWeekends && isWeekendUnit(u) && 'bg-warning-500/[0.10]')}
                     style={{ width: u.width }}
                   >
                     {u.label}
@@ -998,7 +997,7 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
               </div>
               {todayX != null && (
                 <div className="pointer-events-none absolute top-0 h-full border-l border-danger-500" style={{ left: todayX }}>
-                  <div className="rounded-b bg-danger-500 px-1 py-0.5 text-[10px] font-medium text-white">Today</div>
+                  <div className="rounded-b bg-danger-500 px-1 py-0.5 text-xs font-medium text-primary-foreground">Today</div>
                 </div>
               )}
             </div>
@@ -1088,6 +1087,9 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
                               }}
                               onBeginDependency={beginDependency}
                               onCompleteDependency={completeDependency}
+                              onCancelDependency={() => setLinkingFrom(null)}
+                              onNudge={nudgeBar}
+                              canEdit={canEdit}
                             />
                           </>
                         )}
@@ -1101,16 +1103,19 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
         </div>
       </div>
 
-      <div className="flex items-center justify-between border-t border-black/[0.12] bg-white px-2 py-1 text-[10px] text-ink-secondary">
+      <div className="flex items-center justify-between border-t border-ink-primary/[0.12] bg-surface-card px-2 py-1 text-xs text-ink-secondary">
         <span>{visibleRows.length} visible rows of {allRows.length}</span>
+        <span id="gantt-bar-keyboard-help" className="sr-only">
+          Press Enter to open the task.{canEdit ? ' Left and Right arrows move it by one day, Shift with an arrow changes the due date, Alt with an arrow changes the start date.' : ''}
+        </span>
         <span className="inline-flex items-center gap-3">
-          {linkingFrom && <span className="text-primary-600">Choose a successor activity...</span>}
+          <span className="text-primary-600" role="status">{linkingFrom ? 'Choose a successor activity... (Esc cancels)' : ''}</span>
           <span className="inline-flex items-center gap-1"><CalendarDays className="size-3.5" /> {fmtDate(range.start)} to {fmtDate(range.end)}</span>
         </span>
       </div>
       {dragPreview && (
         <div
-          className="pointer-events-none fixed z-50 rounded-md bg-ink-primary px-2 py-1 text-[11px] font-medium text-white shadow-popover"
+          className="pointer-events-none fixed z-50 rounded-md bg-ink-primary px-2 py-1 text-xs font-medium text-surface-card shadow-popover"
           style={{ left: dragPreview.x + 10, top: dragPreview.y + 10 }}
         >
           {dragPreview.label}
@@ -1153,7 +1158,7 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
               <div className="text-body-sm text-ink-secondary">Owner</div>
               <div className="mt-1 flex gap-2">
                 {(['360GROUND', 'CLIENT', 'SHARED'] as const).map((owner) => (
-                  <label key={owner} className="flex items-center gap-1 rounded-md border border-black/[0.08] px-2 py-1 text-body-sm">
+                  <label key={owner} className="flex items-center gap-1 rounded-md border border-ink-primary/[0.08] px-2 py-1 text-body-sm">
                     <input type="radio" checked={slipOwner === owner} onChange={() => setSlipOwner(owner)} />
                     {owner === '360GROUND' ? '360Ground' : labelize(owner)}
                   </label>
@@ -1242,7 +1247,7 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
               required
             />
           </label>
-          <div className="flex justify-end gap-2 border-t border-black/[0.08] pt-4">
+          <div className="flex justify-end gap-2 border-t border-ink-primary/[0.08] pt-4">
             <button type="button" className="btn btn-ghost" onClick={closeCreator}>Cancel</button>
             <button
               type="submit"
@@ -1254,6 +1259,30 @@ export function GanttChart({ project, canEdit, onActivityOpen }: { project: Proj
           </div>
         </form>
       </Modal>
+      <CommitBaselineDialog
+        open={commitBaselineOpen}
+        onClose={() => setCommitBaselineOpen(false)}
+        projectId={project.id}
+        activityCount={project.phases.reduce((n, phase) => n + phase.milestones.reduce((m, milestone) => m + milestone.activities.length, 0), 0)}
+        defaultNotes="Committed from Gantt toolbar"
+      />
+      <RebaselineDialog
+        open={rebaselineOpen}
+        onClose={() => setRebaselineOpen(false)}
+        projectId={project.id}
+        baselineVersion={project.baselineVersion}
+      />
+      <TextPromptDialog
+        open={!!gateOverride}
+        onClose={() => setGateOverride(null)}
+        onSubmit={async (reason) => { await gateOverride?.apply(reason) }}
+        title="Stage gate not passed"
+        message={gateOverride ? `${gateOverride.message}\n\nStarting anyway records a gate override with your reason.` : undefined}
+        label="Override reason"
+        placeholder="Why must this activity start before the gate passes?"
+        confirmLabel="Start anyway"
+        multiline
+      />
       <AiAssistantPanel
         projectId={project.id}
         open={showAiAssistant}
@@ -1283,7 +1312,7 @@ function GanttSortableRow({
   return (
     <div
       ref={setNodeRef}
-      className={cn('absolute left-0 grid border-b border-black/[0.08] bg-white', isDragging && 'z-30 opacity-80 shadow-popover', className)}
+      className={cn('absolute left-0 grid border-b border-ink-primary/[0.08] bg-surface-card', isDragging && 'z-30 opacity-80 shadow-popover', className)}
       style={{
         top,
         transform: CSS.Transform.toString(transform),
@@ -1295,427 +1324,6 @@ function GanttSortableRow({
       {children(dragHandleProps)}
     </div>
   )
-}
-
-export function ScheduleGridHeader({
-  columns,
-  columnTemplate,
-  onResizeTaskColumnStart,
-  stickyTaskColumn = false,
-}: {
-  columns: OptionalColumn[]
-  columnTemplate: string
-  onResizeTaskColumnStart: (clientX: number) => void
-  stickyTaskColumn?: boolean
-}) {
-  return (
-    <div className={cn('grid h-full items-center text-[10px] font-semibold uppercase text-ink-secondary', stickyTaskColumn ? 'overflow-visible' : 'overflow-hidden')} style={{ gridTemplateColumns: columnTemplate }}>
-      <div className={cn('relative flex h-full items-center px-2', stickyTaskColumn && 'sticky left-0 z-20 bg-white shadow-[2px_0_0_rgba(0,0,0,0.06)]')}>
-        <span>Section / Task</span>
-        <button
-          type="button"
-          className="absolute right-[-4px] top-0 z-10 h-full w-2 cursor-col-resize bg-transparent hover:bg-primary-100 focus:bg-primary-100 focus:outline-none"
-          aria-label="Resize section and task column"
-          title="Drag to resize section and task column"
-          onMouseDown={(event) => {
-            event.preventDefault()
-            onResizeTaskColumnStart(event.clientX)
-          }}
-        />
-      </div>
-      {columns.map((column) => <div key={column} className="truncate px-2" title={COLUMN_LABEL[column]}>{COLUMN_LABEL[column]}</div>)}
-    </div>
-  )
-}
-
-export function ScheduleGridRow({
-  row,
-  collapsed,
-  columns,
-  columnTemplate,
-  users,
-  userNames,
-  clientName,
-  canEdit,
-  reorderEnabled,
-  dragHandleProps,
-  onToggle,
-  onAddTask,
-  onCreateTask,
-  onCreateSection,
-  onOpenActivity,
-  onRenameActivity,
-  onUpdateActivity,
-  onUpdateDate,
-  stickyPane = true,
-  stickyTaskColumn = false,
-}: {
-  row: GanttRow
-  collapsed: boolean
-  columns: OptionalColumn[]
-  columnTemplate: string
-  users: UserForSelection[]
-  userNames: Map<string, string>
-  clientName: string
-  canEdit: boolean
-  reorderEnabled: boolean
-  dragHandleProps: React.ButtonHTMLAttributes<HTMLButtonElement>
-  onToggle: () => void
-  onAddTask: () => void
-  onCreateTask?: (title: string) => Promise<void>
-  onCreateSection?: (name: string) => Promise<void>
-  onOpenActivity: (activityId: string) => void
-  onRenameActivity: (activityId: string, title: string) => Promise<void>
-  onUpdateActivity: (row: GanttRow, patch: Record<string, unknown>) => Promise<void>
-  onUpdateDate: (row: GanttRow, field: 'start' | 'due', value: string) => void
-  stickyPane?: boolean
-  stickyTaskColumn?: boolean
-}) {
-  const [editingTitle, setEditingTitle] = useState(false)
-  const [draftTitle, setDraftTitle] = useState(row.title)
-  const [createMode, setCreateMode] = useState<'task' | 'section' | null>(null)
-  const [createDraft, setCreateDraft] = useState('')
-  const [creating, setCreating] = useState(false)
-
-  const submitInlineCreate = async () => {
-    const value = createDraft.trim()
-    if (!value || !createMode) return
-    setCreating(true)
-    try {
-      if (createMode === 'task') await onCreateTask?.(value)
-      else await onCreateSection?.(value)
-      setCreateDraft('')
-      setCreateMode(null)
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Unable to create schedule item')
-    } finally {
-      setCreating(false)
-    }
-  }
-
-  const commitTitle = async () => {
-    const title = draftTitle.trim()
-    setEditingTitle(false)
-    if (!row.activityId || !title || title === row.title) {
-      setDraftTitle(row.title)
-      return
-    }
-    try {
-      await onRenameActivity(row.activityId, title)
-    } catch (error) {
-      setDraftTitle(row.title)
-      toast.error(error instanceof Error ? error.message : 'Unable to rename task')
-    }
-  }
-
-  if (row.type === 'actions') {
-    return (
-      <div className="z-30 grid h-full items-center border-r border-black/[0.14] bg-white text-[11px]" style={{ gridTemplateColumns: columnTemplate }}>
-        <div className={cn('flex h-full min-w-0 items-center gap-1 px-2', stickyTaskColumn && 'sticky left-0 z-20 bg-white shadow-[2px_0_0_rgba(0,0,0,0.06)]')} style={{ paddingLeft: 36 }}>
-          {createMode ? (
-            <form className="flex min-w-0 flex-1 items-center gap-1" onSubmit={(event) => { event.preventDefault(); void submitInlineCreate() }}>
-              <input
-                autoFocus
-                value={createDraft}
-                onChange={(event) => setCreateDraft(event.target.value)}
-                placeholder={createMode === 'task' ? 'Create a new task...' : 'Create a new section...'}
-                minLength={createMode === 'task' ? 3 : 2}
-                maxLength={200}
-                className="h-7 min-w-0 flex-1 border-b border-primary-400 bg-transparent px-1 text-[11px] outline-none"
-              />
-              <button type="submit" className="h-6 rounded bg-primary-500 px-2 font-medium text-white disabled:opacity-50" disabled={creating || !createDraft.trim()}>Add</button>
-              <button type="button" className="h-6 rounded px-1.5 text-ink-secondary hover:bg-surface-hover" onClick={() => { setCreateMode(null); setCreateDraft('') }} disabled={creating}>Cancel</button>
-            </form>
-          ) : (
-            <>
-              <button type="button" className="inline-flex h-6 items-center gap-1 rounded bg-primary-500 px-2 font-medium text-white hover:bg-primary-700" onClick={() => setCreateMode('task')} disabled={!canEdit || !row.milestoneId}>
-                <Plus className="size-3" /> Add task
-              </button>
-              <button type="button" className="inline-flex h-6 items-center gap-1 rounded border border-primary-400 px-2 font-medium text-primary-700 hover:bg-primary-50" onClick={() => setCreateMode('section')} disabled={!canEdit}>
-                <Plus className="size-3" /> Add section
-              </button>
-            </>
-          )}
-        </div>
-        {columns.map((column) => <div key={column} />)}
-      </div>
-    )
-  }
-
-  const overdue = isOverdueRow(row)
-
-  return (
-    <div
-      className={cn(
-        'z-30 grid h-full items-center border-r border-black/[0.14] bg-white text-[11px]',
-        stickyTaskColumn ? 'overflow-visible' : 'overflow-hidden',
-        stickyPane && 'shadow-[2px_0_0_rgba(0,0,0,0.04)] md:sticky md:left-0',
-        row.type === 'phase' && 'border-y border-black/[0.12] bg-[#eef0f3]',
-        row.type === 'milestone' && 'bg-[#eef5ff]'
-      )}
-      style={{ gridTemplateColumns: columnTemplate }}
-    >
-      <div
-        className={cn('group/task flex h-full min-w-0 items-center gap-0.5 px-2', stickyTaskColumn && 'sticky left-0 z-20 shadow-[2px_0_0_rgba(0,0,0,0.06)]')}
-        style={{ paddingLeft: 8 + row.depth * 14, backgroundColor: stickyTaskColumn ? 'inherit' : undefined }}
-      >
-        {canEdit && (
-          <button
-            type="button"
-            className={cn('rounded p-0.5 text-ink-secondary hover:bg-surface-hover hover:text-ink-primary', !reorderEnabled && 'cursor-not-allowed opacity-35')}
-            disabled={!reorderEnabled}
-            title={reorderEnabled ? `Drag to reorder ${row.title}` : 'Use the natural schedule view to reorder'}
-            aria-label={`Drag to reorder ${row.title}`}
-            {...dragHandleProps}
-          >
-            <GripVertical className="size-3.5" />
-          </button>
-        )}
-        {row.hasChildren ? (
-          <button className="rounded p-0.5 hover:bg-surface-hover" onClick={onToggle} aria-label={collapsed ? 'Expand row' : 'Collapse row'}>
-            {collapsed ? <ChevronRight className="size-3.5" /> : <ChevronDown className="size-3.5" />}
-          </button>
-        ) : (
-          <span className="w-4" />
-        )}
-        {row.activityId && editingTitle ? (
-          <input
-            autoFocus
-            value={draftTitle}
-            onChange={(event) => setDraftTitle(event.target.value)}
-            onBlur={() => void commitTitle()}
-            onClick={(event) => event.stopPropagation()}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') event.currentTarget.blur()
-              if (event.key === 'Escape') {
-                setDraftTitle(row.title)
-                setEditingTitle(false)
-              }
-            }}
-            aria-label={`Rename ${row.title}`}
-            className="h-6 min-w-0 flex-1 rounded border border-primary-500 bg-white px-1.5 text-[11px] text-ink-primary outline-none ring-2 ring-primary-500/20"
-          />
-        ) : row.activityId ? (
-          <button
-            type="button"
-            className="min-w-0 flex-1 truncate rounded px-1 text-left text-[11px] text-ink-primary hover:bg-primary-50 hover:text-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
-            onClick={() => onOpenActivity(row.activityId!)}
-            title={`Open ${row.title}`}
-          >
-            {row.title}
-          </button>
-        ) : (
-          <span className={row.type === 'phase' ? 'truncate font-semibold text-ink-primary' : 'truncate font-medium text-ink-primary'}>
-            {row.title}
-          </span>
-        )}
-        {overdue && <span className="shrink-0 rounded bg-danger-50 px-1 py-0.5 text-[9px] font-semibold uppercase text-danger-700">Overdue</span>}
-        {canEdit && row.activityId && !editingTitle && (
-          <button
-            type="button"
-            className="shrink-0 rounded p-1 text-ink-secondary opacity-0 transition-opacity hover:bg-surface-hover hover:text-ink-primary focus:opacity-100 group-hover/task:opacity-100"
-            onClick={(event) => {
-              event.stopPropagation()
-              setDraftTitle(row.title)
-              setEditingTitle(true)
-            }}
-            title={`Rename ${row.title}`}
-            aria-label={`Rename ${row.title}`}
-          >
-            <Pencil className="size-3" />
-          </button>
-        )}
-        {canEdit && (row.type === 'phase' || row.type === 'milestone') && (
-          <button type="button" className="ml-auto rounded p-1 text-primary-600 hover:bg-primary-100" onClick={onAddTask} title={`Add task to ${row.title}`} aria-label={`Add task to ${row.title}`}>
-            <Plus className="size-3.5" />
-          </button>
-        )}
-      </div>
-      {columns.map((col) => (
-        <GanttGridCell
-          key={col}
-          row={row}
-          column={col}
-          users={users}
-          userNames={userNames}
-          clientName={clientName}
-          canEdit={canEdit}
-          onUpdateActivity={onUpdateActivity}
-          onUpdateDate={onUpdateDate}
-        />
-      ))}
-    </div>
-  )
-}
-
-function GanttGridCell({
-  row,
-  column,
-  users,
-  userNames,
-  clientName,
-  canEdit,
-  onUpdateActivity,
-  onUpdateDate,
-}: {
-  row: GanttRow
-  column: OptionalColumn
-  users: UserForSelection[]
-  userNames: Map<string, string>
-  clientName: string
-  canEdit: boolean
-  onUpdateActivity: (row: GanttRow, patch: Record<string, unknown>) => Promise<void>
-  onUpdateDate: (row: GanttRow, field: 'start' | 'due', value: string) => void
-}) {
-  const editable = canEdit && !!row.activityId
-  const overdue = isOverdueRow(row)
-  const controlClass = 'h-6 w-full min-w-0 rounded border border-transparent bg-transparent px-1 text-[10px] text-ink-primary outline-none hover:border-black/[0.12] hover:bg-white focus:border-primary-400 focus:bg-white'
-  const [percentDraft, setPercentDraft] = useState(String(Math.round(row.percentComplete)))
-
-  useEffect(() => {
-    setPercentDraft(String(Math.round(row.percentComplete)))
-  }, [row.percentComplete])
-
-  if (!editable) {
-    const value = column === 'assignee'
-      ? row.assigneeId ? userNames.get(row.assigneeId) ?? 'Assigned' : '-'
-      : column === 'owner'
-        ? ownerPartyLabel(row.ownerParty, clientName)
-        : renderColumn(row, column)
-    return <div className="truncate px-2 text-[10px] text-ink-secondary" title={value}>{value}</div>
-  }
-
-  if (column === 'owner') {
-    return (
-      <div className="px-1">
-        <select
-          className={controlClass}
-          value={row.ownerParty ?? '360GROUND'}
-          aria-label={`Owner party for ${row.title}`}
-          onChange={(event) => {
-            const ownerParty = event.target.value as OwnerParty
-            void onUpdateActivity(row, ownerParty === 'CLIENT' ? { ownerParty, assigneeId: null } : { ownerParty })
-          }}
-        >
-          <option value="360GROUND">360Ground</option>
-          <option value="CLIENT">{clientName}</option>
-          <option value="SHARED">Shared</option>
-        </select>
-      </div>
-    )
-  }
-
-  if (column === 'assignee') {
-    if (row.ownerParty === 'CLIENT') {
-      return <div className="truncate px-2 text-[10px] font-medium text-primary-700" title={`${clientName} team`}>Client team</div>
-    }
-    return (
-      <div className="px-1">
-        <select
-          className={controlClass}
-          value={row.assigneeId ?? ''}
-          aria-label={`Assignee for ${row.title}`}
-          onChange={(event) => void onUpdateActivity(row, {
-            assigneeId: event.target.value || null,
-            ...(event.target.value ? { ownerParty: '360GROUND' } : {}),
-          })}
-        >
-          <option value="">Unassigned</option>
-          {row.assigneeId && !users.some((user) => user.id === row.assigneeId) && <option value={row.assigneeId} disabled>Unavailable account</option>}
-          {users.length === 0 ? (
-            <option value="__none__" disabled>No active system users</option>
-          ) : (
-            <optgroup label="360Ground team">
-              {users.map((user) => <option key={user.id} value={user.id}>{user.name ?? user.email}</option>)}
-            </optgroup>
-          )}
-        </select>
-      </div>
-    )
-  }
-
-  if (column === 'start' || column === 'due') {
-    const value = isoDateOnly(column === 'start' ? row.start : row.end) ?? ''
-    return (
-      <div className="px-1">
-        <ProjectDatePicker
-          value={value}
-          ariaLabel={`${column === 'start' ? 'Start date' : 'Due date'} for ${row.title}`}
-          onChange={(next) => onUpdateDate(row, column, next)}
-          displayFormat="dd/MM/yy"
-          showIcon={false}
-          align="center"
-          className={cn('h-7 border-transparent bg-transparent px-1 text-[10px] hover:border-black/[0.1]', column === 'due' && overdue && 'font-semibold text-danger-700')}
-        />
-      </div>
-    )
-  }
-
-  if (column === 'calendarDays') {
-    return <div className="px-1 text-center text-[11px] tabular-nums text-ink-secondary">{calendarDaysBetween(row.start, row.end)}</div>
-  }
-
-  if (column === 'priority' || column === 'risk' || column === 'status') {
-    const values = column === 'priority'
-      ? [['', '-'], ['LOW', 'Low'], ['MEDIUM', 'Medium'], ['HIGH', 'High'], ['CRITICAL', 'Critical']]
-      : column === 'risk'
-        ? [['', '-'], ['LOW', 'Low'], ['MEDIUM', 'Medium'], ['HIGH', 'High']]
-        : [['NOT_STARTED', 'Not started'], ['STARTED', 'Started'], ['FINISHED', 'Finished'], ['APPROVAL_REQUESTED', 'Approval'], ['APPROVED', 'Approved'], ['REJECTED', 'Rejected']]
-    const value = column === 'status' ? row.status : row[column] ?? ''
-    return (
-      <div className="px-1">
-        <select
-          className={cn(
-            controlClass,
-            column === 'risk' && row.risk === 'HIGH' && 'font-semibold text-danger-700',
-            column === 'priority' && row.priority === 'CRITICAL' && 'font-semibold text-danger-700',
-            column === 'status' && statusClass(row),
-            column === 'status' && statusTextClass(row.status as ActivityStatus),
-            column === 'status' && overdue && 'ring-1 ring-danger-500'
-          )}
-          value={value}
-          aria-label={`${COLUMN_LABEL[column]} for ${row.title}`}
-          onChange={(event) => void onUpdateActivity(row, { [column]: event.target.value || null })}
-        >
-          {values.map(([optionValue, label]) => (
-            <option
-              key={optionValue}
-              value={optionValue}
-              className={column === 'status' && optionValue ? cn(`bg-${ACTIVITY_STATUS_TOKEN[optionValue as ActivityStatus]}`, statusTextClass(optionValue as ActivityStatus)) : undefined}
-            >
-              {label}
-            </option>
-          ))}
-        </select>
-      </div>
-    )
-  }
-
-  if (column === 'percent') {
-    return (
-      <div className="flex items-center px-1">
-        <input
-          type="number"
-          min={0}
-          max={100}
-          step={1}
-          className={`${controlClass} pr-0 text-right tabular-nums`}
-          value={percentDraft}
-          aria-label={`Percent complete for ${row.title}`}
-          onChange={(event) => setPercentDraft(event.target.value)}
-          onBlur={() => {
-            const percentComplete = Math.max(0, Math.min(100, Number(percentDraft || 0)))
-            setPercentDraft(String(percentComplete))
-            if (percentComplete !== Math.round(row.percentComplete)) void onUpdateActivity(row, { percentComplete })
-          }}
-          onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur() }}
-        />
-        <span className="text-[10px] text-ink-tertiary">%</span>
-      </div>
-    )
-  }
-
-  return <div className="truncate px-2 text-[11px] text-ink-secondary">{renderColumn(row, column)}</div>
 }
 
 function GanttTimelineRow({
@@ -1730,10 +1338,13 @@ function GanttTimelineRow({
   isCritical,
   isSelected,
   linkingFrom,
+  canEdit,
   onStartDrag,
   onSelect,
   onBeginDependency,
   onCompleteDependency,
+  onCancelDependency,
+  onNudge,
 }: {
   row: GanttRow
   preview?: { start: Date | null; end: Date | null }
@@ -1746,10 +1357,13 @@ function GanttTimelineRow({
   isCritical: boolean
   isSelected: boolean
   linkingFrom: string | null
-  onStartDrag: (row: GanttRow, mode: PendingScheduleChange['mode'], event: React.MouseEvent) => void
+  canEdit: boolean
+  onStartDrag: (row: GanttRow, mode: PendingScheduleChange['mode'], event: React.PointerEvent) => void
   onSelect: (activityId: string) => void
-  onBeginDependency: (activityId: string, event: React.MouseEvent) => void
-  onCompleteDependency: (activityId: string, event: React.MouseEvent) => void
+  onBeginDependency: (activityId: string, event: React.SyntheticEvent) => void
+  onCompleteDependency: (activityId: string, event: React.SyntheticEvent) => void
+  onCancelDependency: () => void
+  onNudge: (row: GanttRow, mode: PendingScheduleChange['mode'], deltaDays: number) => void
 }) {
   const actualStart = preview?.start ?? row.start
   const actualEnd = preview?.end ?? row.end
@@ -1759,14 +1373,43 @@ function GanttTimelineRow({
   const canInteract = !!row.activityId && row.type !== 'phase' && row.type !== 'milestone'
   const overdue = isOverdueRow(row)
   const showLabelInside = !!actual && !isMilestone && row.type !== 'phase' && actual.width >= 150
+  // Bars are operable without a pointer: Tab to focus, Enter/Space opens (or
+  // completes a dependency), arrows nudge dates through the same slip-reason gate
+  // as drag (see requestScheduleChange). Help text: #gantt-bar-keyboard-help.
+  const barA11y = canInteract && row.activityId
+    ? {
+        role: 'button' as const,
+        tabIndex: 0,
+        'aria-label': `${row.title}: ${fmtDate(row.start)} to ${fmtDate(row.end)}, ${renderColumn(row, 'status')}`,
+        'aria-describedby': 'gantt-bar-keyboard-help',
+        onKeyDown: (event: React.KeyboardEvent) => {
+          const activityId = row.activityId!
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault()
+            if (linkingFrom && linkingFrom !== activityId) onCompleteDependency(activityId, event)
+            else onSelect(activityId)
+            return
+          }
+          if (event.key === 'Escape' && linkingFrom) {
+            event.preventDefault()
+            onCancelDependency()
+            return
+          }
+          if (!canEdit || (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight')) return
+          event.preventDefault()
+          const mode: PendingScheduleChange['mode'] = event.shiftKey ? 'resize-end' : event.altKey ? 'resize-start' : 'move'
+          onNudge(row, mode, event.key === 'ArrowRight' ? 1 : -1)
+        },
+      }
+    : {}
 
   return (
-    <div className={cn('group/timeline relative isolate overflow-hidden', row.type === 'phase' && 'bg-[#f4f5f7]', isSelected && 'bg-[#eef5ff]')}>
+    <div className={cn('group/timeline relative isolate overflow-hidden', row.type === 'phase' && 'bg-surface-muted/50', isSelected && 'bg-primary-500/[0.07]')}>
       <div className="flex h-full">
         {units.map((u) => (
           <div
             key={u.key}
-            className={cn('h-full border-r border-black/[0.07]', showWeekends && isWeekendUnit(u) && 'bg-warning-500/[0.06]')}
+            className={cn('h-full border-r border-ink-primary/[0.07]', showWeekends && isWeekendUnit(u) && 'bg-warning-500/[0.06]')}
             style={{ width: u.width }}
           />
         ))}
@@ -1787,8 +1430,8 @@ function GanttTimelineRow({
       {actual && isMilestone ? (
         <div
           className={cn(
-            'absolute top-[9px] h-3.5 w-3.5 rotate-45 border border-black/25',
-            canInteract && 'cursor-grab active:cursor-grabbing',
+            'absolute top-[9px] h-3.5 w-3.5 rotate-45 border border-ink-primary/25',
+            canInteract && 'cursor-grab touch-none ap-focus-ring active:cursor-grabbing',
             statusClass(row),
             row.risk === 'HIGH' && 'ring-2 ring-danger-500/30',
             isCritical && 'ring-2 ring-danger-500',
@@ -1796,9 +1439,10 @@ function GanttTimelineRow({
           )}
           style={{ left: actual.left - 7 }}
           title={`${row.title} · ${renderColumn(row, 'status')}`}
-          onMouseDown={(event) => onStartDrag(row, 'move', event)}
+          {...barA11y}
+          onPointerDown={(event) => onStartDrag(row, 'move', event)}
           onClick={() => row.activityId && onSelect(row.activityId)}
-          onMouseUp={(event) => row.activityId && completeIfLinking(linkingFrom, row.activityId, event, onCompleteDependency)}
+          onPointerUp={(event) => row.activityId && completeIfLinking(linkingFrom, row.activityId, event, onCompleteDependency)}
         />
       ) : actual ? (
         <div
@@ -1806,8 +1450,8 @@ function GanttTimelineRow({
             'group absolute min-w-[18px]',
             row.type === 'phase'
               ? 'top-[10px] h-2.5 overflow-visible rounded-none border-0 border-t-[3px] border-ink-primary bg-transparent shadow-none'
-              : 'top-[7px] h-4 overflow-hidden rounded-sm border border-black/20 shadow-sm',
-            canInteract && 'cursor-grab active:cursor-grabbing',
+              : 'top-[7px] h-4 overflow-hidden rounded-sm border border-ink-primary/20 shadow-sm',
+            canInteract && 'cursor-grab touch-none ap-focus-ring active:cursor-grabbing',
             row.type !== 'phase' && statusClass(row),
             overdue && 'border-danger-500 bg-danger-100 ring-1 ring-danger-500/30',
             row.risk === 'HIGH' && 'ring-2 ring-danger-500/30',
@@ -1816,19 +1460,23 @@ function GanttTimelineRow({
           )}
           style={{ left: actual.left, width: actual.width }}
           title={`${row.title} · ${renderColumn(row, 'status')} · ${Math.round(row.percentComplete)}%${overdue ? ' · Overdue' : ''}`}
-          onMouseDown={(event) => onStartDrag(row, 'move', event)}
+          {...barA11y}
+          onPointerDown={(event) => onStartDrag(row, 'move', event)}
           onClick={() => row.activityId && onSelect(row.activityId)}
-          onMouseUp={(event) => row.activityId && completeIfLinking(linkingFrom, row.activityId, event, onCompleteDependency)}
+          onPointerUp={(event) => row.activityId && completeIfLinking(linkingFrom, row.activityId, event, onCompleteDependency)}
         >
           {canInteract && (
             <>
+              {/* Pointer-only grips; the keyboard equivalents are Alt+Arrow / Shift+Arrow on the bar. */}
               <span
-                className="absolute left-0 top-0 z-10 h-full w-2 cursor-ew-resize rounded-l-pill bg-black/25 opacity-0 transition-opacity group-hover:opacity-100"
-                onMouseDown={(event) => onStartDrag(row, 'resize-start', event)}
+                aria-hidden="true"
+                className="absolute left-0 top-0 z-10 h-full w-2 cursor-ew-resize touch-none rounded-l-pill bg-black/25 opacity-0 transition-opacity group-hover:opacity-100"
+                onPointerDown={(event) => onStartDrag(row, 'resize-start', event)}
               />
               <span
-                className="absolute right-0 top-0 z-10 h-full w-2 cursor-ew-resize rounded-r-pill bg-black/25 opacity-0 transition-opacity group-hover:opacity-100"
-                onMouseDown={(event) => onStartDrag(row, 'resize-end', event)}
+                aria-hidden="true"
+                className="absolute right-0 top-0 z-10 h-full w-2 cursor-ew-resize touch-none rounded-r-pill bg-black/25 opacity-0 transition-opacity group-hover:opacity-100"
+                onPointerDown={(event) => onStartDrag(row, 'resize-end', event)}
               />
             </>
           )}
@@ -1845,7 +1493,7 @@ function GanttTimelineRow({
             />
           )}
           {showLabelInside && (
-            <span className="pointer-events-none absolute inset-0 z-10 truncate px-1.5 text-[10px] font-medium leading-4 text-ink-primary">
+            <span className="pointer-events-none absolute inset-0 z-10 truncate px-1.5 text-xs font-medium leading-4 text-ink-primary">
               {row.title}
             </span>
           )}
@@ -1855,28 +1503,42 @@ function GanttTimelineRow({
         <>
           <button
             className={cn(
-              'absolute top-[7px] z-20 size-3.5 rounded-full border-2 border-primary-500 bg-white opacity-0 shadow-sm transition-opacity focus:opacity-100 group-hover/timeline:opacity-100',
+              'absolute top-[7px] z-20 size-3.5 rounded-full border-2 border-primary-500 bg-surface-card opacity-0 shadow-sm transition-opacity focus:opacity-100 group-hover/timeline:opacity-100',
               (isSelected || linkingFrom === row.activityId) && 'opacity-100',
               linkingFrom === row.activityId && 'bg-primary-500'
             )}
             style={{ left: actual.left - 18 }}
+            type="button"
             title="Start dependency"
-            onMouseDown={(event) => onBeginDependency(row.activityId!, event)}
+            aria-label={`Start a dependency from ${row.title}`}
+            aria-pressed={linkingFrom === row.activityId}
+            onPointerDown={(event) => onBeginDependency(row.activityId!, event)}
+            // Keyboard activation only (detail 0); pointer presses are handled on pointerdown.
+            onClick={(event) => { if (event.detail === 0) onBeginDependency(row.activityId!, event) }}
+            onKeyDown={(event) => { if (event.key === 'Escape' && linkingFrom) { event.preventDefault(); onCancelDependency() } }}
           />
           <button
             className={cn(
-              'absolute top-[7px] z-20 size-3.5 rounded-full border-2 border-primary-500 bg-white opacity-0 shadow-sm transition-opacity focus:opacity-100 group-hover/timeline:opacity-100',
+              'absolute top-[7px] z-20 size-3.5 rounded-full border-2 border-primary-500 bg-surface-card opacity-0 shadow-sm transition-opacity focus:opacity-100 group-hover/timeline:opacity-100',
               (isSelected || linkingFrom) && 'opacity-100',
               linkingFrom && linkingFrom !== row.activityId && 'ring-2 ring-primary-500/30'
             )}
             style={{ left: actual.left + actual.width + 4 }}
+            type="button"
             title={linkingFrom ? 'Finish dependency' : 'Start dependency'}
-            onMouseDown={(event) => linkingFrom ? onCompleteDependency(row.activityId!, event) : onBeginDependency(row.activityId!, event)}
+            aria-label={linkingFrom && linkingFrom !== row.activityId ? `Finish the dependency on ${row.title}` : `Start a dependency from ${row.title}`}
+            onPointerDown={(event) => linkingFrom ? onCompleteDependency(row.activityId!, event) : onBeginDependency(row.activityId!, event)}
+            onClick={(event) => {
+              if (event.detail !== 0) return
+              if (linkingFrom) onCompleteDependency(row.activityId!, event)
+              else onBeginDependency(row.activityId!, event)
+            }}
+            onKeyDown={(event) => { if (event.key === 'Escape' && linkingFrom) { event.preventDefault(); onCancelDependency() } }}
           />
         </>
       )}
       {actual && !showLabelInside && (
-        <div className="absolute top-[7px] truncate pl-2 text-[10px] font-medium text-ink-primary" style={{ left: actual.left + actual.width, maxWidth: 200 }}>
+        <div className="absolute top-[7px] truncate pl-2 text-xs font-medium text-ink-primary" style={{ left: actual.left + actual.width, maxWidth: 200 }}>
           {row.title}
         </div>
       )}
@@ -1891,7 +1553,7 @@ function GanttTimelineRow({
       )}
       {actual && showComments && row.commentsCount > 0 && (
         <span
-          className="absolute top-[17px] inline-flex items-center gap-1 rounded bg-surface-card px-1 py-0.5 text-[9px] font-medium text-ink-secondary shadow-sm ring-1 ring-black/[0.08]"
+          className="absolute top-[17px] inline-flex items-center gap-1 rounded bg-surface-card px-1 py-0.5 text-[9px] font-medium text-ink-secondary shadow-sm ring-1 ring-ink-primary/[0.08]"
           style={{ left: actual.left + Math.max(8, actual.width - 8) }}
           title={`${row.commentsCount} comments`}
         >
@@ -1947,7 +1609,7 @@ function GanttDependencyLayer({
           <g key={dependency.id} className="group/dependency pointer-events-auto cursor-pointer" onClick={() => onDelete(dependency)}>
             <title>{`${pred.row.title} to ${succ.row.title} (${dependency.type})`}</title>
             <path d={path} fill="none" stroke="transparent" strokeWidth="10" />
-            <path d={path} fill="none" stroke="white" strokeWidth={selected ? 5 : 4} strokeLinecap="round" strokeLinejoin="round" opacity="0.92" />
+            <path d={path} fill="none" className="stroke-surface-card" strokeWidth={selected ? 5 : 4} strokeLinecap="round" strokeLinejoin="round" opacity="0.92" />
             <path
               d={path}
               fill="none"
@@ -1984,14 +1646,14 @@ function GanttMinimap({
 }) {
   return (
     <div className="flex items-center gap-3">
-      <div className="text-[11px] font-medium uppercase tracking-[0.04em] text-ink-tertiary">Minimap</div>
+      <div className="text-xs font-medium uppercase tracking-[0.04em] text-ink-tertiary">Minimap</div>
       <div className="relative h-5 flex-1 overflow-hidden rounded-md bg-surface-muted">
         <div
           className="absolute top-0 h-full rounded-md bg-primary-500/30 ring-1 ring-primary-500/40"
           style={{ left: `${visibleStartRatio * 100}%`, width: `${Math.max(8, visibleWidthRatio * 100)}%` }}
         />
       </div>
-      <div className="w-44 text-right text-[11px] text-ink-tertiary">{fmtDate(start)} - {fmtDate(end)}</div>
+      <div className="w-44 text-right text-xs text-ink-tertiary">{fmtDate(start)} - {fmtDate(end)}</div>
     </div>
   )
 }
@@ -2003,157 +1665,6 @@ function ToolbarCheck({ label, checked, onChange }: { label: string; checked: bo
       <input type="checkbox" checked={checked} onChange={onChange} />
     </label>
   )
-}
-
-export function buildRows(project: ProjectDetail, sort: GanttSort, segment: GanttSegment): GanttRow[] {
-  const rows: GanttRow[] = []
-  const phases = [...project.phases].sort(comparePhase(sort))
-  for (const phase of phases) {
-    const phaseId = `phase:${phase.id}`
-    const phaseActivities = phase.milestones.flatMap((m) => m.activities)
-    const phaseLeafStatuses = phaseActivities
-      .filter((activity) => !phaseActivities.some((candidate) => candidate.parentActivityId === activity.id))
-      .map((activity) => activity.status)
-    const phaseCurrent = activitySpan(phaseActivities, 'current') ?? { start: parseDate(phase.currentStart), end: parseDate(phase.currentEnd) }
-    const phaseBaseline = activitySpan(phaseActivities, 'baseline') ?? { start: parseDate(phase.baselineStart), end: parseDate(phase.baselineEnd) }
-    rows.push({
-      id: phaseId,
-      activityId: null,
-      milestoneId: null,
-      parentActivityId: null,
-      parentId: null,
-      type: 'phase',
-      depth: 0,
-      title: phase.name,
-      position: phase.position,
-      status: rollupActivityStatus(phaseLeafStatuses, phase.status as ActivityStatus),
-      assigneeId: null,
-      percentComplete: phase.percentComplete,
-      estimatedHours: null,
-      actualHours: null,
-      estimatedCost: null,
-      actualCost: null,
-      tags: [],
-      subtasksCount: phaseActivities.length,
-      slipDays: 0,
-      commentsCount: 0,
-      start: phaseCurrent.start,
-      end: phaseCurrent.end,
-      baselineStart: phaseBaseline.start,
-      baselineEnd: phaseBaseline.end,
-      isMilestone: false,
-      waitingSince: null,
-      hasChildren: phase.milestones.length > 0,
-    })
-
-    const milestones = [...phase.milestones].sort(compareMilestone(sort))
-    for (const milestone of milestones) {
-      const milestoneId = `milestone:${milestone.id}`
-      const topActivities = milestone.activities.filter((a) => !a.parentActivityId)
-      const milestoneLeafStatuses = milestone.activities
-        .filter((activity) => !milestone.activities.some((candidate) => candidate.parentActivityId === activity.id))
-        .map((activity) => activity.status)
-      const milestoneCurrent = activitySpan(milestone.activities, 'current') ?? { start: parseDate(milestone.currentDate), end: parseDate(milestone.currentDate) }
-      const milestoneBaseline = activitySpan(milestone.activities, 'baseline') ?? { start: parseDate(milestone.baselineDate), end: parseDate(milestone.baselineDate) }
-      rows.push({
-        id: milestoneId,
-        activityId: null,
-        milestoneId: milestone.id,
-        parentActivityId: null,
-        parentId: phaseId,
-        type: 'milestone',
-        depth: 1,
-        title: milestone.name,
-        position: milestone.position,
-        status: rollupActivityStatus(milestoneLeafStatuses, milestone.status as ActivityStatus),
-        assigneeId: null,
-        percentComplete: milestone.percentComplete,
-        estimatedHours: null,
-        actualHours: null,
-        estimatedCost: null,
-        actualCost: null,
-        tags: [],
-        subtasksCount: milestone.activities.length,
-        slipDays: 0,
-        commentsCount: 0,
-        start: milestoneCurrent.start,
-        end: milestoneCurrent.end,
-        baselineStart: milestoneBaseline.start,
-        baselineEnd: milestoneBaseline.end,
-        isMilestone: true,
-        waitingSince: null,
-        hasChildren: topActivities.length > 0,
-      })
-
-      for (const activity of topActivities.sort(compareActivity(sort, segment))) {
-        pushActivityRows(rows, activity, milestone.activities, milestoneId, 2, sort, segment)
-      }
-    }
-    rows.push({
-      id: `actions:${phase.id}`,
-      activityId: null,
-      milestoneId: phase.milestones[0]?.id ?? null,
-      parentActivityId: null,
-      parentId: phaseId,
-      type: 'actions',
-      depth: 1,
-      title: `Add to ${phase.name}`,
-      position: Number.MAX_SAFE_INTEGER,
-      status: '',
-      assigneeId: null,
-      percentComplete: 0,
-      tags: [],
-      subtasksCount: 0,
-      slipDays: 0,
-      commentsCount: 0,
-      start: null,
-      end: null,
-      baselineStart: null,
-      baselineEnd: null,
-      isMilestone: false,
-      waitingSince: null,
-      hasChildren: false,
-    })
-  }
-  return rows
-}
-
-function pushActivityRows(rows: GanttRow[], activity: ActivityNode, all: ActivityNode[], parentId: string, depth: number, sort: GanttSort, segment: GanttSegment) {
-  const children = all.filter((a) => a.parentActivityId === activity.id).sort(compareActivity(sort, segment))
-  const activityId = `activity:${activity.id}`
-  rows.push({
-    id: activityId,
-    activityId: activity.id,
-    milestoneId: activity.milestoneId,
-    parentActivityId: activity.parentActivityId,
-    parentId,
-    type: depth > 2 ? 'subactivity' : 'activity',
-    depth,
-    title: activity.title,
-    position: activity.position,
-    status: activity.status,
-    assigneeId: activity.assigneeId,
-    ownerParty: activity.ownerParty,
-    percentComplete: activity.percentComplete,
-    priority: activity.priority,
-    risk: activity.risk,
-    estimatedHours: activity.estimatedHours,
-    actualHours: activity.actualHours,
-    estimatedCost: activity.estimatedCost,
-    actualCost: activity.actualCost,
-    tags: activity.tags.map((tag) => tag.label),
-    subtasksCount: activity._count.subtasks,
-    slipDays: activity.slipDays,
-    commentsCount: activity._count.comments,
-    start: parseDate(activity.currentStart),
-    end: parseDate(activity.currentEnd),
-    baselineStart: parseDate(activity.baselineStart),
-    baselineEnd: parseDate(activity.baselineEnd),
-    isMilestone: activity.isMilestone,
-    waitingSince: parseDate(activity.waitingSince),
-    hasChildren: children.length > 0,
-  })
-  for (const child of children) pushActivityRows(rows, child, all, activityId, depth + 1, sort, segment)
 }
 
 function stripRowPrefix(rowId: string): string {
@@ -2289,38 +1800,6 @@ function spanToRect(start: Date | null, end: Date | null, units: TimelineUnit[])
   return { left, width: Math.max(16, right - left) }
 }
 
-function statusClass(row: GanttRow): string {
-  const status = row.status as ActivityStatus
-  const token = ACTIVITY_STATUS_TOKEN[status] ?? ACTIVITY_STATUS_TOKEN.NOT_STARTED
-  return `bg-${token}`
-}
-
-function statusTextClass(status: ActivityStatus): string {
-  return status === 'FINISHED' ? 'text-white' : status === 'REJECTED' ? 'text-ink-primary' : 'text-ink-primary'
-}
-
-function isOverdueRow(row: GanttRow, now = new Date()): boolean {
-  return !!row.activityId && isOverdueActivity(row.status, row.end, now)
-}
-
-function activitySpan(activities: ActivityNode[], kind: 'current' | 'baseline'): { start: Date | null; end: Date | null } | null {
-  const starts: Date[] = []
-  const ends: Date[] = []
-  for (const activity of activities) {
-    const start = parseDate(kind === 'current' ? activity.currentStart : activity.baselineStart)
-    const end = parseDate(kind === 'current' ? activity.currentEnd : activity.baselineEnd)
-    if (start) starts.push(start)
-    if (end) ends.push(end)
-  }
-  if (!starts.length && !ends.length) return null
-  const allStarts = starts.length ? starts : ends
-  const allEnds = ends.length ? ends : starts
-  return {
-    start: new Date(Math.min(...allStarts.map((d) => d.getTime()))),
-    end: new Date(Math.max(...allEnds.map((d) => d.getTime()))),
-  }
-}
-
 function pixelsToDays(px: number, units: TimelineUnit[]): number {
   const timelineWidth = units.reduce((sum, unit) => sum + unit.width, 0)
   const timelineDays = units.reduce((sum, unit) => sum + Math.max(1, Math.round((unit.end.getTime() - unit.start.getTime()) / 86400000)), 0)
@@ -2328,19 +1807,11 @@ function pixelsToDays(px: number, units: TimelineUnit[]): number {
   return Math.round((px / timelineWidth) * timelineDays)
 }
 
-function isoDateOnly(date: Date | null): string | null {
-  if (!date) return null
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const d = String(date.getDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
-}
-
 function completeIfLinking(
   linkingFrom: string | null,
   activityId: string,
-  event: React.MouseEvent,
-  onCompleteDependency: (activityId: string, event: React.MouseEvent) => void
+  event: React.SyntheticEvent,
+  onCompleteDependency: (activityId: string, event: React.SyntheticEvent) => void
 ) {
   if (linkingFrom && linkingFrom !== activityId) onCompleteDependency(activityId, event)
 }
@@ -2394,111 +1865,11 @@ function dependencyPath(
   return `M ${startX} ${startY} H ${laneX} V ${endY} H ${endX}`
 }
 
-export function buildColumnTemplate(columns: OptionalColumn[], taskColumnWidth: number): string {
-  const weights: Record<OptionalColumn, number> = {
-    owner: 1.1,
-    assignee: 1.25,
-    subtasks: 0.45,
-    tags: 1.1,
-    estimatedHours: 0.7,
-    actualHours: 0.7,
-    estimatedCost: 0.8,
-    actualCost: 0.8,
-    start: 0.88,
-    workingDays: 0.5,
-    due: 0.88,
-    calendarDays: 0.45,
-    status: 1.15,
-    priority: 0.75,
-    risk: 0.65,
-    percent: 0.6,
-    slipDays: 0.85,
-  }
-  return `${taskColumnWidth}px ${columns.map((column) => `minmax(0, ${weights[column]}fr)`).join(' ')}`
-}
-
-function renderColumn(row: GanttRow, col: OptionalColumn): string {
-  if (col === 'assignee') return row.assigneeId ? shortId(row.assigneeId) : '-'
-  if (col === 'subtasks') return row.subtasksCount ? String(row.subtasksCount) : '-'
-  if (col === 'tags') return row.tags.length ? row.tags.join(', ') : '-'
-  if (col === 'estimatedHours') return row.estimatedHours == null ? '-' : String(row.estimatedHours)
-  if (col === 'actualHours') return row.actualHours == null ? '-' : String(row.actualHours)
-  if (col === 'estimatedCost') return row.estimatedCost == null ? '-' : String(row.estimatedCost)
-  if (col === 'actualCost') return row.actualCost == null ? '-' : String(row.actualCost)
-  if (col === 'start') return fmtDate(row.start)
-  if (col === 'workingDays') return row.start && row.end ? String(businessDaysBetween(row.start, row.end)) : '-'
-  if (col === 'due') return fmtDate(row.end)
-  if (col === 'calendarDays') return String(calendarDaysBetween(row.start, row.end))
-  if (col === 'status') return ACTIVITY_STATUS_LABEL[row.status as ActivityStatus] ?? labelize(row.status)
-  if (col === 'priority') return row.priority ? labelize(row.priority) : '-'
-  if (col === 'risk') return row.risk ? labelize(row.risk) : '-'
-  if (col === 'percent') return `${Math.round(row.percentComplete)}%`
-  if (col === 'owner') return row.ownerParty ? (row.ownerParty === '360GROUND' ? '360Ground' : labelize(row.ownerParty)) : '-'
-  if (col === 'slipDays') return row.activityId ? String(row.slipDays) : '-'
-  return ''
-}
-
-function ownerPartyLabel(ownerParty: string | undefined, clientName: string): string {
-  if (ownerParty === 'CLIENT') return clientName
-  if (ownerParty === 'SHARED') return 'Shared'
-  return ownerParty ? '360Ground' : '-'
-}
-
-function calendarDaysBetween(start: Date | null, end: Date | null): number | '-' {
-  if (!start || !end || end < start) return '-'
-  const startUtc = Date.UTC(start.getFullYear(), start.getMonth(), start.getDate())
-  const endUtc = Date.UTC(end.getFullYear(), end.getMonth(), end.getDate())
-  return Math.floor((endUtc - startUtc) / 86_400_000) + 1
-}
-
-function comparePhase(_sort: GanttSort) {
-  return (a: PhaseNode, b: PhaseNode) => a.position - b.position
-}
-
-function compareMilestone(_sort: GanttSort) {
-  return (a: MilestoneNode, b: MilestoneNode) => a.position - b.position
-}
-
-function compareActivity(sort: GanttSort, segment: GanttSegment) {
-  return (a: ActivityNode, b: ActivityNode) => {
-    const segmentCompare = segmentValue(a, segment).localeCompare(segmentValue(b, segment))
-    if (segmentCompare) return segmentCompare
-    return compareScheduleItems(sort, a, b)
-  }
-}
-
-function segmentValue(activity: ActivityNode, segment: GanttSegment): string {
-  if (segment === 'assignee') return activity.assigneeId ?? ''
-  if (segment === 'status') return activity.status
-  if (segment === 'owner') return activity.ownerParty
-  return ''
-}
-
 function toggleSetValue(current: Set<string>, value: string): Set<string> {
   const next = new Set(current)
   if (next.has(value)) next.delete(value)
   else next.add(value)
   return next
-}
-
-function parseDate(value: string | Date | null): Date | null {
-  if (!value) return null
-  const d = value instanceof Date ? value : new Date(value)
-  return Number.isNaN(d.getTime()) ? null : d
-}
-
-function fmtDate(value: Date | string | null): string {
-  const d = parseDate(value)
-  if (!d) return '-'
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-}
-
-function labelize(value: string): string {
-  return value.replace(/_/g, ' ').toLowerCase().replace(/^\w/, (c) => c.toUpperCase())
-}
-
-function shortId(value: string): string {
-  return value.length > 8 ? value.slice(0, 8) : value
 }
 
 function startOfDay(date: Date): Date {

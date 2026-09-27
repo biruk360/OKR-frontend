@@ -41,7 +41,7 @@ export function AiAssistantPanel({ projectId, open, onClose }: { projectId: stri
       onClose={onClose}
       title="Constrained AI Assistant"
       icon={Bot}
-      iconClassName="text-indigo-500"
+      iconClassName="text-primary-500"
       size="lg"
       scrollBehavior="internal"
       footer={(
@@ -54,7 +54,7 @@ export function AiAssistantPanel({ projectId, open, onClose }: { projectId: stri
       )}
     >
       <div className="space-y-4">
-        <div className="rounded-md border border-indigo-200 bg-indigo-50 p-3 text-body-sm text-indigo-800">
+        <div className="rounded-md border border-primary-200 bg-primary-50 p-3 text-body-sm text-primary-800">
           This assistant only reads existing project data. It cannot write requirements, produce client-facing prose, or send anything. All outputs are capped and require PM review before external use.
         </div>
 
@@ -68,12 +68,12 @@ export function AiAssistantPanel({ projectId, open, onClose }: { projectId: stri
                 className={cn(
                   'rounded-card border p-3 text-left transition-colors',
                   intent === item.value
-                    ? 'border-indigo-500 bg-indigo-50'
-                    : 'border-black/[0.08] bg-white hover:bg-surface-hover',
+                    ? 'border-primary-500 bg-primary-50'
+                    : 'border-ink-primary/[0.08] bg-surface-card hover:bg-surface-hover',
                 )}
               >
                 <div className="text-body-sm font-medium text-ink-primary">{item.label}</div>
-                <div className="text-[12px] text-ink-tertiary">{item.description}</div>
+                <div className="text-xs text-ink-tertiary">{item.description}</div>
               </button>
             ))}
           </div>
@@ -88,15 +88,15 @@ export function AiAssistantPanel({ projectId, open, onClose }: { projectId: stri
             value={context}
             onChange={(e) => setContext(e.target.value)}
           />
-          <div className="mt-1 text-right text-[12px] text-ink-tertiary">{context.length}/{MAX_CONTEXT}</div>
+          <div className="mt-1 text-right text-xs text-ink-tertiary">{context.length}/{MAX_CONTEXT}</div>
         </div>
 
         {result && (
-          <div className="rounded-card border border-black/[0.08] bg-white p-4">
+          <div className="rounded-card border border-ink-primary/[0.08] bg-surface-card p-4">
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
               <div className="text-body-sm font-medium text-ink-primary">{INTENTS.find((i) => i.value === result.intent)?.label}</div>
               <div className="flex items-center gap-2">
-                <span className={cn('rounded-pill px-2 py-0.5 text-[12px] font-medium', result.capped ? 'bg-success-50 text-success-700' : 'bg-danger-50 text-danger-700')}>
+                <span className={cn('rounded-pill px-2 py-0.5 text-xs font-medium', result.capped ? 'bg-success-50 text-success-700' : 'bg-danger-50 text-danger-700')}>
                   {result.capped ? `Within cap (${result.bullets} bullets, ${result.chars} chars)` : 'Over cap'}
                 </span>
                 <button className="btn btn-outline btn-xs" onClick={copyOutput}>
@@ -104,14 +104,14 @@ export function AiAssistantPanel({ projectId, open, onClose }: { projectId: stri
                 </button>
               </div>
             </div>
-            <div className="whitespace-pre-line rounded-md bg-surface-secondary p-3 text-body-sm text-ink-primary">
+            <div className="whitespace-pre-line rounded-md bg-surface-muted p-3 text-body-sm text-ink-primary">
               {result.output}
             </div>
-            <div className="mt-3 flex items-start gap-2 rounded-md bg-warning-50 p-2 text-[12px] text-warning-700">
+            <div className="mt-3 flex items-start gap-2 rounded-md bg-warning-50 p-2 text-xs text-warning-700">
               <AlertTriangle className="mt-0.5 size-4 shrink-0" />
               <span>PM approval required before external use. This output is not client-ready and cannot be auto-sent.</span>
             </div>
-            <div className="mt-2 text-[12px] text-ink-tertiary">
+            <div className="mt-2 text-xs text-ink-tertiary">
               Grounded in: {result.groundedIn.join(' · ')}
             </div>
           </div>

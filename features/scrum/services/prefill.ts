@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { SUBMITTED_SCRUM_UPDATE_WHERE } from './drafts'
 import { previousScrumWorkingDay, scrumBusinessDaysBetween, toScrumDateKey } from './working-days'
 import { getScrumSettings } from './settings'
 import { normalizeContentJson, parseHtmlToItems, type ScrumContentJson } from './items'
@@ -37,6 +38,7 @@ export async function getScrumPrefill(userId: string, date = new Date()): Promis
     where: {
       userId,
       scrumDate: { lt: new Date(`${scrumDate}T00:00:00.000Z`) },
+      ...SUBMITTED_SCRUM_UPDATE_WHERE,
     },
     orderBy: { scrumDate: 'desc' },
     select: {
@@ -162,15 +164,23 @@ export function parsePlanItems(htmlOrText: string): ScrumPlanItem[] {
     .map((text, index) => ({ id: `item-${index}`, text, state: 'PENDING' as const }))
 }
 
+/**
+ * HTML → plain text (entities decoded). The result is TEXT: it must be
+ * escaped again (see `serializeItemsToHtml` / `escapeScrumHtml`) before it is
+ * ever put back into markup.
+ */
 export function stripHtml(value: string): string {
   return value
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<\/(p|li|div|h[1-6])>/gi, '\n')
     .replace(/<[^>]+>/g, '')
     .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    // `&amp;` last so `&amp;lt;` decodes once (to the text `&lt;`), not twice.
+    .replace(/&amp;/g, '&')
     .trim()
 }
 

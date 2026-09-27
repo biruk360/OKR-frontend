@@ -38,8 +38,13 @@ const AUTH_WRAPPERS = /withAuth|withRole|withFeature|withRoleOrFeature/
 const EXEMPT: { prefix: string; reason: string; mustMatch: RegExp }[] = [
   { prefix: 'app/api/auth/', reason: 'NextAuth itself and the password-reset flow are pre-login by definition', mustMatch: /.*/ },
   { prefix: 'app/api/portal/auth/', reason: 'the client portal has its own NextAuth instance', mustMatch: /.*/ },
+  // Must precede the general portal entry (first prefix match wins). Accepting an
+  // invite is pre-login by definition: the one-time token (CSPRNG, stored only as
+  // its SHA-256 via lib/projects/portal-accounts.ts) is the credential, and both
+  // handlers hit the per-IP rate limit before any token lookup.
+  { prefix: 'app/api/portal/invite/', reason: 'client-portal invite acceptance is authenticated by a hashed one-time token and rate-limited per IP', mustMatch: /hitRateLimit\([\s\S]*(?:peekPortalInvite|acceptPortalInvite)\(/ },
   { prefix: 'app/api/portal/', reason: 'client-portal routes authenticate with withPortalAuth', mustMatch: /withPortalAuth/ },
-  { prefix: 'app/api/cron/', reason: 'cron routes authenticate with a CRON_SECRET bearer token', mustMatch: /CRON_SECRET/ },
+  { prefix: 'app/api/cron/', reason: 'cron routes authenticate with withCronAuth (lib/cron-auth.ts), a fail-closed CRON_SECRET bearer check', mustMatch: /withCronAuth/ },
   { prefix: 'app/api/telegram/webhook/', reason: 'webhook authenticates with TELEGRAM_WEBHOOK_SECRET', mustMatch: /TELEGRAM_WEBHOOK_SECRET/ },
   { prefix: 'app/api/health/', reason: 'liveness probe exposes no data', mustMatch: /.*/ },
   { prefix: 'app/api/wallpaper/', reason: 'it feeds the sign-in screen, which is pre-login by definition, and returns only public photo metadata', mustMatch: /Deliberately unauthenticated/ },
@@ -77,6 +82,25 @@ test('SEC-1: every exempt route proves the guard its exemption claims', () => {
     failures.push(`${route} — exempt because ${exemption.reason}, but no ${exemption.mustMatch} found`)
   }
   assert.deepEqual(failures, [], `exempt routes missing their guard:\n  ${failures.join('\n  ')}`)
+})
+
+test('SEC-1: every cron route authenticates through withCronAuth from lib/cron-auth.ts', () => {
+  // Stricter than the exemption sweep above, which would also accept an app-session
+  // wrapper. A cron route is called by crontab, never by a signed-in user, so the
+  // only acceptable guard is the shared fail-closed helper — a hand-rolled
+  // `CRON_SECRET` comparison is exactly what used to fall open when the secret
+  // was unset (or accept `Bearer undefined`).
+  const cronRoutes = ROUTES.filter((r) => r.startsWith('app/api/cron/'))
+  assert.ok(cronRoutes.length >= 20, `expected the cron surface, found ${cronRoutes.length} routes`)
+  const failures: string[] = []
+  for (const route of cronRoutes) {
+    const src = readFileSync(join(ROOT, route), 'utf8')
+    const imported = /import\s*\{[^}]*\bwithCronAuth\b[^}]*\}\s*from\s*['"]@\/lib\/cron-auth['"]/.test(src)
+    const exported = /export\s+const\s+(GET|POST)\s*=\s*withCronAuth\(/.test(src)
+    if (!imported) failures.push(`${route} — does not import withCronAuth from '@/lib/cron-auth'`)
+    else if (!exported) failures.push(`${route} — no GET/POST handler is exported as withCronAuth(...)`)
+  }
+  assert.deepEqual(failures, [], `cron routes not guarded by withCronAuth:\n  ${failures.join('\n  ')}`)
 })
 
 test('SEC-1: the sprint and card routes this work touched are all wrapped', () => {

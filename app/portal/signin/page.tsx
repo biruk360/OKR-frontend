@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Eye, EyeOff, Lock, Mail } from 'lucide-react'
+import { safePortalCallbackUrl } from '@/lib/portal-callback-url'
 
 export default function PortalSignInPage() {
   const [email, setEmail] = useState('')
@@ -36,7 +37,9 @@ export default function PortalSignInPage() {
         setError('Invalid email or password')
         return
       }
-      router.push(search.get('callbackUrl') || '/portal')
+      // Never push the raw query value: `javascript:` / `//host` would run or
+      // leave the app. Only same-origin /portal paths survive.
+      router.push(safePortalCallbackUrl(search.get('callbackUrl')))
       router.refresh()
     } catch {
       setError('An error occurred. Please try again.')

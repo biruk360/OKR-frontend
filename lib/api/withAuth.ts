@@ -73,6 +73,19 @@ export function withRole<P = Record<string, string | string[]>>(
   })
 }
 
+/**
+ * A feature-permission lookup that throws is treated as a denial (fail closed).
+ * Previously both wrappers below ran the handler when the lookup threw, so a
+ * missing table or a DB blip silently granted every feature-gated route.
+ */
+function logPermissionLookupFailure(wrapper: string, featureKey: string, userId: string, error: unknown) {
+  console.error(`[withAuth:${wrapper}] feature permission lookup failed; denying`, {
+    featureKey,
+    userId,
+    error: error instanceof Error ? error.message : String(error),
+  })
+}
+
 export function withFeature<P = Record<string, string | string[]>>(
   featureKey: string,
   handler: Handler<P>
@@ -81,13 +94,16 @@ export function withFeature<P = Record<string, string | string[]>>(
     if (ctx.session.user.role === 'ADMIN') {
       return handler(req, ctx)
     }
+    let allowed = false
     try {
-      const allowed = await resolveFeaturePermission(ctx.session.user.id, featureKey)
-      if (!allowed) {
-        return apiForbidden('Feature not available')
-      }
-    } catch {
-      return handler(req, ctx)
+      allowed = await resolveFeaturePermission(ctx.session.user.id, featureKey)
+    } catch (error) {
+      // Fail closed: a permission lookup we could not complete is not a grant.
+      logPermissionLookupFailure('withFeature', featureKey, ctx.session.user.id, error)
+      return apiForbidden('Unable to verify permissions')
+    }
+    if (!allowed) {
+      return apiForbidden('Feature not available')
     }
     return handler(req, ctx)
   })
@@ -103,13 +119,16 @@ export function withRoleOrFeature<P = Record<string, string | string[]>>(
     if (roleAllowed) {
       return handler(req, ctx)
     }
+    let featureAllowed = false
     try {
-      const featureAllowed = await resolveFeaturePermission(ctx.session.user.id, featureKey)
-      if (featureAllowed) {
-        return handler(req, ctx)
-      }
-    } catch {
-      // Feature permission tables not ready — fail open so role-based routes keep working
+      featureAllowed = await resolveFeaturePermission(ctx.session.user.id, featureKey)
+    } catch (error) {
+      // Fail closed. Role-based access above is unaffected; only the feature
+      // grant path is denied when the permission tables cannot be read.
+      logPermissionLookupFailure('withRoleOrFeature', featureKey, ctx.session.user.id, error)
+      return apiForbidden('Unable to verify permissions')
+    }
+    if (featureAllowed) {
       return handler(req, ctx)
     }
     return apiForbidden('Insufficient permissions')

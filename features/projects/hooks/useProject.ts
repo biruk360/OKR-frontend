@@ -789,7 +789,7 @@ function useActivityCommentMutation<TVars>(
 }
 
 export function useAddActivityComment(projectId: string, activityId: string) {
-  return useActivityCommentMutation(projectId, activityId, (body: { content: string; visibility?: Visibility; parentId?: string | null }) =>
+  return useActivityCommentMutation(projectId, activityId, (body: { content: string; visibility?: Visibility; parentId?: string | null; attachmentIds?: string[] }) =>
     fetchJson<ActivityCommentNode[]>(`/api/projects/${projectId}/activities/${activityId}/comments`, jsonInit('POST', body)))
 }
 
@@ -839,6 +839,12 @@ export function useUploadActivityAttachment(projectId: string, activityId: strin
 export function useDeleteActivityAttachment(projectId: string, activityId: string) {
   return useActivityAttachmentMutation(projectId, activityId, ({ attachmentId }: { attachmentId: string }) =>
     fetchJson<ActivityAttachmentNode[]>(`/api/projects/${projectId}/activities/${activityId}/attachments/${attachmentId}`, { method: 'DELETE' }), 'Attachment deleted')
+}
+
+/** Share a file with the client portal (CLIENT_VISIBLE) or make it internal again. */
+export function useUpdateActivityAttachmentVisibility(projectId: string, activityId: string) {
+  return useActivityAttachmentMutation(projectId, activityId, ({ attachmentId, visibility }: { attachmentId: string; visibility: Visibility }) =>
+    fetchJson<ActivityAttachmentNode[]>(`/api/projects/${projectId}/activities/${activityId}/attachments/${attachmentId}`, jsonInit('PATCH', { visibility })), 'File visibility updated')
 }
 
 // --- mutations (invalidate the project detail on success) --------------------
@@ -1152,4 +1158,91 @@ export function useUpdateDelayRecovery(id: string) {
     },
     onError: (e: Error) => toast.error(e.message),
   })
+}
+
+// --- client portal access (remediation F5) ------------------------------------
+
+export type PortalAccountStatus = 'ACTIVE' | 'INVITED' | 'INVITE_EXPIRED' | 'INACTIVE'
+
+export interface PortalAccountNode {
+  id: string
+  email: string
+  name: string
+  clientName: string
+  status: PortalAccountStatus
+  inviteExpiresAt: string | null
+  lastLoginAt: string | null
+  createdAt: string
+}
+
+export interface ProjectPortalAccess {
+  portalEnabled: boolean
+  clientName: string
+  accounts: PortalAccountNode[]
+}
+
+export interface PortalCredentialResult {
+  account: PortalAccountNode
+  created?: boolean
+  credentialChanged?: boolean
+  /** Relative accept-invite path; the raw token is shown once and never stored. */
+  invitePath: string | null
+  emailStatus: string | null
+}
+
+export type PortalInviteBody = {
+  email: string
+  name: string
+  clientName: string
+  credential: { mode: 'INVITE'; sendEmail?: boolean } | { mode: 'PASSWORD'; password: string }
+}
+
+const portalAccessKey = (id: string) => [...projectKeys.detail(id), 'portal-access'] as const
+
+export function useProjectPortalAccess(id: string, enabled = true) {
+  return useQuery({
+    queryKey: portalAccessKey(id),
+    queryFn: () => fetchJson<ProjectPortalAccess>(`/api/projects/${id}/portal-users`),
+    enabled: enabled && !!id,
+  })
+}
+
+function usePortalAccessMutation<TVars, TResult>(id: string, fn: (vars: TVars) => Promise<TResult>, successMsg: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: portalAccessKey(id) })
+      toast.success(successMsg)
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+}
+
+export function useSetPortalEnabled(id: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (portalEnabled: boolean) => fetchJson(`/api/projects/${id}`, jsonInit('PATCH', { portalEnabled })),
+    onSuccess: (_data, portalEnabled) => {
+      qc.invalidateQueries({ queryKey: portalAccessKey(id) })
+      qc.invalidateQueries({ queryKey: projectKeys.detail(id) })
+      toast.success(portalEnabled ? 'Client portal enabled' : 'Client portal disabled')
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+}
+
+export function useInvitePortalUser(id: string) {
+  return usePortalAccessMutation(id, (body: PortalInviteBody) =>
+    fetchJson<PortalCredentialResult>(`/api/projects/${id}/portal-users`, jsonInit('POST', body)), 'Portal access granted')
+}
+
+export function useResetPortalCredential(id: string) {
+  return usePortalAccessMutation(id, ({ accountId, ...body }: { accountId: string } & ({ action: 'RESEND_INVITE'; sendEmail?: boolean } | { action: 'SET_PASSWORD'; password: string })) =>
+    fetchJson<PortalCredentialResult>(`/api/projects/${id}/portal-users/${accountId}`, jsonInit('PATCH', body)), 'Portal credentials updated')
+}
+
+export function useRevokePortalAccess(id: string) {
+  return usePortalAccessMutation(id, ({ accountId }: { accountId: string }) =>
+    fetchJson<{ id: string; deactivated: boolean }>(`/api/projects/${id}/portal-users/${accountId}`, { method: 'DELETE' }), 'Portal access revoked')
 }

@@ -127,7 +127,7 @@ export default function AuthBackdrop({ children }: { children: React.ReactNode }
 
           <div className="pointer-events-auto flex items-center gap-1.5">
             {count > 1 && (
-              <span className="mr-1 hidden text-[11px] tabular-nums text-white/55 md:inline">
+              <span className="mr-1 hidden text-caption tabular-nums text-white/55 md:inline">
                 {index + 1} / {count}
               </span>
             )}

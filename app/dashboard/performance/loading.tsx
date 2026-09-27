@@ -3,10 +3,7 @@ import { Skeleton, SkeletonCard, SkeletonRow } from '@/components/ui/Skeleton'
 export default function PerformanceLoading() {
   return (
     <div className="space-y-4">
-      <div
-        className="rounded-[var(--ap-radius-md)] border bg-card px-5 pt-5 pb-4"
-        style={{ borderColor: 'var(--ap-border)' }}
-      >
+      <div className="mb-6">
         <Skeleton className="h-7 w-56" />
         <Skeleton className="mt-2 h-4 w-96 max-w-full" />
       </div>

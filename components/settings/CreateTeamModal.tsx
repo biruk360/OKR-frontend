@@ -52,7 +52,7 @@ export default function CreateTeamModal({ isOpen, onClose, onTeamCreated }: Crea
   }
 
   return (
-    <Modal open={isOpen} onClose={onClose} title="Create Team" icon={Building2} iconClassName="text-blue-600" size="sm">
+    <Modal open={isOpen} onClose={onClose} title="Create Team" icon={Building2} iconClassName="text-primary-600" size="sm">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div>
           <label className="block text-sm font-medium text-muted-foreground mb-1">Team Name *</label>
@@ -62,7 +62,7 @@ export default function CreateTeamModal({ isOpen, onClose, onTeamCreated }: Crea
             className="input"
             placeholder="Enter team name"
           />
-          {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>}
+          {errors.name && <p className="mt-1 text-sm text-danger-600">{errors.name.message}</p>}
         </div>
 
         <div>

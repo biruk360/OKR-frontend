@@ -1,12 +1,19 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { canEditKeyResultWithObjectiveContext, canViewObjective, type UserRole } from '@/lib/permissions'
+import { canEditKeyResultWithObjectiveContext, canViewObjective, canViewSprint, type UserRole } from '@/lib/permissions'
+import { inviteToSprint } from '@/lib/sprints/participants'
 import { recordActivity } from '@/lib/activity-log'
 import { emit } from '@/lib/notifications'
 import { broadcastSprintEvent } from '@/lib/pusher'
 import { buildScopeFilter } from '@/lib/apply-scope'
 import { getSprintLanes } from '@/lib/sprints/columns'
 import { isDueReminder } from '@/lib/todos/due-reminders'
+import {
+  findTodosSurfaceRows,
+  findWorkSurfaceRows,
+  isClientPortalUser,
+  isTodoSurface,
+} from '@/lib/todos/visibility'
 import {
   apiSuccess,
   apiBadRequest,
@@ -29,9 +36,31 @@ import {
  *   - ?keyResultId=<id>
  *   - ?objectiveId=<id>
  *   - ?q=<text>  → case-insensitive title substring
+ *
+ * Page surfaces (CPM-2): `?surface=todos|work|mine` returns exactly what that page's
+ * SSR renders — same visibility rule (`lib/todos/visibility.ts`, record scope
+ * included), same include/row shape, ordering and cap. `mine`/the filters above
+ * are ignored in this mode. The to-dos page store and the work board refresh from
+ * here so their lists no longer shrink or lose relations after an edit.
  */
 export const GET = withAuth(async (request: NextRequest, { session }) => {
+  // Client-portal sessions never read internal to-dos (project invariant 4).
+  if (isClientPortalUser(session.user)) return apiForbidden('Forbidden')
+
   const { searchParams } = new URL(request.url)
+
+  const surface = searchParams.get('surface')
+  if (surface !== null) {
+    if (!isTodoSurface(surface)) {
+      return apiBadRequest('surface must be one of: todos, work, mine')
+    }
+    const rows =
+      surface === 'work'
+        ? await findWorkSurfaceRows(prisma, session.user)
+        : await findTodosSurfaceRows(prisma, session.user, surface)
+    return apiSuccess(rows)
+  }
+
   const mine = (searchParams.get('mine') || 'all').toLowerCase()
   const status = searchParams.get('status')
   const keyResultId = searchParams.get('keyResultId')
@@ -229,9 +258,15 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
   if (sprintId) {
     const targetSprint = await prisma.sprint.findUnique({
       where: { id: sprintId },
-      select: { state: true },
+      select: { state: true, ownerId: true, participants: { select: { userId: true } } },
     })
     if (!targetSprint) return apiBadRequest('Invalid sprintId')
+    // Invite-only sprints: only someone who can view the board may add a card
+    // to it (the card's assignee is invited below, so this is not a way in).
+    const canViewTarget = await canViewSprint(session.user.role as UserRole, session.user.id, targetSprint, {
+      userType: session.user.userType,
+    })
+    if (!canViewTarget) return apiForbidden('You do not have access to this sprint')
     if (targetSprint.state === 'COMPLETED' || targetSprint.state === 'CANCELLED') {
       return apiError('This sprint is closed and read-only', { status: 409, code: 'SPRINT_CLOSED' })
     }
@@ -253,38 +288,43 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
     columnId = lane?.id ?? null
   }
 
-  const todo = await prisma.todo.create({
-    data: {
-      ...(clientId ? { id: clientId } : {}),
-      title,
-      description,
-      startDate,
-      dueDate,
-      startTime,
-      endTime,
-      dueReminder,
-      status: 'PENDING',
-      assigneeId,
-      creatorId: session.user.id,
-      keyResultId,
-      objectiveId,
-      progressValue,
-      sprintId,
-      columnId,
-      taskType,
-    },
-    include: {
-      assignee: { select: { id: true, name: true, avatar: true } },
-      creator: { select: { id: true, name: true, avatar: true } },
-      keyResult: {
-        select: {
-          id: true,
-          title: true,
-          objective: { select: { id: true, title: true, level: true } },
-        },
+  // Card + (for a sprint card) the assignee's board invitation, atomically.
+  const todo = await prisma.$transaction(async (tx) => {
+    const created = await tx.todo.create({
+      data: {
+        ...(clientId ? { id: clientId } : {}),
+        title,
+        description,
+        startDate,
+        dueDate,
+        startTime,
+        endTime,
+        dueReminder,
+        status: 'PENDING',
+        assigneeId,
+        creatorId: session.user.id,
+        keyResultId,
+        objectiveId,
+        progressValue,
+        sprintId,
+        columnId,
+        taskType,
       },
-      objective: { select: { id: true, title: true, level: true } },
-    },
+      include: {
+        assignee: { select: { id: true, name: true, avatar: true } },
+        creator: { select: { id: true, name: true, avatar: true } },
+        keyResult: {
+          select: {
+            id: true,
+            title: true,
+            objective: { select: { id: true, title: true, level: true } },
+          },
+        },
+        objective: { select: { id: true, title: true, level: true } },
+      },
+    })
+    await inviteToSprint(tx, created.sprintId, [created.assigneeId])
+    return created
   })
 
   if (keyResultId) {

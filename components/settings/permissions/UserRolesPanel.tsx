@@ -5,6 +5,9 @@ import { Loader2, Trash2, Plus, X, AlertTriangle, Eye } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
 import EffectivePermissionsPreview from './EffectivePermissionsPreview'
+import { Skeleton } from '@/components/ui/Skeleton'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { SettingsSelect } from '../SettingsSelect'
 
 interface UserRoleProfile {
   id: string
@@ -70,7 +73,7 @@ const isSelf = (userId: string, currentUserId: string) => userId === currentUser
 
 function SelfBanner() {
   return (
-    <div className="flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 mb-6">
+    <div className="flex items-center gap-2 rounded-md border border-warning-300 bg-warning-50 px-4 py-3 text-sm text-warning-800 mb-6">
       <AlertTriangle className="h-4 w-4 shrink-0" />
       <span>Use another admin account to modify your own permissions.</span>
     </div>
@@ -126,6 +129,12 @@ export default function UserRolesPanel({ userId, userName, currentUserId }: Prop
     expiresAt: '',
   })
   const [addingOverride, setAddingOverride] = useState(false)
+
+  // Destructive removals go through a ConfirmDialog instead of firing on click.
+  const [pendingRemoval, setPendingRemoval] = useState<
+    { kind: 'profile' | 'role' | 'override'; id: string; label: string } | null
+  >(null)
+  const [removing, setRemoving] = useState(false)
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -273,6 +282,42 @@ export default function UserRolesPanel({ userId, userName, currentUserId }: Prop
     }
   }
 
+  const confirmRemoval = async () => {
+    if (!pendingRemoval) return
+    setRemoving(true)
+    try {
+      if (pendingRemoval.kind === 'profile') await removeProfile(pendingRemoval.id)
+      else if (pendingRemoval.kind === 'role') await revokeRole(pendingRemoval.id)
+      else await removeOverride(pendingRemoval.id)
+    } finally {
+      setRemoving(false)
+      setPendingRemoval(null)
+    }
+  }
+
+  const removalCopy = pendingRemoval
+    ? {
+        profile: {
+          title: 'Remove permission profile?',
+          message: `Remove the "${pendingRemoval.label}" profile from ${userName}?`,
+          description: 'Every permission this profile grants will stop applying to them immediately.',
+          confirm: 'Remove profile',
+        },
+        role: {
+          title: 'Revoke role?',
+          message: `Revoke the "${pendingRemoval.label}" role from ${userName}?`,
+          description: 'Access that comes only from this role is lost immediately.',
+          confirm: 'Revoke role',
+        },
+        override: {
+          title: 'Remove permission override?',
+          message: `Remove the override ${pendingRemoval.label} for ${userName}?`,
+          description: 'Their access for this action falls back to their roles and profiles.',
+          confirm: 'Remove override',
+        },
+      }[pendingRemoval.kind]
+    : null
+
   const addOverride = async () => {
     const { doctypeKey, featureKey, action, overrideType, reason, expiresAt } = overrideForm
     if (!doctypeKey || !featureKey || !action) {
@@ -320,16 +365,20 @@ export default function UserRolesPanel({ userId, userName, currentUserId }: Prop
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-16 text-muted-foreground">
-        <Loader2 className="h-5 w-5 animate-spin mr-2" />
-        <span className="text-sm">Loading permissions…</span>
+      <div className="space-y-8" aria-busy="true" aria-label="Loading permissions">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="space-y-3">
+            <Skeleton className="h-4 w-40" />
+            <Skeleton className="h-24 w-full rounded-md" />
+          </div>
+        ))}
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+      <div className="flex items-center gap-2 rounded-md border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-700">
         <AlertTriangle className="h-4 w-4 shrink-0" />
         <span>{error}</span>
       </div>
@@ -358,7 +407,7 @@ export default function UserRolesPanel({ userId, userName, currentUserId }: Prop
             !self && (
               <button
                 onClick={() => setShowAssignProfile((v) => !v)}
-                className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700"
+                className="inline-flex items-center gap-1 text-xs font-medium text-primary-600 hover:text-primary-700"
               >
                 <Plus className="h-3.5 w-3.5" />
                 Assign Profile
@@ -369,22 +418,18 @@ export default function UserRolesPanel({ userId, userName, currentUserId }: Prop
 
         {showAssignProfile && !self && (
           <div className="mb-3 flex items-center gap-2 rounded-md border border-border bg-muted p-3">
-            <select
+            <SettingsSelect
+              aria-label="Profile"
               value={selectedProfileId}
-              onChange={(e) => setSelectedProfileId(e.target.value)}
-              className="flex-1 rounded border border-border bg-card px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-            >
-              <option value="">Select a profile…</option>
-              {unassignedProfiles.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
+              onValueChange={setSelectedProfileId}
+              options={unassignedProfiles.map((p) => ({ value: p.id, label: p.name }))}
+              placeholder="Select a profile…"
+              className="flex-1"
+            />
             <button
               onClick={assignProfile}
               disabled={!selectedProfileId || assigningProfile}
-              className="inline-flex items-center gap-1 rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              className="inline-flex items-center gap-1 rounded bg-primary-600 px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary-700 disabled:opacity-50"
             >
               {assigningProfile && <Loader2 className="h-3 w-3 animate-spin" />}
               Assign
@@ -392,13 +437,14 @@ export default function UserRolesPanel({ userId, userName, currentUserId }: Prop
             <button
               onClick={() => { setShowAssignProfile(false); setSelectedProfileId('') }}
               className="text-muted-foreground hover:text-foreground"
+              aria-label="Cancel assigning profile"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
         )}
 
-        <div className="overflow-hidden rounded-md border border-border">
+        <div className="overflow-x-auto rounded-md border border-border">
           <table className="min-w-full divide-y divide-border text-sm">
             <thead className="bg-muted">
               <tr>
@@ -416,9 +462,11 @@ export default function UserRolesPanel({ userId, userName, currentUserId }: Prop
                     {!self && (
                       <td className="px-4 py-2 text-right">
                         <button
-                          onClick={() => removeProfile(p.profileId)}
-                          className="text-red-500 hover:text-red-700"
+                          type="button"
+                          onClick={() => setPendingRemoval({ kind: 'profile', id: p.profileId, label: p.profile.name })}
+                          className="text-danger-500 hover:text-danger-700"
                           title="Remove profile"
+                          aria-label={`Remove profile ${p.profile.name}`}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -440,7 +488,7 @@ export default function UserRolesPanel({ userId, userName, currentUserId }: Prop
             !self && (
               <button
                 onClick={() => setShowAssignRole((v) => !v)}
-                className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700"
+                className="inline-flex items-center gap-1 text-xs font-medium text-primary-600 hover:text-primary-700"
               >
                 <Plus className="h-3.5 w-3.5" />
                 Assign Role
@@ -451,21 +499,18 @@ export default function UserRolesPanel({ userId, userName, currentUserId }: Prop
 
         {showAssignRole && !self && (
           <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted p-3">
-            <select
+            <SettingsSelect
+              aria-label="Role"
               value={selectedRoleName}
-              onChange={(e) => setSelectedRoleName(e.target.value)}
-              className="flex-1 min-w-[150px] rounded border border-border bg-card px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-            >
-              <option value="">Select a role…</option>
-              {unassignedRoles.map((r) => (
-                <option key={r.id} value={r.name}>
-                  {r.label ?? r.name}
-                </option>
-              ))}
-            </select>
+              onValueChange={setSelectedRoleName}
+              options={unassignedRoles.map((r) => ({ value: r.name, label: r.label ?? r.name }))}
+              placeholder="Select a role…"
+              className="flex-1 min-w-[150px]"
+            />
             <div className="flex items-center gap-1">
-              <label className="text-xs text-muted-foreground">Expires</label>
+              <label htmlFor="assign-role-expiry" className="text-xs text-muted-foreground">Expires</label>
               <input
+                id="assign-role-expiry"
                 type="date"
                 value={roleExpiry}
                 onChange={(e) => setRoleExpiry(e.target.value)}
@@ -475,7 +520,7 @@ export default function UserRolesPanel({ userId, userName, currentUserId }: Prop
             <button
               onClick={assignRole}
               disabled={!selectedRoleName || assigningRole}
-              className="inline-flex items-center gap-1 rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              className="inline-flex items-center gap-1 rounded bg-primary-600 px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary-700 disabled:opacity-50"
             >
               {assigningRole && <Loader2 className="h-3 w-3 animate-spin" />}
               Assign
@@ -483,13 +528,14 @@ export default function UserRolesPanel({ userId, userName, currentUserId }: Prop
             <button
               onClick={() => { setShowAssignRole(false); setSelectedRoleName(''); setRoleExpiry('') }}
               className="text-muted-foreground hover:text-foreground"
+              aria-label="Cancel assigning role"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
         )}
 
-        <div className="overflow-hidden rounded-md border border-border">
+        <div className="overflow-x-auto rounded-md border border-border">
           <table className="min-w-full divide-y divide-border text-sm">
             <thead className="bg-muted">
               <tr>
@@ -513,9 +559,11 @@ export default function UserRolesPanel({ userId, userName, currentUserId }: Prop
                     {!self && (
                       <td className="px-4 py-2 text-right">
                         <button
-                          onClick={() => revokeRole(r.id)}
-                          className="text-red-500 hover:text-red-700"
+                          type="button"
+                          onClick={() => setPendingRemoval({ kind: 'role', id: r.id, label: r.roleName })}
+                          className="text-danger-500 hover:text-danger-700"
                           title="Revoke role"
+                          aria-label={`Revoke role ${r.roleName}`}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -537,7 +585,7 @@ export default function UserRolesPanel({ userId, userName, currentUserId }: Prop
             !self && (
               <button
                 onClick={() => setShowAddOverride((v) => !v)}
-                className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700"
+                className="inline-flex items-center gap-1 text-xs font-medium text-primary-600 hover:text-primary-700"
               >
                 <Plus className="h-3.5 w-3.5" />
                 Add Override
@@ -550,8 +598,9 @@ export default function UserRolesPanel({ userId, userName, currentUserId }: Prop
           <div className="mb-3 rounded-md border border-border bg-muted p-4 space-y-3">
             <div className="grid grid-cols-3 gap-3">
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">DocType Key *</label>
+                <label htmlFor="override-doctypeKey" className="block text-xs font-medium text-muted-foreground mb-1">DocType Key *</label>
                 <input
+                  id="override-doctypeKey"
                   type="text"
                   value={overrideForm.doctypeKey}
                   onChange={(e) => setOverrideForm((f) => ({ ...f, doctypeKey: e.target.value }))}
@@ -560,8 +609,9 @@ export default function UserRolesPanel({ userId, userName, currentUserId }: Prop
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Feature Key *</label>
+                <label htmlFor="override-featureKey" className="block text-xs font-medium text-muted-foreground mb-1">Feature Key *</label>
                 <input
+                  id="override-featureKey"
                   type="text"
                   value={overrideForm.featureKey}
                   onChange={(e) => setOverrideForm((f) => ({ ...f, featureKey: e.target.value }))}
@@ -570,8 +620,9 @@ export default function UserRolesPanel({ userId, userName, currentUserId }: Prop
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Action *</label>
+                <label htmlFor="override-action" className="block text-xs font-medium text-muted-foreground mb-1">Action *</label>
                 <input
+                  id="override-action"
                   type="text"
                   value={overrideForm.action}
                   onChange={(e) => setOverrideForm((f) => ({ ...f, action: e.target.value }))}
@@ -592,9 +643,9 @@ export default function UserRolesPanel({ userId, userName, currentUserId }: Prop
                         value={t}
                         checked={overrideForm.overrideType === t}
                         onChange={() => setOverrideForm((f) => ({ ...f, overrideType: t }))}
-                        className="h-3.5 w-3.5 text-blue-600 focus:ring-ring"
+                        className="h-3.5 w-3.5 text-primary-600 focus:ring-ring"
                       />
-                      <span className={cn('font-medium', t === 'grant' ? 'text-green-700' : 'text-red-700')}>
+                      <span className={cn('font-medium', t === 'grant' ? 'text-success-700' : 'text-danger-700')}>
                         {t.charAt(0).toUpperCase() + t.slice(1)}
                       </span>
                     </label>
@@ -602,8 +653,9 @@ export default function UserRolesPanel({ userId, userName, currentUserId }: Prop
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Expires At</label>
+                <label htmlFor="override-expiresAt" className="block text-xs font-medium text-muted-foreground mb-1">Expires At</label>
                 <input
+                  id="override-expiresAt"
                   type="date"
                   value={overrideForm.expiresAt}
                   onChange={(e) => setOverrideForm((f) => ({ ...f, expiresAt: e.target.value }))}
@@ -613,8 +665,9 @@ export default function UserRolesPanel({ userId, userName, currentUserId }: Prop
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Reason (min 10 chars)</label>
+              <label htmlFor="override-reason" className="block text-xs font-medium text-muted-foreground mb-1">Reason (min 10 chars)</label>
               <textarea
+                id="override-reason"
                 value={overrideForm.reason}
                 onChange={(e) => setOverrideForm((f) => ({ ...f, reason: e.target.value }))}
                 rows={2}
@@ -636,7 +689,7 @@ export default function UserRolesPanel({ userId, userName, currentUserId }: Prop
               <button
                 onClick={addOverride}
                 disabled={addingOverride}
-                className="inline-flex items-center gap-1 rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                className="inline-flex items-center gap-1 rounded bg-primary-600 px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary-700 disabled:opacity-50"
               >
                 {addingOverride && <Loader2 className="h-3 w-3 animate-spin" />}
                 Add Override
@@ -645,7 +698,7 @@ export default function UserRolesPanel({ userId, userName, currentUserId }: Prop
           </div>
         )}
 
-        <div className="overflow-hidden rounded-md border border-border">
+        <div className="overflow-x-auto rounded-md border border-border">
           <table className="min-w-full divide-y divide-border text-sm">
             <thead className="bg-muted">
               <tr>
@@ -670,7 +723,7 @@ export default function UserRolesPanel({ userId, userName, currentUserId }: Prop
                     <td className="px-4 py-2">
                       <span className={cn(
                         'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-                        o.overrideType === 'grant' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        o.overrideType === 'grant' ? 'bg-success-100 text-success-800' : 'bg-danger-100 text-danger-800'
                       )}>
                         {o.overrideType}
                       </span>
@@ -682,9 +735,11 @@ export default function UserRolesPanel({ userId, userName, currentUserId }: Prop
                     {!self && (
                       <td className="px-4 py-2 text-right">
                         <button
-                          onClick={() => removeOverride(o.id)}
-                          className="text-red-500 hover:text-red-700"
+                          type="button"
+                          onClick={() => setPendingRemoval({ kind: 'override', id: o.id, label: `${o.doctypeKey} · ${o.action} (${o.overrideType})` })}
+                          className="text-danger-500 hover:text-danger-700"
                           title="Remove override"
+                          aria-label={`Remove override ${o.doctypeKey} ${o.action}`}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -713,14 +768,14 @@ export default function UserRolesPanel({ userId, userName, currentUserId }: Prop
           action={
             <button
               onClick={() => setShowPreview(true)}
-              className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700"
+              className="inline-flex items-center gap-1 text-xs font-medium text-primary-600 hover:text-primary-700"
             >
               <Eye className="h-3.5 w-3.5" />
               Preview as User
             </button>
           }
         />
-        <div className="overflow-hidden rounded-md border border-border">
+        <div className="overflow-x-auto rounded-md border border-border">
           <table className="min-w-full divide-y divide-border text-sm">
             <thead className="bg-muted">
               <tr>
@@ -743,7 +798,7 @@ export default function UserRolesPanel({ userId, userName, currentUserId }: Prop
                     <td className="px-4 py-2">
                       <span className={cn(
                         'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-                        ep.allowed ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        ep.allowed ? 'bg-success-100 text-success-800' : 'bg-danger-100 text-danger-800'
                       )}>
                         {ep.allowed ? 'Yes' : 'No'}
                       </span>
@@ -756,6 +811,17 @@ export default function UserRolesPanel({ userId, userName, currentUserId }: Prop
           </table>
         </div>
       </section>
+      <ConfirmDialog
+        open={!!pendingRemoval}
+        onClose={() => { if (!removing) setPendingRemoval(null) }}
+        onConfirm={confirmRemoval}
+        title={removalCopy?.title ?? ''}
+        message={removalCopy?.message ?? ''}
+        description={removalCopy?.description}
+        confirmLabel={removalCopy?.confirm ?? 'Remove'}
+        isLoading={removing}
+        loadingLabel="Removing…"
+      />
     </div>
   )
 }

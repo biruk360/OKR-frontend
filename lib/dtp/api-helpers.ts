@@ -5,10 +5,10 @@
 
 import type { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { apiBadRequest, apiNotFound, apiForbidden } from '@/lib/api'
+import { apiBadRequest, apiNotFound, apiForbidden, apiConflict } from '@/lib/api'
 import type { Session } from 'next-auth'
 import { canTransition } from './state-machine'
-import { recordDtpEvent } from './audit'
+import { dtpEventData } from './audit'
 import type { DtpStatus, DtpAction } from '@/types/dtp'
 import { canReadPlan } from './permissions'
 
@@ -62,9 +62,7 @@ export async function loadReadablePlan(planId: string, session: Session): Promis
   return { ok: true, plan: plan as unknown as Plan }
 }
 
-/** Apply a status transition + write an audit row in one DB transaction.
- * Returns the updated plan or null if the transition was invalid. */
-export async function transitionPlan(args: {
+export interface TransitionArgs {
   planId: string
   from: DtpStatus
   to: DtpStatus
@@ -72,21 +70,68 @@ export async function transitionPlan(args: {
   actorId: string | null
   payload?: Record<string, unknown> | null
   patch?: Record<string, unknown>
-}) {
-  if (!canTransition(args.from, args.to)) return null
-  const updated = await prisma.dailyTripPlan.update({
-    where: { id: args.planId },
-    data: { status: args.to, ...(args.patch ?? {}) },
-  })
-  await recordDtpEvent({
-    planId: args.planId,
-    actorId: args.actorId,
-    action: args.action,
-    fromStatus: args.from,
-    toStatus: args.to,
-    payload: args.payload ?? null,
-  })
-  return updated
+}
+
+type UpdatedPlan = Awaited<ReturnType<typeof prisma.dailyTripPlan.update>>
+
+export type TransitionResult =
+  | { ok: true; plan: UpdatedPlan }
+  /** INVALID_TRANSITION: the state machine forbids from→to.
+   *  CONFLICT: the plan is no longer in `from` (a concurrent actor moved it, or it vanished). */
+  | { ok: false; reason: 'INVALID_TRANSITION' | 'CONFLICT' }
+
+function isRecordNotFound(err: unknown): boolean {
+  return (err as { code?: unknown } | null)?.code === 'P2025'
+}
+
+/**
+ * Apply a status transition + write its audit row in ONE DB transaction.
+ * The update is a compare-and-set on the current status
+ * (`where: { id, status: from }`), so two concurrent actors can't both
+ * transition the same plan: the loser matches no row (Prisma P2025), the
+ * transaction rolls back (no audit row) and the result is CONFLICT → 409.
+ */
+export async function tryTransitionPlan(args: TransitionArgs): Promise<TransitionResult> {
+  if (!canTransition(args.from, args.to)) return { ok: false, reason: 'INVALID_TRANSITION' }
+  try {
+    const plan = await prisma.$transaction(async (tx) => {
+      const updated = await tx.dailyTripPlan.update({
+        where: { id: args.planId, status: args.from },
+        data: { status: args.to, ...(args.patch ?? {}) },
+      })
+      await tx.dtpEvent.create({
+        data: dtpEventData({
+          planId: args.planId,
+          actorId: args.actorId,
+          action: args.action,
+          fromStatus: args.from,
+          toStatus: args.to,
+          payload: args.payload ?? null,
+        }),
+      })
+      return updated
+    })
+    return { ok: true, plan }
+  } catch (err) {
+    if (isRecordNotFound(err)) return { ok: false, reason: 'CONFLICT' }
+    throw err
+  }
+}
+
+/** `tryTransitionPlan`, returning the updated plan or null when the transition
+ * is invalid or lost a race (callers answer null with `badStatus()`). Routes
+ * that want to tell the two apart use `tryTransitionPlan` + `transitionFailure`. */
+export async function transitionPlan(args: TransitionArgs): Promise<UpdatedPlan | null> {
+  const r = await tryTransitionPlan(args)
+  return r.ok ? r.plan : null
+}
+
+/** HTTP response for a failed transition: 400 INVALID_STATE, or 409 CONFLICT
+ * when another actor changed the plan's status first. */
+export function transitionFailure(reason: 'INVALID_TRANSITION' | 'CONFLICT') {
+  return reason === 'CONFLICT'
+    ? apiConflict('This plan was changed by someone else — reload and try again', { reason: 'STATUS_CHANGED' })
+    : badStatus()
 }
 
 export function badStatus(): ReturnType<typeof apiBadRequest> {

@@ -1,24 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { encode } from 'next-auth/jwt'
-import bcrypt from 'bcryptjs'
-import { prisma } from '@/lib/prisma'
-import { nextAuthSecret } from '@/lib/auth'
+import { nextAuthSecret, SESSION_MAX_AGE, verifyCredentials } from '@/lib/auth'
+import { clientIp } from '@/lib/security/rate-limit'
 import type { UserRole } from '@/types'
 
 /**
  * POST /api/auth/login — credential login for the desktop companion app.
  *
- * Mirrors the NextAuth CredentialsProvider authorize() logic, then issues a
- * NextAuth-compatible JWT (4h, same secret + claims as the cookie session).
+ * Uses the same `verifyCredentials()` as the NextAuth CredentialsProvider
+ * (rate limits, no passwordless login, uniform failure), then issues a
+ * NextAuth-compatible JWT (4h, same secret + claims as the cookie session,
+ * including `authTime` so a later password change revokes it).
  * The desktop app sends it as `Authorization: Bearer <token>`; `withAuth`
  * decodes it via `getBearerSession`.
  *
  * Response shape is intentionally NOT the standard apiSuccess envelope —
  * the desktop login screen reads `token` / `accessToken` / `user` at the
- * top level.
+ * top level. Errors keep `{ error }` (plus `success: false`) for the same reason.
  */
-
-const SESSION_MAX_AGE = 4 * 60 * 60 // 4 hours — matches authOptions.session.maxAge
 
 interface LoginBody {
   email?: unknown
@@ -28,7 +27,7 @@ interface LoginBody {
 export async function POST(request: NextRequest) {
   if (!nextAuthSecret) {
     return NextResponse.json(
-      { error: 'Server auth is not configured' },
+      { success: false, error: 'Server auth is not configured' },
       { status: 500 }
     )
   }
@@ -37,34 +36,29 @@ export async function POST(request: NextRequest) {
   try {
     body = (await request.json()) as LoginBody
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+    return NextResponse.json({ success: false, error: 'Invalid JSON body' }, { status: 400 })
   }
 
   const email = typeof body.email === 'string' ? body.email.trim() : ''
   const password = typeof body.password === 'string' ? body.password : ''
   if (!email || !password) {
     return NextResponse.json(
-      { error: 'Email and password are required' },
+      { success: false, error: 'Email and password are required' },
       { status: 400 }
     )
   }
 
-  const user =
-    (await prisma.user.findUnique({ where: { email } })) ??
-    (await prisma.user.findUnique({ where: { email: email.toLowerCase() } }))
-
-  if (!user || !user.isActive) {
-    return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
-  }
-
-  if (user.password) {
-    const isPasswordValid = await bcrypt.compare(password, user.password)
-    if (!isPasswordValid) {
-      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
+  const check = await verifyCredentials(email, password, clientIp(request.headers))
+  if (!check.ok) {
+    if (check.reason === 'rate_limited') {
+      return NextResponse.json(
+        { success: false, error: 'Too many attempts. Please wait a few minutes and try again.', code: 'RATE_LIMITED' },
+        { status: 429, headers: { 'Retry-After': String(Math.max(1, Math.ceil(check.retryAfterMs / 1000))) } }
+      )
     }
+    return NextResponse.json({ success: false, error: 'Invalid credentials' }, { status: 401 })
   }
-  // Users without a password set: same behavior as CredentialsProvider
-  // (allowed — see lib/auth.ts authorize()).
+  const user = check.user
 
   const claims = {
     sub: user.id,
@@ -73,6 +67,7 @@ export async function POST(request: NextRequest) {
     role: user.role as UserRole,
     isProjectManager: user.isProjectManager,
     avatar: user.avatar,
+    authTime: Date.now(),
   }
 
   const token = await encode({

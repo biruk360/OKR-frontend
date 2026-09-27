@@ -7,11 +7,17 @@ import { getReadableProject } from '@/lib/projects/access'
 import { extractMentionIds, listActivityComments } from '@/lib/projects/activity-comments'
 import { resolveMentions } from '@/lib/comments'
 import { emit } from '@/lib/notifications'
+import { claimAttachments } from '@/lib/attachments/claim'
+import { ACTIVITY_COMMENT_TYPE, withActivityCommentAttachments } from '@/lib/attachments/activity-comments'
+import { MAX_ATTACHMENTS_PER_COMMENT } from '@/lib/attachments/file-types'
 
 const commentSchema = z.object({
   content: z.string().trim().min(1).max(20000),
   parentId: z.string().nullable().optional(),
   visibility: z.enum(['INTERNAL', 'CLIENT_VISIBLE']).default('INTERNAL'),
+  // Staged via POST /api/comment-attachments (commentType ACTIVITY, entityId =
+  // activity id); claimed below. Internal-only whatever the comment's visibility.
+  attachmentIds: z.array(z.string().min(1)).max(MAX_ATTACHMENTS_PER_COMMENT).optional(),
 })
 
 export const GET = withAuth<{ id: string; activityId: string }>(async (_req, { session, params }) => {
@@ -25,7 +31,7 @@ export const GET = withAuth<{ id: string; activityId: string }>(async (_req, { s
   if (!activity) return apiNotFound('Activity not found')
 
   const comments = await listActivityComments(prisma, params.activityId)
-  return apiSuccess(comments)
+  return apiSuccess(await withActivityCommentAttachments(params.activityId, comments))
 })
 
 export const POST = withAuth<{ id: string; activityId: string }>(async (req: NextRequest, { session, params }) => {
@@ -68,12 +74,25 @@ export const POST = withAuth<{ id: string; activityId: string }>(async (req: Nex
     select: { id: true },
   })
 
+  // Scoped to this uploader, this activity and still-unclaimed rows, so another
+  // person's (or another activity's) attachment id is ignored.
+  const attachmentIds = Array.from(new Set(input.attachmentIds ?? []))
+  if (attachmentIds.length > 0) {
+    await claimAttachments({
+      ids: attachmentIds,
+      commentType: ACTIVITY_COMMENT_TYPE,
+      commentId: comment.id,
+      entityId: params.activityId,
+      uploaderId: session.user.id,
+    })
+  }
+
   await recordActivity({
     entityType: 'PROJECT_ACTIVITY',
     projectId: params.id,
     action: 'COMMENTED',
     actorId: session.user.id,
-    metadata: { activityId: params.activityId, commentId: comment.id, visibility: input.visibility, mentionCount: mentionedIds.length },
+    metadata: { activityId: params.activityId, commentId: comment.id, visibility: input.visibility, mentionCount: mentionedIds.length, attachmentCount: attachmentIds.length },
   })
 
   if (mentionedIds.length > 0) {
@@ -94,7 +113,7 @@ export const POST = withAuth<{ id: string; activityId: string }>(async (req: Nex
   }
 
   const comments = await listActivityComments(prisma, params.activityId)
-  return apiSuccess(comments, { status: 201, message: 'Comment added.' })
+  return apiSuccess(await withActivityCommentAttachments(params.activityId, comments), { status: 201, message: 'Comment added.' })
 })
 
 function stripHtml(value: string): string {

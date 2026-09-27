@@ -5,6 +5,7 @@ import { Search, Plus, Target, ArrowDownRight, Check } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { Modal } from '@/components/ui'
 import { cn } from '@/lib/utils'
+import { Skeleton } from '@/components/ui/Skeleton'
 
 interface Objective {
   id: string
@@ -33,17 +34,17 @@ interface Props {
 }
 
 const TONE: Record<string, string> = {
-  ON_TRACK: 'bg-emerald-100 text-emerald-700 ring-emerald-200',
-  AT_RISK:  'bg-amber-100 text-amber-700 ring-amber-200',
-  OFF_TRACK:'bg-rose-100 text-rose-700 ring-rose-200',
+  ON_TRACK: 'bg-success-100 text-success-700 ring-success-200',
+  AT_RISK:  'bg-warning-100 text-warning-700 ring-warning-200',
+  OFF_TRACK:'bg-danger-100 text-danger-700 ring-danger-200',
 }
 const LABEL: Record<string, string> = {
   ON_TRACK: 'On Track', AT_RISK: 'At Risk', OFF_TRACK: 'Off Track',
 }
 const LEVEL_TONE: Record<string, string> = {
-  COMPANY:    'bg-blue-50 text-blue-700 ring-blue-200',
-  DEPARTMENT: 'bg-violet-50 text-violet-700 ring-violet-200',
-  INDIVIDUAL: 'bg-slate-50 text-slate-700 ring-slate-200',
+  COMPANY:    'bg-primary-50 text-primary-700 ring-primary-200',
+  DEPARTMENT: 'bg-primary-100 text-primary-800 ring-primary-300',
+  INDIVIDUAL: 'bg-surface-hover text-ink-primary ring-ink-tertiary',
 }
 
 export function AddAlignedObjectiveModal({
@@ -133,21 +134,21 @@ export function AddAlignedObjectiveModal({
       onClose={onClose}
       title="Align an objective"
       icon={ArrowDownRight}
-      iconClassName="text-blue-600"
+      iconClassName="text-primary-600"
       size="lg"
       scrollBehavior="internal"
       stickyHeader
     >
       <div className="flex flex-col gap-4">
         {/* Parent context */}
-        <div className="rounded-lg border border-blue-100 bg-gradient-to-br from-blue-50 to-blue-50/40 p-3">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-blue-700">
+        <div className="rounded-lg border border-primary-100 bg-gradient-to-br from-primary-50 to-primary-50/40 p-3">
+          <p className="text-micro font-bold uppercase tracking-widest text-primary-700">
             Parent objective {parentLevel ? `· ${parentLevel.toLowerCase()}` : ''}
           </p>
-          <p className="mt-0.5 text-sm font-semibold text-slate-900">
+          <p className="mt-0.5 text-sm font-semibold text-ink-primary">
             {parentTitle ?? '—'}
           </p>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-ink-secondary">
             The selected objective will roll up under this one.
           </p>
         </div>
@@ -157,75 +158,85 @@ export function AddAlignedObjectiveModal({
           <button
             type="button"
             onClick={() => { onCreateNew(); onClose() }}
-            className="flex w-full items-center gap-3 rounded-lg border border-dashed border-slate-300 bg-white px-4 py-3 text-left transition-colors hover:border-blue-400 hover:bg-blue-50/50"
+            className="flex w-full items-center gap-3 rounded-lg border border-dashed border-ink-tertiary bg-surface-card px-4 py-3 text-left transition-colors hover:border-primary-400 hover:bg-primary-50/50"
           >
-            <span className="flex size-9 items-center justify-center rounded-md bg-blue-600 text-white">
+            <span className="flex size-9 items-center justify-center rounded-md bg-primary-600 text-primary-foreground">
               <Plus className="size-4" />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-sm font-semibold text-slate-900">Create a new aligned objective</span>
-              <span className="block text-xs text-slate-500">Opens the create form pre-linked to this parent.</span>
+              <span className="block text-sm font-semibold text-ink-primary">Create a new aligned objective</span>
+              <span className="block text-xs text-ink-secondary">Opens the create form pre-linked to this parent.</span>
             </span>
           </button>
         )}
 
         {/* Search */}
         <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-slate-400" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-ink-secondary" />
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search existing objectives by title, owner, or department"
-            className="w-full rounded-lg border border-slate-300 bg-white py-2.5 pl-9 pr-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+            aria-label="Search existing objectives"
+            className="w-full rounded-lg border border-ink-tertiary bg-surface-card py-2.5 pl-9 pr-3 text-sm focus:border-primary-500 focus:outline-none ap-focus-ring"
           />
         </div>
 
         {/* List */}
-        <div className="rounded-lg border border-slate-200 bg-white">
-          <div className="flex items-center justify-between border-b border-slate-200 px-3 py-1.5">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+        <div className="rounded-lg border border-surface-muted bg-surface-card">
+          <div className="flex items-center justify-between border-b border-surface-muted px-3 py-1.5">
+            <span className="text-micro font-bold uppercase tracking-widest text-ink-secondary">
               Available objectives
             </span>
-            <span className="text-[11px] tabular-nums text-slate-500">
+            <span className="text-caption tabular-nums text-ink-secondary">
               {candidates.length}
             </span>
           </div>
           {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="size-5 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+            <div className="space-y-3 px-3 py-3" aria-busy="true" aria-label="Loading objectives">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex items-start gap-3">
+                  <Skeleton className="size-5 rounded-full" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-3 w-24" />
+                    <Skeleton className="h-4 w-3/4" />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : candidates.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-1.5 py-10 text-center">
-              <Target className="size-6 text-slate-300" />
-              <p className="text-sm font-medium text-slate-700">
+              <Target className="size-6 text-ink-tertiary" />
+              <p className="text-sm font-medium text-ink-primary">
                 {q ? 'No objectives match your search' : 'No unattached objectives in this timeframe'}
               </p>
-              <p className="max-w-xs text-xs text-slate-500">
+              <p className="max-w-xs text-xs text-ink-secondary">
                 Use the “Create a new aligned objective” option above to add one under this plan.
               </p>
             </div>
           ) : (
-            <ul className="max-h-[340px] divide-y divide-slate-100 overflow-y-auto">
+            <ul className="max-h-[340px] divide-y divide-surface-muted overflow-y-auto">
               {candidates.map((o) => {
                 const selected = selectedId === o.id
-                const tone = TONE[o.goalStatus ?? ''] ?? 'bg-slate-100 text-slate-600 ring-slate-200'
-                const lvlTone = LEVEL_TONE[o.level] ?? 'bg-slate-50 text-slate-700 ring-slate-200'
+                const tone = TONE[o.goalStatus ?? ''] ?? 'bg-surface-muted text-ink-secondary ring-ink-tertiary'
+                const lvlTone = LEVEL_TONE[o.level] ?? 'bg-surface-hover text-ink-primary ring-ink-tertiary'
                 const pct = Math.round(o.progress ?? 0)
                 return (
                   <li key={o.id}>
                     <button
                       type="button"
                       onClick={() => setSelectedId(selected ? null : o.id)}
+                      aria-pressed={selected}
                       className={cn(
                         'flex w-full items-start gap-3 px-3 py-2.5 text-left transition-colors',
-                        selected ? 'bg-blue-50' : 'hover:bg-slate-50'
+                        selected ? 'bg-primary-50' : 'hover:bg-surface-hover'
                       )}
                     >
                       <span className={cn(
                         'mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full ring-1',
-                        selected ? 'bg-blue-600 text-white ring-blue-600' : 'bg-white text-transparent ring-slate-300'
+                        selected ? 'bg-primary-600 text-primary-foreground ring-primary-600' : 'bg-surface-card text-transparent ring-ink-tertiary'
                       )}>
-                        <Check className="size-3" />
+                        <Check className="size-3" aria-hidden />
                       </span>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5">
@@ -237,27 +248,27 @@ export function AddAlignedObjectiveModal({
                           </span>
                           {o.goalStatus && (
                             <span className={cn(
-                              'rounded-full px-1.5 py-0.5 text-[10px] font-semibold ring-1',
+                              'rounded-full px-1.5 py-0.5 text-micro font-semibold ring-1',
                               tone
                             )}>
                               {LABEL[o.goalStatus] ?? o.goalStatus}
                             </span>
                           )}
                         </div>
-                        <p className="mt-1 truncate text-sm font-medium text-slate-900">{o.title}</p>
+                        <p className="mt-1 truncate text-sm font-medium text-ink-primary">{o.title}</p>
                         <div className="mt-1.5 flex items-center gap-2">
-                          <div className="h-1 w-32 overflow-hidden rounded-full bg-slate-200">
+                          <div className="h-1 w-32 overflow-hidden rounded-full bg-surface-muted">
                             <div
-                              className="h-full rounded-full bg-blue-600"
+                              className="h-full rounded-full bg-primary-600"
                               style={{ width: `${pct}%` }}
                             />
                           </div>
-                          <span className="text-[11px] font-semibold tabular-nums text-slate-600">{pct}%</span>
+                          <span className="text-caption font-semibold tabular-nums text-ink-secondary">{pct}%</span>
                           {o.owner?.name && (
-                            <span className="ml-auto truncate text-[11px] text-slate-500">{o.owner.name}</span>
+                            <span className="ml-auto truncate text-caption text-ink-secondary">{o.owner.name}</span>
                           )}
                           {o.department?.name && (
-                            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
+                            <span className="rounded bg-surface-muted px-1.5 py-0.5 text-micro font-medium text-ink-secondary">
                               {o.department.name}
                             </span>
                           )}
@@ -276,7 +287,7 @@ export function AddAlignedObjectiveModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+            className="rounded-md border border-ink-tertiary px-4 py-2 text-sm font-medium text-ink-primary transition-colors hover:bg-surface-hover"
           >
             Cancel
           </button>
@@ -285,8 +296,8 @@ export function AddAlignedObjectiveModal({
             disabled={!selectedId || submitting}
             onClick={alignSelected}
             className={cn(
-              'flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-semibold text-white transition-opacity',
-              !selectedId || submitting ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
+              'flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-semibold text-primary-foreground transition-opacity',
+              !selectedId || submitting ? 'bg-primary-600 opacity-50 cursor-not-allowed' : 'bg-primary-600 hover:bg-primary-700'
             )}
           >
             {submitting ? 'Aligning…' : (

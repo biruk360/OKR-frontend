@@ -1,7 +1,7 @@
 import { getServerSessionSafe } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
 import { redirect } from 'next/navigation'
 import { canAccessSettings } from '@/lib/permissions'
+import { loadAuditLogsSettings } from '@/lib/settings/settings-pages.server'
 import AuditLogsView from '@/components/settings/AuditLogsView'
 
 export default async function AuditLogsSettingsPage() {
@@ -15,11 +15,7 @@ export default async function AuditLogsSettingsPage() {
     redirect('/dashboard/settings/profile')
   }
 
-  const logs = await prisma.activityLog.findMany({
-    take: 200,
-    orderBy: { createdAt: 'desc' },
-    include: { actor: { select: { id: true, name: true, email: true } } },
-  })
+  const logs = await loadAuditLogsSettings()
 
   return (
     <div className="space-y-6">

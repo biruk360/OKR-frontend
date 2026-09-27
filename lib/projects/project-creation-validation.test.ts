@@ -108,7 +108,8 @@ describe('Project creation deterministic validation', () => {
   })
 
   it('wires persisted validation stages, safe audit outcomes, exact report columns, and no AI path', () => {
-    const uploadRoute = read('app/api/projects/creation-drafts/[id]/upload/route.ts')
+    // Story 2.7: upload validation runs in the background processing service.
+    const uploadRoute = read('lib/projects/creation-processing.ts')
     const analyzeRoute = read('app/api/projects/creation-drafts/[id]/analyze/route.ts')
     const draftService = read('lib/projects/creation-draft.ts')
     const uploadStep = read('features/projects/components/creation/ImportUploadStep.tsx')

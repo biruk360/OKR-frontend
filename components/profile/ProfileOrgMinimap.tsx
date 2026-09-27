@@ -17,6 +17,7 @@ import Link from 'next/link'
 import { UserPlus } from 'lucide-react'
 import type { ProfilePlanMetrics } from '@/lib/profileMetrics'
 import { cn } from '@/lib/utils'
+import { PersonTooltip } from '@/components/shared/UserAvatar'
 
 type OrgPersonData = {
   variant: 'mini' | 'center'
@@ -42,7 +43,7 @@ const OrgPersonNode = memo(({ data }: NodeProps<OrgPersonData>) => {
       )}
     >
       {showTargetTop && (
-        <Handle type="target" position={Position.Top} className="!bg-gray-400 !w-2 !h-2 !border-0" />
+        <Handle type="target" position={Position.Top} className="!bg-ink-secondary !w-2 !h-2 !border-0" />
       )}
       <div className="flex items-center gap-2">
         {avatarUrl ? (
@@ -50,23 +51,25 @@ const OrgPersonNode = memo(({ data }: NodeProps<OrgPersonData>) => {
         ) : (
           <div
             className={cn(
-              'rounded-full bg-blue-500 flex items-center justify-center text-white font-medium shrink-0',
+              'rounded-full bg-primary-500 flex items-center justify-center text-primary-foreground font-medium shrink-0',
               isCenter ? 'h-9 w-9 text-sm' : 'h-7 w-7 text-xs'
             )}
           >
             {name.slice(0, 1).toUpperCase()}
           </div>
         )}
-        <p className={cn('font-medium text-foreground truncate', isCenter ? 'text-sm' : 'text-xs')}>{name}</p>
+        <PersonTooltip person={{ name }} whenTruncated>
+          <p className={cn('font-medium text-foreground truncate', isCenter ? 'text-sm' : 'text-xs')}>{name}</p>
+        </PersonTooltip>
       </div>
       {metrics && showMetrics && isCenter && (
         <div className="mt-3 grid grid-cols-3 gap-1 text-center border-t border-border pt-2">
           <div>
             <p className="text-[9px] font-medium uppercase tracking-wide text-muted-foreground">Key results</p>
             <p className="text-sm font-semibold tabular-nums text-foreground">{metrics.avgKrProgress}%</p>
-            <div className="mt-0.5 h-1 w-full rounded-full bg-sky-100 overflow-hidden">
+            <div className="mt-0.5 h-1 w-full rounded-full bg-primary-100 overflow-hidden">
               <div
-                className="h-full rounded-full bg-sky-500"
+                className="h-full rounded-full bg-primary-400"
                 style={{ width: `${Math.min(metrics.avgKrProgress, 100)}%` }}
               />
             </div>
@@ -80,9 +83,9 @@ const OrgPersonNode = memo(({ data }: NodeProps<OrgPersonData>) => {
           <div>
             <p className="text-[9px] font-medium uppercase tracking-wide text-muted-foreground">Confidence</p>
             <p className="text-sm font-semibold tabular-nums text-foreground">{metrics.ncsScore} NCS</p>
-            <div className="mt-0.5 h-1 w-full rounded-full bg-amber-100 overflow-hidden">
+            <div className="mt-0.5 h-1 w-full rounded-full bg-warning-100 overflow-hidden">
               <div
-                className="h-full rounded-full bg-amber-500"
+                className="h-full rounded-full bg-warning-500"
                 style={{ width: `${Math.min(metrics.ncsScore, 100)}%` }}
               />
             </div>
@@ -90,7 +93,7 @@ const OrgPersonNode = memo(({ data }: NodeProps<OrgPersonData>) => {
         </div>
       )}
       {showSourceBottom && (
-        <Handle type="source" position={Position.Bottom} className="!bg-gray-400 !w-2 !h-2 !border-0" />
+        <Handle type="source" position={Position.Bottom} className="!bg-ink-secondary !w-2 !h-2 !border-0" />
       )}
     </div>
   )
@@ -227,7 +230,7 @@ function MinimapInner(props: ProfileOrgMinimapProps) {
       edges.map((e) => ({
         ...e,
         type: 'smoothstep' as const,
-        style: { stroke: '#9ca3af', strokeWidth: 1.25 },
+        style: { stroke: 'rgb(var(--rgb-ink-secondary))', strokeWidth: 1.25 },
       })),
     [edges]
   )
@@ -251,7 +254,7 @@ function MinimapInner(props: ProfileOrgMinimapProps) {
   return (
     <div className={wrapperClass}>
       <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-card/90">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Org minimap</p>
+        <p className="text-micro font-semibold uppercase tracking-wider text-muted-foreground">Org minimap</p>
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -268,8 +271,8 @@ function MinimapInner(props: ProfileOrgMinimapProps) {
             {full ? 'Exit full screen' : 'Full screen'}
           </button>
           <Link
-            href="/dashboard/alignment-map"
-            className="text-xs text-blue-600 hover:text-blue-800 px-2 py-1 rounded hover:bg-blue-50"
+            href="/dashboard/okrs-all?view=map"
+            className="text-xs text-primary-600 hover:text-primary-800 px-2 py-1 rounded hover:bg-primary-50"
           >
             Alignment map
           </Link>
@@ -288,7 +291,7 @@ function MinimapInner(props: ProfileOrgMinimapProps) {
           maxZoom={1.4}
           proOptions={{ hideAttribution: true }}
         >
-          <Background gap={14} size={1} color="#d1d5db" />
+          <Background gap={14} size={1} color="rgb(var(--rgb-ink-tertiary))" />
           <Controls showInteractive={false} className="!shadow-md" />
         </ReactFlow>
       </div>

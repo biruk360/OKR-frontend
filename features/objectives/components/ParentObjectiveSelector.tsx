@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { createPortal } from 'react-dom'
 import { Search, X, Target, Building2, Filter } from 'lucide-react'
+import { Modal, EmptyState, FilterSelect } from '@/components/ui'
+import { Skeleton } from '@/components/ui/Skeleton'
 
 interface ParentObjectiveSelectorProps {
   selectedParentId: string | null
@@ -39,6 +40,12 @@ interface ParentObjective {
 
 type LevelFilter = 'ALL' | 'COMPANY' | 'DEPARTMENT' | 'INDIVIDUAL'
 
+const LEVEL_FILTER_OPTIONS = [
+  { value: 'COMPANY', label: 'Company only' },
+  { value: 'DEPARTMENT', label: 'Department only' },
+  { value: 'INDIVIDUAL', label: 'Individual only' },
+]
+
 export default function ParentObjectiveSelector({
   selectedParentId,
   onSelectParent,
@@ -55,12 +62,6 @@ export default function ParentObjectiveSelector({
   const [selectedParent, setSelectedParent] = useState<ParentObjective | null>(null)
   const [activeTimeframeOnly, setActiveTimeframeOnly] = useState(true)
   const [levelFilter, setLevelFilter] = useState<LevelFilter>('ALL')
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
   const loadParents = useCallback(async () => {
     if (!currentTimeframeId) return
     setIsLoading(true)
@@ -143,15 +144,15 @@ export default function ParentObjectiveSelector({
       </label>
 
       {displayParent ? (
-        <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
+        <div className="mb-3 p-3 bg-primary-50 border border-primary-200 rounded-md">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-              <Building2 className="h-4 w-4 text-blue-600 mr-2" />
+              <Building2 className="h-4 w-4 text-primary-600 mr-2" />
               <div>
-                <p className="text-sm font-medium text-blue-900">{displayParent.title}</p>
-                <p className="text-xs text-blue-700">
+                <p className="text-sm font-medium text-primary-900">{displayParent.title}</p>
+                <p className="text-xs text-primary-700">
                   {displayParent.owner.name} • {displayParent.timeframe.name}
-                  <span className="ml-1 text-xs bg-blue-100 text-blue-800 px-1 rounded">
+                  <span className="ml-1 text-xs bg-primary-100 text-primary-800 px-1 rounded">
                     {displayParent.level}
                   </span>
                 </p>
@@ -160,8 +161,9 @@ export default function ParentObjectiveSelector({
             <button
               type="button"
               onClick={handleClearSelection}
-              className="text-blue-400 hover:text-blue-600"
+              className="text-primary-400 hover:text-primary-600"
               title="Remove alignment"
+              aria-label="Remove alignment"
             >
               <X className="h-4 w-4" />
             </button>
@@ -176,7 +178,7 @@ export default function ParentObjectiveSelector({
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="w-full px-3 py-2 border border-border rounded-md shadow-sm bg-card text-left text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-blue-500 hover:bg-muted"
+        className="w-full px-3 py-2 border border-border rounded-md shadow-sm bg-card text-left text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary-500 hover:bg-muted"
       >
         <div className="flex items-center">
           <Target className="h-4 w-4 text-muted-foreground mr-2" />
@@ -193,145 +195,115 @@ export default function ParentObjectiveSelector({
         </p>
       ) : null}
 
-      {mounted &&
-        isOpen &&
-        createPortal(
-          <div
-            className="fixed inset-0 z-[200] overflow-y-auto"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="alignment-picker-title"
+      <Modal
+        open={isOpen}
+        onClose={() => setIsOpen(false)}
+        title="Relationship picker"
+        icon={Building2}
+        iconClassName="text-primary-600"
+        size="lg"
+        scrollBehavior="internal"
+        footer={
+          <button
+            type="button"
+            onClick={() => setIsOpen(false)}
+            className="px-4 py-2 text-sm font-medium text-muted-foreground bg-card border border-border rounded-md hover:bg-muted"
           >
-            <div className="flex min-h-screen items-center justify-center p-4">
-              <button
-                type="button"
-                className="fixed inset-0 cursor-default" style={{ background: 'var(--ap-overlay)' }}
-                aria-label="Close picker"
-                onClick={() => setIsOpen(false)}
+            Cancel
+          </button>
+        }
+      >
+        <div className="sticky top-0 z-10 bg-popover pb-4 mb-2 border-b border-border space-y-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search by title or description…"
+              aria-label="Search parent goals"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-3 py-2 border border-border rounded-md shadow-sm bg-card focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary-500"
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-3 text-sm">
+            <span className="inline-flex items-center gap-1 text-muted-foreground">
+              <Filter className="h-4 w-4" />
+              Filters
+            </span>
+            <label className="inline-flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={activeTimeframeOnly}
+                onChange={(e) => setActiveTimeframeOnly(e.target.checked)}
+                className="rounded border-border text-primary-600 focus:ring-ring"
               />
+              <span>Active timeframe only</span>
+            </label>
+            <FilterSelect
+              label="Level"
+              value={levelFilter === 'ALL' ? undefined : levelFilter}
+              onValueChange={(v) => setLevelFilter((v ?? 'ALL') as LevelFilter)}
+              options={LEVEL_FILTER_OPTIONS}
+              placeholder="All levels"
+            />
+          </div>
+        </div>
 
-              <div className="relative z-[1] bg-card rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col">
-                <div className="flex items-center justify-between p-6 border-b border-border shrink-0">
-                  <div className="flex items-center">
-                    <Building2 className="h-6 w-6 text-blue-600 mr-2" />
-                    <h2 id="alignment-picker-title" className="text-lg font-semibold text-foreground">
-                      Relationship picker
-                    </h2>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setIsOpen(false)}
-                    className="text-muted-foreground hover:text-muted-foreground"
-                  >
-                    <X className="h-6 w-6" />
-                  </button>
-                </div>
-
-                <div className="p-6 border-b border-border shrink-0 space-y-3">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <input
-                      type="text"
-                      placeholder="Search by title or description…"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full pl-10 pr-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-blue-500"
-                    />
-                  </div>
-                  <div className="flex flex-wrap items-center gap-3 text-sm">
-                    <span className="inline-flex items-center gap-1 text-muted-foreground">
-                      <Filter className="h-4 w-4" />
-                      Filters
-                    </span>
-                    <label className="inline-flex items-center gap-1.5 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={activeTimeframeOnly}
-                        onChange={(e) => setActiveTimeframeOnly(e.target.checked)}
-                        className="rounded border-border text-blue-600 focus:ring-ring"
-                      />
-                      <span>Active timeframe only</span>
-                    </label>
-                    <select
-                      value={levelFilter}
-                      onChange={(e) => setLevelFilter(e.target.value as LevelFilter)}
-                      className="border border-border rounded-md text-sm py-1 pl-2 pr-6"
-                    >
-                      <option value="ALL">All levels</option>
-                      <option value="COMPANY">Company only</option>
-                      <option value="DEPARTMENT">Department only</option>
-                      <option value="INDIVIDUAL">Individual only</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="flex-1 overflow-y-auto p-6 min-h-[200px]">
-                  {isLoading ? (
-                    <div className="text-center py-8">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto" />
-                      <p className="mt-2 text-sm text-muted-foreground">Loading objectives…</p>
-                    </div>
-                  ) : filteredObjectives.length > 0 ? (
-                    <div className="space-y-2">
-                      {filteredObjectives.map((objective) => (
-                        <button
-                          key={objective.id}
-                          type="button"
-                          onClick={() => handleSelectParent(objective)}
-                          className="w-full p-4 text-left border border-border rounded-md hover:bg-blue-50 hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-ring"
-                        >
-                          <div className="flex items-start">
-                            <Building2 className="h-5 w-5 text-blue-600 mr-3 mt-0.5 shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <h3 className="text-sm font-medium text-foreground">{objective.title}</h3>
-                                <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
-                                  {objective.level}
-                                </span>
-                                <span className="text-xs tabular-nums text-muted-foreground">
-                                  {Math.round(Number(objective.progress) || 0)}%
-                                </span>
-                              </div>
-                              {objective.description && (
-                                <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{objective.description}</p>
-                              )}
-                              <div className="flex flex-wrap items-center mt-2 text-xs text-muted-foreground gap-x-3">
-                                <span>Owner: {objective.owner.name}</span>
-                                <span>Timeframe: {objective.timeframe.name}</span>
-                                {objective.department && <span>{objective.department.name}</span>}
-                              </div>
-                            </div>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8">
-                      <Target className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                      <h3 className="text-sm font-medium text-foreground mb-2">No goals found</h3>
-                      <p className="text-sm text-muted-foreground">
-                        {searchTerm
-                          ? 'Nothing matches your search. Try clearing filters or the query.'
-                          : 'No eligible parent objectives in this timeframe.'}
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-end gap-3 p-6 border-t border-border shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setIsOpen(false)}
-                    className="px-4 py-2 text-sm font-medium text-muted-foreground bg-card border border-border rounded-md hover:bg-muted"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
+        <div className="min-h-[200px] py-2">
+          {isLoading ? (
+            <div className="space-y-2" aria-busy="true" aria-label="Loading objectives">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} className="h-20 w-full" />
+              ))}
             </div>
-          </div>,
-          document.body
-        )}
+          ) : filteredObjectives.length > 0 ? (
+            <div className="space-y-2">
+              {filteredObjectives.map((objective) => (
+                <button
+                  key={objective.id}
+                  type="button"
+                  onClick={() => handleSelectParent(objective)}
+                  className="w-full p-4 text-left border border-border rounded-md hover:bg-primary-50 hover:border-primary-300 focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  <div className="flex items-start">
+                    <Building2 className="h-5 w-5 text-primary-600 mr-3 mt-0.5 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-sm font-medium text-foreground">{objective.title}</h3>
+                        <span className="text-xs bg-primary-100 text-primary-800 px-2 py-0.5 rounded-full">
+                          {objective.level}
+                        </span>
+                        <span className="text-xs tabular-nums text-muted-foreground">
+                          {Math.round(Number(objective.progress) || 0)}%
+                        </span>
+                      </div>
+                      {objective.description && (
+                        <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{objective.description}</p>
+                      )}
+                      <div className="flex flex-wrap items-center mt-2 text-xs text-muted-foreground gap-x-3">
+                        <span>Owner: {objective.owner.name}</span>
+                        <span>Timeframe: {objective.timeframe.name}</span>
+                        {objective.department && <span>{objective.department.name}</span>}
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              bare
+              icon={Target}
+              title="No goals found"
+              description={
+                searchTerm
+                  ? 'Nothing matches your search. Try clearing filters or the query.'
+                  : 'No eligible parent objectives in this timeframe.'
+              }
+            />
+          )}
+        </div>
+      </Modal>
     </div>
   )
 }

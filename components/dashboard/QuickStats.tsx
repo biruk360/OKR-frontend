@@ -13,10 +13,10 @@ interface Props {
 }
 
 const cells: Array<{ label: string; key: keyof QuickStatsData; href: string; accent?: string }> = [
-  { label: 'Active objectives', key: 'activeObjectives', href: '/dashboard/goals' },
-  { label: 'Key results', key: 'totalKeyResults', href: '/dashboard/goals' },
+  { label: 'Active objectives', key: 'activeObjectives', href: '/dashboard/my-okrs' },
+  { label: 'Key results', key: 'totalKeyResults', href: '/dashboard/my-okrs' },
   { label: 'Initiatives', key: 'totalInitiatives', href: '/dashboard/todos' },
-  { label: 'Blocked', key: 'blockedCount', href: '/dashboard/reports?filter=all-off-track', accent: 'text-red-600' },
+  { label: 'Blocked', key: 'blockedCount', href: '/dashboard/insights?tab=reports&filter=all-off-track', accent: 'text-danger-600' },
   { label: 'Due this week', key: 'dueThisWeekCount', href: '/dashboard/todos' },
 ]
 
@@ -32,7 +32,7 @@ export default function QuickStats({ data }: Props) {
               href={cell.href}
               className="group flex flex-col gap-0.5 px-4 py-3 transition hover:bg-muted"
             >
-              <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+              <span className="text-caption font-medium text-muted-foreground uppercase tracking-wide">
                 {cell.label}
               </span>
               <span className={`text-xl font-bold tabular-nums leading-none ${cell.accent && value > 0 ? cell.accent : ''}`}>

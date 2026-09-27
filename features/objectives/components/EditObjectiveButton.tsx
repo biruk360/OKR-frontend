@@ -4,22 +4,20 @@ import { useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { Edit } from 'lucide-react'
 import EditObjectiveModal from './EditObjectiveModal'
+import { conservativeObjectivePermissions } from '../services/objective-permission-flags'
 
 interface EditObjectiveButtonProps {
   objective: any
   className?: string
+  /** Server-computed canEditObjective (lib/permissions). Falls back to a conservative client subset. */
+  canEdit?: boolean
 }
 
-export default function EditObjectiveButton({ objective, className = '' }: EditObjectiveButtonProps) {
+export default function EditObjectiveButton({ objective, className = '', canEdit: canEditProp }: EditObjectiveButtonProps) {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const { data: session } = useSession()
 
-  // Check if user can edit this objective
-  const canEdit = session?.user && (
-    session.user.role === 'ADMIN' || 
-    session.user.role === 'EXECUTIVE' ||
-    session.user.id === objective.ownerId
-  )
+  const canEdit = canEditProp ?? conservativeObjectivePermissions(session?.user, objective).canEdit
 
   if (!canEdit) {
     return null
@@ -29,8 +27,9 @@ export default function EditObjectiveButton({ objective, className = '' }: EditO
     <>
       <button
         onClick={() => setIsModalOpen(true)}
-        className={`inline-flex items-center px-2 py-1 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded ${className}`}
+        className={`inline-flex items-center px-2 py-1 text-sm text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded ${className}`}
         title="Edit objective"
+        aria-label="Edit objective"
       >
         <Edit className="h-4 w-4" />
       </button>
@@ -43,8 +42,3 @@ export default function EditObjectiveButton({ objective, className = '' }: EditO
     </>
   )
 }
-
-
-
-
-

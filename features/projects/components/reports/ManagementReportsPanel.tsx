@@ -86,7 +86,7 @@ function ManagementReportCard({ projectId, report, title, subtitle, canEdit, isP
   useEffect(() => setSummary(report?.aiSummary ?? ''), [report?.id, report?.aiSummary])
   if (!report) {
     return (
-      <div className="rounded-card border border-dashed border-black/[0.14] p-4">
+      <div className="rounded-card border border-dashed border-ink-primary/[0.14] p-4">
         <div className="text-body-sm font-medium text-ink-primary">{title}</div>
         <div className="text-body-sm text-ink-tertiary">{subtitle}</div>
         <div className="mt-4 text-body-sm text-ink-tertiary">Not generated for this cadence.</div>
@@ -97,12 +97,12 @@ function ManagementReportCard({ projectId, report, title, subtitle, canEdit, isP
   const kpis = kpisFor(report.type, content)
   const summaryChanged = summary.trim() !== (report.aiSummary ?? '').trim()
   return (
-    <div className="rounded-card border border-black/[0.08] p-4">
+    <div className="rounded-card border border-ink-primary/[0.08] p-4">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div>
           <div className="text-body-sm font-medium text-ink-primary">{title}</div>
           <div className="text-body-sm text-ink-tertiary">{subtitle}</div>
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-[12px] text-ink-tertiary">
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-ink-tertiary">
             <span>{fmtDate(report.periodStart)} - {fmtDate(report.periodEnd)}</span>
             <span className={cn('rounded-pill px-2 py-0.5 font-medium', statusTone(report.status))}>{labelize(report.status)}</span>
             {report.aiSummaryEdited && <span>PM edited</span>}
@@ -196,9 +196,9 @@ function Kpi({ label, value, tone = 'gray' }: { label: string; value: string | n
       'border-danger-500/20 bg-danger-50 text-danger-700': tone === 'red',
       'border-warning-500/20 bg-warning-50 text-warning-700': tone === 'yellow',
       'border-success-500/20 bg-success-50 text-success-700': tone === 'green',
-      'border-black/[0.08] bg-white text-ink-primary': tone === 'gray',
+      'border-ink-primary/[0.08] bg-surface-card text-ink-primary': tone === 'gray',
     })}>
-      <div className="text-[11px] uppercase text-current/70">{label}</div>
+      <div className="text-xs uppercase text-current/70">{label}</div>
       <div className="text-section-title">{value}</div>
     </div>
   )

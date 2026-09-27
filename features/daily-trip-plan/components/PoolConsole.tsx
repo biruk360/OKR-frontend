@@ -1,11 +1,14 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useId } from 'react'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
+import { SkeletonRow } from '@/components/ui/Skeleton'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { FilterSelect } from '@/components/ui/FilterSelect'
 import { useAssignDriver, useDrivers, usePlans, useVehicles } from '../hooks/queries'
 import { StatusBadge } from './StatusBadge'
 
@@ -17,6 +20,7 @@ import { StatusBadge } from './StatusBadge'
  * inline select + Assign button (functionally identical, much less code).
  */
 export function PoolConsole() {
+  const uid = useId()
   const [date, setDate] = useState(() => {
     const d = new Date(); d.setUTCDate(d.getUTCDate() + 1)
     return d.toISOString().slice(0, 10)
@@ -35,14 +39,14 @@ export function PoolConsole() {
         <CardHeader className="pb-3 flex flex-row items-center justify-between gap-3">
           <CardTitle className="text-base">Pool assignments</CardTitle>
           <div className="flex items-center gap-2">
-            <Label className="text-xs text-muted-foreground">Date</Label>
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-auto" />
+            <Label htmlFor={`${uid}-date`} className="text-xs text-muted-foreground">Date</Label>
+            <Input id={`${uid}-date`} type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-auto" />
             <Button variant="ghost" size="sm" onClick={() => plans.refetch()}>Refresh</Button>
           </div>
         </CardHeader>
         <CardContent>
-          {plans.isLoading ? <div className="text-sm text-muted-foreground">Loading…</div> :
-           (plans.data?.length ?? 0) === 0 ? <div className="text-sm text-muted-foreground">No plans waiting for assignment on this date.</div> : (
+          {plans.isLoading ? <div className="space-y-2" aria-busy="true" aria-label="Loading">{Array.from({ length: 3 }).map((_, i) => <SkeletonRow key={i} />)}</div> :
+           (plans.data?.length ?? 0) === 0 ? <EmptyState title="Nothing to assign" description="No plans waiting for assignment on this date." /> : (
             <ul className="divide-y divide-border">
               {plans.data!.map((p) => (
                 <PlanAssignRow
@@ -82,18 +86,24 @@ function PlanAssignRow({ planId, status, drivers, vehicles, onAssign, busy }: Ro
       </Link>
       <StatusBadge status={status} />
       <div className="ml-auto flex flex-wrap items-center gap-2">
-        <select className="h-9 rounded-md border border-input bg-background px-2 text-sm" value={driverId} onChange={(e) => {
-          setDriverId(e.target.value)
-          const d = drivers.find((x) => x.id === e.target.value)
-          if (d?.defaultVehicle) setVehicleId(d.defaultVehicle.id)
-        }}>
-          <option value="">Pick driver…</option>
-          {drivers.map((d) => <option key={d.id} value={d.id}>{d.fullName}</option>)}
-        </select>
-        <select className="h-9 rounded-md border border-input bg-background px-2 text-sm" value={vehicleId} onChange={(e) => setVehicleId(e.target.value)}>
-          <option value="">Pick vehicle…</option>
-          {vehicles.map((v) => <option key={v.id} value={v.id}>{v.plate} ({v.capacity})</option>)}
-        </select>
+        <FilterSelect
+          label="Driver"
+          placeholder="Pick driver…"
+          value={driverId || undefined}
+          onValueChange={(next) => {
+            setDriverId(next ?? '')
+            const d = drivers.find((x) => x.id === next)
+            if (d?.defaultVehicle) setVehicleId(d.defaultVehicle.id)
+          }}
+          options={drivers.map((d) => ({ value: d.id, label: d.fullName }))}
+        />
+        <FilterSelect
+          label="Vehicle"
+          placeholder="Pick vehicle…"
+          value={vehicleId || undefined}
+          onValueChange={(next) => setVehicleId(next ?? '')}
+          options={vehicles.map((v) => ({ value: v.id, label: `${v.plate} (${v.capacity})` }))}
+        />
         <Button size="sm" onClick={() => driverId && onAssign(driverId, vehicleId || undefined)} disabled={!driverId || busy}>
           Assign
         </Button>

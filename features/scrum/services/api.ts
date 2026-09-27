@@ -33,6 +33,10 @@ export const scrumApi = {
     request<any[]>(`/api/scrum/updates${qs(params)}`),
   saveUpdate: (body: Record<string, unknown>) =>
     request<any>('/api/scrum/updates', { method: 'POST', body: JSON.stringify(body) }),
+  /** Server-side draft: no attendance, To-do sync or notifications until submitted. */
+  saveDraft: (body: Record<string, unknown>) =>
+    request<any>('/api/scrum/updates', { method: 'POST', body: JSON.stringify({ ...body, asDraft: true }) }),
+  discardDraft: (id: string) => request<any>(`/api/scrum/updates/${id}`, { method: 'DELETE' }),
   patchUpdate: (id: string, body: Record<string, unknown>) =>
     request<any>(`/api/scrum/updates/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   calendar: (params: Record<string, string | boolean | undefined>) =>
@@ -45,11 +49,17 @@ export const scrumApi = {
     request<any>('/api/scrum/settings', { method: 'PATCH', body: JSON.stringify(body) }),
   linkable: (userId?: string, ownerOnly?: boolean) => request<any>(`/api/scrum/linkable${qs({ userId, ownerOnly })}`),
   proxySubjects: () => request<any[]>('/api/scrum/proxy-subjects'),
+  getUpdate: (id: string) => request<any>(`/api/scrum/updates/${id}`),
   celebrate: (id: string) => request<any>(`/api/scrum/updates/${id}/celebrate`, { method: 'POST' }),
   blockerAction: (id: string, body: Record<string, unknown>) =>
     request<any>(`/api/scrum/updates/${id}/blocker`, { method: 'POST', body: JSON.stringify(body) }),
+  comments: (id: string) => request<any[]>(`/api/scrum/updates/${id}/comments`),
   comment: (id: string, body: Record<string, unknown>) =>
     request<any>(`/api/scrum/updates/${id}/comments`, { method: 'POST', body: JSON.stringify(body) }),
   absences: (body: Record<string, unknown>) =>
     request<any>('/api/scrum/absences', { method: 'POST', body: JSON.stringify(body) }),
+  savedViews: () => request<any[]>('/api/scrum/saved-views'),
+  createSavedView: (body: { name: string; filtersJson: Record<string, unknown>; isDefault?: boolean }) =>
+    request<any>('/api/scrum/saved-views', { method: 'POST', body: JSON.stringify(body) }),
+  deleteSavedView: (id: string) => request<any>(`/api/scrum/saved-views${qs({ id })}`, { method: 'DELETE' }),
 }

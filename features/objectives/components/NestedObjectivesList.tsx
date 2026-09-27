@@ -13,8 +13,10 @@ import {
 import { cn } from '@/lib/utils'
 import { EmptyState } from '@/components/ui/EmptyState'
 import ObjectiveActionsMenu from './ObjectiveActionsMenu'
+import type { ObjectivePermissionFlags } from '../services/objective-permission-flags'
 import { Progress } from '@/components/ui/progress'
 import { getOkrStatusColor } from '@/lib/utils'
+import { PersonTooltip } from '@/components/shared/UserAvatar'
 
 interface NestedObjectivesListProps {
   objectives: any[]
@@ -24,6 +26,11 @@ interface NestedObjectivesListProps {
   showPersonalOnly?: boolean
   showCompanyOnly?: boolean
   showDepartmentOnly?: boolean
+  /**
+   * Server-computed action permissions keyed by objective id (lib/permissions).
+   * Objectives without an entry fall back to the conservative client subset.
+   */
+  permissionsById?: Record<string, ObjectivePermissionFlags>
 }
 
 interface ObjectiveNode {
@@ -50,15 +57,15 @@ function statusFromValue(progress: number, goalStatus?: string) {
 
 function StatusPill({ status }: { status: string }) {
   const map: Record<string, { label: string; bg: string; fg: string; dot: string }> = {
-    'on-track':  { label: 'On track',  bg: 'rgba(52,199,89,0.12)', fg: 'var(--ap-green)',  dot: 'var(--ap-green)' },
-    'at-risk':   { label: 'At risk',   bg: 'rgba(255,149,0,0.12)', fg: 'var(--ap-orange)', dot: 'var(--ap-orange)' },
-    'off-track': { label: 'Off track', bg: 'rgba(255,59,48,0.12)', fg: 'var(--ap-red)',    dot: 'var(--ap-red)' },
-    completed:   { label: 'Done',      bg: 'rgba(0,122,255,0.12)', fg: 'var(--ap-accent)', dot: 'var(--ap-accent)' },
+    'on-track':  { label: 'On track',  bg: 'var(--ap-ok-bg)', fg: 'var(--ap-green)',  dot: 'var(--ap-green)' },
+    'at-risk':   { label: 'At risk',   bg: 'var(--ap-warn-bg)', fg: 'var(--ap-orange)', dot: 'var(--ap-orange)' },
+    'off-track': { label: 'Off track', bg: 'var(--ap-danger-bg)', fg: 'var(--ap-red)',    dot: 'var(--ap-red)' },
+    completed:   { label: 'Done',      bg: 'var(--ap-accent-soft)', fg: 'var(--ap-accent)', dot: 'var(--ap-accent)' },
   }
   const c = map[status] ?? map['off-track']
   return (
     <span
-      className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+      className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-micro font-semibold"
       style={{ background: c.bg, color: c.fg }}
     >
       <span className="size-1.5 rounded-full" style={{ background: c.dot }} />
@@ -82,7 +89,7 @@ function ProgressBar({ value, status }: { value: number; status: string }) {
   return (
     <div className="flex items-center gap-2 w-[140px]">
       <Progress value={Math.min(Math.max(value, 0), 100)} fill={getOkrStatusColor(status)} className="flex-1" />
-      <span className="text-[12px] font-semibold tabular-nums w-[34px] text-right">
+      <span className="text-xs font-semibold tabular-nums w-[34px] text-right">
         {Math.round(value)}%
       </span>
     </div>
@@ -98,21 +105,25 @@ function OwnerChip({ owner }: { owner: any }) {
         <img src={owner.avatar} alt="" className="size-5 rounded-full object-cover" />
       ) : (
         <span
-          className="flex size-5 items-center justify-center rounded-full text-[10px] font-bold text-white"
-          style={{ background: 'var(--ap-accent)' }}
+          className="flex size-5 items-center justify-center rounded-full text-micro font-bold"
+          style={{ background: 'var(--ap-accent)', color: 'var(--ap-accent-fg)' }}
         >
           {initial}
         </span>
       )}
-      <span className="truncate text-[12px]" style={{ color: 'var(--ap-fg-muted)' }}>
-        {owner?.name ?? 'Unassigned'}
-      </span>
+      {/* Name is printed; hover card only when the 140px cap clips it (UNH-4). */}
+      <PersonTooltip person={owner ?? {}} detail="Owner" whenTruncated disabled={!owner}>
+        <span className="truncate text-xs" style={{ color: 'var(--ap-fg-muted)' }}>
+          {owner?.name ?? 'Unassigned'}
+        </span>
+      </PersonTooltip>
     </span>
   )
 }
 
 export default function NestedObjectivesList({
   objectives,
+  permissionsById,
 }: NestedObjectivesListProps) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
@@ -186,12 +197,12 @@ export default function NestedObjectivesList({
               {/* Top chip row */}
               <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
                 <LevelBadge level={obj.level} />
-                <span className="text-[10px] tabular-nums text-muted-foreground">
+                <span className="text-micro tabular-nums text-muted-foreground">
                   {obj.id.slice(-6).toUpperCase()}
                 </span>
                 {obj.timeframe?.name && (
                   <span
-                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px]"
+                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-micro"
                     style={{ background: 'var(--ap-bg-sunken)', color: 'var(--ap-fg-muted)' }}
                   >
                     <Calendar className="size-2.5" />
@@ -206,7 +217,7 @@ export default function NestedObjectivesList({
               {/* Title */}
               <Link
                 href={`/dashboard/objectives/${obj.id}`}
-                className="block text-[15px] font-semibold leading-tight hover:underline truncate"
+                className="block text-body font-semibold leading-tight hover:underline truncate"
                 style={{ letterSpacing: '-0.01em' }}
                 title={obj.title}
               >
@@ -214,7 +225,7 @@ export default function NestedObjectivesList({
               </Link>
 
               {obj.description && (
-                <p className="mt-0.5 text-[12px] text-muted-foreground line-clamp-1">
+                <p className="mt-0.5 text-xs text-muted-foreground line-clamp-1">
                   {obj.description}
                 </p>
               )}
@@ -225,7 +236,7 @@ export default function NestedObjectivesList({
                 {obj.department && (
                   <>
                     <span className="hidden sm:inline-block h-3 w-px" style={{ background: 'var(--ap-border)' }} />
-                    <span className="inline-flex items-center gap-1 text-[12px] text-muted-foreground">
+                    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                       <Building2 className="size-3" />
                       <span className="truncate max-w-[120px]">{obj.department.name}</span>
                     </span>
@@ -233,7 +244,7 @@ export default function NestedObjectivesList({
                 )}
                 <span className="hidden sm:inline-block h-3 w-px" style={{ background: 'var(--ap-border)' }} />
                 <span
-                  className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums"
+                  className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-micro font-semibold tabular-nums"
                   style={{ background: 'var(--ap-bg-sunken)', color: 'var(--ap-fg-muted)' }}
                 >
                   <UsersIcon className="size-2.5" />
@@ -242,7 +253,7 @@ export default function NestedObjectivesList({
                 {obj.parentObjective && (
                   <Link
                     href={`/dashboard/objectives/${obj.parentObjective.id}`}
-                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium truncate max-w-[200px]"
+                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-micro font-medium truncate max-w-[200px]"
                     style={{ background: 'var(--ap-accent-soft)', color: 'var(--ap-accent)' }}
                     title={obj.parentObjective.title}
                   >
@@ -256,7 +267,7 @@ export default function NestedObjectivesList({
             </div>
 
             <div className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-              <ObjectiveActionsMenu objective={obj} />
+              <ObjectiveActionsMenu objective={obj} permissions={permissionsById?.[obj.id]} />
             </div>
           </div>
         </div>
@@ -280,7 +291,7 @@ export default function NestedObjectivesList({
                     KR
                   </span>
                   <span
-                    className="flex-1 min-w-0 text-[13px] truncate"
+                    className="flex-1 min-w-0 text-body-sm truncate"
                     title={kr.title}
                     style={{ color: 'var(--ap-fg)' }}
                   >

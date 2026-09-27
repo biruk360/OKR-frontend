@@ -1,9 +1,8 @@
 import { notFound, redirect } from 'next/navigation'
 import { getServerSessionSafe } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
 import { resolveParams } from '@/lib/resolve-route-params'
-import { canEditSprint, canDeleteSprint, type UserRole } from '@/lib/permissions'
 import { SprintReportClient } from '@/features/sprints/components/SprintReportClient'
+import { loadSprintReportAccess } from '@/features/sprints/services/sprint-pages.server'
 
 interface Props {
   params: { id: string } | Promise<{ id: string }>
@@ -16,20 +15,8 @@ export default async function SprintReportPage({ params }: Props) {
   const { id } = await resolveParams(params)
   if (!id) notFound()
 
-  const sprint = await prisma.sprint.findUnique({
-    where: { id },
-    include: { participants: { select: { userId: true } } },
-  })
-  if (!sprint) notFound()
-
-  const role = session.user.role as UserRole
-  const ctx = {
-    ownerId: sprint.ownerId,
-    departmentId: sprint.departmentId,
-    participants: sprint.participants,
-  }
-  const canEdit = await canEditSprint(role, session.user.id, ctx)
-  const canDelete = (await canDeleteSprint(role, session.user.id, ctx)) || sprint.ownerId === session.user.id
+  // CPM-9 view gate (canViewSprint); renders not-found when missing or denied.
+  const { canEdit, canDelete } = await loadSprintReportAccess(session.user, id)
 
   return (
     <SprintReportClient

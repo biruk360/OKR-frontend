@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { sendPasswordResetEmail } from '@/lib/email'
+import { generateAuthToken, hashAuthToken } from '@/lib/security/auth-tokens'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import {
   apiSuccess,
@@ -21,15 +22,16 @@ export const POST = withRoleOrFeature<RouteIdParams>(['ADMIN'], 'page.settings.u
   if (!user) return apiNotFound('User not found')
   if (!user.isActive) return apiBadRequest('Cannot reset password for inactive user')
 
-  const resetToken =
-    Math.random().toString(36).substring(2, 15) +
-    Math.random().toString(36).substring(2, 15)
+  const resetToken = generateAuthToken()
 
+  // passwordChangedAt = now revokes every session/bearer token the user holds
+  // (lib/auth.ts) — the email below promises exactly that.
   await prisma.user.update({
     where: { id: userId },
     data: {
-      activationToken: resetToken,
+      activationToken: hashAuthToken(resetToken),
       activationTokenExpires: new Date(Date.now() + 60 * 60 * 1000),
+      passwordChangedAt: new Date(),
     },
   })
 
@@ -39,7 +41,7 @@ export const POST = withRoleOrFeature<RouteIdParams>(['ADMIN'], 'page.settings.u
     console.error('Error sending password reset email:', emailError)
   }
 
-  console.log(`Password reset triggered for user ${user.email}. Active sessions should be invalidated.`)
+  console.log(`Password reset triggered for user ${user.id}; active sessions invalidated.`)
 
   return apiSuccess(null, { message: 'Password reset email has been sent' })
 })

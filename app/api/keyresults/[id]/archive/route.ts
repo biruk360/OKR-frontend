@@ -12,6 +12,8 @@ import {
   apiNotFound,
   withAuth,
 } from '@/lib/api'
+import { broadcastKeyResultEvent } from '@/lib/pusher'
+import { OKR_REALTIME_EVENTS } from '@/lib/okr/realtime'
 
 export const POST = withAuth<RouteIdParams>(async (_request, { session, params }) => {
   const { id: keyResultId } = await resolveParams(params)
@@ -85,5 +87,6 @@ export const POST = withAuth<RouteIdParams>(async (_request, { session, params }
     data: { actorName: session.user.name, objectiveId: existingKeyResult.objectiveId, deepLink: `/dashboard/objectives/${existingKeyResult.objectiveId}` },
   })
 
+  broadcastKeyResultEvent(keyResultId, existingKeyResult.objectiveId, OKR_REALTIME_EVENTS.ARCHIVED, session.user.id)
   return apiSuccess(result, { message: 'Key Result archived.' })
 })

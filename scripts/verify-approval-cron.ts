@@ -6,6 +6,7 @@
  * Run: tsx scripts/verify-approval-cron.ts
  */
 import { prisma } from '../lib/prisma'
+import { flushBackgroundWork } from '../lib/background'
 import { createProjectWithTemplate } from '../lib/projects/service'
 import { applyApprovalClock } from '../lib/projects/delay-ledger'
 import { runApprovalEscalations } from '../lib/projects/approval-escalations'
@@ -90,10 +91,15 @@ async function main() {
 
     console.log('\napproval-clock cron verify PASSED')
   } finally {
+    // Any deferred notification delivery must land before the projects are
+    // deleted and the pool closes.
+    await flushBackgroundWork(15_000)
     await prisma.project.delete({ where: { id } })
     await prisma.project.delete({ where: { id: noSlaId } })
     console.log('cleaned up projects')
   }
 }
 
-main().catch((e) => { console.error(e); process.exit(1) }).finally(() => prisma.$disconnect())
+main()
+  .catch(async (e) => { console.error(e); await flushBackgroundWork(5_000); process.exit(1) })
+  .finally(() => prisma.$disconnect())

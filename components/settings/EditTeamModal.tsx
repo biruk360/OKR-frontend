@@ -61,12 +61,12 @@ export default function EditTeamModal({ isOpen, onClose, team, onTeamUpdated }: 
   if (!team) return null
 
   return (
-    <Modal open={isOpen} onClose={onClose} title="Edit Team" icon={Building2} iconClassName="text-blue-600" size="sm">
+    <Modal open={isOpen} onClose={onClose} title="Edit Team" icon={Building2} iconClassName="text-primary-600" size="sm">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div>
           <label className="block text-sm font-medium text-muted-foreground mb-1">Team Name *</label>
           <input {...register('name', { required: 'Team name is required' })} type="text" className="input" />
-          {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>}
+          {errors.name && <p className="mt-1 text-sm text-danger-600">{errors.name.message}</p>}
         </div>
 
         <div>
@@ -79,7 +79,7 @@ export default function EditTeamModal({ isOpen, onClose, team, onTeamUpdated }: 
             <input
               type="checkbox"
               {...register('isActive')}
-              className="h-4 w-4 text-blue-600 focus:ring-ring border-border rounded"
+              className="h-4 w-4 text-primary-600 focus:ring-ring border-border rounded"
             />
             <span className="ml-2 text-sm text-muted-foreground">Active</span>
           </label>

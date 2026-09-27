@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { Loader2, Save } from 'lucide-react'
 import { Button, Checkbox, Input, Label } from '@/components/ui'
+import { Skeleton } from '@/components/ui/Skeleton'
 import { usePerformanceSettings, useSavePerformanceSettings, type RecommendationRulesInput } from '../hooks/useSettings'
 import { NativeSelect } from './NativeSelect'
 import { SectionCard } from './SectionCard'
@@ -100,8 +101,10 @@ export function PerformanceSettingsPanel() {
   if (settingsQuery.isLoading) {
     return (
       <SectionCard title="Performance settings">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="size-4 animate-spin" /> Loading settings…
+        <div className="space-y-3" aria-busy="true" aria-label="Loading settings">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-9 w-full" />
+          ))}
         </div>
       </SectionCard>
     )

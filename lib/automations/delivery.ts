@@ -16,7 +16,7 @@
  */
 
 import { prisma } from '@/lib/prisma'
-import { writeDirectNotifications } from '@/lib/notifications/direct'
+import { writeDirectNotificationsNow } from '@/lib/notifications/direct'
 import { isBlockedRecipient, sendMail } from '@/lib/email'
 import { absoluteUrl } from '@/lib/notifications/deep-link'
 import type { AutomationRecipient, DeliveryChannel } from '@/types/automations'
@@ -143,7 +143,7 @@ export async function deliverBriefing(
           // Gated on the recipient's AUTOMATION preference. These rows used to
           // be written directly under category 'ADMIN', so they honoured no
           // preference at all and muting admin digests muted your automations.
-          const delivery = await writeDirectNotifications({
+          const delivery = await writeDirectNotificationsNow({
             category: 'AUTOMATION',
             type: 'REMINDER',
             eventKey: 'AUTOMATION_BRIEFING_PUBLISHED',
@@ -208,7 +208,7 @@ export async function notifyOwnerForReview(
   ownerId: string,
   briefing: { id: string; title: string; automationId: string; newCount: number; changedCount: number }
 ): Promise<void> {
-  await writeDirectNotifications({
+  await writeDirectNotificationsNow({
     category: 'AUTOMATION',
     type: 'REMINDER',
     eventKey: 'AUTOMATION_REVIEW_PENDING',
@@ -231,7 +231,7 @@ export async function notifyOwnerOfFailure(
   errorMessage: string
 ): Promise<void> {
   const disabled = automation.consecutiveFailures >= 3
-  await writeDirectNotifications({
+  await writeDirectNotificationsNow({
     category: 'AUTOMATION',
     type: 'REMINDER',
     eventKey: disabled ? 'AUTOMATION_DISABLED_ON_FAILURE' : 'AUTOMATION_RUN_FAILED',

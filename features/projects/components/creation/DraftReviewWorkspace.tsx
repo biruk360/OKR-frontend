@@ -37,7 +37,9 @@ import {
   createEmptyProjectCreationValidationJson,
   normalizedProjectCreationDraftSchema,
   type NormalizedProjectCreationDraft,
+  type ProjectCreationScheduleJson,
 } from '@/lib/projects/creation-normalize'
+import { isProjectCreationAssumptionTarget } from '@/lib/projects/creation-provenance'
 import {
   createProjectCreationDraftWorkbook,
   movePositionedItem,
@@ -53,6 +55,12 @@ import {
 } from '../../hooks/useProjects'
 import type { CommitProjectCreationDraftResult } from '@/lib/projects/creation-commit-shared'
 import { CommitConfirmDialog } from './CommitConfirmDialog'
+import { useBulkAssumptionDecision } from './useBulkAssumptionDecision'
+import {
+  countProjectCreationAiProposals,
+  type ProjectCreationAssumptionDecision,
+  type ProjectCreationAssumptionScope,
+} from '@/lib/projects/creation-assumption-decisions'
 import { PROJECT_TYPES, PROJECT_TYPE_LABEL } from '../../types'
 import { ChangeListPanel } from './ChangeListPanel'
 
@@ -92,6 +100,8 @@ const FILTERS: Array<{ id: ReviewFilter; label: string }> = [
   { id: 'AI', label: 'AI suggestions' },
 ]
 
+type ProjectCreationSource = ProjectCreationScheduleJson['sources'][number]
+
 function cloneDraft(value: NormalizedProjectCreationDraft): NormalizedProjectCreationDraft {
   return structuredClone(value)
 }
@@ -124,6 +134,10 @@ export function DraftReviewWorkspace({
   footerAction,
 }: DraftReviewWorkspaceProps) {
   const initial = useMemo(() => toReviewDraft(draft), [draft.id])
+  // Story 2.6: provenance is server-owned. The form never edits it; saves send the
+  // server's latest copy, and the server re-stamps sources whose targets were edited.
+  const serverSourcesRef = useRef(initial.sources)
+  const [serverSources, setServerSources] = useState(initial.sources)
   const openSnapshot = useRef(cloneDraft(initial))
   const history = useRef<NormalizedProjectCreationDraft[]>([cloneDraft(initial)])
   const historyIndex = useRef(0)
@@ -138,6 +152,8 @@ export function DraftReviewWorkspace({
   const [commitVersion, setCommitVersion] = useState<number | null>(null)
   const [commitError, setCommitError] = useState<string | null>(null)
   const [confirm, setConfirm] = useState<null | { title: string; message: string; label: string; action: () => void }>(null)
+  const [bulkRequest, setBulkRequest] = useState<null | BulkRequest>(null)
+  const bulkDecision = useBulkAssumptionDecision(draft.id)
   const updateDraft = useUpdateProjectCreationDraft(draft.id)
   const commitDraft = useCommitProjectCreationDraft(draft.id)
   const { users } = useUsersForSelection({ enabled: true })
@@ -218,7 +234,7 @@ export function DraftReviewWorkspace({
         activities: normalized.activities,
         dependencies: normalized.dependencies,
         deliverables: normalized.deliverables,
-        sources: normalized.sources,
+        sources: serverSourcesRef.current,
         changes: normalized.changes,
       },
       validationJson: {
@@ -229,6 +245,8 @@ export function DraftReviewWorkspace({
         issues: normalized.issues,
       },
     })
+    serverSourcesRef.current = updated.scheduleJson?.sources ?? []
+    setServerSources(serverSourcesRef.current)
     onDraftUpdated(updated)
     return updated
   }
@@ -302,8 +320,46 @@ export function DraftReviewWorkspace({
     if (filter === 'WARNINGS') return values.issues.some((item) => item.severity !== 'BLOCKING' && pathMatches(item.affectedPaths, 'activities', activityIndex, activityId))
       || values.warnings.some((item) => pathMatches(item.affectedPaths, 'activities', activityIndex, activityId))
     if (filter === 'ASSUMPTIONS') return values.assumptions.some((item) => pathMatches(item.affectedPaths, 'activities', activityIndex, activityId))
-    return values.sources.some((item) => item.lastEditor === 'AI' && pathMatches(item.targetPaths, 'activities', activityIndex, activityId))
+    return serverSources.some((item) => item.lastEditor === 'AI' && pathMatches(item.targetPaths, 'activities', activityIndex, activityId))
       || values.changes.some((item) => item.status === 'PROPOSED' && pathMatches([item.path], 'activities', activityIndex, activityId))
+  }
+
+  // Bulk review: counts use the server-owned sources, exactly as the server recomputes them.
+  const aiProposalCounts = countProjectCreationAiProposals({ ...values, sources: serverSources })
+
+  const requestBulk = (decision: ProjectCreationAssumptionDecision, scope: ProjectCreationAssumptionScope, scopeLabel: string, count: number) => {
+    if (count > 0) setBulkRequest({ decision, scope, scopeLabel, count })
+  }
+
+  /**
+   * Explicit PM action (invariant #6): saves pending local edits first, then applies
+   * one atomic, version-checked, audited decision on the server and reloads the form.
+   */
+  const confirmBulk = async () => {
+    if (!bulkRequest) return
+    const normalized = parseCurrent()
+    if (!normalized) { setBulkRequest(null); return }
+    try {
+      const saved = await persist(normalized)
+      const result = await bulkDecision.mutateAsync({
+        version: saved.version,
+        decision: bulkRequest.decision,
+        scope: bulkRequest.scope,
+        expectedCount: bulkRequest.count,
+      })
+      const next = toReviewDraft(result.draft)
+      serverSourcesRef.current = next.sources
+      setServerSources(next.sources)
+      if (historyTimer.current) clearTimeout(historyTimer.current)
+      reset(next as unknown as ReviewFormDraft)
+      pushHistory(next)
+      onDraftUpdated(result.draft)
+      toast.success(`${result.count} AI ${result.count === 1 ? 'proposal' : 'proposals'} ${bulkRequest.decision === 'ACCEPT' ? 'accepted' : 'rejected'}`)
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'The bulk decision could not be applied.')
+    } finally {
+      setBulkRequest(null)
+    }
   }
 
   const requestDelete = (title: string, message: string, action: () => void) => {
@@ -355,11 +411,11 @@ export function DraftReviewWorkspace({
         <section className="min-w-0 rounded-card border border-border bg-surface-card p-5 shadow-card">
           {panel === 'project' && <ProjectPanel control={control} register={register} values={values} setValue={setValue} users={users} departments={departments} />}
           {panel === 'schedule' && <SchedulePanel values={values} control={control} register={register} filterMatches={activityFilterMatches} mutate={mutate} requestDelete={requestDelete} users={users} />}
-          {panel === 'deliverables' && <DeliverablesPanel values={values} register={register} mutate={mutate} requestDelete={requestDelete} />}
+          {panel === 'deliverables' && <DeliverablesPanel values={values} register={register} mutate={mutate} requestDelete={requestDelete} sources={serverSources} />}
           {panel === 'dependencies' && <DependenciesPanel values={values} register={register} mutate={mutate} requestDelete={requestDelete} />}
-          {panel === 'assumptions' && <AssumptionsPanel values={values} register={register} mutate={mutate} requestDelete={requestDelete} />}
+          {panel === 'assumptions' && <AssumptionsPanel values={values} register={register} mutate={mutate} requestDelete={requestDelete} bulk={{ counts: aiProposalCounts, pending: bulkDecision.isPending || updateDraft.isPending, request: requestBulk }} />}
           {panel === 'validation' && <ValidationPanel values={values} register={register} setPanel={setPanel} />}
-          {panel === 'sources' && <SourcesPanel values={values} register={register} mutate={mutate} requestDelete={requestDelete} />}
+          {panel === 'sources' && <SourcesPanel values={values} sources={serverSources} mutate={mutate} />}
         </section>
       </div>
 
@@ -421,6 +477,22 @@ export function DraftReviewWorkspace({
         confirmLabel={confirm?.label ?? 'Confirm'}
         variant={confirm?.label === 'Delete' ? 'danger' : 'warning'}
       />
+      <ConfirmDialog
+        open={Boolean(bulkRequest)}
+        onClose={() => { if (!bulkDecision.isPending) setBulkRequest(null) }}
+        onConfirm={confirmBulk}
+        title={bulkRequest?.decision === 'REJECT' ? 'Reject AI proposals?' : 'Accept AI proposals?'}
+        message={bulkRequest
+          ? `${bulkRequest.decision === 'ACCEPT' ? 'Accept' : 'Reject'} ${bulkRequest.count} pending AI ${bulkRequest.count === 1 ? 'proposal' : 'proposals'} ${bulkRequest.scopeLabel}.`
+          : ''}
+        description={bulkRequest?.decision === 'REJECT'
+          ? 'Rejected proposals stay listed as rejected; their values remain in the draft for you to edit or delete. Your unsaved edits are saved first.'
+          : 'This records your explicit acceptance of each proposal. Values stay editable. Your unsaved edits are saved first.'}
+        confirmLabel={bulkRequest ? `${bulkRequest.decision === 'ACCEPT' ? 'Accept' : 'Reject'} ${bulkRequest.count}` : 'Confirm'}
+        isLoading={bulkDecision.isPending || updateDraft.isPending}
+        loadingLabel="Applying"
+        variant={bulkRequest?.decision === 'REJECT' ? 'danger' : 'warning'}
+      />
       {commitSnapshot && (
         <CommitConfirmDialog
           open={commitOpen}
@@ -439,6 +511,49 @@ export function DraftReviewWorkspace({
 }
 
 type Register = UseFormRegister<ReviewFormDraft>
+
+interface BulkRequest {
+  decision: ProjectCreationAssumptionDecision
+  scope: ProjectCreationAssumptionScope
+  /** Human phrase completing "Accept N pending AI proposals …". */
+  scopeLabel: string
+  count: number
+}
+
+interface BulkReviewProps {
+  counts: { total: number; byPhase: Map<string, number> }
+  pending: boolean
+  request: (decision: ProjectCreationAssumptionDecision, scope: ProjectCreationAssumptionScope, scopeLabel: string, count: number) => void
+}
+
+function BulkReviewBar({ values, bulk }: { values: NormalizedProjectCreationDraft; bulk: BulkReviewProps }) {
+  if (bulk.counts.total === 0) return null
+  const phases = values.phases.filter((phase) => (bulk.counts.byPhase.get(phase.id) ?? 0) > 0)
+  return <div className="rounded-card border border-primary/20 bg-primary/5 p-4" aria-label="Bulk review of AI proposals">
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <p className="text-body font-semibold text-ink-primary">{bulk.counts.total} pending AI {bulk.counts.total === 1 ? 'proposal' : 'proposals'}</p>
+        <p className="text-body-sm text-ink-secondary">Each must be accepted or rejected before creation. Bulk decisions are recorded as your explicit choice.</p>
+      </div>
+      <Button type="button" size="sm" disabled={bulk.pending} onClick={() => bulk.request('ACCEPT', { type: 'ALL' }, 'remaining in this draft', bulk.counts.total)}>
+        <Check data-icon="inline-start" /> Accept all remaining AI proposals ({bulk.counts.total})
+      </Button>
+    </div>
+    {phases.length > 0 && <ul className="mt-3 divide-y divide-border rounded-lg border border-border bg-surface-card">
+      {phases.map((phase) => {
+        const count = bulk.counts.byPhase.get(phase.id) ?? 0
+        const label = `in phase “${phase.name}”`
+        return <li key={phase.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+          <span className="min-w-0 truncate text-body-sm text-ink-primary">{phase.name} <span className="text-ink-tertiary">· {count} pending</span></span>
+          <span className="flex gap-2">
+            <Button type="button" size="sm" variant="outline" disabled={bulk.pending} aria-label={`Reject all AI proposals in phase ${phase.name}`} onClick={() => bulk.request('REJECT', { type: 'PHASE', phaseId: phase.id }, label, count)}>Reject all in phase</Button>
+            <Button type="button" size="sm" variant="outline" disabled={bulk.pending} aria-label={`Accept all AI proposals in phase ${phase.name}`} onClick={() => bulk.request('ACCEPT', { type: 'PHASE', phaseId: phase.id }, label, count)}><Check data-icon="inline-start" /> Accept all in this phase</Button>
+          </span>
+        </li>
+      })}
+    </ul>}
+  </div>
+}
 
 function ProjectPanel({ control, register, values, setValue, users, departments }: {
   control: Control<ReviewFormDraft>
@@ -619,9 +734,9 @@ function DraftGantt({ activities }: { activities: NormalizedProjectCreationDraft
   return <div className="max-h-56 space-y-2 overflow-auto rounded-card bg-surface-muted p-4" aria-label="Draft Gantt preview">{dated.map((item) => { const start = new Date(`${item.startDate}T00:00:00Z`).getTime(); const end = new Date(`${item.endDate}T00:00:00Z`).getTime(); return <div key={item.id} className="grid grid-cols-[9rem_1fr] items-center gap-3"><span className="truncate text-body-sm text-ink-secondary">{item.title}</span><div className="relative h-5 rounded-pill bg-surface-card"><span className="absolute top-1/2 h-2.5 -translate-y-1/2 rounded-pill bg-primary" style={{ left: `${((start - min) / range) * 100}%`, width: `${Math.max(2, ((end - start + 86_400_000) / range) * 100)}%` }} /></div></div> })}</div>
 }
 
-function DeliverablesPanel({ values, register, mutate, requestDelete }: PanelCrudProps) {
+function DeliverablesPanel({ values, register, mutate, requestDelete, sources }: PanelCrudProps & { sources: readonly ProjectCreationSource[] }) {
   const add = () => mutate((next) => next.deliverables.push({ id: newId('deliverable'), milestoneId: next.milestones[0]?.id ?? '', name: 'New deliverable', producingActivityIds: [], dueDate: null, ownerParty: '360GROUND', approvalActivityId: null, approvalCriteria: null }))
-  return <div className="space-y-4"><div className="flex justify-between gap-3"><PanelHeading title="Deliverables" description="Control what is produced, by whom, when, and how it is approved." /><Button type="button" size="sm" disabled={values.milestones.length === 0} onClick={add}><Plus data-icon="inline-start" /> Add deliverable</Button></div>{values.deliverables.length === 0 ? <EmptyState bare icon={PackageCheck} title="No deliverables" description="Add a milestone first, then define its deliverables." action={values.milestones.length ? { label: 'Add deliverable', onClick: add } : undefined} /> : values.deliverables.map((item, index) => <div key={item.id} className="rounded-card border border-border p-4"><div className="grid gap-3 lg:grid-cols-[1fr_12rem_auto]"><Field label="Deliverable name"><input className="input" {...register(`deliverables.${index}.name`)} /></Field><Field label="Milestone"><select className="input" {...register(`deliverables.${index}.milestoneId`)}>{values.milestones.map((milestone) => <option key={milestone.id} value={milestone.id}>{milestone.name}</option>)}</select></Field><RowActions onUp={() => mutate((next) => { next.deliverables = movePlainItem(next.deliverables, index, -1) })} onDown={() => mutate((next) => { next.deliverables = movePlainItem(next.deliverables, index, 1) })} onDuplicate={() => mutate((next) => next.deliverables.splice(index + 1, 0, { ...next.deliverables[index], id: newId('deliverable'), name: `${item.name} copy` }))} onDelete={() => requestDelete('Delete deliverable?', 'This removes the deliverable from the private draft.', () => mutate((next) => { next.deliverables = next.deliverables.filter((candidate) => candidate.id !== item.id) }))} /></div><div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><Field label="Producing activities"><select multiple className="input min-h-24" {...register(`deliverables.${index}.producingActivityIds`)}>{values.activities.map((activity) => <option key={activity.id} value={activity.id}>{activity.title}</option>)}</select></Field><Field label="Due date"><input type="date" className="input" {...register(`deliverables.${index}.dueDate`, { setValueAs: emptyToNull })} /></Field><Field label="Owner"><select className="input" {...register(`deliverables.${index}.ownerParty`)}><option value="360GROUND">360GROUND</option><option value="CLIENT">CLIENT</option><option value="SHARED">SHARED</option></select></Field><Field label="Approval step"><select className="input" {...register(`deliverables.${index}.approvalActivityId`, { setValueAs: emptyToNull })}><option value="">None</option>{values.activities.map((activity) => <option key={activity.id} value={activity.id}>{activity.title}</option>)}</select></Field></div><Field label="Approval criteria"><textarea rows={2} className="input mt-3" {...register(`deliverables.${index}.approvalCriteria`, { setValueAs: emptyToNull })} /></Field></div>)}</div>
+  return <div className="space-y-4"><div className="flex justify-between gap-3"><PanelHeading title="Deliverables" description="Control what is produced, by whom, when, and how it is approved." /><Button type="button" size="sm" disabled={values.milestones.length === 0} onClick={add}><Plus data-icon="inline-start" /> Add deliverable</Button></div>{values.deliverables.length === 0 ? <EmptyState bare icon={PackageCheck} title="No deliverables" description="Add a milestone first, then define its deliverables." action={values.milestones.length ? { label: 'Add deliverable', onClick: add } : undefined} /> : values.deliverables.map((item, index) => <div key={item.id} className="rounded-card border border-border p-4">{isProjectCreationAssumptionTarget(sources, 'deliverables', item.id) && <AssumptionLabel />}<div className="grid gap-3 lg:grid-cols-[1fr_12rem_auto]"><Field label="Deliverable name"><input className="input" {...register(`deliverables.${index}.name`)} /></Field><Field label="Milestone"><select className="input" {...register(`deliverables.${index}.milestoneId`)}>{values.milestones.map((milestone) => <option key={milestone.id} value={milestone.id}>{milestone.name}</option>)}</select></Field><RowActions onUp={() => mutate((next) => { next.deliverables = movePlainItem(next.deliverables, index, -1) })} onDown={() => mutate((next) => { next.deliverables = movePlainItem(next.deliverables, index, 1) })} onDuplicate={() => mutate((next) => next.deliverables.splice(index + 1, 0, { ...next.deliverables[index], id: newId('deliverable'), name: `${item.name} copy` }))} onDelete={() => requestDelete('Delete deliverable?', 'This removes the deliverable from the private draft.', () => mutate((next) => { next.deliverables = next.deliverables.filter((candidate) => candidate.id !== item.id) }))} /></div><div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><Field label="Producing activities"><select multiple className="input min-h-24" {...register(`deliverables.${index}.producingActivityIds`)}>{values.activities.map((activity) => <option key={activity.id} value={activity.id}>{activity.title}</option>)}</select></Field><Field label="Due date"><input type="date" className="input" {...register(`deliverables.${index}.dueDate`, { setValueAs: emptyToNull })} /></Field><Field label="Owner"><select className="input" {...register(`deliverables.${index}.ownerParty`)}><option value="360GROUND">360GROUND</option><option value="CLIENT">CLIENT</option><option value="SHARED">SHARED</option></select></Field><Field label="Approval step"><select className="input" {...register(`deliverables.${index}.approvalActivityId`, { setValueAs: emptyToNull })}><option value="">None</option>{values.activities.map((activity) => <option key={activity.id} value={activity.id}>{activity.title}</option>)}</select></Field></div><Field label="Approval criteria"><textarea rows={2} className="input mt-3" {...register(`deliverables.${index}.approvalCriteria`, { setValueAs: emptyToNull })} /></Field></div>)}</div>
 }
 
 function DependenciesPanel({ values, register, mutate, requestDelete }: PanelCrudProps) {
@@ -629,10 +744,10 @@ function DependenciesPanel({ values, register, mutate, requestDelete }: PanelCru
   return <div className="space-y-4"><div className="flex justify-between gap-3"><PanelHeading title="Dependencies" description="Edit predecessor/successor links. Circular links are flagged before save." /><Button type="button" size="sm" disabled={values.activities.length < 2} onClick={add}><Plus data-icon="inline-start" /> Add dependency</Button></div>{values.dependencies.length === 0 ? <EmptyState bare icon={GitBranch} title="No dependencies" description="At least two activities are needed to add a dependency." action={values.activities.length >= 2 ? { label: 'Add dependency', onClick: add } : undefined} /> : values.dependencies.map((item, index) => { const createsCycle = wouldCreateDependencyCycle(values.dependencies.filter((_, candidateIndex) => candidateIndex !== index).map((dependency) => ({ predecessorId: dependency.predecessorActivityId, successorId: dependency.successorActivityId })), { predecessorId: item.predecessorActivityId, successorId: item.successorActivityId }); return <div key={item.id} className={cn('rounded-card border p-4', createsCycle ? 'border-danger-500/40 bg-danger-50' : 'border-border')}><div className="grid gap-3 lg:grid-cols-[1fr_1fr_7rem_7rem_auto]"><Field label="Predecessor"><select className="input" {...register(`dependencies.${index}.predecessorActivityId`)}>{values.activities.map((activity) => <option key={activity.id} value={activity.id}>{activity.title}</option>)}</select></Field><Field label="Successor"><select className="input" {...register(`dependencies.${index}.successorActivityId`)}>{values.activities.map((activity) => <option key={activity.id} value={activity.id}>{activity.title}</option>)}</select></Field><Field label="Type"><select className="input" {...register(`dependencies.${index}.type`)}><option>FS</option><option>SS</option><option>FF</option><option>SF</option></select></Field><Field label="Lag days"><input type="number" min={-365} max={365} className="input" {...register(`dependencies.${index}.lagDays`, { valueAsNumber: true })} /></Field><RowActions onUp={() => mutate((next) => { next.dependencies = movePlainItem(next.dependencies, index, -1) })} onDown={() => mutate((next) => { next.dependencies = movePlainItem(next.dependencies, index, 1) })} onDuplicate={() => mutate((next) => next.dependencies.splice(index + 1, 0, { ...next.dependencies[index], id: newId('dependency') }))} onDelete={() => requestDelete('Delete dependency?', 'This removes only the selected link from the private draft.', () => mutate((next) => { next.dependencies = next.dependencies.filter((candidate) => candidate.id !== item.id) }))} /></div>{createsCycle && <p role="alert" className="mt-2 flex items-center gap-2 text-body-sm text-danger-700"><AlertTriangle className="size-4" /> This link creates a dependency cycle.</p>}</div> })}</div>
 }
 
-function AssumptionsPanel({ values, register, mutate, requestDelete }: PanelCrudProps) {
+function AssumptionsPanel({ values, register, mutate, requestDelete, bulk }: PanelCrudProps & { bulk: BulkReviewProps }) {
   const addAssumption = () => mutate((next) => next.assumptions.push({ id: newId('assumption'), text: 'New assumption', category: 'OTHER', affectedPaths: [], sourceIds: [], status: 'PROPOSED' }))
   const addQuestion = () => mutate((next) => next.questions.push({ id: newId('question'), round: Math.max(1, ...next.questions.map((item) => item.round)), text: 'New question', impact: 'MEDIUM', affectedPaths: [], status: 'OPEN', answer: null }))
-  return <div className="space-y-5"><div className="flex flex-wrap justify-between gap-3"><PanelHeading title="Assumptions & Questions" description="Accept or reject planning assumptions and answer clarification questions." /><div className="flex gap-2"><Button type="button" size="sm" variant="outline" onClick={addQuestion}><Plus data-icon="inline-start" /> Question</Button><Button type="button" size="sm" onClick={addAssumption}><Plus data-icon="inline-start" /> Assumption</Button></div></div><h4 className="text-body font-semibold text-ink-primary">Assumptions</h4>{values.assumptions.length === 0 ? <EmptyState bare icon={Sparkles} title="No assumptions" /> : values.assumptions.map((item, index) => <div key={item.id} className="rounded-card border border-border p-4"><div className="grid gap-3 sm:grid-cols-[1fr_10rem_10rem_auto]"><Field label="Assumption"><textarea rows={2} className="input" {...register(`assumptions.${index}.text`)} /></Field><Field label="Category"><select className="input" {...register(`assumptions.${index}.category`)}>{['SCOPE','DATE','DELIVERABLE','OWNERSHIP','DEPENDENCY','EFFORT','OTHER'].map((value) => <option key={value}>{value}</option>)}</select></Field><Field label="Status"><select className="input" {...register(`assumptions.${index}.status`)}><option>PROPOSED</option><option>ACCEPTED</option><option>REJECTED</option></select></Field><DeleteOnly onDelete={() => requestDelete('Delete assumption?', 'This removes the assumption from the private draft.', () => mutate((next) => { next.assumptions = next.assumptions.filter((candidate) => candidate.id !== item.id) }))} /></div><DelimitedField label="Affected paths" path={`assumptions.${index}.affectedPaths`} values={item.affectedPaths} register={register} /><DelimitedField label="Source IDs" path={`assumptions.${index}.sourceIds`} values={item.sourceIds} register={register} /></div>)}<h4 className="text-body font-semibold text-ink-primary">Questions</h4>{values.questions.length === 0 ? <EmptyState bare icon={ListChecks} title="No open questions" /> : values.questions.map((item, index) => <div key={item.id} className="rounded-card border border-border p-4"><div className="grid gap-3 sm:grid-cols-[6rem_1fr_9rem_12rem_auto]"><Field label="Round"><input type="number" min={1} className="input" {...register(`questions.${index}.round`, { valueAsNumber: true })} /></Field><Field label="Question"><textarea rows={2} className="input" {...register(`questions.${index}.text`)} /></Field><Field label="Impact"><select className="input" {...register(`questions.${index}.impact`)}><option>HIGH</option><option>MEDIUM</option><option>LOW</option></select></Field><Field label="Status"><select className="input" {...register(`questions.${index}.status`)}><option>OPEN</option><option>ANSWERED</option><option>CONTINUED_WITH_ASSUMPTION</option></select></Field><DeleteOnly onDelete={() => requestDelete('Delete question?', 'This removes the question from the private draft.', () => mutate((next) => { next.questions = next.questions.filter((candidate) => candidate.id !== item.id) }))} /></div><Field label="Answer"><textarea rows={2} className="input mt-3" {...register(`questions.${index}.answer`, { setValueAs: emptyToNull })} /></Field><DelimitedField label="Affected paths" path={`questions.${index}.affectedPaths`} values={item.affectedPaths} register={register} /></div>)}</div>
+  return <div className="space-y-5"><div className="flex flex-wrap justify-between gap-3"><PanelHeading title="Assumptions & Questions" description="Accept or reject planning assumptions and answer clarification questions." /><div className="flex gap-2"><Button type="button" size="sm" variant="outline" onClick={addQuestion}><Plus data-icon="inline-start" /> Question</Button><Button type="button" size="sm" onClick={addAssumption}><Plus data-icon="inline-start" /> Assumption</Button></div></div><BulkReviewBar values={values} bulk={bulk} /><h4 className="text-body font-semibold text-ink-primary">Assumptions</h4>{values.assumptions.length === 0 ? <EmptyState bare icon={Sparkles} title="No assumptions" /> : values.assumptions.map((item, index) => <div key={item.id} className="rounded-card border border-border p-4"><div className="grid gap-3 sm:grid-cols-[1fr_10rem_10rem_auto]"><Field label="Assumption"><textarea rows={2} className="input" {...register(`assumptions.${index}.text`)} /></Field><Field label="Category"><select className="input" {...register(`assumptions.${index}.category`)}>{['SCOPE','DATE','DELIVERABLE','OWNERSHIP','DEPENDENCY','EFFORT','OTHER'].map((value) => <option key={value}>{value}</option>)}</select></Field><Field label="Status"><select className="input" {...register(`assumptions.${index}.status`)}><option>PROPOSED</option><option>ACCEPTED</option><option>REJECTED</option></select></Field><DeleteOnly onDelete={() => requestDelete('Delete assumption?', 'This removes the assumption from the private draft.', () => mutate((next) => { next.assumptions = next.assumptions.filter((candidate) => candidate.id !== item.id) }))} /></div><DelimitedField label="Affected paths" path={`assumptions.${index}.affectedPaths`} values={item.affectedPaths} register={register} /><DelimitedField label="Source IDs" path={`assumptions.${index}.sourceIds`} values={item.sourceIds} register={register} /></div>)}<h4 className="text-body font-semibold text-ink-primary">Questions</h4>{values.questions.length === 0 ? <EmptyState bare icon={ListChecks} title="No open questions" /> : values.questions.map((item, index) => <div key={item.id} className="rounded-card border border-border p-4"><div className="grid gap-3 sm:grid-cols-[6rem_1fr_9rem_12rem_auto]"><Field label="Round"><input type="number" min={1} className="input" {...register(`questions.${index}.round`, { valueAsNumber: true })} /></Field><Field label="Question"><textarea rows={2} className="input" {...register(`questions.${index}.text`)} /></Field><Field label="Impact"><select className="input" {...register(`questions.${index}.impact`)}><option>HIGH</option><option>MEDIUM</option><option>LOW</option></select></Field><Field label="Status"><select className="input" {...register(`questions.${index}.status`)}><option>OPEN</option><option>ANSWERED</option><option>CONTINUED_WITH_ASSUMPTION</option></select></Field><DeleteOnly onDelete={() => requestDelete('Delete question?', 'This removes the question from the private draft.', () => mutate((next) => { next.questions = next.questions.filter((candidate) => candidate.id !== item.id) }))} /></div><Field label="Answer"><textarea rows={2} className="input mt-3" {...register(`questions.${index}.answer`, { setValueAs: emptyToNull })} /></Field><DelimitedField label="Affected paths" path={`questions.${index}.affectedPaths`} values={item.affectedPaths} register={register} /></div>)}</div>
 }
 
 function ValidationPanel({ values, register, setPanel }: { values: NormalizedProjectCreationDraft; register: Register; setPanel: (panel: PanelId) => void }) {
@@ -640,7 +755,33 @@ function ValidationPanel({ values, register, setPanel }: { values: NormalizedPro
   return <div className="space-y-4"><PanelHeading title="Validation" description="Resolve deterministic errors before creation; warnings remain visible and acknowledgeable." /><div className="grid grid-cols-3 gap-3">{[['Blocking', blocking], ['Warnings', values.issues.filter((item) => item.severity === 'WARNING').length + values.warnings.length], ['Info', values.issues.filter((item) => item.severity === 'INFO').length]].map(([label, count]) => <div key={String(label)} className="rounded-card bg-surface-muted p-3"><div className="text-overline text-ink-tertiary">{label}</div><div className="text-section-title text-ink-primary">{count}</div></div>)}</div>{values.issues.length === 0 && values.warnings.length === 0 ? <EmptyState bare icon={Check} title="No validation findings" description="The draft has no saved deterministic findings." /> : <div className="space-y-3">{values.issues.map((item) => <div key={item.id} className={cn('rounded-card border p-4', item.severity === 'BLOCKING' ? 'border-danger-500/30 bg-danger-50' : 'border-warning-500/30 bg-warning-50')}><div className="flex flex-wrap items-center gap-2"><span className="text-overline">{item.severity}</span><span className="text-body-sm font-semibold">{item.code}</span>{item.sourceRow && <span className="text-body-sm text-ink-tertiary">Row {item.sourceRow}</span>}</div><p className="mt-1 text-body-sm text-ink-primary">{item.message}</p>{item.suggestedCorrection && <p className="mt-1 text-body-sm text-ink-secondary">Correction: {item.suggestedCorrection}</p>}<Button type="button" size="sm" variant="outline" className="mt-2" onClick={() => setPanel(item.affectedPaths.some((path) => path.startsWith('project')) ? 'project' : item.affectedPaths.some((path) => path.includes('dependencies')) ? 'dependencies' : 'schedule')}>Open affected panel</Button></div>)}{values.warnings.map((item, index) => <label key={item.id} className="block rounded-card border border-warning-500/30 bg-warning-50 p-4"><span className="text-body-sm font-semibold text-ink-primary">{item.code}</span><span className="mt-1 block text-body-sm text-ink-secondary">{item.message}</span><span className="mt-2 flex items-center gap-2 text-body-sm"><input type="checkbox" {...register(`warnings.${index}.acknowledged`)} /> Acknowledged</span></label>)}</div>}</div>
 }
 
-function SourcesPanel({ values, register, mutate }: PanelCrudProps) {
+const PROVENANCE_TYPE_LABEL: Record<ProjectCreationSource['type'], string> = {
+  USER_INPUT: 'User input',
+  SPREADSHEET_CELL: 'Spreadsheet cell',
+  SPREADSHEET_ROW: 'Spreadsheet row',
+  DOCX_HEADING: 'DOCX heading',
+  DOCX_PARAGRAPH: 'DOCX paragraph',
+  DOCX_TABLE: 'DOCX table',
+  TEMPLATE: 'Template',
+  AI_ASSUMPTION: 'AI assumption',
+}
+const PROVENANCE_BASIS_LABEL: Record<ProjectCreationSource['basis'], string> = {
+  SOURCE_FACT: 'Source fact',
+  INFERRED_RECOMMENDATION: 'Inferred — assumption',
+  USER_DECISION: 'User decision',
+  TEMPLATE_DEFAULT: 'Template default',
+}
+const CONFIDENCE_TONE: Record<ProjectCreationSource['confidence'], string> = {
+  HIGH: 'bg-success-50 text-success-700',
+  MEDIUM: 'bg-warning-50 text-warning-700',
+  LOW: 'bg-danger-50 text-danger-700',
+}
+
+function AssumptionLabel() {
+  return <p className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-warning-50 px-2.5 py-1 text-caption font-semibold text-warning-700"><Sparkles className="size-3.5" strokeWidth={1.75} /> Assumption — proposed value, editable; accept or reject it under Assumptions &amp; Questions</p>
+}
+
+function SourcesPanel({ values, sources, mutate }: { values: NormalizedProjectCreationDraft; sources: readonly ProjectCreationSource[]; mutate: PanelCrudProps['mutate'] }) {
   const decide = (changeIds: string[], decision: 'ACCEPT' | 'REJECT'): string | null => {
     try {
       mutate((next) => Object.assign(next, decideProjectCreationCleanupChanges(next, changeIds, decision)))
@@ -649,7 +790,7 @@ function SourcesPanel({ values, register, mutate }: PanelCrudProps) {
       return error instanceof Error ? error.message : 'The cleanup decision could not be applied.'
     }
   }
-  return <div className="space-y-5"><PanelHeading title="Source & Changes" description="Resolve uncertain mappings and explicitly accept or reject each proposed cleanup." /><h4 className="text-body font-semibold text-ink-primary">Sources</h4>{values.sources.length === 0 ? <EmptyState bare icon={FileText} title="No source references" /> : values.sources.map((item, index) => <div key={item.id} className="rounded-card border border-border p-4"><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><Field label="Type"><select className="input" {...register(`sources.${index}.type`)}>{['USER_INPUT','SPREADSHEET_CELL','SPREADSHEET_ROW','DOCX_HEADING','DOCX_PARAGRAPH','DOCX_TABLE','TEMPLATE','AI_ASSUMPTION'].map((value) => <option key={value}>{value}</option>)}</select></Field><Field label="Reference"><input className="input" {...register(`sources.${index}.reference`)} /></Field><Field label="Basis"><select className="input" {...register(`sources.${index}.basis`)}><option>SOURCE_FACT</option><option>INFERRED_RECOMMENDATION</option><option>USER_DECISION</option><option>TEMPLATE_DEFAULT</option></select></Field><Field label="Confidence"><select className="input" {...register(`sources.${index}.confidence`)}><option>HIGH</option><option>MEDIUM</option><option>LOW</option></select></Field><Field label="Last editor"><select className="input" {...register(`sources.${index}.lastEditor`)}><option>USER</option><option>AI</option></select></Field><Field label="Excerpt"><textarea rows={2} className="input" {...register(`sources.${index}.excerpt`, { setValueAs: emptyToNull })} /></Field><div className="lg:col-span-2"><DelimitedField label="Mapped target paths" path={`sources.${index}.targetPaths`} values={item.targetPaths} register={register} /></div></div></div>)}<ChangeListPanel changes={values.changes} onAccept={(ids) => decide(ids, 'ACCEPT')} onReject={(ids) => decide(ids, 'REJECT')} /></div>
+  return <div className="space-y-5"><PanelHeading title="Source & Changes" description="Where each value came from, how confident the import is, and who last changed it. Provenance is recorded by the server and cannot be edited here; editing a value marks it as your decision on the next save." /><h4 className="text-body font-semibold text-ink-primary">Sources</h4>{sources.length === 0 ? <EmptyState bare icon={FileText} title="No source references" /> : <ul className="space-y-3" aria-label="Source provenance (read-only)">{sources.map((item) => <li key={item.id} className="rounded-card border border-border p-4"><div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-surface-muted px-2.5 py-0.5 text-caption font-semibold text-ink-secondary">{PROVENANCE_TYPE_LABEL[item.type]}</span><span className={cn('rounded-full px-2.5 py-0.5 text-caption font-semibold', CONFIDENCE_TONE[item.confidence])}>{item.confidence.toLowerCase()} confidence</span><span className="text-caption text-ink-tertiary">{PROVENANCE_BASIS_LABEL[item.basis]} · last edited by {item.lastEditor === 'AI' ? 'AI' : 'user'}</span></div><p className="mt-2 break-words text-body-sm font-medium text-ink-primary">{item.reference}</p>{item.excerpt && <p className="mt-1 whitespace-pre-line break-words text-body-sm text-ink-secondary">{item.excerpt}</p>}<p className="mt-1 break-all text-caption text-ink-tertiary">Maps to: {item.targetPaths.join(', ')}</p></li>)}</ul>}<ChangeListPanel changes={values.changes} onAccept={(ids) => decide(ids, 'ACCEPT')} onReject={(ids) => decide(ids, 'REJECT')} /></div>
 }
 
 interface PanelCrudProps {

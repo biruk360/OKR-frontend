@@ -18,7 +18,7 @@ export default function CreateIndividualObjectiveButton({ onObjectiveCreated, us
     <>
       <button
         onClick={() => setIsModalOpen(true)}
-        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring"
       >
         <Plus className="h-4 w-4 mr-2" />
         <User className="h-4 w-4 mr-2" />
@@ -31,7 +31,8 @@ export default function CreateIndividualObjectiveButton({ onObjectiveCreated, us
         title="Add My Objective"
         defaultLevel="INDIVIDUAL"
         defaultOwnerId={session?.user?.id}
-        onObjectiveCreated={onObjectiveCreated}
+        lockOwner
+        onObjectiveCreated={() => onObjectiveCreated?.()}
         userDepartments={userDepartments}
       />
     </>

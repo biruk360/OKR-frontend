@@ -1,8 +1,9 @@
 'use client'
 
 import { useContext, useEffect, useRef, useState } from 'react'
-import { AlertTriangle, Download, Loader2, Printer, RefreshCw } from 'lucide-react'
+import { AlertTriangle, Download, Printer, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui'
+import { Skeleton } from '@/components/ui/Skeleton'
 import { LetterLangContext, useT } from '../i18n'
 
 interface Props {
@@ -118,18 +119,18 @@ export default function PdfPreviewPanel({ letterId }: Props) {
           </Button>
         </div>
         {missing.length > 0 ? (
-          <span className="inline-flex items-center gap-1 text-[12px] text-amber-700">
+          <span className="inline-flex items-center gap-1 text-xs text-warning-700">
             <AlertTriangle className="size-3.5" /> {t('pdf.missing')} <strong>{missing.join(', ')}</strong>
           </span>
         ) : null}
       </div>
 
       {error ? (
-        <div className="flex items-start gap-2 rounded-[12px] border border-red-200 bg-red-50 p-3 text-[13px] text-red-700 dark:border-red-900/30 dark:bg-red-900/15 dark:text-red-300">
+        <div className="flex items-start gap-2 rounded-card border border-danger-200 bg-danger-50 p-3 text-body-sm text-danger-700">
           <AlertTriangle className="mt-0.5 size-4" />
           <div>
             <div className="font-medium">{t('pdf.failed')}</div>
-            <div className="mt-0.5 text-[12px] opacity-80">{error}</div>
+            <div className="mt-0.5 text-xs opacity-80">{error}</div>
             <Button onClick={regenerate} variant="link" size="sm" className="px-0">{t('pdf.retry')}</Button>
           </div>
         </div>
@@ -140,15 +141,22 @@ export default function PdfPreviewPanel({ letterId }: Props) {
         style={{ borderColor: 'var(--ap-border)' }}
       >
         {loading ? (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center gap-2 text-[13px] text-muted-foreground">
-            <Loader2 className="size-5 animate-spin" />
-            Loading preview…
+          <div
+            className="pointer-events-none absolute inset-0 flex justify-center p-6"
+            aria-busy="true"
+            aria-label="Loading preview"
+          >
+            <Skeleton className="h-[840px] w-full max-w-[640px]" />
           </div>
         ) : null}
         <iframe
           ref={iframeRef}
           title="Letter preview"
           src={htmlUrl}
+          // No allow-scripts: the letter body is user content, so nothing in
+          // it may execute. allow-same-origin lets onIframeLoad read the height
+          // (safe without allow-scripts); allow-modals permits print().
+          sandbox="allow-same-origin allow-modals"
           onLoad={onIframeLoad}
           className="min-h-[900px] w-full bg-[color:var(--ap-bg-sunken)]"
         />

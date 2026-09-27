@@ -24,6 +24,7 @@ import type { CommitProjectCreationDraftResult } from '@/lib/projects/creation-c
 import { NewProjectEntry } from './creation/NewProjectEntry'
 import { CreationDraftShell } from './creation/CreationDraftShell'
 import { ImportUploadStep } from './creation/ImportUploadStep'
+import { AiGuidedFlow } from './creation/ai-guided/AiGuidedFlow'
 import { CreateProjectWizard } from './CreateProjectWizard'
 import { projectCreationMethodLabel } from './creation/methods'
 import { RagBadge, ProjectStatusBadge } from './ProjectBadges'
@@ -35,6 +36,8 @@ interface Props {
   aiAvailable: boolean
   currentUserId: string
   initialDraftId?: string | null
+  /** Portfolio is a management view (lib/projects/portfolio-access.ts); hide the link for everyone else. */
+  canViewPortfolio?: boolean
 }
 
 export function ProjectsListClient({
@@ -43,6 +46,7 @@ export function ProjectsListClient({
   aiAvailable,
   currentUserId,
   initialDraftId = null,
+  canViewPortfolio = false,
 }: Props) {
   const router = useRouter()
   const [creationOpen, setCreationOpen] = useState(false)
@@ -53,6 +57,7 @@ export function ProjectsListClient({
   const [switchConfirmOpen, setSwitchConfirmOpen] = useState(false)
   const [manualProgressStep, setManualProgressStep] = useState<1 | 2 | 3>(1)
   const [importProgressStep, setImportProgressStep] = useState<1 | 2 | 3>(1)
+  const [aiProgressStep, setAiProgressStep] = useState<1 | 2 | 3>(1)
   const [search, setSearch] = useState('')
   const debounced = useDebounce(search, 300)
   const { data, isLoading } = useProjectsList({ search: debounced, limit: 50 })
@@ -142,9 +147,11 @@ export function ProjectsListClient({
         description="Delivery schedule of record, baselines, and delay intelligence."
         actions={
           <div className="flex items-center gap-2">
-            <Link href="/dashboard/projects/portfolio" className="btn btn-secondary">
-              <LayoutGrid className="mr-1.5 size-4" /> Portfolio
-            </Link>
+            {canViewPortfolio && (
+              <Link href="/dashboard/projects/portfolio" className="btn btn-secondary">
+                <LayoutGrid className="mr-1.5 size-4" /> Portfolio
+              </Link>
+            )}
             <Link href="/dashboard/projects/templates" className="btn btn-secondary">
               <BookOpen className="mr-1.5 size-4" /> Templates
             </Link>
@@ -187,7 +194,7 @@ export function ProjectsListClient({
         />
       ) : (
         <div className="overflow-hidden rounded-card bg-surface-card shadow-card">
-          <div className="hidden grid-cols-12 gap-4 border-b border-black/[0.06] px-4 py-2.5 text-overline text-ink-secondary sm:grid">
+          <div className="hidden grid-cols-12 gap-4 border-b border-ink-primary/[0.06] px-4 py-2.5 text-overline text-ink-secondary sm:grid">
             <div className="col-span-4">Project</div>
             <div className="col-span-2">Client</div>
             <div className="col-span-1">Status</div>
@@ -199,7 +206,7 @@ export function ProjectsListClient({
             <Link
               key={p.id}
               href={`/projects/${p.id}`}
-              className="grid grid-cols-1 items-center gap-2 border-b border-black/[0.04] px-4 py-3 transition-colors last:border-0 hover:bg-surface-hover sm:grid-cols-12 sm:gap-4"
+              className="grid grid-cols-1 items-center gap-2 border-b border-ink-primary/[0.04] px-4 py-3 transition-colors last:border-0 hover:bg-surface-hover sm:grid-cols-12 sm:gap-4"
             >
               <div className="col-span-4 min-w-0">
                 <div className="truncate text-body font-medium text-ink-primary">{p.name}</div>
@@ -246,7 +253,7 @@ export function ProjectsListClient({
               ? manualProgressStep
               : activeDraft.sourceMethod === 'FILE_IMPORT'
               ? importProgressStep
-              : 1}
+              : aiProgressStep}
           >
             {activeDraft.sourceMethod === 'MANUAL' ? (
               <CreateProjectWizard
@@ -265,7 +272,17 @@ export function ProjectsListClient({
                 onSaveExit={() => setCreationOpen(false)}
                 onCommitted={completeDraftProject}
               />
-            ) : undefined}
+            ) : (
+              <AiGuidedFlow
+                draft={activeDraft}
+                aiFeatureEnabled={aiFeatureEnabled}
+                aiAvailable={aiAvailable}
+                onDraftUpdated={setActiveDraft}
+                onProgressChange={setAiProgressStep}
+                onSaveExit={() => setCreationOpen(false)}
+                onCommitted={completeDraftProject}
+              />
+            )}
           </CreationDraftShell>
         ) : savedDraft.isLoading ? (
           <div className="space-y-3" aria-label="Loading saved project draft">

@@ -12,7 +12,7 @@ import { recalcProjectRollup } from './rollup'
 import { computeProjectConfidence, deriveRag } from './confidence'
 import { computeEvm } from './evm'
 import { businessDaysBetween } from './business-days'
-import { emit } from '@/lib/notifications'
+import { emit, emitNow } from '@/lib/notifications'
 import type { RagStatus } from '@/features/projects/types'
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000
@@ -26,8 +26,23 @@ export interface HealthResult {
   spi: number | null
 }
 
+export interface RecomputeHealthOptions {
+  /**
+   * `'now'` awaits notification delivery (emitNow) — for the nightly cron, whose
+   * response must not return before the RAG emails/rows exist. Route callers
+   * keep the default `'background'` (emit: recipients resolved inline, delivery
+   * after the response).
+   */
+  deliver?: 'background' | 'now'
+}
+
 /** Recompute and persist health for a single project. */
-export async function recomputeProjectHealth(projectId: string, now: Date = new Date()): Promise<HealthResult | null> {
+export async function recomputeProjectHealth(
+  projectId: string,
+  now: Date = new Date(),
+  opts: RecomputeHealthOptions = {},
+): Promise<HealthResult | null> {
+  const notify = opts.deliver === 'now' ? emitNow : emit
   const project = await prisma.project.findUnique({
     where: { id: projectId },
     select: { id: true, ragStatus: true, budgetAtCompletion: true, actualCost: true, projectManagerId: true, name: true },
@@ -90,12 +105,12 @@ export async function recomputeProjectHealth(projectId: string, now: Date = new 
 
   // 4) Notify on RAG transition.
   if (ragStatus !== project.ragStatus) {
-    await emit('PROJECT_RAG_CHANGED', {
+    await notify('PROJECT_RAG_CHANGED', {
       entityType: 'PROJECT', entityId: projectId, entityTitle: project.name,
       data: { from: project.ragStatus, to: ragStatus, deepLink: `/projects/${projectId}` },
     })
     if (ragStatus === 'RED') {
-      await emit('PROJECT_WENT_RED', {
+      await notify('PROJECT_WENT_RED', {
         entityType: 'PROJECT', entityId: projectId, entityTitle: project.name,
         data: { confidence: Math.round(confidence), deepLink: `/projects/${projectId}` },
       })
@@ -105,7 +120,10 @@ export async function recomputeProjectHealth(projectId: string, now: Date = new 
   return { projectId, confidence: Math.round(confidence), ragStatus, percentComplete, percentPlanned, spi: evm.spi }
 }
 
-/** Recompute all active (non-archived, not completed/cancelled) projects. */
+/**
+ * Recompute all active (non-archived, not completed/cancelled) projects.
+ * Cron path: notifications are delivered before this resolves (`deliver: 'now'`).
+ */
 export async function recomputeAllActiveProjects(now: Date = new Date()): Promise<{ processed: number }> {
   const projects = await prisma.project.findMany({
     where: { archivedAt: null, status: { in: ['PLANNING', 'ACTIVE', 'ON_HOLD'] } },
@@ -114,7 +132,7 @@ export async function recomputeAllActiveProjects(now: Date = new Date()): Promis
   let processed = 0
   for (const p of projects) {
     try {
-      await recomputeProjectHealth(p.id, now)
+      await recomputeProjectHealth(p.id, now, { deliver: 'now' })
       processed++
     } catch (err) {
       console.error('[project-health] failed for', p.id, err)

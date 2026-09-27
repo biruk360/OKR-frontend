@@ -66,7 +66,7 @@ export function ManualActualModal({
       }
     >
       <div className="space-y-3">
-        <p className="text-[13px] text-muted-foreground">
+        <p className="text-body-sm text-muted-foreground">
           Automatic resolution failed for <span className="font-medium text-foreground">{criterionTitle}</span>.
           Enter the actual value so consolidation can proceed — automatic sources take precedence when they resolve.
         </p>
@@ -92,7 +92,7 @@ export function ManualActualModal({
             placeholder="Where does this number come from? Shown to reviewers for the audit trail."
             onChange={(event) => setNote(event.target.value)}
           />
-          <p className="text-[11px] text-muted-foreground">Recorded with your name and timestamp.</p>
+          <p className="text-caption text-muted-foreground">Recorded with your name and timestamp.</p>
         </div>
       </div>
     </Modal>

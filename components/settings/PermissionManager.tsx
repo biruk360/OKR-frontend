@@ -4,6 +4,8 @@ import { useState, useRef, lazy, Suspense } from 'react'
 import { cn } from '@/lib/utils'
 import { Loader2, Download, Upload } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
+import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/Skeleton'
 import toast from 'react-hot-toast'
 
 const ByRoleTab = lazy(() => import('@/components/settings/permissions/ByRoleTab'))
@@ -33,9 +35,12 @@ interface ImportDiff {
 
 function TabFallback() {
   return (
-    <div className="flex items-center justify-center py-16 text-gray-400">
-      <Loader2 className="h-6 w-6 animate-spin mr-2" />
-      <span className="text-sm">Loading…</span>
+    <div className="space-y-3" aria-busy="true" aria-label="Loading tab">
+      <Skeleton className="h-5 w-48" />
+      <Skeleton className="h-9 w-64" />
+      {Array.from({ length: 5 }).map((_, i) => (
+        <Skeleton key={i} className="h-10 w-full" />
+      ))}
     </div>
   )
 }
@@ -142,27 +147,21 @@ export default function PermissionManager() {
     <div>
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <button
-            onClick={handleExport}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors"
-          >
-            <Download className="h-4 w-4" />
+          <Button variant="outline" onClick={handleExport}>
+            <Download className="size-4" />
             Export Permissions
-          </button>
-          <button
-            onClick={handleImportClick}
-            disabled={importLoading}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
+          </Button>
+          <Button variant="outline" onClick={handleImportClick} disabled={importLoading}>
             {importLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="size-4 animate-spin" />
             ) : (
-              <Upload className="h-4 w-4" />
+              <Upload className="size-4" />
             )}
             Import Permissions
-          </button>
+          </Button>
           <input
             ref={fileInputRef}
+            aria-label="Import permissions file"
             type="file"
             accept=".json"
             className="hidden"
@@ -171,17 +170,19 @@ export default function PermissionManager() {
         </div>
       </div>
 
-      <div className="border-b mb-6">
-        <nav className="-mb-px flex gap-0">
+      <div className="border-b mb-6 overflow-x-auto">
+        <nav role="tablist" aria-label="Permission manager sections" className="-mb-px flex gap-0">
           {TABS.map((tab) => (
             <button
               key={tab.id}
+              role="tab"
+              aria-selected={activeTab === tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={cn(
                 'px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors',
                 activeTab === tab.id
-                  ? 'border-b-2 border-blue-600 text-blue-600'
-                  : 'border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? 'border-b-2 border-primary-600 text-primary-600'
+                  : 'border-b-2 border-transparent text-ink-secondary hover:text-ink-primary hover:border-ink-tertiary'
               )}
             >
               {tab.label}
@@ -212,52 +213,44 @@ export default function PermissionManager() {
         size="md"
         footer={
           <>
-            <button
-              onClick={handleCloseModal}
-              disabled={importLoading}
-              className="px-4 py-2 text-sm font-medium rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
-            >
+            <Button variant="outline" onClick={handleCloseModal} disabled={importLoading}>
               Cancel
-            </button>
-            <button
-              onClick={handleConfirmImport}
-              disabled={importLoading}
-              className="px-4 py-2 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
-            >
-              {importLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+            </Button>
+            <Button onClick={handleConfirmImport} disabled={importLoading}>
+              {importLoading && <Loader2 className="size-4 animate-spin" />}
               Confirm Import
-            </button>
+            </Button>
           </>
         }
       >
         <div className="space-y-4">
-          <div className="overflow-hidden rounded-lg border border-gray-200">
+          <div className="overflow-x-auto rounded-lg border border-border">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-gray-50 text-left">
-                  <th className="px-4 py-2.5 font-medium text-gray-600">Table</th>
-                  <th className="px-4 py-2.5 font-medium text-gray-600 text-center">Added</th>
-                  <th className="px-4 py-2.5 font-medium text-gray-600 text-center">Modified</th>
-                  <th className="px-4 py-2.5 font-medium text-gray-600 text-center">Unchanged</th>
+                <tr className="bg-surface-hover text-left">
+                  <th className="px-4 py-2.5 font-medium text-ink-secondary">Table</th>
+                  <th className="px-4 py-2.5 font-medium text-ink-secondary text-center">Added</th>
+                  <th className="px-4 py-2.5 font-medium text-ink-secondary text-center">Modified</th>
+                  <th className="px-4 py-2.5 font-medium text-ink-secondary text-center">Unchanged</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-border">
                 {diffRows.map(({ label, key }) => {
                   const row = importDiff?.[key]
                   return (
-                    <tr key={key} className="bg-white">
-                      <td className="px-4 py-2.5 text-gray-700">{label}</td>
+                    <tr key={key} className="bg-surface-card">
+                      <td className="px-4 py-2.5 text-ink-primary">{label}</td>
                       <td className="px-4 py-2.5 text-center">
-                        <span className={cn('font-medium', (row?.added ?? 0) > 0 ? 'text-green-600' : 'text-gray-400')}>
+                        <span className={cn('font-medium', (row?.added ?? 0) > 0 ? 'text-success-700' : 'text-ink-secondary')}>
                           {row?.added ?? 0}
                         </span>
                       </td>
                       <td className="px-4 py-2.5 text-center">
-                        <span className={cn('font-medium', (row?.modified ?? 0) > 0 ? 'text-amber-600' : 'text-gray-400')}>
+                        <span className={cn('font-medium', (row?.modified ?? 0) > 0 ? 'text-warning-700' : 'text-ink-secondary')}>
                           {row?.modified ?? 0}
                         </span>
                       </td>
-                      <td className="px-4 py-2.5 text-center text-gray-400">
+                      <td className="px-4 py-2.5 text-center text-ink-secondary">
                         {row?.unchanged ?? 0}
                       </td>
                     </tr>
@@ -268,7 +261,7 @@ export default function PermissionManager() {
           </div>
 
           {importError && (
-            <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+            <p role="alert" className="text-sm text-danger-700 bg-danger-50 border border-danger-200 rounded-md px-3 py-2">
               {importError}
             </p>
           )}

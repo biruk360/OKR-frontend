@@ -56,7 +56,7 @@ export function ClientObligationsRegister({ projectId, canEdit }: { projectId: s
       </div>
 
       {canEdit && (
-        <div className="mb-4 rounded-card border border-black/[0.08] p-3">
+        <div className="mb-4 rounded-card border border-ink-primary/[0.08] p-3">
           <div className="mb-2 text-body-sm font-medium text-ink-primary">New Client Obligation</div>
           <div className="grid gap-2 lg:grid-cols-4">
             <input className="input" value={draft.obligation} onChange={(e) => setDraft((d) => ({ ...d, obligation: e.target.value }))} placeholder="Obligation" />
@@ -69,7 +69,7 @@ export function ClientObligationsRegister({ projectId, canEdit }: { projectId: s
           <div className="mt-2 grid gap-2 lg:grid-cols-3">
             <input className="input" value={draft.responsibleEmail} onChange={(e) => setDraft((d) => ({ ...d, responsibleEmail: e.target.value }))} placeholder="Email" />
             <input className="input" value={draft.notes} onChange={(e) => setDraft((d) => ({ ...d, notes: e.target.value }))} placeholder="Notes" />
-            <label className="flex items-center gap-2 rounded-md border border-black/[0.08] px-2 text-body-sm">
+            <label className="flex items-center gap-2 rounded-md border border-ink-primary/[0.08] px-2 text-body-sm">
               <input type="checkbox" checked={draft.isContractual} onChange={(e) => setDraft((d) => ({ ...d, isContractual: e.target.checked }))} />
               Contractual / include in R6
             </label>
@@ -88,7 +88,7 @@ export function ClientObligationsRegister({ projectId, canEdit }: { projectId: s
         <div className="overflow-x-auto">
           <table className="w-full text-body-sm">
             <thead>
-              <tr className="border-b border-black/[0.08] text-left text-ink-tertiary">
+              <tr className="border-b border-ink-primary/[0.08] text-left text-ink-tertiary">
                 <th className="px-2 py-1.5 font-medium">Obligation</th>
                 <th className="px-2 py-1.5 font-medium">Responsible</th>
                 <th className="px-2 py-1.5 font-medium">SLA</th>
@@ -97,7 +97,7 @@ export function ClientObligationsRegister({ projectId, canEdit }: { projectId: s
                 {canEdit && <th className="px-2 py-1.5 font-medium">Actions</th>}
               </tr>
             </thead>
-            <tbody className="divide-y divide-black/[0.04]">
+            <tbody className="divide-y divide-ink-primary/[0.04]">
               {rows.map((row) => (
                 <ObligationRow
                   key={row.id}
@@ -125,22 +125,22 @@ function ObligationRow({ row, canEdit, onUpdate, onDelete }: {
     <tr>
       <td className="max-w-sm px-2 py-2">
         <div className="font-medium text-ink-primary">{row.obligation}</div>
-        <div className="text-[12px] text-ink-tertiary">{labelize(row.type)}{row.notes ? ` · ${row.notes}` : ''}</div>
+        <div className="text-xs text-ink-tertiary">{labelize(row.type)}{row.notes ? ` · ${row.notes}` : ''}</div>
       </td>
       <td className="px-2 py-2 text-ink-secondary">
         <div>{row.responsiblePerson}</div>
-        {row.responsibleEmail && <div className="text-[12px] text-ink-tertiary">{row.responsibleEmail}</div>}
+        {row.responsibleEmail && <div className="text-xs text-ink-tertiary">{row.responsibleEmail}</div>}
       </td>
       <td className="px-2 py-2 text-ink-secondary">{row.slaBusinessDays} business days</td>
       <td className="px-2 py-2">
-        <span className={cn('rounded-pill px-2 py-0.5 text-[12px] font-medium', TONE_CLASS[row.healthTone])}>
+        <span className={cn('rounded-pill px-2 py-0.5 text-xs font-medium', TONE_CLASS[row.healthTone])}>
           {row.complianceRate == null ? 'No approvals yet' : `${row.complianceRate}%`}
         </span>
-        <div className="mt-1 text-[12px] text-ink-tertiary">{row.breachCount} breaches</div>
+        <div className="mt-1 text-xs text-ink-tertiary">{row.breachCount} breaches</div>
       </td>
       <td className="px-2 py-2">
         {canEdit ? (
-          <button className={cn('rounded-md px-2 py-1 text-[12px] font-medium', row.isContractual ? 'bg-primary-50 text-primary-700' : 'bg-surface-muted text-ink-secondary')} onClick={() => onUpdate({ isContractual: !row.isContractual })}>
+          <button className={cn('rounded-md px-2 py-1 text-xs font-medium', row.isContractual ? 'bg-primary-50 text-primary-700' : 'bg-surface-muted text-ink-secondary')} onClick={() => onUpdate({ isContractual: !row.isContractual })}>
             {row.isContractual ? 'Included' : 'Internal'}
           </button>
         ) : row.isContractual ? 'Included' : 'Internal'}

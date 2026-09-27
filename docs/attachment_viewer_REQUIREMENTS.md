@@ -1,6 +1,6 @@
 # Attachment Viewing — One Contract, Every Surface
 
-> Status: SPECIFIED. Owner: TBD. Last updated: 2026-09-23.
+> Status: IMPLEMENTED for surfaces 1–3 (surface 4 per APL-4/A1). 2026-09-25: card comment attachments are `CommentAttachment` rows served by `/api/comment-attachments/[id]`; legacy `TodoAttachment` ids still render (NRG-3). Owner: TBD. Last updated: 2026-09-25.
 >
 > Legend: **[V]** verified against code · **[A]** assumption needing confirmation.
 

@@ -8,6 +8,9 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
+import { Modal } from '@/components/ui/Modal'
+import { Skeleton } from '@/components/ui/Skeleton'
+import { PersonTooltip } from '@/components/shared/UserAvatar'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -51,16 +54,22 @@ function StatusPill({ confidence }: { confidence?: string }) {
   )
 }
 
-function Avatar({ name, size = 'sm' }: { name: string | null | undefined; size?: 'sm' | 'md' }) {
-  const sz = size === 'sm' ? 'size-6 text-[11px]' : 'size-8 text-[13px]'
-  return (
+/** `detail` turns on the full-name hover card — pass it only where the name is
+ *  not printed beside the avatar (docs/user_name_hover_REQUIREMENTS.md UNH-6). */
+function Avatar({ name, size = 'sm', detail }: { name: string | null | undefined; size?: 'sm' | 'md'; detail?: string }) {
+  const sz = size === 'sm' ? 'size-6 text-caption' : 'size-8 text-body-sm'
+  const face = (
     <span
+      role={detail ? 'img' : undefined}
+      aria-label={detail ? (name ?? undefined) : undefined}
       className={cn('flex shrink-0 items-center justify-center rounded-full font-bold', sz)}
-      style={{ background: 'rgba(0,122,255,0.12)', color: 'var(--ap-accent)' }}
+      style={{ background: 'var(--ap-accent-soft)', color: 'var(--ap-accent)' }}
     >
       {(name ?? '?').charAt(0).toUpperCase()}
     </span>
   )
+  if (!detail || !name) return face
+  return <PersonTooltip person={{ name }} detail={detail}>{face}</PersonTooltip>
 }
 
 function SectionCard({ title, children }: { title?: string; children: React.ReactNode }) {
@@ -68,7 +77,7 @@ function SectionCard({ title, children }: { title?: string; children: React.Reac
     <div className="rounded-[var(--ap-radius-md)]" style={{ border: '1px solid var(--ap-border)', background: 'var(--ap-bg-raised)' }}>
       {title && (
         <div className="border-b px-4 py-2.5" style={{ borderColor: 'var(--ap-border)' }}>
-          <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--ap-fg-subtle)' }}>{title}</p>
+          <p className="text-micro font-bold uppercase tracking-widest" style={{ color: 'var(--ap-fg-subtle)' }}>{title}</p>
         </div>
       )}
       <div className="p-4">{children}</div>
@@ -81,7 +90,7 @@ function MetaRow({ icon: Icon, label, children }: { icon: any; label: string; ch
     <div className="flex items-start gap-3 py-2" style={{ borderBottom: '1px solid var(--ap-border)' }}>
       <Icon className="mt-0.5 size-4 shrink-0" style={{ color: 'var(--ap-fg-subtle)' }} />
       <span className="w-24 shrink-0 text-xs font-medium" style={{ color: 'var(--ap-fg-subtle)' }}>{label}</span>
-      <div className="flex-1 text-[13px]" style={{ color: 'var(--ap-fg)' }}>{children}</div>
+      <div className="flex-1 text-body-sm" style={{ color: 'var(--ap-fg)' }}>{children}</div>
     </div>
   )
 }
@@ -94,7 +103,7 @@ function GoalBar({ start, current, target, unit }: { start: number; current: num
   const u = unit ?? ''
   return (
     <div className="space-y-2">
-      <div className="flex justify-between text-[11px]" style={{ color: 'var(--ap-fg-subtle)' }}>
+      <div className="flex justify-between text-caption" style={{ color: 'var(--ap-fg-subtle)' }}>
         <span>Start: {start}{u}</span>
         <span>Current: <span style={{ color: 'var(--ap-accent)', fontWeight: 600 }}>{current}{u}</span></span>
         <span>Target: {target}{u}</span>
@@ -102,7 +111,7 @@ function GoalBar({ start, current, target, unit }: { start: number; current: num
       <div className="relative h-2 overflow-hidden rounded-full" style={{ background: 'var(--ap-border-strong)' }}>
         <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: 'var(--ap-accent)' }} />
       </div>
-      <div className="text-right text-[11px] font-semibold" style={{ color: 'var(--ap-accent)' }}>{Math.round(pct)}% complete</div>
+      <div className="text-right text-caption font-semibold" style={{ color: 'var(--ap-accent)' }}>{Math.round(pct)}% complete</div>
     </div>
   )
 }
@@ -150,8 +159,8 @@ function InitiativeRow({ todo }: { todo: KrTodo }) {
       style={{ borderBottom: '1px solid var(--ap-border)' }}
     >
       <span className="ap-status-dot shrink-0" data-tone={tone} />
-      <p className="min-w-0 flex-1 truncate text-[13px]" style={{ color: 'var(--ap-fg)' }}>{todo.title}</p>
-      {todo.assignee && <Avatar name={todo.assignee.name} size="sm" />}
+      <p className="min-w-0 flex-1 truncate text-body-sm" style={{ color: 'var(--ap-fg)' }}>{todo.title}</p>
+      {todo.assignee && <Avatar name={todo.assignee.name} size="sm" detail="Assignee" />}
       <span className="ap-status-pill shrink-0" data-tone={tone}>{label}</span>
     </div>
   )
@@ -163,10 +172,10 @@ function CheckInRow({ ci }: { ci: KrCheckIn }) {
   const dateStr = (() => { try { return format(new Date(ci.createdAt), 'MMM d, yyyy') } catch { return ci.createdAt } })()
   return (
     <div className="flex items-start gap-3 py-2.5" style={{ borderBottom: '1px solid var(--ap-border)' }}>
-      {ci.author && <Avatar name={ci.author.name} size="sm" />}
+      {ci.author && <Avatar name={ci.author.name} size="sm" detail="Checked in" />}
       <div className="min-w-0 flex-1">
-        {ci.note && <p className="text-[13px] leading-snug" style={{ color: 'var(--ap-fg)' }}>{ci.note}</p>}
-        <p className="mt-0.5 text-[11px]" style={{ color: 'var(--ap-fg-subtle)' }}>{dateStr} · value: {ci.value}</p>
+        {ci.note && <p className="text-body-sm leading-snug" style={{ color: 'var(--ap-fg)' }}>{ci.note}</p>}
+        <p className="mt-0.5 text-caption" style={{ color: 'var(--ap-fg-subtle)' }}>{dateStr} · value: {ci.value}</p>
       </div>
     </div>
   )
@@ -189,10 +198,10 @@ function QuickAiMode() {
           <button
             key={p}
             type="button"
-            className="rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors hover:opacity-80"
-            style={{ background: 'rgba(0,122,255,0.10)', color: 'var(--ap-accent)', border: '1px solid rgba(0,122,255,0.2)' }}
+            className="rounded-full px-2.5 py-1 text-caption font-medium transition-colors hover:opacity-80"
+            style={{ background: 'var(--ap-accent-soft)', color: 'var(--ap-accent)', border: '1px solid color-mix(in oklch, var(--ap-accent) 20%, transparent)' }}
           >
-            <Zap className="mr-1 inline size-2.5" />
+            <Zap className="mr-1 inline size-2.5" aria-hidden />
             {p}
           </button>
         ))}
@@ -229,25 +238,24 @@ export function KeyResultDetailModal({ krId, onClose }: Props) {
       .finally(() => setLoading(false))
   }, [krId])
 
-  if (!krId) return null
 
   const todos = data?.todos ?? []
   const recentCheckIns = [...checkIns].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-
-      {/* Modal */}
+    <Modal
+      open={!!krId}
+      onClose={onClose}
+      // Accessible name only — the visible header below carries the breadcrumb + actions.
+      title={data?.title ?? 'Key result'}
+      hideHeader
+      showCloseButton={false}
+      size="2xl"
+      className="!gap-0 overflow-hidden !p-0 sm:max-w-5xl"
+    >
       <div
-        className="relative flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden"
-        style={{
-          background: 'var(--ap-bg)',
-          borderRadius: 'var(--ap-radius-lg)',
-          boxShadow: 'var(--ap-shadow-lg)',
-          border: '1px solid var(--ap-border)',
-        }}
+        className="relative flex max-h-[92vh] w-full flex-col overflow-hidden"
+        style={{ background: 'var(--ap-bg)', borderRadius: 'var(--ap-radius-lg)' }}
       >
         {/* ── Header ── */}
         <div
@@ -268,15 +276,15 @@ export function KeyResultDetailModal({ krId, onClose }: Props) {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => router.push(`/dashboard/objectives?kr=${krId}`)}
-              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-85"
-              style={{ background: 'var(--ap-accent)' }}
+              onClick={() => router.push(`/dashboard/key-results/${krId}`)}
+              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-85"
+              style={{ background: 'var(--ap-accent)', color: 'var(--ap-accent-fg)' }}
             >
-              <ExternalLink className="size-3.5" />
+              <ExternalLink className="size-3.5" aria-hidden />
               Open full page
             </button>
-            <button type="button" className="rounded-lg p-1.5 transition-colors hover:bg-black/8" onClick={onClose}>
-              <X className="size-4" style={{ color: 'var(--ap-fg-muted)' }} />
+            <button type="button" aria-label="Close" className="rounded-lg p-1.5 transition-colors hover:bg-[var(--ap-bg-hover)]" onClick={onClose}>
+              <X className="size-4" style={{ color: 'var(--ap-fg-muted)' }} aria-hidden />
             </button>
           </div>
         </div>
@@ -286,8 +294,13 @@ export function KeyResultDetailModal({ krId, onClose }: Props) {
           {/* Left main */}
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 py-5">
             {loading ? (
-              <div className="flex items-center justify-center py-20">
-                <div className="size-6 animate-spin rounded-full border-2 border-[var(--ap-accent)] border-t-transparent" />
+              <div className="space-y-5" aria-busy="true" aria-label="Loading key result">
+                <Skeleton className="h-5 w-24 rounded-full" />
+                <Skeleton className="h-7 w-2/3" />
+                <Skeleton className="h-24 w-full" />
+                <Skeleton className="h-24 w-full" />
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
               </div>
             ) : data ? (
               <div className="space-y-5">
@@ -297,11 +310,11 @@ export function KeyResultDetailModal({ krId, onClose }: Props) {
                     <div className="flex items-center gap-2 mb-1.5">
                       <StatusPill confidence={data.confidence} />
                     </div>
-                    <h2 className="text-[20px] font-semibold leading-snug tracking-tight" style={{ color: 'var(--ap-fg)' }}>
+                    <h2 className="text-xl font-semibold leading-snug tracking-tight" style={{ color: 'var(--ap-fg)' }}>
                       {data.title}
                     </h2>
                     {data.description && (
-                      <p className="mt-2 text-[13px] leading-relaxed" style={{ color: 'var(--ap-fg-muted)' }}>
+                      <p className="mt-2 text-body-sm leading-relaxed" style={{ color: 'var(--ap-fg-muted)' }}>
                         {data.description}
                       </p>
                     )}
@@ -313,7 +326,7 @@ export function KeyResultDetailModal({ krId, onClose }: Props) {
                   className="rounded-[var(--ap-radius-md)] p-4"
                   style={{ border: '1px solid var(--ap-border)', background: 'var(--ap-bg-raised)' }}
                 >
-                  <p className="mb-3 text-[11px] font-bold uppercase tracking-widest" style={{ color: 'var(--ap-fg-subtle)' }}>
+                  <p className="mb-3 text-caption font-bold uppercase tracking-widest" style={{ color: 'var(--ap-fg-subtle)' }}>
                     Goal Progress
                   </p>
                   <GoalBar
@@ -330,7 +343,7 @@ export function KeyResultDetailModal({ krId, onClose }: Props) {
                     className="rounded-[var(--ap-radius-md)] p-4"
                     style={{ border: '1px solid var(--ap-border)', background: 'var(--ap-bg-raised)' }}
                   >
-                    <p className="mb-2 text-[11px] font-bold uppercase tracking-widest" style={{ color: 'var(--ap-fg-subtle)' }}>
+                    <p className="mb-2 text-caption font-bold uppercase tracking-widest" style={{ color: 'var(--ap-fg-subtle)' }}>
                       Progress Over Time
                     </p>
                     <ProgressSparkline checkIns={[...checkIns].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())} target={data.targetValue} />
@@ -340,7 +353,7 @@ export function KeyResultDetailModal({ krId, onClose }: Props) {
                 {/* Initiatives */}
                 {todos.length > 0 && (
                   <div>
-                    <p className="mb-2 text-[11px] font-bold uppercase tracking-widest" style={{ color: 'var(--ap-fg-subtle)' }}>
+                    <p className="mb-2 text-caption font-bold uppercase tracking-widest" style={{ color: 'var(--ap-fg-subtle)' }}>
                       Initiatives ({todos.length})
                     </p>
                     <div
@@ -359,7 +372,7 @@ export function KeyResultDetailModal({ krId, onClose }: Props) {
                 {/* Check-in timeline */}
                 {recentCheckIns.length > 0 && (
                   <div>
-                    <p className="mb-2 text-[11px] font-bold uppercase tracking-widest" style={{ color: 'var(--ap-fg-subtle)' }}>
+                    <p className="mb-2 text-caption font-bold uppercase tracking-widest" style={{ color: 'var(--ap-fg-subtle)' }}>
                       Recent Check-ins
                     </p>
                     <div
@@ -402,7 +415,7 @@ export function KeyResultDetailModal({ krId, onClose }: Props) {
                       </span>
                     </MetaRow>
                     <MetaRow icon={Target} label="Objective">
-                      <span className="truncate text-[12px]">{data.objective?.title ?? '—'}</span>
+                      <span className="truncate text-xs">{data.objective?.title ?? '—'}</span>
                     </MetaRow>
                     {data.objective?.timeframe && (
                       <MetaRow icon={Calendar} label="Timeframe">
@@ -415,7 +428,7 @@ export function KeyResultDetailModal({ krId, onClose }: Props) {
                     <div className="flex items-center gap-3 py-2">
                       <CheckSquare className="size-4 shrink-0" style={{ color: 'var(--ap-fg-subtle)' }} />
                       <span className="w-24 shrink-0 text-xs font-medium" style={{ color: 'var(--ap-fg-subtle)' }}>Initiatives</span>
-                      <span className="text-[13px]" style={{ color: 'var(--ap-fg)' }}>{todos.length}</span>
+                      <span className="text-body-sm" style={{ color: 'var(--ap-fg)' }}>{todos.length}</span>
                     </div>
                   </div>
                 </SectionCard>
@@ -437,6 +450,6 @@ export function KeyResultDetailModal({ krId, onClose }: Props) {
           </div>
         </div>
       </div>
-    </div>
+    </Modal>
   )
 }

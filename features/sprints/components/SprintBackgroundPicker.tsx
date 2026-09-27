@@ -86,7 +86,7 @@ export default function SprintBackgroundPicker({ sprintId, current, onChanged, d
             boxShadow: 'var(--ap-shadow-pop-xl)',
           }}
         >
-          <p className="mb-2 font-mono text-[10px] font-medium uppercase tracking-[0.1em]" style={{ color: 'var(--ap-fg-subtle)' }}>
+          <p className="mb-2 font-mono text-micro font-medium uppercase tracking-[0.1em]" style={{ color: 'var(--ap-fg-subtle)' }}>
             Board background
           </p>
           <div className="grid grid-cols-4 gap-[7px]">
@@ -114,7 +114,7 @@ export default function SprintBackgroundPicker({ sprintId, current, onChanged, d
                     </span>
                   )}
                   {saving === k && (
-                    <span className="absolute inset-0 flex items-center justify-center bg-black/20 text-[10px] font-semibold text-white">
+                    <span className="absolute inset-0 flex items-center justify-center bg-black/20 text-micro font-semibold text-white">
                       …
                     </span>
                   )}

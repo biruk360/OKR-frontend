@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { apiBadRequest, apiForbidden, apiNotFound, apiSuccess, withAuth } from '@/lib/api'
 import { canManageTemplates, hasPerformancePermission } from '@/lib/performance'
 import { SCRUM_PERFORMANCE_METRICS } from '@/types/scrum'
+import { recordActivity } from '@/lib/activity-log'
 
 async function canManageMappings(actor: { userId: string; role: string }, action: 'read' | 'write' | 'delete'): Promise<boolean> {
   return await canManageTemplates(actor, 'button.performance.template.map-metric')
@@ -89,6 +90,12 @@ export const PUT = withAuth(async (request: NextRequest, { session }) => {
     return apiBadRequest('Only active Key Results can be linked')
   }
 
+  const previous = await prisma.metricSourceMapping.findMany({
+    where: { criterionId, employeeId },
+    select: { keyResultId: true, scrumMetricKey: true },
+    orderBy: { position: 'asc' },
+  })
+
   const mappings = await prisma.$transaction(async (tx) => {
     await tx.metricSourceMapping.deleteMany({ where: { criterionId, employeeId } })
     if (keyResultIds.length > 0) {
@@ -119,6 +126,21 @@ export const PUT = withAuth(async (request: NextRequest, { session }) => {
       orderBy: { position: 'asc' },
     })
   })
+  const beforeKr = previous.flatMap((m) => (m.keyResultId ? [m.keyResultId] : []))
+  const beforeScrum = previous.flatMap((m) => (m.scrumMetricKey ? [m.scrumMetricKey] : []))
+  const changes = {
+    ...(JSON.stringify(beforeKr) !== JSON.stringify(keyResultIds) ? { keyResultIds: { from: beforeKr, to: keyResultIds } } : {}),
+    ...(JSON.stringify(beforeScrum) !== JSON.stringify(scrumMetricKeys) ? { scrumMetricKeys: { from: beforeScrum, to: scrumMetricKeys } } : {}),
+  }
+  if (Object.keys(changes).length > 0) {
+    await recordActivity({
+      entityType: 'PERFORMANCE_SETTINGS',
+      action: previous.length === 0 ? 'CREATED' : 'UPDATED',
+      actorId: session.user.id,
+      changes,
+      metadata: { entity: 'METRIC_SOURCE_MAPPING', criterionId, employeeId },
+    })
+  }
   return apiSuccess(mappings)
 })
 
@@ -127,6 +149,23 @@ export const DELETE = withAuth(async (request: NextRequest, { session }) => {
   if (!await canManageMappings(actor, 'delete')) return apiForbidden('You do not have permission to delete metric mappings')
   const id = new URL(request.url).searchParams.get('id')
   if (!id) return apiBadRequest('Mapping id is required')
+  const removed = await prisma.metricSourceMapping.findUnique({ where: { id } })
+  if (!removed) return apiNotFound('Metric mapping not found')
   await prisma.metricSourceMapping.delete({ where: { id } })
+  await recordActivity({
+    entityType: 'PERFORMANCE_SETTINGS',
+    action: 'DELETED',
+    actorId: session.user.id,
+    changes: {
+      source: { from: removed.keyResultId ?? removed.scrumMetricKey, to: null },
+    },
+    metadata: {
+      entity: 'METRIC_SOURCE_MAPPING',
+      mappingId: id,
+      criterionId: removed.criterionId,
+      employeeId: removed.employeeId,
+      sourceType: removed.sourceType,
+    },
+  })
   return apiSuccess({ id })
 })

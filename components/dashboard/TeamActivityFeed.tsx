@@ -33,8 +33,8 @@ function actionLabel(action: string, entityType: string): string {
 
 function EntityIcon({ type }: { type: string }) {
   if (type === 'KEY_RESULT') return <TrendingUp className="size-3 text-primary" />
-  if (type === 'TODO') return <CheckSquare className="size-3 text-violet-500" />
-  return <Target className="size-3 text-blue-500" />
+  if (type === 'TODO') return <CheckSquare className="size-3 text-primary-500" />
+  return <Target className="size-3 text-primary-500" />
 }
 
 function entityHref(type: string, id: string): string {
@@ -50,7 +50,7 @@ function Initials({ name }: { name: string }) {
     : parts[0].slice(0, 2)
   return (
     <div className="size-7 rounded-full bg-primary flex items-center justify-center shrink-0">
-      <span className="text-[10px] font-semibold text-primary-foreground uppercase">{letters}</span>
+      <span className="text-micro font-semibold text-primary-foreground uppercase">{letters}</span>
     </div>
   )
 }
@@ -110,17 +110,17 @@ export default function TeamActivityFeed({ items, emptyMessage = 'No recent team
               </p>
               <div className="flex items-center gap-2 mt-1">
                 <EntityIcon type={item.entityType} />
-                <span className="text-[11px] text-muted-foreground capitalize">
+                <span className="text-caption text-muted-foreground capitalize">
                   {item.entityType.replace('_', ' ').toLowerCase()}
                 </span>
-                <span className="text-[11px] text-muted-foreground">·</span>
-                <span className="text-[11px] text-muted-foreground">
+                <span className="text-caption text-muted-foreground">·</span>
+                <span className="text-caption text-muted-foreground">
                   {formatDistanceToNowStrict(new Date(item.createdAt), { addSuffix: true })}
                 </span>
                 {item.progress !== null && (
                   <>
-                    <span className="text-[11px] text-muted-foreground">·</span>
-                    <span className="text-[11px] font-semibold text-foreground">{Math.round(item.progress)}%</span>
+                    <span className="text-caption text-muted-foreground">·</span>
+                    <span className="text-caption font-semibold text-foreground">{Math.round(item.progress)}%</span>
                   </>
                 )}
               </div>
@@ -130,12 +130,12 @@ export default function TeamActivityFeed({ items, emptyMessage = 'No recent team
             {item.progress !== null && (
               <div className="shrink-0 mt-0.5">
                 <span
-                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums ${
+                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-caption font-semibold tabular-nums ${
                     item.progress >= 70
-                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                      ? 'bg-success-50 text-success-700 border border-success-200'
                       : item.progress >= 35
-                      ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                      : 'bg-red-50 text-red-700 border border-red-200'
+                      ? 'bg-warning-50 text-warning-700 border border-warning-200'
+                      : 'bg-danger-50 text-danger-700 border border-danger-200'
                   }`}
                 >
                   {Math.round(item.progress)}%

@@ -1,6 +1,6 @@
 /**
  * Shared loader for the report-dashboard payloads. Used by:
- *   - app/dashboard/reports/page.tsx (server-rendered first paint)
+ *   - app/dashboard/insights/page.tsx, Reports tab (server-rendered first paint)
  *   - app/api/dashboards/ceo (admin/exec live refresh)
  *   - app/api/dashboards/me (per-employee live refresh)
  *

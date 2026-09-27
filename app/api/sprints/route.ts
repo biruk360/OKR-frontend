@@ -2,13 +2,13 @@ import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { apiSuccess, apiBadRequest, apiConflict, apiForbidden, withAuth } from '@/lib/api'
 import { canFeature } from '@/lib/rbac'
-import { canCreateSprint, type UserRole } from '@/lib/permissions'
+import { canCreateSprint, sprintVisibilityWhere, type UserRole } from '@/lib/permissions'
 import { recordActivity } from '@/lib/activity-log'
 import { buildScopeFilter } from '@/lib/apply-scope'
 import { DEFAULT_LANES } from '@/lib/sprints/columns'
 
 /**
- * GET — list sprints visible to the user.
+ * GET — list sprints visible to the user (`sprintVisibilityWhere`: invite-only).
  *
  * Sprint v2 Phase 1 additions:
  *   - ?state=PLANNING|ACTIVE|COMPLETED|CANCELLED
@@ -40,8 +40,10 @@ export const GET = withAuth(async (request: NextRequest, { session }) => {
 
   const scopeFilter = await buildScopeFilter(session.user.id, 'sprint')
 
+  // Invite-only boards: list exactly the sprints `canViewSprint` would open
+  // (ADMIN/EXECUTIVE: all; everyone else: owned or participating).
   const sprints = await prisma.sprint.findMany({
-    where: { ...where, ...(scopeFilter ?? {}) },
+    where: { AND: [where, scopeFilter ?? {}, sprintVisibilityWhere(session.user)] },
     include: {
       owner: { select: { id: true, name: true, avatar: true } },
       participants: { include: { user: { select: { id: true, name: true, avatar: true } } } },

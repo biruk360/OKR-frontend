@@ -148,6 +148,7 @@ describe('Project creation deterministic spreadsheet import', () => {
   it('wires authenticated audited upload/analyze mutations and an editable react-hook-form mapping UI', () => {
     const uploadRoute = read('app/api/projects/creation-drafts/[id]/upload/route.ts')
     const analyzeRoute = read('app/api/projects/creation-drafts/[id]/analyze/route.ts')
+    const processing = read('lib/projects/creation-processing.ts')
     const draftService = read('lib/projects/creation-draft.ts')
     const uploadStep = read('features/projects/components/creation/ImportUploadStep.tsx')
     const mappingStep = read('features/projects/components/creation/ColumnMappingStep.tsx')
@@ -156,13 +157,19 @@ describe('Project creation deterministic spreadsheet import', () => {
     for (const route of [uploadRoute, analyzeRoute]) {
       assert.match(route, /export const POST = withAuth/)
       assert.match(route, /if \(!canCreateProject\(\{/)
-      assert.match(route, /updateProjectCreationDraft\(\{/)
       assert.doesNotMatch(route, /openai|anthropic|generateText|AiGenerationLog/i)
     }
+    assert.match(analyzeRoute, /updateProjectCreationDraft\(\{/)
+    // Story 2.7: upload parses in the background through the audited processing service.
+    assert.match(uploadRoute, /beginProjectCreationProcessing\(\{/)
+    assert.match(uploadRoute, /runAfterResponse\(/)
+    assert.match(processing, /completeProjectCreationProcessing\(\{/)
+    assert.match(processing, /kind: input\.status === 'FAILED' \? 'FILE_IMPORT_PROCESSING_FAILED' : 'FILE_IMPORT_PROCESSED'/)
+    assert.doesNotMatch(processing, /openai|anthropic|generateText|AiGenerationLog/i)
     assert.match(draftService, /kind: 'FILE_IMPORT_PROCESSED'/)
     assert.match(draftService, /sourceHash: sourceMetadata\.hash/)
     assert.match(uploadStep, /useForm<UploadFormValues>/)
-    assert.match(uploadStep, /Uploading, reading, and validating the spreadsheet/)
+    assert.match(uploadStep, /Processing runs in the background/)
     assert.match(uploadStep, /Ready for review/)
     assert.match(uploadStep, /no AI cleanup was used/i)
     assert.match(mappingStep, /useForm<MappingFormValues>/)

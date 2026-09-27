@@ -1,9 +1,8 @@
 import { notFound, redirect } from 'next/navigation'
-import { prisma } from '@/lib/prisma'
 import { getServerSessionSafe } from '@/lib/auth'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { LetterFormClient } from '@/features/letters'
-import type { LetterDetail } from '@/features/letters'
+import { loadLetterDetail } from '@/features/letters/services/letter-pages.server'
 
 interface PageProps {
   params: RouteIdParams
@@ -16,18 +15,15 @@ export default async function LetterDetailPage({ params }: PageProps) {
   const { id } = await resolveParams(params)
   if (!id) notFound()
 
-  const letter = await prisma.letter.findUnique({
-    where: { id },
-    include: {
-      preparedBy: { select: { id: true, name: true, avatar: true, email: true } },
-      signatory: { select: { id: true, name: true, avatar: true, email: true } },
-      enclosures: {
-        orderBy: { createdAt: 'desc' },
-        include: { uploadedBy: { select: { id: true, name: true, avatar: true } } },
-      },
-    },
-  })
-  if (!letter) notFound()
+  // Same read scope as GET /api/letters/[id]; out-of-scope or missing → not found.
+  const data = await loadLetterDetail(session.user.id, id)
+  if (!data) notFound()
 
-  return <LetterFormClient initial={letter as unknown as LetterDetail} viewer={session.user} />
+  return (
+    <LetterFormClient
+      initial={data.letter}
+      viewer={session.user}
+      canAdminister={data.canAdminister}
+    />
+  )
 }

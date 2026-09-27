@@ -45,8 +45,8 @@ export function buildDeepLink(args: {
 function pickPath(eventKey: EventKey, entityType: EntityType | undefined, entityId: string | undefined, data: Record<string, unknown>): string {
   // ── Account ──
   if (eventKey === 'ACCOUNT_INVITE') return String(data.activationUrl ?? '/auth/reset-password')
-  if (eventKey === 'ACCOUNT_VERIFY_EMAIL') return String(data.verifyUrl ?? '/auth/verify')
-  if (eventKey === 'ACCOUNT_PASSWORD_RESET_REQUESTED') return String(data.resetUrl ?? '/auth/reset-password')
+  if (eventKey === 'ACCOUNT_VERIFY_EMAIL') return String(data.verifyUrl ?? '/auth/signin')
+  if (eventKey === 'ACCOUNT_PASSWORD_RESET_REQUESTED') return String(data.resetUrl ?? '/auth/forgot-password')
   if (eventKey === 'ACCOUNT_PASSWORD_CHANGED') return '/dashboard/settings/account'
   if (eventKey === 'ACCOUNT_ROLE_CHANGED' || eventKey === 'ACCOUNT_DEACTIVATED') {
     return entityId ? `/dashboard/org/users/${entityId}` : '/dashboard/settings/users'
@@ -56,7 +56,7 @@ function pickPath(eventKey: EventKey, entityType: EntityType | undefined, entity
   if (eventKey === 'ADMIN_USER_CREATED') return entityId ? `/dashboard/org/users/${entityId}` : '/dashboard/settings/users'
   if (eventKey === 'ADMIN_BULK_JOB_DONE') return '/dashboard/settings'
   if (eventKey === 'ADMIN_SECURITY_ALERT') return '/dashboard/settings/audit-logs'
-  if (eventKey === 'ADMIN_WEEKLY_HEALTH_DIGEST' || eventKey === 'ADMIN_MONTHLY_EXEC_SUMMARY') return '/dashboard/reports'
+  if (eventKey === 'ADMIN_WEEKLY_HEALTH_DIGEST' || eventKey === 'ADMIN_MONTHLY_EXEC_SUMMARY') return '/dashboard/insights?tab=reports'
 
   // ── Timeframes ──
   if (eventKey === 'TIMEFRAME_OPENED' || eventKey === 'TIMEFRAME_CLOSED') return '/dashboard'
@@ -72,14 +72,14 @@ function pickPath(eventKey: EventKey, entityType: EntityType | undefined, entity
   // ── Alignment ──
   if (eventKey === 'OBJECTIVE_ALIGNED_CHILD_ADDED') {
     const parent = data.parentObjectiveId as string | undefined
-    return parent ? `/dashboard/objectives/${parent}` : '/dashboard/alignment-map'
+    return parent ? `/dashboard/objectives/${parent}` : '/dashboard/okrs-all?view=map'
   }
   if (eventKey === 'PARENT_OBJECTIVE_ARCHIVED_ORPHAN') {
     const orphan = data.orphanedObjectiveId as string | undefined
-    return orphan ? `/dashboard/objectives/${orphan}` : '/dashboard/alignment-map'
+    return orphan ? `/dashboard/objectives/${orphan}` : '/dashboard/okrs-all?view=map'
   }
   if (eventKey === 'ALIGNMENT_REQUESTED' || eventKey === 'ALIGNMENT_DECISION') {
-    return entityId ? `/dashboard/objectives/${entityId}` : '/dashboard/alignment-map'
+    return entityId ? `/dashboard/objectives/${entityId}` : '/dashboard/okrs-all?view=map'
   }
 
   // ── Performance & scorecard ──

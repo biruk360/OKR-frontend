@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { DoorOpen, Plus, ShieldCheck, Trash2 } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { cn } from '@/lib/utils'
 import { STAGE_GATE_STATUSES, type StageGateStatus } from '../../types'
@@ -14,6 +15,7 @@ import {
   type ProjectDetail,
   type StageGateNode,
 } from '../../hooks/useProject'
+import { TextPromptDialog } from '../dialogs/TextPromptDialog'
 
 const STATUS_TONE: Record<StageGateStatus, string> = {
   NOT_REACHED: 'bg-surface-muted text-ink-secondary',
@@ -52,7 +54,7 @@ export function StageGateRegister({ project, canEdit }: { project: ProjectDetail
   return (
     <div className="rounded-card bg-surface-card p-4 shadow-card">
       {canEdit && phasesWithoutGate.length > 0 && (
-        <div className="mb-4 rounded-card border border-black/[0.08] p-3">
+        <div className="mb-4 rounded-card border border-ink-primary/[0.08] p-3">
           <div className="mb-2 text-body-sm font-medium text-ink-primary">New Stage Gate</div>
           <div className="grid gap-2 md:grid-cols-2">
             <select className="input" value={draft.phaseId} onChange={(e) => setDraft((d) => ({ ...d, phaseId: e.target.value }))}>
@@ -81,7 +83,7 @@ export function StageGateRegister({ project, canEdit }: { project: ProjectDetail
         <div className="overflow-x-auto">
           <table className="w-full text-body-sm">
             <thead>
-              <tr className="border-b border-black/[0.08] text-left text-ink-tertiary">
+              <tr className="border-b border-ink-primary/[0.08] text-left text-ink-tertiary">
                 <th className="px-2 py-1.5 font-medium">Phase</th>
                 <th className="px-2 py-1.5 font-medium">Gate</th>
                 <th className="px-2 py-1.5 font-medium">Checklists</th>
@@ -89,7 +91,7 @@ export function StageGateRegister({ project, canEdit }: { project: ProjectDetail
                 {canEdit && <th className="px-2 py-1.5 font-medium">Actions</th>}
               </tr>
             </thead>
-            <tbody className="divide-y divide-black/[0.04]">
+            <tbody className="divide-y divide-ink-primary/[0.04]">
               {rows.map((gate) => (
                 <StageGateRow
                   key={gate.id}
@@ -113,25 +115,22 @@ function StageGateRow({ gate, canEdit, onUpdate, onDelete }: {
   onUpdate: (patch: Record<string, unknown>) => void
   onDelete: () => void
 }) {
-  const waive = () => {
-    const reason = window.prompt('Waiver reason:')
-    if (!reason?.trim()) return
-    onUpdate({ status: 'WAIVED', waiverReason: reason.trim() })
-  }
+  const [waiveOpen, setWaiveOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
 
   return (
     <tr>
       <td className="px-2 py-2 text-ink-secondary">{gate.phase?.name ?? 'Phase'}</td>
       <td className="max-w-xs px-2 py-2">
         <div className="font-medium text-ink-primary">{gate.name}</div>
-        {gate.waiverReason && <div className="line-clamp-2 text-[12px] text-primary-700">Waived: {gate.waiverReason}</div>}
+        {gate.waiverReason && <div className="line-clamp-2 text-xs text-primary-700">Waived: {gate.waiverReason}</div>}
       </td>
       <td className="px-2 py-2 text-ink-secondary">
         <div>Entry {gate.entryCriteria.length} · Exit {gate.exitCriteria.length}</div>
-        <div className="text-[12px] text-ink-tertiary">Deliverables {gate.requiredDeliverables.length} · Approvals {gate.requiredApprovals.length}</div>
+        <div className="text-xs text-ink-tertiary">Deliverables {gate.requiredDeliverables.length} · Approvals {gate.requiredApprovals.length}</div>
       </td>
       <td className="px-2 py-2">
-        <span className={cn('rounded-pill px-2 py-0.5 text-[12px] font-medium', STATUS_TONE[gate.status])}>{labelize(gate.status)}</span>
+        <span className={cn('rounded-pill px-2 py-0.5 text-xs font-medium', STATUS_TONE[gate.status])}>{labelize(gate.status)}</span>
       </td>
       {canEdit && (
         <td className="px-2 py-2">
@@ -141,14 +140,34 @@ function StageGateRow({ gate, canEdit, onUpdate, onDelete }: {
                 <ShieldCheck className="mr-1 size-3.5" /> Pass
               </button>
             )}
-            {gate.status !== 'WAIVED' && <button className="btn btn-outline btn-sm" onClick={waive}>Waive</button>}
+            {gate.status !== 'WAIVED' && <button className="btn btn-outline btn-sm" onClick={() => setWaiveOpen(true)}>Waive</button>}
             {STAGE_GATE_STATUSES.filter((s) => s !== 'PASSED' && s !== 'WAIVED').map((status) => (
               status !== gate.status && <button key={status} className="btn btn-outline btn-sm" onClick={() => onUpdate({ status })}>{labelize(status)}</button>
             ))}
-            <button className="rounded p-1 text-danger-600 hover:bg-danger-50" onClick={onDelete} title="Delete">
+            <button className="rounded p-1 text-danger-600 hover:bg-danger-50" onClick={() => setDeleteOpen(true)} title="Delete" aria-label={`Delete ${gate.name}`}>
               <Trash2 className="size-3.5" />
             </button>
           </div>
+          <TextPromptDialog
+            open={waiveOpen}
+            onClose={() => setWaiveOpen(false)}
+            onSubmit={(reason) => onUpdate({ status: 'WAIVED', waiverReason: reason })}
+            title={`Waive “${gate.name}”`}
+            message="A waived gate no longer blocks its phase. The reason is kept on the gate and in the audit log."
+            label="Waiver reason"
+            confirmLabel="Waive gate"
+            multiline
+          />
+          <ConfirmDialog
+            open={deleteOpen}
+            onClose={() => setDeleteOpen(false)}
+            onConfirm={() => { onDelete(); setDeleteOpen(false) }}
+            title="Delete stage gate"
+            message={`Delete the “${gate.name}” gate?`}
+            description="Activities in this phase will no longer be checked against it."
+            variant="danger"
+            confirmLabel="Delete gate"
+          />
         </td>
       )}
     </tr>
@@ -158,7 +177,7 @@ function StageGateRow({ gate, canEdit, onUpdate, onDelete }: {
 function ChecklistBox({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
   return (
     <label className="block">
-      <span className="text-[12px] text-ink-tertiary">{label}</span>
+      <span className="text-xs text-ink-tertiary">{label}</span>
       <textarea className="input mt-1 w-full" rows={3} value={value} onChange={(e) => onChange(e.target.value)} placeholder="One per line" />
     </label>
   )

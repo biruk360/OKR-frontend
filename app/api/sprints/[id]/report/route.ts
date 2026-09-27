@@ -9,7 +9,7 @@ import {
   apiNotFound,
   withAuth,
 } from '@/lib/api'
-import { canViewSprint, type UserRole } from '@/lib/permissions'
+import { canViewSprint, sprintVisibilityWhere, type UserRole } from '@/lib/permissions'
 import { completionRate, canReopen, REOPEN_WINDOW_DAYS } from '@/lib/sprints/end-sprint'
 
 interface DispositionRow {
@@ -90,7 +90,11 @@ export const GET = withAuth<RouteIdParams>(async (_request: NextRequest, { sessi
 
   const nextSprintIds = Array.from(new Set(dispositions.map(d => d.toSprintId).filter(Boolean))) as string[]
   const nextSprints = nextSprintIds.length
-    ? await prisma.sprint.findMany({ where: { id: { in: nextSprintIds } }, select: { id: true, name: true } })
+    ? await prisma.sprint.findMany({
+        // Lineage names only for boards the viewer can see (invite-only sprints).
+        where: { id: { in: nextSprintIds }, ...sprintVisibilityWhere(session.user) },
+        select: { id: true, name: true },
+      })
     : []
   const nextSprintMap = new Map(nextSprints.map(s => [s.id, s.name]))
 

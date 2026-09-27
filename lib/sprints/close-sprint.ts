@@ -11,6 +11,8 @@
 
 import { prisma } from '@/lib/prisma'
 import { recordActivity } from '@/lib/activity-log'
+import { sprintViewVerdict } from '@/lib/permissions'
+import { inviteToSprint } from './participants'
 import {
   computeDispositions,
   computeWarnings,
@@ -117,8 +119,17 @@ export async function executeSprintClose(args: {
     throw new CloseError('nextSprintId or createNextSprint is required when moving incomplete todos to a next sprint')
   }
   if (nextSprintId) {
-    const next = await prisma.sprint.findUnique({ where: { id: nextSprintId }, select: { id: true, state: true } })
+    const next = await prisma.sprint.findUnique({
+      where: { id: nextSprintId },
+      select: { id: true, state: true, ownerId: true, participants: { select: { userId: true } } },
+    })
     if (!next) throw new CloseError('Invalid nextSprintId')
+    // Invite-only sprints: carrying cards onto a board invites their people, so
+    // the actor must be able to see the destination (same answer as missing).
+    const actor = await prisma.user.findUnique({ where: { id: actorId }, select: { role: true } })
+    if (!actor || !sprintViewVerdict({ id: actorId, role: actor.role }, next)) {
+      throw new CloseError('Invalid nextSprintId')
+    }
     if (next.state !== 'PLANNING' && next.state !== 'ACTIVE') {
       throw new CloseError('nextSprintId must be a PLANNING or ACTIVE sprint')
     }
@@ -170,6 +181,10 @@ export async function executeSprintClose(args: {
         },
         select: { id: true },
       })
+      // Invite-only sprints: the follow-on board keeps the closing board's
+      // people (its owner and participants) so nobody loses the team's board
+      // by the sprint rolling over.
+      await inviteToSprint(tx, created.id, [sprint.ownerId, ...sprint.participants.map(p => p.userId)])
       resolvedNextId = created.id
       // Dispositions computed pre-transaction used null; stamp the real id now.
       for (const d of dispositions) if (d.action === 'next') d.toSprintId = resolvedNextId
@@ -238,6 +253,9 @@ export async function executeSprintClose(args: {
         })
         movedToNext++
         carried.push({ todoId: todo.id, title: todo.title, assigneeId: todo.assigneeId })
+        // Invite-only sprints: a card moving onto the next board invites its people.
+        const onCard = await tx.todoMember.findMany({ where: { todoId: todo.id }, select: { userId: true } })
+        await inviteToSprint(tx, resolvedNextId, [todo.assigneeId, ...onCard.map(m => m.userId)])
       } else if (d.action === 'cancel') {
         await tx.todo.update({
           where: { id: todo.id },

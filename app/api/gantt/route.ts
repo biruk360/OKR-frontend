@@ -1,6 +1,16 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { apiSuccess, withAuth } from '@/lib/api'
+import type { Prisma } from '@prisma/client'
+import { apiForbidden, apiSuccess, withAuth } from '@/lib/api'
+import {
+  buildObjectiveVisibilityWhere,
+  canViewKeyResultInMemory,
+  canViewObjectiveInMemory,
+  loadViewerContext,
+  REDACTED_KEY_RESULT_TITLE,
+  REDACTED_OBJECTIVE_TITLE,
+} from '@/lib/okr/visibility-scope'
+import { ALL_TIMEFRAMES, resolveDefaultTimeframe } from '@/lib/okr/active-timeframe'
 
 /**
  * Flattened shape tailored for DHTMLX Gantt. Objectives render as "project"
@@ -42,28 +52,44 @@ export interface GanttPayload {
   links: GanttLink[]
 }
 
+/**
+ * GET /api/gantt?timeframeId=<id|all>
+ *
+ * Scope: EMPLOYEE → own objectives; DEPARTMENT_LEAD → own + their departments';
+ * ADMIN/EXECUTIVE → all. Always ANDed with the shared OKR visibility rule
+ * (lib/okr/visibility-scope.ts: not DELETED, objective record scope) and private
+ * objectives/KRs the viewer may only see redacted are returned redacted.
+ * Without `timeframeId` the active timeframe is used (`timeframeId=all` → every
+ * timeframe) — loading every timeframe by default was the endpoint's main cost.
+ */
 export const GET = withAuth(async (request: NextRequest, { session }) => {
+  if (session.user.userType === 'CLIENT_PORTAL') return apiForbidden('Forbidden')
   const { searchParams } = new URL(request.url)
-  const timeframeId = searchParams.get('timeframeId')
+  const requestedTimeframe = searchParams.get('timeframeId')
 
   const role = session.user.role
-  const where: any = { status: 'ACTIVE' }
+  const [ctx, defaultTimeframe] = await Promise.all([
+    loadViewerContext({ id: session.user.id, role }),
+    requestedTimeframe ? Promise.resolve(null) : resolveDefaultTimeframe(),
+  ])
+  const timeframeId =
+    requestedTimeframe === ALL_TIMEFRAMES ? null : requestedTimeframe ?? defaultTimeframe?.id ?? null
+
+  const filters: Prisma.ObjectiveWhereInput[] = [buildObjectiveVisibilityWhere(ctx), { status: 'ACTIVE' }]
   if (role === 'EMPLOYEE') {
-    where.ownerId = session.user.id
+    filters.push({ ownerId: session.user.id })
   } else if (role === 'DEPARTMENT_LEAD') {
-    const memberships = await prisma.departmentMembership.findMany({
-      where: { userId: session.user.id },
-      select: { departmentId: true },
+    filters.push({
+      OR: [
+        { ownerId: session.user.id },
+        { departmentId: { in: Array.from(ctx.departmentIds) } },
+      ],
     })
-    where.OR = [
-      { ownerId: session.user.id },
-      { departmentId: { in: memberships.map((m) => m.departmentId) } },
-    ]
   }
-  if (timeframeId) where.timeframeId = timeframeId
+  if (timeframeId) filters.push({ timeframeId })
 
   const objectives = await prisma.objective.findMany({
-    where,
+    where: { AND: filters },
     orderBy: [{ level: 'asc' }, { createdAt: 'asc' }],
     include: {
       owner: { select: { id: true, name: true, avatar: true } },
@@ -88,10 +114,11 @@ export const GET = withAuth(async (request: NextRequest, { session }) => {
     if (!start || !end) continue
 
     visibleObjectiveIds.add(o.id)
+    const objVerdict = canViewObjectiveInMemory(ctx, o)
 
     tasks.push({
       id: `obj_${o.id}`,
-      text: o.title,
+      text: objVerdict.isRedacted ? REDACTED_OBJECTIVE_TITLE : o.title,
       start_date: formatDate(start),
       end_date: formatDate(end),
       progress: clamp01(o.progress / 100),
@@ -112,9 +139,10 @@ export const GET = withAuth(async (request: NextRequest, { session }) => {
     })
 
     for (const kr of o.keyResults) {
+      const krRedacted = canViewKeyResultInMemory(ctx, kr, objVerdict).isRedacted
       tasks.push({
         id: `kr_${kr.id}`,
-        text: kr.title,
+        text: krRedacted ? REDACTED_KEY_RESULT_TITLE : kr.title,
         start_date: formatDate(start),
         end_date: formatDate(end),
         progress: clamp01(kr.progress / 100),
@@ -127,9 +155,9 @@ export const GET = withAuth(async (request: NextRequest, { session }) => {
         department: null,
         goalStatus: null,
         confidence: kr.confidence,
-        unit: kr.unit,
-        currentValue: kr.currentValue,
-        targetValue: kr.targetValue,
+        unit: krRedacted ? '' : kr.unit,
+        currentValue: krRedacted ? null : kr.currentValue,
+        targetValue: krRedacted ? null : kr.targetValue,
         entityType: 'keyresult',
         entityId: kr.id,
       })

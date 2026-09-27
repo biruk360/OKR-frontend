@@ -15,7 +15,7 @@ interface Props {
  * Tiny inline trend chart for KPI tiles. No axes, no tooltip — purely visual.
  * Pair with the numeric value above it; the spark only shows direction.
  */
-export function Sparkline({ data, color = '#007AFF', height = 28 }: Props) {
+export function Sparkline({ data, color = 'var(--ap-accent)', height = 28 }: Props) {
   if (!data || data.length < 2) return null
   const series = data.map((value, index) => ({ index, value }))
   const gradientId = `spark-${color.replace(/[^a-zA-Z0-9]/g, '')}`

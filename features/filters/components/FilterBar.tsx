@@ -3,6 +3,13 @@
 import { useState } from 'react'
 import { Plus, X, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useFilterOptions } from '../hooks/useFilterOptions'
 import type { FilterState, FiltersTab } from '../types'
 
@@ -156,51 +163,40 @@ function getDisplayValue(
 type FilterOptions = { [K in keyof ReturnType<typeof useFilterOptions>]: OptionItem[] }
 
 // ─── Add filter menu ─────────────────────────────────────────────────────────
+// Shared DropdownMenu (Radix): outside-click, Esc, focus return and arrow-key
+// navigation — replaces the hand-rolled fixed-inset click-catcher.
 
 function AddFilterMenu({ available, onAdd }: { available: FilterDef[]; onAdd: (id: keyof FilterState) => void }) {
-  const [open, setOpen] = useState(false)
   return (
-    <div className="relative shrink-0">
-      <button
-        type="button"
-        onClick={() => setOpen((p) => !p)}
-        className="flex h-8 items-center gap-1.5 rounded-lg border px-3 text-xs font-semibold transition-opacity hover:opacity-75"
-        style={{ borderColor: 'var(--ap-accent)', color: 'var(--ap-accent)', background: 'rgba(0,122,255,0.07)' }}
-      >
-        <Plus className="size-3.5" />
-        Filter +
-      </button>
-
-      {open && (
-        <>
-          <div className="fixed inset-0 z-20" onClick={() => setOpen(false)} />
-          <div
-            className="absolute left-0 top-full z-30 mt-1 min-w-[200px] rounded-[var(--ap-radius-md)] py-1"
-            style={{ background: 'var(--ap-bg-raised)', border: '1px solid var(--ap-border)', boxShadow: 'var(--ap-shadow-lg)' }}
-          >
-            {available.length === 0 ? (
-              <p className="px-3 py-2 text-xs" style={{ color: 'var(--ap-fg-subtle)' }}>All filters added</p>
-            ) : (
-              available.map((def) => (
-                <button
-                  key={def.id}
-                  type="button"
-                  onClick={() => { onAdd(def.id); setOpen(false) }}
-                  className="flex w-full items-center px-3 py-2 text-left text-[13px] transition-colors hover:bg-black/5"
-                  style={{ color: 'var(--ap-fg)' }}
-                >
-                  {def.label}
-                </button>
-              ))
-            )}
-          </div>
-        </>
-      )}
-    </div>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg border px-3 text-xs font-semibold transition-opacity hover:opacity-75"
+          style={{ borderColor: 'var(--ap-accent)', color: 'var(--ap-accent)', background: 'var(--ap-accent-soft)' }}
+        >
+          <Plus className="size-3.5" aria-hidden />
+          Filter +
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="min-w-[200px]">
+        {available.length === 0 ? (
+          <DropdownMenuItem disabled className="text-xs">All filters added</DropdownMenuItem>
+        ) : (
+          available.map((def) => (
+            <DropdownMenuItem key={def.id} className="text-body-sm" onSelect={() => onAdd(def.id)}>
+              {def.label}
+            </DropdownMenuItem>
+          ))
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
 // ─── Single active filter field ───────────────────────────────────────────────
+// Popover (Radix) anchored to the whole field. The clear (×) button used to be
+// nested inside the trigger <button> (invalid HTML); it is now a sibling.
 
 function ActiveFilterField({
   def,
@@ -252,149 +248,157 @@ function ActiveFilterField({
   }
 
   return (
-    <div className="relative shrink-0">
-      <div
-        className="flex h-9 items-center rounded-lg transition-all duration-150"
-        style={{
-          background: 'var(--ap-bg-raised)',
-          border: open ? '1.5px solid var(--ap-accent)' : '1px solid var(--ap-border-strong)',
-          boxShadow: open ? '0 0 0 3px rgba(0,122,255,0.12)' : 'var(--ap-shadow-sm)',
-        }}
-      >
-        {/* Selector trigger */}
-        <button
-          type="button"
-          onClick={() => { setOpen((p) => !p); setSearch('') }}
-          className="flex h-full items-center gap-1.5 pl-2.5 pr-1"
+    <Popover open={open} onOpenChange={(next) => { setOpen(next); if (next) setSearch('') }}>
+      <PopoverAnchor asChild>
+        <div
+          className="flex h-9 shrink-0 items-center rounded-lg transition-all duration-150"
+          style={{
+            background: 'var(--ap-bg-raised)',
+            border: open ? '1.5px solid var(--ap-accent)' : '1px solid var(--ap-border-strong)',
+            boxShadow: open ? '0 0 0 3px color-mix(in oklch, var(--ap-accent) 12%, transparent)' : 'var(--ap-shadow-sm)',
+          }}
         >
-          <div className="flex flex-col items-start leading-none gap-px">
-            <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: 'var(--ap-fg-subtle)' }}>
-              {def.label}
-            </span>
-            <span className="text-[13px] font-medium" style={{ color: displayValue ? 'var(--ap-fg)' : 'var(--ap-fg-subtle)' }}>
-              {displayValue ?? 'Select…'}
-            </span>
-          </div>
-          {displayValue && (
+          {/* Selector trigger */}
+          <PopoverTrigger asChild>
             <button
               type="button"
-              onClick={(e) => { e.stopPropagation(); onValueChange(def.id, undefined) }}
-              className="rounded-full p-0.5 transition-colors hover:bg-black/10"
-              style={{ color: 'var(--ap-fg-subtle)' }}
+              className="flex h-full items-center gap-1.5 pl-2.5 pr-1"
+              aria-label={`${def.label}: ${displayValue ?? 'not set'}`}
             >
-              <X className="size-3" />
+              <span className="flex flex-col items-start leading-none gap-px">
+                <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: 'var(--ap-fg-subtle)' }}>
+                  {def.label}
+                </span>
+                <span className="text-body-sm font-medium" style={{ color: displayValue ? 'var(--ap-fg)' : 'var(--ap-fg-subtle)' }}>
+                  {displayValue ?? 'Select…'}
+                </span>
+              </span>
+              {!displayValue && (
+                <ChevronDown className={cn('size-3.5 transition-transform', open && 'rotate-180')} style={{ color: 'var(--ap-fg-subtle)' }} aria-hidden />
+              )}
             </button>
+          </PopoverTrigger>
+          {displayValue && (
+            <>
+              <button
+                type="button"
+                onClick={() => onValueChange(def.id, undefined)}
+                className="rounded-full p-0.5 transition-colors hover:bg-[var(--ap-bg-hover)]"
+                style={{ color: 'var(--ap-fg-subtle)' }}
+                aria-label={`Clear ${def.label}`}
+              >
+                <X className="size-3" aria-hidden />
+              </button>
+              <ChevronDown
+                className={cn('mr-1 size-3.5 transition-transform', open && 'rotate-180')}
+                style={{ color: 'var(--ap-fg-subtle)' }}
+                aria-hidden
+              />
+            </>
           )}
-          <ChevronDown className={cn('size-3.5 transition-transform', open && 'rotate-180')} style={{ color: 'var(--ap-fg-subtle)' }} />
-        </button>
 
-        {/* Divider + remove */}
-        <div className="flex h-full items-center px-1.5" style={{ borderLeft: '1px solid var(--ap-border)' }}>
-          <button
-            type="button"
-            onClick={() => onRemove(def.id)}
-            className="rounded p-0.5 transition-colors hover:bg-black/10"
-            style={{ color: 'var(--ap-fg-subtle)' }}
-            aria-label={`Remove ${def.label} filter`}
-          >
-            <X className="size-3.5" />
-          </button>
+          {/* Divider + remove */}
+          <div className="flex h-full items-center px-1.5" style={{ borderLeft: '1px solid var(--ap-border)' }}>
+            <button
+              type="button"
+              onClick={() => onRemove(def.id)}
+              className="rounded p-0.5 transition-colors hover:bg-[var(--ap-bg-hover)]"
+              style={{ color: 'var(--ap-fg-subtle)' }}
+              aria-label={`Remove ${def.label} filter`}
+            >
+              <X className="size-3.5" aria-hidden />
+            </button>
+          </div>
         </div>
-      </div>
+      </PopoverAnchor>
 
       {/* Dropdown panel */}
-      {open && (
-        <>
-          <div className="fixed inset-0 z-20" onClick={() => setOpen(false)} />
-          <div
-            className="absolute left-0 top-full z-30 mt-1.5 w-60 rounded-[var(--ap-radius-md)]"
-            style={{ background: 'var(--ap-bg-raised)', border: '1px solid var(--ap-border)', boxShadow: 'var(--ap-shadow-lg)' }}
-          >
-            {def.type === 'number' ? (
-              <div className="px-3 py-2.5">
+      <PopoverContent label={`${def.label} filter`} width={240} variant="menu" className="!p-0" sideOffset={6}>
+        {def.type === 'number' ? (
+          <div className="px-3 py-2.5">
+            <input
+              type="number"
+              min={0}
+              max={100}
+              placeholder="Enter % (0–100)"
+              aria-label={`${def.label} (%)`}
+              defaultValue={rawValue as number | undefined}
+              className="w-full rounded-lg bg-transparent px-2 py-1.5 text-sm focus:outline-none"
+              style={{ border: '1px solid var(--ap-border-strong)', color: 'var(--ap-fg)' }}
+              onChange={(e) => onValueChange(def.id, e.target.value ? Number(e.target.value) : undefined)}
+              autoFocus
+            />
+          </div>
+        ) : (
+          <>
+            {fieldOptions.length > 6 && (
+              <div className="px-2 py-2" style={{ borderBottom: '1px solid var(--ap-border)' }}>
                 <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  placeholder="Enter % (0–100)"
-                  defaultValue={rawValue as number | undefined}
-                  className="w-full rounded-lg px-2 py-1.5 text-sm focus:outline-none"
+                  type="text"
+                  placeholder="Search…"
+                  aria-label={`Search ${def.label} options`}
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full rounded-lg bg-transparent px-2.5 py-1.5 text-xs focus:outline-none"
                   style={{ border: '1px solid var(--ap-border-strong)', color: 'var(--ap-fg)' }}
-                  onChange={(e) => onValueChange(def.id, e.target.value ? Number(e.target.value) : undefined)}
                   autoFocus
                 />
               </div>
-            ) : (
-              <>
-                {fieldOptions.length > 6 && (
-                  <div className="px-2 py-2" style={{ borderBottom: '1px solid var(--ap-border)' }}>
-                    <input
-                      type="text"
-                      placeholder="Search…"
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      className="w-full rounded-lg px-2.5 py-1.5 text-xs focus:outline-none"
-                      style={{ border: '1px solid var(--ap-border-strong)', color: 'var(--ap-fg)' }}
-                      autoFocus
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  </div>
-                )}
-                <div className="max-h-52 overflow-y-auto py-1">
-                  {filtered.length === 0 ? (
-                    <p className="px-3 py-2 text-xs text-muted-foreground">No options found</p>
-                  ) : (
-                    filtered.map((opt) => {
-                      const active = isSelected(opt)
-                      return (
-                        <button
-                          key={opt.id}
-                          type="button"
-                          onClick={() => toggleOption(opt)}
-                          className={cn(
-                            'flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors',
-                            active
-                              ? 'bg-primary/10 text-primary font-semibold hover:bg-primary/15'
-                              : 'text-foreground hover:bg-muted'
-                          )}
-                        >
-                          {def.type !== 'single-select' && (
-                            <span className={cn(
-                              'flex size-4 shrink-0 items-center justify-center rounded border-2',
-                              active
-                                ? 'border-primary bg-primary'
-                                : 'border-muted-foreground/40 bg-background'
-                            )}>
-                              {active && (
-                                <svg viewBox="0 0 10 8" className="size-3">
-                                  <path d="M1 4l3 3 5-6" stroke="white" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                                </svg>
-                              )}
-                            </span>
-                          )}
-                          <span className="truncate">{opt.label}</span>
-                        </button>
-                      )
-                    })
-                  )}
-                </div>
-                {def.type !== 'single-select' && selectedArr.length > 0 && (
-                  <div className="border-t border-border px-3 py-1.5">
-                    <button
-                      type="button"
-                      onClick={() => onValueChange(def.id, undefined)}
-                      className="text-xs text-muted-foreground hover:text-destructive"
-                    >
-                      Clear all
-                    </button>
-                  </div>
-                )}
-              </>
             )}
-          </div>
-        </>
-      )}
-    </div>
+            <div className="max-h-52 overflow-y-auto py-1" role="group" aria-label={def.label}>
+              {filtered.length === 0 ? (
+                <p className="px-3 py-2 text-xs text-muted-foreground">No options found</p>
+              ) : (
+                filtered.map((opt) => {
+                  const active = isSelected(opt)
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => toggleOption(opt)}
+                      className={cn(
+                        'flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors',
+                        active
+                          ? 'bg-primary/10 text-primary font-semibold hover:bg-primary/15'
+                          : 'text-foreground hover:bg-muted'
+                      )}
+                    >
+                      {def.type !== 'single-select' && (
+                        <span className={cn(
+                          'flex size-4 shrink-0 items-center justify-center rounded border-2',
+                          active
+                            ? 'border-primary bg-primary text-primary-foreground'
+                            : 'border-muted-foreground/40 bg-background'
+                        )}>
+                          {active && (
+                            <svg viewBox="0 0 10 8" className="size-3" aria-hidden>
+                              <path d="M1 4l3 3 5-6" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          )}
+                        </span>
+                      )}
+                      <span className="truncate">{opt.label}</span>
+                    </button>
+                  )
+                })
+              )}
+            </div>
+            {def.type !== 'single-select' && selectedArr.length > 0 && (
+              <div className="border-t border-border px-3 py-1.5">
+                <button
+                  type="button"
+                  onClick={() => onValueChange(def.id, undefined)}
+                  className="text-xs text-muted-foreground hover:text-destructive"
+                >
+                  Clear all
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </PopoverContent>
+    </Popover>
   )
 }
 

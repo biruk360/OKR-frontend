@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useId } from 'react'
 import { useSession } from 'next-auth/react'
 import { useQueries } from '@tanstack/react-query'
 import { AlertTriangle, CheckCircle2, ExternalLink, FileX2, Info, LockKeyhole, PenLine, RefreshCw, Save, SearchX, UserX } from 'lucide-react'
@@ -165,6 +165,7 @@ function AnchorPopover({ anchorJson }: { anchorJson: Record<string, unknown> | n
 }
 
 export function ScoringWorkspace({ evaluationId }: { evaluationId: string }) {
+  const uid = useId()
   const { data: session } = useSession()
   const query = useEvaluation(evaluationId)
   const save = useSaveScores(evaluationId)
@@ -277,7 +278,7 @@ export function ScoringWorkspace({ evaluationId }: { evaluationId: string }) {
         >
           <div>
             <div className="flex items-center gap-2"><h2 className="text-lg font-semibold" style={{ letterSpacing: '-0.01em' }}>{evaluation.employee.name}</h2><PerformanceStatusBadge status={evaluation.status} /></div>
-            <p className="text-[13px] text-muted-foreground">{evaluation.cycle.name} · {evaluation.template.family.name}</p>
+            <p className="text-body-sm text-muted-foreground">{evaluation.cycle.name} · {evaluation.template.family.name}</p>
           </div>
         </div>
         <PerformanceReport evaluation={evaluation} />
@@ -350,12 +351,12 @@ export function ScoringWorkspace({ evaluationId }: { evaluationId: string }) {
       >
         <div>
           <div className="flex items-center gap-2"><h2 className="text-lg font-semibold" style={{ letterSpacing: '-0.01em' }}>{evaluation.employee.name}</h2><PerformanceStatusBadge status={evaluation.status} /></div>
-          <p className="text-[13px] text-muted-foreground">{evaluation.cycle.name} · {evaluation.template.family.name}</p>
+          <p className="text-body-sm text-muted-foreground">{evaluation.cycle.name} · {evaluation.template.family.name}</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <div className="text-right">
             <p className="text-sm font-semibold tabular-nums">{grandTotal.toFixed(1)} / {evaluation.template.maxTotal}</p>
-            <p className="text-[11px] text-muted-foreground">{totalCaption}</p>
+            <p className="text-caption text-muted-foreground">{totalCaption}</p>
           </div>
           {canExcuse && !['EXCUSED', 'FINALIZED'].includes(evaluation.status) && (
             <Button size="sm" variant="outline" onClick={() => { setExcuseReason(''); setExcuseOpen(true) }}>
@@ -419,7 +420,7 @@ export function ScoringWorkspace({ evaluationId }: { evaluationId: string }) {
                             inputs[index + delta]?.focus()
                           }}
                         />
-                        {clampHints[criterion.id] && <p className="mt-1 text-[11px] text-warning-700">{clampHints[criterion.id]}</p>}
+                        {clampHints[criterion.id] && <p className="mt-1 text-caption text-warning-700">{clampHints[criterion.id]}</p>}
                       </div>
                       <Textarea
                         value={drafts[criterion.id]?.remark ?? ''}
@@ -431,7 +432,7 @@ export function ScoringWorkspace({ evaluationId }: { evaluationId: string }) {
                         }}
                         onBlur={() => saveCriterion(criterion.id)}
                       />
-                      {canSave && <Button variant="outline" size="sm" disabled={assignmentLocked || save.isPending} onClick={() => saveCriterion(criterion.id)}><Save className="size-3.5" /></Button>}
+                      {canSave && <Button variant="outline" size="sm" aria-label="Save criterion score" title="Save criterion score" disabled={assignmentLocked || save.isPending} onClick={() => saveCriterion(criterion.id)}><Save className="size-3.5" /></Button>}
                     </>
                   )}
                 </div>
@@ -462,8 +463,8 @@ export function ScoringWorkspace({ evaluationId }: { evaluationId: string }) {
         disabled={!excuseReason.trim()}
         extraContent={
           <div>
-            <Label>Reason</Label>
-            <Textarea value={excuseReason} onChange={(event) => setExcuseReason(event.target.value)} placeholder="Why is this evaluation being excused?" />
+            <Label htmlFor={`${uid}-excuse-reason`}>Reason</Label>
+            <Textarea id={`${uid}-excuse-reason`} value={excuseReason} onChange={(event) => setExcuseReason(event.target.value)} placeholder="Why is this evaluation being excused?" />
           </div>
         }
       />

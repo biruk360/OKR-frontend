@@ -28,9 +28,9 @@ const KeyResultNode = memo(({ data, selected }: NodeProps<KeyResultNodeData>) =>
   } = data
 
   const getProgressColor = (progress: number) => {
-    if (progress >= 75) return 'bg-green-500'
-    if (progress >= 25) return 'bg-yellow-500'
-    return 'bg-red-500'
+    if (progress >= 75) return 'bg-success-500'
+    if (progress >= 25) return 'bg-warning-500'
+    return 'bg-danger-500'
   }
 
   const formatValue = (value: number, unit: string) => {
@@ -51,7 +51,7 @@ const KeyResultNode = memo(({ data, selected }: NodeProps<KeyResultNodeData>) =>
 
   return (
     <div className={`px-4 py-3 bg-muted border-2 rounded-lg shadow-md min-w-[240px] max-w-[280px] ${
-      selected ? 'border-blue-500' : 'border-border'
+      selected ? 'border-primary-500' : 'border-border'
     }`}>
       {/* Title */}
       <h4 className="font-medium text-foreground text-sm mb-3 line-clamp-2">
@@ -60,7 +60,7 @@ const KeyResultNode = memo(({ data, selected }: NodeProps<KeyResultNodeData>) =>
 
       {/* Progress Bar with Value */}
       <div className="mb-2">
-        <div className="w-full bg-gray-200 rounded-full h-4 relative">
+        <div className="w-full bg-surface-muted rounded-full h-4 relative">
           <div
             className={`h-4 rounded-full transition-all duration-300 ${getProgressColor(progress)}`}
             style={{ width: `${Math.min(progress, 100)}%` }}
@@ -82,7 +82,7 @@ const KeyResultNode = memo(({ data, selected }: NodeProps<KeyResultNodeData>) =>
       <Handle
         type="target"
         position={Position.Top}
-        className="w-2 h-2 bg-gray-400"
+        className="w-2 h-2 bg-ink-tertiary"
       />
     </div>
   )

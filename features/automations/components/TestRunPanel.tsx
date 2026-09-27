@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { AlertTriangle, Ban, Check, FlaskConical, Loader2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Modal } from '@/components/ui/Modal'
+import { Skeleton } from '@/components/ui/Skeleton'
 import { cn } from '@/lib/utils'
 import { useBriefing, useRunAutomationNow, useRunDetail } from '../hooks/useAutomations'
 
@@ -195,9 +196,11 @@ export function TestRunPanel({
               </div>
 
               {!briefing && (
-                <p className="flex items-center gap-2 text-body-sm text-ink-secondary">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading the briefing…
-                </p>
+                <div className="space-y-2" aria-busy="true" aria-label="Loading the briefing">
+                  <Skeleton className="h-4 w-2/3" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-5/6" />
+                </div>
               )}
 
               {briefing && (

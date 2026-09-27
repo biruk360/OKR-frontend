@@ -39,7 +39,7 @@ export function MapObjectiveNode({ data }: { data: Data }) {
       <p className="line-clamp-2 text-[12px] font-medium leading-snug text-gray-900">{data.title}</p>
       <div className="mt-1.5 flex items-center gap-1.5">
         <Progress className="flex-1" height={4} value={data.progress} fill={tone} aria-label="Objective progress" />
-        <span className="text-[10px] font-semibold tabular-nums text-gray-600">{data.progress}%</span>
+        <span className="text-micro font-semibold tabular-nums text-gray-600">{data.progress}%</span>
       </div>
       <Handle type="source" position={Position.Bottom} style={{ opacity: 0 }} />
     </div>

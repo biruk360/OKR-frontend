@@ -1,13 +1,14 @@
 'use client'
 
 import { Fragment, useState } from 'react'
-import { ChevronRight, ChevronDown, Target, Flag, CheckSquare, User } from 'lucide-react'
+import { ChevronRight, ChevronDown, Target, Flag, CheckSquare, User, SearchX } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useInitiativeDetailStore } from '@/lib/stores/initiative-detail-store'
 import { ObjectiveDetailModal } from './ObjectiveDetailModal'
 import { KeyResultDetailModal } from './KeyResultDetailModal'
 import type { FilteredResult, FiltersTab } from '../types'
 import { Progress } from '@/components/ui/progress'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { getProgressBarColor } from '@/lib/utils'
 
 // ─── Status helpers ───────────────────────────────────────────────────────────
@@ -54,8 +55,8 @@ function ProgressBar({ value, width = 80 }: { value: number; width?: number }) {
 function Avatar({ name }: { name: string }) {
   return (
     <span
-      className="flex size-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold"
-      style={{ backgroundColor: 'rgba(0,122,255,0.12)', color: 'var(--ap-accent)' }}
+      className="flex size-6 shrink-0 items-center justify-center rounded-full text-caption font-bold"
+      style={{ backgroundColor: 'color-mix(in oklch, var(--ap-accent) 12%, transparent)', color: 'var(--ap-accent)' }}
     >
       {name.charAt(0).toUpperCase()}
     </span>
@@ -69,18 +70,19 @@ function PlanGroupHeader({ planName, count, open, onToggle }: { planName: string
     <button
       type="button"
       onClick={onToggle}
-      className="sticky top-9 z-[5] flex w-full items-center gap-2 px-2 py-2 text-left transition-colors hover:bg-black/[0.02]"
+      aria-expanded={open}
+      className="sticky top-9 z-[5] flex w-full items-center gap-2 px-2 py-2 text-left transition-colors hover:bg-[var(--ap-bg-hover)]"
       style={{ background: 'var(--ap-bg)' }}
     >
       {open
         ? <ChevronDown className="size-3.5 shrink-0" style={{ color: 'var(--ap-fg-subtle)' }} />
         : <ChevronRight className="size-3.5 shrink-0" style={{ color: 'var(--ap-fg-subtle)' }} />
       }
-      <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--ap-fg-muted)' }}>
+      <span className="text-caption font-semibold uppercase tracking-wider" style={{ color: 'var(--ap-fg-muted)' }}>
         {planName}
       </span>
       <span
-        className="ml-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums"
+        className="ml-1 rounded-full px-1.5 py-0.5 text-micro font-semibold tabular-nums"
         style={{ background: 'var(--ap-border-strong)', color: 'var(--ap-fg-subtle)' }}
       >
         {count}
@@ -100,15 +102,15 @@ function ObjectiveGroupHeader({
     <div
       className="sticky top-9 z-[5] mb-2 flex items-center gap-3 rounded-[var(--ap-radius-md)] px-3.5 py-2.5"
       style={{
-        background: 'linear-gradient(180deg, rgba(0,122,255,0.06), rgba(0,122,255,0.02))',
-        border: '1px solid rgba(0,122,255,0.18)',
+        background: 'linear-gradient(180deg, color-mix(in oklch, var(--ap-accent) 6%, var(--ap-bg-raised)), color-mix(in oklch, var(--ap-accent) 2%, var(--ap-bg-raised)))',
+        border: '1px solid color-mix(in oklch, var(--ap-accent) 18%, transparent)',
         boxShadow: 'var(--ap-shadow-sm)',
       }}
     >
-      <button type="button" onClick={onToggle} className="shrink-0 rounded-md p-0.5 hover:bg-black/5">
+      <button type="button" onClick={onToggle} aria-expanded={open} aria-label={open ? 'Collapse group' : 'Expand group'} className="shrink-0 rounded-md p-0.5 hover:bg-[var(--ap-bg-hover)]">
         {open
-          ? <ChevronDown className="size-4" style={{ color: 'var(--ap-fg-muted)' }} />
-          : <ChevronRight className="size-4" style={{ color: 'var(--ap-fg-muted)' }} />
+          ? <ChevronDown className="size-4" style={{ color: 'var(--ap-fg-muted)' }} aria-hidden />
+          : <ChevronRight className="size-4" style={{ color: 'var(--ap-fg-muted)' }} aria-hidden />
         }
       </button>
       <Flag className="size-4 shrink-0" style={{ color: 'var(--ap-accent)' }} />
@@ -118,10 +120,10 @@ function ObjectiveGroupHeader({
         className="min-w-0 flex-1 text-left"
         title={obj.title}
       >
-        <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'var(--ap-accent)' }}>
+        <p className="text-micro font-semibold uppercase tracking-widest" style={{ color: 'var(--ap-accent)' }}>
           Objective {obj.timeframeName ? `· ${obj.timeframeName}` : ''}
         </p>
-        <p className="truncate text-[14px] font-semibold leading-snug" style={{ color: 'var(--ap-fg)' }}>
+        <p className="truncate text-sm font-semibold leading-snug" style={{ color: 'var(--ap-fg)' }}>
           {obj.title}
         </p>
       </button>
@@ -129,8 +131,8 @@ function ObjectiveGroupHeader({
         {obj.progress !== undefined && <ProgressBar value={obj.progress} width={64} />}
         <StatusPill tone={tone} label={CONFIDENCE_LABEL[obj.confidence ?? ''] ?? 'Pending'} />
         <span
-          className="rounded-full px-2 py-0.5 text-[10px] font-semibold tabular-nums"
-          style={{ background: 'rgba(0,122,255,0.12)', color: 'var(--ap-accent)' }}
+          className="rounded-full px-2 py-0.5 text-micro font-semibold tabular-nums"
+          style={{ background: 'var(--ap-accent-soft)', color: 'var(--ap-accent)' }}
         >
           {count} KR{count !== 1 ? 's' : ''}
         </span>
@@ -155,7 +157,7 @@ function ResultCard({ item, tab, onOpen }: { item: FilteredResult; tab: FiltersT
         isDone && 'opacity-60'
       )}
       style={{
-        background: '#ffffff',
+        background: 'var(--ap-bg-raised)',
         border: '1px solid var(--ap-border)',
         boxShadow: 'var(--ap-shadow-sm)',
       }}
@@ -163,7 +165,7 @@ function ResultCard({ item, tab, onOpen }: { item: FilteredResult; tab: FiltersT
       {/* Title block */}
       <div className="min-w-0 flex-1">
         <p
-          className={cn('truncate text-[13px] font-semibold leading-snug', isDone && 'line-through')}
+          className={cn('truncate text-body-sm font-semibold leading-snug', isDone && 'line-through')}
           style={{ color: 'var(--ap-fg)' }}
           title={item.title}
         >
@@ -171,7 +173,7 @@ function ResultCard({ item, tab, onOpen }: { item: FilteredResult; tab: FiltersT
         </p>
         {/* Sub-line: KR value or initiative count */}
         {tab === 'key-results' && item.targetValue !== undefined && (
-          <p className="mt-0.5 text-[11px]" style={{ color: 'var(--ap-fg-subtle)' }}>
+          <p className="mt-0.5 text-caption" style={{ color: 'var(--ap-fg-subtle)' }}>
             <span className="font-semibold" style={{ color: 'var(--ap-fg-muted)' }}>
               {item.currentValue ?? 0}
             </span>
@@ -187,7 +189,7 @@ function ResultCard({ item, tab, onOpen }: { item: FilteredResult; tab: FiltersT
           </p>
         )}
         {tab === 'objectives' && (item.krCount ?? 0) > 0 && (
-          <p className="mt-0.5 text-[11px]" style={{ color: 'var(--ap-fg-subtle)' }}>
+          <p className="mt-0.5 text-caption" style={{ color: 'var(--ap-fg-subtle)' }}>
             <Target className="inline size-3" /> {item.krCount} key result{item.krCount !== 1 ? 's' : ''}
             {item.level && ` · ${item.level.toLowerCase()}`}
           </p>
@@ -304,26 +306,14 @@ export function ResultsList({ results, tab, onReset }: ResultsListProps) {
 
   if (results.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-4 py-20">
-        <div
-          className="flex size-14 items-center justify-center rounded-2xl text-2xl"
-          style={{ background: 'var(--ap-border)', color: 'var(--ap-fg-subtle)' }}
-        >
-          🔍
-        </div>
-        <div className="text-center">
-          <p className="font-semibold" style={{ color: 'var(--ap-fg)' }}>No results</p>
-          <p className="mt-1 text-sm" style={{ color: 'var(--ap-fg-subtle)' }}>Try adjusting or resetting your filters.</p>
-        </div>
-        <button
-          type="button"
-          onClick={onReset}
-          className="rounded-lg px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-85"
-          style={{ background: 'var(--ap-accent)' }}
-        >
-          Reset filters
-        </button>
-      </div>
+      <EmptyState
+        bare
+        className="py-20"
+        icon={SearchX}
+        title="No results"
+        description="Try adjusting or resetting your filters."
+        action={{ label: 'Reset filters', onClick: onReset }}
+      />
     )
   }
 
@@ -335,12 +325,12 @@ export function ResultsList({ results, tab, onReset }: ResultsListProps) {
         {/* Column headers */}
         <div
           className="sticky top-0 z-10 mb-2 flex items-center gap-4 px-4 py-2 backdrop-blur"
-          style={{ background: 'rgba(242,242,247,0.85)', borderRadius: 'var(--ap-radius-sm)' }}
+          style={{ background: 'color-mix(in oklch, var(--ap-bg) 85%, transparent)', borderRadius: 'var(--ap-radius-sm)' }}
         >
-          <span className="min-w-0 flex-1 text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'var(--ap-fg-subtle)' }}>{col1}</span>
-          <span className="w-36 shrink-0 text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'var(--ap-fg-subtle)' }}>{col2}</span>
-          {col3 && <span className="w-24 shrink-0 text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'var(--ap-fg-subtle)' }}>{col3}</span>}
-          <span className="w-32 shrink-0 text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'var(--ap-fg-subtle)' }}>{col4}</span>
+          <span className="min-w-0 flex-1 text-micro font-semibold uppercase tracking-widest" style={{ color: 'var(--ap-fg-subtle)' }}>{col1}</span>
+          <span className="w-36 shrink-0 text-micro font-semibold uppercase tracking-widest" style={{ color: 'var(--ap-fg-subtle)' }}>{col2}</span>
+          {col3 && <span className="w-24 shrink-0 text-micro font-semibold uppercase tracking-widest" style={{ color: 'var(--ap-fg-subtle)' }}>{col3}</span>}
+          <span className="w-32 shrink-0 text-micro font-semibold uppercase tracking-widest" style={{ color: 'var(--ap-fg-subtle)' }}>{col4}</span>
         </div>
 
         {tab === 'key-results' ? (

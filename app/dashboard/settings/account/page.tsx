@@ -3,11 +3,12 @@
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { toast } from 'react-hot-toast'
-import { Download, Trash2, Key } from 'lucide-react'
+import { Download, Key } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { useAccountActions } from '@/hooks/useAccountActions'
 
 /**
  * Every control here used to `setTimeout(…, 1000)` to fake latency and then
@@ -24,8 +25,7 @@ interface ChangePasswordForm {
 
 export default function AccountSettingsPage() {
   const [changePasswordOpen, setChangePasswordOpen] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isExporting, setIsExporting] = useState(false)
+  const { isSubmitting, isExporting, changePassword, exportData } = useAccountActions()
 
   const {
     register,
@@ -40,100 +40,39 @@ export default function AccountSettingsPage() {
       setError('confirmPassword', { message: 'Passwords do not match' })
       return
     }
-    setIsSubmitting(true)
-    try {
-      const res = await fetch('/api/auth/change-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          currentPassword: values.currentPassword,
-          newPassword: values.newPassword,
-        }),
-      })
-      const data = await res.json().catch(() => null)
-      if (!res.ok || !data?.success) {
-        setError('currentPassword', { message: data?.error || 'Could not change password' })
-        return
-      }
-      toast.success('Password changed')
-      reset()
-      setChangePasswordOpen(false)
-    } catch {
-      setError('currentPassword', { message: 'Could not reach the server' })
-    } finally {
-      setIsSubmitting(false)
+    const result = await changePassword(values)
+    if (!result.ok) {
+      setError('currentPassword', { message: result.error })
+      return
     }
-  }
-
-  const handleExportData = async () => {
-    setIsExporting(true)
-    try {
-      const res = await fetch('/api/me/export')
-      if (!res.ok) throw new Error()
-      const blob = await res.blob()
-      // Read the server-chosen filename rather than duplicating the naming rule.
-      const disposition = res.headers.get('content-disposition') || ''
-      const match = /filename="([^"]+)"/.exec(disposition)
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = match?.[1] || 'okr-export.json'
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      URL.revokeObjectURL(url)
-      toast.success('Export downloaded')
-    } catch {
-      toast.error('Export failed')
-    } finally {
-      setIsExporting(false)
-    }
+    toast.success('Password changed')
+    reset()
+    setChangePasswordOpen(false)
   }
 
   return (
     <div className="space-y-6">
-      <div className="bg-card shadow rounded-lg">
+      <div className="rounded-card border border-border bg-card shadow-card">
         <div className="px-4 py-5 sm:p-6">
-          <h3 className="text-lg leading-6 font-medium text-foreground mb-4">
-            Account Actions
+          <h3 className="mb-4 text-section-title text-foreground">
+            Account actions
           </h3>
           <div className="space-y-3">
-            <button
-              onClick={() => setChangePasswordOpen(true)}
-              className="inline-flex items-center px-4 py-2 border border-border rounded-md shadow-sm text-sm font-medium text-muted-foreground bg-card hover:bg-muted"
-            >
-              <Key className="mr-2 h-4 w-4" />
-              Change Password
-            </button>
-            <button
-              onClick={handleExportData}
-              disabled={isExporting}
-              className="inline-flex items-center px-4 py-2 border border-border rounded-md shadow-sm text-sm font-medium text-muted-foreground bg-card hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Download className="mr-2 h-4 w-4" />
-              {isExporting ? 'Exporting…' : 'Export Data'}
-            </button>
-            {/* Self-service deletion is not built: the owner of an objective
-                cannot simply be removed without deciding what happens to the
-                OKRs, check-ins and audit rows that reference them, which is an
-                org policy call rather than a missing handler. Shown disabled and
-                labelled rather than firing a toast that implies it happened. */}
-            <div>
-              <button
-                type="button"
-                disabled
-                aria-disabled="true"
-                title="Ask an administrator to deactivate your account"
-                className="inline-flex items-center px-4 py-2 border border-red-300 rounded-md shadow-sm text-sm font-medium text-red-700 bg-card opacity-50 cursor-not-allowed"
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete Account
-              </button>
-              <p className="mt-1.5 text-xs text-muted-foreground">
-                Self-service deletion is not available. An administrator can deactivate your
-                account from Settings → Users.
-              </p>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={() => setChangePasswordOpen(true)}>
+                <Key className="size-4" />
+                Change password
+              </Button>
+              <Button variant="outline" onClick={exportData} disabled={isExporting}>
+                <Download className="size-4" />
+                {isExporting ? 'Exporting…' : 'Export data'}
+              </Button>
             </div>
+            {/* No self-service deletion (decision 2026-09-25): only an ADMIN
+                can delete an account, from Settings → Users. */}
+            <p className="text-xs text-muted-foreground">
+              To close your account, ask an administrator.
+            </p>
           </div>
         </div>
       </div>

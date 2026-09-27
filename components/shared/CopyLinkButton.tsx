@@ -109,7 +109,7 @@ export default function CopyLinkButton({
       title={title ?? label}
       aria-label={title ?? label}
       className={cn(
-        'inline-flex items-center gap-1.5 text-[12px] font-semibold transition-colors disabled:opacity-60',
+        'inline-flex items-center gap-1.5 text-xs font-semibold transition-colors disabled:opacity-60',
         copied && 'text-[var(--ap-ok)]',
         className,
       )}

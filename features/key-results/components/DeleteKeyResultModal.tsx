@@ -72,11 +72,11 @@ export default function DeleteKeyResultModal({ isOpen, onClose, keyResult, onSuc
         </>
       }
       extraContent={
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
-          <h4 className="text-sm font-medium text-yellow-800">
+        <div className="bg-warning-50 border border-warning-200 rounded-lg p-4 mb-4">
+          <h4 className="text-sm font-medium text-warning-800">
             Parent Objective Progress Will Be Recalculated
           </h4>
-          <p className="text-sm text-yellow-700 mt-1">
+          <p className="text-sm text-warning-700 mt-1">
             The parent objective&apos;s overall progress will be immediately recalculated based on the remaining key results.
           </p>
         </div>

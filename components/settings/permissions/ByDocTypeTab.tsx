@@ -3,6 +3,19 @@
 import { useCallback, useEffect, useState } from 'react'
 import { AlertCircle, Check, Loader2, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { Skeleton } from '@/components/ui/Skeleton'
+import { SettingsSelect } from '../SettingsSelect'
+
+function GridSkeleton({ label }: { label: string }) {
+  return (
+    <div className="space-y-2" aria-busy="true" aria-label={label}>
+      {Array.from({ length: 6 }).map((_, i) => (
+        <Skeleton key={i} className="h-11 w-full" />
+      ))}
+    </div>
+  )
+}
 
 interface DocType { key: string; displayName: string; module: string }
 interface Role { id: string; name: string; key: string }
@@ -124,43 +137,58 @@ export default function ByDocTypeTab() {
     return result
   }, {})
 
-  if (loading) return <div className="flex items-center justify-center py-16 text-gray-400"><Loader2 className="mr-2 h-5 w-5 animate-spin" />Loading permission data…</div>
+  if (loading) return (
+    <div className="space-y-5">
+      <Skeleton className="h-9 w-full max-w-sm" />
+      <GridSkeleton label="Loading permission data" />
+    </div>
+  )
 
   return (
     <div className="space-y-5">
-      {error && <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"><AlertCircle className="h-4 w-4" />{error}</div>}
+      {error && <div className="flex items-center gap-2 rounded-lg border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-700"><AlertCircle className="h-4 w-4" />{error}</div>}
       <div className="max-w-sm space-y-1">
-        <label className="block text-sm font-medium text-gray-700">Document Type</label>
-        <select value={selectedDoctypeKey} onChange={(event) => { const key = event.target.value; setSelectedDoctypeKey(key); setPermissions({}); void loadPermissions(key) }} className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
-          <option value="">Select a document type…</option>
-          {Object.entries(grouped).map(([moduleName, items]) => <optgroup key={moduleName} label={moduleName}>{items.map((doctype) => <option key={doctype.key} value={doctype.key}>{doctype.displayName}</option>)}</optgroup>)}
-        </select>
+        <label htmlFor="by-doctype-select" className="block text-sm font-medium text-ink-primary">Document Type</label>
+        <SettingsSelect
+          id="by-doctype-select"
+          value={selectedDoctypeKey}
+          onValueChange={(key) => { setSelectedDoctypeKey(key); setPermissions({}); void loadPermissions(key) }}
+          placeholder="Select a document type…"
+          options={Object.entries(grouped).flatMap(([moduleName, items]) =>
+            items.map((doctype) => ({ value: doctype.key, label: doctype.displayName, group: moduleName })),
+          )}
+        />
       </div>
 
       {!selectedDoctypeKey ? (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-gray-200 py-20 text-sm text-gray-500"><p className="font-medium">Select a document type to configure role permissions</p><p className="mt-1 text-xs">The grid shows every role, action, and record-scope setting.</p></div>
+        <EmptyState
+          bare
+          className="rounded-lg border border-dashed border-border"
+          title="Select a document type to configure role permissions"
+          description="The grid shows every role, action, and record-scope setting."
+        />
       ) : loadingGrid ? (
-        <div className="py-20 text-center text-gray-400"><Loader2 className="mr-2 inline h-5 w-5 animate-spin" />Loading permissions…</div>
+        <GridSkeleton label="Loading permissions" />
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-gray-200">
+        <div className="overflow-x-auto rounded-lg border border-border">
           <table className="min-w-full text-sm">
-            <thead className="border-b border-gray-200 bg-gray-50"><tr>
-              <th className="sticky left-0 min-w-44 bg-gray-50 px-4 py-3 text-left font-semibold text-gray-700">Role</th>
-              {ACTIONS.map((action) => <th key={action.field} className="min-w-20 px-2 py-3 text-center font-semibold text-gray-700">{action.label}</th>)}
-              <th className="min-w-24 px-2 py-3 text-center font-semibold text-gray-700">Scoping</th>
+            <thead className="border-b border-border bg-surface-hover"><tr>
+              <th className="sticky left-0 min-w-44 bg-surface-hover px-4 py-3 text-left font-semibold text-ink-primary">Role</th>
+              {ACTIONS.map((action) => <th key={action.field} className="min-w-20 px-2 py-3 text-center font-semibold text-ink-primary">{action.label}</th>)}
+              <th className="min-w-24 px-2 py-3 text-center font-semibold text-ink-primary">Scoping</th>
             </tr></thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-border">
               {roles.map((role) => {
                 const permission = permissions[role.id] ?? emptyPermission(selectedDoctypeKey)
-                return <tr key={role.id} className="hover:bg-gray-50">
-                  <td className="sticky left-0 bg-white px-4 py-3 font-medium text-gray-800">{role.name}</td>
+                return <tr key={role.id} className="hover:bg-surface-hover">
+                  <td className="sticky left-0 bg-surface-card px-4 py-3 font-medium text-ink-primary">{role.name}</td>
                   {ACTIONS.map((action) => {
                     const cellKey = `${role.id}:${action.field}`
-                    return <td key={action.field} className="px-2 py-3 text-center"><button disabled={savingKey !== null} onClick={() => void save(role.id, { ...permission, [action.field]: !permission[action.field] }, cellKey)} className={cn('mx-auto flex h-7 w-7 items-center justify-center rounded-full border', permission[action.field] ? 'border-green-600 bg-green-500 text-white' : 'border-gray-300 bg-white text-gray-400', savingKey !== null && 'opacity-60')}>
+                    return <td key={action.field} className="px-2 py-3 text-center"><button disabled={savingKey !== null} aria-label={`${action.label} for ${role.name}: ${permission[action.field] ? 'allowed' : 'not allowed'}`} aria-pressed={permission[action.field]} onClick={() => void save(role.id, { ...permission, [action.field]: !permission[action.field] }, cellKey)} className={cn('mx-auto flex h-7 w-7 items-center justify-center rounded-full border', permission[action.field] ? 'border-success-600 bg-success-500 text-primary-foreground' : 'border-ink-tertiary bg-surface-card text-ink-secondary', savingKey !== null && 'opacity-60')}>
                       {savingKey === cellKey ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : permission[action.field] ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
                     </button></td>
                   })}
-                  <td className="px-2 py-3 text-center"><button disabled={savingKey !== null} onClick={() => void save(role.id, { ...permission, applyScoping: !permission.applyScoping }, `${role.id}:scope`)} className={cn('rounded-full px-2 py-1 text-xs font-medium', permission.applyScoping ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500')}>{savingKey === `${role.id}:scope` ? 'Saving…' : permission.applyScoping ? 'ON' : 'OFF'}</button></td>
+                  <td className="px-2 py-3 text-center"><button disabled={savingKey !== null} aria-label={`Record scoping for ${role.name}`} aria-pressed={permission.applyScoping} onClick={() => void save(role.id, { ...permission, applyScoping: !permission.applyScoping }, `${role.id}:scope`)} className={cn('rounded-full px-2 py-1 text-xs font-medium', permission.applyScoping ? 'bg-primary-100 text-primary-700' : 'bg-surface-app text-ink-secondary')}>{savingKey === `${role.id}:scope` ? 'Saving…' : permission.applyScoping ? 'ON' : 'OFF'}</button></td>
                 </tr>
               })}
             </tbody>

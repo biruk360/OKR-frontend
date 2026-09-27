@@ -21,7 +21,7 @@ export function InsightTile({ icon: Icon, label, value, detail, tint, trailing }
     <div className="rounded-[var(--ap-radius-md)] border bg-card p-4" style={{ borderColor: 'var(--ap-border)' }}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+          <p className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
           <p
             className="mt-1.5 text-[30px] font-semibold leading-none tracking-tight tabular-nums"
             style={{ color: tint }}

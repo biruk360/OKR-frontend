@@ -5,22 +5,21 @@ import { useSession } from 'next-auth/react'
 import { Archive } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { ConfirmDialog } from '@/components/ui'
+import { conservativeObjectivePermissions } from '../services/objective-permission-flags'
 
 interface ArchiveObjectiveButtonProps {
   objective: any
   className?: string
+  /** Server-computed canEditObjective (the archive route's rule). */
+  canArchive?: boolean
 }
 
-export default function ArchiveObjectiveButton({ objective, className = '' }: ArchiveObjectiveButtonProps) {
+export default function ArchiveObjectiveButton({ objective, className = '', canArchive: canArchiveProp }: ArchiveObjectiveButtonProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const { data: session } = useSession()
 
-  const canArchive = session?.user && (
-    session.user.role === 'ADMIN' ||
-    session.user.role === 'EXECUTIVE' ||
-    session.user.id === objective.ownerId
-  )
+  const canArchive = canArchiveProp ?? conservativeObjectivePermissions(session?.user, objective).canEdit
 
   if (!canArchive || objective.status === 'ARCHIVED') {
     return null
@@ -54,8 +53,9 @@ export default function ArchiveObjectiveButton({ objective, className = '' }: Ar
     <>
       <button
         onClick={() => setIsOpen(true)}
-        className={`inline-flex items-center px-2 py-1 text-sm text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded ${className}`}
+        className={`inline-flex items-center px-2 py-1 text-sm text-warning-600 hover:text-warning-700 hover:bg-warning-50 rounded ${className}`}
         title="Archive objective"
+        aria-label="Archive objective"
       >
         <Archive className="h-4 w-4" />
       </button>

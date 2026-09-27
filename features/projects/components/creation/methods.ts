@@ -25,7 +25,7 @@ const BASE_METHODS: ProjectCreationMethodOption[] = [
     key: 'import',
     sourceMethod: 'FILE_IMPORT',
     title: 'Import a project file',
-    description: 'Upload CSV, Excel, or Word. The system validates structured data and uses AI to clean or extract the schedule when needed.',
+    description: 'Upload CSV, Excel, or Word. Spreadsheets are validated as-is; Word work plans have their phases, tasks, milestones, and deliverables extracted for your review. AI can suggest column mappings when it is enabled.',
     bestFor: 'Existing work plans, schedules, implementation plans, and TOR documents.',
     available: true,
   },

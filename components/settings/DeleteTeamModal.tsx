@@ -55,15 +55,15 @@ export default function DeleteTeamModal({ isOpen, onClose, team, onTeamDeleted }
       extraContent={
         <>
           {membershipCount > 0 && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 mb-2">
-              <p className="text-sm text-yellow-800">
+            <div className="bg-warning-50 border border-warning-200 rounded-md p-3 mb-2">
+              <p className="text-sm text-warning-800">
                 This team has {membershipCount} member(s). They will be removed from this team.
               </p>
             </div>
           )}
           {objectiveCount > 0 && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
-              <p className="text-sm text-yellow-800">
+            <div className="bg-warning-50 border border-warning-200 rounded-md p-3">
+              <p className="text-sm text-warning-800">
                 This team has {objectiveCount} objective(s) associated with it.
               </p>
             </div>

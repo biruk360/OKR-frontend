@@ -221,7 +221,7 @@ export function CreateProjectWizard({
               index === step ? 'border-primary bg-surface-card shadow-sm' : 'border-transparent',
             )}>
               <span className={cn(
-                'flex size-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold',
+                'flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold',
                 index <= step ? 'bg-primary text-primary-foreground' : 'bg-surface-card text-ink-secondary ring-1 ring-border',
               )}>
                 {index < step ? <Check className="size-3.5" /> : index + 1}
@@ -392,8 +392,8 @@ export function CreateProjectWizard({
                   <div className="flex flex-wrap items-center gap-2">
                     <LayoutTemplate className="size-4 text-primary" />
                     <span className="text-body font-medium text-ink-primary">{template.name}</span>
-                    <span className="rounded-pill bg-surface-muted px-2 py-0.5 text-[11px] text-ink-secondary">{template.isSystem ? 'System' : 'Custom'}</span>
-                    {template.projectType === projectType && <span className="rounded-pill bg-success-50 px-2 py-0.5 text-[11px] text-success-700">Recommended</span>}
+                    <span className="rounded-pill bg-surface-muted px-2 py-0.5 text-xs text-ink-secondary">{template.isSystem ? 'System' : 'Custom'}</span>
+                    {template.projectType === projectType && <span className="rounded-pill bg-success-50 px-2 py-0.5 text-xs text-success-700">Recommended</span>}
                   </div>
                   {template.description && <p className="text-body-sm text-ink-secondary">{template.description}</p>}
                   <p className="mt-1 text-body-sm text-ink-tertiary">{template.phases} phases · {template.milestones} milestones · {template.activities} activities</p>

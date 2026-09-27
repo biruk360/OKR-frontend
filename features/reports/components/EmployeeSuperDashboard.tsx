@@ -167,7 +167,7 @@ export function EmployeeSuperDashboard(props: EmployeeSuperData) {
             </div>
             <div className="flex-1">
               <Sparkline data={velocity} color="#34C759" height={56} />
-              <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
+              <div className="mt-1 flex justify-between text-micro text-muted-foreground">
                 <span>8 wks ago</span>
                 <span>this week</span>
               </div>
@@ -217,7 +217,7 @@ export function EmployeeSuperDashboard(props: EmployeeSuperData) {
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[13px] font-semibold text-foreground">{t.title}</p>
-                    <p className="truncate text-[11px] text-muted-foreground">
+                    <p className="truncate text-caption text-muted-foreground">
                       {t.krTitle} · {t.objectiveTitle}
                       {t.dueDate && ` · due ${format(parseISO(t.dueDate), 'MMM d')}`}
                     </p>
@@ -234,7 +234,7 @@ export function EmployeeSuperDashboard(props: EmployeeSuperData) {
           right={<MiniBadge color="var(--ap-orange)">{streakRun}-day run</MiniBadge>}
         >
           <StreakGrid days={streakDays} />
-          <p className="mt-3 text-[11px] text-muted-foreground">
+          <p className="mt-3 text-caption text-muted-foreground">
             Each cell is a day. Darker = more check-ins. Last 12 weeks of activity.
           </p>
         </DashboardCard>
@@ -259,7 +259,7 @@ export function EmployeeSuperDashboard(props: EmployeeSuperData) {
                   >
                     <span className="mt-0.5 inline-flex h-9 w-12 shrink-0 flex-col items-center justify-center rounded-[8px] text-center"
                       style={{ background: 'var(--ap-bg-sunken)' }}>
-                      <span className="text-[10px] font-semibold uppercase text-muted-foreground tracking-wide">
+                      <span className="text-micro font-semibold uppercase text-muted-foreground tracking-wide">
                         {format(parseISO(t.dueDate!), 'MMM')}
                       </span>
                       <span className="text-[14px] font-semibold leading-none tabular-nums" style={{ color: 'var(--ap-fg)' }}>
@@ -268,7 +268,7 @@ export function EmployeeSuperDashboard(props: EmployeeSuperData) {
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[13px] font-medium text-foreground">{t.title}</p>
-                      <p className="truncate text-[11px] text-muted-foreground">{t.krTitle}</p>
+                      <p className="truncate text-caption text-muted-foreground">{t.krTitle}</p>
                     </div>
                   </button>
                 </li>
@@ -308,8 +308,8 @@ function KrGaugeCard({ kr }: { kr: EmployeeSuperData['krs'][number] }) {
         <RadialGauge percent={pct} color={tone} />
         <div className="min-w-0 flex-1">
           <p className="line-clamp-2 text-[13px] font-semibold text-foreground">{kr.title}</p>
-          <p className="mt-1 truncate text-[11px] text-muted-foreground">{kr.objectiveTitle}</p>
-          <div className="mt-2 inline-flex items-center gap-1.5 rounded-full px-2 py-[2px] text-[10px] font-semibold"
+          <p className="mt-1 truncate text-caption text-muted-foreground">{kr.objectiveTitle}</p>
+          <div className="mt-2 inline-flex items-center gap-1.5 rounded-full px-2 py-[2px] text-micro font-semibold"
             style={{ background: 'var(--ap-bg-sunken)', color: tone }}>
             <span className="h-1.5 w-1.5 rounded-full" style={{ background: tone }} />
             {kr.confidence}
@@ -317,10 +317,10 @@ function KrGaugeCard({ kr }: { kr: EmployeeSuperData['krs'][number] }) {
         </div>
       </div>
       <div className="mt-3 flex items-center justify-between gap-2">
-        <span className="text-[11px] text-muted-foreground">{kr.checkInCount} check-ins</span>
+        <span className="text-caption text-muted-foreground">{kr.checkInCount} check-ins</span>
         <Link
           href={`/dashboard/key-results/${kr.id}`}
-          className="inline-flex items-center gap-1 rounded-full border px-2.5 py-[3px] text-[11px] font-semibold text-foreground hover:bg-muted/40"
+          className="inline-flex items-center gap-1 rounded-full border px-2.5 py-[3px] text-caption font-semibold text-foreground hover:bg-muted/40"
           style={{ borderColor: 'var(--ap-border)' }}
         >
           Log check-in <ChevronRight className="h-3 w-3" />
@@ -374,7 +374,7 @@ function AlignmentRow({ chain }: { chain: EmployeeSuperData['personal']['alignme
         <div key={n.id} className="flex items-center gap-2 shrink-0">
           <Link
             href={`/dashboard/objectives/${n.id}`}
-            className="inline-flex max-w-[180px] items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium text-foreground hover:bg-muted/40"
+            className="inline-flex max-w-[180px] items-center gap-1.5 rounded-full border px-2.5 py-1 text-caption font-medium text-foreground hover:bg-muted/40"
             style={{
               borderColor: 'var(--ap-border)',
               background: idx === 0 ? 'var(--ap-accent-soft)' : 'transparent',

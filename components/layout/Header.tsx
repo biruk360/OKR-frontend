@@ -354,7 +354,7 @@ export default function Header({ user, onMobileNavOpen }: HeaderProps) {
                   <User className="size-4" />
                   <span>My Profile</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => router.push('/dashboard/okrs?owner=me')}>
+                <DropdownMenuItem onSelect={() => router.push('/dashboard/my-okrs')}>
                   <Target className="size-4" />
                   <span>My OKRs</span>
                 </DropdownMenuItem>

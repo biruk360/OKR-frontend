@@ -29,6 +29,7 @@ const ROOT = path.resolve(__dirname, '..', '..')
 const APP_DIR = path.join(ROOT, 'app')
 
 const EXPECTED_RETIRED = [
+  '/dashboard/okrs',
   '/dashboard/objectives',
   '/dashboard/company-okrs',
   '/dashboard/department-okrs',
@@ -125,6 +126,8 @@ test('every redirect lands on a real page with a known view/tab', () => {
     } else if (destination.startsWith('/dashboard/insights')) {
       assert.equal(parseInsightsTab(qs.get('tab')), qs.get('tab'), `${source}: unknown tab`)
       if (qs.has('view')) assert.equal(parseProgressView(qs.get('view')), qs.get('view'), `${source}: unknown view`)
+    } else if (destination === '/dashboard/my-okrs') {
+      assert.equal(source, '/dashboard/okrs')
     } else {
       assert.fail(`${source} → ${destination}: expected the Explorer or Insights`)
     }

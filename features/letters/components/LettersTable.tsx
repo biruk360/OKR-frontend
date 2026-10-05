@@ -10,11 +10,11 @@ import { LETTER_TYPE_LABEL, type LetterStatus } from '@/types'
 import { EmptyState } from '@/components/ui'
 import { Skeleton } from '@/components/ui/Skeleton'
 import LetterStatusBadge from './LetterStatusBadge'
-import type { LetterListItem } from '../types'
+import type { LetterListSummary } from '../types'
 import { useT } from '../i18n'
 import { duplicateLetter } from '../services/lettersApi'
 
-export default function LettersTable({ items, loading }: { items: LetterListItem[]; loading: boolean }) {
+export default function LettersTable({ items, loading }: { items: LetterListSummary[]; loading: boolean }) {
   const t = useT()
   if (!loading && items.length === 0) {
     return (
@@ -82,7 +82,7 @@ export default function LettersTable({ items, loading }: { items: LetterListItem
   )
 }
 
-function LetterRow({ letter: l, typeName }: { letter: LetterListItem; typeName: string }) {
+function LetterRow({ letter: l, typeName }: { letter: LetterListSummary; typeName: string }) {
   const router = useRouter()
   const [duplicating, setDuplicating] = useState(false)
 

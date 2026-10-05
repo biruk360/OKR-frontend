@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getServerSessionSafe } from '@/lib/auth'
 import { canAdministerLetters } from '@/lib/letter-permissions'
-import { LettersPageClient } from '@/features/letters'
+import LettersPageClient from '@/features/letters/components/LettersPageClient'
 
 export default async function LettersPage() {
   const session = await getServerSessionSafe()

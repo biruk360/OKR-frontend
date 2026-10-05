@@ -1,4 +1,8 @@
-import type { Letter, LetterEnclosure, LetterTypeDef, User } from '@prisma/client'
+import type { Letter, LetterEnclosure, LetterTypeDef, User, Prisma } from '@prisma/client'
+
+export type LetterListSummary = Prisma.LetterGetPayload<{
+  select: typeof import('@/lib/letter-list-summary').LETTER_LIST_SUMMARY_SELECT
+}>
 
 type UserBrief = Pick<User, 'id' | 'name' | 'avatar'>
 type LetterTypeBrief = Pick<LetterTypeDef, 'id' | 'code' | 'name'>

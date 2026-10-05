@@ -49,6 +49,8 @@ jobs:
           npm run test:notifications
           npm run test:attachments
           npm run test:automations
+          node --import tsx --test features/projects/hooks/useObjectives.test.ts
+          node --import tsx --test lib/letter-list-summary.test.ts
 
       - name: Security invariants
         # Static guards: every API route carries an auth wrapper (or a named

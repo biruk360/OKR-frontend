@@ -8,10 +8,13 @@ import { Button, Input, PageHeader } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import type { LetterStatus, LetterTypeRecord } from '@/types'
 import LettersTable from './LettersTable'
-import CreateLetterModal from './CreateLetterModal'
-import type { LetterListItem } from '../types'
+import dynamic from 'next/dynamic'
+
+import type { LetterListSummary } from '../types'
 import { listLetters, listLetterTypes } from '../services/lettersApi'
 import { LetterLangContext, useT, type LetterLang, type LetterFontId, DEFAULT_LETTER_FONT } from '../i18n'
+
+const CreateLetterModal = dynamic(() => import('./CreateLetterModal'))
 
 interface Props {
   user: { id: string; role: string }
@@ -39,13 +42,18 @@ function LettersPageInner({ canAdminister = false }: Props) {
   const t = useT()
   const { lang, setLang } = useContext(LetterLangContext)
   const router = useRouter()
-  const [items, setItems] = useState<LetterListItem[]>([])
+  const [items, setItems] = useState<LetterListSummary[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<'ALL' | 'MINE' | LetterStatus>('ALL')
   const [typeFilterId, setTypeFilterId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 250)
+    return () => clearTimeout(timer)
+  }, [search])
   const [createOpen, setCreateOpen] = useState(false)
   const [types, setTypes] = useState<LetterTypeRecord[]>([])
 
@@ -61,19 +69,20 @@ function LettersPageInner({ canAdminister = false }: Props) {
     else if (tab !== 'ALL') p.status = tab
     if (tab === 'ARCHIVED') p.includeArchived = true
     if (typeFilterId) p.letterTypeId = typeFilterId
-    if (search.trim()) p.search = search.trim()
+    if (debouncedSearch.trim()) p.search = debouncedSearch.trim()
     p.page = page
     p.limit = PAGE_SIZE
     return p
-  }, [tab, typeFilterId, search, page])
+  }, [tab, typeFilterId, debouncedSearch, page])
 
   // Reset to page 1 when filters/tab change
-  useEffect(() => { setPage(1) }, [tab, typeFilterId, search])
+  useEffect(() => { setPage(1) }, [tab, typeFilterId, debouncedSearch])
 
   useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     setLoading(true)
-    listLetters(params)
+    listLetters(params, controller.signal)
       .then((r) => {
         if (!cancelled) {
           setItems(r.items)
@@ -82,7 +91,7 @@ function LettersPageInner({ canAdminister = false }: Props) {
       })
       .catch(() => { if (!cancelled) { setItems([]); setTotal(0) } })
       .finally(() => { if (!cancelled) setLoading(false) })
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [params])
 
   function tabLabel(k: typeof STATUS_TABS[number]): string {
@@ -264,14 +273,16 @@ function LettersPageInner({ canAdminister = false }: Props) {
         </div>
       )}
 
-      <CreateLetterModal
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
-        onCreated={(letter) => {
-          setCreateOpen(false)
-          router.push(`/dashboard/letters/${letter.id}`)
-        }}
-      />
+      {createOpen && (
+        <CreateLetterModal
+          open={createOpen}
+          onClose={() => setCreateOpen(false)}
+          onCreated={(letter) => {
+            setCreateOpen(false)
+            router.push(`/dashboard/letters/${letter.id}`)
+          }}
+        />
+      )}
     </div>
   )
 }

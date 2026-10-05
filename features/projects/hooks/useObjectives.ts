@@ -17,18 +17,15 @@ export interface ObjectiveForLink {
   progress: number
 }
 
-export interface ObjectivesListResponse {
-  items: ObjectiveForLink[]
-  pagination: { total: number; page: number; limit: number; totalPages: number }
+export async function fetchObjectivesForLink(): Promise<ObjectiveForLink[]> {
+  // apiPaginated returns the array in data; pagination is a sibling.
+  return fetchJson<ObjectiveForLink[]>('/api/objectives?status=ACTIVE&limit=500')
 }
 
 export function useObjectivesForLink(enabled = true) {
   return useQuery({
     queryKey: [...projectKeys.all, 'objectives-for-link'],
-    queryFn: async () => {
-      const data = await fetchJson<ObjectivesListResponse>('/api/objectives?status=ACTIVE&limit=500')
-      return data.items
-    },
+    queryFn: fetchObjectivesForLink,
     enabled,
     staleTime: 60_000,
   })

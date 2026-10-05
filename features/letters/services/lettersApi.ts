@@ -9,6 +9,7 @@ import type {
 import type {
   LetterDetail,
   LetterListItem,
+  LetterListSummary,
   LetterEnclosureWithUploader,
   LetterReport,
   LetterTemplateDraft,
@@ -26,22 +27,23 @@ async function parse<T>(res: Response): Promise<T> {
 
 export async function listLetters(params: {
   status?: string
+  letterTypeId?: string
   letterType?: string
   search?: string
   mine?: boolean
   includeArchived?: boolean
   page?: number
   limit?: number
-}): Promise<{ items: LetterListItem[]; total: number; page: number; limit: number }> {
-  const qs = new URLSearchParams()
+}, signal?: AbortSignal): Promise<{ items: LetterListSummary[]; total: number; page: number; limit: number }> {
+  const qs = new URLSearchParams({ view: 'summary' })
   Object.entries(params).forEach(([k, v]) => {
     if (v !== undefined && v !== null && v !== '') qs.set(k, String(v))
   })
-  const res = await fetch(`/api/letters?${qs.toString()}`, { cache: 'no-store' })
+  const res = await fetch(`/api/letters?${qs.toString()}`, { cache: 'no-store', signal })
   const json = await res.json()
   if (!res.ok || !json?.success) throw new Error(json?.error || 'Failed to load letters')
   return {
-    items: json.data as LetterListItem[],
+    items: json.data as LetterListSummary[],
     total: json.pagination?.total ?? json.data.length,
     page: json.pagination?.page ?? 1,
     limit: json.pagination?.limit ?? json.data.length,

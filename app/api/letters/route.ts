@@ -14,6 +14,7 @@ import {
   withAuth,
 } from '@/lib/api'
 import { buildLetterReadWhere } from '@/lib/letter-access'
+import { LETTER_LIST_SUMMARY_SELECT } from '@/lib/letter-list-summary'
 
 const LETTER_STATUSES: LetterStatus[] = ['DRAFT', 'SUBMITTED', 'APPROVED', 'SENT', 'ARCHIVED']
 
@@ -67,23 +68,26 @@ export const GET = withAuth(async (request: NextRequest, { session }) => {
   const scopedWhere = { AND: [where, readWhere] }
 
   const skip = (page - 1) * limit
+  // Summary is opt-in; desktop sync and existing API clients retain full rows.
+  const summary = searchParams.get('view') === 'summary' && !syncPull
+  const listArgs = { where: scopedWhere, orderBy: { date: 'desc' as const }, skip, take: limit }
+  const letterQuery = summary
+    ? prisma.letter.findMany({ ...listArgs, select: LETTER_LIST_SUMMARY_SELECT })
+    : prisma.letter.findMany({
+        ...listArgs,
+        include: {
+          preparedBy: { select: { id: true, name: true, avatar: true } },
+          signatory: { select: { id: true, name: true, avatar: true } },
+          letterTypeDef: { select: { id: true, code: true, name: true } },
+          _count: { select: { enclosures: true } },
+        },
+      })
   const [letters, total] = await Promise.all([
-    prisma.letter.findMany({
-      where: scopedWhere,
-      orderBy: { date: 'desc' },
-      skip,
-      take: limit,
-      include: {
-        preparedBy: { select: { id: true, name: true, avatar: true } },
-        signatory: { select: { id: true, name: true, avatar: true } },
-        letterTypeDef: { select: { id: true, code: true, name: true } },
-        _count: { select: { enclosures: true } },
-      },
-    }),
+    letterQuery,
     prisma.letter.count({ where: scopedWhere }),
   ])
 
-  return apiPaginated(letters, { page, limit, total })
+  return apiPaginated<(typeof letters)[number]>(letters, { page, limit, total })
 })
 
 export const POST = withAuth(async (request: NextRequest, { session }) => {

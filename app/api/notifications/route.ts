@@ -11,7 +11,8 @@ import { toNotificationRow } from '@/lib/notifications'
  * /dashboard/notifications. This is what the header bell and the store need.
  *
  * Query: `limit` (1-100, default 20), `unreadOnly=1`, `cursor` (a notification id).
- * Hits @@index([userId, isRead, createdAt]) as written.
+ * All-notification pages use [userId, createdAt]; unread pages/counts use
+ * [userId, isRead, createdAt].
  */
 export const GET = withAuth(async (req, { session }) => {
   const url = new URL(req.url)

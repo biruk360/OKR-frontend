@@ -1,5 +1,12 @@
 # Feature & Module Status
 
+> **2026-10-11 — Employee Operating Package — BUILT, pending deploy.** Spec `docs/employee_operating_package_REQUIREMENTS.md`,
+> agent contract `docs/employee_operating_package_BUILD_PLAN.md`. New modules: role definition, recurring duties, KPIs,
+> development plan, work dependencies + Dependency Map, decisions, operating package header + item review, OKR links /
+> connections / checkpoints, employee profile tabs, package-daily cron, FY25/26 close + package importer scripts.
+> Verified in the worktree: tsc 0 · lint 0 errors · `test:package` + 7 existing suites green · `next build` passes.
+> Not verified: DB smoke tests and the permission seed (local Postgres was down). See *Employee Operating Package* below.
+
 > **2026-09-25 — Full-project remediation (session okr-mgt-75) — complete.** Security (Wave 1), broken flows
 > (Wave 2/2.5), performance + UI system (Wave 3), Wave 4 G1–G7 (incl. OKR page consolidation into My OKRs / OKR
 > Explorer / Insights, projects DOCX import + provenance + background processing, AI-guided project creation, portal
@@ -90,6 +97,7 @@
 | Card & sprint access gates | DONE | `lib/todos/access.ts`, `app/api/todos/[id]/{checklists,comments,attachments,activity}/`, `app/api/sprints/[id]/{route,board,clone}`, sprint board + report pages | `canWriteTodo`, `todoWriteGuard`, `sprintClosedGuard`, `canViewSprint` | Checklists need card write rights and must belong to the card; comments/attachments/activity use the card-access rule; closed sprints 409; sprint reads check `canViewSprint`. Source invariants in `lib/security/card-access-invariants.test.ts`. Open: `GET /api/todos/[id]` has no read gate (product decision). |
 | Invite-only sprint boards | DONE | `lib/permissions.ts` (`sprintViewVerdict`, `sprintVisibilityWhere`), `lib/sprints/participants.ts`, `app/api/sprints/[id]/participants/`, `SprintMembersDialog` | `inviteToSprint` | ADMIN/EXECUTIVE see all; others only as owner/participant; card assignment auto-invites; Members dialog on the board. **After deploy:** `scripts/backfill-sprint-participants.ts` (dry-run → `--apply`). |
 | Unified to-do visibility | DONE | `lib/todos/visibility.ts`, to-dos + work pages, `GET /api/todos?surface=`, `todo-store`, `WorkBoardClient` | `todoVisibilityWhere` | One rule per surface + record scope; fixes the post-edit list shrink. EMPLOYEE scope = own (assigned/created/member/watching-read) + invited sprints via the `is_participant` rule type. **After deploy:** `scripts/update-employee-todo-scope.ts` (dry-run → `--apply`), then `todo-visibility-diff.ts`. Calendar spec CPM-2/CPM-11. |
+| To-do recurrence cadences | DONE (2026-10-11, FND-5/6) | `lib/todos/recurrence.ts`, `lib/todos/recurrence-generator.ts` | `monthStep`, `isMonthBased`, `occurrenceCarryFields` | Rules: DAILY, WEEKDAYS, WEEKLY, BIWEEKLY, MONTHLY, QUARTERLY, SEMIANNUAL, YEARLY (month-end clamping, anchor-day inference). Occurrences copy `progressValue` only when `recurrenceCountsProgress`; carry `kind`/`dutyId`, never `externalRef`. No API/UI toggle for `recurrenceCountsProgress` yet. |
 | Recurrence generator fixes | DONE | `lib/todos/recurrence*.ts`, `scripts/repair-recurrence-heads.ts` | `planSeriesAdvance`, `nthOccurrence`, `previousOccurrence` | REC-FIX-1/2/3, month-end anchoring, paging past 500, System activity entries. Run the repair dry-run on prod, review, then `--apply`. |
 | Calendar view + view switcher | SPECIFIED | `docs/calendar_view_REQUIREMENTS.md` | — | P0 prerequisites (visibility, sprint access, recurrence fixes) done; P1+ not started. |
 | Recurring sub-tasks | SPECIFIED | `docs/recurring_subtasks_REQUIREMENTS.md` | — | Open questions decided 2026-09-25; build after the current release. |
@@ -134,6 +142,30 @@ Implementation reference: `docs/PERFORMANCE_SCORECARD_IMPLEMENTATION_PROPOSAL.md
 | Continuous development and rewards | IN PROGRESS | `PerformanceHome`, `ActionsWorkspace`, `/api/cron/performance-nudge` | In-app nudge and recommendation queue work; dashboard radar/trend charts and sealed-results indicator added; dispatcher/email/activity audit remain |
 | Excel template import (A8 seed) | DONE | `prisma/seed-performance-templates.ts`, `prisma/performance-templates-seed.json` | All 8 role scorecard templates seeded from the source workbooks via `npm run db:seed:performance` (idempotent, publish-validated) — see `docs/PERFORMANCE_SCORECARD_IMPLEMENTATION_STATUS.md` A8. |
 | Performance audit coverage | DONE (2026-09-25, F6) | `app/api/performance/**`, `app/api/performance/audit-coverage.test.ts` | 15 performance route files gained `recordActivity`; `audit-coverage.test.ts` statically asserts every POST/PUT/PATCH/DELETE handler under `app/api/performance/` calls it. |
+
+## Employee Operating Package
+
+Spec: `docs/employee_operating_package_REQUIREMENTS.md`. Built 2026-10-11 in the `operating-package` worktree; **pending deploy**
+(schema push, `npm run db:seed:package-permissions`, crontab reinstall, then the I1/I2 data scripts).
+
+| Feature | Status | Path | Notes |
+|---------|--------|------|-------|
+| Registries, §8 access, audit, links | DONE | `types/package.ts`, `lib/package/{access,audit,links}.ts`, `scripts/seed-package-permissions.ts` | Single access point `lib/package/access.ts`; `recordPackageActivity` / `recordPackageUpdateIfChanged` (AUD-1/2, PKG-3 `editedAfterApproval`); feature keys `module.package`, `page.okr.dependency-map`, `page.okr.decisions`, `page.people.package`, button keys |
+| KR rules (direction, commitment, KRX fields) | DONE | `lib/keyResultNumbers.ts`, `lib/okr/kr-commitment.ts`, `lib/objectiveProgress.ts`, `app/api/keyresults/**` | INCREASE/DECREASE progress (KRX-1), roll-up uses KR span (FND-3), lock guards (FND-2), PATCH KRX fields, `suggestCloseOutcome` (KRX-2). Check-ins and clone are direction-aware. KRX text redacted inside `redactKeyResult` (CON-8) |
+| OKR links & connections | DONE | `lib/okr-links/**`, `lib/connections/**`, `components/shared/connections`, `features/okr-links` | `/api/okr-links`, `/api/connections`; ConnectionChips/Panel, LinkManagerModal, AlignmentTrail, Lineage popover. Mounted on objective/KR detail, both quick views, Explorer rows, profile tree, KPI/duty/development views. Hard deletes clean links + lineage (`lib/okr-links/cleanup.ts`) |
+| KR checkpoints & definition | DONE | `features/key-results/components/{checkpoints,definition}`, `app/api/keyresults/[id]/checkpoints/**`, `components/key-result-detail/KrPlanCard.tsx` | KRX-3/4; mounted on KR detail page (rail) and KR quick view (compact) |
+| Role definition | DONE | `features/role-definition`, `app/api/package/role-definitions/**` | ROL-1…4; profile Role tab + sidebar card + admin record tab (PRF-6) |
+| Recurring duties | DONE | `features/duties`, `app/api/package/duties/**` | DUT-1…8; Todo head lifecycle, adherence, pause/resume/retire |
+| KPIs | DONE | `lib/kpi`, `features/kpis`, `app/api/package/kpis/**` | KPI-1…7; KPI-3 auto-fill + KPI-5 reminders via cron; KPI-8 `linkedToKpi` filter; KPI-9 performance source |
+| Development plan | DONE (evidence uploads pending) | `features/development-plan`, `app/api/package/development/**`, `components/settings/DevelopmentRuleSettings.tsx` | DEV-1…6; evidence link encoded in `evidenceNote` (no file upload — schema gap); DEV-7 performance metric pending |
+| Work dependencies + Dependency Map | DONE | `features/dependencies`, `app/api/dependencies/**`, `app/dashboard/okrs-all/dependencies`, `components/shared/dependency-graph` | DEP-1…7, CON-4 graphs, CSV export; completing a delivery Todo offers to mark the dependency done (DEP-4) |
+| Decisions | DONE (comments pending) | `features/decisions`, `app/api/decisions/**`, `app/dashboard/decisions` | DEC-1…3; DEC-4 comments need a schema decision (no generic comment model) |
+| Operating package header & item review | DONE | `features/operating-package`, `app/api/package/packages/**` | PKG-1…5; approval blocked by open disputes; reopen bumps version; APPROVED packages archived by cron when the timeframe ends |
+| Employee profile shell + OKR profile | DONE | `app/dashboard/org/users/[id]`, `features/employee-profile` | PRF-1…11; URL tabs + `?tf=`; PRF-12 PDF pending (Phase 6) |
+| Performance KPI source | DONE | `lib/performance/metric-resolver.ts`, `app/api/performance/metric-mappings/**` | KPI-9: evaluation-period average of readings, live mapping (no snapshot column — schema gap) |
+| Explorer per-person filter + Analyze fixes | DONE | `lib/okr/explorer-params.ts`, `app/dashboard/okrs-all/page.tsx`, `features/filters/analyze-params.ts` | PRF-7 `?owner=`; List chip pending; multi-owner Analyze |
+| Package notifications + cron | DONE | `lib/notifications/events.ts` (PACKAGE category, 11 events), `lib/package-cron/**`, `app/api/cron/package-daily` | Re-run `scripts/install-crontab.sh` on the VPS after deploy |
+| FY25/26 close + package importer | DONE (scripts; not run on prod) | `scripts/close-fy2526-okrs.ts`, `scripts/import-operating-packages.ts`, `scripts/lib/operating-package-import/**` | Dry-run first, then `--apply`; order: I1 close, then I2 import |
 
 ## Organization
 

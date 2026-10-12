@@ -110,6 +110,7 @@ npx prisma generate
 # Idempotently create missing roles, DocTypes, permission rows, features, and
 # scope rules. Existing administrator configuration is preserved by the seed.
 npx tsx scripts/seed-permissions.ts
+npm run db:seed:package-permissions
 npm run db:seed:project-templates
 # AI Automations doctypes, role matrix and the canAuthorAutomations capability.
 # Without this the module's API refuses every write (canDocType fails closed),

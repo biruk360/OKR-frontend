@@ -11,8 +11,10 @@ import {
   LEVEL_AWARE_VIEWS,
   explorerHref,
   parseExplorerLevel,
+  parseExplorerOwner,
   parseExplorerView,
   scopeForLevel,
+  withExplorerOwner,
   type ExplorerScope,
   type ExplorerView,
 } from '@/lib/okr/explorer-params'
@@ -32,6 +34,7 @@ import ExplorerCreateHandoff from './ExplorerCreateHandoff'
  *
  *   ?view=  list (default) | tree | timeline | map | analyze
  *   ?level= all (default) | company | department | mine | team   — List + Tree only
+ *   ?owner= <userId> — List + Tree only; per-person filter (PRF-7), locks the owner scope
  *
  * Every view reads through the shared OKR visibility scope
  * (lib/okr/visibility-scope.ts); level presets only narrow it.
@@ -73,6 +76,7 @@ export default async function OkrExplorerPage({
   const view = parseExplorerView(sp.view)
   const level = parseExplorerLevel(sp.level)
   const levelAware = LEVEL_AWARE_VIEWS.has(view)
+  const owner = levelAware ? parseExplorerOwner(sp.owner) : null
 
   // Create rights come from lib/permissions (single source of truth), not the client.
   const createPermissions = {
@@ -84,19 +88,24 @@ export default async function OkrExplorerPage({
   let scope: ExplorerScope | undefined
   if (levelAware) {
     const departmentIds = level === 'team' ? Array.from((await loadViewerContext(viewer)).departmentIds) : []
-    scope = scopeForLevel(level, { id: viewer.id, departmentIds })
+    scope = withExplorerOwner(scopeForLevel(level, { id: viewer.id, departmentIds }), owner)
   }
+  const listKey = `${level}:${owner ?? ''}`
 
   const viewTabs = EXPLORER_VIEWS.map((v) => ({
     key: v,
     label: EXPLORER_VIEW_LABELS[v],
     icon: VIEW_ICONS[v],
-    href: explorerHref({ view: v, level: LEVEL_AWARE_VIEWS.has(v) ? level : undefined }),
+    href: explorerHref({
+      view: v,
+      level: LEVEL_AWARE_VIEWS.has(v) ? level : undefined,
+      owner: LEVEL_AWARE_VIEWS.has(v) ? owner : undefined,
+    }),
   }))
   const levelTabs = EXPLORER_LEVELS.map((l) => ({
     key: l,
     label: EXPLORER_LEVEL_LABELS[l],
-    href: explorerHref({ view, level: l }),
+    href: explorerHref({ view, level: l, owner }),
   }))
 
   return (
@@ -128,13 +137,13 @@ export default async function OkrExplorerPage({
 
       {view === 'list' && (
         <OkrsAllClient
-          key={level}
+          key={listKey}
           currentUser={{ id: session.user.id, role }}
           createPermissions={createPermissions}
           scope={scope}
         />
       )}
-      {view === 'tree' && <OkrHierarchyTable key={level} scope={scope} />}
+      {view === 'tree' && <OkrHierarchyTable key={listKey} scope={scope} />}
       {view === 'timeline' && <ExplorerTimelineView />}
       {view === 'map' && <ExplorerMapView viewer={viewer} timeframeId={first(sp.timeframeId)} mode={first(sp.mode)} />}
       {view === 'analyze' && (

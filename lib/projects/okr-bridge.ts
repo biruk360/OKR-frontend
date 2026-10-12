@@ -12,6 +12,7 @@
 import type { Prisma } from '@prisma/client'
 import { recalcNodeAndAncestors } from '@/lib/objectiveProgress'
 import { weightedAverage } from '@/lib/projects/rollup'
+import { krProgressFraction, krProgressPercent, normalizeKrDirection } from '@/lib/keyResultNumbers'
 
 export type DbLike = Prisma.TransactionClient
 
@@ -36,6 +37,7 @@ export async function recalcKrFromMilestones(
       startValue: true,
       targetValue: true,
       currentValue: true,
+      direction: true,
     },
   })
   if (!kr) return null
@@ -55,23 +57,22 @@ export async function recalcKrFromMilestones(
     milestones.map((m) => ({ weight: m.weight, percentComplete: m.percentComplete })),
   )
 
-  const span = kr.targetValue - kr.startValue
-  let nextCurrent = kr.startValue
-  let progress = 0
-  if (span > 0) {
-    nextCurrent = Math.max(
-      kr.startValue,
-      Math.min(kr.startValue + (weightedPct / 100) * span, kr.targetValue),
-    )
-    progress = ((nextCurrent - kr.startValue) / span) * 100
+  // KRX-1: map the milestone % onto the KR span in the KR's direction. A degenerate
+  // span (legacy rows where the span does not point the KR's way) is left untouched
+  // rather than resetting currentValue to the start value.
+  if (krProgressFraction({ ...kr, currentValue: kr.startValue }) === null) {
+    return kr.currentValue
   }
+  const pct = Math.min(100, Math.max(0, weightedPct)) / 100
+  const nextCurrent =
+    normalizeKrDirection(kr.direction) === 'DECREASE'
+      ? Math.min(kr.startValue, Math.max(kr.startValue - pct * (kr.startValue - kr.targetValue), kr.targetValue))
+      : Math.max(kr.startValue, Math.min(kr.startValue + pct * (kr.targetValue - kr.startValue), kr.targetValue))
+  const progress = krProgressPercent({ ...kr, currentValue: nextCurrent })
 
   await tx.keyResult.update({
     where: { id: keyResultId },
-    data: {
-      currentValue: nextCurrent,
-      progress: Math.round(Math.min(100, Math.max(0, progress))),
-    },
+    data: { currentValue: nextCurrent, progress },
   })
 
   return nextCurrent

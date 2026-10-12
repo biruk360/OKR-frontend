@@ -11,11 +11,12 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import Link from 'next/link'
-import { ArrowRight, ExternalLink, Lock, RotateCw, X, type LucideIcon } from 'lucide-react'
+import { ArrowRight, ExternalLink, Lock, RotateCw, Target, X, type LucideIcon } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { UserAvatar } from '@/components/shared/UserAvatar'
 import { cn } from '@/lib/utils'
+import { profileTabHref } from '@/types/package'
 
 // ─── Status tiers ─────────────────────────────────────────────────────────────
 
@@ -280,15 +281,28 @@ export function PersonLink({ person, role, onNavigate }: {
 }) {
   if (!person) return <span className="text-xs" style={{ color: 'var(--ap-fg-subtle)' }}>Unassigned</span>
   return (
-    <Link
-      href={`/dashboard/org/users/${person.id}`}
-      onClick={(e) => closeOnPlainClick(e, onNavigate)}
-      className="inline-flex min-w-0 items-center gap-2 rounded-[6px] hover:underline"
-    >
-      <UserAvatar user={asAvatarUser(person)} size={24} tooltip={false} />
-      <span className="truncate text-xs font-medium" style={{ color: 'var(--ap-fg)' }}>{person.name ?? 'Unknown'}</span>
-      {role && <span className="text-caption" style={{ color: 'var(--ap-fg-subtle)' }}>· {role}</span>}
-    </Link>
+    <span className="inline-flex min-w-0 items-center gap-1.5">
+      <Link
+        href={profileTabHref(person.id)}
+        onClick={(e) => closeOnPlainClick(e, onNavigate)}
+        className="inline-flex min-w-0 items-center gap-2 rounded-[6px] hover:underline"
+      >
+        <UserAvatar user={asAvatarUser(person)} size={24} tooltip={false} />
+        <span className="truncate text-xs font-medium" style={{ color: 'var(--ap-fg)' }}>{person.name ?? 'Unknown'}</span>
+        {role && <span className="text-caption" style={{ color: 'var(--ap-fg-subtle)' }}>· {role}</span>}
+      </Link>
+      {/* PRF-7: jump straight to the person's OKR tab. */}
+      <Link
+        href={profileTabHref(person.id, 'okrs')}
+        onClick={(e) => closeOnPlainClick(e, onNavigate)}
+        aria-label={`Open OKR profile${person.name ? ` of ${person.name}` : ''}`}
+        title="Open OKR profile"
+        className="inline-flex size-6 shrink-0 items-center justify-center rounded-[6px] transition-colors hover:bg-[var(--ap-bg-sunken)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ap-accent)]"
+        style={{ color: 'var(--ap-fg-subtle)' }}
+      >
+        <Target className="size-3.5" aria-hidden />
+      </Link>
+    </span>
   )
 }
 

@@ -41,7 +41,9 @@ export const SEGMENTS_BY_TAB: Record<FiltersTab, { group: string; items: Segment
         { id: 'kr-without-owner', label: 'Without owner', group: 'INSIGHTS' },
         { id: 'kr-not-aligned', label: 'Not aligned', group: 'INSIGHTS' },
         { id: 'kr-reporting-to-you', label: 'Reporting to you', group: 'INSIGHTS' },
-        { id: 'kr-tagged-kpi', label: 'Tagged as KPI', group: 'INSIGHTS' },
+        // KPI-8: repointed from the dead "Tagged as KPI" tag to KRs that a KPI is linked to (Kpi.keyResultId).
+        // The id stays 'kr-tagged-kpi' (SegmentId union in ./types).
+        { id: 'kr-tagged-kpi', label: 'Linked to a KPI', group: 'INSIGHTS' },
         { id: 'kr-committed', label: 'Committed', group: 'INSIGHTS' },
         { id: 'kr-aspirational', label: 'Aspirational', group: 'INSIGHTS' },
       ],

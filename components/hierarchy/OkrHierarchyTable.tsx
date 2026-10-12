@@ -3,12 +3,13 @@
 /**
  * OKR tree (objectives → key results → initiatives) with per-column filters.
  * The OKR Explorer's Tree view (/dashboard/okrs-all?view=tree); `scope` is the
- * Explorer level preset (lib/okr/explorer-params.ts).
+ * Explorer level preset (lib/okr/explorer-params.ts); `?owner=<userId>` in the
+ * URL narrows the tree to objectives that person owns (PRF-7).
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import {
   ChevronDown,
   ChevronRight,
@@ -31,7 +32,14 @@ import { useInitiativeDetailStore } from '@/lib/stores/initiative-detail-store'
 import { Progress } from '@/components/ui/progress'
 import { SkeletonRow } from '@/components/ui/Skeleton'
 import { getOkrStatusColor } from '@/lib/utils'
-import { applyExplorerScope, lockedScopeKeys, type ExplorerScope } from '@/lib/okr/explorer-params'
+import {
+  EXPLORER_OWNER_PARAM,
+  applyExplorerScope,
+  explorerOwnerFromSearch,
+  lockedScopeKeys,
+  withExplorerOwner,
+  type ExplorerScope,
+} from '@/lib/okr/explorer-params'
 
 /* ----------------------------- Types --------------------------------- */
 
@@ -492,7 +500,12 @@ function NodeCard({
 
 /* --------------------------- Main component -------------------------- */
 
-export default function OkrHierarchyTable({ scope }: { scope?: ExplorerScope } = {}) {
+export default function OkrHierarchyTable({ scope: presetScope }: { scope?: ExplorerScope } = {}) {
+  const searchParams = useSearchParams()
+  const pathname = usePathname()
+  const ownerParam = explorerOwnerFromSearch(searchParams)
+  // `?owner=` ANDs with the level preset; memoised so fetchData only changes when either does.
+  const scope = useMemo(() => withExplorerOwner(presetScope, ownerParam), [presetScope, ownerParam])
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS)
   const [rows, setRows] = useState<Row[]>([])
   const [refs, setRefs] = useState<Refs>({ timeframes: [], owners: [], teams: [], labels: [] })
@@ -622,6 +635,22 @@ export default function OkrHierarchyTable({ scope }: { scope?: ExplorerScope } =
   // Pills the level preset fixes are hidden — the preset overrides them server-side.
   const locked = useMemo(() => lockedScopeKeys(scope), [scope])
 
+  const ownerFilter = useMemo(() => {
+    const id = scope?.owner?.[0]
+    if (!id) return null
+    const ref = refs.owners.find((u) => u.id === id)
+    const fromRows = rows.find((r) => r.data.owner?.id === id)?.data.owner as RefUser | undefined
+    const person = ref ?? fromRows
+    return { id, name: person?.name ?? person?.email ?? 'Selected person' }
+  }, [scope, refs.owners, rows])
+  /** Drops `?owner=` from the URL (the page re-renders with the plain preset). */
+  const clearOwner = useCallback(() => {
+    const next = new URLSearchParams(searchParams?.toString() ?? '')
+    next.delete(EXPLORER_OWNER_PARAM)
+    const qs = next.toString()
+    router.replace(qs ? `${pathname}?${qs}` : pathname)
+  }, [pathname, router, searchParams])
+
   const activeFilterCount = filters.period.length + filters.team.length + filters.type.length + (filters.q ? 1 : 0)
 
   // Open row
@@ -697,6 +726,23 @@ export default function OkrHierarchyTable({ scope }: { scope?: ExplorerScope } =
           selected={filters.period}
           onChange={(next) => setFilters({ ...filters, period: next })}
         />
+        {ownerFilter && (
+          <span
+            className="inline-flex h-8 items-center gap-1.5 rounded-full border bg-card pl-2.5 pr-1 text-xs"
+            style={{ borderColor: 'var(--ap-accent)', color: 'var(--ap-fg)' }}
+          >
+            <span className="text-muted-foreground">Owner</span>
+            <span className="max-w-[160px] truncate font-medium">{ownerFilter.name}</span>
+            <button
+              type="button"
+              onClick={clearOwner}
+              aria-label={`Remove owner filter (${ownerFilter.name})`}
+              className="inline-flex size-6 items-center justify-center rounded-full text-muted-foreground hover:bg-[var(--ap-bg-sunken)] hover:text-foreground"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </span>
+        )}
         {!locked.has('team') && (
           <MultiPill
             label="Department"

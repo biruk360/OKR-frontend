@@ -5,6 +5,7 @@ import { Send } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
 import { buildChartRows, formatAxisValue } from '@/lib/keyResultChart'
+import { krProgressFraction, normalizeKrDirection } from '@/lib/keyResultNumbers'
 import { Modal } from '@/components/ui'
 
 type TimeframeLike = {
@@ -76,6 +77,7 @@ export default function CreateCheckInModal({
 
   // ─── Computed values ─────────────────────────────────────────────────────
   const startV = Number(kr?.startValue) || 0
+  const krDirection = normalizeKrDirection(kr?.direction)
   const targetV = Number(kr?.targetValue) || 0
 
   const enteredValue = useMemo(() => {
@@ -90,11 +92,20 @@ export default function CreateCheckInModal({
     return Number.isFinite(n) ? n : 0
   }, [progressInput, kr?.currentValue])
 
+  // FND-3 / KRX-1: direction-aware (DECREASE KRs progress as the value falls).
+  // Signed span: (v − start) / (target − start) is correct for both directions
+  // once the span is known to point the KR's way.
+  const spanValid =
+    krProgressFraction({ startValue: startV, targetValue: targetV, currentValue: startV, direction: krDirection }) !== null
   const actualPct = useMemo(() => {
-    const span = targetV - startV
-    if (span <= 0) return 0
-    return Math.min(Math.max(((enteredValue - startV) / span) * 100, 0), 100)
-  }, [enteredValue, startV, targetV])
+    const f = krProgressFraction({
+      startValue: startV,
+      targetValue: targetV,
+      currentValue: enteredValue,
+      direction: krDirection,
+    })
+    return f === null ? 0 : f * 100
+  }, [enteredValue, startV, targetV, krDirection])
 
   const expectedPct = useMemo(() => {
     if (!tf) return 0
@@ -123,9 +134,9 @@ export default function CreateCheckInModal({
   const deltaSinceLast = lastCheckIn ? enteredValue - Number(lastCheckIn.value) : 0
   const deltaPctSinceLast = useMemo(() => {
     const span = targetV - startV
-    if (span <= 0 || !lastCheckIn) return 0
+    if (!spanValid || !lastCheckIn) return 0
     return Math.round((deltaSinceLast / span) * 100)
-  }, [deltaSinceLast, lastCheckIn, startV, targetV])
+  }, [deltaSinceLast, lastCheckIn, startV, targetV, spanValid])
 
   // ─── Trajectory chart points ─────────────────────────────────────────────
   const chart = useMemo(() => {
@@ -136,7 +147,7 @@ export default function CreateCheckInModal({
       tf
     )
     const span = targetV - startV
-    if (span <= 0) return null
+    if (!spanValid) return null
     const w = 280
     const h = 100
     const pad = 6
@@ -161,7 +172,7 @@ export default function CreateCheckInModal({
     const confEndV = startV + (span * confidenceEndPct) / 100
     const confidencePath = `M ${xs(t0).toFixed(1)} ${ys(startV).toFixed(1)} L ${xs(t1).toFixed(1)} ${ys(confEndV).toFixed(1)}`
     return { w, h, expectedPath, actualPath, confidencePath }
-  }, [tf, checkIns, enteredValue, startV, targetV, confidenceScore])
+  }, [tf, checkIns, enteredValue, startV, targetV, confidenceScore, spanValid])
 
   // ─── Header pill ─────────────────────────────────────────────────────────
   const objCodePill = useMemo(() => {

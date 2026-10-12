@@ -6,6 +6,9 @@ import { loadKeyResultDetail } from '@/features/key-results/services/key-result-
 import { ScrumActivityPanel } from '@/features/scrum'
 import RolledFromBanner from '@/components/shared/RolledFromBanner'
 import OkrLockBanner from '@/components/shared/OkrLockBanner'
+import KrContributionSections from '@/components/key-result-detail/KrContributionSections'
+import { isCompanyLevel } from '@/components/key-result-detail/kr-connections'
+import { AlignmentTrail } from '@/features/okr-links'
 
 interface PageProps {
   params: { id: string } | Promise<{ id: string }>
@@ -42,16 +45,19 @@ export default async function KeyResultDetailPage({ params }: PageProps) {
 
   return (
     <div className="space-y-4">
-      <div className="mx-auto max-w-6xl px-4 pt-4">
+      <div className="mx-auto max-w-6xl space-y-3 px-4 pt-4">
+        {/* CON-5: Company O1 › KR1.3 › … › this KR (renders nothing when nothing is above it). */}
+        {!isRedacted && <AlignmentTrail entityType="KEY_RESULT" entityId={keyResult.id} variant="bar" />}
         {!isRedacted && (
           <RolledFromBanner
             entityType="key-result"
+            entityId={keyResult.id}
             previous={keyResult.rolledFrom ? { ...keyResult.rolledFrom, timeframe: keyResult.rolledFrom.objective.timeframe } : null}
             next={keyResult.rolledTo[0] ? { ...keyResult.rolledTo[0], timeframe: keyResult.rolledTo[0].objective.timeframe } : null}
             lineageDepth={keyResult.lineageDepth}
           />
         )}
-        {keyResult.isLocked && <div className="mt-4"><OkrLockBanner entityType="Key Result" reopenCount={keyResult.reopenCount} closedAt={keyResult.closedAt} /></div>}
+        {keyResult.isLocked && <div><OkrLockBanner entityType="Key Result" reopenCount={keyResult.reopenCount} closedAt={keyResult.closedAt} /></div>}
       </div>
       <KeyResultDetailClient
         keyResult={krForClient}
@@ -76,7 +82,9 @@ export default async function KeyResultDetailPage({ params }: PageProps) {
         currentUserId={session.user.id}
       />
       {!isRedacted && (
-        <div className="mx-auto max-w-6xl px-4 pb-6">
+        <div className="mx-auto max-w-6xl space-y-4 px-4 pb-6">
+          {/* CON-7 "Lands in" (company KRs) + CON-3 linked project milestones. */}
+          <KrContributionSections keyResultId={keyResult.id} isCompany={isCompanyLevel(objFull.level)} />
           <ScrumActivityPanel keyResultId={keyResult.id} />
         </div>
       )}

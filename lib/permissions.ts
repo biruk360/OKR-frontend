@@ -511,9 +511,17 @@ export function redactObjective(objective: any) {
 /**
  * Redact a key result for display (hide sensitive details)
  */
+/** KRX definition text (CON-8): blanked for redacted viewers when present on the row. */
+const REDACTED_KRX_TEXT_FIELDS = ['baselineText', 'targetText', 'measuredBy', 'dueText', 'externalRef'] as const
+
 export function redactKeyResult(keyResult: any) {
+  const krxText: Record<string, null> = {}
+  for (const field of REDACTED_KRX_TEXT_FIELDS) {
+    if (keyResult && field in keyResult) krxText[field] = null
+  }
   return {
     ...keyResult,
+    ...krxText,
     title: '[Private Key Result]',
     description: null,
     // Hide specific values but keep progress percentage

@@ -62,3 +62,9 @@ test('DST-05: a stored month-end anchor steps Feb 28 → Mar 31 at local midnigh
   assert.equal(stamp(plan.occurrences[0].dueDate), '2026-03-31 00:00')
   assert.equal(anchorDayForDue('MONTHLY', d(2026, 3, 8, 3)), 8, 'day read in local time on the DST day')
 })
+
+test('DST-06: quarterly and half-yearly month-end steps land on local midnight across spring-forward', () => {
+  assert.equal(stamp(nextOccurrence('QUARTERLY', d(2026, 12, 31))), '2027-03-31 00:00')
+  assert.equal(stamp(nextOccurrence('SEMIANNUAL', d(2026, 9, 30), 31)), '2027-03-31 00:00')
+  assert.equal(stamp(nextOccurrence('SEMIANNUAL', d(2026, 9, 30, 3))), '2027-03-30 00:00')
+})

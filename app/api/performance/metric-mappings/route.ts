@@ -1,14 +1,16 @@
 import type { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { apiBadRequest, apiForbidden, apiNotFound, apiSuccess, withAuth } from '@/lib/api'
-import { canManageTemplates, hasPerformancePermission } from '@/lib/performance'
+import { KPI_METRIC_SOURCE, kpiDirectionMixIssue, kpiSourceRuleIssue } from '@/lib/performance/metric-resolver'
 import { SCRUM_PERFORMANCE_METRICS } from '@/types/scrum'
 import { recordActivity } from '@/lib/activity-log'
-
-async function canManageMappings(actor: { userId: string; role: string }, action: 'read' | 'write' | 'delete'): Promise<boolean> {
-  return await canManageTemplates(actor, 'button.performance.template.map-metric')
-    && await hasPerformancePermission(actor, 'metric_source_mapping', action)
-}
+import {
+  MAPPING_KPI_SELECT,
+  canManageMappings,
+  loadKpiVisibility,
+  redactMappingKpis,
+  uniqueIds,
+} from './shared'
 
 export const GET = withAuth(async (request: NextRequest, { session }) => {
   const actor = { userId: session.user.id, role: session.user.role }
@@ -37,10 +39,11 @@ export const GET = withAuth(async (request: NextRequest, { session }) => {
           status: true,
         },
       },
+      kpi: { select: MAPPING_KPI_SELECT },
     },
     orderBy: [{ employee: { name: 'asc' } }, { criterion: { title: 'asc' } }, { position: 'asc' }],
   })
-  return apiSuccess(mappings)
+  return apiSuccess(await redactMappingKpis(session, mappings))
 })
 
 export const PUT = withAuth(async (request: NextRequest, { session }) => {
@@ -50,9 +53,9 @@ export const PUT = withAuth(async (request: NextRequest, { session }) => {
   const body = await request.json().catch(() => ({})) as Record<string, unknown>
   const criterionId = typeof body.criterionId === 'string' ? body.criterionId : ''
   const employeeId = typeof body.employeeId === 'string' ? body.employeeId : ''
-  const keyResultIds: string[] | null = Array.isArray(body.keyResultIds)
-    ? Array.from(new Set<string>(body.keyResultIds.filter((id: unknown): id is string => typeof id === 'string' && !!id)))
-    : null
+  const keyResultIds = uniqueIds(body.keyResultIds)
+  // KPI-9: package KPIs owned by the employee (optional; older clients omit it).
+  const kpiIds = uniqueIds(body.kpiIds) ?? []
   const scrumMetricKeys: string[] = Array.isArray(body.scrumMetricKeys)
     ? Array.from(new Set<string>(body.scrumMetricKeys.filter((key: unknown): key is string => typeof key === 'string' && !!key)))
     : []
@@ -64,7 +67,7 @@ export const PUT = withAuth(async (request: NextRequest, { session }) => {
     return apiBadRequest(`Unsupported Scrum metric source: ${invalidScrumKeys.join(', ')}`)
   }
 
-  const [criterion, employee, keyResults] = await Promise.all([
+  const [criterion, employee, keyResults, kpis, previous] = await Promise.all([
     prisma.scorecardCriterion.findUnique({
       where: { id: criterionId },
       select: { id: true, type: true, scoringRuleJson: true },
@@ -74,12 +77,23 @@ export const PUT = withAuth(async (request: NextRequest, { session }) => {
       where: { id: { in: keyResultIds } },
       select: { id: true, ownerId: true, status: true },
     }),
+    kpiIds.length > 0
+      ? prisma.kpi.findMany({
+        where: { id: { in: kpiIds } },
+        select: { id: true, name: true, ownerId: true, status: true, direction: true, isSensitive: true },
+      })
+      : Promise.resolve([]),
+    prisma.metricSourceMapping.findMany({
+      where: { criterionId, employeeId },
+      select: { keyResultId: true, scrumMetricKey: true, kpiId: true },
+      orderBy: { position: 'asc' },
+    }),
   ])
   if (!criterion) return apiNotFound('Scorecard criterion not found')
-  if (criterion.type !== 'METRIC') return apiBadRequest('Only metric criteria can be linked to Key Results')
+  if (criterion.type !== 'METRIC') return apiBadRequest('Only metric criteria can have metric sources')
   if (!employee?.isActive) return apiBadRequest('Metric mappings require an active employee')
   const rule = criterion.scoringRuleJson as Record<string, unknown> | null
-  if (rule?.type !== 'MANUAL' && keyResultIds.length + scrumMetricKeys.length === 0) {
+  if (rule?.type !== 'MANUAL' && keyResultIds.length + scrumMetricKeys.length + kpiIds.length === 0) {
     return apiBadRequest('An automatic metric criterion requires at least one source')
   }
   if (keyResults.length !== keyResultIds.length) return apiBadRequest('One or more Key Results do not exist')
@@ -89,12 +103,28 @@ export const PUT = withAuth(async (request: NextRequest, { session }) => {
   if (keyResults.some((keyResult) => keyResult.status !== 'ACTIVE')) {
     return apiBadRequest('Only active Key Results can be linked')
   }
-
-  const previous = await prisma.metricSourceMapping.findMany({
-    where: { criterionId, employeeId },
-    select: { keyResultId: true, scrumMetricKey: true },
-    orderBy: { position: 'asc' },
-  })
+  if (kpis.length !== kpiIds.length) return apiBadRequest('One or more KPIs do not exist')
+  if (kpis.some((kpi) => kpi.ownerId !== employeeId)) {
+    return apiBadRequest('Every linked KPI must belong to the selected employee')
+  }
+  // A KPI retired after it was linked keeps its link (its readings still count);
+  // new links need an active KPI the viewer may see (KPI-7 for sensitive ones).
+  const alreadyLinked = new Set(previous.flatMap((mapping) => (mapping.kpiId ? [mapping.kpiId] : [])))
+  const added = kpis.filter((kpi) => !alreadyLinked.has(kpi.id))
+  if (added.some((kpi) => kpi.status !== 'ACTIVE')) return apiBadRequest('Only active KPIs can be linked')
+  if (added.length > 0) {
+    const visibility = await loadKpiVisibility(session, [employeeId])
+    if (added.some((kpi) => !visibility.canView(kpi.ownerId, kpi.isSensitive))) {
+      return apiForbidden('You do not have access to one or more of these KPIs')
+    }
+  }
+  const ruleType = typeof rule?.type === 'string' ? rule.type : null
+  for (const kpi of kpis) {
+    const issue = kpiSourceRuleIssue(kpi.direction, ruleType)
+    if (issue) return apiBadRequest(`${kpi.name}: ${issue}`)
+  }
+  const mixIssue = kpiDirectionMixIssue(kpis.map((kpi) => kpi.direction))
+  if (mixIssue) return apiBadRequest(mixIssue)
 
   const mappings = await prisma.$transaction(async (tx) => {
     await tx.metricSourceMapping.deleteMany({ where: { criterionId, employeeId } })
@@ -120,17 +150,33 @@ export const PUT = withAuth(async (request: NextRequest, { session }) => {
         })),
       })
     }
+    if (kpiIds.length > 0) {
+      await tx.metricSourceMapping.createMany({
+        data: kpiIds.map((kpiId, offset) => ({
+          criterionId,
+          employeeId,
+          sourceType: KPI_METRIC_SOURCE,
+          kpiId,
+          position: keyResultIds.length + scrumMetricKeys.length + offset,
+        })),
+      })
+    }
     return tx.metricSourceMapping.findMany({
       where: { criterionId, employeeId },
-      include: { keyResult: { select: { id: true, title: true, currentValue: true, targetValue: true, unit: true } } },
+      include: {
+        keyResult: { select: { id: true, title: true, currentValue: true, targetValue: true, unit: true } },
+        kpi: { select: MAPPING_KPI_SELECT },
+      },
       orderBy: { position: 'asc' },
     })
   })
   const beforeKr = previous.flatMap((m) => (m.keyResultId ? [m.keyResultId] : []))
   const beforeScrum = previous.flatMap((m) => (m.scrumMetricKey ? [m.scrumMetricKey] : []))
+  const beforeKpi = previous.flatMap((m) => (m.kpiId ? [m.kpiId] : []))
   const changes = {
     ...(JSON.stringify(beforeKr) !== JSON.stringify(keyResultIds) ? { keyResultIds: { from: beforeKr, to: keyResultIds } } : {}),
     ...(JSON.stringify(beforeScrum) !== JSON.stringify(scrumMetricKeys) ? { scrumMetricKeys: { from: beforeScrum, to: scrumMetricKeys } } : {}),
+    ...(JSON.stringify(beforeKpi) !== JSON.stringify(kpiIds) ? { kpiIds: { from: beforeKpi, to: kpiIds } } : {}),
   }
   if (Object.keys(changes).length > 0) {
     await recordActivity({
@@ -141,7 +187,7 @@ export const PUT = withAuth(async (request: NextRequest, { session }) => {
       metadata: { entity: 'METRIC_SOURCE_MAPPING', criterionId, employeeId },
     })
   }
-  return apiSuccess(mappings)
+  return apiSuccess(await redactMappingKpis(session, mappings))
 })
 
 export const DELETE = withAuth(async (request: NextRequest, { session }) => {
@@ -157,7 +203,7 @@ export const DELETE = withAuth(async (request: NextRequest, { session }) => {
     action: 'DELETED',
     actorId: session.user.id,
     changes: {
-      source: { from: removed.keyResultId ?? removed.scrumMetricKey, to: null },
+      source: { from: removed.keyResultId ?? removed.kpiId ?? removed.scrumMetricKey, to: null },
     },
     metadata: {
       entity: 'METRIC_SOURCE_MAPPING',

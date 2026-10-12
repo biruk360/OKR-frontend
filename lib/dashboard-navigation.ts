@@ -23,7 +23,9 @@ import {
   FileBarChart,
   FileLock2,
   FolderKanban,
+  Gavel,
   Gauge,
+  GitFork,
   Kanban,
   KeyRound,
   LayoutDashboard,
@@ -117,6 +119,11 @@ export const navigationGroups: NavGroup[] = [
     items: [
       { name: 'OKR Explorer', href: '/dashboard/okrs-all', icon: Compass },
       { name: 'Key Results', href: '/dashboard/key-results', icon: KeyRound },
+      // Employee Operating Package (§8): every employee sees the company map
+      // (titles + status) and the decisions they are party to; the pages filter
+      // records per viewer through lib/package/access.ts.
+      { name: 'Dependency Map', href: '/dashboard/okrs-all/dependencies', icon: GitFork, featureKey: 'page.okr.dependency-map' },
+      { name: 'Decisions', href: '/dashboard/decisions', icon: Gavel, featureKey: 'page.okr.decisions' },
       { name: 'Insights', href: '/dashboard/insights', icon: BarChart3 },
     ],
     defaultOpen: true,

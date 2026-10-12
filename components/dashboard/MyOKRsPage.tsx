@@ -2,9 +2,11 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSession } from 'next-auth/react'
-import { Search, Target } from 'lucide-react'
+import Link from 'next/link'
+import { Search, Target, UserRound } from 'lucide-react'
 import { useDebounce } from '@/hooks/useDebounce'
 import { PageHeader } from '@/components/ui/PageHeader'
+import { Button } from '@/components/ui/button'
 import { FilterSelect } from '@/components/ui/FilterSelect'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { SkeletonRow } from '@/components/ui/Skeleton'
@@ -12,6 +14,7 @@ import { NestedObjectivesList, CreateIndividualObjectiveButton } from '@/feature
 import { pickCurrentTimeframe } from '@/lib/timeframe-utils'
 import toast from 'react-hot-toast'
 import { useTimeframes, useDepartments } from '@/hooks'
+import { profileTabHref } from '@/types/package'
 
 interface Objective {
   id: string
@@ -130,10 +133,19 @@ export default function MyOKRsPage() {
           title="My OKRs"
           description="Objectives and key results you own or contribute to."
           actions={
-            <CreateIndividualObjectiveButton
-              onObjectiveCreated={handleObjectiveCreated}
-              userDepartments={userDepartments}
-            />
+            <div className="flex flex-wrap items-center gap-2">
+              {/* PRF-7: the viewer's own OKR profile tab (tree with alignment, lineage and past OKRs). */}
+              <Button asChild variant="outline">
+                <Link href={profileTabHref(session.user.id, 'okrs')}>
+                  <UserRound data-icon="inline-start" aria-hidden="true" />
+                  My OKR profile
+                </Link>
+              </Button>
+              <CreateIndividualObjectiveButton
+                onObjectiveCreated={handleObjectiveCreated}
+                userDepartments={userDepartments}
+              />
+            </div>
           }
         />
       </div>

@@ -525,6 +525,249 @@ function renderProjectOrScrumEvent(eventKey: EventKey, data: Data, name: string)
   }
 }
 
+const PACKAGE_LINKS = [
+  { label: 'Inbox', href: '/dashboard/notifications' },
+  { label: 'Notification settings', href: '/dashboard/settings/notifications' },
+]
+
+/** Days as "in 3 days" / "today" / "3 days ago" — empty when not a finite number. */
+function relDays(v: unknown, future: boolean): string {
+  if (!has(v)) return ''
+  const n = Math.round(Number(v))
+  if (!Number.isFinite(n)) return ''
+  if (n === 0) return 'today'
+  const abs = Math.abs(n)
+  const word = `${abs} day${abs === 1 ? '' : 's'}`
+  return future ? `in ${word}` : `${word} ago`
+}
+
+/** "DEP14 · Title" when a workbook id is known. */
+function refTitle(ref: unknown, title: string): string {
+  const r = str(ref)
+  return r ? `${r} · ${title}` : title
+}
+
+/**
+ * Employee Operating Package emails (§9). Every template links to the deep
+ * link the dispatcher computed (lib/notifications/deep-link.ts → packagePath).
+ * Redactable events (KPI_READING_DUE, DEV_ITEM_DUE, KR_CHECKPOINT_DUE) print
+ * only the entity title and values under REDACTED_DATA_KEYS (targetValue,
+ * unit), which redactData strips for redacted recipients. Returns null for
+ * keys it does not handle.
+ *
+ * Template data callers pass (all optional):
+ *   KPI_READING_DUE      periodLabel, periodEnd, daysOverdue, targetValue, unit, ownerId
+ *   DEPENDENCY_*         externalRef, neededByDate, daysLeft | daysLate, providerNames, neederNames, unblocksText, actorName
+ *   DECISION_REQUESTED   externalRef, requesterName, neededBy, batch
+ *   DECISION_DECIDED     externalRef, actorName, decisionText, decidedAt
+ *   DEV_ITEM_DUE         dueDate, daysLeft, kindLabel, ownerId
+ *   PACKAGE_*            timeframeName, version, actorName, employeeName, itemTitle, itemType, disputeComment, reviewedCount, totalCount
+ *   KR_CHECKPOINT_DUE    checkpointLabel, dueDate, daysLeft, targetValue (checkpoint target text)
+ */
+function renderPackageEvent(eventKey: EventKey, data: Data, name: string): RenderedEmail | null {
+  const rawTitle = str(data.entityTitle)
+  const known = rawTitle !== '' && rawTitle !== '(untitled)' && rawTitle !== '(item)'
+  const title = known ? rawTitle : ''
+  const link = str(data.deepLink, '/dashboard')
+  const actor = str(data.actorName)
+  const base = { name, link, secondary: PACKAGE_LINKS }
+  const tags = Array.isArray(data.recipientRole) ? (data.recipientRole as unknown[]).map(String) : []
+
+  switch (eventKey) {
+    case 'KPI_READING_DUE': {
+      const kpi = title || 'one of your KPIs'
+      const period = str(data.periodLabel)
+      const target = has(data.targetValue) ? `${str(data.targetValue)}${str(data.unit) ? ` ${str(data.unit)}` : ''}` : ''
+      return notice({
+        ...base,
+        eyebrow: 'Operating package · KPIs',
+        subject: title ? `KPI reading overdue: ${title}` : 'A KPI reading is overdue',
+        title: 'KPI reading overdue',
+        badgeText: 'Overdue', badgeTone: 'warning',
+        lead: `No reading has been entered for ${title ? `"${kpi}"` : kpi}${period ? ` for ${period}` : ''}. Enter it so the quarter average and your performance review stay accurate.`,
+        details: [
+          { label: 'Period', value: period },
+          { label: 'Period ended', value: has(data.periodEnd) ? fmtDate(data.periodEnd) : '' },
+          { label: 'Overdue', value: relDays(data.daysOverdue, false) },
+          { label: 'Target', value: target },
+        ],
+        cta: 'Enter reading', ctaVariant: 'warning',
+      })
+    }
+
+    case 'DEPENDENCY_DUE_SOON': {
+      const dep = refTitle(data.externalRef, title || 'A dependency you provide')
+      return notice({
+        ...base,
+        eyebrow: 'Operating package · Dependencies',
+        subject: `Due soon: ${dep}`,
+        title: 'A dependency you provide is due soon',
+        badgeText: 'Due soon', badgeTone: 'warning',
+        lead: `Others are waiting on "${dep}". It is needed ${relDays(data.daysLeft, true) || 'within 7 days'}.`,
+        details: [
+          { label: 'Needed by', value: has(data.neededByDate) ? fmtDate(data.neededByDate) : '' },
+          { label: 'Waiting', value: str(data.neederNames) },
+          { label: 'Unblocks', value: str(data.unblocksText) },
+        ],
+        cta: 'Open dependency',
+      })
+    }
+
+    case 'DEPENDENCY_LATE': {
+      const dep = refTitle(data.externalRef, title || 'A dependency')
+      const asProvider = tags.includes('PROVIDER')
+      const asManager = !asProvider && !tags.includes('NEEDER') && tags.includes('MANAGER')
+      return notice({
+        ...base,
+        eyebrow: 'Operating package · Dependencies',
+        subject: `Late dependency: ${dep}`,
+        title: 'Dependency is late',
+        badgeText: 'Late', badgeTone: 'danger',
+        lead: asProvider
+          ? `"${dep}" was due ${relDays(data.daysLate, false) || 'already'} and is not done. The people who need it are blocked until it is delivered.`
+          : asManager
+            ? `Your report is blocked: "${dep}" is past its needed-by date and not yet delivered.`
+            : `"${dep}", which you need, is past its needed-by date. Your linked items show as blocked until it is done.`,
+        alert: { tone: 'danger', title: 'Blocked work', body: str(data.unblocksText) || undefined },
+        details: [
+          { label: 'Needed by', value: has(data.neededByDate) ? fmtDate(data.neededByDate) : '' },
+          { label: 'Owner (delivers)', value: str(data.providerNames) },
+          { label: 'Needed by (people)', value: str(data.neederNames) },
+        ],
+        cta: 'Open dependency', ctaVariant: 'danger',
+      })
+    }
+
+    case 'DEPENDENCY_DONE': {
+      const dep = refTitle(data.externalRef, title || 'A dependency you need')
+      return notice({
+        ...base,
+        eyebrow: 'Operating package · Dependencies',
+        subject: `Done: ${dep}`,
+        title: 'A dependency you need is done',
+        badgeText: 'Done', badgeTone: 'success',
+        lead: `${actor ? `${actor} marked` : 'The provider marked'} "${dep}" as done. Work that was waiting on it can go ahead.`,
+        details: [{ label: 'Unblocks', value: str(data.unblocksText) }],
+        cta: 'Open dependency', ctaVariant: 'success',
+      })
+    }
+
+    case 'DECISION_REQUESTED': {
+      const decision = refTitle(data.externalRef, title || 'A decision')
+      return notice({
+        ...base,
+        eyebrow: 'Operating package · Decisions',
+        subject: `Decision needed: ${decision}`,
+        title: 'A decision is waiting for you',
+        badgeText: 'Awaiting decision', badgeTone: 'primary',
+        lead: `${str(data.requesterName) || actor || 'A colleague'} needs your decision on "${decision}".`,
+        details: [
+          { label: 'Needed by', value: has(data.neededBy) ? fmtDate(data.neededBy) : '' },
+          { label: 'Batch', value: str(data.batch) },
+        ],
+        cta: 'Review decision',
+      })
+    }
+
+    case 'DECISION_DECIDED': {
+      const decision = refTitle(data.externalRef, title || 'A decision')
+      return notice({
+        ...base,
+        eyebrow: 'Operating package · Decisions',
+        subject: `Decided: ${decision}`,
+        title: 'A decision was recorded',
+        badgeText: 'Decided', badgeTone: 'success',
+        lead: `${actor || 'The decider'} recorded a decision on "${decision}", which affects you or your work.`,
+        details: [
+          { label: 'Decision', value: str(data.decisionText) },
+          { label: 'Decided on', value: has(data.decidedAt) ? fmtDate(data.decidedAt) : '' },
+        ],
+        cta: 'Open decision', ctaVariant: 'success',
+      })
+    }
+
+    case 'DEV_ITEM_DUE': {
+      const item = title || 'A development item'
+      return notice({
+        ...base,
+        eyebrow: 'Operating package · Development',
+        subject: title ? `Development item due soon: ${title}` : 'A development item is due soon',
+        title: 'Development item due soon',
+        badgeText: str(data.kindLabel) || 'Development', badgeTone: 'warning',
+        lead: `"${item}" is due ${relDays(data.daysLeft, true) || 'within 14 days'}. Finish it and attach the evidence so it counts toward your yearly development rule.`,
+        details: [{ label: 'Due', value: has(data.dueDate) ? fmtDate(data.dueDate) : '' }],
+        cta: 'Open development plan',
+      })
+    }
+
+    case 'PACKAGE_SENT_FOR_REVIEW': {
+      const tf = str(data.timeframeName)
+      return notice({
+        ...base,
+        eyebrow: 'Operating package',
+        subject: tf ? `Your ${tf} operating package is ready for review` : 'Your operating package is ready for review',
+        title: 'Review your operating package',
+        badgeText: str(data.version) || 'In review', badgeTone: 'primary',
+        lead: `${actor ? `${actor} sent` : 'Your manager sent'} your operating package${tf ? ` for ${tf}` : ''} for review. Mark each item Agree or Dispute — a dispute needs a short comment.`,
+        kpis: has(data.totalCount) ? [{ label: 'Items to review', value: num(data.totalCount) }] : [],
+        cta: 'Review package',
+      })
+    }
+
+    case 'PACKAGE_ITEM_DISPUTED': {
+      const employee = str(data.employeeName) || actor || 'Your report'
+      const item = str(data.itemTitle)
+      return notice({
+        ...base,
+        eyebrow: 'Operating package',
+        subject: `${employee} disputed a package item`,
+        title: 'Package item disputed',
+        badgeText: 'Dispute', badgeTone: 'warning',
+        lead: `${employee} disputed ${item ? `"${item}"` : 'an item'} in their operating package${str(data.timeframeName) ? ` for ${str(data.timeframeName)}` : ''}. Resolve it before approving the package.`,
+        details: [
+          { label: 'Item type', value: str(data.itemType) },
+          { label: 'Comment', value: str(data.disputeComment) },
+        ],
+        cta: 'Open package', ctaVariant: 'warning',
+      })
+    }
+
+    case 'PACKAGE_APPROVED': {
+      const tf = str(data.timeframeName)
+      return notice({
+        ...base,
+        eyebrow: 'Operating package',
+        subject: tf ? `Your ${tf} operating package was approved` : 'Your operating package was approved',
+        title: 'Operating package approved',
+        badgeText: str(data.version) || 'Approved', badgeTone: 'success',
+        lead: `${actor ? `${actor} approved` : 'Your manager approved'} your operating package${tf ? ` for ${tf}` : ''}. Later edits are still possible and are logged in the package history.`,
+        cta: 'Open package', ctaVariant: 'success',
+      })
+    }
+
+    case 'KR_CHECKPOINT_DUE': {
+      const kr = title || 'one of your key results'
+      const label = str(data.checkpointLabel)
+      return notice({
+        ...base,
+        eyebrow: 'Key results · Checkpoints',
+        subject: `${label ? `${label} checkpoint` : 'Checkpoint'} due soon${title ? `: ${title}` : ''}`,
+        title: 'Key result checkpoint due soon',
+        badgeText: label || 'Checkpoint', badgeTone: 'primary',
+        lead: `The ${label ? `${label} ` : ''}checkpoint for ${title ? `"${kr}"` : kr} is due ${relDays(data.daysLeft, true) || 'within 7 days'}. Check in so the checkpoint can be scored.`,
+        details: [
+          { label: 'Due', value: has(data.dueDate) ? fmtDate(data.dueDate) : '' },
+          { label: 'Checkpoint target', value: str(data.targetValue) },
+        ],
+        cta: 'Open key result',
+      })
+    }
+
+    default:
+      return null
+  }
+}
+
 export function renderTemplate(eventKey: EventKey, data: Data): RenderedEmail {
   const name = String(data.recipientName ?? 'there')
   const entityTitle = String(data.entityTitle ?? '(item)')
@@ -1518,7 +1761,7 @@ export function renderTemplate(eventKey: EventKey, data: Data): RenderedEmail {
 
     default: {
       // Project-delivery + scrum-workflow events (see renderProjectOrScrumEvent).
-      const specific = renderProjectOrScrumEvent(eventKey, data, name)
+      const specific = renderProjectOrScrumEvent(eventKey, data, name) ?? renderPackageEvent(eventKey, data, name)
       if (specific) return specific
       // Last resort for an event key with no template — the render test keeps
       // this unreachable for every key in EVENT_META.

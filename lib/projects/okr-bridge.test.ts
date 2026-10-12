@@ -13,6 +13,7 @@ interface MockKeyResult {
   targetValue: number
   currentValue: number
   progress: number
+  direction?: string
 }
 
 interface MockMilestone {
@@ -165,4 +166,41 @@ test('recalcKrsAndAncestors: recomputes KRs and rolls up objective progress', as
   // obj1 average of 100 and 0 → 50; obj2 inherits obj1 progress (single child).
   assert.equal(state.objectives.get('obj1').progress, 50)
   assert.equal(state.objectives.get('obj2').progress, 50)
+})
+
+test('recalcKrFromMilestones: DECREASE KR maps percent downward from start (KRX-1)', async () => {
+  const tx = buildMockTx({
+    keyResults: [{ id: 'kr1', objectiveId: 'obj1', startValue: 20, targetValue: 5, currentValue: 9, progress: 0, direction: 'DECREASE' }],
+    milestones: [{ id: 'm1', keyResultId: 'kr1', percentComplete: 50, weight: 1 }],
+  })
+
+  await recalcKrFromMilestones(tx, 'kr1')
+  const kr = (tx as any).__state.krs.get('kr1')
+  assert.equal(kr.currentValue, 12.5)
+  assert.equal(kr.progress, 50)
+})
+
+test('recalcKrFromMilestones: DECREASE KR clamps at target when over-complete', async () => {
+  const tx = buildMockTx({
+    keyResults: [{ id: 'kr1', objectiveId: 'obj1', startValue: 10, targetValue: 0, currentValue: 10, progress: 0, direction: 'DECREASE' }],
+    milestones: [{ id: 'm1', keyResultId: 'kr1', percentComplete: 120, weight: 1 }],
+  })
+
+  await recalcKrFromMilestones(tx, 'kr1')
+  const kr = (tx as any).__state.krs.get('kr1')
+  assert.equal(kr.currentValue, 0)
+  assert.equal(kr.progress, 100)
+})
+
+test('recalcKrFromMilestones: degenerate span leaves KR untouched', async () => {
+  const tx = buildMockTx({
+    keyResults: [{ id: 'kr1', objectiveId: 'obj1', startValue: 20, targetValue: 5, currentValue: 9, progress: 73 }],
+    milestones: [{ id: 'm1', keyResultId: 'kr1', percentComplete: 50, weight: 1 }],
+  })
+
+  const value = await recalcKrFromMilestones(tx, 'kr1')
+  assert.equal(value, 9)
+  const kr = (tx as any).__state.krs.get('kr1')
+  assert.equal(kr.currentValue, 9)
+  assert.equal(kr.progress, 73)
 })

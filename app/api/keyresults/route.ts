@@ -1,7 +1,8 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { canCreateKeyResultForObjective } from '@/lib/permissions'
-import { parseCurrentValue, parseStartAndTarget } from '@/lib/keyResultNumbers'
+import { krProgressPercent, parseCurrentValue, parseStartAndTarget } from '@/lib/keyResultNumbers'
+import { KR_EXTENSION_SELECT, parseKrExtensionFields } from '@/lib/okr/kr-commitment'
 import { recalcNodeAndAncestors } from '@/lib/objectiveProgress'
 import { recordActivity } from '@/lib/activity-log'
 import { normalizeCadence } from '@/lib/check-in-cadence'
@@ -10,7 +11,9 @@ import {
   apiSuccess,
   apiPaginated,
   apiBadRequest,
+  apiConflict,
   apiForbidden,
+  apiLocked,
   apiNotFound,
   withAuth,
 } from '@/lib/api'
@@ -38,6 +41,8 @@ export const GET = withAuth(async (request: NextRequest, { session }) => {
   if (ownerId) where.ownerId = ownerId
   if (objectiveId) where.objectiveId = objectiveId
   if (search) where.title = { contains: search, mode: 'insensitive' }
+  // KPI-8: "Linked to a KPI" Analyze segment — KRs with at least one active KPI.
+  if (searchParams.get('linkedToKpi') === 'true') where.kpis = { some: { status: 'ACTIVE' } }
 
   const scopeFilter = await buildScopeFilter(session.user.id, 'key_result')
 
@@ -64,6 +69,7 @@ export const GET = withAuth(async (request: NextRequest, { session }) => {
         objectiveId: true,
         checkInCadence: true,
         weight: true,
+        ...KR_EXTENSION_SELECT,
         createdAt: true,
         updatedAt: true,
         owner: { select: { id: true, name: true, avatar: true } },
@@ -78,7 +84,7 @@ export const GET = withAuth(async (request: NextRequest, { session }) => {
             timeframe: { select: { id: true, name: true } },
           },
         },
-        _count: { select: { todos: true } },
+        _count: { select: { todos: true, kpis: { where: { status: 'ACTIVE' } } } },
       },
     }),
     prisma.keyResult.count({ where: { ...where, ...(scopeFilter ?? {}) } }),
@@ -88,6 +94,7 @@ export const GET = withAuth(async (request: NextRequest, { session }) => {
 })
 
 export const POST = withAuth(async (request: NextRequest, { session }) => {
+  const body = await request.json()
   const {
     title,
     description,
@@ -99,14 +106,19 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
     currentValue,
     isPrivate,
     checkInCadence: rawCadence,
-  } = await request.json()
+  } = body
   const checkInCadence = normalizeCadence(rawCadence)
+
+  // KRX fields (commitment, direction, definition text, due, externalRef).
+  const ext = parseKrExtensionFields(body)
+  if (!ext.ok) return apiBadRequest(ext.message)
+  const direction = ext.data.direction ?? 'INCREASE'
 
   if (!title || !ownerId || targetValue === undefined || targetValue === null || targetValue === '' || !objectiveId) {
     return apiBadRequest('Title, owner, target value, and objective are required')
   }
 
-  const bounds = parseStartAndTarget(startValue, targetValue)
+  const bounds = parseStartAndTarget(startValue, targetValue, direction)
   if (!bounds.ok) return apiBadRequest(bounds.message)
 
   const currentParsed = parseCurrentValue(currentValue, bounds.start)
@@ -117,6 +129,15 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
     include: { owner: { select: { id: true, name: true } } },
   })
   if (!objective) return apiNotFound('Objective not found')
+
+  // FND-2: a closed / closing (locked) objective cannot gain key results.
+  if (objective.isLocked || objective.closureStatus !== 'OPEN') {
+    return apiLocked('This objective is closed and locked. Reopen it to add key results.', {
+      entityType: 'objective',
+      entityId: objective.id,
+      reopenUrl: `/dashboard/objectives/${objective.id}`,
+    })
+  }
 
   const allowed = await canCreateKeyResultForObjective(
     session.user.role as any,
@@ -135,6 +156,14 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
   const owner = await prisma.user.findUnique({ where: { id: ownerId } })
   if (!owner) return apiBadRequest('Invalid owner')
 
+  if (ext.data.externalRef) {
+    const clash = await prisma.keyResult.findFirst({
+      where: { objectiveId, externalRef: ext.data.externalRef },
+      select: { id: true },
+    })
+    if (clash) return apiConflict(`External reference "${ext.data.externalRef}" is already used on this objective`)
+  }
+
   const result = await prisma.$transaction(async (tx) => {
     const keyResult = await tx.keyResult.create({
       data: {
@@ -149,6 +178,14 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
         status: 'ACTIVE',
         isPrivate: isPrivate ?? false,
         checkInCadence,
+        ...ext.data,
+        direction,
+        progress: krProgressPercent({
+          startValue: bounds.start,
+          targetValue: bounds.target,
+          currentValue: currentParsed.current,
+          direction,
+        }),
       },
       include: {
         owner: { select: { id: true, name: true, avatar: true } },
@@ -165,7 +202,11 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
     objectiveId,
     action: 'CREATED',
     actorId: session.user.id,
-    metadata: { title: result.title },
+    metadata: {
+      title: result.title,
+      ...(result.commitment && { commitment: result.commitment }),
+      ...(result.direction !== 'INCREASE' && { direction: result.direction }),
+    },
   })
 
   // KR_ASSIGNED to owner (if different from actor) + KR_ADDED_TO_OBJECTIVE to objective owner.

@@ -5,10 +5,15 @@
  * /dashboard/key-results/[id] — same numbers, same check-in timeline, same
  * comment thread — with "View full page" for editing and check-ins.
  * Spec: docs/okr_quick_view_modals_REQUIREMENTS.md (QV-2).
+ * Operating package: compact connection chips (CON-1), the checkpoint strip and
+ * definition (KRX-3/4, read-only) and the connections rail card (CON-2) — all
+ * hidden for a redacted KR; linked items the viewer may not see show as
+ * "Private item" (CON-8).
  */
 
 import { useCallback, useMemo } from 'react'
 import { useSession } from 'next-auth/react'
+import { useQueryClient } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import { Calendar, ChevronRight, Gauge, Target, User } from 'lucide-react'
 import { formatRelativeTime } from '@/lib/utils'
@@ -20,6 +25,8 @@ import { UserAvatar } from '@/components/shared/UserAvatar'
 import OkrComments from '@/components/shared/OkrComments'
 import CheckInTimeline from '@/components/key-result-detail/CheckInTimeline'
 import KrProgressConfidenceCard from '@/components/key-result-detail/KrProgressConfidenceCard'
+import { KrPlanCompact, invalidateKrPlan, useKrPlanSummary } from '@/components/key-result-detail/KrPlanCard'
+import { ConnectionChips, ConnectionsPanel, connectionsQueryKey } from '@/components/shared/connections'
 import {
   Chip, Crumb, LEVEL_LABEL, MetaRow, PersonLink, PrivateNotice, ProgressRing, QuickLink,
   QuickViewError, QuickViewShell, QuickViewSkeleton, RailCard, Section, StatCell, StatStrip,
@@ -113,8 +120,19 @@ export function KeyResultDetailModal({ krId, onClose, onOpenObjective }: Props) 
   const kr = data?.kr ?? null
   const redacted = !!kr?.isRedacted
 
+  // Checkpoints + definition (shared cache with the KR page); fetched once the KR is known to be visible.
+  const plan = useKrPlanSummary(krId, !!kr && !redacted)
+  const showPlan = !!kr && !redacted && plan.hasContent
+
   // Another user's check-in / edit on this KR refreshes the view silently.
-  const silentReload = useCallback(() => reload(true), [reload])
+  const queryClient = useQueryClient()
+  const silentReload = useCallback(() => {
+    reload(true)
+    if (krId) {
+      void invalidateKrPlan(queryClient, krId)
+      void queryClient.invalidateQueries({ queryKey: connectionsQueryKey('KEY_RESULT', krId) })
+    }
+  }, [reload, queryClient, krId])
   useRealtimeRefresh({
     channel: krId && kr && !redacted ? keyResultRealtimeChannel(krId) : null,
     events: OKR_REALTIME_EVENT_NAMES,
@@ -213,6 +231,9 @@ export function KeyResultDetailModal({ krId, onClose, onOpenObjective }: Props) 
             )}
             {kr.updatedAt && <span className="sm:ml-auto">Updated {formatRelativeTime(kr.updatedAt)}</span>}
           </div>
+          {!redacted && (
+            <ConnectionChips entityType="KEY_RESULT" entityId={kr.id} compact onNavigate={onClose} className="mt-2.5" />
+          )}
         </div>
 
         {/* Stat strip */}
@@ -252,6 +273,16 @@ export function KeyResultDetailModal({ krId, onClose, onOpenObjective }: Props) 
           <PrivateNotice what="key result" />
         ) : (
           <>
+            {/* Checkpoints (Q2 · Q3 · Q4) + definition, read-only (KRX-3/4). */}
+            {showPlan && (
+              <Section
+                title="Checkpoints & definition"
+                count={plan.checkpointCount > 0 ? plan.checkpointCount : undefined}
+              >
+                <KrPlanCompact keyResultId={kr.id} />
+              </Section>
+            )}
+
             {/* Check-ins */}
             <Section
               title="Check-in history"
@@ -350,6 +381,10 @@ export function KeyResultDetailModal({ krId, onClose, onOpenObjective }: Props) 
             </MetaRow>
           )}
         </RailCard>
+
+        {!redacted && (
+          <ConnectionsPanel entityType="KEY_RESULT" entityId={kr.id} variant="rail" onNavigate={onClose} />
+        )}
       </>
     )
   }

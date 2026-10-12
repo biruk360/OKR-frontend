@@ -53,7 +53,7 @@
 ### My Work
 | Route | Page File | Feature | Description |
 |-------|-----------|---------|-------------|
-| `/dashboard/my-okrs` | `app/dashboard/my-okrs/page.tsx` | dashboard | The viewer's own and contributed objectives with the "Needs a check-in" queue on top (`CheckInQueue`, `loadCheckInQueue`). Everyone else's OKRs → OKR Explorer. `/dashboard/goals` redirects to `/dashboard/okrs-all?level=mine` (2026-09-25) |
+| `/dashboard/my-okrs` | `app/dashboard/my-okrs/page.tsx` | dashboard | The viewer's own and contributed objectives with the "Needs a check-in" queue on top (`CheckInQueue`, `loadCheckInQueue`). Everyone else's OKRs → OKR Explorer. Links to "My OKR profile" (`/dashboard/org/users/<me>?tab=okrs`, 2026-10-11). `/dashboard/goals` redirects to `/dashboard/okrs-all?level=mine` (2026-09-25) |
 | `/dashboard/my-tasks` | `app/dashboard/my-tasks/page.tsx` | todos | **Redirect only** (2026-09-25) → `/dashboard/todos?scope=assigned`; kept for old links |
 | `/dashboard/todos` | `app/dashboard/todos/page.tsx` | todos | All to-dos / initiatives; `?scope=assigned` preselects "Assigned to me" |
 | `/dashboard/work` | `app/dashboard/work/page.tsx` | todos | Work Board (visibility surface `work`; portal sessions 404) |
@@ -74,11 +74,13 @@
 
 | Route | Page File | Feature | Description |
 |-------|-----------|---------|-------------|
-| `/dashboard/okrs-all` | `app/dashboard/okrs-all/page.tsx` | objectives | **OKR Explorer.** `?view=` `list` (default — `OkrsAllClient`: KPIs, filters, bulk archive/restore, role-aware Create menu via `ExplorerCreateHandoff`) · `tree` (`components/hierarchy/OkrHierarchyTable`) · `timeline` (`ExplorerTimelineView` → `PlansGantt`, `/api/gantt`) · `map` (`ExplorerMapView` — strategy map + org/combined modes, `?timeframeId=`, `?mode=`) · `analyze` (`FiltersWorkspace`). `?level=` `all` · `company` · `department` · `mine` · `team` (List and Tree only; narrows the shared visibility scope) |
+| `/dashboard/okrs-all` | `app/dashboard/okrs-all/page.tsx` | objectives | **OKR Explorer.** `?view=` `list` (default — `OkrsAllClient`: KPIs, filters, bulk archive/restore, role-aware Create menu via `ExplorerCreateHandoff`) · `tree` (`components/hierarchy/OkrHierarchyTable`) · `timeline` (`ExplorerTimelineView` → `PlansGantt`, `/api/gantt`) · `map` (`ExplorerMapView` — strategy map + org/combined modes, `?timeframeId=`, `?mode=`) · `analyze` (`FiltersWorkspace`). `?level=` `all` · `company` · `department` · `mine` · `team` (List and Tree only; narrows the shared visibility scope). `?owner=<userId>` (List and Tree; PRF-7, 2026-10-11) locks the owner scope — Tree shows a removable Owner chip; parsed by `parseExplorerOwner`. Explorer list/card rows carry lazy compact `ConnectionChips` (CON-1) |
+| `/dashboard/okrs-all/dependencies` | `app/dashboard/okrs-all/dependencies/page.tsx` | dependencies | **Dependency Map** (2026-10-11, DEP-6/CON-4). Gate: `module.package` + `page.okr.dependency-map` (ADMIN bypass). URL-synced filters `?timeframeId&status&type&providerId&neederId&due&linkedType&linkedId&linkedLabel&q&scope&mine`, `?view=table\|graph` (company graph), CSV export (`/api/dependencies/export`), quick-view drawer for `?dependency=<id>` (or legacy `?focus=<id>`) |
+| `/dashboard/decisions` | `app/dashboard/decisions/page.tsx` | decisions | **Decisions** (2026-10-11, DEC-1). Gate: `module.package` + `page.okr.decisions`. "Awaiting my decision" queue (+ default-decider queue for Exec/Admin) and decision log `?view=open\|decided\|deferred\|withdrawn\|all&timeframeId&deciderId&requestedById&batch&q`; `?decision=<id>` (or `?focus=<id>`) opens the decision modal with waiting dependencies |
 | `/dashboard/key-results` | `app/dashboard/key-results/page.tsx` | filters | Key-results index: thin route over `FiltersWorkspace`, defaults to `?tab=key-results&segment=kr-owned` |
 | `/dashboard/insights` | `app/dashboard/insights/page.tsx` | reports | **Insights.** `?tab=` `overview` (default, `AppleAnalytics`) · `progress` (`&view=dashboard` default \| `tracking`; `ProgressDashboardPanel` / `ProgressTrackingPanel`, print button) · `reports` (`ReportDashboardClient`) · `initiatives` (`InitiativeReportClient`) · `period-close` (`PeriodClosePicker`). Only the active tab's data loads (`lib/okr/insights-data.ts`), each with its previous scoping |
-| `/dashboard/objectives/[id]` | `app/dashboard/objectives/[id]/page.tsx` | objectives | Objective detail (404 unless `canViewObjective`). Comment thread (`OkrComments`) and live refresh on `private-objective-<id>` (`ObjectiveRealtimeRefresher`, H3). Loader: `features/objectives/services/objective-detail.server.ts` |
-| `/dashboard/key-results/[id]` | `app/dashboard/key-results/[id]/page.tsx` | key-results | Key result detail. Loader: `features/key-results/services/key-result-detail.server.ts` |
+| `/dashboard/objectives/[id]` | `app/dashboard/objectives/[id]/page.tsx` | objectives | Objective detail (404 unless `canViewObjective`). 2026-10-11: AlignmentTrail bar (CON-5), RolledFromBanner n:m lineage (CON-6), `ObjectiveConnectionsSection` with Manage links (CON-2/LNK). Comment thread (`OkrComments`) and live refresh on `private-objective-<id>` (`ObjectiveRealtimeRefresher`, H3). Loader: `features/objectives/services/objective-detail.server.ts` |
+| `/dashboard/key-results/[id]` | `app/dashboard/key-results/[id]/page.tsx` | key-results | Key result detail. Loader: `features/key-results/services/key-result-detail.server.ts`. 2026-10-11: AlignmentTrail bar, lineage banner, rail `KrPlanCard` (checkpoints + definition, KRX-3/4) and `KrConnectionsRail` (CON-2), below-content `KrContributionSections` (CON-7 Lands in, CON-3 project milestones) |
 | `/dashboard/okrs-all/period-report/[timeframeId]` | `app/dashboard/okrs-all/period-report/[timeframeId]/page.tsx` | reports | Department/org-scoped end-of-period close report, close queue, and PDF export |
 
 ### Retired routes (permanent redirects, 2026-09-25)
@@ -150,7 +152,7 @@ is a real page, and no source file still links to a retired route. The page file
 | `/dashboard/org/teams` | `app/dashboard/org/teams/page.tsx` | teams | Teams directory |
 | `/dashboard/org/teams/[id]` | `app/dashboard/org/teams/[id]/page.tsx` | teams | Team detail |
 | `/dashboard/org/users` | `app/dashboard/org/users/page.tsx` | users | Users directory |
-| `/dashboard/org/users/[id]` | `app/dashboard/org/users/[id]/page.tsx` | users | User detail |
+| `/dashboard/org/users/[id]` | `app/dashboard/org/users/[id]/page.tsx` | users, employee-profile | **Employee profile / operating package** (2026-10-11, PRF-1…11). `?tab=overview\|okrs\|role\|kpis\|development\|links\|decisions` (tabs hidden per `lib/package/access.ts` §8; package tabs need `module.package` + `page.people.package`) and `?tf=<timeframeId>` (`ProfileTimeframeSwitcher`; closed timeframe = read-only). Overview: `PackageHeaderCard` (anchor `#package`) + Package summary card; sidebar `RoleDefinitionSidebarCard`. Composition: `app/dashboard/org/users/[id]/_components`, `features/employee-profile` |
 | `/dashboard/profile` | `app/dashboard/profile/page.tsx` | profile | User profile |
 
 ### Management
@@ -166,14 +168,14 @@ is a real page, and no source file still links to a retired route. The page file
 | `/dashboard/settings/account` | `app/dashboard/settings/account/page.tsx` | settings | Account settings |
 | `/dashboard/settings/notifications` | `app/dashboard/settings/notifications/page.tsx` | settings | Notification preferences |
 | `/dashboard/settings/users` | `app/dashboard/settings/users/page.tsx` | settings | User management (ADMIN). Only ADMIN creates/deletes users; delete anonymises (2026-09-25) |
-| `/dashboard/settings/users/[id]` | `app/dashboard/settings/users/[id]/page.tsx` | settings | User detail (`UserDetail`) |
+| `/dashboard/settings/users/[id]` | `app/dashboard/settings/users/[id]/page.tsx` | settings | User detail (`UserDetail`). 2026-10-11: Role definition tab (PRF-6, `RoleDefinitionProfileTab` + timeframe picker) |
 | `/dashboard/settings/permissions` | `app/dashboard/settings/permissions/page.tsx` | settings | Permission manager (roles incl. create/delete UI, doctypes, fields, scopes, features) |
 | `/dashboard/settings/notification-defaults` | `app/dashboard/settings/notification-defaults/page.tsx` | settings | Org notification defaults (ADMIN); 15 categories, BATCHED cadence option |
 | `/dashboard/admin/ai-logs` | `app/dashboard/admin/ai-logs/page.tsx` | admin | AI generation logs (`canManageOrg`) |
 | `/dashboard/admin/org` | `app/dashboard/admin/org/page.tsx` | admin | Org administration workspace (`canManageOrg`) |
 | `/dashboard/settings/teams` | `app/dashboard/settings/teams/page.tsx` | settings | Team management (ADMIN) |
 | `/dashboard/settings/timeframes` | `app/dashboard/settings/timeframes/page.tsx` | settings | Timeframe management |
-| `/dashboard/settings/okr-rules` | `app/dashboard/settings/okr-rules/page.tsx` | settings | OKR rules config |
+| `/dashboard/settings/okr-rules` | `app/dashboard/settings/okr-rules/page.tsx` | settings | OKR rules config. 2026-10-11: Development plan rule card (`DevelopmentRuleSettings`, DEV-3) |
 | `/dashboard/settings/branding` | `app/dashboard/settings/branding/page.tsx` | settings | Branding config |
 | `/dashboard/settings/integrations` | `app/dashboard/settings/integrations/page.tsx` | settings | Integrations config; Administrator-only OpenAI project-creation key/model/caps/testing panel with independent master toggle |
 | `/dashboard/settings/audit-logs` | `app/dashboard/settings/audit-logs/page.tsx` | settings | Audit log viewer |
@@ -209,7 +211,9 @@ is a real page, and no source file still links to a retired route. The page file
 | Method | Route | Description |
 |--------|-------|-------------|
 | POST | `/api/keyresults` | Create (validates values, recalc parent) |
-| GET/PUT/DELETE | `/api/keyresults/[id]` | Read / Update / Delete |
+| GET/PUT/PATCH/DELETE | `/api/keyresults/[id]` | Read / Update / Delete. PATCH (2026-10-11, KRX) takes `{commitment, direction, baselineText, targetText, measuredBy, dueText, dueDate, externalRef, startValue?, targetValue?}`. DELETE also removes OkrLink/DecisionLink/WorkDependencyLink rows and re-roots lineage (`lib/okr-links/cleanup.ts`) |
+| GET/POST | `/api/keyresults/[id]/checkpoints` | KR checkpoints (KRX-3) + definition payload; `{checkpoints, nextCheckpointId, definition, permissions}`; 423 lock guard |
+| PATCH/DELETE | `/api/keyresults/[id]/checkpoints/[checkpointId]` | Edit / delete a checkpoint (KR edit permission, KR_CHECKPOINT audit) |
 | GET/POST | `/api/keyresults/[id]/check-ins` | Check-in history / Record check-in |
 | GET | `/api/keyresults/[id]/activity` | Activity log |
 | POST | `/api/keyresults/[id]/views` | Track views |
@@ -384,6 +388,46 @@ is a real page, and no source file still links to a retired route. The page file
 
 > Internal: `PATCH /api/projects/[id]/change-requests/[crId]` accepts `visibility: 'INTERNAL' | 'CLIENT_VISIBLE'` (default INTERNAL).
 
+### Employee Operating Package (2026-10-11)
+
+All `/api/package/*`, `/api/dependencies/*` and `/api/decisions/*` routes are `withFeature('module.package')`, standard envelope, access via `lib/package/access.ts` (§8), audit via `lib/package/audit.ts`.
+
+| Method | Route | Owner | Description |
+|--------|-------|-------|-------------|
+| GET/POST | `/api/okr-links` | lib/okr-links | List links of an objective/KR; create (LNK-1 validation, LNK-2 lineage mirror, LNK-4 opt-in parent, 423 lock) |
+| DELETE | `/api/okr-links/[id]` | lib/okr-links | Delete a link |
+| GET | `/api/connections?type=&id=` | lib/connections | `ConnectionsPayload` for an objective / KR / todo / KPI / duty / development item (CON-1/2/3/8, redacted) |
+| GET/POST | `/api/package/packages` | features/operating-package | Package for `?userId&timeframeId` + permissions / create (409 PACKAGE_EXISTS) |
+| GET/PATCH | `/api/package/packages/[id]` | features/operating-package | Read / edit header, weights (§8 weights area), DRAFT/ARCHIVED |
+| POST | `/api/package/packages/[id]/submit` | features/operating-package | Send for review |
+| POST | `/api/package/packages/[id]/approve` | features/operating-package | Approve (409 DISPUTES_OPEN) |
+| GET/PUT | `/api/package/packages/[id]/reviews` | features/operating-package | Item reviews (PKG-2 Agree/Dispute) |
+| POST | `/api/package/packages/[id]/reviews/[reviewId]/resolve` | features/operating-package | Resolve a dispute |
+| GET/POST | `/api/package/role-definitions` | features/role-definition | Current/draft/history + reporting line + seats / new draft version |
+| GET/PATCH/DELETE | `/api/package/role-definitions/[id]` | features/role-definition | Read / edit (items keep ids) / delete draft |
+| POST | `/api/package/role-definitions/[id]/approve` | features/role-definition | Approve (supersedes previous; optional `updateDesignation`) |
+| GET/POST | `/api/package/duties` | features/duties | Recurring duties of a person / create (Todo head lifecycle) |
+| GET/PATCH/DELETE | `/api/package/duties/[id]` | features/duties | Read / edit or `{action: pause\|resume\|retire}` / delete (409 when an occurrence is completed) |
+| POST | `/api/package/duties/[id]/log` | features/duties | Log an occurrence |
+| GET/POST | `/api/package/kpis` | features/kpis | KPIs of a person (+ permissions, timeframe) / create |
+| GET/PATCH/DELETE | `/api/package/kpis/[id]` | features/kpis | Read / edit (frequency locked once readings exist) / retire |
+| GET/PUT | `/api/package/kpis/[id]/readings` | features/kpis | Readings (newest first, enterable periods) / upsert a period reading (RAG override) |
+| GET/POST | `/api/package/development` | features/development-plan | Development items + DEV-3 rule progress / create |
+| GET/PATCH | `/api/package/development/[id]` | features/development-plan | Read / edit (DEV-2 evidence, DEV-5 drop reason) |
+| POST | `/api/package/development/[id]/hours` | features/development-plan | Log hours |
+| GET/POST | `/api/dependencies` | features/dependencies | Filtered list (company/package scope; summary rows for non-parties) / create |
+| GET/PATCH | `/api/dependencies/[id]` | features/dependencies | Read / edit (parties + links replace) |
+| POST | `/api/dependencies/[id]/status` | features/dependencies | Status change (DEP-5 notifies needers once) |
+| POST | `/api/dependencies/[id]/delivery-task` | features/dependencies | Create the kind=DEPENDENCY delivery Todo (DEP-4) |
+| GET | `/api/dependencies/person/[userId]` | features/dependencies | Inbound / outbound for a person |
+| GET | `/api/dependencies/export` | features/dependencies | CSV export |
+| GET/POST | `/api/decisions` | features/decisions | Filtered list (status/decider/affecting/batch/timeframe/q) / request a decision |
+| GET/PATCH | `/api/decisions/[id]` | features/decisions | Read / edit, withdraw, reassign |
+| POST | `/api/decisions/[id]/decide` | features/decisions | Record the decision; closes DECISION-type dependencies |
+| GET | `/api/users/[id]/okr-profile?timeframeId=` | features/employee-profile | OKR profile tree payload (PRF-7…11) |
+| POST | `/api/users/[id]/okr-profile/initiatives` | features/employee-profile | Add a milestone/task under a KR from the profile (423 lock guard) |
+| PATCH | `/api/admin/org-settings` | admin-org | Now zod-validated; accepts `devMinItems` / `devMinHours` (ADMIN/EXEC), audited |
+
 ### Notifications
 | Method | Route | Description |
 |--------|-------|-------------|
@@ -408,6 +452,7 @@ is a real page, and no source file still links to a retired route. The page file
 | GET | `/api/link-preview?url=` | SSRF-safe page metadata for comment/description link previews (now also used by OKR comments, 2026-09-25 G2) |
 | POST | `/api/cron/confidence-calc` | Bi-weekly confidence snapshots |
 | POST | `/api/cron/weekly-digest` | Weekly email digest |
+| GET/POST | `/api/cron/package-daily[?dryRun=1]` | **New 2026-10-11.** Operating package daily job (Bearer CRON_SECRET, 02:00 UTC): KPI-3 auto-fill, KPI_READING_DUE, DEPENDENCY_DUE_SOON / DEPENDENCY_LATE, DEV_ITEM_DUE, KR_CHECKPOINT_DUE, archive APPROVED packages of ended timeframes |
 | GET/POST | `/api/cron/todo-recurrence` | Generates the next occurrence of each recurring card (DTE-5). Daily. |
 | GET/POST | `/api/cron/automations-prune` | AI Automations retention sweep. Nightly. |
 | GET/POST | `/api/cron/attachment-staging-cleanup` | **New 2026-09-25 (H2).** Nightly (00:50 UTC) delete of staged comment uploads unclaimed for 24 h, then their files (`lib/attachments/staging-cleanup.ts`) |
@@ -441,7 +486,8 @@ is a real page, and no source file still links to a retired route. The page file
 | PUT | `/api/performance/templates/[id]/builder` | Replace draft tiers and criteria |
 | POST | `/api/performance/templates/[id]/{publish,fork,archive,culture-block}` | Template lifecycle and culture block |
 | GET/PUT/DELETE | `/api/performance/template-mappings` | Role/designation-to-template mappings |
-| GET/PUT/DELETE | `/api/performance/metric-mappings` | Employee KR-to-metric mappings |
+| GET/PUT/DELETE | `/api/performance/metric-mappings` | Employee KR-to-metric mappings. 2026-10-11: PUT accepts `kpiIds[]`; GET/PUT rows carry `kpiId` + `kpi` (KPI-9) |
+| GET | `/api/performance/metric-mappings/kpi-options?employeeId=&criterionId=` | Mappable package KPIs for a criterion (`mappable`, `issue`, sensitive-KPI filtering) |
 | GET/POST | `/api/performance/cycles` | List/create review cycles |
 | GET | `/api/performance/cycles/[id]` | Cycle detail, issues, evaluations, and panels |
 | POST | `/api/performance/cycles/[id]/{open,close}` | Generate or close cycle evaluations |

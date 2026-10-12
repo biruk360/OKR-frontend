@@ -1,9 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { ArrowRight, History } from 'lucide-react'
+import { ArrowRight, GitBranch, History } from 'lucide-react'
 import { Button, Modal } from '@/components/ui'
 import CheckInTimeline from '@/components/key-result-detail/CheckInTimeline'
+import { useConnections } from '@/components/shared/connections'
+import { LineagePopover } from '@/features/okr-links'
+import type { ConnectionItem } from '@/lib/connections/types'
 import EntityLink from './EntityLink'
 import RichTextContent from './RichTextContent'
 import TimeframeBadge from './TimeframeBadge'
@@ -27,9 +30,25 @@ interface LineageEntity {
 
 interface RolledFromBannerProps {
   entityType: 'objective' | 'key-result'
+  /**
+   * The item itself. When set, the banner also reads its n:m lineage (OkrLink
+   * SUCCEEDS, CON-6) from GET /api/connections and shows "Continues 3 FY25/26
+   * items" with a popover listing each predecessor's sub-kind and final grade —
+   * even when the item has no single `rolledFrom` / `rolledTo`.
+   */
+  entityId?: string
   previous?: LineageEntity | null
   next?: LineageEntity | null
   lineageDepth?: number
+}
+
+/**
+ * True when the connections lineage says more than the single rolledFrom /
+ * rolledTo rows already shown: any SUCCEEDS link (it carries sub-kind and final
+ * grade), or any item other than `shownId`.
+ */
+export function hasExtraLineage(items: readonly ConnectionItem[], shownId: string | null | undefined): boolean {
+  return items.some((item) => item.via === 'SUCCEEDS' || item.id !== shownId)
 }
 
 /** Stored retrospective HTML — always rendered through the DOMPurify allowlist. */
@@ -38,9 +57,16 @@ function RichText({ html }: { html?: string | null }) {
   return <RichTextContent html={html} className="text-foreground" />
 }
 
-export default function RolledFromBanner({ entityType, previous, next, lineageDepth = 0 }: RolledFromBannerProps) {
+export default function RolledFromBanner({ entityType, entityId, previous, next, lineageDepth = 0 }: RolledFromBannerProps) {
   const [performanceOpen, setPerformanceOpen] = useState(false)
-  if (!previous && !next) return null
+  const connectionType = entityType === 'objective' ? 'OBJECTIVE' : 'KEY_RESULT'
+  // Shares the ['connections', type, id] cache with the trail / panel / chips.
+  const { data: connections } = useConnections(connectionType, entityId, { enabled: !!entityId })
+  const lineage =
+    connections && !connections.subject.redacted
+      ? hasExtraLineage(connections.predecessors, previous?.id) || hasExtraLineage(connections.successors, next?.id)
+      : false
+  if (!previous && !next && !lineage) return null
 
   return (
     <>
@@ -62,6 +88,13 @@ export default function RolledFromBanner({ entityType, previous, next, lineageDe
                 <span className="text-muted-foreground">Rolled forward to</span>
                 {next.timeframe && <TimeframeBadge type={next.timeframe.type} />}
                 <EntityLink type={entityType} id={next.id} label={next.timeframe?.name || next.title} />
+              </div>
+            )}
+            {lineage && connections && entityId && (
+              <div className="flex flex-wrap items-center gap-2">
+                <GitBranch className="size-4 text-primary" aria-hidden />
+                <span className="text-muted-foreground">Lineage</span>
+                <LineagePopover entityType={connectionType} entityId={entityId} data={connections} />
               </div>
             )}
             {lineageDepth > 1 && <p className="text-xs text-muted-foreground">Period {lineageDepth + 1} in this OKR lineage.</p>}

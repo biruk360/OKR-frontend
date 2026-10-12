@@ -2,8 +2,11 @@
 
 /** OKR Explorer — list row (compact view) and card (rich view). */
 
+import { useEffect, useRef, useState } from 'react'
 import { Building2, Calendar, Star } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { ConnectionChips } from '@/components/shared/connections'
+import type { ConnectionEntityType } from '@/lib/connections/types'
 import { PeopleTooltip, PersonTooltip } from '@/components/shared/UserAvatar'
 import StatusPill, { LevelBadge } from '@/components/shared/StatusPill'
 import { Avatar, KindIcon, ProgressBar } from './OkrsAllPrimitives'
@@ -26,6 +29,51 @@ function FavoriteButton({
     >
       <Star className={cn('h-3.5 w-3.5', favoriteIds.has(id) && 'fill-warning-400 text-warning-500')} />
     </button>
+  )
+}
+
+const ROW_CONNECTION_TYPE: Record<Row['kind'], ConnectionEntityType> = {
+  OBJ: 'OBJECTIVE',
+  KR: 'KEY_RESULT',
+  INIT: 'TODO',
+}
+
+/**
+ * CON-1 link chips for an Explorer row (compact: icon + count). The request is
+ * deferred until the row scrolls near the viewport, so a 50-row page does not
+ * fire 50 connection lookups up front; chips render nothing when nothing is
+ * linked and never open the row (clicks and keys stop at the chip group).
+ */
+function RowConnectionChips({ row, max, className }: { row: Row; max?: number; className?: string }) {
+  const ref = useRef<HTMLSpanElement>(null)
+  const [inView, setInView] = useState(false)
+  useEffect(() => {
+    if (inView) return
+    const el = ref.current
+    if (!el || typeof IntersectionObserver === 'undefined') {
+      setInView(true)
+      return
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setInView(true)
+          io.disconnect()
+        }
+      },
+      { rootMargin: '200px 0px' },
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [inView])
+
+  const id = row.data.id ? String(row.data.id) : null
+  // Redacted (private) rows show no links at all (CON-8).
+  if (!id || row.data.isRedacted) return null
+  return (
+    <span ref={ref} className={cn('inline-flex min-w-0', className)}>
+      <ConnectionChips entityType={ROW_CONNECTION_TYPE[row.kind]} entityId={id} compact max={max} enabled={inView} />
+    </span>
   )
 }
 
@@ -83,6 +131,7 @@ export function CompactRow({
           <p className="text-caption text-muted-foreground truncate">{period}</p>
         )}
       </div>
+      <RowConnectionChips row={row} max={3} className="hidden xl:inline-flex shrink-0" />
       <div className="hidden md:block shrink-0">
         <StatusPill status={status} size="xs" />
       </div>
@@ -251,6 +300,7 @@ export function RichCard({
             <span className="text-caption text-muted-foreground tabular-nums">Due {formatDate(due)}</span>
           </>
         )}
+        <RowConnectionChips row={row} max={4} />
         <div className="ml-auto">
           <ProgressBar value={progress} status={status} width={160} />
         </div>

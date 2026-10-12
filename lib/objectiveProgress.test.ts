@@ -4,6 +4,7 @@ import {
   contributionPercents,
   getDescendantObjectiveIds,
   isAncestorOf,
+  krRollupPercent,
   recalcKrFromInitiatives,
   recalcNodeAndAncestors,
   recalcObjectiveStoredProgress,
@@ -29,7 +30,7 @@ type Obj = {
   alignmentType: string | null
   rollupCalculation: string | null
 }
-type Kr = { id: string; objectiveId: string; status: string; currentValue: number; targetValue: number; startValue: number; progress: number; weight: number }
+type Kr = { id: string; objectiveId: string; status: string; currentValue: number; targetValue: number; startValue: number; progress: number; weight: number; direction?: string }
 type Todo = { keyResultId: string; status: string; progressValue: number | null }
 
 function makeDb(objs: Partial<Obj>[], krs: Partial<Kr>[] = [], todos: Todo[] = []) {
@@ -179,6 +180,41 @@ test('STRICT_DEPENDENCY falls back to KRs when rollup is NONE or there are no ac
   assert.equal(await recalcObjectiveStoredProgress(db, 'q'), 60)
 })
 
+// FND-3: objective progress uses the KR span formula, not current / target.
+test('LOOSE: a non-zero start uses (current − start) / (target − start) per KR (FND-3)', async () => {
+  const { db } = makeDb(
+    [{ id: 'o' }],
+    [
+      // Old formula would have said 150/300 = 50%; the span says 25%.
+      { id: 'k1', objectiveId: 'o', startValue: 100, currentValue: 150, targetValue: 300 },
+      // Below start clamps to 0, not negative.
+      { id: 'k2', objectiveId: 'o', startValue: 50, currentValue: 20, targetValue: 100 },
+    ],
+  )
+  // (25 + 0) / 2 = 12.5 → 13
+  assert.equal(await recalcObjectiveStoredProgress(db, 'o'), 13)
+})
+
+test('LOOSE: DECREASE KRs roll up as (start − current) / (start − target) (KRX-1)', async () => {
+  const { db } = makeDb(
+    [{ id: 'o' }],
+    [
+      { id: 'k1', objectiveId: 'o', direction: 'DECREASE', startValue: 20, currentValue: 11, targetValue: 5 }, // 60%
+      { id: 'k2', objectiveId: 'o', direction: 'DECREASE', startValue: 8, currentValue: 0, targetValue: 0 }, // 100% (target 0)
+      { id: 'k3', objectiveId: 'o', direction: 'DECREASE', startValue: 8, currentValue: 12, targetValue: 0 }, // worse than start → 0
+    ],
+  )
+  // (60 + 100 + 0) / 3 = 53.3 → 53
+  assert.equal(await recalcObjectiveStoredProgress(db, 'o'), 53)
+})
+
+test('krRollupPercent: degenerate span falls back to stored progress, capped 0..100', () => {
+  assert.equal(krRollupPercent({ startValue: 5, currentValue: 5, targetValue: 5, progress: 40 }), 40)
+  assert.equal(krRollupPercent({ startValue: 0, currentValue: 0, targetValue: 0, progress: 140 }), 100)
+  assert.equal(krRollupPercent({ startValue: 10, currentValue: 7, targetValue: 5, progress: -3 }), 0)
+  assert.equal(krRollupPercent({ currentValue: 5, targetValue: 10, progress: 0 }), 50)
+})
+
 // ── recalcNodeAndAncestors ──────────────────────────────────────────────────
 
 test('recalcNodeAndAncestors: recomputes the node then each ancestor with fresh child values', async () => {
@@ -258,6 +294,24 @@ test('recalcKrFromInitiatives: a zero span yields progress 0 (no divide-by-zero)
   const { db, keyResults } = makeDb([{ id: 'o' }], [{ id: 'k', objectiveId: 'o', startValue: 5, targetValue: 5, currentValue: 5 }], [])
   assert.equal(await recalcKrFromInitiatives(db, 'k'), 5)
   assert.equal(keyResults[0].progress, 0)
+})
+
+test('recalcKrFromInitiatives: DECREASE subtracts contributions, clamped to [target, start] (KRX-1)', async () => {
+  const { db, keyResults } = makeDb(
+    [{ id: 'o' }],
+    [{ id: 'k', objectiveId: 'o', direction: 'DECREASE', startValue: 20, targetValue: 5, currentValue: 20 }],
+    [{ keyResultId: 'k', status: 'COMPLETED', progressValue: 6 }],
+  )
+  assert.equal(await recalcKrFromInitiatives(db, 'k'), 14)
+  assert.equal(keyResults[0].progress, 40) // (20 − 14) / (20 − 5)
+
+  const over = makeDb(
+    [{ id: 'o' }],
+    [{ id: 'k', objectiveId: 'o', direction: 'DECREASE', startValue: 8, targetValue: 0, currentValue: 8 }],
+    [{ keyResultId: 'k', status: 'COMPLETED', progressValue: 50 }],
+  )
+  assert.equal(await recalcKrFromInitiatives(over.db, 'k'), 0)
+  assert.equal(over.keyResults[0].progress, 100)
 })
 
 // ── alignment graph helpers ─────────────────────────────────────────────────

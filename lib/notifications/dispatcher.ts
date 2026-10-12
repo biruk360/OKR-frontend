@@ -25,12 +25,16 @@ import {
   resolveParentObjectiveOwner, resolveTeamMembers, resolveWatchers, uniqueIds,
 } from './recipients'
 import { renderTemplate } from '@/lib/email/templates'
-import { buildDeepLink } from './deep-link'
+import { buildDeepLink, buildDeepLinkPath } from './deep-link'
+import type { RedactInput } from './redact'
 import { broadcastUserNotification } from '@/lib/pusher'
 import { toNotificationRow } from './row'
 import { createEmitter, mapWithConcurrency, RECIPIENT_CONCURRENCY } from './fanout'
 
-type RecipientRoleTag = 'OWNER' | 'MANAGER' | 'PARENT_OWNER' | 'ADMIN' | 'WATCHER' | 'TEAM' | 'EXPLICIT' | 'ASSIGNEE'
+type RecipientRoleTag =
+  | 'OWNER' | 'MANAGER' | 'PARENT_OWNER' | 'ADMIN' | 'WATCHER' | 'TEAM' | 'EXPLICIT' | 'ASSIGNEE'
+  // Employee Operating Package parties (§9).
+  | 'PROVIDER' | 'NEEDER' | 'DECIDER' | 'REQUESTER' | 'LINKED'
 
 /**
  * Cron-fired reminders that must NEVER send IMMEDIATE email — they re-fire every
@@ -53,6 +57,12 @@ const FORCE_DIGEST_EVENTS: ReadonlySet<EventKey> = new Set<EventKey>([
 const FORCE_IMMEDIATE_EVENTS: ReadonlySet<EventKey> = new Set<EventKey>([
   'TODO_DUE_REMINDER',
 ])
+
+/** RedactInput only knows the OKR-era entity types; package types redact as a generic item. */
+const REDACT_ENTITY_TYPES: ReadonlySet<string> = new Set(['OBJECTIVE', 'KEY_RESULT', 'TODO', 'TIMEFRAME', 'USER', 'PROJECT', 'SCRUM_UPDATE'])
+function redactEntityType(entityType: EventPayload['entityType']): RedactInput['entityType'] {
+  return entityType && REDACT_ENTITY_TYPES.has(entityType) ? (entityType as RedactInput['entityType']) : undefined
+}
 
 interface ResolvedRecipient {
   userId: string
@@ -309,6 +319,103 @@ async function resolveRecipients(eventKey: EventKey, p: EventPayload): Promise<M
       // lead, employee, performance admins) — always passed as explicitRecipients.
       break
 
+    // ── Employee Operating Package (§9) ──────────────────────────────────
+    // entityType/entityId name the package record; recipients come from it.
+    // explicitRecipients (added above) narrow nothing — they are extra.
+
+    case 'KPI_READING_DUE': {
+      // KPI owner (KPI-5).
+      if (p.entityId) {
+        const kpi = await prisma.kpi.findUnique({ where: { id: p.entityId }, select: { ownerId: true } })
+        add(kpi?.ownerId, 'OWNER')
+      }
+      break
+    }
+
+    case 'DEPENDENCY_DUE_SOON':
+    case 'DEPENDENCY_LATE':
+    case 'DEPENDENCY_DONE': {
+      if (p.entityId) {
+        const parties = await prisma.workDependencyParty.findMany({
+          where: { dependencyId: p.entityId },
+          select: { userId: true, role: true },
+        })
+        const providers = parties.filter((x) => x.role === 'PROVIDER').map((x) => x.userId)
+        const needers = parties.filter((x) => x.role === 'NEEDER').map((x) => x.userId)
+        if (eventKey === 'DEPENDENCY_DUE_SOON') {
+          for (const id of providers) add(id, 'PROVIDER')
+        } else if (eventKey === 'DEPENDENCY_DONE') {
+          for (const id of needers) add(id, 'NEEDER')
+        } else {
+          // DEPENDENCY_LATE: providers + needers + needers' managers.
+          for (const id of providers) add(id, 'PROVIDER')
+          for (const id of needers) {
+            add(id, 'NEEDER')
+            for (const m of await resolveManagersOf(id)) add(m, 'MANAGER')
+          }
+        }
+      }
+      break
+    }
+
+    case 'DECISION_REQUESTED':
+    case 'DECISION_DECIDED': {
+      if (p.entityId) {
+        const decision = await prisma.decision.findUnique({
+          where: { id: p.entityId },
+          select: { deciderId: true, requestedById: true, links: { where: { entityType: 'USER' }, select: { entityId: true } } },
+        })
+        if (decision) {
+          if (eventKey === 'DECISION_REQUESTED') {
+            add(decision.deciderId, 'DECIDER')
+          } else {
+            add(decision.requestedById, 'REQUESTER')
+            for (const link of decision.links) add(link.entityId, 'LINKED')
+          }
+        }
+      }
+      break
+    }
+
+    case 'DEV_ITEM_DUE': {
+      if (p.entityId) {
+        const item = await prisma.developmentItem.findUnique({ where: { id: p.entityId }, select: { ownerId: true } })
+        add(item?.ownerId, 'OWNER')
+      }
+      break
+    }
+
+    case 'PACKAGE_SENT_FOR_REVIEW':
+    case 'PACKAGE_APPROVED':
+    case 'PACKAGE_ITEM_DISPUTED': {
+      if (p.entityId) {
+        const pkg = await prisma.operatingPackage.findUnique({ where: { id: p.entityId }, select: { userId: true } })
+        if (pkg) {
+          if (eventKey === 'PACKAGE_ITEM_DISPUTED') {
+            // The employee's manager(s) (direct ManagerRelationship).
+            for (const m of await resolveManagersOf(pkg.userId)) add(m, 'MANAGER')
+          } else {
+            add(pkg.userId, 'OWNER')
+          }
+        }
+      }
+      break
+    }
+
+    case 'KR_CHECKPOINT_DUE': {
+      // entityType may be KR_CHECKPOINT (entityId = checkpoint) or KEY_RESULT.
+      if (p.entityType === 'KR_CHECKPOINT' && p.entityId) {
+        const checkpoint = await prisma.keyResultCheckpoint.findUnique({
+          where: { id: p.entityId },
+          select: { keyResult: { select: { ownerId: true } } },
+        })
+        add(checkpoint?.keyResult.ownerId, 'OWNER')
+      } else if (p.entityId) {
+        add(await resolveOwnerOfKeyResult(p.entityId), 'OWNER')
+      }
+      break
+    }
+
     case 'ADMIN_USER_CREATED':
     case 'ADMIN_BULK_JOB_DONE':
     case 'ADMIN_SECURITY_ALERT':
@@ -363,7 +470,11 @@ async function planEmit(eventKey: EventKey, payload: EventPayload): Promise<Emit
   // Collect IDs of managers for redaction scoping (owners' managers see full detail).
   const entityOwnerId = (snapshot.entityType === 'USER' || snapshot.entityType === 'TIMEFRAME')
     ? snapshot.entityId
-    : undefined
+    : EVENT_META[eventKey].category === 'PACKAGE' && typeof snapshot.data?.ownerId === 'string'
+      // Package events name the owning person in data.ownerId (sensitive KPIs,
+      // development items) so the owner is never shown a redacted copy.
+      ? snapshot.data.ownerId
+      : undefined
   let managerIds: string[] = []
   if (snapshot.isPrivate) {
     // Only consulted by shouldRedact/displayTitle, which both short-circuit
@@ -374,6 +485,8 @@ async function planEmit(eventKey: EventKey, payload: EventPayload): Promise<Emit
     } else if (snapshot.entityType === 'KEY_RESULT' && snapshot.entityId) {
       const krOwner = await resolveOwnerOfKeyResult(snapshot.entityId)
       if (krOwner) managerIds = await resolveManagersOf(krOwner)
+    } else if (entityOwnerId && meta.category === 'PACKAGE') {
+      managerIds = await resolveManagersOf(entityOwnerId)
     }
   }
 
@@ -423,6 +536,9 @@ async function deliverEmit(plan: EmitPlan): Promise<void> {
     entityId: payload.entityId,
     data: payload.data ?? {},
   })
+  const packageInAppPath = meta.category === 'PACKAGE'
+    ? buildDeepLinkPath({ eventKey, entityType: payload.entityType, entityId: payload.entityId, data: payload.data ?? {} })
+    : null
 
   // 1. Pure per-recipient work: gate, redact, render.
   const deliveries: RecipientDelivery[] = []
@@ -440,7 +556,7 @@ async function deliverEmit(plan: EmitPlan): Promise<void> {
         entityManagerIds: managerIds,
         recipientRole: user.role as any,
         isPrivate: payload.isPrivate ?? false,
-        entityType: payload.entityType,
+        entityType: redactEntityType(payload.entityType),
         entityTitle: payload.entityTitle,
       }
       const redacted = meta.redactable && shouldRedact(redactInput)
@@ -507,6 +623,9 @@ async function deliverEmit(plan: EmitPlan): Promise<void> {
             actorId: payload.actorId,
             redacted: d.redacted,
             tags: d.tags,
+            // Package entities have no generic entity route (lib/notifications/row.ts),
+            // so their in-app rows carry the same-origin path the email links to.
+            ...(packageInAppPath ? { deepLink: packageInAppPath } : {}),
           }),
           redacted: d.redacted,
           emailMode: d.emailMode,

@@ -9,6 +9,8 @@ import RisksPanel from '@/components/shared/RisksPanel'
 import ViewersList from '@/components/shared/ViewersList'
 import { formatAxisValue } from '@/lib/keyResultChart'
 import CheckInTimeline from './CheckInTimeline'
+import KrPlanCard from './KrPlanCard'
+import KrConnectionsRail from './KrConnectionsRail'
 import { useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useViewTracker } from '@/hooks/useViewTracker'
@@ -34,7 +36,8 @@ interface Props {
   activityElementId: string
   details: {
     owner?: UserLite | null
-    timeframe?: { name?: string; type?: string; startDate?: Date | string; endDate?: Date | string } | null
+    /** `id` (when the caller passes the full timeframe) scopes "contributes to" link targets. */
+    timeframe?: { id?: string; name?: string; type?: string; startDate?: Date | string; endDate?: Date | string } | null
     parentObjective?: { id: string; title: string } | null
     startValue: number
     targetValue: number
@@ -80,6 +83,9 @@ export default function KrInspectorTabs({
   const userRole = (session?.user?.role as string | undefined) ?? 'EMPLOYEE'
   useViewTracker({ keyResultId })
   return (
+    <>
+    {/* KRX-3 / KRX-4: checkpoints + definition (renders nothing for a redacted KR). */}
+    <KrPlanCard keyResultId={keyResultId} />
     <section className="rounded-[var(--ap-radius-md)] border bg-card overflow-hidden" style={{ borderColor: 'var(--ap-border)' }}>
       <Tabs defaultValue="details">
         <TabsList
@@ -247,6 +253,9 @@ export default function KrInspectorTabs({
         </TabsContent>
       </Tabs>
     </section>
+    {/* CON-2: links + dependencies + decisions, with "Manage links" for editors. */}
+    <KrConnectionsRail keyResultId={keyResultId} timeframeId={details.timeframe?.id ?? null} />
+    </>
   )
 }
 

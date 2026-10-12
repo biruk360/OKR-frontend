@@ -226,7 +226,8 @@ import { Target, CheckSquare } from 'lucide-react'
 
 | Component | File | Props | Description |
 |-----------|------|-------|-------------|
-| `ActivityLogPanel` | `components/shared/ActivityLogPanel.tsx` | `entityType`, `entityId` | Displays activity audit trail for any entity |
+| `ActivityLogPanel` | `components/shared/ActivityLogPanel.tsx` | `entityType`, `entityId` | Displays activity audit trail for any entity. 2026-10-11: labels for package actions (LINKED, UNLINKED, APPROVED, DECIDED, READING_ENTERED, …); OKR_LINK / KR_CHECKPOINT rows show "checkpoint “label”" linked through the row's `deepLink` |
+| `RolledFromBanner` | `components/shared/RolledFromBanner.tsx` | existing props + **`entityId?`** | 2026-10-11: with `entityId`, shows n:m lineage (CON-6) through `LineagePopover`; `hasExtraLineage(items, shownId)` helper |
 | `CommentAttachments` | `components/shared/CommentAttachments.tsx` | `attachments` | Renders a comment's attachments. Also exports **`useAttachmentViewer(attachments)`** — the single owner of how an attachment opens (`open`, `markBroken`, `isBroken`, `viewer`). Any new attachment surface must use this hook, not its own click handler; `lib/attachments/viewer-invariants.test.ts` enforces it. |
 | `UserAvatar` / `UserAvatarStack` | `components/shared/UserAvatar.tsx` | `UserAvatar`: `user` ({id,name,avatar?}), `size?`, `ring?`, `className?`, **`tooltip?`** (default true), `tooltipDetail?`, `tooltipSide?` (forwards refs) · `UserAvatarStack`: `users`, `size?`, `max?`, `showNames?`, `detail?` ((u) => string) | The one avatar. Every avatar shows the person's full name in a styled hover card (UNH, `docs/user_name_hover_REQUIREMENTS.md`); pass `tooltip={false}` only where the full name is printed beside it. The stack's "+N" lists the hidden names. Colours from `lib/user-color.ts`. Never used under `/portal` (project invariant 4). |
 | `PersonTooltip` / `PeopleTooltip` | `components/shared/UserAvatar.tsx` | `PersonTooltip`: `person` ({id?,name?,email?,avatar?}), `detail?`, `children` (ref-able trigger), `side?`, `align?`, `whenTruncated?` (opens only when the child text is clipped), `disabled?` · `PeopleTooltip`: `people`, `children`, `heading?`, `side?`, `limit?` (8) | The hover card itself: 28px avatar, full name, optional secondary line from data already on the page (never fetches). Radix Tooltip via the app-wide `TooltipProvider` in `app/providers.tsx`; 180 ms fade/scale, off under reduced motion; renders above `Modal`. Wrap clipped names with `whenTruncated`. |
@@ -240,6 +241,62 @@ import { Target, CheckSquare } from 'lucide-react'
 | `MoveOkrModal` | `components/shared/MoveOkrModal.tsx` | `open`, `onClose`, `kind: 'OBJECTIVE' \| 'KEY_RESULT'`, `entity`, `disabledIds?`, `onMoved?` | Re-parent an objective or re-file a key result. One modal for both because the interaction is identical; they differ only in the field name and in what the picker refuses. Built on `EntityPicker` + `useOkrOptions`. Surfaces the server's rejection verbatim — "would create a circular dependency", "must be in the same timeframe" — rather than a generic failure. |
 | `LinkTabs` | `components/shared/LinkTabs.tsx` | `items: { key, label, href, icon? }[]`, `activeKey`, `ariaLabel`, `variant?: 'tabs' \| 'segmented'`, `className?` | **New 2026-09-25 (G6).** URL-synced tab strip — each tab is a plain `<Link>` to its own URL (server pages, no client state). `tabs` = underlined page tabs, `segmented` = compact preset pills. Used by the OKR Explorer (views + levels) and Insights. Reuse it for any tab strip whose state belongs in the URL. |
 | `OkrComments` | `components/shared/OkrComments.tsx` | see file | OKR comment thread (objective page since 2026-09-25, `KeyResultDetailClient`): link previews (G2), file attachments, live updates on the OKR private channel (H3). Server side gated by `canAccessOkrComments`. |
+
+## Employee Operating Package components (2026-10-11)
+
+Spec `docs/employee_operating_package_REQUIREMENTS.md`. Features never import each other: cross-feature controls are injected through `renderItemActions` / `graphSlot` slots by the profile shell (`app/dashboard/org/users/[id]/_components`).
+
+### Shared (`components/shared/connections`, `components/shared/dependency-graph`)
+
+| Component | Import | Props | Description |
+|---|---|---|---|
+| `ConnectionChips` | `@/components/shared/connections` | `entityType`, `entityId`, `compact?`, `data?`, `hide?: ConnectionChipKind[]`, `max?`, `onNavigate?`, `trailing?`, `enabled?`, `className?` | CON-1 chip row (aligns to / supported by / dependencies / decisions / KPIs / duties…). Shares the `['connections', type, id]` cache; pass `data` to skip the fetch or `enabled` to defer it |
+| `ConnectionsPanel` | `@/components/shared/connections` | `entityType`, `entityId`, `variant?: 'rail'\|'section'`, `title?`, `data?`, `groups?`, `onManageLinks?`, `action?`, `onNavigate?`, `emptyText?` | CON-2 grouped connections panel; redacted items render as "Private item" (CON-8) |
+| `ConnectionItemRow` / `ConnectionDependencyRow` / `ConnectionDecisionRow` | `@/components/shared/connections` | `item` (+ `showVia?`, `showFinal?`, `onNavigate?`, `trailing?`) | Row building blocks of the panel |
+| `PersonDependencyGraph` | `@/components/shared/dependency-graph` | `userId`, `timeframeId?`, `height?`, `focusedDependencyId?`, `onOpenDependency?`, `onOpenPerson?` | CON-4 person-centred graph (React Flow); own loading/403/empty states |
+| `CompanyDependencyGraph` | `@/components/shared/dependency-graph` | `dependencies`, `max?` (400), `height?`, `focusedDependencyId?`, `onOpenDependency?`, `onOpenPerson?` | Presentational company graph; edge tones late=danger / due soon=warn / done=muted |
+| `DependencyGraphCanvas` | `@/components/shared/dependency-graph` | `layout`, `focusedDependencyId?`, `onOpenDependency?`, `onOpenPerson?`, `height?`, `ariaLabel?` | Canvas used by both graphs |
+
+### OKR surfaces
+
+| Component | Import | Props | Description |
+|---|---|---|---|
+| `LinkManagerModal` | `@/features/okr-links` | `open`, `onClose`, `entityType: 'OBJECTIVE'\|'KEY_RESULT'`, `entityId`, `entityTitle?`, `timeframeId?`, `defaultKind?`, `onChanged?` | Manage OkrLinks (LNK-1…4) |
+| `AlignmentTrail` | `@/features/okr-links` | `entityType`, `entityId`, `variant?: 'inline'\|'bar'`, `subjectLabel?`, `maxDepth?`, `showWhenAlone?`, `onNavigate?`, `right?` | CON-5 breadcrumb up the alignment chain |
+| `LineagePopover` / `LineageList` | `@/features/okr-links` | `entityType`, `entityId`, `data?`, `show?`, `trigger?` / `predecessors`, `successors` | CON-6 n:m lineage |
+| `OkrConnectionsSection` | `@/features/okr-links` | `entityType`, `entityId`, `entityTitle?`, `timeframeId?`, `defaultKind?`, `onLinksChanged?` + panel props | Panel + Manage links button |
+| `CheckpointStrip` | `@/features/key-results` | `keyResultId`, `variant?: 'full'\|'compact'`, `title?`, `onChanged?` | KRX-3 checkpoint timeline (create/edit when permitted) |
+| `CheckpointEditor` | `@/features/key-results` | `open`, `onClose`, `keyResultId`, `checkpoint?`, `focus?`, `direction?`, `unit?`, `canDelete?`, `onSaved?` | Create/edit/review a checkpoint |
+| `NextCheckpointChip` | `@/features/key-results` | `checkpoints?` \| `checkpoint?`, `soonDays?` (14) | Next checkpoint chip for rows |
+| `KrDefinitionSection` | `@/features/key-results` | `keyResultId`, `definition?`, `canEdit?`, `variant?`, `title?`, `onSaved?` | KRX-4 definition (commitment, baseline, target, measured by, due) with inline edit via PATCH |
+| `CommitmentBadge` | `@/features/key-results` | `commitment`, `showLabel?`, `showHint?` | Committed / Aspirational ("70% = success") |
+| `KrPlanCard` / `KrPlanCompact` | `components/key-result-detail/KrPlanCard.tsx` | `keyResultId` | Checkpoints + definition card (KR detail rail / quick view); exports `hasKrPlanContent`, `useKrPlanSummary`, `invalidateKrPlan` |
+| `KrConnectionsRail` | `components/key-result-detail/KrConnectionsRail.tsx` | `keyResultId`, `timeframeId?` | KR rail connections |
+| `KrContributionSections` | `components/key-result-detail/KrContributionSections.tsx` | `keyResultId`, `isCompany?` | CON-7 Lands in + CON-3 project milestones |
+| `ObjectiveConnectionsSection` / `ObjectiveAlignmentTrail` | `components/objective-detail/` | `objectiveId`, `title`, `timeframeId?` / AlignmentTrail props | Objective detail mounts |
+
+### Employee profile & package verticals
+
+| Component | Import | Props | Description |
+|---|---|---|---|
+| `ProfileTimeframeSwitcher` | `@/features/employee-profile` | `userId`, `activeTab`, `selected`, `defaultTimeframeId`, `className?` | `?tf=` switcher; closed timeframe = read-only badge |
+| `OkrProfileTab` | `@/features/employee-profile` | `userId`, `timeframeId`, `renderItemActions?: (OkrProfileItemRef) => ReactNode` | PRF-7…11 OKR tree, filters, past OKRs |
+| `PackageHeaderCard` | `@/features/operating-package` | `userId`, `timeframeId`, `className?` | Package header: status, version, summary, weights, submit/approve |
+| `PackageReviewControls` | `@/features/operating-package` | `packageId`, `entityType`, `entityId`, `compact?` | PKG-2 Agree / Dispute per item (renders nothing without access) |
+| `PackageEditModal`, `PackageDisputesList`, `ResolveDisputePopover`, `PackageStatusBadge`, `ReviewVerdictBadge`, `WeightsMix` | `@/features/operating-package` | see barrel | Package editing / disputes |
+| `RoleDefinitionProfileTab` | `@/features/role-definition` | `userId`, `timeframeId`, `renderItemActions?` | ROL-1…4 role definition, reporting line, seats |
+| `RoleDefinitionSidebarCard` | `@/features/role-definition` | `userId`, `timeframeId?`, `summary?` | PRF-4 sidebar card (`summary === null` renders nothing) |
+| `RoleDefinitionEditor` / `ApproveRoleDefinitionDialog` | `@/features/role-definition` | `open`, `onClose`, `userId`, `timeframeId?`, `definition?`, `basedOn?`, `onSaved?` / `definition`, `currentDesignation`, `onClose` | Edit/new version; approve (optional designation sync) |
+| `DutiesProfileTab` | `@/features/duties` | `userId`, `timeframeId`, `renderItemActions?: (DutyDTO) => ReactNode` | DUT-1…8 duties list with adherence |
+| `DutyCard`, `DutyFormModal`, `LogOccurrenceModal` | `@/features/duties` | `duty`, `onAction`, `busy?`, `extra?` / `open`, `onClose`, `ownerId`, `timeframeId`, `duty?` / `open`, `onClose`, `duty` | Duty building blocks |
+| `KpisProfileTab` | `@/features/kpis` | `userId`, `timeframeId`, `renderItemActions?: (KpiView) => ReactNode` | KPI-1…7 tab |
+| `KpiFormModal`, `KpiReadingModal`, `KpiMetricCard`, `KpiHistoryTable`, `KpiRagBadge` | `@/features/kpis` | see barrel | KPI form / reading entry / card / history (with ConnectionsPanel) / RAG badge |
+| `DevelopmentProfileTab` | `@/features/development-plan` | `userId`, `timeframeId`, `renderItemActions?` | DEV-1…6 with DEV-3 rule bars |
+| `DevelopmentItemFormModal`, `MarkDevelopmentDoneDialog`, `DropDevelopmentItemDialog`, `LogDevelopmentHoursDialog` | `@/features/development-plan` | see barrel | Development item dialogs |
+| `DependenciesProfileTab` | `@/features/dependencies` | `userId`, `timeframeId`, `graphSlot?`, `renderItemActions?` | Inbound/outbound dependencies |
+| `DependencyFormModal`, `DependencyStatusBadge` | `@/features/dependencies` | `open`, `onClose`, `dependency?`, `defaults?`, `onSaved?` / `status`, `late?`, `dueSoon?` | Dependency form and badge; `offerDependencyDoneForTodo(todoId)` = DEP-4 completion offer |
+| `DecisionsProfileTab`, `AwaitingMyDecisionList`, `DecisionFormModal`, `DecideModal`, `DecisionRow` | `@/features/decisions` | see barrel | DEC-1…3 |
+| `DevelopmentRuleSettings` | `components/settings/DevelopmentRuleSettings.tsx` | `className?` | Org-wide DEV-3 rule editor (devMinItems / devMinHours) on Settings › OKR Rules |
 
 ## Layout Components (`components/layout/`)
 
@@ -440,6 +497,7 @@ Strangler-pattern barrels. Import from these for new code:
 | Letters | `@/features/letters` | `LettersPageClient`, `LetterFormClient`, `LettersTable`, `CreateLetterModal`, `LetterStatusBadge`, `LetterStatusBar`, `CustomerLookup`, `LetterTypeSelect`, `SuperDocEditorClient`, `EnclosuresPanel`, `PdfPreviewPanel`, `MarkAsSentModal`, `RejectLetterModal`, **`LetterReportsClient`**, **`LetterTemplatesClient`** (both new 2026-09-25 G3) |
 | Auth | `@/features/auth` | see *Auth / Sign-in* above |
 | Scrum | `@/features/scrum` | see *Daily Scrum* above |
+| Operating package (2026-10-11) | `@/features/operating-package`, `@/features/role-definition`, `@/features/duties`, `@/features/kpis`, `@/features/development-plan`, `@/features/dependencies`, `@/features/decisions`, `@/features/okr-links`, `@/features/employee-profile` | see *Employee Operating Package components* above. Server services are imported by direct path from `app/` only (`features/*/services/*.server.ts`) |
 
 Root barrel: `@/features` exposes namespace objects (`objectives`, `keyResults`, `todos`, `sprints`, `performance`, `projects`, `scrum`) if a consumer needs multiple features.
 

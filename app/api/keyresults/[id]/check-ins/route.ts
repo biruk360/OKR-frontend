@@ -4,7 +4,7 @@ import {
   canEditKeyResultWithObjectiveContext,
   canViewKeyResult,
 } from '@/lib/permissions'
-import { parseProgressInput } from '@/lib/keyResultNumbers'
+import { krProgressPercent, normalizeKrDirection, parseProgressInput } from '@/lib/keyResultNumbers'
 import { recalcNodeAndAncestors } from '@/lib/objectiveProgress'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { keyResultLockResponse } from '@/lib/okr/lock-guard'
@@ -33,11 +33,6 @@ function scoreToTier(n: number): 'ON_TRACK' | 'AT_RISK' | 'OFF_TRACK' {
   if (n >= 70) return 'ON_TRACK'
   if (n >= 40) return 'AT_RISK'
   return 'OFF_TRACK'
-}
-
-function krProgressPercent(currentValue: number, targetValue: number): number {
-  if (targetValue <= 0) return 0
-  return Math.min(Math.max((currentValue / targetValue) * 100, 0), 100)
 }
 
 export const GET = withAuth<RouteIdParams>(async (_request, { session, params }) => {
@@ -137,8 +132,17 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
   const progressParsed = parseProgressInput(progress, existingKeyResult.currentValue)
   if (!progressParsed.ok) return apiBadRequest(progressParsed.message)
 
-  const nextValue = Math.max(0, progressParsed.value)
-  const nextKrProgress = krProgressPercent(nextValue, existingKeyResult.targetValue)
+  // FND-3 / KRX-1: progress is (current − start)/(target − start), direction-aware.
+  // INCREASE KRs keep the historical non-negative clamp; DECREASE KRs may legitimately
+  // target 0 or below, so their value is not clamped.
+  const krDirection = normalizeKrDirection(existingKeyResult.direction)
+  const nextValue = krDirection === 'DECREASE' ? progressParsed.value : Math.max(0, progressParsed.value)
+  const nextKrProgress = krProgressPercent({
+    startValue: existingKeyResult.startValue,
+    targetValue: existingKeyResult.targetValue,
+    currentValue: nextValue,
+    direction: krDirection,
+  })
   const analysisStr = typeof analysis === 'string' ? analysis.trim().slice(0, 20000) : ''
 
   // Compute system confidence from time-elapsed vs progress (overrides user-supplied value).

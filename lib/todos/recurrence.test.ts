@@ -17,6 +17,9 @@ import {
   anchorDayForDue,
   anchorDayOnSave,
   storedAnchorDay,
+  isMonthBased,
+  monthStep,
+  occurrenceCarryFields,
   RECURRENCE_JOB,
   RECURRENCE_RULES,
 } from './recurrence'
@@ -485,10 +488,15 @@ test('R-22: previousOccurrence inverts nextOccurrence for every rule', () => {
     for (const s of starts) {
       // WEEKDAYS: the inverse is exact for weekday dates only.
       if (rule === 'WEEKDAYS' && (s.getDay() === 0 || s.getDay() === 6)) continue
-      const n = nextOccurrence(rule, s) as Date
-      assert.equal(iso(previousOccurrence(rule, n)), iso(s), `${rule} from ${iso(s)}`)
+      // Month-based rules can clamp on the way out (SEMIANNUAL Dec 31 → Jun 30),
+      // so the inverse needs the series' anchor day, as the generator has it.
+      const anchor = isMonthBased(rule) ? s.getDate() : undefined
+      const n = nextOccurrence(rule, s, anchor) as Date
+      assert.equal(iso(previousOccurrence(rule, n, anchor)), iso(s), `${rule} from ${iso(s)}`)
     }
   }
+  // Without the anchor a clamped date cannot recover its original day.
+  assert.equal(iso(previousOccurrence('SEMIANNUAL', d(2027, 6, 30))), '2026-12-30')
   assert.equal(iso(previousOccurrence('WEEKDAYS', d(2026, 9, 21))), '2026-09-18') // Mon → Fri
   assert.equal(iso(previousOccurrence('WEEKDAYS', d(2026, 9, 20))), '2026-09-18') // Sun → Fri
   assert.equal(iso(previousOccurrence('MONTHLY', d(2026, 3, 31))), '2026-02-28') // clamps
@@ -550,4 +558,209 @@ test('REC-FIX-2r: item delta stops where the fixed generator took over', () => {
 test('shiftItemDates leaves undated fields null', () => {
   assert.deepEqual(shiftItemDates({ startDate: null, dueDate: null }, 7), { startDate: null, dueDate: null })
   assert.equal(iso(shiftItemDates({ startDate: d(2026, 9, 1), dueDate: null }, -3).startDate), '2026-08-29')
+})
+
+// ── FND-5: QUARTERLY (every 3 months) and SEMIANNUAL (every 6 months) ───────
+
+test('Q-01: QUARTERLY/SEMIANNUAL are real rules with labels, and month-based', () => {
+  assert.equal(isRecurrenceRule('QUARTERLY'), true)
+  assert.equal(isRecurrenceRule('SEMIANNUAL'), true)
+  assert.equal(recurrenceLabel('QUARTERLY'), 'Every quarter')
+  assert.equal(recurrenceLabel('SEMIANNUAL'), 'Every 6 months')
+  assert.deepEqual(
+    RECURRENCE_RULES.map((r) => r.value),
+    ['DAILY', 'WEEKDAYS', 'WEEKLY', 'BIWEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMIANNUAL', 'YEARLY'],
+  )
+  for (const [rule, step] of [['MONTHLY', 1], ['QUARTERLY', 3], ['SEMIANNUAL', 6], ['YEARLY', 12]] as const) {
+    assert.equal(isMonthBased(rule), true, rule)
+    assert.equal(monthStep(rule), step, rule)
+  }
+  for (const rule of ['DAILY', 'WEEKDAYS', 'WEEKLY', 'BIWEEKLY', 'nope', null, undefined]) {
+    assert.equal(isMonthBased(rule), false, String(rule))
+    assert.equal(monthStep(rule), null, String(rule))
+  }
+})
+
+test('Q-02: QUARTERLY steps three months and clamps at month end (incl. leap Feb)', () => {
+  assert.equal(iso(nextOccurrence('QUARTERLY', d(2026, 9, 16))), '2026-12-16')
+  assert.equal(iso(nextOccurrence('QUARTERLY', d(2026, 1, 31))), '2026-04-30')
+  assert.equal(iso(nextOccurrence('QUARTERLY', d(2026, 8, 31))), '2026-11-30')
+  assert.equal(iso(nextOccurrence('QUARTERLY', d(2025, 11, 30))), '2026-02-28') // across the year, non-leap
+  assert.equal(iso(nextOccurrence('QUARTERLY', d(2027, 11, 30))), '2028-02-29') // leap year
+  assert.equal(iso(nextOccurrence('QUARTERLY', d(2026, 12, 31))), '2027-03-31')
+  assert.equal(iso(previousOccurrence('QUARTERLY', d(2026, 5, 31))), '2026-02-28')
+  assert.equal(iso(previousOccurrence('QUARTERLY', d(2027, 2, 28), 31)), '2026-11-30')
+})
+
+test('Q-03: SEMIANNUAL steps six months and clamps at month end (incl. leap Feb)', () => {
+  assert.equal(iso(nextOccurrence('SEMIANNUAL', d(2026, 9, 16))), '2027-03-16')
+  assert.equal(iso(nextOccurrence('SEMIANNUAL', d(2026, 8, 31))), '2027-02-28')
+  assert.equal(iso(nextOccurrence('SEMIANNUAL', d(2027, 8, 31))), '2028-02-29') // leap year
+  assert.equal(iso(nextOccurrence('SEMIANNUAL', d(2026, 12, 31))), '2027-06-30')
+  assert.equal(iso(nextOccurrence('SEMIANNUAL', d(2026, 3, 31))), '2026-09-30')
+  assert.equal(iso(previousOccurrence('SEMIANNUAL', d(2027, 2, 28), 31)), '2026-08-31')
+})
+
+test('Q-04: nthOccurrence from a month-end anchor never drifts (quarterly and half-yearly)', () => {
+  const aug31 = d(2026, 8, 31)
+  assert.deepEqual(
+    [0, 1, 2, 3, 4, 5, 6, 7].map((n) => iso(nthOccurrence('QUARTERLY', aug31, n))),
+    ['2026-08-31', '2026-11-30', '2027-02-28', '2027-05-31', '2027-08-31', '2027-11-30', '2028-02-29', '2028-05-31'],
+  )
+  assert.deepEqual(
+    [1, 2, 3, 4, 5].map((n) => iso(nthOccurrence('SEMIANNUAL', aug31, n))),
+    ['2027-02-28', '2027-08-31', '2028-02-29', '2028-08-31', '2029-02-28'],
+  )
+  // A Feb 29 half-yearly series clamps in common years and returns in the next leap year.
+  assert.deepEqual(
+    [1, 2, 3, 8].map((n) => iso(nthOccurrence('SEMIANNUAL', d(2028, 2, 29), n))),
+    ['2028-08-29', '2029-02-28', '2029-08-29', '2032-02-29'],
+  )
+  assert.equal(nthOccurrence('QUARTERLY', aug31, -1), null)
+  assert.equal(nthOccurrence('SEMIANNUAL', aug31, 0.5), null)
+})
+
+test('Q-05: stepping the cursor with the anchor day equals nthOccurrence (every start month, days 28–31)', () => {
+  for (const rule of ['QUARTERLY', 'SEMIANNUAL'] as const) {
+    for (let month = 1; month <= 12; month++) {
+      for (const day of [28, 29, 30, 31]) {
+        const anchor = d(2026, month, Math.min(day, new Date(2026, month, 0).getDate()))
+        let cursor = anchor
+        for (let n = 1; n <= 16; n++) {
+          cursor = nextOccurrence(rule, cursor, day) as Date
+          const expected = (iso(nthOccurrence(rule, d(2026, month, 1), n)) as string).slice(0, 8)
+          const lastDay = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0).getDate()
+          assert.equal((iso(cursor) as string).slice(0, 8), expected, `${rule} ${month}/${day} n=${n} month`)
+          assert.equal(cursor.getDate(), Math.min(day, lastDay), `${rule} ${month}/${day} n=${n} day`)
+        }
+      }
+    }
+  }
+})
+
+test('Q-06: without an anchor day a clamped quarterly series drifts (documents why the anchor exists)', () => {
+  const feb = nthOccurrence('QUARTERLY', d(2026, 8, 31), 2) as Date // 2027-02-28
+  assert.equal(iso(nextOccurrence('QUARTERLY', feb)), '2027-05-28')
+  assert.equal(iso(nextOccurrence('QUARTERLY', feb, 31)), '2027-05-31')
+})
+
+test('Q-07: inferAnchorDay — QUARTERLY reads same-phase evidence up to 4 quarters back', () => {
+  const feb28 = d(2027, 2, 28)
+  assert.equal(needsAnchorEvidence('QUARTERLY', feb28), true)
+  assert.equal(needsAnchorEvidence('QUARTERLY', d(2027, 5, 28)), false)
+  // Aug 31 → Nov 30 → Feb 28: the 31 is two quarters back.
+  assert.equal(inferAnchorDay('QUARTERLY', feb28, [d(2026, 11, 30), d(2026, 8, 31)]), 31)
+  assert.equal(inferAnchorDay('QUARTERLY', feb28, [d(2026, 11, 30)]), 30)
+  assert.equal(inferAnchorDay('QUARTERLY', feb28, [d(2026, 5, 31)]), 31, '3 quarters back')
+  // Off-phase (1 month back), outside the 12-month window, or in the future: ignored.
+  assert.equal(inferAnchorDay('QUARTERLY', feb28, [d(2027, 1, 31)]), 28)
+  assert.equal(inferAnchorDay('QUARTERLY', feb28, [d(2025, 8, 31)]), 28)
+  assert.equal(inferAnchorDay('QUARTERLY', feb28, [d(2027, 5, 31)]), 28)
+  // Not the last day of its month → authoritative.
+  assert.equal(inferAnchorDay('QUARTERLY', d(2027, 5, 28), [d(2027, 2, 28), d(2026, 11, 30)]), 28)
+})
+
+test('Q-08: inferAnchorDay — SEMIANNUAL reads same-phase evidence up to 4 half-years back', () => {
+  const feb28 = d(2027, 2, 28)
+  assert.equal(needsAnchorEvidence('SEMIANNUAL', feb28), true)
+  assert.equal(inferAnchorDay('SEMIANNUAL', feb28, [d(2026, 8, 31)]), 31)
+  assert.equal(inferAnchorDay('SEMIANNUAL', d(2026, 9, 30), [d(2026, 3, 31)]), 31)
+  assert.equal(inferAnchorDay('SEMIANNUAL', d(2031, 2, 28), [d(2030, 8, 29)]), 29, 'Feb 29 series')
+  // Off-phase (3 months back) or beyond 24 months: ignored.
+  assert.equal(inferAnchorDay('SEMIANNUAL', feb28, [d(2026, 11, 30)]), 28)
+  assert.equal(inferAnchorDay('SEMIANNUAL', feb28, [d(2024, 8, 31)]), 28)
+})
+
+test('Q-09: stored anchor helpers cover the new rules', () => {
+  assert.equal(anchorDayForDue('QUARTERLY', d(2026, 8, 31)), 31)
+  assert.equal(anchorDayForDue('SEMIANNUAL', d(2026, 3, 30)), 30)
+  assert.equal(storedAnchorDay('QUARTERLY', 31), 31)
+  assert.equal(storedAnchorDay('SEMIANNUAL', 29), 29)
+  assert.equal(storedAnchorDay('SEMIANNUAL', 0), null)
+  const monthly = { recurrenceRule: 'MONTHLY', dueDate: d(2026, 8, 31) }
+  // Switching rule is a new series: re-anchor from the due date.
+  assert.equal(anchorDayOnSave(monthly, { recurrenceRule: 'QUARTERLY', dueDate: d(2026, 8, 31) }), 31)
+  // A clamped quarterly head re-saved unchanged keeps its anchor.
+  const q = { recurrenceRule: 'QUARTERLY', dueDate: d(2027, 2, 28) }
+  assert.equal(anchorDayOnSave(q, { ...q }), undefined)
+  // Leaving the month-based family clears it.
+  assert.equal(anchorDayOnSave(q, { recurrenceRule: 'BIWEEKLY', dueDate: d(2027, 2, 28) }), null)
+})
+
+test('Q-10: generator honours a stored 31 on a quarterly series with NO history', () => {
+  let headDue = d(2026, 8, 31)
+  const stored = anchorDayForDue('QUARTERLY', headDue)
+  const seen: string[] = []
+  for (const now of [d(2026, 11, 29), d(2027, 2, 27), d(2027, 5, 30), d(2027, 8, 30)]) {
+    const r = genRun('QUARTERLY', headDue, stored, [], now)
+    seen.push(...(r.dates as string[]))
+    headDue = r.headDue
+  }
+  assert.deepEqual(seen, ['2026-11-30', '2027-02-28', '2027-05-31', '2027-08-31'])
+  // Legacy head on the clamped Feb 28 with neither anchor nor history drifts.
+  assert.deepEqual(genRun('QUARTERLY', d(2027, 2, 28), null, [], d(2027, 5, 27)).dates, ['2027-05-28'])
+})
+
+test('Q-11: generator honours a stored 31 on a half-yearly series across a leap February', () => {
+  let headDue = d(2027, 8, 31)
+  const stored = anchorDayForDue('SEMIANNUAL', headDue)
+  const seen: string[] = []
+  for (const now of [d(2028, 2, 28), d(2028, 8, 30), d(2029, 2, 27)]) {
+    const r = genRun('SEMIANNUAL', headDue, stored, [], now)
+    seen.push(...(r.dates as string[]))
+    headDue = r.headDue
+  }
+  assert.deepEqual(seen, ['2028-02-29', '2028-08-31', '2029-02-28'])
+})
+
+test('Q-12: a legacy quarterly head infers its anchor from the advance log run after run', () => {
+  let headDue = d(2026, 8, 31)
+  const logFroms: Date[] = []
+  const seen: string[] = []
+  for (const now of [d(2026, 11, 29), d(2027, 2, 27), d(2027, 5, 30), d(2027, 8, 30)]) {
+    const r = genRun('QUARTERLY', headDue, null, logFroms, now)
+    seen.push(...(r.dates as string[]))
+    logFroms.unshift(headDue)
+    headDue = r.headDue
+  }
+  assert.deepEqual(seen, ['2026-11-30', '2027-02-28', '2027-05-31', '2027-08-31'])
+})
+
+test('Q-13: a quarterly catch-up run keeps the anchor; plan reports the head day as anchor', () => {
+  const r = genRun('QUARTERLY', d(2026, 8, 31), 31, [], d(2027, 8, 30))
+  assert.deepEqual(r.dates, ['2026-11-30', '2027-02-28', '2027-05-31', '2027-08-31'])
+  const plan = planSeriesAdvance({ recurrenceRule: 'SEMIANNUAL', dueDate: d(2026, 9, 16) }, d(2027, 3, 15))
+  assert.ok(plan)
+  assert.equal(plan.anchorDay, 16)
+  assert.deepEqual(plan.occurrences.map((o) => iso(o.dueDate)), ['2027-03-16'])
+  assert.equal(planSeriesAdvance({ recurrenceRule: 'QUARTERLY', dueDate: d(2026, 9, 16) }, d(2026, 12, 14)), null)
+})
+
+// ── FND-6: what an occurrence inherits ──────────────────────────────────────
+
+const carryHead = (over: Partial<Parameters<typeof occurrenceCarryFields>[0]> = {}) => ({
+  progressValue: 5,
+  recurrenceCountsProgress: false,
+  kind: 'TASK',
+  dutyId: null,
+  externalRef: 'M1.1.1',
+  ...over,
+})
+
+test('FND-6: progressValue is copied only when the head opts in with recurrenceCountsProgress', () => {
+  assert.equal(occurrenceCarryFields(carryHead()).progressValue, null, 'default: occurrences do not count')
+  assert.equal(occurrenceCarryFields(carryHead({ recurrenceCountsProgress: true })).progressValue, 5)
+  assert.equal(
+    occurrenceCarryFields(carryHead({ recurrenceCountsProgress: true, progressValue: null })).progressValue,
+    null,
+  )
+  assert.equal(occurrenceCarryFields(carryHead({ progressValue: 0, recurrenceCountsProgress: true })).progressValue, 0)
+})
+
+test('FND-6: kind and dutyId come across, externalRef never does', () => {
+  const carried = occurrenceCarryFields(carryHead({ kind: 'DUTY', dutyId: 'duty_1' }))
+  assert.deepEqual(carried, { progressValue: null, kind: 'DUTY', dutyId: 'duty_1' })
+  assert.equal('externalRef' in carried, false)
+  assert.deepEqual(Object.keys(occurrenceCarryFields(carryHead())).sort(), ['dutyId', 'kind', 'progressValue'])
+  assert.deepEqual(occurrenceCarryFields(carryHead()), { progressValue: null, kind: 'TASK', dutyId: null })
 })

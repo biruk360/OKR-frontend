@@ -107,6 +107,20 @@ const MODULE_CHILDREN: Record<string, string[]> = {
     'button.performance.action.reject',
     'button.performance.action.execute',
   ],
+  // Employee Operating Package (§8). Hiding the module hides its pages, buttons
+  // and the HR / sensitive-KPI capabilities.
+  'module.package': [
+    'page.people.package',
+    'page.okr.dependency-map',
+    'page.okr.decisions',
+    'button.package.duty.create',
+    'button.package.kpi.create',
+    'button.package.role.approve',
+    'button.package.approve',
+    'button.decision.decide',
+    'package.kpi.sensitive.read',
+    'package.hr',
+  ],
 }
 
 /** Return the set of child featureKeys for a module key, or [] if not a module. */
@@ -136,7 +150,8 @@ function groupLabel(g: GroupKey) {
     case 'page':    return 'Pages'
     case 'button':  return 'Buttons & Actions'
     case 'tab':     return 'Tabs'
-    default:        return 'Other'
+    // Capability keys such as package.hr / package.kpi.sensitive.read land here.
+    default:        return 'Capabilities & other'
   }
 }
 

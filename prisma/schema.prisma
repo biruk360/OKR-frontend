@@ -96,6 +96,19 @@ model User {
   ownedAutomations                Automation[]                   @relation("AutomationOwner")
   automationBriefingDeliveries    AutomationBriefingRecipient[]  @relation("AutomationBriefingRecipientUser")
 
+  // Employee Operating Package back-relations (docs/employee_operating_package_REQUIREMENTS.md).
+  ownedDuties        RecurringDuty[]             @relation("DutyOwner")
+  dutyCollaborations RecurringDutyCollaborator[] @relation("DutyCollaborator")
+  roleDefinitions    RoleDefinition[]            @relation("RoleDefinitionUser")
+  ownedKpis          Kpi[]                       @relation("KpiOwner")
+  kpiReadingsEntered KpiReading[]                @relation("KpiReadingEnteredBy")
+  developmentItems   DevelopmentItem[]           @relation("DevelopmentItemOwner")
+  dependencyParties  WorkDependencyParty[]       @relation("DependencyPartyUser")
+  decisionsToDecide  Decision[]                  @relation("DecisionDecider")
+  decisionsRequested Decision[]                  @relation("DecisionRequester")
+  operatingPackages  OperatingPackage[]          @relation("PackageUser")
+  packageReviews     PackageItemReview[]         @relation("PackageReviewer")
+
   commentAttachments CommentAttachment[] @relation("CommentAttachmentUploader")
 
   @@map("users")
@@ -214,6 +227,9 @@ model OrganizationSettings {
   aiProjectCreationModel   String?
   /// OKR period-close reopen window for non-admin users (days after close). Default 14.
   okrReopenWindowDays      Int      @default(14)
+  /// Development plan yearly rule (DEV-3): ≥ devMinItems certifications/courses and ≥ devMinHours training hours.
+  devMinItems              Int      @default(1)
+  devMinHours              Float    @default(40)
   createdAt                DateTime @default(now())
   updatedAt                DateTime @updatedAt
 
@@ -233,7 +249,15 @@ model Timeframe {
   updatedAt DateTime @updatedAt
 
   // Relationships
-  objectives Objective[]
+  objectives        Objective[]
+  // Employee Operating Package
+  duties            RecurringDuty[]
+  roleDefinitions   RoleDefinition[]
+  kpis              Kpi[]
+  developmentItems  DevelopmentItem[]
+  workDependencies  WorkDependency[]
+  decisions         Decision[]
+  operatingPackages OperatingPackage[]
 
   @@map("timeframes")
 }
@@ -289,6 +313,8 @@ model Objective {
   /// 0 = treated as auto (equal split with siblings whose weight is also 0).
   /// Otherwise, the relative weight among siblings determines contribution %.
   weight             Float     @default(0)
+  /// Workbook id (e.g. "O1", "EDN-O1"); unique within the timeframe. Importer key.
+  externalRef        String?
   archivedAt         DateTime?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
@@ -303,6 +329,7 @@ model Objective {
   rolledFrom      Objective?             @relation("ObjectiveLineage", fields: [rolledFromId], references: [id])
   rolledTo        Objective[]            @relation("ObjectiveLineage")
   retrospective   OkrRetrospective?      @relation("ObjectiveRetro")
+  duties          RecurringDuty[]
   keyResults      KeyResult[]
   comments        Comment[]
   objectiveLabels ObjectiveLabel[]
@@ -314,6 +341,7 @@ model Objective {
   projects        Project[] // Project Management module — projects linked to this objective (K1)
   scrumLinks      ScrumUpdateLink[]
 
+  @@unique([timeframeId, externalRef])
   @@index([departmentId])
   @@index([ownerId])
   @@index([closureStatus])
@@ -383,6 +411,18 @@ model KeyResult {
   /// Raw weight used when this KR contributes to its parent objective's progress.
   /// 0 = treated as auto (equal split with siblings whose weight is also 0).
   weight             Float     @default(0)
+  /// ─── Employee Operating Package (KRX) ───
+  /// Workbook id (e.g. "EDN-KR1.1"); unique within the objective. Importer key.
+  externalRef        String?
+  /// COMMITTED | ASPIRATIONAL | MIXED (workbook "Type (C/A)")
+  commitment         String?
+  /// INCREASE | DECREASE — DECREASE allows target < start ("< 5 a week", "−15% cost")
+  direction          String    @default("INCREASE")
+  baselineText       String?
+  targetText         String?
+  measuredBy         String?
+  dueText            String?
+  dueDate            DateTime?
   archivedAt         DateTime?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
@@ -404,7 +444,12 @@ model KeyResult {
   rolledFrom                KeyResult?               @relation("KeyResultLineage", fields: [rolledFromId], references: [id])
   rolledTo                  KeyResult[]              @relation("KeyResultLineage")
   retrospective             OkrRetrospective?        @relation("KeyResultRetro")
+  checkpoints               KeyResultCheckpoint[]
+  kpis                      Kpi[]
+  duties                    RecurringDuty[]
+  developmentItems          DevelopmentItem[]
 
+  @@unique([objectiveId, externalRef])
   @@index([closureStatus])
   @@index([rolledFromId])
   @@index([lineageRootId])
@@ -489,98 +534,107 @@ model KeyResultCheckIn {
 /// working; the underlying table is `initiatives` and user-facing labels say
 /// "To-do" on the dedicated page and "Initiative" when shown under a KR.
 model Todo {
-  id                    String    @id @default(cuid())
+  id                       String    @id @default(cuid())
   /// Short, stable, human-quotable reference shown on the card as "#482".
   /// A plain sequence rather than a prefixed code: a prefix would have to be
   /// frozen at creation (a card that later moves sprints would keep the wrong
   /// letters) and its meaning is not something the UI can infer.
-  cardNumber            Int       @unique @default(autoincrement())
-  title                 String
-  description           String?
-  status                String    @default("PENDING") // PENDING, IN_PROGRESS, IN_REVIEW, STUCK, COMPLETED, CANCELLED
-  priority              String    @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
-  coverColor            String? // hex or named colour for the card cover strip
+  cardNumber               Int       @unique @default(autoincrement())
+  title                    String
+  description              String?
+  status                   String    @default("PENDING") // PENDING, IN_PROGRESS, IN_REVIEW, STUCK, COMPLETED, CANCELLED
+  priority                 String    @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  coverColor               String? // hex or named colour for the card cover strip
   /// BAND (a strip above the title) | FULL (full-bleed behind the card content).
   /// Null behaves as BAND. Only meaningful when coverColor is set.
-  coverSize             String?
-  startDate             DateTime?
-  dueDate               DateTime?
+  coverSize                String?
+  startDate                DateTime?
+  dueDate                  DateTime?
   /// Wall-clock start/end time on the planner ("HH:mm"). Optional — todos
   /// without times render as all-day chips on the per-sprint Planner view.
-  startTime             String?
-  endTime               String?
-  completedAt           DateTime?
+  startTime                String?
+  endTime                  String?
+  completedAt              DateTime?
   /// Soft archive. Non-null hides the card from the board and the to-dos list
   /// while keeping it restorable; Delete remains the permanent option.
-  archivedAt            DateTime?
+  archivedAt               DateTime?
   /// Due-date reminder lead time: AT_TIME | M5 | H1 | D1 | D2. Null = no reminder.
   /// Delivered to card members + watchers by app/api/cron/todo-reminders.
-  dueReminder           String?
+  dueReminder              String?
   /// Set when the reminder for the CURRENT dueDate has been sent, so a cron
   /// re-run cannot double-notify. Cleared whenever dueDate or dueReminder change.
-  dueReminderSentAt     DateTime?
+  dueReminderSentAt        DateTime?
   /// Recurrence (DTE-5). Only the series HEAD carries a rule; each generated
   /// occurrence is its own row with recurrenceParentId set and no rule, so a
   /// series can never fan out. See lib/todos/recurrence.ts.
   /// DAILY | WEEKDAYS | WEEKLY | BIWEEKLY | MONTHLY | YEARLY. Null = one-off.
-  recurrenceRule        String?
+  recurrenceRule           String?
   /// Inclusive last date the series may generate. Null = open-ended.
-  recurrenceEndsAt      DateTime?
+  recurrenceEndsAt         DateTime?
   /// Day of month (1–31) a MONTHLY/YEARLY series is anchored on; 31 means "the
   /// last day of the month" (it clamps to 28/29/30 in short months). Only
   /// meaningful for MONTHLY and YEARLY; null for every other rule, for
   /// occurrences, and for legacy heads (the generator then infers it from
   /// history). Set from the head's dueDate when the rule or due date is saved;
   /// never changed by the generator advancing the cursor.
-  recurrenceAnchorDay   Int?
+  recurrenceAnchorDay      Int?
   /// Points at the series head for a generated occurrence; null on the head.
-  recurrenceParentId    String?
+  recurrenceParentId       String?
   /// Optional primary assignee (legacy — Trello-style usage relies on TodoMember
   /// instead). Kept nullable for filters/notifications/legacy queries.
-  assigneeId            String?
-  creatorId             String
+  assigneeId               String?
+  creatorId                String
   /// Optional link to a Key Result — when set, the todo contributes toward KR work.
-  keyResultId           String?
+  keyResultId              String?
   /// Optional link to an Objective — use when the work spans a whole objective
   /// rather than a single KR. Mutually informative with keyResultId; both can be set.
-  objectiveId           String?
+  objectiveId              String?
   /// Numeric contribution in the parent KR's unit (ETB, pcs, qty, hours, %, …).
   /// When the initiative is marked COMPLETED, this value is summed into the
   /// parent KR's currentValue (see lib/objectiveProgress.ts → recalcKrFromInitiatives).
-  progressValue         Float?
+  progressValue            Float?
   /// Sprint v2 (Phase 1) — optional link to a Sprint. Allows todos to participate in
   /// the unified Sprint+Todo board planned for Phase 3. SetNull on sprint delete.
-  sprintId              String?
+  sprintId                 String?
   /// Board lane this card sits in. Null means "not yet placed" — the board falls
   /// back to the first lane whose statusKey matches the todo's status, which keeps
   /// pre-migration rows and any row created outside the board renderable.
-  columnId              String?
+  columnId                 String?
   /// Card order within the sprint board lane. Higher = lower in list. Per-lane via (sprintId, status, sprintPosition).
-  sprintPosition        Int       @default(0)
+  sprintPosition           Int       @default(0)
   /// Card order within a status column on the global todo kanban. Higher = lower in list.
-  sortOrder             Int       @default(0)
+  sortOrder                Int       @default(0)
   /// Free-form task type tag (CALL, EMAIL, DEMO, MEETING, PROPOSAL, FOLLOW_UP, ADMIN, GENERAL).
-  taskType              String?
+  taskType                 String?
   /// AI Sprint Planning (see docs/AI_SPRINT_PLANNING.md) — true when the row was
   /// generated by the AI sprint planner, false when manually created.
-  aiSuggested           Boolean   @default(false)
+  aiSuggested              Boolean   @default(false)
+  /// Employee Operating Package: TASK | MILESTONE | DUTY | DEPENDENCY.
+  kind                     String    @default("TASK")
+  /// Workbook id (e.g. "M1.1.1", "T01"); importer key, unique per KR.
+  externalRef              String?
+  /// Recurring duty this card belongs to (series head, occurrence or logged event).
+  dutyId                   String?
+  /// When false (default) generated occurrences carry progressValue = null so a
+  /// recurring series never re-adds its contribution to the KR on every completion.
+  recurrenceCountsProgress Boolean   @default(false)
   /// COMMITTED | STRETCH — set on AI-suggested rows so the user can drop stretch tasks.
-  ambitionLevel         String?
+  ambitionLevel            String?
   /// Sprint id where this todo was first created. Preserved across SPLIT carryovers
   /// so we can trace lineage back to the original sprint.
-  originalSprintId      String?
+  originalSprintId         String?
   /// How many prior sprints this todo has been carried into. 0 for a fresh todo.
   /// >=2 disallows plain KEEP disposition — must be SPLIT/DESCOPE/ESCALATE.
-  carryoverCount        Int       @default(0)
+  carryoverCount           Int       @default(0)
   /// When the row was last carried over to a new sprint.
-  lastCarriedAt         DateTime?
+  lastCarriedAt            DateTime?
   /// When SPLIT was applied, points at the cuid that groups the resulting child todos.
-  carryoverReplacedById String?
+  carryoverReplacedById    String?
   /// KEEP | SPLIT | RESCHEDULE | DESCOPE | ESCALATE — last carryover decision applied.
   /// Null on first creation.
-  carryoverDisposition  String?
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  carryoverDisposition     String?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
 
   // Relationships
   assignee  User?         @relation("TodoAssignee", fields: [assigneeId], references: [id])
@@ -598,7 +652,9 @@ model Todo {
   todoComments      TodoComment[]
   activityLogs      ActivityLog[]
   scrumLinks        ScrumUpdateLink[]
+  duty              RecurringDuty?     @relation("DutyTodos", fields: [dutyId], references: [id], onDelete: SetNull)
 
+  @@unique([keyResultId, externalRef])
   @@index([assigneeId, status])
   @@index([creatorId, status])
   @@index([sprintId])
@@ -615,6 +671,8 @@ model Todo {
   @@index([carryoverCount])
   @@index([keyResultId, status])
   @@index([objectiveId])
+  @@index([dutyId])
+  @@index([kind])
   @@map("initiatives")
 }
 
@@ -2315,8 +2373,9 @@ model MetricSourceMapping {
   id             String   @id @default(cuid())
   criterionId    String
   employeeId     String
-  sourceType     String   @default("KEY_RESULT") // KEY_RESULT | SCRUM
+  sourceType     String   @default("KEY_RESULT") // KEY_RESULT | SCRUM | KPI
   keyResultId    String?
+  kpiId          String?
   scrumMetricKey String?
   position       Int      @default(0)
   createdAt      DateTime @default(now())
@@ -2325,8 +2384,10 @@ model MetricSourceMapping {
   criterion ScorecardCriterion @relation(fields: [criterionId], references: [id], onDelete: Cascade)
   employee  User               @relation("PerformanceMetricEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
   keyResult KeyResult?         @relation(fields: [keyResultId], references: [id], onDelete: Cascade)
+  kpi       Kpi?               @relation(fields: [kpiId], references: [id], onDelete: Cascade)
 
   @@unique([criterionId, employeeId, keyResultId])
+  @@unique([criterionId, employeeId, kpiId], map: "perf_metric_src_criterion_employee_kpi_key")
   @@unique([criterionId, employeeId, scrumMetricKey])
   @@index([employeeId, criterionId])
   @@index([sourceType, scrumMetricKey])
@@ -3697,4 +3758,427 @@ model AutomationSettings {
   updatedAt          DateTime @updatedAt
 
   @@map("automation_settings")
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Employee Operating Package
+// Spec: docs/employee_operating_package_REQUIREMENTS.md
+// Every model carries `externalRef` (workbook id) so the importer is idempotent.
+// ════════════════════════════════════════════════════════════════════════════
+
+/// Typed n:m link between OKR items (LNK). `from` is the newer / lower item.
+///   SUCCEEDS        — lineage across timeframes (FY25/26 → FY26/27); subKind says how.
+///   CONTRIBUTES_TO  — cross-level alignment in the same timeframe (individual → company KR).
+/// Polymorphic (OBJECTIVE | KEY_RESULT) so there are no FKs; services clean up on delete.
+model OkrLink {
+  id          String   @id @default(cuid())
+  fromType    String // OBJECTIVE | KEY_RESULT
+  fromId      String
+  toType      String // OBJECTIVE | KEY_RESULT
+  toId        String
+  kind        String // SUCCEEDS | CONTRIBUTES_TO
+  /// SUCCEEDS only: CARRIED | REFRAMED | SUPERSEDED | MERGED | SPLIT
+  subKind     String?
+  /// Primary successor — mirrored into rolledFromId/lineage when both ends are the same type.
+  isPrimary   Boolean  @default(false)
+  note        String?
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([fromType, fromId, toType, toId, kind])
+  @@index([toType, toId])
+  @@index([fromType, fromId])
+  @@map("okr_links")
+}
+
+/// Quarterly checkpoint on a KR (KRX) — "Q2 checkpoint (31 Dec)".
+model KeyResultCheckpoint {
+  id           String    @id @default(cuid())
+  keyResultId  String
+  label        String // "Q2", "Q3", "Q4"
+  dueDate      DateTime
+  targetText   String
+  targetValue  Float?
+  actualValue  Float?
+  /// PENDING | MET | MISSED
+  status       String    @default("PENDING")
+  reviewedAt   DateTime?
+  reviewedById String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  keyResult KeyResult @relation(fields: [keyResultId], references: [id], onDelete: Cascade)
+
+  @@unique([keyResultId, label])
+  @@index([keyResultId, dueDate])
+  @@index([dueDate, status])
+  @@map("key_result_checkpoints")
+}
+
+/// A duty that is part of the role (DUT). With autoTask and a calendar cadence it
+/// owns one Todo recurrence head (`todoHeadId`); EVENT cadence logs one-off cards.
+model RecurringDuty {
+  id          String    @id @default(cuid())
+  externalRef String?
+  ownerId     String
+  timeframeId String
+  packageId   String?
+  title       String
+  /// DAILY | WEEKDAYS | WEEKLY | BIWEEKLY | MONTHLY | QUARTERLY | SEMIANNUAL | YEARLY | EVERY_SPRINT | EVENT
+  cadence     String
+  /// cadence = EVENT: "per bid", "per release", …
+  eventLabel  String?
+  timingText  String?
+  durationMin Int?
+  outputText  String?
+  keyResultId String?
+  objectiveId String?
+  autoTask    Boolean   @default(true)
+  /// The Todo recurrence head this duty owns (null for EVENT cadence or autoTask=false).
+  todoHeadId  String?   @unique
+  /// ACTIVE | PAUSED | RETIRED
+  status      String    @default("ACTIVE")
+  startsOn    DateTime?
+  endsOn      DateTime?
+  retiredAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  owner         User                        @relation("DutyOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  timeframe     Timeframe                   @relation(fields: [timeframeId], references: [id])
+  package       OperatingPackage?           @relation(fields: [packageId], references: [id], onDelete: SetNull)
+  keyResult     KeyResult?                  @relation(fields: [keyResultId], references: [id], onDelete: SetNull)
+  objective     Objective?                  @relation(fields: [objectiveId], references: [id], onDelete: SetNull)
+  collaborators RecurringDutyCollaborator[]
+  todos         Todo[]                      @relation("DutyTodos")
+
+  @@unique([timeframeId, ownerId, externalRef])
+  @@index([ownerId, timeframeId, status])
+  @@index([keyResultId])
+  @@map("recurring_duties")
+}
+
+model RecurringDutyCollaborator {
+  id     String @id @default(cuid())
+  dutyId String
+  userId String
+
+  duty RecurringDuty @relation(fields: [dutyId], references: [id], onDelete: Cascade)
+  user User          @relation("DutyCollaborator", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([dutyId, userId])
+  @@index([userId])
+  @@map("recurring_duty_collaborators")
+}
+
+/// Role definition (ROL): seat, reporting line, purpose, accountabilities. Versioned per timeframe.
+model RoleDefinition {
+  id            String    @id @default(cuid())
+  userId        String
+  timeframeId   String?
+  packageId     String?
+  seatTitle     String
+  reportsToId   String?
+  reportsToText String?
+  purpose       String
+  effectiveFrom DateTime?
+  /// DRAFT | APPROVED | SUPERSEDED
+  status        String    @default("DRAFT")
+  approvedById  String?
+  approvedAt    DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user      User                 @relation("RoleDefinitionUser", fields: [userId], references: [id], onDelete: Cascade)
+  timeframe Timeframe?           @relation(fields: [timeframeId], references: [id])
+  package   OperatingPackage?    @relation(fields: [packageId], references: [id], onDelete: SetNull)
+  items     RoleDefinitionItem[]
+
+  @@index([userId, timeframeId, status])
+  @@map("role_definitions")
+}
+
+model RoleDefinitionItem {
+  id               String  @id @default(cuid())
+  roleDefinitionId String
+  /// ACCOUNTABILITY | DIRECT_REPORT_SEAT | DECISION_RIGHT | INTERFACE | OTHER
+  section          String
+  label            String?
+  text             String
+  position         Int     @default(0)
+
+  roleDefinition RoleDefinition @relation(fields: [roleDefinitionId], references: [id], onDelete: Cascade)
+
+  @@index([roleDefinitionId, position])
+  @@map("role_definition_items")
+}
+
+/// KPI (KPI): a standard held every period; readings feed performance (not OKR scores).
+model Kpi {
+  id             String    @id @default(cuid())
+  externalRef    String?
+  ownerId        String
+  timeframeId    String
+  packageId      String?
+  name           String
+  /// LEADING | LAGGING
+  kpiType        String    @default("LEADING")
+  definition     String
+  formula        String?
+  dataSource     String?
+  unit           String    @default("")
+  /// INCREASE | DECREASE | RANGE
+  direction      String    @default("INCREASE")
+  baselineText   String?
+  baselineValue  Float?
+  targetText     String
+  targetValue    Float?
+  targetMin      Float?
+  targetMax      Float?
+  /// Fraction of target counted as amber (0.9 = within 10%).
+  thresholdAmber Float     @default(0.9)
+  /// WEEKLY | MONTHLY | QUARTERLY
+  frequency      String    @default("MONTHLY")
+  scoredFrom     DateTime?
+  keyResultId    String?
+  /// Quota / commission KPIs: owner, manager chain, Finance/Exec/Admin only (KPI-7).
+  isSensitive    Boolean   @default(false)
+  /// ACTIVE | RETIRED
+  status         String    @default("ACTIVE")
+  note           String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  owner          User                  @relation("KpiOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  timeframe      Timeframe             @relation(fields: [timeframeId], references: [id])
+  package        OperatingPackage?     @relation(fields: [packageId], references: [id], onDelete: SetNull)
+  keyResult      KeyResult?            @relation(fields: [keyResultId], references: [id], onDelete: SetNull)
+  readings       KpiReading[]
+  metricMappings MetricSourceMapping[]
+
+  @@unique([timeframeId, ownerId, externalRef])
+  @@index([ownerId, timeframeId, status])
+  @@index([keyResultId])
+  @@map("kpis")
+}
+
+model KpiReading {
+  id            String   @id @default(cuid())
+  kpiId         String
+  periodStart   DateTime
+  periodEnd     DateTime
+  value         Float?
+  valueText     String?
+  /// GREEN | AMBER | RED | null (not scored yet)
+  rag           String?
+  ragOverridden Boolean  @default(false)
+  note          String?
+  /// MANUAL | KR | IMPORT
+  source        String   @default("MANUAL")
+  enteredById   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  kpi       Kpi   @relation(fields: [kpiId], references: [id], onDelete: Cascade)
+  enteredBy User? @relation("KpiReadingEnteredBy", fields: [enteredById], references: [id], onDelete: SetNull)
+
+  @@unique([kpiId, periodStart])
+  @@index([kpiId, periodEnd])
+  @@map("kpi_readings")
+}
+
+/// Development plan item (DEV) — certifications, courses, training hours. Not a DevelopmentAction.
+model DevelopmentItem {
+  id           String    @id @default(cuid())
+  externalRef  String?
+  ownerId      String
+  timeframeId  String
+  packageId    String?
+  title        String
+  /// CERTIFICATION | COURSE | TRAINING_HOURS | MENTORING | OTHER
+  kind         String    @default("OTHER")
+  targetText   String
+  targetHours  Float?
+  hoursLogged  Float     @default(0)
+  dueDate      DateTime?
+  keyResultId  String?
+  /// NOT_STARTED | IN_PROGRESS | DONE | DROPPED
+  status       String    @default("NOT_STARTED")
+  completedAt  DateTime?
+  evidenceNote String?
+  dropReason   String?
+  isMandatory  Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  owner     User              @relation("DevelopmentItemOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  timeframe Timeframe         @relation(fields: [timeframeId], references: [id])
+  package   OperatingPackage? @relation(fields: [packageId], references: [id], onDelete: SetNull)
+  keyResult KeyResult?        @relation(fields: [keyResultId], references: [id], onDelete: SetNull)
+
+  @@unique([timeframeId, ownerId, externalRef])
+  @@index([ownerId, timeframeId, status])
+  @@map("development_items")
+}
+
+/// Company dependency map row (DEP). Inbound/outbound are derived per person from parties.
+model WorkDependency {
+  id             String    @id @default(cuid())
+  externalRef    String?
+  timeframeId    String
+  title          String
+  /// DECISION | POLICY | HIRE | ASSET | DATA | SYSTEM | BUDGET | OTHER
+  depType        String    @default("OTHER")
+  neededByDate   DateTime?
+  unblocksText   String?
+  /// OPEN | IN_PROGRESS | DONE | BLOCKED | DROPPED
+  status         String    @default("OPEN")
+  doneAt         DateTime?
+  note           String?
+  decisionId     String?
+  deliveryTodoId String?   @unique
+  createdById    String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  timeframe Timeframe             @relation(fields: [timeframeId], references: [id])
+  decision  Decision?             @relation(fields: [decisionId], references: [id], onDelete: SetNull)
+  parties   WorkDependencyParty[]
+  links     WorkDependencyLink[]
+
+  @@unique([timeframeId, externalRef])
+  @@index([timeframeId, status, neededByDate])
+  @@index([decisionId])
+  @@map("work_dependencies")
+}
+
+model WorkDependencyParty {
+  id           String @id @default(cuid())
+  dependencyId String
+  userId       String
+  /// PROVIDER | NEEDER
+  role         String
+
+  dependency WorkDependency @relation(fields: [dependencyId], references: [id], onDelete: Cascade)
+  user       User           @relation("DependencyPartyUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([dependencyId, userId, role])
+  @@index([userId, role])
+  @@map("work_dependency_parties")
+}
+
+model WorkDependencyLink {
+  id           String @id @default(cuid())
+  dependencyId String
+  /// OBJECTIVE | KEY_RESULT | TODO | KPI | DUTY | DEVELOPMENT
+  entityType   String
+  entityId     String
+
+  dependency WorkDependency @relation(fields: [dependencyId], references: [id], onDelete: Cascade)
+
+  @@unique([dependencyId, entityType, entityId])
+  @@index([entityType, entityId])
+  @@map("work_dependency_links")
+}
+
+/// Decision log (DEC) — items waiting on the CEO (or a delegated decider).
+model Decision {
+  id              String    @id @default(cuid())
+  externalRef     String?
+  timeframeId     String
+  title           String
+  requestedById   String?
+  requestedByText String?
+  deciderId       String
+  neededBy        DateTime?
+  batch           String?
+  optionsText     String?
+  unblocksText    String?
+  /// OPEN | DECIDED | DEFERRED | WITHDRAWN
+  status          String    @default("OPEN")
+  decisionText    String?
+  decidedAt       DateTime?
+  decidedById     String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  timeframe    Timeframe        @relation(fields: [timeframeId], references: [id])
+  requestedBy  User?            @relation("DecisionRequester", fields: [requestedById], references: [id], onDelete: SetNull)
+  decider      User             @relation("DecisionDecider", fields: [deciderId], references: [id])
+  links        DecisionLink[]
+  dependencies WorkDependency[]
+
+  @@unique([timeframeId, externalRef])
+  @@index([deciderId, status, neededBy])
+  @@map("decisions")
+}
+
+model DecisionLink {
+  id         String @id @default(cuid())
+  decisionId String
+  /// USER | OBJECTIVE | KEY_RESULT | TODO | KPI | DUTY | DEVELOPMENT | DEPENDENCY
+  entityType String
+  entityId   String
+
+  decision Decision @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+
+  @@unique([decisionId, entityType, entityId])
+  @@index([entityType, entityId])
+  @@map("decision_links")
+}
+
+/// Operating package header (PKG) — one per employee per timeframe.
+model OperatingPackage {
+  id           String    @id @default(cuid())
+  userId       String
+  timeframeId  String
+  version      String    @default("v1")
+  /// DRAFT | IN_REVIEW | APPROVED | ARCHIVED
+  status       String    @default("DRAFT")
+  seatTitle    String?
+  summaryJson  Json?
+  /// { kpis: 50, values: 20, okr: 15, development: 15 }
+  weightsJson  Json?
+  sourceFile   String?
+  submittedAt  DateTime?
+  approvedById String?
+  approvedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user             User                @relation("PackageUser", fields: [userId], references: [id], onDelete: Cascade)
+  timeframe        Timeframe           @relation(fields: [timeframeId], references: [id])
+  reviews          PackageItemReview[]
+  duties           RecurringDuty[]
+  roleDefinitions  RoleDefinition[]
+  kpis             Kpi[]
+  developmentItems DevelopmentItem[]
+
+  @@unique([userId, timeframeId])
+  @@map("operating_packages")
+}
+
+/// Agree / Dispute review per package item (PKG-5) — replaces the yellow workbook columns.
+model PackageItemReview {
+  id         String    @id @default(cuid())
+  packageId  String
+  /// OBJECTIVE | KEY_RESULT | TODO | KPI | DUTY | DEVELOPMENT | ROLE_ITEM | DEPENDENCY
+  entityType String
+  entityId   String
+  /// AGREE | DISPUTE
+  verdict    String
+  comment    String?
+  reviewerId String
+  resolvedAt DateTime?
+  resolution String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  package  OperatingPackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  reviewer User             @relation("PackageReviewer", fields: [reviewerId], references: [id], onDelete: Cascade)
+
+  @@unique([packageId, entityType, entityId, reviewerId])
+  @@index([packageId, verdict])
+  @@map("package_item_reviews")
 }

@@ -6,10 +6,14 @@
  * (0–100 int), clickable key results, the same comment thread — with
  * "View full page" for everything else.
  * Spec: docs/okr_quick_view_modals_REQUIREMENTS.md (QV-3).
+ * Operating package: inline alignment trail (CON-5), compact connection chips
+ * (CON-1) and the connections rail card (CON-2) — all hidden for a redacted
+ * objective; linked items the viewer may not see show as "Private item" (CON-8).
  */
 
 import { useCallback } from 'react'
 import { useSession } from 'next-auth/react'
+import { useQueryClient } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import { Building2, Calendar, CheckSquare, ChevronRight, Flag, Layers, Lock, Target, User } from 'lucide-react'
 import { formatAxisValue } from '@/lib/keyResultChart'
@@ -18,6 +22,8 @@ import { OKR_REALTIME_EVENT_NAMES, objectiveRealtimeChannel } from '@/lib/okr/re
 import { Progress } from '@/components/ui/progress'
 import { UserAvatar, UserAvatarStack } from '@/components/shared/UserAvatar'
 import OkrComments from '@/components/shared/OkrComments'
+import { ConnectionChips, ConnectionsPanel, connectionsQueryKey } from '@/components/shared/connections'
+import ObjectiveAlignmentTrail from '@/components/objective-detail/ObjectiveAlignmentTrail'
 import {
   Chip, Crumb, LEVEL_LABEL, MetaRow, PersonLink, PrivateNotice, ProgressRing, QuickLink,
   QuickViewError, QuickViewShell, QuickViewSkeleton, RailCard, Section, StatCell, StatStrip,
@@ -128,7 +134,11 @@ export function ObjectiveDetailModal({ objectiveId, onClose, onOpenKr, onOpenObj
   const { data: obj, error, loading, reload } = useQuickViewData(objectiveId, load)
   const redacted = !!obj?.isRedacted
 
-  const silentReload = useCallback(() => reload(true), [reload])
+  const queryClient = useQueryClient()
+  const silentReload = useCallback(() => {
+    reload(true)
+    if (objectiveId) void queryClient.invalidateQueries({ queryKey: connectionsQueryKey('OBJECTIVE', objectiveId) })
+  }, [reload, queryClient, objectiveId])
   useRealtimeRefresh({
     channel: objectiveId && obj && !redacted ? objectiveRealtimeChannel(objectiveId) : null,
     events: OKR_REALTIME_EVENT_NAMES,
@@ -194,12 +204,18 @@ export function ObjectiveDetailModal({ objectiveId, onClose, onOpenKr, onOpenObj
               {obj.title}
             </h2>
           </div>
+          {!redacted && (
+            <ObjectiveAlignmentTrail entityId={obj.id} onNavigate={onClose} className="mt-1.5" />
+          )}
           {obj.description && !redacted && (
             <p className="mt-2 line-clamp-3 text-body-sm" style={{ color: 'var(--ap-fg-muted)' }}>{obj.description}</p>
           )}
           <div className="mt-3 text-xs">
             <PersonLink person={obj.owner} role="Objective owner" onNavigate={onClose} />
           </div>
+          {!redacted && (
+            <ConnectionChips entityType="OBJECTIVE" entityId={obj.id} compact onNavigate={onClose} className="mt-2.5" />
+          )}
         </div>
 
         {/* Stat strip */}
@@ -277,6 +293,10 @@ export function ObjectiveDetailModal({ objectiveId, onClose, onOpenKr, onOpenObj
           <MetaRow icon={Layers} label="Level">{LEVEL_LABEL[obj.level] ?? obj.level}</MetaRow>
           {!redacted && <MetaRow icon={CheckSquare} label="Initiatives">{initiatives}</MetaRow>}
         </RailCard>
+
+        {!redacted && (
+          <ConnectionsPanel entityType="OBJECTIVE" entityId={obj.id} variant="rail" onNavigate={onClose} />
+        )}
 
         {!redacted && contributors.length > 0 && (
           <RailCard title={`Contributors (${contributors.length})`}>

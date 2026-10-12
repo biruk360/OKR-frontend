@@ -18,6 +18,7 @@ import {
   apiPaginated,
   apiBadRequest,
   apiForbidden,
+  apiLocked,
   withAuth,
 } from '@/lib/api'
 
@@ -250,6 +251,14 @@ export const POST = withAuth(async (request: NextRequest, { session }) => {
       where: { id: sanitizedParentObjectiveId },
     })
     if (!parentObjective) return apiBadRequest('Invalid parent objective')
+    // FND-2: a CLOSED (locked) objective cannot gain aligned children.
+    if (parentObjective.isLocked || parentObjective.closureStatus === 'CLOSED') {
+      return apiLocked('The parent objective is closed and locked. Reopen it or choose another parent.', {
+        entityType: 'objective',
+        entityId: parentObjective.id,
+        reopenUrl: `/dashboard/objectives/${parentObjective.id}`,
+      })
+    }
     if (parentObjective.status !== 'ACTIVE') {
       return apiBadRequest('Parent objective must be active (not archived)')
     }

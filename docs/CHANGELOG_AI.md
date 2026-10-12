@@ -2,6 +2,48 @@
 
 > **Purpose:** Log of all changes made by AI assistants. Every AI session that modifies code MUST append an entry here.
 
+
+### 2026-10-12 — Importer: skip people not assigned yet
+- `scripts/data/operating-package-user-map.json`: Yohannes Taye (Mobile & Banking Lead) and Mukuken/"Muluken" (ERP Lead) marked `skip: true` (user decision 2026-10-12). Their two packages are not imported; company KR5.2 falls back to the CEO; they are dropped from dependency parties / collaborators; they never block `--apply`.
+- `scripts/lib/operating-package-import/people.ts` (new `SKIPPED` resolution), `importer.ts` (skipped package owner → package left out, no blocker), `people.test.ts` (+2 tests).
+- Tests: `npx tsx --test scripts/lib/operating-package-import/*.test.ts` 40/40; tsc clean.
+
+## 2026-10-11 — Employee Operating Package (built in the `operating-package` worktree, pending deploy)
+
+**Why:** FY 2026/27 plans each employee as an Operating Package (OKRs + role definition + recurring duties + KPIs + development plan + dependencies + decisions), reviewed item by item and approved by the manager. Spec `docs/employee_operating_package_REQUIREMENTS.md`; agent contract `docs/employee_operating_package_BUILD_PLAN.md`. Built by ~30 agents (F1–F4 foundations, V1–V12 verticals, P1–P5 surfaces, I1–I2 data scripts, 4 fixers) and integrated here.
+
+### Summary by area
+- **F1 registries & access:** `types/package.ts`; `lib/package/access.ts` (§8 matrix, single access point), `lib/package/audit.ts` (AUD-1/2, PKG-3 `editedAfterApproval`), `lib/package/links.ts`; PACKAGE notification category + 11 events with recipients, deep links and email templates; `scripts/seed-package-permissions.ts`; §8 feature keys + `page.settings.timeframes` in seed-permissions and FeaturesNavTab; Dependency Map and Decisions nav entries.
+- **F2 KR rules:** direction-aware KR numbers/progress (KRX-1), objective roll-up uses the KR span (FND-3), lock guards on KR create / objective parent / KR move (FND-2), KRX fields on KR POST/PUT and new PATCH `/api/keyresults/[id]`, `suggestCloseOutcome` (KRX-2) in `lib/okr/kr-commitment.ts`. Check-ins use `krProgressPercent` (non-zero start, DECREASE).
+- **F3 recurrence:** QUARTERLY / SEMIANNUAL Todo recurrence (FND-5); occurrences copy `progressValue` only with `recurrenceCountsProgress` and carry `kind`/`dutyId` but not `externalRef` (FND-6).
+- **F4 + V1 links & connections:** `lib/okr-links` service + `/api/okr-links` (LNK-1/2/4), `lib/connections` + `GET /api/connections` (CON-1/2/3/8); `components/shared/connections` (ConnectionChips, ConnectionsPanel, rows, `useConnections`) and `features/okr-links` (LinkManagerModal, AlignmentTrail, LineagePopover/LineageList, OkrConnectionsSection).
+- **V2 KR checkpoints & definition (KRX-3/4):** `/api/keyresults/[id]/checkpoints` (+ `[checkpointId]`), CheckpointStrip, CheckpointEditor, NextCheckpointChip, KrDefinitionSection, CommitmentBadge.
+- **V3 recurring duties (DUT-1…8), V4 role definition (ROL-1…4), V5 KPIs (KPI-1…7, `lib/kpi`), V6 development plan (DEV-1…6), V7 dependencies (DEP-1…5/7), V8 decisions (DEC-1…3), V9 operating package & review (PKG-1…5):** each a feature module with service, zod schemas, hooks, profile tab, profile summary and `/api/package/*` · `/api/dependencies/*` · `/api/decisions/*` routes.
+- **V10:** performance metric source `KPI` (KPI-9) — evaluation-period average of readings; `/api/performance/metric-mappings` `kpiIds` + `/kpi-options`; MetricMappingManager "Package KPIs".
+- **V11:** `lib/package-cron` + `/api/cron/package-daily` (KPI-3 auto-fill, KPI-5, DEP-2 due-soon/late weekly, DEV-4, KR checkpoint due; archives APPROVED packages of ended timeframes); crontab line `0 2 * * *` in `scripts/install-crontab.sh`.
+- **V12:** Explorer `?owner=` (PRF-7), Analyze multi-owner fix, KPI-8 "Linked to a KPI" segment (`linkedToKpi` on GET `/api/keyresults`), "My OKR profile" link.
+- **P1–P5:** employee profile shell (`/dashboard/org/users/[id]?tab=…&tf=…`, PackageHeaderCard, Package summary card, RoleDefinitionSidebarCard, every tab with `renderItemActions` review slots); OKR profile tab (PRF-7…11) + `/api/users/[id]/okr-profile`(`/initiatives`); Dependency Map + company/person graphs (`components/shared/dependency-graph`) and Decisions page; OKR detail/quick-view/Explorer mounts (AlignmentTrail, lineage, connections, KrPlanCard, KrContributionSections CON-3/7); admin record Role tab (PRF-6), zod-validated `/api/admin/org-settings` with `devMinItems`/`devMinHours` and `DevelopmentRuleSettings` (DEV-3).
+- **I1/I2 scripts:** `scripts/close-fy2526-okrs.ts` (+ `scripts/dev/seed-fy2526-fixture.ts`) and `scripts/import-operating-packages.ts` (+ `scripts/lib/operating-package-import/**`, `scripts/data/operating-package-user-map.json`) — dry-run by default, idempotent, ActivityLog `source=close-fy2526` / `import`.
+- **Fixers:** `renderItemActions` slots on KPI/duty/OKR tabs; DEP-4 "mark dependency done?" offer after completing a delivery Todo; listLinksFor scope check (CON-8); decisions follow the §8 record rule in connections and dependency parties are hidden from non-parties; ConnectionChips/Panel on card modal, KPI, duty and development views; PersonLink "Open OKR profile".
+
+### Integrator changes (this entry)
+- `package.json`: `db:seed:package-permissions`, `test:package` (all new `*.test.ts` outside existing suites, incl. importer and route tests). `scripts/deploy.sh` runs `npm run db:seed:package-permissions` after `seed-permissions`.
+- `lib/permissions.ts` `redactKeyResult` now blanks KRX text (`baselineText`, `targetText`, `measuredBy`, `dueText`, `externalRef`) when present, so every redaction path covers CON-8; `GET /api/keyresults/[id]` uses it (fixes the QV-6 static test regression).
+- `lib/okr-links/cleanup.ts` (+ test): shared hard-delete cleanup of OkrLink / DecisionLink / WorkDependencyLink and lineage re-rooting; used by KR DELETE and now objective DELETE (incl. cascading KRs), in one transaction.
+- `app/api/keyresults/[id]/clone/route.ts`: validates start/target with the source KR's direction and copies `direction`, `commitment`, `measuredBy` (cloning a DECREASE KR no longer fails).
+- `app/dashboard/okrs-all/page.tsx`: reads `?owner=`, locks it into the List/Tree scope, keeps it on view/level tabs, keys List/Tree by level+owner.
+- `features/decisions/hooks/queries.ts`: deciding also invalidates `['work-dependencies']` so the Dependency Map / profile lists refresh.
+- `lib/connections/flags.ts` `dependencyHref` / `decisionHref` delegate to `lib/package/links` (one canonical `?dependency=` / `?decision=` form; pages still accept `?focus=`).
+- `components/shared/ActivityLogPanel.tsx`: labels for package actions, OKR_LINK / KR_CHECKPOINT rows show their subject and link via `deepLink`.
+- `lib/okr/lock-guard.test.ts`: checkpoint routes and the profile initiatives route added to GUARDED_ROUTES.
+- Docs: FEATURE_STATUS, SITEMAP, COMPONENT_CATALOG, MASTER_REFERENCE §4.11/§14, NOTIFICATIONS §2, CRON, requirements status table.
+
+### Verification
+tsc 0 (whole repo) · `npm run lint` 0 errors (warnings pre-existing) · tests: `test:package` 387/387, `test:core` 113, `test:okr` 124, `test:todos` 195, `test:notifications` 34, `test:performance` 22, `test:scrum` 108, `test:projects` 434, `test:security` 108 — all green · `next build` passes (run as `npx next build`, without the script's `prisma generate`). **Not run:** `scripts/seed-package-permissions.ts` and any DB smoke test — local Postgres (`/Library/PostgreSQL/15`, launchd `postgresql-15`) is down and needs `sudo` to restart. Browser check not run.
+
+### Deploy order
+`prisma db push` (schema change) → `seed-permissions` → `db:seed:package-permissions` → build/restart → re-run `scripts/install-crontab.sh` (back up crontab first) → I1 close dry-run/`--apply` → I2 import dry-run/review/`--apply`. Optional: recompute `KeyResult.progress` for KRs with non-zero start or DECREASE.
+
 ## 2026-09-27 — Contextual icons on every sidebar destination
 
 - `lib/dashboard-navigation.ts`: every nav item and group now has a distinct, contextual Lucide glyph (the app's SF-Symbols-style set at ~1.75 stroke). Before, many items shared one icon: three Letters items used `FileText`, Activity Feed and Comments used `MessageSquare`, and Users and Teams used `Users`. Examples: My OKRs → `Crosshair`, Sprints → `Timer`, Projects → `FolderKanban`, OKR Explorer → `Compass`, Automations → `Workflow`, Branding → `Palette`, Integrations → `Plug`, Audit Logs → `ScrollText`.

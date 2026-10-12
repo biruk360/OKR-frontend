@@ -124,6 +124,14 @@ client-report, wbr-pack, jira-sync and the draft purge were added 2026-09-25.
 |---|---|---|
 | `0 5 * * *` | `/api/cron/performance-nudge` | Weekly improvement-focus nudge — 08:00 EAT. Scheduled **daily** on purpose: the route sends only on `PerformanceSettings.weeklyNudgeDay` (ISO, default Monday = 1) and is idempotent per ISO week (`PerformanceNudgeDelivery`), so changing the day in settings needs no crontab edit. `?force=1` bypasses the day gate for a manual run. |
 
+## Employee Operating Package (2026-10-11)
+
+| Schedule (UTC) | Endpoint | Purpose |
+|---|---|---|
+| `0 2 * * *` | `/api/cron/package-daily` | 05:00 EAT. `lib/package-cron/runner.ts` `runPackageDaily`: KPI-3 auto-fill readings from the linked ACTIVE KR (`source='KR'`, never overwrites a MANUAL reading, audited `READING_ENTERED`); `KPI_READING_DUE` (reading > 3 working days late); `DEPENDENCY_DUE_SOON` (7 days); `DEPENDENCY_LATE` (first day late, then weekly); `DEV_ITEM_DUE` (14 days); `KR_CHECKPOINT_DUE` (7 days); archives APPROVED packages whose timeframe has ended (PKG-1). Idempotent per entity per day/period via `Notification` / `EmailDigestQueue` lookup. `?dryRun=1` previews with no writes. |
+
+Install: re-run `scripts/install-crontab.sh` on the VPS after the deploy that ships this route (back up the crontab first — see the crontab safety rule). Known gap: a user with in-app off and IMMEDIATE email leaves no row to dedupe `DEPENDENCY_LATE` against (would need a delivery-log table).
+
 ## Hygiene
 
 | Schedule (UTC) | Endpoint | Purpose |

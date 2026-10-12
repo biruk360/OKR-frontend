@@ -1036,6 +1036,23 @@ const FEATURES: Record<string, RoleVisibilityMap> = {
   'button.performance.action.approve':     { ADMIN: true,  EXECUTIVE: false, DEPARTMENT_LEAD: false, EMPLOYEE: false },
   'button.performance.action.reject':      { ADMIN: true,  EXECUTIVE: false, DEPARTMENT_LEAD: false, EMPLOYEE: false },
   'button.performance.action.execute':     { ADMIN: true,  EXECUTIVE: false, DEPARTMENT_LEAD: false, EMPLOYEE: false },
+  // Was missing: app/api/timeframes routes already check it (withRoleOrFeature(['ADMIN'], …)).
+  'page.settings.timeframes':              { ADMIN: true,  EXECUTIVE: false, DEPARTMENT_LEAD: false, EMPLOYEE: false },
+  // Employee Operating Package (docs/employee_operating_package_REQUIREMENTS.md §8).
+  // Pages/buttons are kill-switches; who may act on whose package is decided by
+  // the relationship matrix in lib/package/access.ts.
+  'module.package':                        { ADMIN: true,  EXECUTIVE: true,  DEPARTMENT_LEAD: true,  EMPLOYEE: true  },
+  'page.people.package':                   { ADMIN: true,  EXECUTIVE: true,  DEPARTMENT_LEAD: true,  EMPLOYEE: true  },
+  'page.okr.dependency-map':               { ADMIN: true,  EXECUTIVE: true,  DEPARTMENT_LEAD: true,  EMPLOYEE: true  },
+  'page.okr.decisions':                    { ADMIN: true,  EXECUTIVE: true,  DEPARTMENT_LEAD: true,  EMPLOYEE: true  },
+  'button.package.duty.create':            { ADMIN: true,  EXECUTIVE: true,  DEPARTMENT_LEAD: true,  EMPLOYEE: true  },
+  'button.package.kpi.create':             { ADMIN: true,  EXECUTIVE: true,  DEPARTMENT_LEAD: true,  EMPLOYEE: false },
+  'button.package.role.approve':           { ADMIN: true,  EXECUTIVE: true,  DEPARTMENT_LEAD: true,  EMPLOYEE: true  },
+  'button.package.approve':                { ADMIN: true,  EXECUTIVE: true,  DEPARTMENT_LEAD: true,  EMPLOYEE: true  },
+  'button.decision.decide':                { ADMIN: true,  EXECUTIVE: true,  DEPARTMENT_LEAD: true,  EMPLOYEE: true  },
+  // Capabilities — grant to Finance / HR holders via a role or a user override.
+  'package.kpi.sensitive.read':            { ADMIN: true,  EXECUTIVE: true,  DEPARTMENT_LEAD: false, EMPLOYEE: false },
+  'package.hr':                            { ADMIN: true,  EXECUTIVE: false, DEPARTMENT_LEAD: false, EMPLOYEE: false },
 }
 
 async function upsertFeaturePermissions(roleIdMap: Record<string, string>): Promise<void> {

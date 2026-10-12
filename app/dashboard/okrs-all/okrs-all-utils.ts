@@ -5,7 +5,12 @@
 
 import { Building2, Target, User } from 'lucide-react'
 import { normalizeStatus } from '@/lib/status-key'
-import { applyExplorerScope, type ExplorerScope } from '@/lib/okr/explorer-params'
+import {
+  applyExplorerScope,
+  explorerOwnerFromSearch,
+  withExplorerOwner,
+  type ExplorerScope,
+} from '@/lib/okr/explorer-params'
 
 export interface CurrentUser {
   id: string
@@ -78,8 +83,27 @@ export const CREATE_OPTIONS: { level: CreateLevel; label: string; icon: typeof B
 
 export const PAGE_SIZE = 50
 
-/** `scope` is the Explorer level preset; its keys replace the user's picks for the same keys. */
-export function filtersToQuery(f: Filters, includeRefs: boolean, scope?: ExplorerScope): string {
+/**
+ * The Explorer's `?owner=<userId>` (PRF-7), read from the browser URL; null on
+ * the server or when absent. The page may also put it into `scope.owner`
+ * itself — that wins (see filtersToQuery).
+ */
+export function currentExplorerOwner(): string | null {
+  if (typeof window === 'undefined') return null
+  return explorerOwnerFromSearch(window.location.search)
+}
+
+/**
+ * `scope` is the Explorer level preset; its keys replace the user's picks for
+ * the same keys. `owner` (default: the URL's `?owner=`) narrows the rows to
+ * objectives that person owns — `/api/okr-hierarchy` `owner=`.
+ */
+export function filtersToQuery(
+  f: Filters,
+  includeRefs: boolean,
+  scope?: ExplorerScope,
+  owner: string | null = scope?.owner?.length ? null : currentExplorerOwner(),
+): string {
   const sp = new URLSearchParams()
   // Reference tables (timeframes/owners/teams/labels) are only needed once.
   if (!includeRefs) sp.set('refs', '0')
@@ -88,7 +112,7 @@ export function filtersToQuery(f: Filters, includeRefs: boolean, scope?: Explore
   for (const v of f.type) sp.append('type', v)
   for (const v of f.status) sp.append('status', v)
   if (f.q) sp.set('q', f.q)
-  return applyExplorerScope(sp, scope).toString()
+  return applyExplorerScope(sp, withExplorerOwner(scope, owner)).toString()
 }
 
 export function daysSince(d: string | Date | null | undefined): number | null {

@@ -262,7 +262,20 @@ function weekKey(d: Date) {
   return copy.toISOString().slice(0, 10)
 }
 
-export async function loadUserProfile(viewer: OrgViewer, id: string) {
+export interface LoadUserProfileOptions {
+  /**
+   * PRF-5: load the Overview-only sections (initiatives, check-in feed, progress
+   * timeline). Other profile tabs fetch their own data client-side, so the page
+   * passes `false` there and only the sidebar facts are loaded. Default true.
+   */
+  overview?: boolean
+}
+
+export async function loadUserProfile(viewer: OrgViewer, id: string, options: LoadUserProfileOptions = {}) {
+  const includeOverview = options.overview ?? true
+  /** Run an Overview-only query, or resolve to an empty list on other tabs (PRF-5). */
+  const overviewOnly = <T,>(query: () => Promise<T[]>): Promise<T[]> =>
+    includeOverview ? query() : Promise.resolve([])
   const profileUser = await prisma.user.findUnique({
     where: { id, isActive: true },
     include: {
@@ -332,7 +345,7 @@ export async function loadUserProfile(viewer: OrgViewer, id: string) {
 
   const metrics = computeProfilePlanMetrics(visibleKeyResults)
 
-  const assignedTodosRaw = await prisma.todo.findMany({
+  const assignedTodosRaw = await overviewOnly(() => prisma.todo.findMany({
     where: {
       assigneeId: profileUser.id,
       status: { not: 'CANCELLED' },
@@ -355,7 +368,7 @@ export async function loadUserProfile(viewer: OrgViewer, id: string) {
     },
     orderBy: { updatedAt: 'desc' },
     take: 50,
-  })
+  }))
 
   const visibleTodos: typeof assignedTodosRaw = []
   for (const t of assignedTodosRaw) {
@@ -393,7 +406,7 @@ export async function loadUserProfile(viewer: OrgViewer, id: string) {
   })
 
   // Full check-in / KR update feed for the bottom section of the profile.
-  const recentCheckIns = await prisma.keyResultCheckIn.findMany({
+  const recentCheckIns = await overviewOnly(() => prisma.keyResultCheckIn.findMany({
     where: { createdById: profileUser.id, keyResult: fullyVisibleKr },
     orderBy: { createdAt: 'desc' },
     take: 20,
@@ -408,7 +421,7 @@ export async function loadUserProfile(viewer: OrgViewer, id: string) {
         },
       },
     },
-  })
+  }))
 
   const isOwnProfile = viewer.id === profileUser.id
   const canManage = canManageUsers(viewer.role as UserRole)
@@ -458,7 +471,7 @@ export async function loadUserProfile(viewer: OrgViewer, id: string) {
   // Timeline: bucket user's KR check-ins by ISO week and average per-checkin progress.
   const krIds = visibleKeyResults.map((kr) => kr.id)
   const timelineCheckIns =
-    krIds.length > 0
+    includeOverview && krIds.length > 0
       ? await prisma.keyResultCheckIn.findMany({
           where: { keyResultId: { in: krIds } },
           orderBy: { createdAt: 'asc' },

@@ -26,6 +26,7 @@ function makeDb(overrides: {
     },
     keyResultCheckIn: { findFirst: async () => overrides.checkIn ?? null },
     evaluationMetricManualActual: { findUnique: async () => overrides.manual ?? null },
+    metricSourceMapping: { findMany: async () => [] },
   } as never
 }
 

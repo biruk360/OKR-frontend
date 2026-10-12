@@ -24,6 +24,8 @@ export const RECURRENCE_RULES = [
   { value: 'WEEKLY', label: 'Weekly' },
   { value: 'BIWEEKLY', label: 'Every 2 weeks' },
   { value: 'MONTHLY', label: 'Monthly' },
+  { value: 'QUARTERLY', label: 'Every quarter' },
+  { value: 'SEMIANNUAL', label: 'Every 6 months' },
   { value: 'YEARLY', label: 'Yearly' },
 ] as const
 
@@ -53,9 +55,47 @@ function isLastDayOfMonth(d: Date): boolean {
   return d.getDate() === daysInMonth(d.getFullYear(), d.getMonth())
 }
 
-/** True for the rules whose step is measured in months (and can therefore clamp). */
-function isMonthBased(rule: RecurrenceRule): boolean {
-  return rule === 'MONTHLY' || rule === 'YEARLY'
+/** The rules whose step is measured in months (and can therefore clamp). */
+export type MonthBasedRule = Extract<RecurrenceRule, 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY'>
+
+/** Months per step for each month-based rule. */
+const MONTH_STEP: Record<MonthBasedRule, number> = {
+  MONTHLY: 1,
+  QUARTERLY: 3,
+  SEMIANNUAL: 6,
+  YEARLY: 12,
+}
+
+/**
+ * How many preceding steps `inferAnchorDay` reads evidence from, per rule.
+ *
+ *  - MONTHLY: 12 steps (the 12 preceding months). One step is always enough
+ *    (every short month is preceded by a 31-day month); the rest is slack.
+ *  - QUARTERLY: 4 steps (the same quarter-phase month in the 12 preceding
+ *    months). Two steps can be needed: an Aug 31 series runs Nov 30 → Feb 28,
+ *    so a head clamped to Feb 28 only finds the 31 two quarters back.
+ *  - SEMIANNUAL: 4 steps (the same half-year-phase month in the 24 preceding
+ *    months). One step is always enough (every 6-month pair of a short month
+ *    has 31 days on the other side), four keeps a full leap cycle for a Feb 29
+ *    anchor, matching YEARLY.
+ *  - YEARLY: 4 steps (the same month in the 4 preceding years, which always
+ *    includes a leap year, so a Feb 29 anchor is found).
+ */
+const ANCHOR_LOOKBACK_STEPS: Record<MonthBasedRule, number> = {
+  MONTHLY: 12,
+  QUARTERLY: 4,
+  SEMIANNUAL: 4,
+  YEARLY: 4,
+}
+
+/** True for MONTHLY / QUARTERLY / SEMIANNUAL / YEARLY: the rules that step in months and can clamp. */
+export function isMonthBased(rule: string | null | undefined): rule is MonthBasedRule {
+  return typeof rule === 'string' && Object.prototype.hasOwnProperty.call(MONTH_STEP, rule)
+}
+
+/** Months per step for a month-based rule; null for any other rule. */
+export function monthStep(rule: string | null | undefined): number | null {
+  return isMonthBased(rule) ? MONTH_STEP[rule] : null
 }
 
 /**
@@ -80,8 +120,9 @@ function addMonthsClamped(d: Date, months: number, anchorDay?: number | null): D
  * The next due date strictly after `from` for a rule.
  * Returns null for an unknown rule rather than guessing a cadence.
  *
- * `anchorDay` only affects MONTHLY/YEARLY (see `addMonthsClamped`); omitted, the
- * day of `from` is used, which is exact unless `from` was itself clamped.
+ * `anchorDay` only affects the month-based rules (MONTHLY / QUARTERLY /
+ * SEMIANNUAL / YEARLY, see `addMonthsClamped`); omitted, the day of `from` is
+ * used, which is exact unless `from` was itself clamped.
  */
 export function nextOccurrence(
   rule: string | null | undefined,
@@ -107,6 +148,12 @@ export function nextOccurrence(
       return addDays(base, 14)
     case 'MONTHLY':
       return addMonthsClamped(base, 1, anchorDay)
+    case 'QUARTERLY':
+      // Nov 30 → Feb 28 (29 in a leap year), never Mar 2.
+      return addMonthsClamped(base, 3, anchorDay)
+    case 'SEMIANNUAL':
+      // Aug 31 → Feb 28/29, Dec 31 → Jun 30.
+      return addMonthsClamped(base, 6, anchorDay)
     case 'YEARLY':
       // Feb 29 in a non-leap year clamps to Feb 28 rather than rolling to Mar 1.
       return addMonthsClamped(base, 12, anchorDay)
@@ -116,7 +163,7 @@ export function nextOccurrence(
 /**
  * The inverse of `nextOccurrence`: the due date one step before `from` (REC-FIX-2r).
  * Exact for DAILY/WEEKLY/BIWEEKLY; WEEKDAYS steps back over the weekend
- * (Mon → Fri); MONTHLY/YEARLY step back one period with the same clamp, so
+ * (Mon → Fri); the month-based rules step back one period with the same clamp, so
  * without an `anchorDay` a clamped `from` (Feb 28 of a 31st series) maps to the
  * 28th of the previous month — the original day is not recoverable from one date.
  */
@@ -143,6 +190,10 @@ export function previousOccurrence(
       return subDays(base, 14)
     case 'MONTHLY':
       return addMonthsClamped(base, -1, anchorDay)
+    case 'QUARTERLY':
+      return addMonthsClamped(base, -3, anchorDay)
+    case 'SEMIANNUAL':
+      return addMonthsClamped(base, -6, anchorDay)
     case 'YEARLY':
       return addMonthsClamped(base, -12, anchorDay)
   }
@@ -151,8 +202,9 @@ export function previousOccurrence(
 /**
  * The n-th occurrence of a series whose first due date is `anchor`
  * (n = 0 is the anchor itself). Computed from the anchor, never from a previous
- * occurrence, so MONTHLY/YEARLY cannot drift: a series anchored on Jan 31 runs
- * Feb 28 → Mar 31 → Apr 30, and one anchored on Feb 29 comes back to Feb 29 in
+ * occurrence, so the month-based rules cannot drift: a series anchored on
+ * Jan 31 runs Feb 28 → Mar 31 → Apr 30, a quarterly one anchored on Aug 31 runs
+ * Nov 30 → Feb 28 → May 31, and one anchored on Feb 29 comes back to Feb 29 in
  * every leap year. This is the reference definition the generator's
  * cursor-plus-anchorDay stepping must agree with (see the tests).
  */
@@ -180,13 +232,18 @@ export function nthOccurrence(
     }
     case 'MONTHLY':
       return addMonthsClamped(base, n)
+    case 'QUARTERLY':
+      return addMonthsClamped(base, 3 * n)
+    case 'SEMIANNUAL':
+      return addMonthsClamped(base, 6 * n)
     case 'YEARLY':
       return addMonthsClamped(base, 12 * n)
   }
 }
 
 /**
- * The day-of-month a MONTHLY/YEARLY series is anchored on, given its head's
+ * The day-of-month a month-based series (MONTHLY / QUARTERLY / SEMIANNUAL /
+ * YEARLY) is anchored on, given its head's
  * current due date (the generator's cursor) and evidence of earlier due dates.
  *
  * Why this is needed: the head's dueDate is the series cursor, so once the
@@ -200,12 +257,15 @@ export function nthOccurrence(
  *    day *is* the anchor. This also honours a user who re-anchors the series
  *    by editing the head's due date.
  *  - A head due on the last day of its month may be clamped: the anchor is the
- *    largest day among `evidence` dates from the same series in the window
- *    (MONTHLY: the 12 preceding months; YEARLY: the same month in the 4
- *    preceding years, which always includes a leap year), never less than
- *    the head's own day. Every generated date is either the anchor day or a
- *    clamp below it, and any short month is preceded by a 31-day month, so one
- *    step of real history is enough for MONTHLY.
+ *    largest day among `evidence` dates from the same series in the window,
+ *    never less than the head's own day. Evidence counts only when it sits a
+ *    whole number of steps before the head (same phase), 1 to N steps back —
+ *    see `ANCHOR_LOOKBACK_STEPS`: MONTHLY the 12 preceding months; QUARTERLY
+ *    the same quarter-phase month in the 12 preceding months; SEMIANNUAL the
+ *    same half-year-phase month in the 24 preceding months; YEARLY the same
+ *    month in the 4 preceding years (always includes a leap year). Every
+ *    generated date is either the anchor day or a clamp below it, so a 31-day
+ *    month within the window recovers the anchor.
  *
  * Callers must pass evidence from *after* the last user re-anchor only; see
  * `anchorEvidenceFromLogs`.
@@ -220,20 +280,14 @@ export function inferAnchorDay(
   const headDay = headDue.getDate()
   if (!isLastDayOfMonth(headDue)) return headDay
 
-  const hy = headDue.getFullYear()
-  const hm = headDue.getMonth()
+  const step = MONTH_STEP[rule]
+  const maxBack = step * ANCHOR_LOOKBACK_STEPS[rule]
+  const headIndex = headDue.getFullYear() * 12 + headDue.getMonth()
   let anchor = headDay
   for (const e of evidence) {
     if (!e || Number.isNaN(e.getTime())) continue
-    const ey = e.getFullYear()
-    const em = e.getMonth()
-    const inWindow =
-      rule === 'MONTHLY'
-        ? (() => {
-            const monthsBack = hy * 12 + hm - (ey * 12 + em)
-            return monthsBack >= 1 && monthsBack <= 12
-          })()
-        : em === hm && hy - ey >= 1 && hy - ey <= 4
+    const monthsBack = headIndex - (e.getFullYear() * 12 + e.getMonth())
+    const inWindow = monthsBack >= step && monthsBack <= maxBack && monthsBack % step === 0
     if (inWindow && e.getDate() > anchor) anchor = e.getDate()
   }
   return anchor
@@ -258,7 +312,7 @@ function isValidDate(d: Date | null | undefined): d is Date {
 
 /**
  * The anchor a head gets from a freshly chosen due date: its day of month for
- * MONTHLY/YEARLY (31 behaves as "last day": it clamps in short months), null
+ * the month-based rules (31 behaves as "last day": it clamps in short months), null
  * for every other rule or when there is no due date.
  */
 export function anchorDayForDue(
@@ -274,7 +328,7 @@ export function anchorDayForDue(
  * What to write to `recurrenceAnchorDay` when a head's rule and/or due date is
  * saved. `undefined` = leave the column as it is.
  *
- *  - Rule not MONTHLY/YEARLY, or no due date → null (clears a stale anchor).
+ *  - Rule not month-based, or no due date → null (clears a stale anchor).
  *  - Rule changed, or due date moved to a different calendar day → the new
  *    due date's day (a user re-anchor).
  *  - Same rule, same due day → unchanged. The card modal re-sends dueDate and
@@ -301,7 +355,7 @@ export function anchorDayOnSave(
 
 /**
  * The stored anchor, if it is usable for this rule: an integer 1–31 on a
- * MONTHLY/YEARLY head. Null means "not stored" and the caller falls back to
+ * month-based head. Null means "not stored" and the caller falls back to
  * `inferAnchorDay` (legacy rows).
  */
 export function storedAnchorDay(
@@ -367,7 +421,7 @@ export interface SeriesHead {
   recurrenceEndsAt?: Date | null
   archivedAt?: Date | null
   /**
-   * MONTHLY/YEARLY: the day-of-month the series is anchored on (see
+   * Month-based rules: the day-of-month the series is anchored on (see
    * `inferAnchorDay`). Omitted = the day of `dueDate`.
    */
   anchorDay?: number | null
@@ -498,7 +552,47 @@ export function planSeriesAdvance(
     },
     headItemShiftDays: differenceInCalendarDays(lastDate, headDue),
     spanDays,
-    anchorDay: head.anchorDay ?? (isMonthBased(head.recurrenceRule as RecurrenceRule) ? headDue.getDate() : null),
+    anchorDay: head.anchorDay ?? (isMonthBased(head.recurrenceRule) ? headDue.getDate() : null),
+  }
+}
+
+// ── Fields an occurrence inherits from its head (FND-6) ─────────────────────
+
+export interface OccurrenceCarrySource {
+  progressValue: number | null
+  /** Opt-in: only then does each occurrence count toward the KR again. */
+  recurrenceCountsProgress: boolean
+  kind: string
+  dutyId: string | null
+  /** Never copied (unique per KR, it identifies the head row); listed so callers may pass the whole head. */
+  externalRef?: string | null
+}
+
+export interface OccurrenceCarryFields {
+  progressValue: number | null
+  kind: string
+  dutyId: string | null
+}
+
+/**
+ * FND-6 / DUT-7: what a generated occurrence copies of the head's progress,
+ * kind and duty link.
+ *
+ *  - `progressValue` only when the head opted in with
+ *    `recurrenceCountsProgress = true`; otherwise null, so completing every
+ *    occurrence of a recurring card (or a duty) does not re-add its
+ *    contribution to the KR each time.
+ *  - `kind` and `dutyId` always, so occurrences of a duty stay duty cards.
+ *  - `externalRef` never: it is the workbook/importer key (unique per KR) of
+ *    the head, and a copy would collide with it.
+ *
+ * The result is built field by field, so nothing else on the head leaks across.
+ */
+export function occurrenceCarryFields(head: OccurrenceCarrySource): OccurrenceCarryFields {
+  return {
+    progressValue: head.recurrenceCountsProgress === true ? head.progressValue ?? null : null,
+    kind: head.kind,
+    dutyId: head.dutyId ?? null,
   }
 }
 

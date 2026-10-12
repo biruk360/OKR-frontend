@@ -6,9 +6,11 @@
  * is prefixed with NEXTAUTH_URL so it is clickable from a mail client.
  */
 
-import type { EventKey } from './events'
+import type { EventKey, NotificationEntityType } from './events'
+import { PACKAGE_EVENT_KEYS } from './events'
+import { decisionHref, dependencyMapHref, keyResultHref, profileTabHref } from '@/lib/package/links'
 
-export type EntityType = 'OBJECTIVE' | 'KEY_RESULT' | 'TODO' | 'TIMEFRAME' | 'USER' | 'PROJECT' | 'SCRUM_UPDATE'
+export type EntityType = NotificationEntityType
 
 export function appBaseUrl(): string {
   return (process.env.NEXTAUTH_URL || 'http://localhost:3000').replace(/\/+$/, '')
@@ -37,12 +39,67 @@ export function buildDeepLink(args: {
   /** Optional fallback if entity not enough (e.g. parent objective for KR). */
   data?: Record<string, unknown>
 }): string {
+  return absoluteUrl(buildDeepLinkPath(args))
+}
+
+/** Same as buildDeepLink but returns the relative in-app path (for in-app notification rows). */
+export function buildDeepLinkPath(args: {
+  eventKey: EventKey
+  entityType?: EntityType
+  entityId?: string
+  data?: Record<string, unknown>
+}): string {
   const { eventKey, entityType, entityId, data = {} } = args
-  const path = pickPath(eventKey, entityType, entityId, data)
-  return absoluteUrl(path)
+  return pickPath(eventKey, entityType, entityId, data)
+}
+
+/** A caller-supplied relative path, or null (absolute URLs are not trusted here). */
+function relativePath(v: unknown): string | null {
+  return typeof v === 'string' && v.startsWith('/') && !v.startsWith('//') ? v : null
+}
+
+function str(v: unknown): string | null {
+  return typeof v === 'string' && v.length > 0 ? v : null
+}
+
+/**
+ * Employee Operating Package events (§9). Person-scoped items open the owner's
+ * profile tab (data.ownerId / data.userId); dependencies and decisions open their
+ * company pages; checkpoints open the KR.
+ */
+function packagePath(eventKey: EventKey, entityType: EntityType | undefined, entityId: string | undefined, data: Record<string, unknown>): string {
+  const explicit = relativePath(data.deepLink)
+  if (explicit) return explicit
+  const person = str(data.ownerId) ?? str(data.userId)
+  switch (eventKey) {
+    case 'KPI_READING_DUE':
+      return person ? profileTabHref(person, 'kpis') : '/dashboard/my-okrs'
+    case 'DEV_ITEM_DUE':
+      return person ? profileTabHref(person, 'development') : '/dashboard/my-okrs'
+    case 'DEPENDENCY_DUE_SOON':
+    case 'DEPENDENCY_LATE':
+    case 'DEPENDENCY_DONE':
+      return dependencyMapHref(entityType === 'WORK_DEPENDENCY' ? entityId : str(data.dependencyId))
+    case 'DECISION_REQUESTED':
+    case 'DECISION_DECIDED':
+      return decisionHref(entityType === 'DECISION' ? entityId : str(data.decisionId))
+    case 'PACKAGE_SENT_FOR_REVIEW':
+    case 'PACKAGE_APPROVED':
+    case 'PACKAGE_ITEM_DISPUTED':
+      return person ? profileTabHref(person) : '/dashboard'
+    case 'KR_CHECKPOINT_DUE': {
+      const kr = entityType === 'KEY_RESULT' ? entityId : str(data.keyResultId)
+      return kr ? keyResultHref(kr) : '/dashboard/my-okrs'
+    }
+    default:
+      return '/dashboard'
+  }
 }
 
 function pickPath(eventKey: EventKey, entityType: EntityType | undefined, entityId: string | undefined, data: Record<string, unknown>): string {
+  // ── Employee Operating Package ──
+  if (PACKAGE_EVENT_KEYS.includes(eventKey)) return packagePath(eventKey, entityType, entityId, data)
+
   // ── Account ──
   if (eventKey === 'ACCOUNT_INVITE') return String(data.activationUrl ?? '/auth/reset-password')
   if (eventKey === 'ACCOUNT_VERIFY_EMAIL') return String(data.verifyUrl ?? '/auth/signin')

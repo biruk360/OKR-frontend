@@ -1,3 +1,4 @@
+import { cleanupObjectiveDeleteReferences } from '@/lib/okr-links/cleanup'
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { UpdateObjectiveForm } from '@/types'
@@ -355,7 +356,11 @@ export const DELETE = withAuth<RouteIdParams>(async (_request, { session, params
     return apiBadRequest('Cannot delete objective with child objectives. Please unlink them first.')
   }
 
-  await prisma.objective.delete({ where: { id } })
+  await prisma.$transaction(async (tx) => {
+    // Polymorphic links + lineage for the objective and its cascading KRs.
+    await cleanupObjectiveDeleteReferences(tx, id)
+    await tx.objective.delete({ where: { id } })
+  })
 
   // Cascade wipes activity logs; record a freestanding event so audit survives.
   await recordActivity({

@@ -1,6 +1,7 @@
 'use client'
 
 import toast from 'react-hot-toast'
+import { offerDependencyDoneForTodo } from '@/features/dependencies/components/offerDependencyDone'
 
 /**
  * Returns a function that toggles a todo's status between PENDING and COMPLETED
@@ -30,6 +31,8 @@ export function useTodoStatusToggle(
           newStatus === 'COMPLETED' ? 'Initiative completed!' : 'Initiative marked as pending',
         )
         onSuccess(todoId, newStatus)
+        // DEP-4: completing a delivery Todo offers to mark its dependency DONE.
+        if (newStatus === 'COMPLETED') void offerDependencyDoneForTodo(todoId)
       } else {
         const error = await response.json()
         toast.error(error.error || 'Failed to update initiative')

@@ -43,6 +43,8 @@
     "worker:automations": "tsx scripts/automations-worker.ts",
     "test:automations": "tsx --test lib/automations/*.test.ts lib/automations/tools/*.test.ts lib/odoo/*.test.ts",
     "db:seed:automation-permissions": "tsx scripts/seed-automation-permissions.ts",
+    "db:seed:package-permissions": "tsx scripts/seed-package-permissions.ts",
+    "test:package": "tsx --test lib/package/*.test.ts lib/package-cron/*.test.ts lib/kpi/*.test.ts lib/connections/*.test.ts lib/okr-links/*.test.ts lib/keyResultNumbers.test.ts components/shared/connections/*.test.ts components/shared/dependency-graph/*.test.ts components/key-result-detail/*.test.ts features/decisions/services/*.test.ts features/dependencies/services/*.test.ts features/development-plan/services/*.test.ts features/duties/services/*.test.ts features/kpis/services/*.test.ts features/operating-package/services/*.test.ts features/role-definition/services/*.test.ts features/employee-profile/services/*.test.ts features/employee-profile/components/okr-profile/*.test.ts features/key-results/components/checkpoints/*.test.ts features/key-results/components/definition/*.test.ts features/okr-links/*.test.ts app/api/admin/org-settings/*.test.ts app/dashboard/decisions/*.test.ts app/dashboard/okrs-all/dependencies/*.test.ts 'app/api/keyresults/[id]/checkpoints/_lib/checkpoints-routes.test.ts' scripts/lib/operating-package-import/*.test.ts",
     "smoke:automations": "tsx scripts/smoke-automations.ts",
     "automations:test-schedule": "tsx scripts/create-test-automation.ts"
   },

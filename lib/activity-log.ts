@@ -36,6 +36,18 @@ export type ActivityEntityType =
   | 'SCRUM_LINK'
   // Board label definitions (not a card), e.g. create/rename/delete a label.
   | 'TODO_LABEL'
+  // Employee Operating Package entity types (AUD-1). Ids live in `metadata`
+  // (entityId, userId, timeframeId — see lib/package/audit.ts).
+  | 'OKR_LINK'
+  | 'KR_CHECKPOINT'
+  | 'RECURRING_DUTY'
+  | 'ROLE_DEFINITION'
+  | 'KPI'
+  | 'KPI_READING'
+  | 'DEVELOPMENT_ITEM'
+  | 'WORK_DEPENDENCY'
+  | 'DECISION'
+  | 'OPERATING_PACKAGE'
 
 export type ActivityAction =
   | 'CREATED'
@@ -162,6 +174,17 @@ export type ActivityAction =
   | 'CLOSED'
   | 'REOPENED'
   | 'ROLLED_FORWARD'
+  // Employee Operating Package actions (AUD-2).
+  | 'LINKED'
+  | 'UNLINKED'
+  | 'PAUSED'
+  | 'RESUMED'
+  | 'RETIRED'
+  | 'READING_ENTERED'
+  | 'DECIDED'
+  | 'REVIEWED'
+  | 'SUBMITTED'
+  | 'APPROVED'
 
 export interface FieldChange {
   from: unknown

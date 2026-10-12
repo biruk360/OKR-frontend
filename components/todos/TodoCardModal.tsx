@@ -23,6 +23,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { AlertCircle, Lock } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { offerDependencyDoneForTodo } from '@/features/dependencies/components/offerDependencyDone'
 import { useSession } from 'next-auth/react'
 import { cn } from '@/lib/utils'
 import { todoStatusMeta } from '@/lib/todo-status'
@@ -42,6 +43,7 @@ import { announce } from '@/components/shared/LiveAnnouncer'
 import { CardHeader } from './CardHeader'
 import { CardAttributes } from './CardAttributes'
 import { LinkedOkrCard } from './CardLinkedOkr'
+import { ConnectionsPanel } from '@/components/shared/connections'
 import { CardDescription } from './CardDescription'
 import { CardChecklists } from './CardChecklists'
 import { CardAttachments } from './CardAttachments'
@@ -180,7 +182,12 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
       body: JSON.stringify(body),
     })
     const json = await res.json()
-    if (json.success) { setTodo(json.data); onUpdated?.() }
+    if (json.success) {
+      setTodo(json.data)
+      onUpdated?.()
+      // DEP-4: completing a delivery Todo offers to mark its dependency DONE.
+      if (body.status === 'COMPLETED' && todo.status !== 'COMPLETED') void offerDependencyDoneForTodo(todo.id)
+    }
     else toast.error(json.error ?? 'Update failed')
   }, [todo, onUpdated])
 
@@ -951,6 +958,15 @@ export function TodoCardModal({ todoId, currentUserId, onClose, onUpdated }: Pro
                 loading={linkLoading}
                 onPickKr={linkToKeyResult}
                 onPickObjective={linkToObjective}
+              />
+
+              {/* CON-2 / DEP-3: everything linked to this card (blockers, decisions, aligned OKRs). */}
+              <ConnectionsPanel
+                entityType="TODO"
+                entityId={todo.id}
+                variant="rail"
+                onNavigate={onClose}
+                emptyText="Nothing else is linked to this card."
               />
 
               <CardDescription

@@ -8,6 +8,7 @@ import {
   inferAnchorDay,
   isRecurrenceRule,
   needsAnchorEvidence,
+  occurrenceCarryFields,
   planSeriesAdvance,
   shiftItemDates,
   storedAnchorDay,
@@ -17,8 +18,8 @@ import {
  * Materialises the next occurrence(s) of every recurring card.
  *
  * Copies the parts of a card that describe the *work* — title, description,
- * priority, type, OKR link, board placement, members, labels, checklist
- * structure and the reminder setting — and deliberately not the parts that
+ * priority, type, kind, duty link, OKR link, board placement, members, labels,
+ * checklist structure and the reminder setting — and deliberately not the parts that
  * describe one particular run of it: completion, archive state, comments,
  * attachments, or `dueReminderSentAt` (leaving that null is what arms the new
  * card's reminder, with no extra logic).
@@ -111,8 +112,8 @@ function lineageOf(head: { id: string; recurrenceParentId: string | null }): str
 }
 
 /**
- * MONTHLY/YEARLY anchor day. The stored `recurrenceAnchorDay` wins whenever it
- * is set (it is written when the user saves the rule or due date, and the
+ * Month-based (MONTHLY/QUARTERLY/SEMIANNUAL/YEARLY) anchor day. The stored
+ * `recurrenceAnchorDay` wins whenever it is set (it is written when the user saves the rule or due date, and the
  * generator never changes it). Only a legacy head with a null anchor falls back
  * to history: and only a head sitting on the last day of its month can be a
  * clamped date, so only then is history read (two small queries). See
@@ -246,11 +247,12 @@ async function advanceSeries(head: Head, now: Date): Promise<number> {
           sprintId: head.sprintId,
           columnId: head.columnId,
           taskType: head.taskType,
-          // NOTE: copying progressValue is flagged as an open question in
-          // docs/recurring_subtasks_REQUIREMENTS.md §1.1 (each completed
-          // occurrence adds it to the KR again). Left unchanged pending the
-          // product owner's decision.
-          progressValue: head.progressValue,
+          // FND-6: progressValue only when the head opted in
+          // (recurrenceCountsProgress), else null, so a recurring card or duty
+          // never re-adds its KR contribution on every completion. kind and
+          // dutyId come across (a duty's occurrences stay duty cards);
+          // externalRef never does (importer key, unique per KR).
+          ...occurrenceCarryFields(head),
           recurrenceParentId: lineageId,
           ...(head.members.length > 0 && {
             members: { create: head.members.map((m) => ({ userId: m.userId })) },

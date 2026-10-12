@@ -187,6 +187,10 @@ add scrum-weekly       "0 13 * * 5"  "/api/cron/scrum-weekly" \
 add performance-nudge  "0 5 * * *"   "/api/cron/performance-nudge" \
   "Weekly improvement-focus nudge — 08:00 EAT. Scheduled DAILY on purpose: the route sends only on PerformanceSettings.weeklyNudgeDay (ISO, default Monday) and is idempotent per ISO week, so an admin changing the day needs no crontab edit."
 
+# ── Employee Operating Package ───────────────────────────────────────────────
+add package-daily      "0 2 * * *"   "/api/cron/package-daily" \
+  "Operating package daily — 05:00 EAT: KPI-3 auto-fill from linked KRs, KPI reading overdue, dependency due-soon/late (late re-sent weekly), development item (14d) and KR checkpoint (7d) reminders. Idempotent per entity per day/period."
+
 crontab "$TMP"
 echo "Crontab updated."
 

@@ -47,7 +47,11 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
   }
 
   const carriedStartValue = originalKeyResult.finalValue ?? originalKeyResult.currentValue
-  const bounds = parseStartAndTarget(useCarriedBaseline ? carriedStartValue : startValue, targetValue)
+  const bounds = parseStartAndTarget(
+    useCarriedBaseline ? carriedStartValue : startValue,
+    targetValue,
+    originalKeyResult.direction,
+  )
   if (!bounds.ok) return apiBadRequest(bounds.message)
 
   const objective = await prisma.objective.findUnique({ where: { id: objectiveId } })
@@ -79,6 +83,11 @@ export const POST = withAuth<RouteIdParams>(async (request: NextRequest, { sessi
         objectiveId,
         status: 'ACTIVE',
         checkInCadence: originalKeyResult.checkInCadence,
+        // KRX-1/2: the successor keeps the measure's direction, commitment and
+        // method; period-specific text (baseline/target/due) is re-stated per KR.
+        direction: originalKeyResult.direction,
+        commitment: originalKeyResult.commitment,
+        measuredBy: originalKeyResult.measuredBy,
         rolledFromId: originalKeyResult.id,
         lineageRootId: originalKeyResult.lineageRootId || originalKeyResult.id,
         lineageDepth: originalKeyResult.lineageDepth + 1,

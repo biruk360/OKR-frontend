@@ -1,78 +1,165 @@
-import { getServerSessionSafe } from '@/lib/auth'
-import { loadUserProfile } from '@/features/admin-org/services/org-pages.server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Building2, HelpCircle, UserCircle, Activity, ListChecks, Target } from 'lucide-react'
-import { PageTitleSetter } from '@/components/layout/DashboardTitleContext'
-import ProfileOrgMinimap from '@/components/profile/ProfileOrgMinimap'
-import UserProgressTimeline from '@/components/profile/UserProgressTimeline'
-import {
-  getKrDisplayStatus,
-  statusLabel,
-  type KrDisplayStatus,
-} from '@/lib/reportDashboard'
-import { cn } from '@/lib/utils'
-import { EmptyState } from '@/components/ui/EmptyState'
+import { ArrowLeft, Building2, HelpCircle, UserCircle } from 'lucide-react'
+import { getServerSessionSafe } from '@/lib/auth'
 import { resolveParams } from '@/lib/resolve-route-params'
+import { PageTitleSetter } from '@/components/layout/DashboardTitleContext'
+import { LinkTabs } from '@/components/shared/LinkTabs'
+import { EmptyState } from '@/components/ui/EmptyState'
+import type { ProfileTab } from '@/types/package'
+import { loadUserProfile } from '@/features/admin-org/services/org-pages.server'
+import {
+  parseProfileTimeframeParam,
+  profileShellHref,
+  profileTabLinks,
+  resolveActiveProfileTab,
+  ProfileTimeframeSwitcher,
+} from '@/features/employee-profile'
+import { loadProfileShellAccess, resolveProfileTimeframe } from '@/features/employee-profile/services/profile-shell.server'
+import { getOkrProfileSummary } from '@/features/employee-profile/components/okr-profile/okr-profile.server'
+import { getPackageProfileSummary } from '@/features/operating-package/services/profile-summary.server'
+import { getKpisProfileSummary } from '@/features/kpis/services/profile-summary.server'
+import { getDutiesProfileSummary } from '@/features/duties/services/profile-summary.server'
+import { getDevelopmentProfileSummary } from '@/features/development-plan/services/profile-summary.server'
+import { getDependenciesProfileSummary } from '@/features/dependencies/services/profile-summary.server'
+import { getDecisionsProfileSummary } from '@/features/decisions/services/profile-summary.server'
+import { getRoleDefinitionProfileSummary } from '@/features/role-definition/services/profile-summary.server'
+import { ProfileOverview } from './_components/ProfileOverview'
+import { PackageSummaryCard, type ProfileSummaries } from './_components/PackageSummaryCard'
+import {
+  ProfileDecisionsPanel,
+  ProfileDevelopmentPanel,
+  ProfileKpisPanel,
+  ProfileLinksPanel,
+  ProfileOkrsPanel,
+  ProfilePackageHeader,
+  ProfileRoleSidebarCard,
+  ProfileRolePanel,
+} from './_components/ProfileTabPanels'
+
+type SearchParams = Record<string, string | string[] | undefined>
 
 interface PageProps {
   params: { id: string } | Promise<{ id: string }>
+  searchParams?: SearchParams | Promise<SearchParams>
 }
 
-function confidenceDot(status: KrDisplayStatus) {
-  switch (status) {
-    case 'on_track':
-      return 'bg-success-500'
-    case 'at_risk':
-      return 'bg-warning-500'
-    case 'off_track':
-      return 'bg-danger-500'
-    default:
-      return 'bg-ink-secondary'
+/**
+ * Employee profile (PRF-1…5): sidebar (identity, role definition, metrics, org
+ * network, latest standup) + URL-synced tabs (`?tab=`) for the selected
+ * timeframe (`?tf=`, default = active timeframe).
+ *
+ *  - Tabs the viewer may not see (§8, lib/package/access.ts) are hidden.
+ *  - PRF-5: only the active tab loads. Package tabs are client components that
+ *    fetch their own data; the Overview's server summaries run on Overview only.
+ */
+export const dynamic = 'force-dynamic'
+
+/** A summary loader failing must not take the whole profile down. */
+async function safeSummary<T>(enabled: boolean, label: string, load: () => Promise<T | null>): Promise<T | null> {
+  if (!enabled) return null
+  try {
+    return await load()
+  } catch (error) {
+    console.error(`[profile] ${label} summary failed`, error)
+    return null
   }
 }
 
-export default async function UserProfilePage({ params }: PageProps) {
+export default async function UserProfilePage({ params, searchParams }: PageProps) {
   const session = await getServerSessionSafe()
   if (!session) redirect('/auth/signin')
 
   const { id } = await resolveParams(params)
   if (!id) notFound()
+  const sp: SearchParams = (await resolveParams(searchParams ?? {})) ?? {}
 
-  const data = await loadUserProfile(session.user, id)
+  const viewer = { id: session.user.id, role: session.user.role, userType: session.user.userType ?? null }
+  const [shell, tfSelection] = await Promise.all([
+    loadProfileShellAccess(viewer, id),
+    resolveProfileTimeframe(parseProfileTimeframeParam(sp.tf)),
+  ])
+  const activeTab = resolveActiveProfileTab(sp.tab, shell.visibleTabs)
+  const isOverview = activeTab === 'overview'
+
+  // PRF-5: the Overview-only sections load on the Overview tab only.
+  const data = await loadUserProfile(session.user, id, { overview: isOverview })
   if (!data) notFound()
+
+  const timeframe = tfSelection.selected
+  const timeframeId = timeframe?.id ?? ''
+  const defaultTimeframeId = tfSelection.defaultId
+  const view = shell.areas?.view
+  const pkgOn = shell.packageModule && !!timeframeId
+  const hrefFor = (tab: ProfileTab) => profileShellHref(id, tab, timeframeId || null, defaultTimeframeId)
+
+  async function loadOverviewSummaries(): Promise<ProfileSummaries> {
+    const viewerId = session!.user.id
+    const tabs = shell.visibleTabs
+    const [pkg, okr, kpis, duties, development, dependencies, decisions] = await Promise.all([
+      safeSummary(pkgOn && !!view?.package, 'package', () => getPackageProfileSummary(viewerId, id, timeframeId)),
+      safeSummary(tabs.includes('okrs') && !!timeframeId, 'okr', () => getOkrProfileSummary(viewerId, id, timeframeId)),
+      safeSummary(pkgOn && tabs.includes('kpis'), 'kpis', () => getKpisProfileSummary(viewerId, id, timeframeId)),
+      safeSummary(pkgOn && !!view?.duties, 'duties', () => getDutiesProfileSummary(viewerId, id, timeframeId)),
+      safeSummary(pkgOn && tabs.includes('development'), 'development', () =>
+        getDevelopmentProfileSummary(viewerId, id, timeframeId),
+      ),
+      safeSummary(pkgOn && tabs.includes('links'), 'dependencies', () =>
+        getDependenciesProfileSummary(viewerId, id, timeframeId),
+      ),
+      safeSummary(pkgOn && tabs.includes('decisions'), 'decisions', () =>
+        getDecisionsProfileSummary(viewerId, id, timeframeId),
+      ),
+    ])
+    return { pkg, okr, kpis, duties, development, dependencies, decisions }
+  }
+
+  const [roleSummary, summaries] = await Promise.all([
+    safeSummary(pkgOn && !!view?.role, 'role', () => getRoleDefinitionProfileSummary(session.user.id, id, timeframeId)),
+    isOverview ? loadOverviewSummaries() : Promise.resolve(null),
+  ])
+
   const {
     profileUser,
     manager,
     directReports,
     metrics,
-    visibleTodos,
     latestStandup,
-    recentCheckIns,
     manageOrgHref,
-    addReportsHref,
-    krsByObjective,
-    pendingCount,
-    timelineSnapshots,
-    tfStart,
-    tfEnd,
   } = data
+
+  const tabItems = profileTabLinks(id, shell.visibleTabs, timeframeId || null, defaultTimeframeId)
+  const noTimeframe = (
+    <EmptyState
+      title="No timeframe yet"
+      description="Create a timeframe in Settings to see this person's package for a period."
+    />
+  )
 
   return (
     <>
       <PageTitleSetter title={profileUser.name ?? 'User'} />
       <div className="space-y-6">
-        <Link
-          href="/dashboard/org/users"
-          className="inline-flex items-center text-sm text-muted-foreground hover:text-muted-foreground"
-        >
-          <ArrowLeft className="h-4 w-4 mr-1" />
-          Back to directory
-        </Link>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Link
+            href="/dashboard/org/users"
+            className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Back to directory
+          </Link>
+          {/* PRF-3: one timeframe for every tab; closed timeframes are read-only. */}
+          <ProfileTimeframeSwitcher
+            userId={id}
+            activeTab={activeTab}
+            selected={timeframe ? { id: timeframe.id, name: timeframe.name, ended: timeframe.ended } : null}
+            defaultTimeframeId={defaultTimeframeId}
+          />
+        </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
           {/* Sidebar */}
-          <aside className="lg:col-span-4 space-y-4">
+          <aside className="lg:col-span-4 space-y-4 min-w-0">
             <div className="bg-card rounded-lg border border-border shadow-sm p-6 text-center">
               {profileUser.avatar ? (
                 <img
@@ -89,6 +176,9 @@ export default async function UserProfilePage({ params }: PageProps) {
               <p className="text-sm text-muted-foreground mt-1">{profileUser.email}</p>
               <p className="text-xs text-muted-foreground mt-3">0 following · 0 followers</p>
             </div>
+
+            {/* PRF-4: role definition under the name (server summary → no client fetch). */}
+            {roleSummary ? <ProfileRoleSidebarCard userId={id} timeframeId={timeframeId} summary={roleSummary} /> : null}
 
             <div className="bg-card rounded-lg border border-border shadow-sm p-4">
               <div className="grid grid-cols-3 gap-2 text-center">
@@ -246,174 +336,39 @@ export default async function UserProfilePage({ params }: PageProps) {
             </div>
           </aside>
 
-          {/* Main */}
-          <div className="lg:col-span-8 space-y-6">
-            <UserProgressTimeline
-              snapshots={timelineSnapshots}
-              currentProgress={metrics.avgKrProgress}
-              timeframeStart={tfStart.toISOString()}
-              timeframeEnd={tfEnd.toISOString()}
-            />
+          {/* Main: URL-synced tabs (PRF-1). LinkTabs scrolls horizontally on mobile. */}
+          <div className="lg:col-span-8 min-w-0 space-y-6">
+            <div className="border-b" style={{ borderColor: 'var(--ap-border)' }}>
+              <LinkTabs items={tabItems} activeKey={activeTab} ariaLabel="Profile sections" />
+            </div>
 
-            <section className="bg-card rounded-lg border border-border shadow-sm">
-              <div className="px-4 py-3 border-b border-border">
-                <h2 className="text-base font-semibold text-foreground">Objectives & key results</h2>
-                <p className="text-micro font-semibold uppercase tracking-wider text-muted-foreground mt-1">
-                  Grouped by objective
-                  {pendingCount > 0 ? ` · ${pendingCount} need attention` : ''}
-                </p>
-              </div>
-              {krsByObjective.size === 0 ? (
-                <EmptyState bare className="py-6 px-4" icon={<Target className="size-5 text-muted-foreground" />} title="No visible key results for this person" />
-              ) : (
-                <ul className="divide-y divide-border">
-                  {Array.from(krsByObjective.values()).map((group) => (
-                    <li key={group.objectiveId} className="px-4 py-3">
-                      <Link
-                        href={`/dashboard/objectives/${group.objectiveId}`}
-                        className="text-sm font-semibold text-foreground hover:text-primary-600"
-                      >
-                        {group.objectiveTitle}
-                      </Link>
-                      <ul className="mt-2 space-y-1 border-l border-border pl-4">
-                        {group.krs.map((kr) => {
-                          const ds = getKrDisplayStatus({
-                            unit: kr.unit,
-                            targetValue: kr.targetValue,
-                            startValue: kr.startValue,
-                            currentValue: kr.currentValue,
-                            progress: kr.progress,
-                            confidence: kr.confidence,
-                          })
-                          return (
-                            <li
-                              key={kr.id}
-                              className="flex items-center gap-2 text-sm"
-                            >
-                              <span
-                                className={cn('h-2 w-2 rounded-full shrink-0', confidenceDot(ds))}
-                                title={statusLabel(ds)}
-                              />
-                              <Link
-                                href={`/dashboard/key-results/${kr.id}`}
-                                className="text-foreground hover:text-primary-600 flex-1 min-w-0 truncate"
-                              >
-                                {kr.title}
-                              </Link>
-                              <span className="text-xs tabular-nums text-muted-foreground">
-                                {Math.round(kr.progress)}%
-                              </span>
-                              <span className="text-caption text-muted-foreground w-20 text-right truncate">
-                                {statusLabel(ds)}
-                              </span>
-                            </li>
-                          )
-                        })}
-                      </ul>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-
-            <section className="bg-card rounded-lg border border-border shadow-sm">
-              <div className="px-4 py-3 border-b border-border">
-                <h2 className="text-base font-semibold text-foreground">Active initiatives</h2>
-              </div>
-              {visibleTodos.length === 0 ? (
-                <EmptyState bare className="py-6 px-4" icon={<ListChecks className="size-5 text-muted-foreground" />} title="No initiatives owned" />
-              ) : (
-                <ul className="divide-y divide-border">
-                  {visibleTodos.map((t) => (
-                    <li key={t.id} className="px-4 py-3 flex items-center justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-foreground">{t.title}</p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {t.keyResult?.objective.title ?? 'Personal to-do'}
-                        </p>
-                      </div>
-                      <span className="text-xs text-muted-foreground shrink-0 capitalize">
-                        {t.status.replace(/_/g, ' ').toLowerCase()}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-
-            <ProfileOrgMinimap
-              mode="person"
-              name={profileUser.name}
-              avatarUrl={profileUser.avatar}
-              metrics={metrics}
-              manager={manager ? { id: manager.id, name: manager.name, avatar: manager.avatar } : null}
-              directReports={directReports.map((u) => ({
-                id: u.id,
-                name: u.name,
-                avatar: u.avatar,
-              }))}
-              addReportsHref={addReportsHref}
-            />
-
-            <section className="bg-card rounded-lg border border-border shadow-sm">
-              <div className="px-4 py-3 border-b border-border">
-                <h2 className="text-base font-semibold text-foreground">Check-ins & updates</h2>
-                <p className="text-micro font-semibold uppercase tracking-wider text-muted-foreground mt-1">
-                  {recentCheckIns.length === 0 ? 'No activity yet' : `Last ${recentCheckIns.length} entries`}
-                </p>
-              </div>
-              {recentCheckIns.length === 0 ? (
-                <EmptyState bare className="py-6 px-4" icon={<Activity className="size-5 text-muted-foreground" />} title="No check-ins or updates from this person yet" />
-              ) : (
-                <ul className="divide-y divide-border">
-                  {recentCheckIns.map((ci) => (
-                    <li key={ci.id} className="px-4 py-3 flex items-start gap-3">
-                      <div className="h-8 w-8 rounded-full bg-muted text-muted-foreground text-xs font-semibold flex items-center justify-center shrink-0">
-                        {(profileUser.name ?? '?').slice(0, 1).toUpperCase()}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(ci.createdAt).toLocaleString(undefined, {
-                            dateStyle: 'medium',
-                            timeStyle: 'short',
-                          })}
-                        </p>
-                        <Link
-                          href={`/dashboard/key-results/${ci.keyResultId}`}
-                          className="text-sm font-medium text-foreground hover:text-primary-600 line-clamp-1"
-                        >
-                          {ci.keyResult.title}
-                        </Link>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {ci.keyResult.objective.title}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Updated to{' '}
-                          <span className="font-medium text-foreground tabular-nums">
-                            {ci.value} {ci.keyResult.unit}
-                          </span>{' '}
-                          {typeof ci.keyResult.targetValue === 'number' && ci.keyResult.targetValue > 0 ? (
-                            <span className="text-muted-foreground">
-                              / {ci.keyResult.targetValue} {ci.keyResult.unit}
-                            </span>
-                          ) : null}
-                          {ci.confidence ? (
-                            <span className="ml-2 text-caption uppercase tracking-wide text-muted-foreground">
-                              {ci.confidence}
-                            </span>
-                          ) : null}
-                        </p>
-                        {ci.analysis ? (
-                          <p className="text-sm text-muted-foreground mt-1 line-clamp-3 whitespace-pre-wrap">
-                            {ci.analysis}
-                          </p>
-                        ) : null}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
+            {activeTab === 'overview' ? (
+              <>
+                {summaries ? (
+                  <PackageSummaryCard summaries={summaries} timeframeName={timeframe?.name ?? null} hrefFor={hrefFor} />
+                ) : null}
+                {pkgOn && view?.package ? (
+                  <div id="package" className="scroll-mt-24">
+                    <ProfilePackageHeader userId={id} timeframeId={timeframeId} />
+                  </div>
+                ) : null}
+                <ProfileOverview data={data} />
+              </>
+            ) : activeTab === 'okrs' ? (
+              <ProfileOkrsPanel userId={id} timeframeId={timeframeId} />
+            ) : !timeframeId ? (
+              noTimeframe
+            ) : activeTab === 'role' ? (
+              <ProfileRolePanel userId={id} timeframeId={timeframeId} showRole={!!view?.role} showDuties={!!view?.duties} />
+            ) : activeTab === 'kpis' ? (
+              <ProfileKpisPanel userId={id} timeframeId={timeframeId} />
+            ) : activeTab === 'development' ? (
+              <ProfileDevelopmentPanel userId={id} timeframeId={timeframeId} />
+            ) : activeTab === 'links' ? (
+              <ProfileLinksPanel userId={id} timeframeId={timeframeId} />
+            ) : (
+              <ProfileDecisionsPanel userId={id} timeframeId={timeframeId} />
+            )}
           </div>
         </div>
       </div>

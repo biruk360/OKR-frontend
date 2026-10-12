@@ -33,6 +33,9 @@ export type EventCategory =
   // nudges — previously also 'ADMIN', which meant muting admin digests muted
   // your own automations too.
   | 'AUTOMATION'
+  // Employee Operating Package (docs/employee_operating_package_REQUIREMENTS.md §9):
+  // KPIs, dependencies, decisions, development plan, package review, KR checkpoints.
+  | 'PACKAGE'
 
 export type EventKey =
   // Account
@@ -146,6 +149,19 @@ export type EventKey =
   | 'SCRUM_TEAM_MOOD_ALERT'
   | 'SCRUM_LOW_SUBMISSION_RATE'
   | 'SCRUM_OBJECTIVE_NEGLECTED'
+  // Employee Operating Package (§9). Recipients are resolved in dispatcher.ts
+  // from the entity (payload.entityType/entityId) — see the PACKAGE cases.
+  | 'KPI_READING_DUE'
+  | 'DEPENDENCY_DUE_SOON'
+  | 'DEPENDENCY_LATE'
+  | 'DEPENDENCY_DONE'
+  | 'DECISION_REQUESTED'
+  | 'DECISION_DECIDED'
+  | 'DEV_ITEM_DUE'
+  | 'PACKAGE_SENT_FOR_REVIEW'
+  | 'PACKAGE_ITEM_DISPUTED'
+  | 'PACKAGE_APPROVED'
+  | 'KR_CHECKPOINT_DUE'
 
 /**
  * BATCHED = "at most one email per user per batch window" (default 10 minutes,
@@ -278,6 +294,20 @@ export const EVENT_META: Record<EventKey, EventMeta> = {
   SCRUM_TEAM_MOOD_ALERT: { key: 'SCRUM_TEAM_MOOD_ALERT', category: 'SCRUM', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Team mood alert' },
   SCRUM_LOW_SUBMISSION_RATE: { key: 'SCRUM_LOW_SUBMISSION_RATE', category: 'SCRUM', defaultCadence: 'WEEKLY', redactable: false, label: 'Low scrum submission rate' },
   SCRUM_OBJECTIVE_NEGLECTED: { key: 'SCRUM_OBJECTIVE_NEGLECTED', category: 'SCRUM', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Objective neglected in daily scrum' },
+
+  // Employee Operating Package (§9). "Digest" in the spec = DAILY; DEPENDENCY_LATE
+  // is IMMEDIATE on the first cron hit, then re-fired weekly by the package cron.
+  KPI_READING_DUE: { key: 'KPI_READING_DUE', category: 'PACKAGE', defaultCadence: 'DAILY', redactable: true, label: 'KPI reading overdue' },
+  DEPENDENCY_DUE_SOON: { key: 'DEPENDENCY_DUE_SOON', category: 'PACKAGE', defaultCadence: 'DAILY', redactable: false, label: 'Dependency you provide is due within 7 days' },
+  DEPENDENCY_LATE: { key: 'DEPENDENCY_LATE', category: 'PACKAGE', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Dependency is late' },
+  DEPENDENCY_DONE: { key: 'DEPENDENCY_DONE', category: 'PACKAGE', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Dependency you need is done' },
+  DECISION_REQUESTED: { key: 'DECISION_REQUESTED', category: 'PACKAGE', defaultCadence: 'DAILY', redactable: false, label: 'Decision requested from you' },
+  DECISION_DECIDED: { key: 'DECISION_DECIDED', category: 'PACKAGE', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Decision recorded' },
+  DEV_ITEM_DUE: { key: 'DEV_ITEM_DUE', category: 'PACKAGE', defaultCadence: 'DAILY', redactable: true, label: 'Development item due in 14 days' },
+  PACKAGE_SENT_FOR_REVIEW: { key: 'PACKAGE_SENT_FOR_REVIEW', category: 'PACKAGE', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Your operating package is ready for review' },
+  PACKAGE_ITEM_DISPUTED: { key: 'PACKAGE_ITEM_DISPUTED', category: 'PACKAGE', defaultCadence: 'DAILY', redactable: false, label: 'Package item disputed by your report' },
+  PACKAGE_APPROVED: { key: 'PACKAGE_APPROVED', category: 'PACKAGE', defaultCadence: 'IMMEDIATE', redactable: false, label: 'Your operating package was approved' },
+  KR_CHECKPOINT_DUE: { key: 'KR_CHECKPOINT_DUE', category: 'PACKAGE', defaultCadence: 'DAILY', redactable: true, label: 'Key result checkpoint due in 7 days' },
 }
 
 /**
@@ -301,6 +331,7 @@ export const CATEGORY_LABEL: Record<EventCategory, string> = {
   TRAVEL: 'Travel',
   LETTER: 'Letters',
   AUTOMATION: 'AI automations',
+  PACKAGE: 'Operating package',
 }
 
 /** Every category, in preference-UI order. Derived from CATEGORY_LABEL so the two cannot diverge. */
@@ -309,10 +340,26 @@ export const ALL_CATEGORIES: EventCategory[] = Object.keys(CATEGORY_LABEL) as Ev
 /** Categories the user may NOT disable (account/security emails bypass prefs). */
 export const MANDATORY_CATEGORIES: EventCategory[] = ['ACCOUNT']
 
+/**
+ * Entity a notification is about. The package types (§9) let the dispatcher
+ * resolve recipients from the record and dedupe digest rows per item.
+ */
+export type NotificationEntityType =
+  | 'OBJECTIVE' | 'KEY_RESULT' | 'TODO' | 'TIMEFRAME' | 'USER' | 'PROJECT' | 'SCRUM_UPDATE'
+  // Employee Operating Package
+  | 'KPI' | 'WORK_DEPENDENCY' | 'DECISION' | 'DEVELOPMENT_ITEM' | 'OPERATING_PACKAGE' | 'KR_CHECKPOINT'
+
+/** Event keys of the Operating package category, in registry order. */
+export const PACKAGE_EVENT_KEYS: readonly EventKey[] = [
+  'KPI_READING_DUE', 'DEPENDENCY_DUE_SOON', 'DEPENDENCY_LATE', 'DEPENDENCY_DONE',
+  'DECISION_REQUESTED', 'DECISION_DECIDED', 'DEV_ITEM_DUE',
+  'PACKAGE_SENT_FOR_REVIEW', 'PACKAGE_ITEM_DISPUTED', 'PACKAGE_APPROVED', 'KR_CHECKPOINT_DUE',
+]
+
 /** Shape of data a dispatcher caller passes for a given event. */
 export interface EventPayload {
   actorId?: string
-  entityType?: 'OBJECTIVE' | 'KEY_RESULT' | 'TODO' | 'TIMEFRAME' | 'USER' | 'PROJECT' | 'SCRUM_UPDATE'
+  entityType?: NotificationEntityType
   entityId?: string
   entityTitle?: string
   /** If the entity is private, the dispatcher redacts titles/values before sending. */

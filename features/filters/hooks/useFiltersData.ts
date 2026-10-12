@@ -12,6 +12,15 @@ import type {
   ProgressTimeseriesPoint,
 } from '../types'
 import { buildProgressBuckets } from '../components/ProgressChart'
+import {
+  KR_LINKED_TO_KPI_PARAM,
+  filterByOwners,
+  krSegmentPredicate,
+  mergeProgressTimeseries,
+  multiOwnerParam,
+  perOwnerSeriesOwners,
+  planSingleOwnerFilter,
+} from '../analyze-params'
 
 // ─── Segment → API params translation ────────────────────────────────────────
 
@@ -38,6 +47,8 @@ function segmentToParams(segmentId: SegmentId | null, userId: string | undefined
     case 'kr-not-measurable': p.notMeasurable = 'true'; break
     case 'kr-pending-checkins': p.pendingCheckins = 'true'; break
     case 'kr-without-owner': p.withoutOwner = 'true'; break
+    // KPI-8: KRs linked to a KPI. Sent for a server-side filter; also applied client-side (krSegmentPredicate).
+    case 'kr-tagged-kpi': p[KR_LINKED_TO_KPI_PARAM] = 'true'; break
     case 'init-active': p.status = 'ACTIVE'; break
     case 'init-draft':  p.status = 'DRAFT'; break
     case 'init-owned':
@@ -61,7 +72,9 @@ async function fetchObjectives(filters: FilterState, segmentParams: Record<strin
   // explicit filter overrides
   if (filters.confidence?.length)  params.set('confidence', filters.confidence.join(','))
   if (filters.planStatus?.length)  params.set('status', mapPlanStatusToApi(filters.planStatus[0]))
-  if (filters.owners?.length)      params.set('ownerId', filters.owners[0])
+  // /api/objectives ORs a comma-separated owner list — send every picked owner.
+  const owners = multiOwnerParam(filters.owners)
+  if (owners)                      params.set('ownerId', owners)
   if (filters.teams?.length)       params.set('departmentId', filters.teams[0])
   if (filters.plans?.length)       params.set('timeframeId', filters.plans[0])
 
@@ -92,20 +105,29 @@ async function fetchObjectives(filters: FilterState, segmentParams: Record<strin
   return items
 }
 
-async function fetchKeyResults(filters: FilterState, segmentParams: Record<string, string>): Promise<FilteredResult[]> {
+async function fetchKeyResults(
+  filters: FilterState,
+  segmentParams: Record<string, string>,
+  segmentId: SegmentId | null,
+): Promise<FilteredResult[]> {
   const params = new URLSearchParams()
   params.set('limit', '500')
 
   Object.entries(segmentParams).forEach(([k, v]) => params.set(k, v))
 
+  // /api/keyresults takes one ownerId: one owner → server side; several → filtered below.
+  const ownerPlan = planSingleOwnerFilter(filters.owners)
   if (filters.confidence?.length) params.set('confidence', filters.confidence.join(','))
-  if (filters.owners?.length)     params.set('ownerId', filters.owners[0])
+  if (ownerPlan.serverOwnerId)    params.set('ownerId', ownerPlan.serverOwnerId)
+  else if (ownerPlan.clientOwnerIds) params.delete('ownerId')
   if (filters.plans?.length)      params.set('timeframeId', filters.plans[0])
 
   const res = await fetch(`/api/keyresults?${params}`)
   if (!res.ok) throw new Error('Failed to fetch key results')
   const json = await res.json()
-  let items: FilteredResult[] = (json.data ?? []).map((kr: any) => ({
+  const segmentMatch = krSegmentPredicate(segmentId)
+  const raw: any[] = (json.data ?? []).filter((kr: any) => (segmentMatch ? segmentMatch(kr) : true))
+  let items: FilteredResult[] = raw.map((kr: any) => ({
     id: kr.id,
     title: kr.title,
     planId: kr.objective?.timeframeId ?? kr.objectiveId ?? 'unknown',
@@ -128,6 +150,7 @@ async function fetchKeyResults(filters: FilterState, segmentParams: Record<strin
     entityType: 'key-results' as FiltersTab,
   }))
 
+  items = filterByOwners(items, ownerPlan.clientOwnerIds)
   if (filters.progressAbove !== undefined) items = items.filter((r) => (r.progress ?? 0) >= filters.progressAbove!)
   if (filters.progressBelow !== undefined) items = items.filter((r) => (r.progress ?? 0) <= filters.progressBelow!)
 
@@ -144,7 +167,6 @@ async function fetchInitiatives(filters: FilterState, segmentParams: Record<stri
     if (statuses.length === 1) params.set('status', statuses[0]!)
   }
   if (segmentParams.status) params.set('status', segmentParams.status)
-  if (filters.owners?.length) params.set('assigneeId', filters.owners[0])
 
   const res = await fetch(`/api/todos?${params}`)
   if (!res.ok) return []
@@ -163,6 +185,8 @@ async function fetchInitiatives(filters: FilterState, segmentParams: Record<stri
     entityType: 'initiatives' as FiltersTab,
   }))
 
+  // /api/todos has no assignee filter — apply every picked owner here.
+  items = filterByOwners(items, filters.owners)
   if (filters.progressAbove !== undefined) items = items.filter((r) => (r.progress ?? 0) >= filters.progressAbove!)
   if (filters.progressBelow !== undefined) items = items.filter((r) => (r.progress ?? 0) <= filters.progressBelow!)
 
@@ -253,15 +277,27 @@ async function fetchProgressTimeseries(
   params.set('tab', tab)
   Object.entries(segmentParams).forEach(([k, v]) => params.set(k, v))
   if (filters.confidence?.length) params.set('confidence', filters.confidence.join(','))
-  if (filters.owners?.length)     params.set('ownerId', filters.owners[0])
   if (filters.plans?.length)      params.set('timeframeId', filters.plans[0])
   if (tab === 'objectives' && filters.planStatus?.length) {
     params.set('status', mapPlanStatusToApi(filters.planStatus[0]))
   }
-  const res = await fetch(`/api/filters/progress-timeseries?${params}`)
-  if (!res.ok) return []
-  const json = await res.json()
-  return (json.data ?? []) as ProgressTimeseriesPoint[]
+  // The explicit Owner filter overrides an owner a segment set ("Owned …").
+  if (filters.owners?.length) params.delete('ownerId')
+
+  const fetchSeries = async (ownerId: string | null): Promise<ProgressTimeseriesPoint[]> => {
+    const p = new URLSearchParams(params)
+    if (ownerId) p.set('ownerId', ownerId)
+    const res = await fetch(`/api/filters/progress-timeseries?${p}`)
+    if (!res.ok) return []
+    const json = await res.json()
+    return (json.data ?? []) as ProgressTimeseriesPoint[]
+  }
+
+  // The series API takes one ownerId: several owners → one request each, merged (KR-count weighted).
+  const perOwner = perOwnerSeriesOwners(filters.owners)
+  if (perOwner) return mergeProgressTimeseries(await Promise.all(perOwner.map(fetchSeries)))
+  // One owner → server side. More than MAX_PER_OWNER_SERIES owners → the series is not narrowed by owner.
+  return fetchSeries(planSingleOwnerFilter(filters.owners).serverOwnerId)
 }
 
 export interface FiltersDataResult {
@@ -287,7 +323,7 @@ export function useFiltersData(
     queryKey: ['filters', tab, filters, segmentId],
     queryFn: async () => {
       if (tab === 'objectives')   return fetchObjectives(filters, segmentParams)
-      if (tab === 'key-results')  return fetchKeyResults(filters, segmentParams)
+      if (tab === 'key-results')  return fetchKeyResults(filters, segmentParams, segmentId)
       return fetchInitiatives(filters, segmentParams)
     },
     staleTime: 30_000,

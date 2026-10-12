@@ -19,7 +19,20 @@ interface Actor {
  */
 interface Ref {
   __ref: true
-  kind: 'user' | 'objective' | 'department' | 'timeframe'
+  kind:
+    | 'user'
+    | 'objective'
+    | 'department'
+    | 'timeframe'
+    // Employee Operating Package references (lib/activity-log-hydrate RefKind).
+    | 'keyResult'
+    | 'kpi'
+    | 'duty'
+    | 'development'
+    | 'dependency'
+    | 'decision'
+    | 'package'
+    | 'roleDefinition'
   id: string
   label: string
   href: string
@@ -28,6 +41,10 @@ interface Ref {
 interface ActivityLogEntry {
   id: string
   action: string
+  /** ActivityLog.entityType — package rows (OKR_LINK, KR_CHECKPOINT) show on OKR panels. */
+  entityType?: string | null
+  /** Package rows: link to the record (lib/package/links packageActivityHref). */
+  deepLink?: string | null
   actor: Actor | null
   changes: Record<string, { from: unknown; to: unknown }> | null
   metadata: Record<string, unknown> | null
@@ -78,6 +95,33 @@ const ACTION_LABEL: Record<string, string> = {
   LETTER_PDF_FAILED: 'PDF generation failed',
   LETTER_ENCLOSURE_ADDED: 'added an enclosure',
   LETTER_ENCLOSURE_REMOVED: 'removed an enclosure',
+  // Employee Operating Package (AUD-1/2).
+  LINKED: 'linked',
+  UNLINKED: 'unlinked',
+  PAUSED: 'paused',
+  RESUMED: 'resumed',
+  RETIRED: 'retired',
+  READING_ENTERED: 'entered a reading',
+  DECIDED: 'recorded a decision',
+  REVIEWED: 'reviewed',
+  SUBMITTED: 'submitted',
+  APPROVED: 'approved',
+  RESOLVED: 'resolved',
+  COMPLETED: 'completed',
+  SETTINGS_UPDATED: 'updated settings',
+}
+
+/** Noun shown after the verb for package rows on OKR panels. */
+const ENTITY_NOUN: Record<string, string> = {
+  OKR_LINK: 'a link',
+  KR_CHECKPOINT: 'a checkpoint',
+}
+
+function entrySubject(log: ActivityLogEntry): string | null {
+  const noun = log.entityType ? ENTITY_NOUN[log.entityType] : undefined
+  if (!noun) return null
+  const title = typeof log.metadata?.title === 'string' ? log.metadata.title : null
+  return title ? `${noun.replace(/^an? /, '')} “${title}”` : noun
 }
 
 export function ActivityLogPanel({ entityType, entityId, embedded = false }: Props) {
@@ -174,6 +218,18 @@ export function ActivityLogPanel({ entityType, entityId, embedded = false }: Pro
                         <span className="font-medium">System</span>
                       )}{' '}
                       <span className="text-muted-foreground">{ACTION_LABEL[log.action] || log.action.toLowerCase()}</span>
+                      {entrySubject(log) && (
+                        <>
+                          {' '}
+                          {log.deepLink ? (
+                            <Link href={log.deepLink} className="text-foreground hover:text-primary hover:underline">
+                              {entrySubject(log)}
+                            </Link>
+                          ) : (
+                            <span className="text-foreground">{entrySubject(log)}</span>
+                          )}
+                        </>
+                      )}
                     </p>
                     {log.changes && <ChangeList changes={log.changes} />}
                     <p className="mt-0.5 text-xs text-muted-foreground">{relativeTime(log.createdAt)}</p>

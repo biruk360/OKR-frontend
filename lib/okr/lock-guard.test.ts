@@ -31,6 +31,9 @@ const GUARDED_ROUTES: Array<{ file: string; guard: string }> = [
   { file: 'app/api/keyresults/[id]/complete/route.ts', guard: 'keyResultLockResponse' },
   { file: 'app/api/keyresults/[id]/request-checkin/route.ts', guard: 'keyResultLockResponse' },
   { file: 'app/api/keyresults/[id]/todos/route.ts', guard: 'keyResultLockResponse' },
+  { file: 'app/api/keyresults/[id]/checkpoints/route.ts', guard: 'keyResultLockResponse' },
+  { file: 'app/api/keyresults/[id]/checkpoints/[checkpointId]/route.ts', guard: 'keyResultLockResponse' },
+  { file: 'app/api/users/[id]/okr-profile/initiatives/route.ts', guard: 'keyResultLockResponse' },
 ]
 
 // Routes intentionally exempt on a closed OKR (read/append-only or non-mutating

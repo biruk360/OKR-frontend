@@ -152,6 +152,24 @@ Cadence shown is the **org default** from `EVENT_META`. Users may override per c
 | `ADMIN_WEEKLY_HEALTH_DIGEST` | WEEKLY | All admins | — |
 | `ADMIN_MONTHLY_EXEC_SUMMARY` | MONTHLY | All admins | — |
 
+### Operating package — `PACKAGE` (2026-10-11)
+
+Emit contract: `entityType` + `entityId` name the package record and recipients are resolved from it (`lib/notifications/dispatcher.ts`); person-scoped events pass `data.ownerId`, which drives the profile-tab deep link (`lib/notifications/deep-link.ts`) and stops the owner getting a redacted copy. In-app rows store a relative `deepLink`. Cron-fired events (✱) come from `/api/cron/package-daily` (`lib/package-cron`), which dedupes per entity against `Notification` / `EmailDigestQueue` metadata.
+
+| Event | Default cadence | Recipients | Redactable | Fired by / re-send rule |
+|---|---|---|---|---|
+| `KPI_READING_DUE` ✱ | DAILY | KPI owner | ✅ (sensitive KPIs) | Reading > 3 working days overdue (KPI-5); once per KPI period |
+| `DEPENDENCY_DUE_SOON` ✱ | DAILY | Providers | — | Needed-by within 7 days (DEP-2); once per due date |
+| `DEPENDENCY_LATE` ✱ | IMMEDIATE | Providers + needers + needers' managers | — | First day late, then weekly (7-day repeat) |
+| `DEPENDENCY_DONE` | IMMEDIATE | Needers | — | Status → DONE (DEP-5), also when a decision closes a DECISION-type dependency |
+| `DECISION_REQUESTED` | DAILY | Decider | — | Decision created / reassigned |
+| `DECISION_DECIDED` | IMMEDIATE | Requester + linked users (+ owners of linked items, passed explicitly) | — | `POST /api/decisions/[id]/decide` |
+| `DEV_ITEM_DUE` ✱ | DAILY | Item owner | ✅ | Open item due in 14 days (DEV-4); once per due date |
+| `PACKAGE_SENT_FOR_REVIEW` | IMMEDIATE | Package owner (employee) | — | Submit, or the importer with `--notify` (in-app only) |
+| `PACKAGE_ITEM_DISPUTED` | DAILY | Employee's direct manager(s) | — | Employee disputes an item (PKG-2) |
+| `PACKAGE_APPROVED` | IMMEDIATE | Package owner | — | Approve |
+| `KR_CHECKPOINT_DUE` ✱ | DAILY | KR owner | ✅ (private KRs) | PENDING checkpoint due in 7 days; once per checkpoint |
+
 ---
 
 ## 3. Recipient role tags
@@ -185,6 +203,8 @@ Endpoint: `POST /api/cron/notifications?job=<name>` — Bearer `CRON_SECRET`.
 | `timeframes` | daily | Fire `TIMEFRAME_ENDING_7D` / `CLOSING_1D` / `CLOSED` |
 | `admin-weekly` | weekly | Fire `ADMIN_WEEKLY_HEALTH_DIGEST` |
 | `admin-monthly` | monthly | Fire `ADMIN_MONTHLY_EXEC_SUMMARY` |
+
+Operating package reminders run from their own endpoint, `GET|POST /api/cron/package-daily` (02:00 UTC, Bearer `CRON_SECRET`, `?dryRun=1` for a no-write preview) — see `docs/CRON.md`.
 
 ---
 

@@ -1,0 +1,172 @@
+{
+  "_comment": "Workbook names -> users for scripts/import-operating-packages.ts. Each person is found by the first existing email, then by full name, then by a unique first name. Aliases are matched case-insensitively after parentheticals are stripped ('Eden (Bid Lead)' -> 'Eden'). nonPersons / nonPersonPatterns are seats, teams and groups: they never become a user and never block --apply. Edit this file (or pass --user-map) when the dry run lists an unmatched or ambiguous name.",
+  "people": [
+    {
+      "name": "Biruk Hailu",
+      "emails": [
+        "biruk@360ground.com"
+      ],
+      "aliases": [
+        "CEO",
+        "Biruk",
+        "Biruk Hailu",
+        "Founder",
+        "Founder & Chief Executive Officer",
+        "CEO C1.1"
+      ]
+    },
+    {
+      "name": "Bethlehem",
+      "emails": [
+        "betty@360ground.com"
+      ],
+      "aliases": [
+        "Betty",
+        "Bethlehem",
+        "Bethlehem (Betty)",
+        "Finance Manager"
+      ]
+    },
+    {
+      "name": "Eden Tsega",
+      "emails": [
+        "eden@360ground.com"
+      ],
+      "aliases": [
+        "Eden",
+        "Eden Tsega",
+        "Bid Lead"
+      ]
+    },
+    {
+      "name": "Eyoel Haile",
+      "emails": [
+        "eyoel@360ground.com"
+      ],
+      "aliases": [
+        "Eyoel",
+        "Eyoel Haile",
+        "Delivery Lead"
+      ]
+    },
+    {
+      "name": "Meklit Gobeze",
+      "emails": [
+        "meklit@360ground.com"
+      ],
+      "aliases": [
+        "Meklit",
+        "Meklit Gobeze",
+        "Head of Operations & Trade",
+        "Head of Operations"
+      ]
+    },
+    {
+      "name": "Yared",
+      "emails": [
+        "yared@360ground.com"
+      ],
+      "aliases": [
+        "Yared",
+        "Head of Marketing & ERP/Meda Sales",
+        "Head of Marketing"
+      ]
+    },
+    {
+      "name": "Yohannes Getachew",
+      "emails": [
+        "yohannes@360ground.com"
+      ],
+      "aliases": [
+        "Yohannes G",
+        "Yohannes Getachew",
+        "Yohannes",
+        "Institutional Sales & Partnerships Manager"
+      ]
+    },
+    {
+      "name": "Yohannes Taye",
+      "emails": [],
+      "aliases": [
+        "Yohannes T",
+        "Yohannes Taye",
+        "Mobile & Banking Lead",
+        "Mobile and Banking Lead"
+      ],
+      "skip": true,
+      "skipReason": "not assigned yet — user decision 2026-10-12; new lead role from 15 Nov 2026"
+    },
+    {
+      "name": "Mukuken",
+      "emails": [],
+      "aliases": [
+        "Mukuken",
+        "ERP Lead",
+        "ERP & Business Automation Lead",
+        "ERP and Business Automation Lead",
+        "Muluken"
+      ],
+      "skip": true,
+      "skipReason": "not assigned yet — user decision 2026-10-12; new lead role from 15 Nov 2026"
+    }
+  ],
+  "nonPersons": [
+    "Systems team",
+    "Management team",
+    "AI Lead",
+    "Head of Technology",
+    "People Lead",
+    "PMER PO",
+    "PMER Product Owner",
+    "Presales Lead",
+    "Digital Marketer",
+    "Digital Marketing Specialist",
+    "Writer",
+    "Bid & Proposal Writer",
+    "QA",
+    "QA Engineer",
+    "counsel",
+    "auditor",
+    "Banking Sales Engineer",
+    "Officer",
+    "Procurement & Import Officer",
+    "Designer",
+    "Plan",
+    "Audit",
+    "Claude",
+    "HR OKR",
+    "Tech OKR",
+    "Tech",
+    "All",
+    "seller",
+    "sellers",
+    "Peer reviewer",
+    "bank",
+    "Marketing",
+    "3 mentees",
+    "Outbound",
+    "Shareholders",
+    "advisory circle",
+    "Inbound"
+  ],
+  "nonPersonPatterns": [
+    "\\bteams?\\b",
+    "\\bowners?\\b",
+    "\\bmanagers?\\b",
+    "\\bclients?\\b",
+    "\\bcompany\\b",
+    "\\bdevelopers?\\b",
+    "\\bengineers?\\b",
+    "\\banalysts?\\b",
+    "\\bagents?\\b",
+    "\\bheads\\b",
+    "\\breps?\\b",
+    "\\bbench\\b",
+    "\\bmentees\\b",
+    "^each\\b",
+    "^every\\b",
+    "^all\\b",
+    "^whole\\b",
+    "^key\\b"
+  ]
+}

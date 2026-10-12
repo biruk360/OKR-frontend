@@ -1,11 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
-  ArrowLeft, Building2, Calendar, Clock, Key, Mail, Shield, ShieldCheck,
+  ArrowLeft, Briefcase, Building2, Calendar, Clock, Key, Mail, Shield, ShieldCheck,
   Trash2, User as UserIcon, ExternalLink,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -15,7 +15,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import UserRolesPanel from '@/components/settings/permissions/UserRolesPanel'
-import { SettingsSelect } from './SettingsSelect'
+import { Skeleton } from '@/components/ui/Skeleton'
+import { useTimeframes } from '@/hooks/useTimeframes'
+import { RoleDefinitionProfileTab, useRoleDefinitions } from '@/features/role-definition'
+import { SettingsSelect, type SettingsSelectOption } from './SettingsSelect'
 
 export interface ManagedUser {
   id: string
@@ -44,7 +47,7 @@ interface UserDetailProps {
   currentUserRole: string
 }
 
-type DetailTab = 'profile' | 'access'
+type DetailTab = 'profile' | 'role' | 'access'
 
 type ProfileFields = {
   name: string
@@ -85,6 +88,123 @@ function formatDate(value: string | Date) {
   })
 }
 
+interface TimeframeOption {
+  id: string
+  name: string
+  startDate: Date | string
+  endDate: Date | string
+  isActive: boolean
+}
+
+/**
+ * The timeframe the Role definition section opens on: the widest active
+ * timeframe that contains today (the package's FY timeframe — same fallback as
+ * the development plan API), else the latest-starting active one, else the
+ * latest-starting timeframe of any kind.
+ */
+function pickDefaultTimeframeId(timeframes: TimeframeOption[], now: Date = new Date()): string {
+  if (timeframes.length === 0) return ''
+  const time = (value: Date | string) => new Date(value).getTime()
+  const span = (t: TimeframeOption) => time(t.endDate) - time(t.startDate)
+  const byStartDesc = (a: TimeframeOption, b: TimeframeOption) => time(b.startDate) - time(a.startDate)
+  const today = now.getTime()
+  const containing = timeframes
+    .filter((t) => t.isActive && time(t.startDate) <= today && time(t.endDate) >= today)
+    .sort((a, b) => span(b) - span(a))
+  if (containing[0]) return containing[0].id
+  const active = timeframes.filter((t) => t.isActive).sort(byStartDesc)
+  if (active[0]) return active[0].id
+  return [...timeframes].sort(byStartDesc)[0].id
+}
+
+function timeframeOptions(timeframes: TimeframeOption[]): SettingsSelectOption[] {
+  const time = (value: Date | string) => new Date(value).getTime()
+  return [...timeframes]
+    .sort((a, b) => Number(b.isActive) - Number(a.isActive) || time(b.startDate) - time(a.startDate))
+    .map((t) => ({ value: t.id, label: t.name, group: t.isActive ? 'Active' : 'Inactive' }))
+}
+
+/**
+ * PRF-6: the person's role definition (seat, reporting line, purpose,
+ * accountabilities, direct-report seats) inside the admin record. Editing and
+ * approval follow the role-definition API's permissions (manager chain, HR,
+ * Executive, Admin edit; never self) — this section only picks the timeframe.
+ */
+function RoleDefinitionSection({
+  userId,
+  userName,
+  onDesignationChange,
+}: {
+  userId: string
+  userName: string
+  /** Approving with "update designation" (ROL-2) changes User.designation server-side. */
+  onDesignationChange: (designation: string | null) => void
+}) {
+  const { timeframes, isLoading, isError, refetch } = useTimeframes()
+  const [timeframeId, setTimeframeId] = useState<string | null>(null)
+  const defaultId = useMemo(() => pickDefaultTimeframeId(timeframes), [timeframes])
+  const selectedId = timeframeId ?? defaultId
+  const options = useMemo(() => timeframeOptions(timeframes), [timeframes])
+
+  // Same query key as the tab below (deduplicated); only read for the subject's designation.
+  const roleQuery = useRoleDefinitions(userId, selectedId, { enabled: !isLoading })
+  const subjectDesignation = roleQuery.data?.subjectDesignation
+  useEffect(() => {
+    if (subjectDesignation !== undefined) onDesignationChange(subjectDesignation)
+  }, [subjectDesignation, onDesignationChange])
+
+  return (
+    <div className="space-y-4">
+      <section className="rounded-card border border-border bg-card p-4 shadow-card sm:p-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <h2 className="flex items-center gap-2 text-section-title text-foreground">
+              <Briefcase className="size-4 text-muted-foreground" aria-hidden />
+              Role definition
+            </h2>
+            <p className="mt-0.5 text-body-sm text-muted-foreground">
+              {userName}&apos;s seat, reporting line, purpose and accountabilities for the selected timeframe.
+              Managers, HR, Executives and Admins can edit; the manager chain, Executives or Admins approve.
+            </p>
+          </div>
+          <div className="w-full sm:w-56 sm:shrink-0">
+            <Label htmlFor="role-definition-timeframe" className="sr-only">
+              Timeframe
+            </Label>
+            {isLoading ? (
+              <Skeleton className="h-9 w-full" />
+            ) : (
+              <SettingsSelect
+                id="role-definition-timeframe"
+                aria-label="Timeframe"
+                value={selectedId}
+                onValueChange={setTimeframeId}
+                options={options}
+                placeholder={isError ? 'Timeframes unavailable' : 'No timeframes'}
+                disabled={options.length === 0}
+              />
+            )}
+          </div>
+        </div>
+        {isError && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-body-sm text-muted-foreground">
+            <span>Could not load timeframes; showing role definitions without a timeframe.</span>
+            <Button type="button" variant="outline" size="sm" onClick={() => void refetch()}>
+              Retry
+            </Button>
+          </div>
+        )}
+      </section>
+
+      {isLoading ? (
+        <Skeleton className="h-48 w-full rounded-card" />
+      ) : (
+        <RoleDefinitionProfileTab key={selectedId || 'none'} userId={userId} timeframeId={selectedId} />
+      )}
+    </div>
+  )
+}
+
 export default function UserDetail({ user: initialUser, currentUserId, currentUserRole }: UserDetailProps) {
   const router = useRouter()
   const [user, setUser] = useState(initialUser)
@@ -102,6 +222,8 @@ export default function UserDetail({ user: initialUser, currentUserId, currentUs
     control,
     handleSubmit,
     reset,
+    resetField,
+    getFieldState,
     setError,
     formState: { errors, isSubmitting, isDirty },
   } = useForm<ProfileFields>({
@@ -150,6 +272,18 @@ export default function UserDetail({ user: initialUser, currentUserId, currentUs
       toast.error(message)
     }
   }
+
+  // Keep the header and the (untouched) designation field in step with a
+  // role-definition approval that also updated User.designation (ROL-2).
+  const handleDesignationChange = useCallback(
+    (designation: string | null) => {
+      setUser((current) => (current.designation === designation ? current : { ...current, designation }))
+      if (!getFieldState('designation').isDirty) {
+        resetField('designation', { defaultValue: designation ?? '' })
+      }
+    },
+    [getFieldState, resetField],
+  )
 
   const handleProjectManagerCapability = async () => {
     const enabled = !user.isProjectManager
@@ -220,6 +354,7 @@ export default function UserDetail({ user: initialUser, currentUserId, currentUs
 
   const tabs: { id: DetailTab; label: string }[] = [
     { id: 'profile', label: 'Profile & details' },
+    { id: 'role', label: 'Role definition' },
     { id: 'access', label: 'Access & roles' },
   ]
 
@@ -283,7 +418,10 @@ export default function UserDetail({ user: initialUser, currentUserId, currentUs
 
           <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
             <Button variant="outline" size="sm" asChild>
-              <Link href={`/dashboard/org/users/${user.id}`}>
+              <Link
+                href={`/dashboard/org/users/${user.id}`}
+                aria-label={`View ${user.name}'s employee profile`}
+              >
                 <ExternalLink className="size-4" />
                 View profile
               </Link>
@@ -510,6 +648,14 @@ export default function UserDetail({ user: initialUser, currentUserId, currentUs
             </section>
           </aside>
         </div>
+      )}
+
+      {tab === 'role' && (
+        <RoleDefinitionSection
+          userId={user.id}
+          userName={user.name}
+          onDesignationChange={handleDesignationChange}
+        />
       )}
 
       {tab === 'access' && (

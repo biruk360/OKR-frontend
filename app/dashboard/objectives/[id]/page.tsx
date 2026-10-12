@@ -19,6 +19,8 @@ import KRList from '@/components/objective-detail/KRList'
 import ProgressConfidenceCard from '@/components/objective-detail/ProgressConfidenceCard'
 import PerKrProgressCard from '@/components/objective-detail/PerKrProgressCard'
 import ActivityTabs from '@/components/objective-detail/ActivityTabs'
+import ObjectiveConnectionsSection from '@/components/objective-detail/ObjectiveConnectionsSection'
+import { AlignmentTrail } from '@/features/okr-links'
 import { ScrumActivityPanel } from '@/features/scrum'
 import { ObjectiveDeliveryPanel } from '@/features/projects'
 import RolledFromBanner from '@/components/shared/RolledFromBanner'
@@ -97,8 +99,17 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
           </div>
         </div>
 
+        {/* CON-5: Company O1 › KR1.3 › … › this objective (renders nothing when nothing is above it). */}
+        {!isRedacted && <AlignmentTrail entityType="OBJECTIVE" entityId={objective.id} variant="bar" />}
+
         {!isRedacted && (
-          <RolledFromBanner entityType="objective" previous={objective.rolledFrom} next={objective.rolledTo[0]} lineageDepth={objective.lineageDepth} />
+          <RolledFromBanner
+            entityType="objective"
+            entityId={objective.id}
+            previous={objective.rolledFrom}
+            next={objective.rolledTo[0]}
+            lineageDepth={objective.lineageDepth}
+          />
         )}
         {objective.isLocked && <OkrLockBanner entityType="Objective" reopenCount={objective.reopenCount} closedAt={objective.closedAt} />}
 
@@ -133,6 +144,15 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
               users={users}
               currentUserId={session.user.id}
             />
+
+            {/* CON-2: every link of this objective + "Manage links" (LNK-1…4). */}
+            {!isRedacted && (
+              <ObjectiveConnectionsSection
+                objectiveId={objective.id}
+                title={objective.title}
+                timeframeId={objective.timeframe?.id ?? null}
+              />
+            )}
 
             <WorkItemsKanban
               keyResults={objective.keyResults.map(kr => ({

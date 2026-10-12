@@ -1,4 +1,5 @@
 import type { Prisma, PrismaClient } from '@prisma/client'
+import { krProgressFraction, normalizeKrDirection } from './keyResultNumbers'
 
 export type DbLike = Prisma.TransactionClient | PrismaClient
 
@@ -41,8 +42,32 @@ export function contributionPercents(
 }
 
 /**
+ * One KR's contribution (0..100, unrounded) to its objective's LOOSE roll-up.
+ * FND-3: the same span formula as KR progress — (current − start) / (target − start),
+ * clamped 0..1; KRX-1: DECREASE uses (start − current) / (start − target).
+ * A degenerate span (start === target, or a legacy row whose target is on the wrong
+ * side of start) falls back to the stored KR progress, capped 0..100.
+ */
+export function krRollupPercent(kr: {
+  startValue?: number | null
+  currentValue: number
+  targetValue: number
+  direction?: string | null
+  progress: number
+}): number {
+  const f = krProgressFraction({
+    startValue: kr.startValue ?? 0,
+    currentValue: kr.currentValue,
+    targetValue: kr.targetValue,
+    direction: kr.direction,
+  })
+  if (f !== null) return f * 100
+  return Math.min(100, Math.max(0, kr.progress))
+}
+
+/**
  * Recompute stored progress for one objective: strict roll-up from active children when enabled,
- * otherwise average of active key results (capped 0–100 per KR).
+ * otherwise weighted average of active key results (each per `krRollupPercent`, 0–100).
  */
 export async function recalcObjectiveStoredProgress(tx: DbLike, objectiveId: string): Promise<number> {
   const obj = await tx.objective.findUnique({
@@ -83,19 +108,20 @@ async function storeObjectiveProgress(
   } else {
     const krs = await tx.keyResult.findMany({
       where: { objectiveId, status: 'ACTIVE' },
-      select: { currentValue: true, targetValue: true, progress: true, weight: true },
+      select: {
+        startValue: true,
+        currentValue: true,
+        targetValue: true,
+        direction: true,
+        progress: true,
+        weight: true,
+      },
     })
     if (krs.length === 0) {
       progress = 0
     } else {
       progress = weightedAverage(
-        krs.map((kr) => {
-          const p =
-            kr.targetValue > 0
-              ? Math.min((kr.currentValue / kr.targetValue) * 100, 100)
-              : Math.min(kr.progress, 100)
-          return { value: p, weight: kr.weight }
-        }),
+        krs.map((kr) => ({ value: krRollupPercent(kr), weight: kr.weight })),
       )
     }
   }
@@ -130,6 +156,7 @@ export async function recalcKrFromInitiatives(
       startValue: true,
       targetValue: true,
       currentValue: true,
+      direction: true,
     },
   })
   if (!kr) return null
@@ -144,14 +171,24 @@ export async function recalcKrFromInitiatives(
     0,
   )
 
-  // currentValue = startValue + contribution, clamped to [startValue, targetValue].
-  const nextCurrent = Math.max(
-    kr.startValue,
-    Math.min(kr.startValue + contributed, kr.targetValue),
-  )
+  let nextCurrent: number
+  if (normalizeKrDirection(kr.direction) === 'DECREASE') {
+    // KRX-1: contributions move the value DOWN from start toward target —
+    // currentValue = startValue − contribution, clamped to [targetValue, startValue].
+    nextCurrent = Math.min(
+      kr.startValue,
+      Math.max(kr.startValue - contributed, kr.targetValue),
+    )
+  } else {
+    // currentValue = startValue + contribution, clamped to [startValue, targetValue].
+    nextCurrent = Math.max(
+      kr.startValue,
+      Math.min(kr.startValue + contributed, kr.targetValue),
+    )
+  }
 
-  const span = kr.targetValue - kr.startValue
-  const progress = span > 0 ? Math.min(100, Math.max(0, ((nextCurrent - kr.startValue) / span) * 100)) : 0
+  const fraction = krProgressFraction({ ...kr, currentValue: nextCurrent })
+  const progress = fraction === null ? 0 : fraction * 100
 
   await tx.keyResult.update({
     where: { id: keyResultId },

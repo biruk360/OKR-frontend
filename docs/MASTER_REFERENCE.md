@@ -4,7 +4,10 @@
 > It is generated from a full traversal of all code, schemas, routes, components, and docs.
 > **Keep it up-to-date:** after every feature addition or significant change, update the relevant section(s) here, then update `docs/CHANGELOG_AI.md`.
 >
-> Last updated: 2026-09-25 — full-project remediation (session okr-mgt-75), **complete**: Waves 1–3, Wave 4 G1–G7
+> Last updated: 2026-10-11 — **Employee Operating Package** built (pending deploy): see §4.11 for models, APIs,
+> components, permissions, notifications, cron and data scripts.
+>
+> Previously: 2026-09-25 — full-project remediation (session okr-mgt-75), **complete**: Waves 1–3, Wave 4 G1–G7
 > (OKR pages consolidated into My OKRs / OKR Explorer / Insights with 14 permanent redirects, projects DOCX import +
 > provenance + background processing, AI-guided project creation, portal Planned-vs-Actual and Change Requests tabs,
 > filters sort, scrum server drafts), follow-ups H2–H6 / C1–C6 / B1–B2 (comment attachments for activities and scrum +
@@ -423,6 +426,56 @@ Implementation reference: `docs/PERFORMANCE_SCORECARD_IMPLEMENTATION_PROPOSAL.md
 | Portal Planned vs Actual | DONE (G4) | `app/portal/projects/[id]/PlannedVsActualTab.tsx`, `/api/portal/projects/[id]/planned-vs-actual` |
 | Project activity comment attachments | DONE (H2) | `lib/attachments/activity-comments.ts` — internal only, never served to the portal |
 
+### 4.11 Employee Operating Package — 2026-10-11 (BUILT, pending deploy)
+
+Spec: `docs/employee_operating_package_REQUIREMENTS.md` (requirement IDs FND, KRX, LNK, CON, ROL, DUT, KPI, DEV, DEP, DEC, PKG, PRF, AUD, IMP). Agent contract: `docs/employee_operating_package_BUILD_PLAN.md`. Every employee gets, per timeframe, an operating package: OKRs + role definition + recurring duties + KPIs + development plan + work dependencies + decisions, reviewed item by item and approved by the manager chain.
+
+**Data models** (`prisma/schema.prisma`): `OkrLink` (CONTRIBUTES_TO / SUCCEEDS, polymorphic objective/KR, `isPrimary`, `subKind`), `KeyResultCheckpoint`, `RecurringDuty` + `RecurringDutyCollaborator`, `RoleDefinition` + `RoleDefinitionItem` (sections incl. ACCOUNTABILITY, DIRECT_REPORT_SEAT), `Kpi` + `KpiReading` (unique `kpiId+periodStart`, `source` MANUAL/KR), `DevelopmentItem`, `WorkDependency` + `WorkDependencyParty` (PROVIDER/NEEDER) + `WorkDependencyLink`, `Decision` + `DecisionLink`, `OperatingPackage` (status DRAFT/IN_REVIEW/APPROVED/ARCHIVED, version, `summaryJson`, `weightsJson`) + `PackageItemReview` (AGREE/DISPUTE + resolution). New columns: KeyResult `commitment`, `direction` (INCREASE/DECREASE), `baselineText`, `targetText`, `measuredBy`, `dueText`, `dueDate`, `externalRef`; Todo `kind` (TASK/MILESTONE/DUTY/DEPENDENCY…), `dutyId`, `externalRef`, `recurrenceCountsProgress`; Objective `externalRef`; OrganizationSettings `devMinItems` (default 1), `devMinHours` (default 40). Polymorphic link tables have no FKs: hard deletes of objectives/KRs clean them and re-root lineage through `lib/okr-links/cleanup.ts`.
+
+**Foundations (lib/)**
+
+| Area | Files | Rules |
+|---|---|---|
+| Registries | `types/package.ts` | Value sets + labels + guards, `PROFILE_TABS` / `profileTabHref`, `PACKAGE_AREAS`, `PACKAGE_DOCTYPES`, `PACKAGE_FEATURE_KEYS`, `DEFAULT_PACKAGE_WEIGHTS` |
+| Access (§8) | `lib/package/access.ts` | **Single access point.** `loadPackageViewer`, `canViewPackageArea` / `canEditPackageArea` (areas okr, role, duties, kpis, kpis_sensitive, development, dependencies, decisions, package, weights), `getPackageAreaAccess`, `getDependencyAccess`, `getDecisionAccess`, approve = manager chain or ADMIN/EXEC (never self; HR may run the lifecycle and resolve disputes but not approve). Department lead = HEAD membership or DEPARTMENT_LEAD member, incl. descendant departments |
+| Audit | `lib/package/audit.ts` | `recordPackageActivity`, `recordPackageUpdateIfChanged` (use instead of `recordUpdateIfChanged`, whose diff falls back to KR fields); FK columns only for OKR_LINK and KR_CHECKPOINT so sensitive KPI rows never show on OKR panels; `editedAfterApproval` (PKG-3) |
+| Links | `lib/package/links.ts` | Canonical deep links `?dependency=<id>`, `?decision=<id>`, profile tabs; `lib/connections/flags.ts` delegates to it |
+| KR numbers | `lib/keyResultNumbers.ts`, `lib/okr/kr-commitment.ts`, `lib/objectiveProgress.ts` | Direction-aware progress (`krProgressFraction` / `krProgressPercent`), roll-up from KR span, `suggestCloseOutcome` (Aspirational: 0.7 = success). `redactKeyResult` also blanks KRX text |
+| Recurrence | `lib/todos/recurrence.ts` | QUARTERLY + SEMIANNUAL rules; `occurrenceCarryFields` |
+| OKR links | `lib/okr-links/{service,validation,http,cleanup}.ts` | LNK-1 validation, LNK-2 lineage mirror, LNK-4 opt-in parent, 423 lock; `listLinksFor` returns null outside the viewer's scope |
+| Connections | `lib/connections/{service,types,flags,okr-items}.ts` | `ConnectionsPayload` (client-safe types); CON-8 redaction; §8 record rule for decisions; dependency parties hidden from non-parties; `dependencyTiming` (late = open and needed-by before today; due soon = within 7 days) |
+| KPI rules | `lib/kpi/{periods,rag,stats}.ts` | Weekly Mon–Sun / month / fiscal quarter of the timeframe start; RAG INCREASE/DECREASE/RANGE with amber threshold; "measured, not scored" before `scoredFrom`; overdue > 3 working days (ScrumSettings holidays/timezone) |
+| Explorer | `lib/okr/explorer-params.ts` | `?owner=` (PRF-7) |
+| Cron | `lib/package-cron/{selection,runner}.ts` | See §14 |
+
+**Feature modules** (client barrels; server services imported by direct path from `app/` only; features never import each other — cross-feature UI is injected through `renderItemActions` / `graphSlot` slots by the profile shell):
+
+| Module | Barrel | Server | API |
+|---|---|---|---|
+| Operating package + review (PKG-1…5) | `features/operating-package` | `packages.server.ts`, `reviews.server.ts`, `items.server.ts` (reviewable set), `approval-state.server.ts`, `profile-summary.server.ts` | `/api/package/packages`, `[id]`, `[id]/submit`, `[id]/approve` (409 DISPUTES_OPEN), `[id]/reviews`, `[id]/reviews/[reviewId]/resolve` |
+| Role definition (ROL-1…4) | `features/role-definition` | `role-definitions.server.ts`, `profile-summary.server.ts` | `/api/package/role-definitions`, `[id]`, `[id]/approve` |
+| Recurring duties (DUT-1…8) | `features/duties` | `duties.server.ts` (Todo head lifecycle in transactions), `profile-summary.server.ts` | `/api/package/duties`, `[id]` (pause/resume/retire), `[id]/log` |
+| KPIs (KPI-1…7) | `features/kpis` | `kpis.server.ts`, `profile-summary.server.ts` | `/api/package/kpis`, `[id]`, `[id]/readings` |
+| Development plan (DEV-1…6) | `features/development-plan` | `development.server.ts`, `profile-summary.server.ts` | `/api/package/development`, `[id]`, `[id]/hours` |
+| Work dependencies (DEP-1…7) | `features/dependencies` | `dependencies.server.ts`, `profile-summary.server.ts` | `/api/dependencies`, `[id]`, `[id]/status`, `[id]/delivery-task`, `person/[userId]`, `export` |
+| Decisions (DEC-1…3) | `features/decisions` | `decisions.server.ts`, `profile-summary.server.ts` | `/api/decisions`, `[id]`, `[id]/decide` |
+| OKR links UI | `features/okr-links`, `components/shared/connections` | — | `/api/okr-links`, `/api/okr-links/[id]`, `/api/connections` |
+| KR checkpoints & definition (KRX-3/4) | `features/key-results` | `app/api/keyresults/[id]/checkpoints/_lib/checkpoints.server.ts` | `/api/keyresults/[id]/checkpoints`, `[checkpointId]`, PATCH `/api/keyresults/[id]` |
+| Employee profile (PRF-1…11) | `features/employee-profile` | `services/profile-shell.server.ts`, `components/okr-profile/okr-profile.server.ts` | `/api/users/[id]/okr-profile`, `/initiatives` |
+| Performance KPI source (KPI-9) | `features/performance` | `lib/performance/metric-resolver.ts` | `/api/performance/metric-mappings` (`kpiIds`), `/kpi-options` |
+
+**Pages:** `/dashboard/org/users/[id]?tab=overview|okrs|role|kpis|development|links|decisions&tf=<timeframeId>` (profile shell, `#package` anchor); `/dashboard/okrs-all/dependencies` (Dependency Map + company graph + CSV); `/dashboard/decisions`; `/dashboard/okrs-all?owner=`; Settings › Users › [id] Role definition tab; Settings › OKR Rules Development plan rule card. OKR detail pages and both quick views mount AlignmentTrail, lineage, connections, checkpoints and definition; Explorer rows show lazy ConnectionChips.
+
+**Permissions:** DocTypes `okr_link`, `kr_checkpoint`, `recurring_duty`, `role_definition`, `kpi`, `kpi_reading`, `development_item`, `work_dependency`, `decision`, `operating_package`, `package_item_review` (module `package`). Feature keys `module.package`, `page.people.package`, `page.okr.dependency-map`, `page.okr.decisions`, `button.package.duty.create`, `button.package.kpi.create`, `button.package.role.approve`, `button.package.approve`, `button.decision.decide`, `package.kpi.sensitive.read`, `package.hr`, plus `page.settings.timeframes`. Seeded by `scripts/seed-permissions.ts` (feature keys) and `npm run db:seed:package-permissions` (`scripts/seed-package-permissions.ts`, run by `scripts/deploy.sh`). Package tabs need `module.package` + `page.people.package` (ADMIN bypass); the OKRs tab is shown to every internal user. Record-level verdicts always come from `lib/package/access.ts`.
+
+**Notifications:** category `PACKAGE` (label "Operating package") with 11 events — `KPI_READING_DUE`, `DEPENDENCY_DUE_SOON`, `DEPENDENCY_LATE`, `DEPENDENCY_DONE`, `DECISION_REQUESTED`, `DECISION_DECIDED`, `DEV_ITEM_DUE`, `PACKAGE_SENT_FOR_REVIEW`, `PACKAGE_ITEM_DISPUTED`, `PACKAGE_APPROVED`, `KR_CHECKPOINT_DUE`. Cadences/recipients: `docs/NOTIFICATIONS.md` §2. Deep links: `lib/notifications/deep-link.ts`; email templates: `renderPackageEvent` in `lib/email/templates/index.ts`.
+
+**Cron:** `/api/cron/package-daily` at `0 2 * * *` (see §14 and `docs/CRON.md`).
+
+**Data scripts (post-deploy, in order):** (1) `npx tsx scripts/close-fy2526-okrs.ts --workbook <path> [--actor-email …] [--include-others] --report <out.json>`, then with `--apply` — closes the 50 FY25/26 carry-forward OKRs exactly like the close routes (ActivityLog `source=close-fy2526`). (2) `npx tsx scripts/import-operating-packages.ts --dir <data-import> --review-out <xlsx>`, review, then `--apply` (optionally `--actor-email`, `--notify`) — imports the FY 2026/27 company OKR and 9 packages (IMP-1…6), idempotent on `externalRef`, ActivityLog `source=import`; exits 1 when an owner is unmatched. `scripts/dev/seed-fy2526-fixture.ts` is a localhost-only rehearsal fixture. Optional: recompute `KeyResult.progress` for KRs with a non-zero start or DECREASE direction (old check-in formula).
+
+**Known gaps (schema frozen):** DEC-4 decision comments (no generic comment model); development evidence file upload (link stored in `evidenceNote`); Todo has no `parentId` (tasks list under the KR, not the milestone); `EvaluationMetricSource` has no `kpiId` (KPI sources read live); no explicit KPI auto-fill opt-in field (a KPI linked to an ACTIVE KR is auto-filled); seat → user link for direct-report seats is matched by title.
+
 ## 5. Page List & Sitemap
 
 ### 5.1 Public Routes
@@ -726,6 +779,8 @@ AI spend is recorded in the existing `AiGenerationLog` under feature key `AUTOMA
 ---
 
 ## 7. API Reference
+
+> **Operating package (2026-10-11):** `/api/package/*`, `/api/dependencies/*`, `/api/decisions/*`, `/api/okr-links*`, `/api/connections`, `/api/keyresults/[id]/checkpoints*`, `/api/users/[id]/okr-profile*`, `/api/cron/package-daily` — see §4.11 and `docs/SITEMAP.md` *Employee Operating Package*.
 
 All routes are under `/api/`. Standard response envelope: `{ success: boolean, data?: T, error?: string, pagination?: { page, limit, total, totalPages } }`.
 
@@ -1423,6 +1478,8 @@ Import: `import { useDebounce, useUsersForSelection, useTimeframes, useDepartmen
 
 ## 11. Permissions & RBAC
 
+> **Operating package (2026-10-11):** record-level access for package areas lives in `lib/package/access.ts` (§8 matrix); doctypes and feature keys are listed in §4.11.
+
 Source of truth: `lib/permissions.ts` (wrapped by `lib/rbac.ts` as unified API `can(action, resource, actor)`).
 
 ### 11.1 Role Hierarchy
@@ -1502,6 +1559,8 @@ Role tags: `poolCoordinatorIds` (CSV in DtpSettings), `operationsManagerIds` (CS
 ---
 
 ## 12. Notification System
+
+> **Operating package (2026-10-11):** new category `PACKAGE` with 11 events — see §4.11 and `docs/NOTIFICATIONS.md` §2.
 
 Source: `lib/notifications/` — `events.ts`, `dispatcher.ts`, `jobs.ts`, `preferences.ts`, `recipients.ts`, `redact.ts`, `deep-link.ts`, `row.ts`.
 
@@ -1675,6 +1734,7 @@ All cron routes are secured by `withCronAuth` (`lib/cron-auth.ts`) — header-on
 | Scrum health / reminder / finalize / nudge / weekly | `/api/cron/scrum-*` | `0 23 * * *` / `0 5 * * 1-5` / `0 6 * * 1-5` / `5 6 * * 1-5` / `0 13 * * 5` | Daily Scrum rhythm; health also emits `SCRUM_TEAM_MOOD_ALERT` |
 | Attachment staging cleanup | `/api/cron/attachment-staging-cleanup` | `50 0 * * *` | **New 2026-09-25 (H2).** Deletes staged comment uploads unclaimed for 24 h, then their files (batched, race-safe, idempotent) |
 | Performance nudge | `/api/cron/performance-nudge` | `0 5 * * *` | **Newly scheduled.** Sends only on `PerformanceSettings.weeklyNudgeDay`, idempotent per ISO week |
+| Operating package daily | `/api/cron/package-daily` | `0 2 * * *` | **New 2026-10-11.** KPI-3 auto-fill from linked KR, `KPI_READING_DUE`, `DEPENDENCY_DUE_SOON` (7 d), `DEPENDENCY_LATE` (then weekly), `DEV_ITEM_DUE` (14 d), `KR_CHECKPOINT_DUE` (7 d), archive APPROVED packages of ended timeframes. Per-entity dedupe; `?dryRun=1` |
 
 Deliberately **not** scheduled: `confidence-calc`, `daily-digest`, `sprint-migration-check`.
 

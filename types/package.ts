@@ -202,13 +202,27 @@ export const KPI_STATUS_LABELS: Record<KpiStatus, string> = {
   RETIRED: 'Retired',
 }
 
-export const KPI_READING_SOURCES = ['MANUAL', 'KR', 'IMPORT'] as const
+export const KPI_READING_SOURCES = ['MANUAL', 'KR', 'IMPORT', 'ODOO'] as const
 export type KpiReadingSource = (typeof KPI_READING_SOURCES)[number]
 export const isKpiReadingSource = guard(KPI_READING_SOURCES)
 export const KPI_READING_SOURCE_LABELS: Record<KpiReadingSource, string> = {
   MANUAL: 'Manual',
   KR: 'From key result',
   IMPORT: 'Imported',
+  ODOO: 'Odoo CRM',
+}
+
+/**
+ * `Kpi.externalSource`: readings come from an integration and manual entry is
+ * disabled (only a manager's RAG override remains). See lib/integrations/odoo-sales.
+ */
+export const KPI_EXTERNAL_SOURCES = ['ODOO_WON', 'ODOO_COVERAGE', 'ODOO_PACE'] as const
+export type KpiExternalSource = (typeof KPI_EXTERNAL_SOURCES)[number]
+export const isKpiExternalSource = guard(KPI_EXTERNAL_SOURCES)
+export const KPI_EXTERNAL_SOURCE_LABELS: Record<KpiExternalSource, string> = {
+  ODOO_WON: 'Odoo CRM',
+  ODOO_COVERAGE: 'Odoo CRM',
+  ODOO_PACE: 'Odoo CRM',
 }
 
 // ---------------------------------------------------------------------------

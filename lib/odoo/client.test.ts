@@ -144,3 +144,18 @@ test('executeKw reports a missing configuration distinctly from a refusal', asyn
     }
   )
 })
+
+test('parseResponse decodes nested structs (fields_get shape) and keeps sibling members', () => {
+  const field = (type: string, rel?: string) =>
+    `<struct><member><name>type</name><value><string>${type}</string></value></member>${
+      rel ? `<member><name>relation</name><value><string>${rel}</string></value></member>` : ''
+    }</struct>`
+  const xml = response(
+    `<struct><member><name>x_coassignee_ids</name><value>${field('many2many', 'res.users')}</value></member>` +
+      `<member><name>is_rotting</name><value>${field('boolean')}</value></member></struct>`,
+  )
+  assert.deepEqual(parseResponse(xml), {
+    x_coassignee_ids: { type: 'many2many', relation: 'res.users' },
+    is_rotting: { type: 'boolean' },
+  })
+})

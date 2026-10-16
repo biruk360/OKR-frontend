@@ -41,6 +41,7 @@ export async function getKpisProfileSummary(
     select: {
       frequency: true,
       createdAt: true,
+      externalSource: true,
       readings: { select: { periodStart: true, value: true, rag: true } },
     },
   })
@@ -49,6 +50,8 @@ export async function getKpisProfileSummary(
   const fiscalStartMonth = fiscalStartMonthOf(timeframe.startDate)
   let overdueReadings = 0
   const latestRags = kpis.map((kpi) => {
+    // KPI-5 does not apply to synced KPIs (the integration owes the reading).
+    if (kpi.externalSource) return latestReading(kpi.readings)?.rag ?? null
     overdueReadings += findOverduePeriods({
       frequency: isKpiFrequency(kpi.frequency) ? kpi.frequency : 'MONTHLY',
       fiscalStartMonth,

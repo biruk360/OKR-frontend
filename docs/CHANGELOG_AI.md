@@ -2,6 +2,13 @@
 
 > **Purpose:** Log of all changes made by AI assistants. Every AI session that modifies code MUST append an entry here.
 
+### 2026-10-16 — Odoo sales sync (branch `feat/odoo-sales-sync`, pending deploy)
+- **Why:** salespeople's quota KPIs should show live progress from Odoo CRM, and Odoo's daily/weekly sales briefs need each person's target, pace and OKR action items.
+- **Schema (additive):** `Kpi.externalSource`, `Kpi.coverageOfKpiId` (nullable); `KpiReading.source` documents `ODOO`. `prisma db push` on a restored copy of production adds only those two columns.
+- **New:** `lib/integrations/odoo-sales/**` (pace, deals, standing, okr-items, payload, odoo reader, context/sync/targets servers, webhook) + `odoo-sales.test.ts`; `lib/integration-auth.ts` (`withIntegrationKey`) + `lib/security/integration-auth.test.ts`; `app/api/cron/odoo-sales-sync/route.ts`; `app/api/integrations/odoo/sales-targets/route.ts`; `scripts/link-odoo-sales-kpis.ts`; `features/kpis/components/KpiSyncedLabel.tsx`.
+- **Changed:** `features/kpis` (view `externalSource`/`syncedAt`, synced permissions, 409 `KPI_SYNCED_FROM_ODOO` + RAG-override path, card/history/modal UI); `lib/package-cron/runner.ts` and `features/kpis/services/profile-summary.server.ts` skip synced KPIs for KPI-3/KPI-5; `lib/odoo/client.ts` parses nested structs (fixes `fields_get`; was "XML-RPC: unclosed tag") + test; `types/package.ts` (`ODOO` source, `KPI_EXTERNAL_SOURCES`); `lib/security/api-invariants.test.ts` (EXEMPT `app/api/integrations/`); `scripts/install-crontab.sh` (`30 3 * * *`, `-o /dev/null`, optional curl flags in `add`); `env.example`; `package.json` `test:integrations`; CI runs it; docs CRON, SITEMAP, FEATURE_STATUS, MASTER_REFERENCE.
+- **Verified:** tsc 0 errors; lint 0 errors; `test:integrations`, `lib/security/*`, `lib/odoo/*`, `lib/kpi/*`, `lib/package-cron/*`, `features/kpis/services/*` green. End to end on a local restore of production + live Odoo (read-only): dry run returns 4 people, Yared ETB 6,575,490.66 and Biruk ETB 910,143.43 (= Odoo "Won to date"), Eden/Yohannes 0, Eden missingAmountCount 121; real run writes 9 readings, second run 0 created/0 updated/9 unchanged; webhook unreachable → readings kept, `pushed:false`; endpoint 401/503/200 (no secret); cron 503 when Odoo unset; logs hold counts only.
+
 
 ### 2026-10-12 — Importer: skip people not assigned yet
 - `scripts/data/operating-package-user-map.json`: Yohannes Taye (Mobile & Banking Lead) and Mukuken/"Muluken" (ERP Lead) marked `skip: true` (user decision 2026-10-12). Their two packages are not imported; company KR5.2 falls back to the CEO; they are dropped from dependency parties / collaborators; they never block `--apply`.

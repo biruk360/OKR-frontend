@@ -36,6 +36,7 @@ import {
   timeframeWindowKeys,
 } from '@/lib/kpi/periods'
 import { isPeriodScored, hasNumericTarget, normalizeThresholdAmber, resolveReadingRag } from '@/lib/kpi/rag'
+import { syncedReadingRag } from '@/lib/integrations/odoo-sales/standing'
 import { isKpiFrequency, isKpiRag, type KpiFrequency } from '@/types/package'
 import { KpiError } from './errors'
 import {
@@ -43,6 +44,7 @@ import {
   canViewKpi,
   enterableKpiPeriods,
   isEnterablePeriod,
+  isSyncedKpi,
   isTimeframeEnded,
   kpiItemPermissions,
   kpiListPermissions,
@@ -456,7 +458,8 @@ export async function updateKpi(
   if (Object.keys(data).length === 0) return buildView(loaded, facts, viewerContextOf(viewer), calendar)
 
   const { approved } = await isPackageApproved(before.ownerId, before.timeframeId)
-  const ragChanged = RAG_FIELDS.some((f) => (data as Record<string, unknown>)[f] !== undefined)
+  // Synced KPIs: the integration computes the RAG (e.g. against the quota pace) on its next run.
+  const ragChanged = !isSyncedKpi(before) && RAG_FIELDS.some((f) => (data as Record<string, unknown>)[f] !== undefined)
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -544,9 +547,15 @@ export async function listKpiReadings(
   const data = [...loaded.readings]
     .sort((a, b) => b.periodStart.getTime() - a.periodStart.getTime())
     .map((r) => toKpiReadingView(loaded.kpi, r, opts))
-  const enterablePeriods = view.permissions.canEnterReading
-    ? enterableKpiPeriods(loaded.kpi, window, calendar.todayKey).map((p) => ({ startKey: p.startKey, endKey: p.endKey, label: p.label }))
-    : []
+  const toPeriod = (p: { startKey: string; endKey: string; label: string }) => ({ startKey: p.startKey, endKey: p.endKey, label: p.label })
+  // Synced KPIs: only periods that already have a reading, and only for a RAG override.
+  const enterablePeriods = isSyncedKpi(loaded.kpi)
+    ? view.permissions.canOverrideRag
+      ? data.map((r) => r.period)
+      : []
+    : view.permissions.canEnterReading
+      ? enterableKpiPeriods(loaded.kpi, window, calendar.todayKey).map(toPeriod)
+      : []
   return { kpi: view, data, enterablePeriods }
 }
 
@@ -572,6 +581,7 @@ export async function upsertKpiReading(
   const window = windowOf(loaded.timeframe)
   const timeframeEnded = isTimeframeEnded(window, calendar.todayKey)
   const perms = kpiItemPermissions(facts, kpi, { timeframeEnded })
+  if (isSyncedKpi(kpi)) return overrideSyncedReadingRag({ viewer, loaded, facts, perms, input, calendar, window })
   if (!perms.canEnterReading) {
     throw new KpiError(403, kpi.status === 'ACTIVE' ? 'You cannot enter readings for this KPI' : 'This KPI is retired')
   }
@@ -668,5 +678,77 @@ export async function upsertKpiReading(
     reading: toKpiReadingView(fresh.kpi, readingRow, { fiscalStartMonth: window.fiscalStartMonth }),
     kpi: view,
     created: !existing,
+  }
+}
+
+export const KPI_SYNCED_FROM_ODOO = 'KPI_SYNCED_FROM_ODOO'
+
+/**
+ * Synced KPIs (Kpi.externalSource): readings come from the integration, so a PUT
+ * is accepted only as a manager's RAG override (or clearing one) on an existing
+ * reading, with the stored value unchanged. Anything else → 409 KPI_SYNCED_FROM_ODOO.
+ */
+async function overrideSyncedReadingRag(args: {
+  viewer: PackageViewer
+  loaded: LoadedKpi
+  facts: PackageAccessFacts
+  perms: ReturnType<typeof kpiItemPermissions>
+  input: KpiReadingUpsertInput
+  calendar: KpiCalendar
+  window: KpiTimeframeWindow
+}): Promise<UpsertKpiReadingResult> {
+  const { viewer, loaded, facts, perms, input, calendar, window } = args
+  const { kpi } = loaded
+  const frequency: KpiFrequency = isKpiFrequency(kpi.frequency) ? kpi.frequency : 'MONTHLY'
+  const dateKey = isDateKey(input.period) ? input.period : dateKeyInZone(new Date(input.period), calendar.timeZone)
+  const period = kpiPeriodForKey(frequency, dateKey, { fiscalStartMonth: window.fiscalStartMonth })
+  const periodStart = periodStartDate(period.startKey)
+  const existing = loaded.readings.find((r) => r.periodStart.getTime() === periodStart.getTime()) ?? null
+
+  const sameValue = existing && (input.value ?? null) === existing.value && (input.valueText ?? null) === (existing.valueText ?? null)
+  if (!existing || !sameValue || input.rag === undefined || !perms.canOverrideRag) {
+    throw new KpiError(
+      409,
+      'This KPI is synced from Odoo CRM: readings cannot be entered by hand. A manager may only override the RAG of a synced reading.',
+      KPI_SYNCED_FROM_ODOO,
+    )
+  }
+
+  const scored = isPeriodScored(kpi.scoredFrom, periodEndDate(period.endKey))
+  const atKey = calendar.todayKey < period.endKey ? calendar.todayKey : period.endKey
+  const computed = scored ? syncedReadingRag(kpi, existing.value, window, atKey) : null
+  const values =
+    input.rag === null
+      ? { rag: computed, ragOverridden: false }
+      : { rag: scored ? input.rag : null, ragOverridden: scored && input.rag !== computed }
+
+  const { approved } = await isPackageApproved(kpi.ownerId, kpi.timeframeId)
+  await prisma.$transaction(async (tx) => {
+    await tx.kpiReading.update({ where: { id: existing.id }, data: values })
+    await recordPackageUpdateIfChanged(
+      {
+        entityType: 'KPI_READING',
+        entityId: existing.id,
+        subjectUserId: kpi.ownerId,
+        timeframeId: kpi.timeframeId,
+        packageId: kpi.packageId,
+        actorId: viewer.userId,
+        editedAfterApproval: approved,
+        metadata: { kpiId: kpi.id, period: period.label, periodStart: period.startKey },
+        before: snapshot(existing),
+        after: snapshot({ ...existing, ...values }),
+        fields: READING_AUDIT_FIELDS,
+      },
+      { client: tx },
+    )
+  })
+
+  const fresh = await loadKpiWithContext(kpi.id)
+  const readingRow = fresh.readings.find((r) => r.id === existing.id)
+  if (!readingRow) throw new KpiError(404, 'Reading not found')
+  return {
+    reading: toKpiReadingView(fresh.kpi, readingRow, { fiscalStartMonth: window.fiscalStartMonth }),
+    kpi: buildView(fresh, facts, viewerContextOf(viewer), calendar),
+    created: false,
   }
 }

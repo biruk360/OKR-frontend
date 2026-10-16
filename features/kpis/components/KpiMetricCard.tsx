@@ -11,6 +11,7 @@ import { KPI_DIRECTION_LABELS, KPI_FREQUENCY_LABELS } from '@/types/package'
 import { cn } from '@/lib/utils'
 import type { KpiView } from '../types'
 import { KpiRagBadge, kpiRagColor } from './KpiRagBadge'
+import { KpiSyncedLabel } from './KpiSyncedLabel'
 
 interface KpiMetricCardProps {
   kpi: KpiView
@@ -41,6 +42,9 @@ export function KpiMetricCard({ kpi, onEnterReading, onEdit, onRetire, onShowHis
   const overdue = kpi.overduePeriods.length
   const retired = kpi.status === 'RETIRED'
   const currentEntered = Boolean(kpi.currentReading)
+  // Readings come from an integration (Odoo CRM): no manual entry, managers may override the RAG.
+  const synced = Boolean(kpi.externalSource)
+  const canOverrideSynced = synced && kpi.permissions.canOverrideRag && currentEntered
 
   return (
     <article
@@ -80,10 +84,10 @@ export function KpiMetricCard({ kpi, onEnterReading, onEdit, onRetire, onShowHis
               { key: 'history', label: 'Reading history', icon: History, onSelect: () => onShowHistory(kpi) },
               {
                 key: 'reading',
-                label: 'Enter reading',
+                label: synced ? 'Override RAG' : 'Enter reading',
                 icon: PenLine,
                 onSelect: () => onEnterReading(kpi),
-                hidden: !kpi.permissions.canEnterReading,
+                hidden: synced ? !canOverrideSynced : !kpi.permissions.canEnterReading,
               },
               { key: 'edit', label: 'Edit KPI', icon: Pencil, onSelect: () => onEdit(kpi), hidden: !kpi.permissions.canEdit },
               {
@@ -173,7 +177,9 @@ export function KpiMetricCard({ kpi, onEnterReading, onEdit, onRetire, onShowHis
       </div>
 
       <footer className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t pt-3" style={{ borderColor: 'var(--ap-border)' }}>
-        {overdue > 0 ? (
+        {synced ? (
+          <KpiSyncedLabel kpi={kpi} />
+        ) : overdue > 0 ? (
           <span
             className="inline-flex items-center gap-1 text-caption font-medium"
             style={{ color: 'var(--ap-danger-fg)' }}

@@ -9,6 +9,7 @@ import { KPI_READING_SOURCE_LABELS } from '@/types/package'
 import { useKpiReadings } from '../hooks/queries'
 import type { KpiView } from '../types'
 import { KpiRagBadge } from './KpiRagBadge'
+import { KpiSyncedLabel } from './KpiSyncedLabel'
 
 interface KpiHistoryTableProps {
   kpi: KpiView
@@ -59,8 +60,16 @@ function KpiReadingsTable({ kpi, onEditReading }: KpiHistoryTableProps) {
     )
   }
 
+  // Synced KPIs: the pencil is a manager's RAG override (enterablePeriods are then the synced periods).
+  const canEditRow = kpi.permissions.canEnterReading || (Boolean(kpi.externalSource) && kpi.permissions.canOverrideRag)
+
   return (
     <div className="overflow-x-auto">
+      {kpi.externalSource && (
+        <div className="px-4 pt-3">
+          <KpiSyncedLabel kpi={kpi} />
+        </div>
+      )}
       <table className="w-full min-w-[640px] text-left text-body-sm">
         <thead>
           <tr className="border-b text-caption uppercase tracking-wide text-muted-foreground" style={{ borderColor: 'var(--ap-border)' }}>
@@ -96,11 +105,11 @@ function KpiReadingsTable({ kpi, onEditReading }: KpiHistoryTableProps) {
                 <span className="line-clamp-2" title={r.note ?? undefined}>{r.note ?? '—'}</span>
               </td>
               <td className="px-2 py-2 text-right">
-                {onEditReading && kpi.permissions.canEnterReading && editable.has(r.period.startKey) && (
+                {onEditReading && canEditRow && editable.has(r.period.startKey) && (
                   <Button
                     size="icon-sm"
                     variant="ghost"
-                    aria-label={`Edit reading for ${r.period.label}`}
+                    aria-label={kpi.externalSource ? `Override RAG for ${r.period.label}` : `Edit reading for ${r.period.label}`}
                     onClick={() => onEditReading(kpi, r.period.startKey)}
                   >
                     <Pencil />

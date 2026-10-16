@@ -23,6 +23,7 @@ import { computeKpiRag, hasNumericTarget, isPeriodScored, normalizeThresholdAmbe
 import { findOverduePeriods, maxDateKey, quarterToDateAverage, sparklineSeries } from '@/lib/kpi/stats'
 import {
   isKpiDirection,
+  isKpiExternalSource,
   isKpiFrequency,
   isKpiRag,
   isKpiReadingSource,
@@ -68,6 +69,9 @@ export interface KpiRow {
   isSensitive: boolean
   status: string
   note: string | null
+  /** Integration that produces the readings (ODOO_WON / ODOO_COVERAGE / ODOO_PACE) or null. */
+  externalSource: string | null
+  coverageOfKpiId: string | null
   createdAt: Date
   updatedAt: Date
 }
@@ -132,18 +136,27 @@ export function canEditKpiDefinition(
   return !kpi.isSensitive || canEditPackageAreaResolved(f, 'kpis_sensitive')
 }
 
+/** True when an integration writes the KPI's readings (manual entry disabled). */
+export function isSyncedKpi(kpi: { externalSource?: string | null }): boolean {
+  return Boolean(kpi.externalSource)
+}
+
+/**
+ * Synced KPIs (`externalSource`, e.g. Odoo CRM): nobody enters readings by hand;
+ * whoever could enter one (and is not the owner) may still override the RAG.
+ */
 export function kpiItemPermissions(
   f: PackageAccessFacts,
-  kpi: { isSensitive: boolean; status: string },
+  kpi: { isSensitive: boolean; status: string; externalSource?: string | null },
   opts: { timeframeEnded: boolean },
 ): KpiItemPermissions {
   const canEdit = canEditKpiDefinition(f, kpi, opts)
-  const canEnterReading = kpi.status === 'ACTIVE' && canEnterKpiReadingResolved(f, { isSensitive: kpi.isSensitive })
+  const mayEnter = kpi.status === 'ACTIVE' && canEnterKpiReadingResolved(f, { isSensitive: kpi.isSensitive })
   return {
     canEdit,
     canRetire: canEdit && kpi.status === 'ACTIVE',
-    canEnterReading,
-    canOverrideRag: canEnterReading && !f.isSelf,
+    canEnterReading: mayEnter && !isSyncedKpi(kpi),
+    canOverrideRag: mayEnter && !f.isSelf,
   }
 }
 
@@ -191,6 +204,9 @@ export function readingPeriodView(kpi: Pick<KpiRow, 'frequency'>, reading: Pick<
 
 export function toKpiReadingView(kpi: KpiRow, reading: KpiReadingRow, opts: KpiPeriodOptions): KpiReadingView {
   const scored = isPeriodScored(kpi.scoredFrom, reading.periodEnd)
+  // A synced reading's RAG is computed by the integration (e.g. against the quota
+  // pace, not the annual target); unless a manager overrode it, it is the computed one.
+  const synced = reading.source === 'ODOO' && !reading.ragOverridden && isKpiRag(reading.rag)
   return {
     id: reading.id,
     kpiId: reading.kpiId,
@@ -198,7 +214,7 @@ export function toKpiReadingView(kpi: KpiRow, reading: KpiReadingRow, opts: KpiP
     value: reading.value,
     valueText: reading.valueText,
     rag: scored && isKpiRag(reading.rag) ? reading.rag : null,
-    computedRag: scored ? computeKpiRag(kpi, reading.value) : null,
+    computedRag: scored ? (synced ? (reading.rag as KpiReadingView['rag']) : computeKpiRag(kpi, reading.value)) : null,
     ragOverridden: reading.ragOverridden,
     scored,
     note: reading.note,
@@ -263,8 +279,14 @@ export function toKpiView(input: {
   const qtdRef = compareDateKeys(calendar.todayKey, window.endKey) > 0 ? window.endKey : calendar.todayKey
   const qtd = quarterToDateAverage(plain, qtdRef, window.fiscalStartMonth)
 
+  const synced = isSyncedKpi(kpi)
+  const lastSynced = [...input.readings]
+    .filter((r) => r.source === 'ODOO')
+    .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())[0]
+
+  // KPI-5 does not apply to synced KPIs: the integration, not a person, owes the reading.
   const overdue =
-    kpi.status === 'ACTIVE'
+    kpi.status === 'ACTIVE' && !synced
       ? findOverduePeriods({
           frequency,
           fiscalStartMonth: window.fiscalStartMonth,
@@ -303,6 +325,8 @@ export function toKpiView(input: {
     isSensitive: kpi.isSensitive,
     status: isKpiStatus(kpi.status) ? kpi.status : 'ACTIVE',
     note: kpi.note,
+    externalSource: isKpiExternalSource(kpi.externalSource) ? kpi.externalSource : null,
+    syncedAt: lastSynced ? lastSynced.updatedAt.toISOString() : null,
     numericTarget: hasNumericTarget(kpi),
     createdAt: kpi.createdAt.toISOString(),
     updatedAt: kpi.updatedAt.toISOString(),

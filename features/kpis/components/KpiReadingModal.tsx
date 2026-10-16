@@ -16,6 +16,7 @@ import {
 import { zodFormResolver } from '../services/zod-resolver'
 import type { KpiReadingView, KpiView } from '../types'
 import { KpiRagBadge } from './KpiRagBadge'
+import { KpiSyncedLabel } from './KpiSyncedLabel'
 
 interface KpiReadingModalProps {
   open: boolean
@@ -55,8 +56,10 @@ export function KpiReadingModal({ open, kpi, onClose, initialPeriodKey }: KpiRea
   }, [readingsQuery.data, kpi])
   const byPeriod = useMemo(() => new Map(readings.map((r) => [r.period.startKey, r])), [readings])
 
+  // Synced KPIs (Odoo CRM): the value is the integration's; a manager may only override the RAG.
+  const synced = Boolean(kpi?.externalSource)
   const canSetRag = kpi
-    ? kpi.numericTarget
+    ? kpi.numericTarget || synced
       ? kpi.permissions.canOverrideRag
       : kpi.permissions.canEnterReading
     : false
@@ -87,7 +90,11 @@ export function KpiReadingModal({ open, kpi, onClose, initialPeriodKey }: KpiRea
   if (!kpi) return null
   const existing = byPeriod.get(period)
   const numericValue = valueRaw.trim() === '' ? null : Number(valueRaw.replace(/,/g, ''))
-  const previewRag = kpi.numericTarget && numericValue !== null && Number.isFinite(numericValue) ? computeKpiRag(kpi, numericValue) : null
+  const previewRag = synced
+    ? existing?.computedRag ?? null
+    : kpi.numericTarget && numericValue !== null && Number.isFinite(numericValue)
+      ? computeKpiRag(kpi, numericValue)
+      : null
 
   const onSubmit = handleSubmit(async (values) => {
     await save.mutateAsync({ id: kpi.id, body: kpiReadingFormToPayload(values, { includeRag: canSetRag }) })
@@ -98,7 +105,7 @@ export function KpiReadingModal({ open, kpi, onClose, initialPeriodKey }: KpiRea
     <Modal
       open={open}
       onClose={onClose}
-      title={existing ? 'Update reading' : 'Enter reading'}
+      title={synced ? 'Override RAG' : existing ? 'Update reading' : 'Enter reading'}
       icon={PenLine}
       size="md"
       footer={
@@ -107,7 +114,7 @@ export function KpiReadingModal({ open, kpi, onClose, initialPeriodKey }: KpiRea
             Cancel
           </Button>
           <Button onClick={onSubmit} disabled={save.isPending || formState.isSubmitting}>
-            {save.isPending ? 'Saving…' : existing ? 'Update reading' : 'Save reading'}
+            {save.isPending ? 'Saving…' : synced ? 'Save RAG' : existing ? 'Update reading' : 'Save reading'}
           </Button>
         </div>
       }
@@ -138,7 +145,15 @@ export function KpiReadingModal({ open, kpi, onClose, initialPeriodKey }: KpiRea
             <label htmlFor="kpi-reading-value" className="mb-1 block text-body-sm font-medium text-muted-foreground">
               Value{kpi.unit ? ` (${kpi.unit})` : ''}
             </label>
-            <input id="kpi-reading-value" inputMode="decimal" className="input" placeholder="e.g. 42" {...register('value')} />
+            <input
+              id="kpi-reading-value"
+              inputMode="decimal"
+              className="input"
+              placeholder="e.g. 42"
+              readOnly={synced}
+              aria-readonly={synced}
+              {...register('value')}
+            />
             <FieldError message={formState.errors.value?.message} />
           </div>
           <div>
@@ -149,14 +164,16 @@ export function KpiReadingModal({ open, kpi, onClose, initialPeriodKey }: KpiRea
               id="kpi-reading-text"
               className="input"
               placeholder="100%; 100%; ≥30 qualified"
+              readOnly={synced}
+              aria-readonly={synced}
               {...register('valueText')}
             />
           </div>
         </div>
 
-        {kpi.numericTarget && (
+        {(kpi.numericTarget || synced) && (
           <div className="flex items-center gap-2 text-caption text-muted-foreground">
-            <span>Computed RAG:</span>
+            <span>{synced ? 'Synced RAG:' : 'Computed RAG:'}</span>
             {previewRag ? <KpiRagBadge rag={previewRag} /> : <span>—</span>}
             {numericValue !== null && Number.isFinite(numericValue) && (
               <span className="tabular-nums">({formatKpiNumber(numericValue, kpi.unit)})</span>
@@ -167,10 +184,10 @@ export function KpiReadingModal({ open, kpi, onClose, initialPeriodKey }: KpiRea
         {canSetRag && (
           <div>
             <label htmlFor="kpi-reading-rag" className="mb-1 block text-body-sm font-medium text-muted-foreground">
-              {kpi.numericTarget ? 'Override RAG (manager)' : 'RAG (set manually for this KPI)'}
+              {kpi.numericTarget || synced ? 'Override RAG (manager)' : 'RAG (set manually for this KPI)'}
             </label>
             <select id="kpi-reading-rag" className="input" {...register('rag')}>
-              <option value="">{kpi.numericTarget ? 'Use computed RAG' : 'Not rated'}</option>
+              <option value="">{synced ? 'Use synced RAG' : kpi.numericTarget ? 'Use computed RAG' : 'Not rated'}</option>
               {KPI_RAGS.map((rag) => (
                 <option key={rag} value={rag}>
                   {KPI_RAG_LABELS[rag]}
@@ -184,10 +201,12 @@ export function KpiReadingModal({ open, kpi, onClose, initialPeriodKey }: KpiRea
           <label htmlFor="kpi-reading-note" className="mb-1 block text-body-sm font-medium text-muted-foreground">
             Note
           </label>
-          <textarea id="kpi-reading-note" rows={3} className="input h-auto" {...register('note')} />
+          <textarea id="kpi-reading-note" rows={3} className="input h-auto" readOnly={synced} aria-readonly={synced} {...register('note')} />
         </div>
 
-        {existing && (
+        {synced ? (
+          <KpiSyncedLabel kpi={kpi} />
+        ) : existing && (
           <p className="text-caption text-muted-foreground">
             Last entered {existing.enteredBy ? `by ${existing.enteredBy.name} ` : ''}on{' '}
             {new Date(existing.updatedAt).toLocaleDateString()} — saving replaces it and is logged.

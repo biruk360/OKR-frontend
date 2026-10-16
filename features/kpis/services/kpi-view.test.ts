@@ -131,6 +131,8 @@ function kpiRow(overrides: Partial<KpiRow> = {}): KpiRow {
     isSensitive: false,
     status: 'ACTIVE',
     note: null,
+    externalSource: null,
+    coverageOfKpiId: null,
     createdAt: new Date('2026-07-01T00:00:00Z'),
     updatedAt: new Date('2026-07-01T00:00:00Z'),
     ...overrides,
@@ -230,4 +232,34 @@ test('schemas: create defaults, range validation, reading needs a value', () => 
   assert.equal(payload.thresholdAmber, 0.8)
   assert.equal(payload.targetMin, null)
   assert.ok(!('rag' in kpiReadingFormToPayload({ period: '2026-10-01', value: '3', valueText: '', rag: 'GREEN', note: '' }, { includeRag: false })))
+})
+
+test('synced KPIs (Odoo): no manual reading; a manager may still override the RAG', () => {
+  const open = { timeframeEnded: false }
+  const synced = { isSensitive: true, status: 'ACTIVE', externalSource: 'ODOO_WON' }
+  const s = kpiItemPermissions(self, synced, open)
+  assert.deepEqual([s.canEnterReading, s.canOverrideRag], [false, false])
+  const m = kpiItemPermissions(manager, synced, open)
+  assert.deepEqual([m.canEnterReading, m.canOverrideRag], [false, true])
+  const a = kpiItemPermissions(admin, synced, open)
+  assert.deepEqual([a.canEnterReading, a.canOverrideRag], [false, true])
+  assert.equal(kpiItemPermissions(manager, { ...synced, status: 'RETIRED' }, open).canOverrideRag, false)
+})
+
+test('toKpiView: synced KPI exposes externalSource + syncedAt, keeps the synced RAG, never overdue', () => {
+  const odoo = { ...reading('2026-10-01', '2026-10-31', 0, 'RED'), source: 'ODOO', updatedAt: new Date('2026-10-16T03:30:05Z') }
+  const view = toKpiView({
+    kpi: kpiRow({ externalSource: 'ODOO_WON', targetValue: null, unit: 'ETB', createdAt: new Date('2026-07-01T00:00:00Z') }),
+    readings: [odoo],
+    window,
+    calendar: { todayKey: '2026-12-12', timeZone: 'UTC', holidays: new Set() },
+    permissions: kpiItemPermissions(self, { isSensitive: true, status: 'ACTIVE', externalSource: 'ODOO_WON' }, { timeframeEnded: false }),
+    keyResult: null,
+  })
+  assert.equal(view.externalSource, 'ODOO_WON')
+  assert.equal(view.syncedAt, '2026-10-16T03:30:05.000Z')
+  assert.equal(view.latest?.source, 'ODOO')
+  assert.equal(view.latest?.computedRag, 'RED')
+  assert.deepEqual(view.overduePeriods, [])
+  assert.equal(view.permissions.canEnterReading, false)
 })

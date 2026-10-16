@@ -45,6 +45,7 @@ const EXEMPT: { prefix: string; reason: string; mustMatch: RegExp }[] = [
   { prefix: 'app/api/portal/invite/', reason: 'client-portal invite acceptance is authenticated by a hashed one-time token and rate-limited per IP', mustMatch: /hitRateLimit\([\s\S]*(?:peekPortalInvite|acceptPortalInvite)\(/ },
   { prefix: 'app/api/portal/', reason: 'client-portal routes authenticate with withPortalAuth', mustMatch: /withPortalAuth/ },
   { prefix: 'app/api/cron/', reason: 'cron routes authenticate with withCronAuth (lib/cron-auth.ts), a fail-closed CRON_SECRET bearer check', mustMatch: /withCronAuth/ },
+  { prefix: 'app/api/integrations/', reason: 'machine-to-machine integration routes authenticate with withIntegrationKey (lib/integration-auth.ts), a fail-closed x-integration-key header check', mustMatch: /withIntegrationKey/ },
   { prefix: 'app/api/telegram/webhook/', reason: 'webhook authenticates with TELEGRAM_WEBHOOK_SECRET', mustMatch: /TELEGRAM_WEBHOOK_SECRET/ },
   { prefix: 'app/api/health/', reason: 'liveness probe exposes no data', mustMatch: /.*/ },
   { prefix: 'app/api/wallpaper/', reason: 'it feeds the sign-in screen, which is pre-login by definition, and returns only public photo metadata', mustMatch: /Deliberately unauthenticated/ },

@@ -194,14 +194,21 @@ function parseInner(body: string): unknown {
       return arr
     }
     case 'struct': {
+      // Depth-aware: a member's value may itself be a struct (e.g. fields_get →
+      // { field: { type: … } }), so a non-greedy </member> match would cut it short.
       const out: Record<string, unknown> = {}
-      const memberRe = /<member>([\s\S]*?)<\/member>/g
-      let mm: RegExpExecArray | null
-      while ((mm = memberRe.exec(inner)) !== null) {
-        const nameMatch = mm[1].match(/<name>([\s\S]*?)<\/name>/)
+      let i = 0
+      for (;;) {
+        const open = inner.indexOf('<member>', i)
+        if (open < 0) break
+        const start = open + '<member>'.length
+        const close = findMatchingClose(inner, '<member>', '</member>', start)
+        const member = inner.slice(start, close)
+        i = close + '</member>'.length
+        const nameMatch = member.match(/^\s*<name>([\s\S]*?)<\/name>/)
         if (!nameMatch) continue
-        const { val } = parseValue(mm[1], mm[1].indexOf('<value>'))
-        out[nameMatch[1]] = val
+        const { val } = parseValue(member, member.indexOf('<value>'))
+        out[decodeEntities(nameMatch[1])] = val
       }
       return out
     }

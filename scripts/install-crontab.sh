@@ -76,16 +76,16 @@ if grep -qE 'curl .*[?&]key=' "$TMP"; then
   sed -E -i.bak '/curl /{/Authorization: Bearer/!s#curl #curl -H "Authorization: Bearer $CRON_SECRET" #;}' "$TMP" && rm -f "$TMP.bak"
 fi
 
-# add <match> <schedule> <path> [comment]
+# add <match> <schedule> <path> [comment] [extra curl flags]
 add() {
-  local match="$1" schedule="$2" path="$3" comment="${4:-}"
+  local match="$1" schedule="$2" path="$3" comment="${4:-}" flags="${5:-}"
   if grep -q "$match" "$TMP"; then
     echo "  = $match (already present)"
     return
   fi
   [ -n "$comment" ] && echo "# $comment" >> "$TMP"
   # Double quotes on purpose — see the header. $CRON_SECRET must expand at run time.
-  echo "$schedule curl -fsS -H \"Authorization: Bearer \$CRON_SECRET\" ${APP_URL}${path}" >> "$TMP"
+  echo "$schedule curl -fsS ${flags:+$flags }-H \"Authorization: Bearer \$CRON_SECRET\" ${APP_URL}${path}" >> "$TMP"
   echo "  + $match"
 }
 
@@ -190,6 +190,13 @@ add performance-nudge  "0 5 * * *"   "/api/cron/performance-nudge" \
 # ── Employee Operating Package ───────────────────────────────────────────────
 add package-daily      "0 2 * * *"   "/api/cron/package-daily" \
   "Operating package daily — 05:00 EAT: KPI-3 auto-fill from linked KRs, KPI reading overdue, dependency due-soon/late (late re-sent weekly), development item (14d) and KR checkpoint (7d) reminders. Idempotent per entity per day/period."
+
+# ── Integrations ─────────────────────────────────────────────────────────────
+# -o /dev/null: the response carries sales quota figures (sensitive, KPI-7) and must
+# not end up in cron mail; the app logs a counts-only summary line instead.
+add odoo-sales-sync    "30 3 * * *"  "/api/cron/odoo-sales-sync" \
+  "Odoo sales sync — 06:30 EAT, before Odoo's 07:30 sales brief: Odoo CRM won/pipeline → source=ODOO readings on the linked quota/coverage KPIs, then POST the target payload to Odoo. Idempotent per day." \
+  "-o /dev/null"
 
 crontab "$TMP"
 echo "Crontab updated."

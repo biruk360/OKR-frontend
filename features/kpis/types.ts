@@ -4,6 +4,7 @@
  */
 import type {
   KpiDirection,
+  KpiExternalSource,
   KpiFrequency,
   KpiRag,
   KpiReadingSource,
@@ -42,8 +43,9 @@ export interface KpiReadingView {
 export interface KpiItemPermissions {
   canEdit: boolean
   canRetire: boolean
+  /** False on synced KPIs (Kpi.externalSource) — readings come from the integration. */
   canEnterReading: boolean
-  /** Manager override of a computed RAG (never on one's own KPI). */
+  /** Manager override of a computed RAG (never on one's own KPI); still allowed on synced KPIs. */
   canOverrideRag: boolean
 }
 
@@ -76,6 +78,10 @@ export interface KpiView {
   isSensitive: boolean
   status: KpiStatus
   note: string | null
+  /** Set when an integration writes the readings (Odoo CRM); manual entry is then disabled. */
+  externalSource: KpiExternalSource | null
+  /** Last time the integration wrote a reading (ISO), or null. */
+  syncedAt: string | null
   /** True when the KPI has a numeric target (else RAG is manual — KPI-6). */
   numericTarget: boolean
   createdAt: string

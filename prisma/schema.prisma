@@ -3916,39 +3916,46 @@ model RoleDefinitionItem {
 
 /// KPI (KPI): a standard held every period; readings feed performance (not OKR scores).
 model Kpi {
-  id             String    @id @default(cuid())
-  externalRef    String?
-  ownerId        String
-  timeframeId    String
-  packageId      String?
-  name           String
+  id              String    @id @default(cuid())
+  externalRef     String?
+  ownerId         String
+  timeframeId     String
+  packageId       String?
+  name            String
   /// LEADING | LAGGING
-  kpiType        String    @default("LEADING")
-  definition     String
-  formula        String?
-  dataSource     String?
-  unit           String    @default("")
+  kpiType         String    @default("LEADING")
+  definition      String
+  formula         String?
+  dataSource      String?
+  unit            String    @default("")
   /// INCREASE | DECREASE | RANGE
-  direction      String    @default("INCREASE")
-  baselineText   String?
-  baselineValue  Float?
-  targetText     String
-  targetValue    Float?
-  targetMin      Float?
-  targetMax      Float?
+  direction       String    @default("INCREASE")
+  baselineText    String?
+  baselineValue   Float?
+  targetText      String
+  targetValue     Float?
+  targetMin       Float?
+  targetMax       Float?
   /// Fraction of target counted as amber (0.9 = within 10%).
-  thresholdAmber Float     @default(0.9)
+  thresholdAmber  Float     @default(0.9)
   /// WEEKLY | MONTHLY | QUARTERLY
-  frequency      String    @default("MONTHLY")
-  scoredFrom     DateTime?
-  keyResultId    String?
+  frequency       String    @default("MONTHLY")
+  scoredFrom      DateTime?
+  keyResultId     String?
   /// Quota / commission KPIs: owner, manager chain, Finance/Exec/Admin only (KPI-7).
-  isSensitive    Boolean   @default(false)
+  isSensitive     Boolean   @default(false)
   /// ACTIVE | RETIRED
-  status         String    @default("ACTIVE")
-  note           String?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  status          String    @default("ACTIVE")
+  note            String?
+  /// When set, readings are produced by an integration and manual entry is disabled.
+  /// ODOO_WON = cumulative won value from Odoo CRM; ODOO_COVERAGE = pipeline ÷ remaining quota;
+  /// ODOO_PACE = company won ÷ pace-expected (%), pace from the linked company KR.
+  /// Set by scripts/link-odoo-sales-kpis.ts; written by lib/integrations/odoo-sales.
+  externalSource  String?
+  /// For ODOO_COVERAGE KPIs: the quota KPI whose remaining value is the denominator.
+  coverageOfKpiId String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   owner          User                  @relation("KpiOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   timeframe      Timeframe             @relation(fields: [timeframeId], references: [id])
@@ -3974,7 +3981,7 @@ model KpiReading {
   rag           String?
   ragOverridden Boolean  @default(false)
   note          String?
-  /// MANUAL | KR | IMPORT
+  /// MANUAL | KR | IMPORT | ODOO (Odoo CRM sync — lib/integrations/odoo-sales)
   source        String   @default("MANUAL")
   enteredById   String?
   createdAt     DateTime @default(now())

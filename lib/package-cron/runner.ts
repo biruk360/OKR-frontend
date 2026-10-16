@@ -167,7 +167,9 @@ async function loadKpis(todayKey: string) {
   // Timeframes that ended long ago have nothing left to fill or remind about.
   const horizon = keyStart(addDaysToKey(todayKey, -(Math.max(KPI_DUE_MAX_AGE_DAYS, KPI_AUTOFILL_MAX_LAG_DAYS) + 1)))
   return prisma.kpi.findMany({
-    where: { status: 'ACTIVE', timeframe: { endDate: { gte: horizon } } },
+    // Synced KPIs (externalSource, e.g. Odoo CRM) get their readings from the
+    // integration: no KR auto-fill (KPI-3) and no "reading due" nag (KPI-5).
+    where: { status: 'ACTIVE', externalSource: null, timeframe: { endDate: { gte: horizon } } },
     select: {
       id: true,
       name: true,

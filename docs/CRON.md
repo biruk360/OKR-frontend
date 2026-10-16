@@ -132,6 +132,14 @@ client-report, wbr-pack, jira-sync and the draft purge were added 2026-09-25.
 
 Install: re-run `scripts/install-crontab.sh` on the VPS after the deploy that ships this route (back up the crontab first — see the crontab safety rule). Known gap: a user with in-app off and IMMEDIATE email leaves no row to dedupe `DEPENDENCY_LATE` against (would need a delivery-log table).
 
+## Integrations
+
+| Schedule (UTC) | Endpoint | Purpose |
+|---|---|---|
+| `30 3 * * *` | `/api/cron/odoo-sales-sync` | 06:30 EAT, before Odoo's 07:30 "Bid & sales brief". `lib/integrations/odoo-sales/sync.server.ts` `runOdooSalesSync`: reads Odoo CRM through the read-only client (won in FY, open pipeline, credit split Salesperson + Co-owners), upserts one `source='ODOO'` reading per KPI linked by `scripts/link-odoo-sales-kpis.ts` for the current period (quota = cumulative won, coverage = pipeline ÷ remaining quota, CEO-K01 = company won ÷ pace %), keeps a manager's RAG override, audits value/RAG changes; then POSTs `okr-sales-targets/v1` to `ODOO_SALES_WEBHOOK_URL` (one retry on 5xx/network; readings stay if the push fails). Idempotent per day. `?dryRun=1` or env `ODOO_SALES_SYNC_DRY_RUN=1` writes and pushes nothing. Odoo unset → 503 `ODOO_NOT_CONFIGURED`. The crontab line discards the response (`-o /dev/null`) because it carries quota figures; the server logs one counts-only line. |
+
+Install: after the deploy, run `npx tsx scripts/link-odoo-sales-kpis.ts` (dry run) then `--apply`, check `GET /api/cron/odoo-sales-sync?dryRun=1`, then re-run `scripts/install-crontab.sh` (back up the crontab first). The read-only mirror is `GET /api/integrations/odoo/sales-targets` (`x-integration-key`, not a cron route).
+
 ## Hygiene
 
 | Schedule (UTC) | Endpoint | Purpose |

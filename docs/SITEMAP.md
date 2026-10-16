@@ -411,7 +411,7 @@ All `/api/package/*`, `/api/dependencies/*` and `/api/decisions/*` routes are `w
 | POST | `/api/package/duties/[id]/log` | features/duties | Log an occurrence |
 | GET/POST | `/api/package/kpis` | features/kpis | KPIs of a person (+ permissions, timeframe) / create |
 | GET/PATCH/DELETE | `/api/package/kpis/[id]` | features/kpis | Read / edit (frequency locked once readings exist) / retire |
-| GET/PUT | `/api/package/kpis/[id]/readings` | features/kpis | Readings (newest first, enterable periods) / upsert a period reading (RAG override) |
+| GET/PUT | `/api/package/kpis/[id]/readings` | features/kpis | Readings (newest first, enterable periods) / upsert a period reading (RAG override). Synced KPIs (`externalSource`): RAG override only, otherwise 409 `KPI_SYNCED_FROM_ODOO` |
 | GET/POST | `/api/package/development` | features/development-plan | Development items + DEV-3 rule progress / create |
 | GET/PATCH | `/api/package/development/[id]` | features/development-plan | Read / edit (DEV-2 evidence, DEV-5 drop reason) |
 | POST | `/api/package/development/[id]/hours` | features/development-plan | Log hours |
@@ -452,6 +452,8 @@ All `/api/package/*`, `/api/dependencies/*` and `/api/decisions/*` routes are `w
 | GET | `/api/link-preview?url=` | SSRF-safe page metadata for comment/description link previews (now also used by OKR comments, 2026-09-25 G2) |
 | POST | `/api/cron/confidence-calc` | Bi-weekly confidence snapshots |
 | POST | `/api/cron/weekly-digest` | Weekly email digest |
+| GET/POST | `/api/cron/odoo-sales-sync[?dryRun=1]` | **New 2026-10-16.** Odoo sales sync (Bearer CRON_SECRET, 03:30 UTC): Odoo CRM → `source=ODOO` KPI readings, then POST the target payload to Odoo. 503 `ODOO_NOT_CONFIGURED` when Odoo env is unset |
+| GET | `/api/integrations/odoo/sales-targets` | **New 2026-10-16.** Read-only `okr-sales-targets/v1` payload (no secret) + `generatedAt`; `withIntegrationKey` (`x-integration-key` header, 503 when `INTEGRATION_API_KEY` unset) |
 | GET/POST | `/api/cron/package-daily[?dryRun=1]` | **New 2026-10-11.** Operating package daily job (Bearer CRON_SECRET, 02:00 UTC): KPI-3 auto-fill, KPI_READING_DUE, DEPENDENCY_DUE_SOON / DEPENDENCY_LATE, DEV_ITEM_DUE, KR_CHECKPOINT_DUE, archive APPROVED packages of ended timeframes |
 | GET/POST | `/api/cron/todo-recurrence` | Generates the next occurrence of each recurring card (DTE-5). Daily. |
 | GET/POST | `/api/cron/automations-prune` | AI Automations retention sweep. Nightly. |

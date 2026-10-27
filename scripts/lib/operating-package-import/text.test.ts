@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import * as XLSX from 'xlsx'
-import { earliestDate, inferFiscalYear, isoDay, latestDate, parseDates, parseDurationMinutes, readTable, splitNames, truncate } from './text'
+import { earliestDate, inferFiscalYear, isoDay, latestDate, parseDates, parseDurationMinutes, readTable, splitNames, leadTitle, truncate } from './text'
 
 const days = (text: string) => parseDates(text).map(isoDay)
 
@@ -81,4 +81,14 @@ test('truncate cuts on a word boundary', () => {
   const out = truncate('one two three four five six seven', 15)
   assert.ok(out.length <= 15)
   assert.ok(out.endsWith('…'))
+})
+
+test('leadTitle keeps the lead phrase of a long initiative', () => {
+  const coraz =
+    'Coraz LLC ready as the second bid vehicle: full company profile and credential pack complete; cross-border payment settlement working; first bid submitted under Coraz'
+  assert.equal(leadTitle(coraz), 'Coraz LLC ready as the second bid vehicle')
+  assert.equal(leadTitle('Short initiative: kept whole'), 'Short initiative: kept whole')
+  const long = `Win rate of ≥30% of all submitted bids (40% stretch) and ≥50% of qualified bids, with deals lost mainly on price cut to ≤15% of losses; ${'x '.repeat(80)}`
+  const t = leadTitle(long)
+  assert.ok(t.length <= 140 && t.endsWith('…'), t)
 })

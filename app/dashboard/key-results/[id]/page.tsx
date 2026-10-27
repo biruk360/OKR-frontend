@@ -48,16 +48,6 @@ export default async function KeyResultDetailPage({ params }: PageProps) {
       <div className="mx-auto max-w-6xl space-y-3 px-4 pt-4">
         {/* CON-5: Company O1 › KR1.3 › … › this KR (renders nothing when nothing is above it). */}
         {!isRedacted && <AlignmentTrail entityType="KEY_RESULT" entityId={keyResult.id} variant="bar" />}
-        {!isRedacted && (
-          <RolledFromBanner
-            entityType="key-result"
-            entityId={keyResult.id}
-            previous={keyResult.rolledFrom ? { ...keyResult.rolledFrom, timeframe: keyResult.rolledFrom.objective.timeframe } : null}
-            next={keyResult.rolledTo[0] ? { ...keyResult.rolledTo[0], timeframe: keyResult.rolledTo[0].objective.timeframe } : null}
-            lineageDepth={keyResult.lineageDepth}
-          />
-        )}
-        {keyResult.isLocked && <div><OkrLockBanner entityType="Key Result" reopenCount={keyResult.reopenCount} closedAt={keyResult.closedAt} /></div>}
       </div>
       <KeyResultDetailClient
         keyResult={krForClient}
@@ -80,6 +70,25 @@ export default async function KeyResultDetailPage({ params }: PageProps) {
         breadcrumbNodes={breadcrumbNodes}
         initiatives={krInitiatives}
         currentUserId={session.user.id}
+        railStatus={
+          // Lineage + closed/locked status sit in the right rail (they stack below
+          // the main column on narrow screens) instead of pushing the page down.
+          <>
+            {!isRedacted && (
+              <RolledFromBanner
+                variant="rail"
+                entityType="key-result"
+                entityId={keyResult.id}
+                previous={keyResult.rolledFrom ? { ...keyResult.rolledFrom, timeframe: keyResult.rolledFrom.objective.timeframe } : null}
+                next={keyResult.rolledTo[0] ? { ...keyResult.rolledTo[0], timeframe: keyResult.rolledTo[0].objective.timeframe } : null}
+                lineageDepth={keyResult.lineageDepth}
+              />
+            )}
+            {keyResult.isLocked && (
+              <OkrLockBanner variant="rail" entityType="Key Result" reopenCount={keyResult.reopenCount} closedAt={keyResult.closedAt} />
+            )}
+          </>
+        }
       />
       {!isRedacted && (
         <div className="mx-auto max-w-6xl space-y-4 px-4 pb-6">

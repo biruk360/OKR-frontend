@@ -102,17 +102,6 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
         {/* CON-5: Company O1 › KR1.3 › … › this objective (renders nothing when nothing is above it). */}
         {!isRedacted && <AlignmentTrail entityType="OBJECTIVE" entityId={objective.id} variant="bar" />}
 
-        {!isRedacted && (
-          <RolledFromBanner
-            entityType="objective"
-            entityId={objective.id}
-            previous={objective.rolledFrom}
-            next={objective.rolledTo[0]}
-            lineageDepth={objective.lineageDepth}
-          />
-        )}
-        {objective.isLocked && <OkrLockBanner entityType="Objective" reopenCount={objective.reopenCount} closedAt={objective.closedAt} />}
-
         {/* ═══ MAIN 2-COLUMN GRID ═══ */}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
 
@@ -178,6 +167,21 @@ export default async function ObjectiveDetailPage({ params }: ObjectiveDetailPag
 
           {/* ─── RIGHT SIDEBAR ─── */}
           <div className="space-y-3">
+            {/* Lineage + closed/locked status live in the rail (it stacks below the
+                main column on narrow screens) instead of pushing the page down. */}
+            {!isRedacted && (
+              <RolledFromBanner
+                variant="rail"
+                entityType="objective"
+                entityId={objective.id}
+                previous={objective.rolledFrom}
+                next={objective.rolledTo[0]}
+                lineageDepth={objective.lineageDepth}
+              />
+            )}
+            {objective.isLocked && (
+              <OkrLockBanner variant="rail" entityType="Objective" reopenCount={objective.reopenCount} closedAt={objective.closedAt} />
+            )}
             <ProgressConfidenceCard
               snapshots={snapshots.map(s => ({ periodStart: s.periodStart, score: s.score }))}
               currentProgress={objective.progress}

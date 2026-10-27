@@ -35,6 +35,19 @@ export function truncate(text: string, max: number): string {
   return `${(space > max * 0.6 ? cut.slice(0, space) : cut).replace(/[\s,;:·—–-]+$/, '')}…`
 }
 
+/**
+ * Short title for a long workbook line (v2 initiatives run to 300+ characters): the lead phrase before
+ * the first ":" when it is 12–max characters long ("Coraz LLC ready as the second bid vehicle: full
+ * company profile …" → "Coraz LLC ready as the second bid vehicle"), else the text cut at `max`.
+ */
+export function leadTitle(text: string, max = 140): string {
+  const t = cellText(text)
+  if (t.length <= max) return t
+  const colon = t.indexOf(':')
+  if (colon >= 12 && colon <= max) return t.slice(0, colon).trim()
+  return truncate(t, max)
+}
+
 // ─── Sheet tables ───────────────────────────────────────────────────────────
 
 export interface SheetTable {

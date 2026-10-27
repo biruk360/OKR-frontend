@@ -7,6 +7,7 @@
  * `redacted: true` and a null title; their actions are always off.
  */
 import type { ConnectionItem } from '@/lib/connections/types'
+import type { InitiativeMeta } from '@/lib/package/initiatives'
 import type { KrCommitment, OkrLinkSubKind, TodoKind } from '@/types/package'
 
 export interface OkrProfilePerson {
@@ -45,12 +46,18 @@ export interface OkrProfileTodoStep {
   dueDate: string | null
 }
 
-/** A milestone (kind=MILESTONE) or task (TASK / DEPENDENCY) initiative. */
+/** A card under a KR / objective: INITIATIVE, MILESTONE or task (TASK / DEPENDENCY). */
 export interface OkrProfileTodo {
   id: string
   cardNumber: number
   title: string
   kind: TodoKind
+  /** Workbook id (e.g. "EDN-IN1.1", "M1.1.1"), or null. */
+  externalRef: string | null
+  /** MILESTONE only: the initiative ref named on its description's first line. */
+  initiativeRef: string | null
+  /** INITIATIVE only: the parsed description block (C/A, target, measured by …). */
+  initiative: InitiativeMeta | null
   status: string
   dueDate: string | null
   completedAt: string | null
@@ -110,10 +117,19 @@ export interface OkrProfileKeyResult {
   checkpointCounts: { total: number; met: number; missed: number }
   lastCheckInAt: string | null
   blocked: boolean
+  /** v2 initiatives (kind INITIATIVE), each with the milestones that name it. */
+  initiatives: OkrProfileInitiativeGroup[]
+  /** Milestones that name no initiative of this KR. */
   milestones: OkrProfileTodo[]
   tasks: OkrProfileTodo[]
   duties: OkrProfileDuty[]
   actions: OkrProfileKrActions
+}
+
+/** An initiative under a KR and the milestones grouped under it. */
+export interface OkrProfileInitiativeGroup {
+  initiative: OkrProfileTodo
+  milestones: OkrProfileTodo[]
 }
 
 export interface OkrProfileObjectiveActions {
@@ -211,6 +227,11 @@ export interface OkrProfilePayload {
   }
   header: OkrProfileHeader
   objectives: OkrProfileObjective[]
+  /**
+   * Initiatives assigned to the person that support a KPI only (kind INITIATIVE,
+   * no KR, not on an objective in the tree). Shown as "Supporting KPIs".
+   */
+  supportingInitiatives: OkrProfileTodo[]
   past: OkrProfilePastObjective[]
   /** True when more past objectives exist than were returned. */
   pastTruncated: boolean

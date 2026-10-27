@@ -40,6 +40,12 @@ interface RolledFromBannerProps {
   previous?: LineageEntity | null
   next?: LineageEntity | null
   lineageDepth?: number
+  /**
+   * `banner` (default): full-width strip. `rail`: compact "Lineage" card for a
+   * detail page's right rail (KR / objective detail), which stacks below the
+   * main column on narrow screens.
+   */
+  variant?: 'banner' | 'rail'
 }
 
 /**
@@ -57,7 +63,14 @@ function RichText({ html }: { html?: string | null }) {
   return <RichTextContent html={html} className="text-foreground" />
 }
 
-export default function RolledFromBanner({ entityType, entityId, previous, next, lineageDepth = 0 }: RolledFromBannerProps) {
+export default function RolledFromBanner({
+  entityType,
+  entityId,
+  previous,
+  next,
+  lineageDepth = 0,
+  variant = 'banner',
+}: RolledFromBannerProps) {
   const [performanceOpen, setPerformanceOpen] = useState(false)
   const connectionType = entityType === 'objective' ? 'OBJECTIVE' : 'KEY_RESULT'
   // Shares the ['connections', type, id] cache with the trail / panel / chips.
@@ -68,44 +81,68 @@ export default function RolledFromBanner({ entityType, entityId, previous, next,
       : false
   if (!previous && !next && !lineage) return null
 
+  const rows = (
+    <>
+      {previous && (
+        <div className="flex flex-wrap items-center gap-2">
+          <History className="size-4 shrink-0 text-primary" aria-hidden />
+          <span className="text-muted-foreground">Rolled from previous period</span>
+          {previous.timeframe && <TimeframeBadge type={previous.timeframe.type} />}
+          <EntityLink type={entityType} id={previous.id} label={previous.timeframe?.name || previous.title} />
+          <span className="text-muted-foreground">— reached {Math.round(previous.finalProgress ?? 0)}%</span>
+        </div>
+      )}
+      {next && (
+        <div className="flex flex-wrap items-center gap-2">
+          <ArrowRight className="size-4 shrink-0 text-primary" aria-hidden />
+          <span className="text-muted-foreground">Rolled forward to</span>
+          {next.timeframe && <TimeframeBadge type={next.timeframe.type} />}
+          <EntityLink type={entityType} id={next.id} label={next.timeframe?.name || next.title} />
+        </div>
+      )}
+      {lineage && connections && entityId && (
+        <div className="flex flex-wrap items-center gap-2">
+          <GitBranch className="size-4 shrink-0 text-primary" aria-hidden />
+          <span className="text-muted-foreground">Lineage</span>
+          <LineagePopover entityType={connectionType} entityId={entityId} data={connections} />
+        </div>
+      )}
+      {lineageDepth > 1 && <p className="text-xs text-muted-foreground">Period {lineageDepth + 1} in this OKR lineage.</p>}
+    </>
+  )
+
   return (
     <>
-      <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="space-y-2 text-sm">
+      {variant === 'rail' ? (
+        <section
+          aria-label="Lineage"
+          className="overflow-hidden rounded-[var(--ap-radius-md)] border border-[var(--ap-border)] bg-[var(--ap-bg-raised)]"
+        >
+          <h3 className="flex items-center gap-1.5 border-b border-[var(--ap-border)] px-4 py-2.5 text-micro font-semibold uppercase tracking-wide text-[var(--ap-fg-subtle)]">
+            <GitBranch className="size-3.5" aria-hidden />
+            Lineage
+          </h3>
+          <div className="space-y-2 px-4 py-3 text-xs">
+            {rows}
             {previous && (
-              <div className="flex flex-wrap items-center gap-2">
-                <History className="size-4 text-primary" />
-                <span className="text-muted-foreground">Rolled from previous period</span>
-                {previous.timeframe && <TimeframeBadge type={previous.timeframe.type} />}
-                <EntityLink type={entityType} id={previous.id} label={previous.timeframe?.name || previous.title} />
-                <span className="text-muted-foreground">— reached {Math.round(previous.finalProgress ?? 0)}%</span>
-              </div>
+              <Button type="button" variant="outline" size="xs" onClick={() => setPerformanceOpen(true)}>
+                View previous performance
+              </Button>
             )}
-            {next && (
-              <div className="flex flex-wrap items-center gap-2">
-                <ArrowRight className="size-4 text-primary" />
-                <span className="text-muted-foreground">Rolled forward to</span>
-                {next.timeframe && <TimeframeBadge type={next.timeframe.type} />}
-                <EntityLink type={entityType} id={next.id} label={next.timeframe?.name || next.title} />
-              </div>
-            )}
-            {lineage && connections && entityId && (
-              <div className="flex flex-wrap items-center gap-2">
-                <GitBranch className="size-4 text-primary" aria-hidden />
-                <span className="text-muted-foreground">Lineage</span>
-                <LineagePopover entityType={connectionType} entityId={entityId} data={connections} />
-              </div>
-            )}
-            {lineageDepth > 1 && <p className="text-xs text-muted-foreground">Period {lineageDepth + 1} in this OKR lineage.</p>}
           </div>
-          {previous && (
-            <Button type="button" variant="outline" size="sm" onClick={() => setPerformanceOpen(true)}>
-              View previous performance
-            </Button>
-          )}
+        </section>
+      ) : (
+        <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="space-y-2 text-sm">{rows}</div>
+            {previous && (
+              <Button type="button" variant="outline" size="sm" onClick={() => setPerformanceOpen(true)}>
+                View previous performance
+              </Button>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {previous && (
         <Modal open={performanceOpen} onClose={() => setPerformanceOpen(false)} title="Previous Period Performance" icon={History} iconClassName="text-primary" size="lg">

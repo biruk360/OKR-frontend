@@ -32,8 +32,9 @@ Services: `safeCallbackUrl(raw)` (open-redirect guard), `fetchWallpapers(signal)
 |-----------|-------|---------|
 | `OkrCloseModal` | `open`, `onClose`, `entityType`, `entity`, `onInitiated?`, `onCommitted?`, `achievedShortcut?` | Shared three-step grade → retrospective → confirm-and-lock flow for Objectives and KRs. |
 | `OkrReopenDialog` | `open`, `onClose`, `entity`, `entityType`, `onReopened?` | Reason-required reopen confirmation with permanent-scar and rolled-copy warnings; Objective KRs are opt-in. |
-| `OkrLockBanner` | `entityType`, `reopenCount?`, `closedAt?` | Read-only closed-state banner explaining frozen fields and permanent reopen scars. |
-| `RolledFromBanner` | `entityType`, `previous?`, `next?`, `lineageDepth?` | Immediate predecessor/successor provenance plus previous-period grade, progress, confidence, check-ins, note, and retrospective panel. |
+| `OkrLockBanner` | `entityType`, `reopenCount?`, `closedAt?`, `variant?` (`banner` \| `rail`) | Read-only closed-state banner explaining frozen fields and permanent reopen scars. `variant="rail"` (2026-10-27) is the compact "Closed & locked" card used in the KR / objective detail right rail. |
+| `RolledFromBanner` | `entityType`, `entityId?`, `previous?`, `next?`, `lineageDepth?`, `variant?` (`banner` \| `rail`) | Immediate predecessor/successor provenance plus previous-period grade, progress, confidence, check-ins, note, and retrospective panel. `variant="rail"` (2026-10-27) is the compact "Lineage" card used in the KR / objective detail right rail (stacks below the main column on narrow screens). |
+| `TodoKindBadge` | `kind`, `showTask?`, `className?` | `components/shared/TodoKindBadge.tsx` (2026-10-27). MiniBadge for a Todo's FND-4 kind (Initiative = accent, Milestone = ahead, Delivery task = warn); plain tasks render nothing unless `showTask`. Exports `TODO_KIND_TONE`. Used by the KR detail initiatives list (`ToDoList`). |
 | `PeriodCloseReportClient` | `report` | Period close KPIs, charts, lessons, ledger, PDF action, and sequenced personal close flow. |
 
 ## Daily Trip Plan (`features/daily-trip-plan`)

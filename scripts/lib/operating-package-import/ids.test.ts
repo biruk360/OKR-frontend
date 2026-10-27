@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { expandRanges, extractDecisionRefs, extractDependencyRefs, extractKpiRefs, extractLocalRefs, extractOkrRefs, okrRefKind, packageCodeFromId } from './ids'
+import { expandRanges, extractDecisionRefs, extractDependencyRefs, extractInitiativeRefs, extractKpiRefs, extractLocalRefs, extractOkrRefs, initiativeRefKind, okrRefKind, packageCodeFromId } from './ids'
 
 const ids = (text: string) => extractOkrRefs(text).map((r) => `${r.id}:${r.kind === 'OBJECTIVE' ? 'O' : 'K'}`)
 
@@ -44,4 +44,22 @@ test('packageCodeFromId', () => {
   assert.equal(packageCodeFromId('EDN-KR1.1'), 'EDN')
   assert.equal(packageCodeFromId('C3.2'), 'CEO')
   assert.equal(packageCodeFromId('KR1.1'), null)
+})
+
+test('v2 initiative and group ids are read without being taken for OKR ids', () => {
+  const ini = (text: string) => extractInitiativeRefs(text).map((r) => `${r.id}:${r.kind === 'GROUP' ? 'G' : 'I'}`)
+  assert.deepEqual(ini('CIG5 · Biruk; company O4 (systems and AI)'), ['CIG5:G'])
+  assert.deepEqual(ini('Meklit MEK-IN4.2, MEK-IN4.3 (≥5 suppliers; −15% cost)'), ['MEK-IN4.2:I', 'MEK-IN4.3:I'])
+  assert.deepEqual(ini('CIN1.2 (3 PPPs) and CIN1.4 (EthioTelecom white-label)'), ['CIN1.2:I', 'CIN1.4:I'])
+  assert.deepEqual(ini('Company KR1.1 NGO line, KR2.2–KR2.5; Yared YAR-IN1.2, YAR-IN1.5; MEK-IN3.10'), ['YAR-IN1.2:I', 'YAR-IN1.5:I', 'MEK-IN3.10:I'])
+  assert.deepEqual(ini('CEO CIN1.1'), ['CIN1.1:I'])
+  // OKR ids are not confused with initiative ids.
+  assert.deepEqual(ids('CIG5 · Biruk; company O4; MEK-IN4.2; CIN1.2; C1.2'), ['O4:O', 'C1.2:K'])
+  assert.equal(initiativeRefKind('EDN-IG1'), 'GROUP')
+  assert.equal(initiativeRefKind('EDN-IN1.1'), 'INITIATIVE')
+  assert.equal(initiativeRefKind('CIN6.4'), 'INITIATIVE')
+  assert.equal(initiativeRefKind('EDN-KR1.1'), null)
+  assert.equal(packageCodeFromId('CIN1.1'), 'CEO')
+  assert.equal(packageCodeFromId('CIG2'), 'CEO')
+  assert.equal(packageCodeFromId('YOG-IN3.6'), 'YOG')
 })

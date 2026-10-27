@@ -147,7 +147,9 @@
     "Outbound",
     "Shareholders",
     "advisory circle",
-    "Inbound"
+    "Inbound",
+    "M&E Specialist",
+    "External"
   ],
   "nonPersonPatterns": [
     "\\bteams?\\b",

@@ -9,6 +9,7 @@ import {
   canOpenCloseFlow,
   canWorkOnKeyResult,
   computeHeader,
+  filterSupportingInitiatives,
   groupSuccessorsByRelation,
   isDueWithinDays,
   keyResultStatusKey,
@@ -18,6 +19,7 @@ import {
   pastDisposition,
   sortObjectives,
   sortTodos,
+  splitKeyResultTodos,
   successorLabel,
   successorRelationLabel,
   todoVisibleInProfile,
@@ -54,6 +56,7 @@ function kr(overrides: Partial<OkrProfileKeyResult> = {}): OkrProfileKeyResult {
     checkpointCounts: { total: 0, met: 0, missed: 0 },
     lastCheckInAt: null,
     blocked: false,
+    initiatives: [],
     milestones: [],
     tasks: [],
     duties: [],
@@ -94,6 +97,9 @@ function todo(overrides: Partial<OkrProfileTodo> = {}): OkrProfileTodo {
     cardNumber: 1,
     title: 'Card',
     kind: 'TASK',
+    externalRef: null,
+    initiativeRef: null,
+    initiative: null,
     status: 'PENDING',
     dueDate: null,
     completedAt: null,
@@ -331,4 +337,66 @@ test('schemas: initiative body and date-only parsing', () => {
   assert.equal(createProfileInitiativeSchema.safeParse({ keyResultId: 'kr1', kind: 'DUTY', title: 'x' }).success, false)
   assert.equal(createProfileInitiativeSchema.safeParse({ keyResultId: 'kr1', kind: 'TASK', title: ' ' }).success, false)
   assert.equal(createProfileInitiativeSchema.safeParse({ keyResultId: 'kr1', kind: 'TASK', title: 'x', dueDate: '12/10/2026' }).success, false)
+})
+
+function initiative(id: string, ref: string, overrides: Partial<OkrProfileTodo> = {}): OkrProfileTodo {
+  return todo({
+    id,
+    kind: 'INITIATIVE',
+    externalRef: ref,
+    initiative: {
+      group: null,
+      commitment: 'COMMITTED',
+      baseline: null,
+      target: '12 MoUs',
+      due: null,
+      measuredBy: null,
+      supports: null,
+      dependencies: null,
+    },
+    ...overrides,
+  })
+}
+
+test('splitKeyResultTodos: initiatives first, milestones grouped by their initiative ref, tasks apart', () => {
+  const split = splitKeyResultTodos([
+    todo({ id: 'task', kind: 'TASK', cardNumber: 1 }),
+    todo({ id: 'dep', kind: 'DEPENDENCY', cardNumber: 2 }),
+    todo({ id: 'm-a', kind: 'MILESTONE', initiativeRef: 'EDN-IN1.1', cardNumber: 3 }),
+    todo({ id: 'm-orphan', kind: 'MILESTONE', initiativeRef: 'EDN-IN9.9', cardNumber: 4 }),
+    todo({ id: 'm-plain', kind: 'MILESTONE', cardNumber: 5 }),
+    initiative('i2', 'EDN-IN1.2', { cardNumber: 7 }),
+    initiative('i1', 'EDN-IN1.1', { cardNumber: 6 }),
+    todo({ id: 'm-b', kind: 'MILESTONE', initiativeRef: 'edn-in1.1', cardNumber: 8, status: 'COMPLETED' }),
+  ])
+  assert.deepEqual(split.initiatives.map((g) => g.initiative.id), ['i1', 'i2'])
+  assert.deepEqual(split.initiatives[0].milestones.map((m) => m.id), ['m-a', 'm-b'])
+  assert.deepEqual(split.initiatives[1].milestones, [])
+  assert.deepEqual(split.milestones.map((m) => m.id), ['m-orphan', 'm-plain'])
+  assert.deepEqual(split.tasks.map((t) => t.id), ['task', 'dep'])
+})
+
+test('blocked filter sees blocked initiatives and their grouped milestones', () => {
+  const blockedMilestone = todo({ id: 'm', kind: 'MILESTONE', blocked: true })
+  const withGrouped = kr({ id: 'g', initiatives: [{ initiative: initiative('i', 'IN1'), milestones: [blockedMilestone] }] })
+  const withInitiative = kr({ id: 'i', initiatives: [{ initiative: initiative('i2', 'IN2', { blocked: true }), milestones: [] }] })
+  const clear = kr({ id: 'c' })
+  const out = applyOkrProfileFilters([obj({ keyResults: [withGrouped, withInitiative, clear] })], { blockedOnly: true }, NOW)
+  assert.deepEqual(out[0].keyResults.map((k) => k.id), ['g', 'i'])
+})
+
+test('filterSupportingInitiatives: level/status/checkpoint hide them; commitment and blocked narrow', () => {
+  const items = [
+    initiative('c', 'IN1'),
+    initiative('a', 'IN2', {
+      blocked: true,
+      initiative: { group: null, commitment: 'ASPIRATIONAL', baseline: null, target: null, due: null, measuredBy: null, supports: 'KPI-3', dependencies: null },
+    }),
+  ]
+  assert.equal(filterSupportingInitiatives(items, {}).length, 2)
+  assert.deepEqual(filterSupportingInitiatives(items, { level: 'individual' }), [])
+  assert.deepEqual(filterSupportingInitiatives(items, { status: 'on_track' }), [])
+  assert.deepEqual(filterSupportingInitiatives(items, { checkpointDue30: true }), [])
+  assert.deepEqual(filterSupportingInitiatives(items, { commitment: 'ASPIRATIONAL' }).map((t) => t.id), ['a'])
+  assert.deepEqual(filterSupportingInitiatives(items, { blockedOnly: true }).map((t) => t.id), ['a'])
 })

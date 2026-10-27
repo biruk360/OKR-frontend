@@ -77,7 +77,12 @@ export const CHECKPOINT_STATUS_LABELS: Record<CheckpointStatus, string> = {
   MISSED: 'Missed',
 }
 
-export const TODO_KINDS = ['TASK', 'MILESTONE', 'DUTY', 'DEPENDENCY'] as const
+/**
+ * INITIATIVE (v2 workbook): the work behind a KR (`keyResultId` = that KR) or,
+ * with no KR, behind a KPI. Its MILESTONE todos name it on their description's
+ * first line ("Initiative: <externalRef> — <title>"); see lib/package/initiatives.ts.
+ */
+export const TODO_KINDS = ['TASK', 'MILESTONE', 'DUTY', 'DEPENDENCY', 'INITIATIVE'] as const
 export type TodoKind = (typeof TODO_KINDS)[number]
 export const isTodoKind = guard(TODO_KINDS)
 export const TODO_KIND_LABELS: Record<TodoKind, string> = {
@@ -85,6 +90,15 @@ export const TODO_KIND_LABELS: Record<TodoKind, string> = {
   MILESTONE: 'Milestone',
   DUTY: 'Duty',
   DEPENDENCY: 'Delivery task',
+  INITIATIVE: 'Initiative',
+}
+/** Display order inside a KR: initiatives, then milestones, then the rest. */
+export const TODO_KIND_ORDER: Record<TodoKind, number> = {
+  INITIATIVE: 0,
+  MILESTONE: 1,
+  TASK: 2,
+  DEPENDENCY: 3,
+  DUTY: 4,
 }
 
 // ---------------------------------------------------------------------------

@@ -427,7 +427,7 @@ function LetterFormInner({ initial, viewer, canAdminister = false }: Props) {
 
         <TabsContent value="preview" className="mt-3">
           <ApCard padding="lg">
-            <PdfPreviewPanel letterId={letter.id} />
+            <PdfPreviewPanel letterId={letter.id} status={status} />
           </ApCard>
         </TabsContent>
       </Tabs>

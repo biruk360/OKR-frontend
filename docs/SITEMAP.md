@@ -510,7 +510,7 @@ All `/api/package/*`, `/api/dependencies/*` and `/api/decisions/*` routes are `w
 | POST | `/api/letters` | Create a draft letter and allocate its `360G/LT/{CL\|OF\|GR}/{SEQ}/{YEAR}` reference. |
 | GET | `/api/letters/[id]` | Letter detail incl. preparedBy, signatory, enclosures. Out-of-scope letters 404 (`letterReadGuard`, also on html/pdf/docx/activity/duplicate and workflow routes). |
 | PATCH | `/api/letters/[id]` | Update editable fields (locked after submission for non-admins). |
-| DELETE | `/api/letters/[id]` | Delete a DRAFT letter (admin can delete any). |
+| DELETE | `/api/letters/[id]` | Delete a letter. Preparer: own never-submitted DRAFT only. Anything ever submitted (incl. rejected back to DRAFT) is admin-only, since it may have printed clean. |
 | POST | `/api/letters/[id]/submit` | DRAFT → SUBMITTED. |
 | POST | `/api/letters/[id]/approve` | SUBMITTED → APPROVED (requires `letter:approve`). |
 | POST | `/api/letters/[id]/reject` | SUBMITTED → DRAFT with reason (requires `letter:approve`). |
@@ -519,7 +519,7 @@ All `/api/package/*`, `/api/dependencies/*` and `/api/decisions/*` routes are `w
 | DELETE | `/api/letters/[id]/archive` | Admin-only unarchive. |
 | GET | `/api/letters/[id]/activity` | Activity log entries for the shared `ActivityLogPanel`. |
 | POST | `/api/letters/[id]/views` | No-op view beacon (panel compatibility). |
-| GET/POST | `/api/letters/[id]/pdf` | Real PDF via Puppeteer (`renderLetterToPdf`); page JavaScript off, network requests intercepted (only data:/about:/blob: and Google Fonts). `?font` checked against the font catalog. |
+| GET/POST | `/api/letters/[id]/pdf` | Real PDF via Puppeteer (`renderLetterToPdf`); DRAFT letters render with a DRAFT watermark on every page (also `/html` preview/print), filename suffixed `_DRAFT`; page JavaScript off, network requests intercepted (only data:/about:/blob: and Google Fonts). `?font` checked against the font catalog. |
 | POST | `/api/letters/[id]/enclosures` | **Real multipart upload** (field `file`, 2026-09-25 G3): magic-byte validated, stored privately under `LETTER_UPLOAD_DIR` (default `var/uploads/letters`). Letter admin, or `letter.write` + DRAFT + preparer. |
 | GET | `/api/letters/[id]/enclosures/[enclosureId]` | **New.** Stream an enclosure file (`letterReadGuard`). |
 | DELETE | `/api/letters/[id]/enclosures/[enclosureId]` | Remove an enclosure (same rule as upload). |

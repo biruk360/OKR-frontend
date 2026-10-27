@@ -117,6 +117,7 @@ const STRINGS = {
     'pdf.empty': 'Click Generate PDF Preview to render the letter.',
     'pdf.failed': 'PDF generation failed',
     'pdf.retry': 'Retry',
+    'pdf.draftNotice': 'Draft — prints with a DRAFT watermark. Submit the letter to print the final copy.',
 
     // Enclosures
     'enc.add': 'Add files',
@@ -236,6 +237,7 @@ const STRINGS = {
     'pdf.empty': 'ደብዳቤውን ለማስመር PDF ቅድመ እይታ ፍጠር የሚለውን ይጫኑ።',
     'pdf.failed': 'PDF ማስመር አልተሳካም',
     'pdf.retry': 'እንደገና ሞክር',
+    'pdf.draftNotice': 'ረቂቅ — በ"DRAFT" ምልክት ይታተማል። የመጨረሻውን ቅጂ ለማተም ደብዳቤውን ያስገቡ።',
 
     // Enclosures
     'enc.add': 'ፋይሎች ጨምር',

@@ -274,7 +274,7 @@ Full lifecycle workflow: DRAFT → SUBMITTED → APPROVED → SENT → ARCHIVED.
 | Letter Form (body, recipient, signatory) | DONE | `features/letters/components/LetterFormClient.tsx` |
 | Workflow transitions (submit/approve/reject/send/archive) | DONE | `/api/letters/[id]/{submit,approve,reject,send,archive}` |
 | Enclosures | DONE (real files, 2026-09-25) | `features/letters/components/EnclosuresPanel.tsx`, `lib/letter-enclosure-storage.ts` (`LETTER_UPLOAD_DIR`, default `var/uploads/letters`) |
-| PDF preview & print | DONE | `/api/letters/[id]/pdf/` — Puppeteer, JS off, request interception |
+| PDF preview & print | DONE | `/api/letters/[id]/pdf/` — Puppeteer, JS off, request interception; DRAFT letters always render with a DRAFT watermark (clean print requires submission) |
 | Odoo customer typeahead | DONE (mock fallback) | `/api/letters/odoo/contacts/`, `lib/odoo-contacts.ts` |
 | Security (sanitise, read guard, sandbox) | DONE (2026-09-25) | `lib/letter-sanitize.ts`, `lib/letter-access.ts` |
 | Activity log integration | DONE | `components/shared/ActivityLogPanel.tsx` |
@@ -992,7 +992,7 @@ Auth: routes use `withAuth(handler)` or `withRole(roles, handler)` from `lib/api
 | POST | `/api/letters` | Auth | Create draft + allocate reference number |
 | GET | `/api/letters/[id]` | `letterReadGuard` | Letter detail (out-of-scope → 404; same guard on html/pdf/docx/activity/duplicate/workflow routes) |
 | PATCH | `/api/letters/[id]` | Auth | Update editable fields |
-| DELETE | `/api/letters/[id]` | Auth | Delete DRAFT letter |
+| DELETE | `/api/letters/[id]` | Auth | Delete a letter: preparer only for their own never-submitted DRAFT; anything ever submitted is letter-admin only (`lib/letter-print-policy.ts`) |
 | POST | `/api/letters/[id]/submit` | Auth | DRAFT → SUBMITTED |
 | POST | `/api/letters/[id]/approve` | Auth (letter:approve) | SUBMITTED → APPROVED |
 | POST | `/api/letters/[id]/reject` | Auth (letter:approve) | SUBMITTED → DRAFT |

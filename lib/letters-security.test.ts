@@ -13,6 +13,7 @@ import {
 } from './letter-sanitize'
 import { renderLetterHtml } from './letter-html'
 import { resolvePlaceholders } from './letters'
+import { canDeleteLetter, LETTER_EVER_SUBMITTED_ACTIONS, letterPdfFilename } from './letter-print-policy'
 import {
   DEFAULT_LETTER_MATRIX,
   LETTER_ADMIN_FEATURE_KEY,
@@ -437,4 +438,39 @@ test('reports: turnaround uses the approved submission; aggregates by status/typ
   assert.ok(!('error' in f))
   const reportRoute = readFileSync(join(ROOT, 'lib/letter-reports.ts'), 'utf8')
   assert.ok(reportRoute.includes('buildLetterReadWhere('), 'report uses the list read scope')
+})
+
+// ---------------------------------------------------------------------------
+// Print & delete policy — printable letters must not be deletable
+// ---------------------------------------------------------------------------
+
+test('renderLetterHtml: DRAFT letters carry the DRAFT watermark, submitted letters print clean', () => {
+  const draft = renderLetterHtml({ letter: { ...fakeLetter(), status: 'DRAFT' } as any }).html
+  assert.ok(draft.includes('class="draft-watermark"'), 'draft must be watermarked')
+  // Watermark sits after the letter (outside the sanitized body) so content can't cover it.
+  assert.ok(draft.lastIndexOf('draft-watermark') > draft.lastIndexOf('</article>'))
+  assert.match(draft, /<title>DRAFT — /)
+  for (const status of ['SUBMITTED', 'APPROVED', 'SENT', 'ARCHIVED']) {
+    const html = renderLetterHtml({ letter: { ...fakeLetter(), status } as any }).html
+    assert.ok(!html.includes('class="draft-watermark"'), `${status} must print clean`)
+  }
+})
+
+test('canDeleteLetter: only an admin may delete a letter that was ever submitted', () => {
+  const base = { isLetterAdmin: false, isPreparer: true, status: 'DRAFT', everSubmitted: false }
+  assert.equal(canDeleteLetter(base), true, 'preparer may delete a never-submitted draft')
+  assert.equal(canDeleteLetter({ ...base, isPreparer: false }), false)
+  assert.equal(canDeleteLetter({ ...base, everSubmitted: true }), false, 'rejected-back draft stays locked')
+  for (const status of ['SUBMITTED', 'APPROVED', 'SENT', 'ARCHIVED']) {
+    assert.equal(canDeleteLetter({ ...base, status }), false, status)
+    assert.equal(canDeleteLetter({ ...base, status, isLetterAdmin: true, isPreparer: false }), true)
+  }
+  assert.deepEqual([...LETTER_EVER_SUBMITTED_ACTIONS], ['LETTER_SUBMITTED', 'LETTER_REJECTED'])
+  const route = readFileSync(join(ROOT, 'app/api/letters/[id]/route.ts'), 'utf8')
+  assert.ok(route.includes('canDeleteLetter('), 'DELETE route enforces the policy')
+})
+
+test('letterPdfFilename: drafts are suffixed _DRAFT', () => {
+  assert.equal(letterPdfFilename({ id: 'x', referenceNumber: '360G/LT/CL/001/2026', status: 'DRAFT' }), '360G_LT_CL_001_2026_DRAFT.pdf')
+  assert.equal(letterPdfFilename({ id: 'x', referenceNumber: '360G/LT/CL/001/2026', status: 'SENT' }), '360G_LT_CL_001_2026.pdf')
 })

@@ -14,6 +14,7 @@ import {
 } from '@/lib/api'
 import { filterFieldsByPermLevel } from '@/lib/field-filter'
 import { deleteEnclosureFile } from '@/lib/letter-enclosure-storage'
+import { canDeleteLetter, LETTER_EVER_SUBMITTED_ACTIONS } from '@/lib/letter-print-policy'
 
 const EDITABLE_FIELDS = [
   'subject',
@@ -126,10 +127,24 @@ export const DELETE = withAuth<RouteIdParams>(async (_req, { session, params }) 
   const letter = await prisma.letter.findUnique({ where: { id } })
   if (!letter) return apiNotFound('Letter not found')
 
-  // Hard-delete only allowed for admins on DRAFT letters.
-  const canAdminDelete = await canAdministerLetters(session.user.id)
-  if (!canAdminDelete && !(letter.preparedById === session.user.id && letter.status === 'DRAFT')) {
-    return apiForbidden('Cannot delete this letter')
+  // A letter that was ever submitted may have been printed clean, so only a
+  // letter admin may delete it — even after a return to DRAFT. A preparer may
+  // delete only their own never-submitted (watermark-only) draft.
+  const isLetterAdmin = await canAdministerLetters(session.user.id)
+  const everSubmitted = !isLetterAdmin && (await prisma.activityLog.count({
+    where: { letterId: id, action: { in: [...LETTER_EVER_SUBMITTED_ACTIONS] } },
+  })) > 0
+  if (!canDeleteLetter({
+    isLetterAdmin,
+    isPreparer: letter.preparedById === session.user.id,
+    status: letter.status,
+    everSubmitted,
+  })) {
+    return apiForbidden(
+      letter.status === 'DRAFT'
+        ? 'This letter has been submitted before and can only be deleted by an admin'
+        : 'Submitted letters can only be deleted by an admin'
+    )
   }
 
   // Enclosure rows cascade with the letter; their bytes live on disk, so

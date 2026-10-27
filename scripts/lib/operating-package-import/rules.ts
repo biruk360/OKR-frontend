@@ -25,7 +25,8 @@ function normaliseMinus(text: string): string {
  * A single clean figure, or null. Rejected: compound targets (";", "·", several numbers), dates,
  * and trailing text longer than a short unit phrase ("3 signed", "<5 a week" are accepted).
  */
-export function parseCleanFigure(raw: string | null | undefined): CleanFigure | null {
+export function parseCleanFigure(raw: string | null | undefined, opts: { maxRest?: number } = {}): CleanFigure | null {
+  const maxRest = opts.maxRest ?? 32
   const text = normaliseMinus(cellText(raw))
   if (!text || isBlank(text)) return null
   if (/[;·]/.test(text)) return null
@@ -41,7 +42,7 @@ export function parseCleanFigure(raw: string | null | undefined): CleanFigure | 
   if (!m) return null
   const comparator = m[1] ?? null
   const rest = (m[6] ?? '').trim()
-  if (/\d/.test(rest) || rest.length > 32) return null
+  if (/\d/.test(rest) || rest.length > maxRest) return null
   if (comparator === '-' && !m[2]) {
     // "−30%" is a relative change, not a level; it needs a baseline to be numeric.
     return null
@@ -62,6 +63,137 @@ export function parseCleanFigure(raw: string | null | undefined): CleanFigure | 
   return { value, unit, decrease, comparator }
 }
 
+// ─── KR target figures (v2: "one number" KRs with notes) ───────────────────
+
+/**
+ * v2 KR targets are one number with notes around it: "≥200 (45 by 31 Dec · 115 by 31 Mar)",
+ * "≥30% and ≥60 wins (40% stretch)", "ETB 20M (25M stretch); 10M by 31 Mar", "3 of 3 (2 by 30 Nov)",
+ * "≤5 working days in 11 of 12 months". The helpers below strip the notes and pick the one figure.
+ */
+
+/** Remove "(…)" notes, innermost first. */
+export function stripParentheticals(text: string): string {
+  let t = text
+  for (let i = 0; i < 5 && /\([^()]*\)/.test(t); i++) t = t.replace(/\([^()]*\)/g, ' ')
+  return t.replace(/[()]/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+/** Clauses of a target: split on ";", " · ", ", " and " and ". */
+export function splitClauses(text: string): string[] {
+  return text
+    .split(/\s*;\s*|\s+·\s+|,\s+|\s+and\s+/i)
+    .map((c) => c.trim())
+    .filter(Boolean)
+}
+
+const QUALIFIER_RE = /\s+(?:by|from|in|within|against|before|after|until|starting)\s+/gi
+
+/**
+ * One clause reduced to its figure: a trailing qualifier that carries a date, quarter or number is
+ * dropped (" by 31 Dec", " from Q3", " in 11 of 12 months", " within 3 business days",
+ * " from ≥12 submitted", " against the Q2 median"), and "N of M" reads as N ("3 of 3", "12 of 12").
+ */
+export function normaliseClause(clause: string): string {
+  let t = clause.trim()
+  QUALIFIER_RE.lastIndex = 0
+  let m: RegExpExecArray | null
+  while ((m = QUALIFIER_RE.exec(t))) {
+    const tail = t.slice(m.index)
+    if (/\d|\bQ[1-4]\b/i.test(tail) || mentionsMonth(tail)) {
+      t = t.slice(0, m.index).trim()
+      break
+    }
+  }
+  return t.replace(/^([≥>≤<~≈]?\s*)(\d+(?:\.\d+)?)\s+of\s+\d+(?:\.\d+)?\b/, '$1$2').trim()
+}
+
+const LEADING_FIGURE_RE = /^(?:≥|>=|>|≤|<=|<|~|≈|-|\+)?\s*(?:ETB\s*)?\d[\d,]*(?:\.\d+)?\s*(?:bn\b|million\b|billion\b|[KMB](?![a-z]))?\s*(?:%|x\b|\/\s*10\b)?\s*/i
+
+/** The words after a clause's figure, lower-cased ("3 won" → "won", "≥30%" → ""). */
+export function clauseRest(clause: string): string {
+  return clause.replace(LEADING_FIGURE_RE, '').trim().toLowerCase()
+}
+
+function firstWord(rest: string): string {
+  const w = rest.split(/\s+/)[0] ?? ''
+  return w.replace(/s$/, '')
+}
+
+/** Every number in a KR title, in reading order, with ETB magnitudes applied ("Sign ETB 20M" → 20 000 000). */
+export function titleFigures(title: string | null | undefined): number[] {
+  const out: number[] = []
+  const re = /(\d[\d,]*(?:\.\d+)?)\s*(bn\b|million\b|billion\b|[KMB](?![a-z]))?/gi
+  let m: RegExpExecArray | null
+  const t = normaliseMinus(cellText(title))
+  while ((m = re.exec(t))) {
+    const base = Number(m[1].replace(/,/g, ''))
+    if (!Number.isFinite(base)) continue
+    out.push(base * (m[2] ? MAGNITUDE[m[2].toLowerCase()] ?? 1 : 1))
+  }
+  return out
+}
+
+export interface KrTargetPick {
+  figure: CleanFigure | null
+  /** The normalised clause the figure came from. */
+  clause: string
+  /** Words after the figure in that clause ("won", "working days"). */
+  rest: string
+  /** Index of that clause among the target's clauses. */
+  index: number
+  reason: string
+}
+
+/**
+ * The one figure of a KR target. Notes in brackets are ignored; when several clauses carry a figure,
+ * the one the KR title names wins ("Win 60 of at least 200 bids" + "≥200 submitted; ≥60 won" → 60);
+ * with no such clue the target is compound (null figure → milestone-scored).
+ */
+export function pickKrTarget(targetText: string | null | undefined, title?: string | null): KrTargetPick {
+  const raw = normaliseMinus(cellText(targetText))
+  if (!raw || isBlank(raw)) return { figure: null, clause: '', rest: '', index: -1, reason: 'no target' }
+  const candidates: Array<{ figure: CleanFigure; clause: string; index: number }> = []
+  splitClauses(stripParentheticals(raw)).forEach((c, index) => {
+    const clause = normaliseClause(c)
+    const figure = parseCleanFigure(clause, { maxRest: 48 })
+    if (figure) candidates.push({ figure, clause, index })
+  })
+  if (candidates.length === 0) return { figure: null, clause: '', rest: '', index: -1, reason: 'compound or descriptive target' }
+  let chosen = candidates.length === 1 ? candidates[0] : null
+  let reason = 'single clean figure'
+  if (!chosen) {
+    for (const v of titleFigures(title)) {
+      chosen = candidates.find((c) => Math.abs(c.figure.value - v) < 1e-9) ?? null
+      if (chosen) break
+    }
+    if (!chosen) return { figure: null, clause: '', rest: '', index: -1, reason: 'compound target (several figures, none named in the KR title)' }
+    reason = 'figure named in the KR title'
+  }
+  if (raw !== chosen.clause) reason += ` (from "${chosen.clause}")`
+  return { figure: chosen.figure, clause: chosen.clause, rest: clauseRest(chosen.clause), index: chosen.index, reason }
+}
+
+/**
+ * Baseline figure for a decreasing KR: a clean figure, else the one number in the text written with
+ * the target's unit or unit word ("Close takes about 10 working days (11 Oct 2026)" for "≤5 working
+ * days" → 10). Null when absent or ambiguous.
+ */
+export function baselineFigure(baselineText: string | null | undefined, target: CleanFigure, rest: string): number | null {
+  const strict = parseCleanFigure(baselineText)
+  if (strict) return strict.value
+  const t = stripParentheticals(normaliseMinus(cellText(baselineText)))
+  if (!t) return null
+  let re: RegExp | null = null
+  if (target.unit === '%') re = /(\d[\d,]*(?:\.\d+)?)\s*%/g
+  else {
+    const word = (rest.split(/\s+/)[0] ?? '').replace(/[^a-z-]/gi, '')
+    if (word.length >= 3) re = new RegExp(`(\\d[\\d,]*(?:\\.\\d+)?)\\s*${word}\\b`, 'gi')
+  }
+  if (!re) return null
+  const found = Array.from(t.matchAll(re)).map((m) => Number(m[1].replace(/,/g, '')))
+  return found.length === 1 && Number.isFinite(found[0]) ? found[0] : null
+}
+
 // ─── KR numeric plan (IMP-2) ────────────────────────────────────────────────
 
 export type KrScoring = 'NUMERIC' | 'MILESTONE'
@@ -73,6 +205,8 @@ export interface KrNumericPlan {
   unit: string
   direction: 'INCREASE' | 'DECREASE'
   reason: string
+  /** The target clause the figure came from (checkpoints are read against it). */
+  pick?: { rest: string; index: number } | null
 }
 
 /** Milestone-scored default: start 0, target 100, unit '%'; milestones carry 100/n each. */
@@ -85,28 +219,31 @@ export const MILESTONE_PLAN: Omit<KrNumericPlan, 'reason'> = {
 }
 
 /**
- * Numeric only when the target is a single clean figure ("ETB 300M", "≥200", "3 signed");
- * otherwise milestone-scored 0 → 100 %. A decreasing figure ("<5 a week", "≤15%") is numeric
- * only when the baseline is a clean figure above it (start must exceed target, KRX-1).
+ * Numeric when the target carries one figure ("ETB 300M", "≥200 (45 by 31 Dec · 115 by 31 Mar)",
+ * "3 signed"), or several of which the KR title names one; otherwise milestone-scored 0 → 100 %.
+ * A decreasing figure ("<5 a week", "≤15%") is numeric only when the baseline carries a figure above
+ * it (start must exceed target, KRX-1); a relative change ("−50% against the Q2 median") and a zero
+ * target stay milestone-scored.
  */
-export function krNumericPlan(targetText: string | null | undefined, baselineText?: string | null): KrNumericPlan {
-  const target = parseCleanFigure(targetText)
-  if (!target) {
-    return { ...MILESTONE_PLAN, reason: isBlank(targetText) ? 'no target' : 'compound or descriptive target' }
-  }
+export function krNumericPlan(targetText: string | null | undefined, baselineText?: string | null, title?: string | null): KrNumericPlan {
+  const pick = pickKrTarget(targetText, title)
+  const target = pick.figure
+  if (!target) return { ...MILESTONE_PLAN, reason: pick.reason }
+  const via = { rest: pick.rest, index: pick.index }
   if (target.decrease) {
-    const baseline = parseCleanFigure(baselineText)
-    if (baseline && baseline.value > target.value) {
+    const baseline = baselineFigure(baselineText, target, pick.rest)
+    if (baseline !== null && baseline > target.value) {
       return {
         scoring: 'NUMERIC',
-        startValue: baseline.value,
+        startValue: baseline,
         targetValue: target.value,
         unit: target.unit,
         direction: 'DECREASE',
-        reason: 'single decreasing figure with a numeric baseline',
+        reason: `decreasing figure with a numeric baseline; ${pick.reason}`,
+        pick: via,
       }
     }
-    return { ...MILESTONE_PLAN, reason: 'decreasing target without a numeric baseline above it' }
+    return { ...MILESTONE_PLAN, reason: target.value === 0 ? 'zero target without a numeric baseline above it' : 'decreasing target without a numeric baseline above it' }
   }
   if (target.value <= 0) return { ...MILESTONE_PLAN, reason: 'zero target' }
   return {
@@ -115,16 +252,31 @@ export function krNumericPlan(targetText: string | null | undefined, baselineTex
     targetValue: target.value,
     unit: target.unit,
     direction: 'INCREASE',
-    reason: 'single clean figure',
+    reason: pick.reason,
+    pick: via,
   }
 }
 
-/** Numeric value of a checkpoint cell for a numeric KR ("75M" with unit ETB → 75 000 000). */
-export function checkpointValue(text: string | null | undefined, krUnit: string): number | null {
-  const t = cellText(text)
+/**
+ * Numeric value of a checkpoint cell for a numeric KR ("75M" with unit ETB → 75 000 000). The first
+ * clause in the KR's unit counts; when the KR figure came from a worded clause ("≥60 won") the
+ * checkpoint clause must carry the same word ("45 submitted" → null, "200; 60 won" → 60).
+ */
+export function checkpointValue(text: string | null | undefined, krUnit: string, pick?: { rest: string; index: number } | null): number | null {
+  const t = normaliseMinus(cellText(text))
   if (!t || isBlank(t)) return null
-  const fig = parseCleanFigure(krUnit === 'ETB' && !/etb/i.test(t) ? `ETB ${t}` : t)
-  return fig ? fig.value : null
+  const word = pick ? firstWord(pick.rest) : ''
+  for (const c of splitClauses(stripParentheticals(t))) {
+    const clause = normaliseClause(c)
+    const fig = parseCleanFigure(krUnit === 'ETB' && !/etb/i.test(clause) ? `ETB ${clause}` : clause, { maxRest: 48 })
+    if (!fig || fig.unit !== krUnit) continue
+    if (word) {
+      const own = firstWord(clauseRest(clause))
+      if (own ? own !== word : (pick?.index ?? 0) > 0) continue
+    }
+    return fig.value
+  }
+  return null
 }
 
 // ─── C/A commitment ─────────────────────────────────────────────────────────

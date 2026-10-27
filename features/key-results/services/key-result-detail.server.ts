@@ -19,6 +19,7 @@ import {
   canCloneKeyResult,
 } from '@/lib/permissions'
 import type { BreadcrumbNode } from '@/components/shared/OkrBreadcrumb'
+import { todoKindRank } from '@/lib/package/initiatives'
 
 export async function loadKeyResultDetail(viewer: { id: string; role: string }, id: string) {
   const keyResult = await prisma.keyResult.findUnique({
@@ -182,13 +183,19 @@ export async function loadKeyResultDetail(viewer: { id: string; role: string }, 
 
   // Initiatives for this KR's kanban view.
   // Initiative titles of a redacted KR are private too — don't ship them.
+  // Initiatives (kind INITIATIVE) first, then milestones, then tasks; newest first within a kind.
   const krInitiatives = isRedacted
     ? []
-    : await prisma.todo.findMany({
-        where: { keyResultId: keyResult.id, status: { not: 'CANCELLED' } },
-        select: { id: true, title: true, status: true, keyResultId: true },
-        orderBy: { updatedAt: 'desc' },
-      })
+    : (
+        await prisma.todo.findMany({
+          where: { keyResultId: keyResult.id, status: { not: 'CANCELLED' } },
+          select: { id: true, title: true, status: true, keyResultId: true, kind: true },
+          orderBy: { updatedAt: 'desc' },
+        })
+      )
+        .map((t, i) => ({ t, i }))
+        .sort((a, b) => todoKindRank(a.t.kind) - todoKindRank(b.t.kind) || a.i - b.i)
+        .map(({ t }) => t)
 
   // Build breadcrumb: objective ancestors → objective → KR
   const ancestors: Array<{ id: string; title: string }> = []

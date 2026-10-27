@@ -1,8 +1,10 @@
 'use client'
 
 /**
- * PRF-8 tree: Objective → KR → Milestones (Todo kind=MILESTONE, with due date,
- * status and checklist steps) and Tasks (with sprint), plus a collapsed
+ * PRF-8 tree: Objective → KR → Initiatives (Todo kind=INITIATIVE, v2 workbook:
+ * C/A, target, due, status, with the milestones that name them nested below),
+ * Milestones (Todo kind=MILESTONE, with due date, status and checklist steps)
+ * and Tasks (with sprint), plus a collapsed
  * "Recurring: n" row of the duties linked to each KR. Every node carries the
  * CON-1 connection chips, fetched lazily as the row scrolls into view.
  * PRF-11 actions come from the payload's per-node verdicts.
@@ -17,6 +19,7 @@ import {
   Eye,
   Flag,
   Gauge,
+  Layers,
   Link2,
   ListChecks,
   Lock,
@@ -33,7 +36,7 @@ import { UserAvatar } from '@/components/shared/UserAvatar'
 import { ConnectionChips, type ConnectionChipKind } from '@/components/shared/connections'
 import type { ConnectionEntityType } from '@/lib/connections/types'
 import { cn } from '@/lib/utils'
-import { DUTY_CADENCE_LABELS, isDutyCadence } from '@/types/package'
+import { DUTY_CADENCE_LABELS, TODO_KIND_LABELS, isDutyCadence } from '@/types/package'
 import {
   CheckpointChip,
   CommitmentPill,
@@ -49,7 +52,14 @@ import {
 } from './OkrProfileParts'
 import { useInViewOnce } from './useInView'
 import type { ProfileInitiativeKind } from './schemas'
-import type { OkrProfileDuty, OkrProfileKeyResult, OkrProfileObjective, OkrProfileTodo } from './types'
+import { keyResultTodos } from './okr-profile-utils'
+import type {
+  OkrProfileDuty,
+  OkrProfileInitiativeGroup,
+  OkrProfileKeyResult,
+  OkrProfileObjective,
+  OkrProfileTodo,
+} from './types'
 
 // ---------------------------------------------------------------------------
 // Action contract
@@ -118,13 +128,19 @@ function closeLabel(closureStatus: string, noun: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Todo (milestone / task)
+// Todo (initiative / milestone / task)
 // ---------------------------------------------------------------------------
 
 const TODO_ICON: Record<string, LucideIcon> = {
+  INITIATIVE: Layers,
   MILESTONE: Flag,
   TASK: CheckSquare,
   DEPENDENCY: Link2,
+}
+
+const TODO_ICON_COLOR: Record<string, string> = {
+  INITIATIVE: 'var(--ap-accent)',
+  MILESTONE: 'var(--ap-ahead)',
 }
 
 function TodoNode({
@@ -132,30 +148,43 @@ function TodoNode({
   onOpen,
   now,
   extra,
+  childToggle,
 }: {
   todo: OkrProfileTodo
   onOpen: (id: string) => void
   now: Date
   extra?: ReactNode
+  /** Initiatives: the toggle expands nested milestones instead of checklist steps. */
+  childToggle?: { expanded: boolean; onToggle: () => void; count: number }
 }) {
   const [showSteps, setShowSteps] = useState(false)
   const Icon = TODO_ICON[todo.kind] ?? CheckSquare
   const overdue = isOverdue(todo.dueDate, todo.status, now)
   const doneSteps = todo.steps.filter((s) => s.completed).length
-  const kindLabel = todo.kind === 'MILESTONE' ? 'Milestone' : todo.kind === 'DEPENDENCY' ? 'Delivery task' : 'Task'
+  const kindLabel = TODO_KIND_LABELS[todo.kind] ?? 'Task'
+  const meta = todo.initiative
 
   return (
     <div className="rounded-[var(--ap-radius-sm)] px-1.5 py-1 hover:bg-[var(--ap-bg-hover)]">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        <ExpandToggle
-          expanded={showSteps}
-          onToggle={() => setShowSteps((v) => !v)}
-          label={`${todo.title} steps`}
-          disabled={todo.steps.length === 0}
-        />
+        {childToggle ? (
+          <ExpandToggle
+            expanded={childToggle.expanded}
+            onToggle={childToggle.onToggle}
+            label={`${todo.title} milestones`}
+            disabled={childToggle.count === 0}
+          />
+        ) : (
+          <ExpandToggle
+            expanded={showSteps}
+            onToggle={() => setShowSteps((v) => !v)}
+            label={`${todo.title} steps`}
+            disabled={todo.steps.length === 0}
+          />
+        )}
         <Icon
           className="size-3.5 shrink-0"
-          style={{ color: todo.kind === 'MILESTONE' ? 'var(--ap-ahead)' : 'var(--ap-fg-subtle)' }}
+          style={{ color: TODO_ICON_COLOR[todo.kind] ?? 'var(--ap-fg-subtle)' }}
           aria-label={kindLabel}
         />
         <button
@@ -167,10 +196,20 @@ function TodoNode({
           )}
           title={`Open #${todo.cardNumber} ${todo.title}`}
         >
-          <span className="mr-1 font-mono text-caption text-[var(--ap-fg-subtle)]">#{todo.cardNumber}</span>
+          {todo.kind === 'INITIATIVE' && todo.externalRef ? (
+            <span className="mr-1 font-mono text-caption text-[var(--ap-fg-subtle)]">{todo.externalRef}</span>
+          ) : (
+            <span className="mr-1 font-mono text-caption text-[var(--ap-fg-subtle)]">#{todo.cardNumber}</span>
+          )}
           {todo.title}
         </button>
+        {meta && <CommitmentPill commitment={meta.commitment} />}
         <StatusPill status={todo.status} size="xs" />
+        {meta?.target && (
+          <span className="max-w-[240px] truncate text-caption text-[var(--ap-fg-muted)]" title={`Target: ${meta.target}`}>
+            Target {meta.target}
+          </span>
+        )}
         {todo.dueDate && (
           <span
             className="text-caption tabular-nums"
@@ -185,6 +224,16 @@ function TodoNode({
           <MiniBadge tone="accent" title="Sprint">
             {todo.sprint.name}
           </MiniBadge>
+        )}
+        {meta?.supports && !childToggle && (
+          <span className="max-w-[200px] truncate text-caption text-[var(--ap-fg-subtle)]" title={`Supports: ${meta.supports}`}>
+            Supports {meta.supports}
+          </span>
+        )}
+        {childToggle && childToggle.count > 0 && !childToggle.expanded && (
+          <span className="text-caption text-[var(--ap-fg-subtle)]">
+            {childToggle.count} milestone{childToggle.count === 1 ? '' : 's'}
+          </span>
         )}
         {todo.steps.length > 0 && (
           <span className="inline-flex items-center gap-1 text-caption text-[var(--ap-fg-muted)]">
@@ -216,6 +265,76 @@ function TodoNode({
         </TreeChildren>
       )}
     </div>
+  )
+}
+
+/** An initiative and the milestones that name it ("Initiative: <ref> — …"). */
+function InitiativeNode({
+  group,
+  actions,
+  now,
+}: {
+  group: OkrProfileInitiativeGroup
+  actions: OkrTreeActions
+  now: Date
+}) {
+  const [open, setOpen] = useState(true)
+  return (
+    <div>
+      <TodoNode
+        todo={group.initiative}
+        onOpen={actions.onOpenTodo}
+        now={now}
+        childToggle={{ expanded: open, onToggle: () => setOpen((v) => !v), count: group.milestones.length }}
+      />
+      {open && group.milestones.length > 0 && (
+        <TreeChildren className="mb-0.5">
+          {group.milestones.map((t) => (
+            <TodoNode
+              key={t.id}
+              todo={t}
+              onOpen={actions.onOpenTodo}
+              now={now}
+              extra={actions.renderItemActions?.({ entityType: 'TODO', id: t.id })}
+            />
+          ))}
+        </TreeChildren>
+      )}
+    </div>
+  )
+}
+
+/**
+ * "Supporting KPIs": the person's initiatives that support a KPI rather than a
+ * key result (kind INITIATIVE, no KR). Rendered at the bottom of the tree.
+ */
+export function SupportingInitiativesSection({
+  initiatives,
+  actions,
+  now,
+}: {
+  initiatives: OkrProfileTodo[]
+  actions: OkrTreeActions
+  now: Date
+}) {
+  if (initiatives.length === 0) return null
+  return (
+    <section
+      aria-label="Supporting KPIs"
+      className="rounded-card border border-[var(--ap-border)] bg-[var(--ap-bg-raised)] p-2 shadow-card"
+    >
+      <div className="flex flex-wrap items-baseline gap-x-2 px-1.5 py-1">
+        <h3 className="text-body-sm font-semibold text-[var(--ap-fg)]">Supporting KPIs</h3>
+        <span className="text-caption text-[var(--ap-fg-subtle)]">
+          Initiatives that support a KPI rather than a key result
+        </span>
+      </div>
+      <div className="mt-0.5">
+        {initiatives.map((t) => (
+          <TodoNode key={t.id} todo={t} onOpen={actions.onOpenTodo} now={now} />
+        ))}
+      </div>
+    </section>
   )
 }
 
@@ -281,9 +400,12 @@ interface KeyResultNodeProps {
 }
 
 function KeyResultNode({ keyResult: kr, objective, subjectId, expanded, onToggle, actions, now }: KeyResultNodeProps) {
-  const childCount = kr.milestones.length + kr.tasks.length + (kr.duties.length > 0 ? 1 : 0)
+  const todoCount = keyResultTodos(kr).length
+  const childCount = todoCount + (kr.duties.length > 0 ? 1 : 0)
+  const milestoneCount = kr.milestones.length + kr.initiatives.reduce((n, g) => n + g.milestones.length, 0)
   const counts = [
-    kr.milestones.length ? `${kr.milestones.length} milestone${kr.milestones.length === 1 ? '' : 's'}` : null,
+    kr.initiatives.length ? `${kr.initiatives.length} initiative${kr.initiatives.length === 1 ? '' : 's'}` : null,
+    milestoneCount ? `${milestoneCount} milestone${milestoneCount === 1 ? '' : 's'}` : null,
     kr.tasks.length ? `${kr.tasks.length} task${kr.tasks.length === 1 ? '' : 's'}` : null,
     kr.duties.length ? `${kr.duties.length} recurring` : null,
   ].filter(Boolean)
@@ -396,9 +518,17 @@ function KeyResultNode({ keyResult: kr, objective, subjectId, expanded, onToggle
 
       {expanded && (
         <TreeChildren className="mb-1">
+          {kr.initiatives.length > 0 && (
+            <>
+              <GroupLabel>Initiatives</GroupLabel>
+              {kr.initiatives.map((g) => (
+                <InitiativeNode key={g.initiative.id} group={g} actions={actions} now={now} />
+              ))}
+            </>
+          )}
           {kr.milestones.length > 0 && (
             <>
-              <GroupLabel>Milestones</GroupLabel>
+              <GroupLabel>{kr.initiatives.length > 0 ? 'Other milestones' : 'Milestones'}</GroupLabel>
               {kr.milestones.map((t) => (
                 <TodoNode
                   key={t.id}
@@ -419,7 +549,7 @@ function KeyResultNode({ keyResult: kr, objective, subjectId, expanded, onToggle
             </>
           )}
           <DutyRows duties={kr.duties} subjectId={subjectId} />
-          {kr.milestones.length + kr.tasks.length === 0 && (
+          {todoCount === 0 && (
             <p className="px-1.5 py-1 text-caption text-[var(--ap-fg-subtle)]">
               No milestones or tasks yet. A milestone is a dated deliverable proving progress on this KR; tasks are
               the steps planned in sprints.

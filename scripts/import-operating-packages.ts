@@ -2,22 +2,29 @@
 /**
  * Import the FY 2026/27 Employee Operating Packages (IMP-1 … IMP-6).
  *
- * Source: data-import/360Ground-Company-OKR-FY2026-27-v*.xlsx and the nine
- * *-Operating-Package-*.xlsx workbooks (docs/employee_operating_package_REQUIREMENTS.md §7).
+ * Source: the Company OKR workbook and the nine Operating Package workbooks in --dir
+ * (docs/employee_operating_package_REQUIREMENTS.md §7). Both the v1 names
+ * ("360Ground-Company-OKR-FY2026-27-v4.xlsx", "Eden-Operating-Package-FY2026-27-v2.xlsx") and the v2
+ * names of 27 Oct 2026 ("360Ground Company OKR FY2026 27 v6 (1).xlsx", "Eden Operating Package FY2026
+ * 27 v4 (1).xlsx") are recognised; the highest version of each wins.
  *
  * What it writes (create or update on externalRef — never deletes):
  *   timeframe "FY 2026/27" (YEARLY 2026-07-07 … 2027-07-06, inactive) when missing
  *   → company objectives (COMPANY) + KRs + Q2/Q3/Q4 checkpoints
  *   → per package: OperatingPackage header (DRAFT), objectives (INDIVIDUAL, parent = the company
  *     objective of the first linked company KR, LOOSE) + KRs (C/A, baseline/target text, measured
- *     by, due), milestones (Todo kind=MILESTONE, 100/n each on milestone-scored KRs), tasks (Todo
+ *     by, due; one figure picked from v2 targets such as "≥200 (45 by 31 Dec · 115 by 31 Mar)"),
+ *     v2 initiatives (Todo kind=INITIATIVE on the KR named in "Supports", or none for KPI /
+ *     Development Plan initiatives), milestones (Todo kind=MILESTONE, on the parent KR or the parent
+ *     initiative's KR; 100/n each on the package's own milestone-scored KRs), tasks (Todo
  *     kind=TASK + collaborators), recurring duties (+ collaborators, + the Todo recurrence head per
  *     DUT-1), role definition (DRAFT) + items, KPIs, development items (mandatory)
  *   → CONTRIBUTES_TO links (individual objective/KR → company KR, plus company "Lands in")
  *   → company Dependency Map + package X-links → WorkDependency (+ parties, + linked items)
  *   → decisions (CEO Decision Log ∪ "Decisions for the CEO") + decision links
  *   → Agree / Dispute review cells → PackageItemReview
- *   → FY25/26 carry-forward SUCCEEDS links (new → old, old matched by upper(right(id, 6)))
+ *   → FY25/26 carry-forward SUCCEEDS links (new → old, old matched by upper(right(id, 6)); an
+ *     initiative new home links its supported KR as non-primary, an initiative group is skipped)
  * Every create / update writes an ActivityLog row with metadata.source = 'import'.
  *
  * Self-contained: plain PrismaClient, relative imports only (no '@/'), so it runs on the VPS from

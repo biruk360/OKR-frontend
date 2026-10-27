@@ -16,6 +16,8 @@ import { PersonTooltip, UserAvatar } from '@/components/shared/UserAvatar'
 import { userColor } from '@/lib/user-color'
 import { useTodoStatusToggle } from './useTodoStatusToggle'
 import { dueTone, DUE_TONE_STYLE } from '@/lib/todos/due-tone'
+import { todoKindRank } from '@/lib/package/initiatives'
+import TodoKindBadge from '@/components/shared/TodoKindBadge'
 
 interface ToDoListProps {
   keyResultId: string
@@ -33,6 +35,10 @@ interface Todo {
   id: string
   title: string
   description?: string
+  /** FND-4 kind: TASK | MILESTONE | DUTY | DEPENDENCY | INITIATIVE. */
+  kind?: string
+  /** Workbook id (e.g. "EDN-IN1.1"). */
+  externalRef?: string | null
   status: string
   dueDate?: string | null
   completedAt?: string | null
@@ -340,6 +346,9 @@ export default function ToDoList({
           <ul className="">
             {[...todos]
               .sort((a, b) => {
+                // Initiatives first, then milestones, then tasks (FND-4 / v2 import).
+                const kindDiff = todoKindRank(a.kind) - todoKindRank(b.kind)
+                if (kindDiff !== 0) return kindDiff
                 const aDone = a.status === 'COMPLETED' ? 1 : 0
                 const bDone = b.status === 'COMPLETED' ? 1 : 0
                 if (aDone !== bDone) return aDone - bDone
@@ -371,8 +380,12 @@ export default function ToDoList({
                     )}
                     title={todo.title}
                   >
+                    {todo.kind === 'INITIATIVE' && todo.externalRef && (
+                      <span className="mr-1 font-mono text-caption text-[color:var(--ap-fg-subtle)]">{todo.externalRef}</span>
+                    )}
                     {todo.title}
                   </button>
+                  <TodoKindBadge kind={todo.kind} className="shrink-0" />
 
                   {/* Per-initiative progressValue input (in parent KR's unit).
                       Blurs commit to the API; Enter commits too. */}

@@ -12,7 +12,7 @@
  * so the surrounding server page stays thin — same pattern as the objective page.
  */
 
-import { useCallback, useState } from 'react'
+import { useCallback, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh'
@@ -90,6 +90,11 @@ export interface KeyResultDetailClientProps {
   initiatives: Array<{ id: string; title: string; status: string; keyResultId?: string | null }>
   /** Signed-in user — own realtime events are skipped (this tab already refreshed). */
   currentUserId?: string | null
+  /**
+   * Status cards rendered first in the right rail (lineage, closed & locked).
+   * The rail stacks below the main column on narrow screens.
+   */
+  railStatus?: ReactNode
 }
 
 export default function KeyResultDetailClient({
@@ -106,6 +111,7 @@ export default function KeyResultDetailClient({
   breadcrumbNodes,
   initiatives,
   currentUserId = null,
+  railStatus = null,
 }: KeyResultDetailClientProps) {
   const router = useRouter()
   // Live refresh: `private-keyresult-<id>` carries id-only change signals; the
@@ -621,6 +627,7 @@ export default function KeyResultDetailClient({
 
         {/* -------- Sidebar (Apple Pro right rail) -------- */}
         <aside className="space-y-3">
+          {railStatus}
           {!isRedacted && timeframe?.startDate && timeframe?.endDate ? (
             <KrProgressConfidenceCard
               checkIns={checkIns.map((c: any) => ({ asOfDate: c.asOfDate, value: c.value, confidence: c.confidence, confidenceScore: c.confidenceScore }))}

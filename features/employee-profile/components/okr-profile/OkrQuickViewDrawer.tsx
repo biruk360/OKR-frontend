@@ -128,7 +128,9 @@ export function OkrQuickViewDrawer({ target, onClose, onCheckIn, onCloseFlow }: 
             )}
             {kr && (
               <Row label="Work">
-                {kr.milestones.length} milestones · {kr.tasks.length} tasks · {kr.duties.length} recurring
+                {kr.initiatives.length > 0 && `${kr.initiatives.length} initiatives · `}
+                {kr.milestones.length + kr.initiatives.reduce((n, g) => n + g.milestones.length, 0)} milestones ·{' '}
+                {kr.tasks.length} tasks · {kr.duties.length} recurring
               </Row>
             )}
           </dl>

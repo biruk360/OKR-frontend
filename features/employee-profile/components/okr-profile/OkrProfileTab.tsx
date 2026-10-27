@@ -7,8 +7,9 @@
  *   - Header strip (PRF-8): objectives, KRs, average progress, C vs A, next
  *     checkpoint, last check-in.
  *   - Filters (PRF-9): level, commitment, status, blocked only, checkpoint ≤ 30 d.
- *   - Tree (PRF-8): Objective → KR → milestones → tasks, "Recurring: n" duty rows,
- *     connection chips on every node (CON-1).
+ *   - Tree (PRF-8): Objective → KR → initiatives (with their milestones) →
+ *     milestones → tasks, "Recurring: n" duty rows, connection chips on every
+ *     node (CON-1); KPI-only initiatives in a "Supporting KPIs" section below.
  *   - Past OKRs (PRF-10): closed objectives from earlier timeframes with outcome,
  *     grade, retrospective and successors.
  *   - Actions (PRF-11): check in (global check-in modal), quick view (drawer +
@@ -35,6 +36,7 @@ import { OkrProfileFilterBar } from './OkrProfileFilterBar'
 import { OkrProfileHeaderStrip } from './OkrProfileHeaderStrip'
 import {
   ObjectiveNode,
+  SupportingInitiativesSection,
   type OkrCloseTarget,
   type OkrProfileItemRef,
   type OkrQuickViewTarget,
@@ -43,7 +45,7 @@ import {
 import { OkrQuickViewDrawer } from './OkrQuickViewDrawer'
 import { PastOkrsSection } from './PastOkrsSection'
 import { RetrospectiveModal } from './RetrospectiveModal'
-import { activeFilterCount, applyOkrProfileFilters } from './okr-profile-utils'
+import { activeFilterCount, applyOkrProfileFilters, filterSupportingInitiatives } from './okr-profile-utils'
 import type { ProfileInitiativeKind } from './schemas'
 import type { OkrProfileFilters, OkrProfileKeyResult, OkrProfilePastObjective } from './types'
 
@@ -127,6 +129,10 @@ export function OkrProfileTab({ userId, timeframeId, renderItemActions }: OkrPro
   const objectives = useMemo(() => data?.objectives ?? [], [data])
   const filtered = useMemo(() => applyOkrProfileFilters(objectives, filters, now), [objectives, filters, now])
   const filtering = activeFilterCount(filters) > 0
+  const supporting = useMemo(
+    () => filterSupportingInitiatives(data?.supportingInitiatives ?? [], filters),
+    [data, filters],
+  )
   const allKrIds = useMemo(() => objectives.flatMap((o) => o.keyResults.map((k) => k.id)), [objectives])
   const allExpanded = allKrIds.length > 0 && allKrIds.every((id) => expandedKrs.has(id))
 
@@ -263,6 +269,8 @@ export function OkrProfileTab({ userId, timeframeId, renderItemActions }: OkrPro
           ))}
         </ul>
       )}
+
+      {timeframe && <SupportingInitiativesSection initiatives={supporting} actions={actions} now={now} />}
 
       <PastOkrsSection past={data.past} truncated={data.pastTruncated} onRetrospective={setRetroTarget} />
 

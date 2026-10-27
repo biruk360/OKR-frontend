@@ -74,12 +74,35 @@ export interface DecisionRow {
 export interface MilestoneRow {
   rowNumber: number
   id: string
+  /** v1 "Parent KR" or v2 "Parent initiative" (EDN-IN1.1), upper-cased. */
   parentKr: string
+  /** True when the parent column is "Parent initiative" (v2). */
+  parentIsInitiative: boolean
   title: string
   quarter: string
   due: string
   dependsOn: string
   status: string
+  review: ReviewCell
+}
+
+/** v2 "Initiatives" sheet: groups (former objectives, EDN-IG1) and initiatives (EDN-IN1.1). */
+export interface InitiativeRow {
+  rowNumber: number
+  id: string
+  kind: 'GROUP' | 'INITIATIVE'
+  title: string
+  ca: string
+  baseline: string
+  target: string
+  due: string
+  measuredBy: string
+  /** "Supports (key result or KPI)": EDN-KR1.2, "Company KR1.4 (settlement)", "KPI YOG-K01", "Development Plan". */
+  supports: string
+  dependencies: string
+  owner: string
+  /** Initiatives: id of the group row above it. */
+  groupRef: string | null
   review: ReviewCell
 }
 
@@ -187,6 +210,8 @@ export interface PackageWorkbook {
   summary: Array<{ label: string; value: string }>
   counts: Record<string, string>
   okr: OkrRow[]
+  /** v2 only; empty for v1 workbooks. */
+  initiatives: InitiativeRow[]
   milestones: MilestoneRow[]
   tasks: TaskRow[]
   kpis: KpiRow[]
@@ -223,22 +248,38 @@ export interface WorkbookFiles {
   ceo: string | null
 }
 
+/** Word separators in workbook file names: "Company-OKR", "Company OKR", "Company_OKR". */
+const SEP = '[\\s_-]*'
+export const COMPANY_FILE_RE = new RegExp(`company${SEP}okr`, 'i')
+export const PACKAGE_FILE_RE = new RegExp(`operating${SEP}package`, 'i')
+export const CEO_FILE_RE = new RegExp(`\\bceo${SEP}operating${SEP}package`, 'i')
+
+/**
+ * v1 names ("Eden-Operating-Package-FY2026-27-v2.xlsx") and v2 names ("Eden Operating Package FY2026 27
+ * v4 (1).xlsx", "360Ground Company OKR FY2026 27 v6 (1).xlsx") are both recognised; the version comes
+ * from a "-v4" / " v4" token, and a download suffix such as " (1)" is ignored.
+ */
 export function findWorkbooks(dir: string): WorkbookFiles {
   const files = fs
     .readdirSync(dir)
-    .filter((f) => f.toLowerCase().endsWith('.xlsx') && !f.startsWith('~$'))
+    .filter((f) => f.toLowerCase().endsWith('.xlsx') && !f.startsWith('~$') && !f.startsWith('.'))
     .sort()
-  const companies = files.filter((f) => /company-okr/i.test(f))
-  if (companies.length === 0) throw new Error(`No Company OKR workbook (*Company-OKR*.xlsx) in ${dir}`)
+  const companies = files.filter((f) => COMPANY_FILE_RE.test(f))
+  if (companies.length === 0) throw new Error(`No Company OKR workbook (*Company OKR*.xlsx) in ${dir}`)
   const company = companies.sort(byVersion).slice(-1)[0]
-  const packages = files.filter((f) => /operating-package/i.test(f)).map((f) => path.join(dir, f))
-  const ceo = packages.find((f) => /ceo-operating-package/i.test(path.basename(f))) ?? null
-  return { company: path.join(dir, company), packages, ceo }
+  const packages = files.filter((f) => PACKAGE_FILE_RE.test(f)).map((f) => path.join(dir, f))
+  const ceos = packages.filter((f) => CEO_FILE_RE.test(path.basename(f))).sort((a, b) => byVersion(path.basename(a), path.basename(b)))
+  return { company: path.join(dir, company), packages, ceo: ceos.slice(-1)[0] ?? null }
+}
+
+/** Version from a file name: "-v2", " v4 (1)", "_v3" → 2 / 4 / 3; 1 when none. */
+export function fileVersion(name: string): number | null {
+  const m = path.basename(name).match(/(?:^|[\s_-])v(\d+)(?=$|[\s_.()-])/i)
+  return m ? Number(m[1]) : null
 }
 
 function versionNumber(name: string): number {
-  const m = name.match(/-v(\d+)/i)
-  return m ? Number(m[1]) : 1
+  return fileVersion(name) ?? 1
 }
 
 function byVersion(a: string, b: string): number {
@@ -397,10 +438,16 @@ export function ownerNameFromLine(line: string): string {
   return head.replace(/\([^)]*\)/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
-/** "v2 — DRAFT …" → "v2"; else the title "(v2)" or the file name "-v2"; else "v1". */
+/**
+ * The highest of the README status ("v2 — DRAFT …"), the title "(v2)" and the file name ("-v2",
+ * " v4 (1)"); "v1" when none. The highest wins because a re-issued workbook can keep a stale status
+ * line (the v4 Eden file still says "v3 (27 Oct funder alignment)").
+ */
 export function packageVersion(statusText: string, title: string, file: string): string {
-  const s = cellText(statusText).match(/^v(\d+)\b/i) ?? cellText(title).match(/\(v(\d+)\b/i) ?? path.basename(file).match(/-v(\d+)/i)
-  return s ? `v${s[1]}` : 'v1'
+  const found = [cellText(statusText).match(/^v(\d+)\b/i)?.[1], cellText(title).match(/\(v(\d+)\b/i)?.[1], fileVersion(file)]
+    .filter((v) => v !== undefined && v !== null)
+    .map(Number)
+  return found.length ? `v${Math.max(...found)}` : 'v1'
 }
 
 function readmeBlocks(wb: XLSX.WorkBook) {
@@ -445,12 +492,60 @@ export function parsePackageWorkbook(file: string): PackageWorkbook {
   if (!code) throw new Error(`${base}: cannot tell the package code from the OKR ids`)
   if (codes.some((c) => c !== code)) warnings.push(`${base}: OKR ids mix package prefixes (${Array.from(new Set(codes)).join(', ')})`)
 
+  const initiatives: InitiativeRow[] = []
+  const ini = readTable(wb, 'Initiatives', 'ID')
+  if (ini) {
+    const c = {
+      id: column(ini, /^id$/i),
+      level: column(ini, /^level$/i),
+      title: column(ini, /^initiative/i),
+      ca: column(ini, /^type/i),
+      baseline: column(ini, /^baseline/i),
+      target: column(ini, /^target/i),
+      due: column(ini, /^due/i),
+      measuredBy: column(ini, /^measured by/i),
+      supports: column(ini, /^supports/i),
+      deps: column(ini, /^dependencies/i),
+      owner: column(ini, /^owner$/i),
+    }
+    const review = reviewOf(ini)
+    let groupRef: string | null = null
+    for (const r of ini.rows) {
+      const id = c.id(r).toUpperCase()
+      if (!id) continue
+      const level = c.level(r).toLowerCase()
+      const kind = level.startsWith('group') ? 'GROUP' : level.startsWith('initiative') ? 'INITIATIVE' : null
+      if (!kind) {
+        warnings.push(`${base} Initiatives row ${r.rowNumber}: unknown level "${c.level(r)}" — skipped`)
+        continue
+      }
+      if (kind === 'GROUP') groupRef = id
+      initiatives.push({
+        rowNumber: r.rowNumber,
+        id,
+        kind,
+        title: c.title(r),
+        ca: c.ca(r),
+        baseline: c.baseline(r),
+        target: c.target(r),
+        due: c.due(r),
+        measuredBy: c.measuredBy(r),
+        supports: c.supports(r),
+        dependencies: c.deps(r),
+        owner: c.owner(r),
+        groupRef: kind === 'INITIATIVE' ? groupRef : null,
+        review: review(r),
+      })
+    }
+  }
+
   const milestones: MilestoneRow[] = []
   const ms = readTable(wb, 'Milestones', 'ID')
   if (ms) {
+    const parentIsInitiative = ms.header.some((h) => /^parent initiative/i.test(h))
     const c = {
       id: column(ms, /^id$/i),
-      parent: column(ms, /^parent kr/i),
+      parent: column(ms, /^parent (kr|initiative)/i),
       title: column(ms, /^milestone/i),
       quarter: column(ms, /^quarter/i),
       due: column(ms, /^due/i),
@@ -465,6 +560,7 @@ export function parsePackageWorkbook(file: string): PackageWorkbook {
         rowNumber: r.rowNumber,
         id,
         parentKr: c.parent(r).toUpperCase(),
+        parentIsInitiative,
         title: c.title(r),
         quarter: c.quarter(r),
         due: c.due(r),
@@ -679,6 +775,7 @@ export function parsePackageWorkbook(file: string): PackageWorkbook {
     summary: readme.summary,
     counts: readme.counts,
     okr,
+    initiatives,
     milestones,
     tasks,
     kpis,

@@ -5,10 +5,13 @@
  *   - objectives they own, plus objectives they contribute to (own a KR in, or are an
  *     ObjectiveContributor of) — `buildObjectiveVisibilityWhere` (status + record
  *     scope) and per-row redaction from lib/okr/visibility-scope.ts (PRF-5);
- *   - each KR's next checkpoint, last check-in, milestones (Todo kind=MILESTONE,
- *     with checklist steps), tasks (TASK / DEPENDENCY, with sprint) and the duties
- *     linked to it (package `duties` area, lib/package/access.ts via
- *     `buildPackageVisibility`);
+ *   - each KR's next checkpoint, last check-in, initiatives (Todo kind=INITIATIVE,
+ *     v2 workbook) with the milestones that name them, the other milestones
+ *     (kind=MILESTONE, with checklist steps), tasks (TASK / DEPENDENCY, with
+ *     sprint) and the duties linked to it (package `duties` area,
+ *     lib/package/access.ts via `buildPackageVisibility`);
+ *   - "Supporting KPIs": the person's KPI-only initiatives (no KR), visible to
+ *     ADMIN/EXEC, participants and viewers of the person's package `kpis` area;
  *   - "blocked" flags from late inbound WorkDependency links (DEP-2/3);
  *   - PRF-11 action verdicts (in-memory mirrors of the lib/permissions.ts rules —
  *     every acting route re-checks);
@@ -37,6 +40,7 @@ import { resolveOkrItems, type OkrRef } from '@/lib/connections/okr-items'
 import { dependencyDirection, dependencyTiming, dutyHref } from '@/lib/connections/flags'
 import type { ConnectionItem } from '@/lib/connections/types'
 import { isOkrLinkSubKind, isTodoKind, type OkrLinkSubKind } from '@/types/package'
+import { milestoneInitiativeRef, parseInitiativeMeta } from '@/lib/package/initiatives'
 import {
   canEditKeyResultInMemory,
   canEditObjectiveInMemory,
@@ -53,6 +57,7 @@ import {
   sortByRef,
   sortObjectives,
   sortTodos,
+  splitKeyResultTodos,
   successorLabel,
   successorRelationLabel,
   todoVisibleInProfile,
@@ -77,7 +82,8 @@ import type {
 const MAX_OBJECTIVES = 200
 const MAX_TODOS = 2000
 const MAX_PAST = 40
-const TREE_TODO_KINDS = ['MILESTONE', 'TASK', 'DEPENDENCY'] as const
+const MAX_SUPPORTING = 200
+const TREE_TODO_KINDS = ['INITIATIVE', 'MILESTONE', 'TASK', 'DEPENDENCY'] as const
 
 export class OkrProfileError extends Error {
   constructor(
@@ -228,6 +234,8 @@ const TODO_SELECT = (viewerId: string) =>
     cardNumber: true,
     title: true,
     kind: true,
+    externalRef: true,
+    description: true,
     status: true,
     dueDate: true,
     completedAt: true,
@@ -266,6 +274,9 @@ function todoDto(t: TodoRow, canViewSprint: boolean, blocked: boolean): OkrProfi
     cardNumber: t.cardNumber,
     title: t.title,
     kind,
+    externalRef: t.externalRef,
+    initiativeRef: kind === 'MILESTONE' ? milestoneInitiativeRef(t.description) : null,
+    initiative: kind === 'INITIATIVE' ? parseInitiativeMeta(t.description) : null,
     status: t.status,
     dueDate: iso(t.dueDate),
     completedAt: iso(t.completedAt),
@@ -283,6 +294,7 @@ function todoDto(t: TodoRow, canViewSprint: boolean, blocked: boolean): OkrProfi
 
 interface TreeResult {
   objectives: OkrProfileObjective[]
+  supportingInitiatives: OkrProfileTodo[]
   lastCheckInAt: string | null
 }
 
@@ -326,7 +338,7 @@ async function loadTree(
 
   const fullyVisibleKr = buildKeyResultVisibilityWhere(ctx, { includeRedacted: false })
 
-  const [checkpoints, checkInMax, todos, duties, lastCheckIn] = await Promise.all([
+  const [checkpoints, checkInMax, todos, duties, lastCheckIn, kpiInitiatives] = await Promise.all([
     fullKrIds.length
       ? prisma.keyResultCheckpoint.findMany({
           where: { keyResultId: { in: fullKrIds } },
@@ -380,6 +392,30 @@ async function loadTree(
       orderBy: { createdAt: 'desc' },
       select: { createdAt: true },
     }),
+    // KPI-only initiatives of the person (no KR, not on an objective shown above),
+    // due in this timeframe or undated.
+    prisma.todo.findMany({
+      where: {
+        kind: 'INITIATIVE',
+        keyResultId: null,
+        assigneeId: userId,
+        archivedAt: null,
+        recurrenceParentId: null,
+        status: { not: 'CANCELLED' },
+        AND: [
+          objIds.length ? { OR: [{ objectiveId: null }, { objectiveId: { notIn: objIds } }] } : {},
+          {
+            OR: [
+              { dueDate: null },
+              { dueDate: { gte: new Date(timeframe.startDate), lte: new Date(timeframe.endDate) } },
+            ],
+          },
+        ],
+      },
+      select: TODO_SELECT(viewer.id),
+      orderBy: { cardNumber: 'asc' },
+      take: MAX_SUPPORTING,
+    }),
   ])
 
   // Lookups for the plan.
@@ -406,8 +442,23 @@ async function loadTree(
     if (visible) visibleTodos.push({ row: t, canViewSprint })
   }
 
+  // KPI-only initiatives: ADMIN/EXEC, participants, or viewers of the person's
+  // package `kpis` area (the KPIs they support live there).
+  const kpiAreaVisible = kpiInitiatives.length
+    ? (await buildPackageVisibility(ctx, [userId]))('kpis', userId)
+    : false
+  const visibleSupporting: Array<{ row: TodoRow; canViewSprint: boolean }> = []
+  for (const t of kpiInitiatives) {
+    const canViewSprint =
+      !!t.sprint && (seesAll || t.sprint.ownerId === viewer.id || t.sprint.participants.length > 0)
+    const isParticipant = t.assigneeId === viewer.id || t.creatorId === viewer.id || t.members.length > 0
+    if (seesAll || isParticipant || (t.sprintId ? canViewSprint : kpiAreaVisible)) {
+      visibleSupporting.push({ row: t, canViewSprint })
+    }
+  }
+
   // DEP-2/3: late inbound dependencies linked to objectives, KRs and visible cards.
-  const todoIds = visibleTodos.map((t) => t.row.id)
+  const todoIds = [...visibleTodos, ...visibleSupporting].map((t) => t.row.id)
   const linkOr: Prisma.WorkDependencyLinkWhereInput[] = []
   if (objIds.length) linkOr.push({ entityType: 'OBJECTIVE', entityId: { in: objIds } })
   if (krIds.length) linkOr.push({ entityType: 'KEY_RESULT', entityId: { in: krIds } })
@@ -429,7 +480,7 @@ async function loadTree(
     ownerOf.set(key('OBJECTIVE', p.row.id), p.row.ownerId)
     for (const k of p.krs) ownerOf.set(key('KEY_RESULT', k.row.id), k.row.ownerId)
   }
-  for (const t of visibleTodos) ownerOf.set(key('TODO', t.row.id), t.row.assigneeId)
+  for (const t of [...visibleTodos, ...visibleSupporting]) ownerOf.set(key('TODO', t.row.id), t.row.assigneeId)
   const blocked = new Set<string>()
   for (const link of depLinks) {
     const k = key(link.entityType, link.entityId)
@@ -492,7 +543,7 @@ async function loadTree(
       const nextCheckpoint: OkrProfileCheckpoint | null = next
         ? { id: next.id, label: next.label, dueDate: next.dueDate.toISOString(), status: next.status, targetText: next.targetText }
         : null
-      const all = todosByKr.get(kr.id) ?? []
+      const split = splitKeyResultTodos(todosByKr.get(kr.id) ?? [])
       const work = canWorkOnKeyResult({
         canEdit,
         redacted: krRedacted,
@@ -530,8 +581,9 @@ async function loadTree(
         },
         lastCheckInAt: krRedacted ? null : iso(lastCheckInByKr.get(kr.id) ?? null),
         blocked: !krRedacted && blocked.has(key('KEY_RESULT', kr.id)),
-        milestones: sortTodos(all.filter((t) => t.kind === 'MILESTONE')),
-        tasks: sortTodos(all.filter((t) => t.kind !== 'MILESTONE')),
+        initiatives: split.initiatives,
+        milestones: split.milestones,
+        tasks: split.tasks,
         duties: krRedacted ? [] : dutiesByKr.get(kr.id) ?? [],
         actions: {
           canCheckIn: work,
@@ -580,7 +632,15 @@ async function loadTree(
     }
   })
 
-  return { objectives: sortObjectives(objectives), lastCheckInAt: iso(lastCheckIn?.createdAt ?? null) }
+  const supportingInitiatives = sortTodos(
+    visibleSupporting.map(({ row, canViewSprint }) => todoDto(row, canViewSprint, blocked.has(key('TODO', row.id)))),
+  )
+
+  return {
+    objectives: sortObjectives(objectives),
+    supportingInitiatives,
+    lastCheckInAt: iso(lastCheckIn?.createdAt ?? null),
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -808,7 +868,7 @@ export async function loadOkrProfile(
   ])
 
   const [tree, pastResult] = await Promise.all([
-    timeframe ? loadTree(ctx, viewer, userId, timeframe, now) : Promise.resolve<TreeResult>({ objectives: [], lastCheckInAt: null }),
+    timeframe ? loadTree(ctx, viewer, userId, timeframe, now) : Promise.resolve<TreeResult>({ objectives: [], supportingInitiatives: [], lastCheckInAt: null }),
     opts.includePast === false ? Promise.resolve({ past: [], truncated: false }) : loadPast(ctx, userId, timeframe),
   ])
 
@@ -818,6 +878,7 @@ export async function loadOkrProfile(
     viewer: { isSelf: viewer.id === userId, canCloseEarly: isSeesAllRole(viewer.role) },
     header: computeHeader(tree.objectives, tree.lastCheckInAt, now),
     objectives: tree.objectives,
+    supportingInitiatives: tree.supportingInitiatives,
     past: pastResult.past,
     pastTruncated: pastResult.truncated,
     generatedAt: now.toISOString(),

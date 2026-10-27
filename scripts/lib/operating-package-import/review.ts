@@ -2,7 +2,7 @@
  * Operating-package importer (IMP-2) — the dry-run review workbook.
  *
  * One sheet per decision the reviewer must confirm before `--apply`: people, KR numeric plans,
- * duty cadences, KPI parsing, CONTRIBUTES_TO / SUCCEEDS link plans, carry-forward matches,
+ * initiatives and the KR each one supports, duty cadences, KPI parsing, CONTRIBUTES_TO / SUCCEEDS link plans, carry-forward matches,
  * dependencies, decisions, and every warning.
  */
 import * as fs from 'fs'
@@ -60,6 +60,7 @@ export const REVIEW_SHEET_ORDER = [
   'Packages',
   'KR plan',
   'Checkpoints',
+  'Initiatives',
   'Milestones & tasks',
   'Duties',
   'KPIs',

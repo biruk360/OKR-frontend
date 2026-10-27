@@ -1,10 +1,13 @@
 /**
  * Operating-package importer (IMP-1 … IMP-6) — orchestration.
  *
- * Phases (IMP-3): timeframe → Company OKR (objectives, KRs, checkpoints) → per package (header,
- * objectives, KRs, milestones, tasks, duties + heads, role definition, KPIs, development) →
+ * Phases (IMP-3): timeframe → Company OKR (objectives, KRs, checkpoints) → every package's header,
+ * objectives and KRs → every package's initiatives (v2 "Initiatives" sheet, Todo kind=INITIATIVE) →
+ * per package (milestones, tasks, duties + heads, role definition, KPIs, development) →
  * CONTRIBUTES_TO links → company Dependency Map + package X-links → Decisions (+ links) →
  * Agree/Dispute reviews → FY25/26 carry-forward SUCCEEDS links → optional summary notifications.
+ * Initiatives are imported for all packages before any milestone or task, so a task may name another
+ * package's initiative ("CEO CIN1.1").
  *
  * Idempotent on externalRef: every record is found by its workbook id and created or updated,
  * never deleted. A dry run (the default) reads the database but writes nothing.
@@ -15,6 +18,7 @@ import { readCarryForwardWorkbook, type CarryForwardRow } from '../../close-fy25
 import {
   extractDecisionRefs,
   extractDependencyRefs,
+  extractInitiativeRefs,
   extractKpiRefs,
   extractLocalRefs,
   extractOkrRefs,
@@ -26,6 +30,7 @@ import {
   parsePackageWorkbook,
   type CompanyWorkbook,
   type DecisionRow,
+  type InitiativeRow,
   type OkrRow,
   type PackageWorkbook,
   type ReviewCell,
@@ -56,7 +61,7 @@ import {
 } from './rules'
 import { dutyHeadPlan, localDay } from './schedule'
 import { ActivityBuffer, Counters, diffFields, dryId, isDryId, pick, type ActivityRow, type ChangeMap, type SyncOp } from './sync'
-import { earliestDate, isBlank, isoDay, latestDate, parseDurationMinutes, textOrNull, truncate, utcDate } from './text'
+import { earliestDate, isBlank, isoDay, latestDate, leadTitle, parseDates, parseDurationMinutes, textOrNull, truncate, utcDate } from './text'
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -118,11 +123,22 @@ interface OkrNode {
   scoring?: KrScoring
 }
 
+/** An imported initiative (Todo kind=INITIATIVE) and the KR it supports. */
+interface InitiativeState {
+  todoId: string
+  /** The supported KR (first KR named in "Supports", else the KR of a supported KPI); null when none. */
+  keyResultId: string | null
+  krRef: string | null
+  title: string
+  code: string
+}
+
 interface PackageState {
   pkg: PackageWorkbook
   ownerId: string
   packageId: string
-  milestones: Map<string, { todoId: string; keyResultId: string; title: string }>
+  initiatives: Map<string, InitiativeState>
+  milestones: Map<string, { todoId: string; keyResultId: string | null; title: string; initiativeRef: string | null }>
   tasks: Map<string, { todoId: string; keyResultId: string | null }>
   duties: Map<string, string>
   development: Map<string, string>
@@ -177,6 +193,8 @@ export class OperatingPackageImporter {
   private readonly kpiToKr = new Map<string, string>()
   private readonly depByRef = new Map<string, { id: string; depType: string; title: string; unblocks: string }>()
   private readonly packages = new Map<string, PackageState>()
+  /** Initiatives of every package by id (ids are global: EDN-IN1.1, CIN1.1). */
+  private readonly initiativeByRef = new Map<string, InitiativeState>()
   private readonly contributes: Array<{ fromRef: string; toRef: string; source: string }> = []
   private readonly reviews: PlannedReview[] = []
   /** Decision refs found on tasks / milestones (Decision → TODO links). */
@@ -221,8 +239,18 @@ export class OperatingPackageImporter {
     await this.ensureTimeframe()
     await this.importCompanyOkr(company)
     await this.flush()
+    const states: PackageState[] = []
     for (const pkg of packages) {
-      await this.importPackage(pkg)
+      const state = await this.importPackage(pkg)
+      if (state) states.push(state)
+      await this.flush()
+    }
+    for (const state of states) {
+      await this.importInitiatives(state)
+      await this.flush()
+    }
+    for (const state of states) {
+      await this.importPackageWork(state)
       await this.flush()
     }
     await this.importContributesLinks()
@@ -317,6 +345,7 @@ export class OperatingPackageImporter {
       const where = `${p.code} package`
       this.ownerIn(p.ownerName, `${where} owner (README)`, true)
       for (const r of p.okr) this.ownerIn(r.owner || p.ownerName, `${where} ${r.id} owner`, true)
+      for (const r of p.initiatives) if (r.kind === 'INITIATIVE') this.ownerIn(r.owner || p.ownerName, `${where} ${r.id} owner`, true)
       for (const t of p.tasks) this.peopleIn(t.collaborators, `${where} task ${t.id} collaborators`, false)
       for (const d of p.duties) this.peopleIn(d.with, `${where} duty ${d.id} with`, false)
       for (const l of p.links) this.peopleIn(l.counterparty, `${where} link ${l.id} counterparty`, false)
@@ -499,7 +528,7 @@ export class OperatingPackageImporter {
   }
 
   private async syncKeyResult(row: OkrRow, objective: OkrNode, ownerId: string, description: string | null, state: PackageState | null) {
-    const plan = krNumericPlan(row.target, row.baseline)
+    const plan = krNumericPlan(row.target, row.baseline, row.title)
     const existing =
       isDryId(objective.id) ? null : await this.prisma.keyResult.findUnique({ where: { objectiveId_externalRef: { objectiveId: objective.id, externalRef: row.id } } })
     const definition: Record<string, unknown> = {
@@ -592,7 +621,7 @@ export class OperatingPackageImporter {
     for (const cp of CHECKPOINTS) {
       const text = row.checkpoints[cp.label]
       if (isBlank(text)) continue
-      const targetValue = scoring === 'NUMERIC' ? checkpointValue(text, final.unit) : null
+      const targetValue = scoring === 'NUMERIC' ? checkpointValue(text, final.unit, pristine || !existing ? plan.pick : null) : null
       const cpExisting = isDryId(id) ? null : await this.prisma.keyResultCheckpoint.findUnique({ where: { keyResultId_label: { keyResultId: id, label: cp.label } } })
       await this.sync({
         entity: 'KeyResultCheckpoint',
@@ -656,18 +685,19 @@ export class OperatingPackageImporter {
     return id
   }
 
-  private async importPackage(pkg: PackageWorkbook) {
+  /** Package header, objectives and KRs; the rest of the package follows in importPackageWork(). */
+  private async importPackage(pkg: PackageWorkbook): Promise<PackageState | null> {
     const ownerId = this.ownerIn(pkg.ownerName, `${pkg.code} package owner (README)`, true)
     const ownerSkipped = this.resolver.resolveList(pkg.ownerName).some(({ resolution }) => resolution.status === 'SKIPPED')
     if (!ownerId && ownerSkipped) {
       this.warn(`${pkg.code}: package owner "${pkg.ownerName}" is marked skip in the user map — package not imported`)
       this.counters.bump('OperatingPackage', 'skip')
-      return
+      return null
     }
     if (!ownerId) {
       this.warn(`${pkg.code}: package owner "${pkg.ownerName}" is unmatched — package skipped`)
       this.counters.bump('OperatingPackage', 'skip')
-      return
+      return null
     }
 
     // Header (PKG): status DRAFT on create; never moved by the importer afterwards.
@@ -736,6 +766,7 @@ export class OperatingPackageImporter {
       pkg,
       ownerId,
       packageId,
+      initiatives: new Map(),
       milestones: new Map(),
       tasks: new Map(),
       duties: new Map(),
@@ -754,10 +785,14 @@ export class OperatingPackageImporter {
       'README counts': Object.entries(pkg.counts)
         .map(([k, v]) => `${k}: ${v}`)
         .join(' · '),
-      'Parsed rows': `OKR ${pkg.okr.length} · milestones ${pkg.milestones.length} · tasks ${pkg.tasks.length} · KPIs ${pkg.kpis.length} · duties ${pkg.duties.length} · dev ${pkg.development.length} · links ${pkg.links.length}`,
+      'Parsed rows': `OKR ${pkg.okr.length} · initiatives ${pkg.initiatives.filter((i) => i.kind === 'INITIATIVE').length} · milestones ${pkg.milestones.length} · tasks ${pkg.tasks.length} · KPIs ${pkg.kpis.length} · duties ${pkg.duties.length} · dev ${pkg.development.length} · links ${pkg.links.length}`,
     })
 
     await this.importPackageOkr(state)
+    return state
+  }
+
+  private async importPackageWork(state: PackageState) {
     await this.importMilestones(state)
     await this.importTasks(state)
     await this.importDuties(state)
@@ -791,6 +826,173 @@ export class OperatingPackageImporter {
     }
   }
 
+  // ── Initiatives (v2) ─────────────────────────────────────────────────────
+
+  /** The KR id of a KPI: the KR whose "Measured by" names it, else the KR an earlier run or the Odoo link stored on it. */
+  private async kpiKeyResult(kpiRef: string): Promise<{ id: string; ref: string } | null> {
+    const fromSheet = this.kpiToKr.get(kpiRef)
+    if (fromSheet) return { id: fromSheet, ref: this.krRefOf(fromSheet) }
+    if (isDryId(this.tf.id)) return null
+    const kpi = await this.prisma.kpi.findFirst({ where: { timeframeId: this.tf.id, externalRef: kpiRef, keyResultId: { not: null } }, select: { keyResultId: true } })
+    return kpi?.keyResultId ? { id: kpi.keyResultId, ref: this.krRefOf(kpi.keyResultId) } : null
+  }
+
+  /**
+   * "Supports (key result or KPI)" → the KR the initiative hangs off: the first imported KR named
+   * ("EDN-KR1.2", "Company KR1.4 (settlement)", "CEO C1.2"), else the KR of a named KPI ("KPI YOG-K01");
+   * an objective named alone sets objectiveId. Everything else is kept as description lines.
+   */
+  private async resolveSupports(text: string) {
+    const krs = extractOkrRefs(text).filter((r) => r.kind === 'KEY_RESULT')
+    const objectives = extractOkrRefs(text).filter((r) => r.kind === 'OBJECTIVE')
+    const kpis = extractKpiRefs(text)
+    const lines: string[] = []
+    let keyResultId: string | null = null
+    let krRef: string | null = null
+    let objectiveId: string | null = null
+    const resolved = krs.filter((r) => this.krByRef.has(r.id))
+    if (resolved.length > 0) {
+      krRef = resolved[0].id
+      keyResultId = this.krByRef.get(krRef)!.id
+    }
+    const others = krs.map((r) => r.id).filter((id) => id !== krRef)
+    if (others.length) lines.push(`Also supports: ${others.join(', ')}${others.some((id) => !this.krByRef.has(id)) ? ' (not all imported)' : ''}`)
+    if (kpis.length) {
+      lines.push(`Supports KPI: ${kpis.join(', ')}`)
+      if (!keyResultId) {
+        for (const k of kpis) {
+          const viaKpi = await this.kpiKeyResult(k)
+          if (viaKpi) {
+            keyResultId = viaKpi.id
+            krRef = viaKpi.ref
+            lines.push(`Key result via KPI ${k}: ${viaKpi.ref}`)
+            break
+          }
+        }
+      }
+    }
+    if (!keyResultId && objectives.length) {
+      const obj = objectives.map((o) => this.objByRef.get(o.id)).find(Boolean)
+      if (obj) objectiveId = obj.id
+    }
+    return { keyResultId, krRef, objectiveId, lines }
+  }
+
+  private async importInitiatives(state: PackageState) {
+    const { pkg } = state
+    const groups = new Map(pkg.initiatives.filter((r) => r.kind === 'GROUP').map((g) => [g.id, g.title]))
+    for (const row of pkg.initiatives) {
+      if (row.kind !== 'INITIATIVE') continue
+      await this.syncInitiative(state, row, groups)
+    }
+  }
+
+  private async syncInitiative(state: PackageState, row: InitiativeRow, groups: Map<string, string>) {
+    const { pkg } = state
+    const ownerId = this.ownerIn(row.owner || pkg.ownerName, `${pkg.code} package ${row.id} owner`, true) ?? state.ownerId
+    const supports = await this.resolveSupports(row.supports)
+    const dates = parseDates(row.due)
+    const dueDate = dates.length === 1 ? dates[0] : null
+    const title = leadTitle(row.title, 140)
+    const groupTitle = row.groupRef ? groups.get(row.groupRef) ?? '' : ''
+    const description = [
+      row.title,
+      '',
+      // "Label: value" lines read back by lib/package/initiatives.ts (parseInitiativeMeta).
+      `Initiative ${row.id}`,
+      row.groupRef ? `Group: ${row.groupRef}${groupTitle ? ` — ${groupTitle}` : ''}` : null,
+      textOrNull(row.ca) ? `Type (C/A): ${row.ca}` : null,
+      textOrNull(row.baseline) ? `Baseline: ${row.baseline}` : null,
+      textOrNull(row.target) ? `Target: ${row.target}` : null,
+      textOrNull(row.due) ? `Due: ${row.due}` : null,
+      textOrNull(row.measuredBy) ? `Measured by: ${row.measuredBy}` : null,
+      `Supports: ${textOrNull(row.supports) ?? '—'}`,
+      ...supports.lines,
+      textOrNull(row.dependencies) ? `Dependencies: ${row.dependencies}` : null,
+    ]
+      .filter((l) => l !== null)
+      .join('\n')
+
+    const keyResultId = supports.keyResultId && !isDryId(supports.keyResultId) ? supports.keyResultId : null
+    let existing: { id: string } | null = null
+    if (keyResultId) {
+      existing = await this.prisma.todo.findUnique({ where: { keyResultId_externalRef: { keyResultId, externalRef: row.id } } })
+    }
+    if (!existing && !isDryId(this.tf.id)) {
+      // KR-less initiatives (and ones whose KR changed) are found by ref + kind + owner within this timeframe.
+      existing = await this.prisma.todo.findFirst({
+        where: {
+          externalRef: row.id,
+          kind: 'INITIATIVE',
+          AND: [
+            { OR: [{ assigneeId: ownerId }, { creatorId: ownerId }] },
+            { OR: [{ keyResultId: null }, { keyResult: { objective: { timeframeId: this.tf.id } } }] },
+          ],
+        },
+        orderBy: { createdAt: 'asc' },
+        select: { id: true, title: true, description: true, dueDate: true, assigneeId: true, keyResultId: true, objectiveId: true, progressValue: true, kind: true },
+      })
+    }
+    const desired = {
+      title,
+      description,
+      dueDate,
+      assigneeId: ownerId,
+      keyResultId: supports.keyResultId,
+      objectiveId: supports.objectiveId,
+      progressValue: null,
+      kind: 'INITIATIVE',
+    }
+    const { id } = await this.sync({
+      entity: 'Todo (initiative)',
+      key: row.id,
+      existing,
+      desired,
+      updateFields: ['title', 'description', 'dueDate', 'assigneeId', 'keyResultId', 'objectiveId', 'progressValue', 'kind'],
+      create: () =>
+        this.prisma.todo.create({
+          data: { ...desired, status: 'PENDING', priority: 'MEDIUM', creatorId: ownerId, externalRef: row.id },
+          select: { id: true },
+        }),
+      update: (tid, data) => this.prisma.todo.update({ where: { id: tid }, data: data as Prisma.TodoUncheckedUpdateInput }),
+      activity: (tid, op, changes) => ({
+        entityType: 'TODO',
+        action: op === 'create' ? 'INITIATIVE_CREATED' : 'INITIATIVE_UPDATED',
+        actorId: this.actorId,
+        todoId: tid,
+        changes,
+        metadata: { externalRef: row.id, kind: 'INITIATIVE', keyResultId: supports.keyResultId, packageId: state.packageId, userId: ownerId, title },
+      }),
+    })
+    await this.ensureTodoMembers(id, [ownerId])
+    const info: InitiativeState = { todoId: id, keyResultId: supports.keyResultId, krRef: supports.krRef, title, code: pkg.code }
+    state.initiatives.set(row.id, info)
+    if (!this.initiativeByRef.has(row.id)) this.initiativeByRef.set(row.id, info)
+    else this.warn(`${pkg.code} initiative ${row.id}: id already used by another package — the first one wins for cross-package references`)
+    for (const d of extractDecisionRefs(row.dependencies)) this.decisionTodoRefs.push({ decisionRef: d, todoId: id })
+    for (const d of extractDependencyRefs(row.dependencies)) this.dependencyTodoRefs.push({ depRef: d, todoId: id })
+    if (row.review.verdict) this.planReview(state, 'TODO', id, row.review, `Initiatives ${row.id}`)
+    if (!supports.keyResultId && !supports.objectiveId) {
+      this.warn(`${pkg.code} initiative ${row.id}: "Supports" (${row.supports || '—'}) names no imported key result — imported without a KR`)
+    }
+    this.review.add('Initiatives', {
+      Package: pkg.code,
+      Id: row.id,
+      Group: row.groupRef ?? '',
+      Title: title,
+      'C/A': row.ca,
+      Supports: row.supports,
+      'Linked KR': supports.krRef ?? '',
+      'Linked objective': supports.objectiveId ? 'yes' : '',
+      Notes: supports.lines.join(' | '),
+      Due: row.due,
+      'Due date': isoDay(dueDate),
+      Owner: this.userLabel(ownerId),
+    })
+  }
+
+  // ── Milestones and tasks ─────────────────────────────────────────────────
+
   private async ensureTodoMembers(todoId: string, userIds: string[]) {
     const wanted = Array.from(new Set(userIds)).map((u) => ({ key: u }))
     if (wanted.length === 0) return
@@ -811,44 +1013,93 @@ export class OperatingPackageImporter {
     return out
   }
 
+  private initiativeOf(state: PackageState, ref: string): InitiativeState | undefined {
+    return state.initiatives.get(ref) ?? this.initiativeByRef.get(ref)
+  }
+
+  /**
+   * A milestone's parent: v1 "Parent KR" (the KR itself) or v2 "Parent initiative" (the initiative's
+   * KR, which may be none). `found: false` when the parent is not imported.
+   */
+  private milestoneParent(state: PackageState, m: { parentKr: string; parentIsInitiative: boolean }) {
+    const viaInitiative = m.parentIsInitiative || extractInitiativeRefs(m.parentKr).length > 0
+    if (viaInitiative) {
+      const initiativeRef = extractInitiativeRefs(m.parentKr)[0]?.id ?? m.parentKr
+      const initiative = this.initiativeOf(state, initiativeRef)
+      if (!initiative) return { found: false as const, initiativeRef, initiative: undefined, kr: undefined, krRef: null }
+      const kr = initiative.krRef ? this.krByRef.get(initiative.krRef) : undefined
+      return { found: true as const, initiativeRef, initiative, kr, krRef: initiative.krRef }
+    }
+    const kr = this.krByRef.get(m.parentKr)
+    return { found: !!kr, initiativeRef: null, initiative: undefined, kr, krRef: kr ? m.parentKr : null }
+  }
+
   private async importMilestones(state: PackageState) {
     const { pkg, ownerId } = state
+    // 100/n shares are counted per KR, over the milestones that land on it (directly or via an initiative).
+    // Only the package's own KRs are scored this way: an initiative that supports a company or another
+    // package's KR ("Company KR5.1 (with Biruk)") must not move that KR from one package's milestones.
+    const ownKrs = new Set(pkg.okr.filter((r) => r.kind === 'KEY_RESULT').map((r) => r.id))
     const byKr = new Map<string, number>()
-    for (const m of pkg.milestones) byKr.set(m.parentKr, (byKr.get(m.parentKr) ?? 0) + 1)
+    for (const m of pkg.milestones) {
+      const parent = this.milestoneParent(state, m)
+      if (parent.krRef && ownKrs.has(parent.krRef)) byKr.set(parent.krRef, (byKr.get(parent.krRef) ?? 0) + 1)
+    }
     const seen = new Map<string, number>()
     for (const m of pkg.milestones) {
-      const kr = this.krByRef.get(m.parentKr)
-      if (!kr) {
-        this.warn(`${pkg.code} milestone ${m.id}: parent KR "${m.parentKr}" not found — skipped`)
+      const parent = this.milestoneParent(state, m)
+      if (!parent.found) {
+        this.warn(`${pkg.code} milestone ${m.id}: parent ${parent.initiativeRef ? 'initiative' : 'KR'} "${m.parentKr}" not found — skipped`)
         this.counters.bump('Todo (milestone)', 'skip')
         continue
       }
-      const index = seen.get(m.parentKr) ?? 0
-      seen.set(m.parentKr, index + 1)
-      const shares = this.milestoneShares(byKr.get(m.parentKr) ?? 1)
-      const progressValue = kr.scoring === 'MILESTONE' ? shares[index] : null
+      const { kr, krRef, initiative, initiativeRef } = parent
+      const keyResultId = kr?.id ?? null
+      let progressValue: number | null = null
+      if (kr && krRef && kr.scoring === 'MILESTONE' && ownKrs.has(krRef)) {
+        const index = seen.get(krRef) ?? 0
+        seen.set(krRef, index + 1)
+        progressValue = this.milestoneShares(byKr.get(krRef) ?? 1)[index]
+      }
       const dueDate = latestDate(m.due)
       const description = [
+        initiative ? `Initiative: ${initiativeRef} — ${initiative.title}` : null,
         m.title,
         '',
-        `Milestone ${m.id} · ${m.parentKr}${m.quarter ? ` · ${m.quarter}` : ''}`,
+        `Milestone ${m.id} · ${initiative ? `${initiativeRef}${krRef ? ` → ${krRef}` : ' (no key result)'}` : m.parentKr}${m.quarter ? ` · ${m.quarter}` : ''}`,
         textOrNull(m.due) ? `Due: ${m.due}` : null,
         textOrNull(m.dependsOn) ? `Depends on: ${m.dependsOn}` : null,
       ]
         .filter((l) => l !== null)
         .join('\n')
       const title = truncate(m.title, 180)
-      const existing = isDryId(kr.id) ? null : await this.prisma.todo.findUnique({ where: { keyResultId_externalRef: { keyResultId: kr.id, externalRef: m.id } } })
-      const desired = { title, description, dueDate, assigneeId: ownerId, progressValue, kind: 'MILESTONE' }
+      let existing: { id: string } | null =
+        keyResultId && !isDryId(keyResultId) ? await this.prisma.todo.findUnique({ where: { keyResultId_externalRef: { keyResultId, externalRef: m.id } } }) : null
+      if (!existing && !isDryId(this.tf.id)) {
+        // Milestone ids are package-local: a milestone with no KR (or whose KR changed) is found by ref + owner.
+        existing = await this.prisma.todo.findFirst({
+          where: {
+            externalRef: m.id,
+            kind: 'MILESTONE',
+            AND: [
+              { OR: [{ assigneeId: ownerId }, { creatorId: ownerId }] },
+              { OR: [{ keyResultId: null }, { keyResult: { objective: { timeframeId: this.tf.id } } }] },
+            ],
+          },
+          orderBy: { createdAt: 'asc' },
+          select: { id: true, title: true, description: true, dueDate: true, assigneeId: true, keyResultId: true, progressValue: true, kind: true },
+        })
+      }
+      const desired = { title, description, dueDate, assigneeId: ownerId, keyResultId, progressValue, kind: 'MILESTONE' }
       const { id } = await this.sync({
         entity: 'Todo (milestone)',
         key: `${pkg.code}:${m.id}`,
         existing,
         desired,
-        updateFields: ['title', 'description', 'dueDate', 'assigneeId', 'progressValue', 'kind'],
+        updateFields: ['title', 'description', 'dueDate', 'assigneeId', 'keyResultId', 'progressValue', 'kind'],
         create: () =>
           this.prisma.todo.create({
-            data: { ...desired, status: todoStatus(m.status), priority: 'MEDIUM', creatorId: ownerId, keyResultId: kr.id, externalRef: m.id },
+            data: { ...desired, status: todoStatus(m.status), priority: 'MEDIUM', creatorId: ownerId, externalRef: m.id },
             select: { id: true },
           }),
         update: (tid, data) => this.prisma.todo.update({ where: { id: tid }, data: data as Prisma.TodoUncheckedUpdateInput }),
@@ -858,11 +1109,11 @@ export class OperatingPackageImporter {
           actorId: this.actorId,
           todoId: tid,
           changes,
-          metadata: { externalRef: m.id, kind: 'MILESTONE', keyResultId: kr.id, packageId: state.packageId, userId: ownerId, title },
+          metadata: { externalRef: m.id, kind: 'MILESTONE', keyResultId, initiativeRef, packageId: state.packageId, userId: ownerId, title },
         }),
       })
       await this.ensureTodoMembers(id, [ownerId])
-      state.milestones.set(m.id, { todoId: id, keyResultId: kr.id, title })
+      state.milestones.set(m.id, { todoId: id, keyResultId, title, initiativeRef })
       for (const d of extractDecisionRefs(`${m.dependsOn}`)) this.decisionTodoRefs.push({ decisionRef: d, todoId: id })
       if (m.review.verdict) this.planReview(state, 'TODO', id, m.review, `Milestones ${m.id}`)
       this.review.add('Milestones & tasks', {
@@ -870,7 +1121,8 @@ export class OperatingPackageImporter {
         Kind: 'MILESTONE',
         Id: m.id,
         Parent: m.parentKr,
-        'KR scoring': kr.scoring ?? '',
+        'Key result': krRef ?? '',
+        'KR scoring': kr ? `${kr.scoring}${krRef && !ownKrs.has(krRef) ? ' (not this package — not scored)' : ''}` : 'no KR',
         'Progress value': progressValue,
         Due: m.due,
         'Due date': isoDay(dueDate),
@@ -885,13 +1137,37 @@ export class OperatingPackageImporter {
       const local = extractLocalRefs(t.parent)
       const okr = extractOkrRefs(t.parent).filter((r) => r.kind === 'KEY_RESULT')
       let keyResultId: string | null = null
-      let milestone: { todoId: string; keyResultId: string; title: string } | undefined
+      let milestone: { todoId: string; keyResultId: string | null; title: string; initiativeRef: string | null } | undefined
       for (const mid of local.milestones) {
         milestone = state.milestones.get(mid)
         if (milestone) break
       }
-      if (milestone) keyResultId = milestone.keyResultId
-      else if (okr.length > 0) keyResultId = this.krByRef.get(okr[0].id)?.id ?? null
+      // v2: a task may hang off an initiative ("YOG-IN1.3", or another package's "CEO CIN1.1").
+      let initiativeRef: string | null = milestone?.initiativeRef ?? null
+      let initiative = initiativeRef ? this.initiativeOf(state, initiativeRef) : undefined
+      if (!milestone) {
+        for (const ref of extractInitiativeRefs(t.parent)) {
+          if (ref.kind !== 'INITIATIVE') continue
+          const found = this.initiativeOf(state, ref.id)
+          if (found) {
+            initiative = found
+            initiativeRef = ref.id
+            break
+          }
+          this.warn(`${pkg.code} task ${t.id}: initiative ${ref.id} not found`)
+        }
+      }
+      let via = 'no KR'
+      if (milestone) {
+        keyResultId = milestone.keyResultId
+        via = keyResultId ? `via ${local.milestones[0]}` : `${local.milestones[0]} (no KR)`
+      } else if (initiative) {
+        keyResultId = initiative.keyResultId
+        via = keyResultId ? `via ${initiativeRef}` : `${initiativeRef} (no KR)`
+      } else if (okr.length > 0) {
+        keyResultId = this.krByRef.get(okr[0].id)?.id ?? null
+        if (keyResultId) via = 'direct KR'
+      }
       if (!milestone && local.milestones.length > 0) this.warn(`${pkg.code} task ${t.id}: milestone ${local.milestones.join(', ')} not found`)
 
       const dueDate = latestDate(t.due)
@@ -900,6 +1176,7 @@ export class OperatingPackageImporter {
         '',
         `Task ${t.id}${t.sprint ? ` · Sprint ${t.sprint}` : ''}`,
         milestone ? `Milestone: ${local.milestones[0]} — ${milestone.title}` : null,
+        initiative ? `Initiative: ${initiativeRef} — ${initiative.title}` : null,
         `Parent: ${t.parent || '—'}`,
         textOrNull(t.unblocks) ? `Unblocks: ${t.unblocks}` : null,
         textOrNull(t.estHours) ? `Estimated hours: ${t.estHours}` : null,
@@ -944,7 +1221,7 @@ export class OperatingPackageImporter {
           actorId: this.actorId,
           todoId: tid,
           changes,
-          metadata: { externalRef: t.id, kind: 'TASK', keyResultId, packageId: state.packageId, userId: ownerId, title },
+          metadata: { externalRef: t.id, kind: 'TASK', keyResultId, initiativeRef, packageId: state.packageId, userId: ownerId, title },
         }),
       })
       const collaborators = this.peopleIn(t.collaborators, `${pkg.code} task ${t.id} collaborators`, false)
@@ -958,7 +1235,8 @@ export class OperatingPackageImporter {
         Kind: 'TASK',
         Id: t.id,
         Parent: t.parent,
-        'KR scoring': keyResultId ? (milestone ? `via ${local.milestones[0]}` : 'direct KR') : 'no KR',
+        'Key result': keyResultId ? this.krRefOf(keyResultId) : '',
+        'KR scoring': via,
         'Progress value': null,
         Due: t.due,
         'Due date': isoDay(dueDate),
@@ -1273,12 +1551,15 @@ export class OperatingPackageImporter {
       const existing = isDryId(this.tf.id)
         ? null
         : await this.prisma.kpi.findUnique({ where: { timeframeId_ownerId_externalRef: { timeframeId: this.tf.id, ownerId, externalRef: k.id } } })
+      // A KR link made in the app or by scripts/link-odoo-sales-kpis.ts (CEO-K01 → KR1.1) is never cleared;
+      // externalSource / coverageOfKpiId (Odoo sync) are not importer fields at all.
+      const keepLink = !!existing?.keyResultId && !desired.keyResultId
       const { id } = await this.sync({
         entity: 'Kpi',
         key: k.id,
         existing,
         desired,
-        updateFields: Object.keys(desired),
+        updateFields: Object.keys(desired).filter((f) => !(keepLink && f === 'keyResultId')),
         create: () =>
           this.prisma.kpi.create({
             data: { ...(desired as Omit<Prisma.KpiUncheckedCreateInput, 'ownerId' | 'timeframeId'>), externalRef: k.id, ownerId, timeframeId: this.tf.id, status: 'ACTIVE' },
@@ -1310,7 +1591,7 @@ export class OperatingPackageImporter {
         'Frequency (workbook)': k.frequency,
         Compound: plan.compound ? 'YES' : '',
         Sensitive: plan.isSensitive ? 'YES' : '',
-        'Linked KR': keyResultId ? this.krRefOf(keyResultId) : '',
+        'Linked KR': keyResultId ? this.krRefOf(keyResultId) : keepLink && existing?.keyResultId ? `${this.krRefOf(existing.keyResultId)} (kept)` : '',
         'Scored from': pkg.kpiScoredFromQ3 ? isoDay(KPI_SCORED_FROM) : '',
       })
     }
@@ -1325,7 +1606,19 @@ export class OperatingPackageImporter {
     const { pkg, ownerId } = state
     for (const dv of pkg.development) {
       const krRef = extractOkrRefs(dv.linkedKr).find((r) => r.kind === 'KEY_RESULT' && this.krByRef.has(r.id))
-      const keyResultId = krRef ? this.krByRef.get(krRef.id)!.id : null
+      let keyResultId = krRef ? this.krByRef.get(krRef.id)!.id : null
+      let linkedVia = krRef?.id ?? ''
+      if (!keyResultId) {
+        // v2: "Linked KR" may name an initiative ("CIN4.3", "CIN6.1, CIN6.2") — use the KR it supports.
+        for (const ref of extractInitiativeRefs(dv.linkedKr)) {
+          const ini = this.initiativeOf(state, ref.id)
+          if (ini?.keyResultId) {
+            keyResultId = ini.keyResultId
+            linkedVia = `${ref.id} → ${ini.krRef}`
+            break
+          }
+        }
+      }
       const kind = developmentKind(dv.title, dv.target)
       const deferred = /deferred/i.test(`${dv.status} ${dv.due}`)
       const desired: Record<string, unknown> = {
@@ -1377,7 +1670,7 @@ export class OperatingPackageImporter {
         'Target hours': desired.targetHours as number | null,
         Due: dv.due,
         'Due date': isoDay(desired.dueDate as Date | null),
-        'Linked KR': krRef?.id ?? '',
+        'Linked KR': linkedVia,
         Status: dv.status,
         Note: deferred ? 'Deferred in the workbook — imported NOT_STARTED with no due date' : '',
       })
@@ -1583,6 +1876,12 @@ export class OperatingPackageImporter {
       const id = this.kpiByRef.get(ref)
       if (id) links.push({ entityType: 'KPI', entityId: id, ref })
       else unresolved.push(ref)
+    }
+    for (const ref of extractInitiativeRefs(text)) {
+      if (ref.kind !== 'INITIATIVE') continue
+      const ini = this.initiativeByRef.get(ref.id)
+      if (ini) links.push({ entityType: 'TODO', entityId: ini.todoId, ref: ref.id })
+      else unresolved.push(ref.id)
     }
     return { links, unresolved }
   }
@@ -1960,7 +2259,9 @@ export class OperatingPackageImporter {
       const inTf = matches.filter((c) => c.timeframeId === oldTf)
       const old = inTf.length === 1 ? inTf[0] : matches.length === 1 ? matches[0] : null
       const refs = extractOkrRefs(row.newHome)
-      const nonOkr = [...extractKpiRefs(row.newHome), ...extractLocalRefs(row.newHome).duties, ...extractDecisionRefs(row.newHome)]
+      const initiativeRefs = extractInitiativeRefs(row.newHome)
+      const groupRefs = initiativeRefs.filter((r) => r.kind === 'GROUP').map((r) => r.id)
+      const nonOkr = [...extractKpiRefs(row.newHome), ...extractLocalRefs(row.newHome).duties, ...extractDecisionRefs(row.newHome), ...groupRefs]
       const reviewRow = {
         '#': row.rowNo,
         Code: row.code,
@@ -1969,7 +2270,7 @@ export class OperatingPackageImporter {
         'New home': row.newHome,
         'Old item': old ? `${old.title} (${old.id})` : matches.length > 1 ? `AMBIGUOUS: ${matches.length} matches` : 'NOT FOUND',
         'Old timeframe': old?.timeframeId ?? '',
-        Targets: refs.map((r) => r.id).join(', '),
+        Targets: [...refs.map((r) => r.id), ...initiativeRefs.filter((r) => r.kind === 'INITIATIVE').map((r) => r.id)].join(', '),
         'Not linkable': nonOkr.join(', '),
         Primary: '',
         Unresolved: '',
@@ -1983,7 +2284,7 @@ export class OperatingPackageImporter {
       if (!old) {
         reviewRow.Result = 'old item not matched — skipped'
         this.warn(`Carry-forward ${row.code}: ${matches.length > 1 ? 'ambiguous' : 'no'} FY25/26 ${row.type} matches upper(right(id, 6))`)
-        this.counters.bump('OkrLink (SUCCEEDS)', 'skip', Math.max(1, refs.length))
+        this.counters.bump('OkrLink (SUCCEEDS)', 'skip', Math.max(1, refs.length + initiativeRefs.length - groupRefs.length))
         this.review.add('Carry-forward', reviewRow)
         continue
       }
@@ -1991,14 +2292,36 @@ export class OperatingPackageImporter {
       const unresolved: string[] = []
       const results: string[] = []
       let primaryDone = false
-      for (const ref of refs) {
-        const node = this.nodeOf(ref.id)
+      // SUCCEEDS links join objectives and KRs only: an initiative new home ("CIN5.1") links its supported
+      // KR as a non-primary successor; a group ("CIG5") has no OKR item and is listed under "Not linkable".
+      const targets: Array<{ ref: string; node: OkrNode | null; viaInitiative: boolean }> = refs.map((r) => ({ ref: r.id, node: this.nodeOf(r.id), viaInitiative: false }))
+      for (const ir of initiativeRefs) {
+        if (ir.kind !== 'INITIATIVE') continue
+        const ini = this.initiativeByRef.get(ir.id)
+        if (!ini) {
+          targets.push({ ref: ir.id, node: null, viaInitiative: true })
+          continue
+        }
+        const kr = ini.krRef ? this.krByRef.get(ini.krRef) ?? null : null
+        if (!kr) {
+          this.warn(`Carry-forward ${row.code}: ${ir.id} supports no imported key result — no SUCCEEDS link for it`)
+          reviewRow['Not linkable'] = [reviewRow['Not linkable'], `${ir.id} (no KR)`].filter(Boolean).join(', ')
+          continue
+        }
+        targets.push({ ref: `${ir.id}→${ini.krRef}`, node: kr, viaInitiative: true })
+      }
+      if (groupRefs.length) this.warn(`Carry-forward ${row.code}: initiative group(s) ${groupRefs.join(', ')} are not OKR items — no SUCCEEDS link`)
+      const linked = new Set<string>()
+      for (const { ref: refId, node, viaInitiative } of targets) {
+        const ref = { id: refId }
         if (!node) {
           unresolved.push(ref.id)
           continue
         }
+        if (linked.has(node.id)) continue
+        linked.add(node.id)
         let isPrimary = false
-        if (!primaryDone && node.type === old.type) {
+        if (!viaInitiative && !primaryDone && node.type === old.type) {
           const claimed = claimedPrimary.get(node.id)
           let otherPrimary = false
           if (!isDryId(node.id)) {

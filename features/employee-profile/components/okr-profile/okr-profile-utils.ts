@@ -12,15 +12,18 @@
  */
 import type { ConnectionItem, ConnectionVia } from '@/lib/connections/types'
 import { KR_COMMITMENT_SHORT, OKR_LINK_SUB_KIND_LABELS, isKrCommitment, isOkrLinkSubKind } from '@/types/package'
+import { groupMilestonesByInitiative } from '@/lib/package/initiatives'
 import type {
   OkrProfileCheckpoint,
   OkrProfileDisposition,
   OkrProfileFilters,
   OkrProfileHeader,
+  OkrProfileInitiativeGroup,
   OkrProfileKeyResult,
   OkrProfileLevelBucket,
   OkrProfileObjective,
   OkrProfileStatusKey,
+  OkrProfileTodo,
 } from './types'
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -288,9 +291,14 @@ export function activeFilterCount(filters: OkrProfileFilters): number {
   return n
 }
 
+/** Every card under a KR: initiatives, their grouped milestones, other milestones, tasks. */
+export function keyResultTodos(kr: Pick<OkrProfileKeyResult, 'initiatives' | 'milestones' | 'tasks'>): OkrProfileTodo[] {
+  return [...kr.initiatives.flatMap((g) => [g.initiative, ...g.milestones]), ...kr.milestones, ...kr.tasks]
+}
+
 function krIsBlocked(kr: OkrProfileKeyResult): boolean {
   if (kr.blocked) return true
-  return [...kr.milestones, ...kr.tasks].some((t) => t.blocked)
+  return keyResultTodos(kr).some((t) => t.blocked)
 }
 
 function krMatches(kr: OkrProfileKeyResult, filters: OkrProfileFilters, now: Date): boolean {
@@ -329,6 +337,23 @@ export function applyOkrProfileFilters(
     if (keyResults.length > 0 || selfMatches) out.push({ ...o, keyResults })
   }
   return out
+}
+
+/**
+ * "Supporting KPIs" (KPI-only initiatives) under PRF-9 filters: they have no
+ * objective level, KR status or checkpoint, so those filters hide them; the
+ * commitment filter matches their C/A; "blocked only" keeps the blocked ones.
+ */
+export function filterSupportingInitiatives(
+  items: readonly OkrProfileTodo[],
+  filters: OkrProfileFilters,
+): OkrProfileTodo[] {
+  if (filters.level || filters.status || filters.checkpointDue30) return []
+  return items.filter(
+    (t) =>
+      (!filters.commitment || t.initiative?.commitment === filters.commitment) &&
+      (!filters.blockedOnly || t.blocked),
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -437,4 +462,28 @@ export function sortTodos<T extends { status: string; dueDate: string | null; ca
     if (ad !== bd) return ad - bd
     return a.cardNumber - b.cardNumber
   })
+}
+
+/**
+ * Split a KR's cards: initiatives (each with the milestones naming it on their
+ * first line), the remaining milestones, and tasks (TASK / DEPENDENCY).
+ */
+export function splitKeyResultTodos(all: readonly OkrProfileTodo[]): {
+  initiatives: OkrProfileInitiativeGroup[]
+  milestones: OkrProfileTodo[]
+  tasks: OkrProfileTodo[]
+} {
+  const initiatives = sortTodos(all.filter((t) => t.kind === 'INITIATIVE'))
+  const { byInitiative, ungrouped } = groupMilestonesByInitiative(
+    initiatives,
+    all.filter((t) => t.kind === 'MILESTONE'),
+  )
+  return {
+    initiatives: initiatives.map((initiative) => ({
+      initiative,
+      milestones: sortTodos(byInitiative.get(initiative.id) ?? []),
+    })),
+    milestones: sortTodos(ungrouped),
+    tasks: sortTodos(all.filter((t) => t.kind !== 'MILESTONE' && t.kind !== 'INITIATIVE')),
+  }
 }

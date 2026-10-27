@@ -153,3 +153,55 @@ test('role rows, dependency types, directions, verdicts, weights', () => {
   assert.equal(succeedsSubKind('Merged'), 'MERGED')
   assert.equal(succeedsSubKind('Retired'), null)
 })
+
+// v2 (27 Oct 2026) KR targets from the real workbooks: one figure with notes around it.
+// [target, baseline, KR title] → [scoring, start, target value, unit, direction]
+const V2_KR_TARGETS: Array<[string, string, string, [string, number, number, string, string]]> = [
+  ['≥200 (45 by 31 Dec · 115 by 31 Mar)', 'About 3 bids a month submitted', 'Submit at least 200 bids company-wide', ['NUMERIC', 0, 200, 'count', 'INCREASE']],
+  ['≥30% and ≥60 wins (40% stretch)', 'Under 30% of submitted and 38% of qualified bids won', 'Win at least 30% of the bids we submit', ['NUMERIC', 0, 30, '%', 'INCREASE']],
+  ['ETB 20M (offers to 100% of offices by 30 Nov)', 'No project-office campaign', 'Sign ETB 20M from donor-funded project offices', ['NUMERIC', 0, 20_000_000, 'ETB', 'INCREASE']],
+  ['ETB 300M (floor 200M)', 'About ETB 100M signed', 'Sign ETB 300M by 6 Jul 2027', ['NUMERIC', 0, 300_000_000, 'ETB', 'INCREASE']],
+  ['3 of 3 (2 by 30 Nov)', 'None in seat (11 Oct 2026)', 'Get the Presales Lead and 2 bid writers in seat', ['NUMERIC', 0, 3, 'count', 'INCREASE']],
+  ['12 of 12 (first Sat 31 Oct 2026)', '0 sessions scheduled', 'Deliver the monthly all-company training', ['NUMERIC', 0, 12, 'count', 'INCREASE']],
+  ['100% of hires within 3 business days', 'CEO involvement ad hoc', 'Interview every hire within 3 business days', ['NUMERIC', 0, 100, '%', 'INCREASE']],
+  ['2 a quarter from Q3', 'Not tracked', 'Turn 2 strategic relationships into signed agreements each quarter', ['NUMERIC', 0, 2, 'count', 'INCREASE']],
+  ['≥40 submitted; ≥30% won (40% stretch)', 'Bank-bid win rate not tracked', 'Win 30% of 40 bank and licence bids', ['NUMERIC', 0, 30, '%', 'INCREASE']],
+  ['≥200 submitted; ≥60 won; ≥30% (40% stretch)', 'About 3 bids a month', 'Win 60 of at least 200 bids submitted (30% or more)', ['NUMERIC', 0, 60, 'count', 'INCREASE']],
+  ['3 won from ≥12 submitted; ≥ETB 30M', '0 teaming frameworks', 'Win 3 international bids with partners', ['NUMERIC', 0, 3, 'count', 'INCREASE']],
+  ['ETB 20M (25M stretch); 10M by 31 Mar', 'Fiscal-year-ended ERP revenue', 'Sign ETB 20M in private-sector ERP', ['NUMERIC', 0, 20_000_000, 'ETB', 'INCREASE']],
+  ['200 MQLs and 60 SQLs a month', 'About 1,200 website visits a month', 'Generate 200 marketing-qualified leads a month', ['NUMERIC', 0, 200, 'count', 'INCREASE']],
+  ['10, ≥4 government (6 by 31 Mar)', '2 AI projects in delivery', 'Sign 10 AI projects, at least 4 in government', ['NUMERIC', 0, 10, 'count', 'INCREASE']],
+  ['≥9/10 every project; company NPS ≥ +70', 'No structured survey', 'Score 9/10 on client satisfaction on every project', ['NUMERIC', 0, 9, 'score', 'INCREASE']],
+  ['≥99.5% crash-free sessions and uptime', 'Not in production', 'Keep Meda 99.5% crash-free', ['NUMERIC', 0, 99.5, '%', 'INCREASE']],
+  ['≥30% hours saved on automated processes', 'No Odoo or AI automation measured', 'Save 30% of hours', ['NUMERIC', 0, 30, '%', 'INCREASE']],
+  ['≤5 working days in 11 of 12 months', 'Close takes about 10 working days (11 Oct 2026)', 'Close the books within 5 working days every month', ['NUMERIC', 10, 5, 'count', 'DECREASE']],
+  // Genuinely not numeric → milestone-scored 0 → 100 %.
+  ['−50% against the Q2 median', 'Not measured; Q2 median is the baseline', 'Halve proposal hours per bid', ['MILESTONE', 0, 100, '%', 'INCREASE']],
+  ['<5 a week', 'Not counted; 46 open decisions in the log (11 Oct 2026)', 'Cut operational decisions needing the CEO to under 5 a week', ['MILESTONE', 0, 100, '%', 'INCREASE']],
+  ['ETB 0', "This year's penalties to be entered from the Baseline Pack", 'Pay zero avoidable tax penalties', ['MILESTONE', 0, 100, '%', 'INCREASE']],
+  ['ETB 15–20M facility in place', 'No facility', 'Secure the trade-wing import facility', ['MILESTONE', 0, 100, '%', 'INCREASE']],
+  ['Resubmitted 31 Oct; cleared and live', 'INSA rejected the 26 Aug request', 'Get Meda cleared by INSA and live', ['MILESTONE', 0, 100, '%', 'INCREASE']],
+]
+
+test('krNumericPlan reads the v2 one-number KR targets', () => {
+  for (const [target, baseline, title, expected] of V2_KR_TARGETS) {
+    const p = krNumericPlan(target, baseline, title)
+    assert.deepEqual([p.scoring, p.startValue, p.targetValue, p.unit, p.direction], expected, `${target} — ${p.reason}`)
+  }
+})
+
+test('checkpointValue reads the clause that matches the KR figure', () => {
+  const kr12 = krNumericPlan('≥200 submitted; ≥60 won; ≥30% (40% stretch)', '', 'Win 60 of at least 200 bids submitted (30% or more)')
+  assert.equal(checkpointValue('45 submitted', kr12.unit, kr12.pick), null)
+  assert.equal(checkpointValue('200; 60 won', kr12.unit, kr12.pick), 60)
+  const kr14 = krNumericPlan('3 won from ≥12 submitted; ≥ETB 30M', '', 'Win 3 international bids with partners')
+  assert.equal(checkpointValue('4 submitted; 1 won', kr14.unit, kr14.pick), 1)
+  assert.equal(checkpointValue('8 frameworks', kr14.unit, kr14.pick), null)
+  const kr11 = krNumericPlan('ETB 300M (floor 200M)', '', 'Sign ETB 300M by 6 Jul 2027')
+  assert.equal(checkpointValue('175M', kr11.unit, kr11.pick), 175_000_000)
+  const kr41 = krNumericPlan('≥9/10; NPS ≥ +70', '', 'Client satisfaction 9/10 or higher on every project; NPS +70 or higher')
+  assert.equal(checkpointValue('≥9/10', kr41.unit, kr41.pick), 9)
+  assert.equal(checkpointValue('NPS +70', kr41.unit, kr41.pick), null)
+  const kr25 = krNumericPlan('50', '', 'Sign 50 Cloud ERP companies')
+  assert.equal(checkpointValue('10 pilots', kr25.unit, kr25.pick), 10)
+})

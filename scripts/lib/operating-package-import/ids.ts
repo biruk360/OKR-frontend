@@ -5,7 +5,8 @@
  *   company objectives  O1 … O6           company KRs   KR1.1 … KR6.4
  *   CEO package         C1 … C6, C1.1 …   other packages EDN-O1, EDN-KR1.1, EYO-…, YOG-…, YAR-…,
  *                                                         MEK-…, BET-…, ERP-…, MBL-…
- *   KPIs                EDN-K01, CEO-K03  dependencies  DEP01 … DEP66   decisions D01 … D78
+ *   KPIs                EDN-K01, CEO-K03  dependencies  DEP01 … DEP80   decisions D01 … D87
+ *   initiatives (v2)    EDN-IN1.1, CIN1.1 (CEO)  initiative groups EDN-IG1, CIG1 (CEO)
  * Package-local ids (unique only inside one workbook): milestones M1.1.1, tasks T01, duties RD-W1,
  * development items DV1, package links X01.
  */
@@ -128,11 +129,34 @@ export function extractLocalRefs(text: string | null | undefined): LocalRefs {
   }
 }
 
+/** Initiative (EDN-IN1.1, CIN6.4) and initiative-group (EDN-IG1, CIG5) ids — global across the v2 workbooks. */
+const INITIATIVE_REF_SOURCE = `\\b(?:(?:${PREFIX_ALT})-I[NG]\\d+(?:\\.\\d+)?|CI[NG]\\d+(?:\\.\\d+)?)\\b`
+
+export type InitiativeRefKind = 'INITIATIVE' | 'GROUP'
+
+/** Kind of an initiative id, or null when the text is not one. */
+export function initiativeRefKind(id: string): InitiativeRefKind | null {
+  const t = id.trim().toUpperCase()
+  if (!new RegExp(`^${INITIATIVE_REF_SOURCE}$`).test(t)) return null
+  return /IG\d/.test(t) ? 'GROUP' : 'INITIATIVE'
+}
+
+/** Every initiative / group id in the text, in reading order, without duplicates. */
+export function extractInitiativeRefs(text: string | null | undefined): Array<{ id: string; kind: InitiativeRefKind }> {
+  if (!text) return []
+  const out: Array<{ id: string; kind: InitiativeRefKind }> = []
+  for (const id of unique(matchAll(text, INITIATIVE_REF_SOURCE).map((s) => s.toUpperCase()))) {
+    const kind = initiativeRefKind(id)
+    if (kind) out.push({ id, kind })
+  }
+  return out
+}
+
 /** Package code from its OKR ids: "EDN-KR1.1" → "EDN"; CEO ids ("C1.1") → "CEO". */
 export function packageCodeFromId(id: string): string | null {
   const t = id.trim().toUpperCase()
   const m = t.match(new RegExp(`^(${PREFIX_ALT})-`))
   if (m) return m[1]
-  if (/^C\d+/.test(t)) return 'CEO'
+  if (/^C\d+/.test(t) || /^CI[NG]\d/.test(t)) return 'CEO'
   return null
 }

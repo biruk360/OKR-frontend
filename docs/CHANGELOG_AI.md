@@ -2,6 +2,14 @@
 
 > **Purpose:** Log of all changes made by AI assistants. Every AI session that modifies code MUST append an entry here.
 
+### 2026-10-27 — Letters: DRAFT watermark on print, submitted letters undeletable (branch `fix/letter-print-security`)
+- **Why (security):** a letter that can be printed as an official copy must never be deletable by its author.
+- **Rule:** only a submitted letter (SUBMITTED → ARCHIVED) prints clean. Every DRAFT render — preview, browser print, PDF — carries a large diagonal DRAFT watermark on every page, added by the shared server renderer, so there is no client-side bypass. Non-admins may delete only their own **never-submitted** DRAFT; a letter returned to DRAFT by a rejection stays admin-only (it may have been printed clean while submitted). Letter admins (`button.letter.admin`) can still delete any letter.
+- **New:** `lib/letter-print-policy.ts` (`isLetterDraft`, `canDeleteLetter`, `LETTER_EVER_SUBMITTED_ACTIONS`, `letterPdfFilename`).
+- **Changed:** `lib/letter-html.tsx` (watermark is the last `<body>` element, `position:fixed`, top z-index, outside the sanitized body so content cannot cover it; `<title>` prefixed `DRAFT —`); `app/api/letters/[id]/route.ts` DELETE (policy + ActivityLog `LETTER_SUBMITTED`/`LETTER_REJECTED` check, clearer 403 messages); `app/api/letters/[id]/pdf/route.ts` (`_DRAFT` filename suffix, `status`/`watermarked` in the PDF-generated audit metadata); `features/letters/components/PdfPreviewPanel.tsx` + `LetterFormClient.tsx` (draft notice, preview reloads on status change); `features/letters/i18n.ts` (`pdf.draftNotice` en/am); `lib/letters-security.test.ts` (+3 tests); CI now runs `npm run test:letters`.
+- **Not covered:** the SuperDoc editor's `.docx` body (`GET /api/letters/[id]/docx`) is the editable body only (no letterhead, reference or signature) and is not watermarked.
+- **Verified:** `npm run test:letters` 25/25; no tsc errors in letter files; eslint clean on changed files.
+
 ### 2026-10-16 — Odoo sales sync (branch `feat/odoo-sales-sync`, pending deploy)
 - **Why:** salespeople's quota KPIs should show live progress from Odoo CRM, and Odoo's daily/weekly sales briefs need each person's target, pace and OKR action items.
 - **Schema (additive):** `Kpi.externalSource`, `Kpi.coverageOfKpiId` (nullable); `KpiReading.source` documents `ODOO`. `prisma db push` on a restored copy of production adds only those two columns.

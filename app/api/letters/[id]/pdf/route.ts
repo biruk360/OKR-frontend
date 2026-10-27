@@ -4,6 +4,7 @@ import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { recordActivity } from '@/lib/activity-log'
 import { renderLetterToPdf } from '@/lib/letter-pdf-puppeteer'
 import { letterReadGuard } from '@/lib/letter-access'
+import { letterPdfFilename } from '@/lib/letter-print-policy'
 import {
   apiBadRequest,
   apiError,
@@ -65,11 +66,11 @@ async function respond(req: NextRequest, letterId: string, opts?: { recordActor?
         letterId,
         action: 'LETTER_PDF_GENERATED',
         actorId: opts.recordActor,
-        metadata: { missingPlaceholders: missing, lang, font },
+        metadata: { missingPlaceholders: missing, lang, font, status: letter.status, watermarked: letter.status === 'DRAFT' },
       })
     }
 
-    const filename = `${(letter.referenceNumber || letter.id).replace(/[^A-Za-z0-9._-]+/g, '_')}.pdf`
+    const filename = letterPdfFilename(letter)
     const download = new URL(req.url).searchParams.get('download') === '1'
     const body = new Blob([new Uint8Array(pdf)], { type: 'application/pdf' })
     return new NextResponse(body, {

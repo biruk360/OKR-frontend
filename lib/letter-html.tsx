@@ -27,6 +27,7 @@ import path from 'path'
 import type { Letter, LetterEnclosure, LetterTypeDef } from '@prisma/client'
 import { getLetterhead, type LetterheadInfo } from './letterhead'
 import { resolvePlaceholders } from './letters'
+import { isLetterDraft } from './letter-print-policy'
 import {
   DEFAULT_LETTER_FONT_FAMILY,
   LETTER_FONT_IMPORTS,
@@ -375,6 +376,25 @@ function styles(base: string, lang: 'en' | 'am' = 'en', font: string = DEFAULT_F
         text-transform: uppercase; color: #000000;
       }
     }
+    /* === DRAFT watermark ===
+       Only emitted for DRAFT letters. Fixed positioning repeats it on every
+       printed page (Chromium print + Puppeteer). It is the last element in
+       <body> with the top z-index, outside the sanitized letter body, so
+       user content can neither cover nor restyle it. */
+    .draft-watermark {
+      position: fixed; inset: 0; z-index: 2147483647;
+      display: flex; align-items: center; justify-content: center;
+      pointer-events: none; user-select: none; overflow: hidden;
+    }
+    .draft-watermark span {
+      transform: rotate(-35deg);
+      font-family: 'Inter', Arial, sans-serif; font-weight: 800;
+      font-size: 120pt; letter-spacing: .04em; line-height: 1;
+      color: rgba(185, 28, 28, .16);
+      border: 5pt solid rgba(185, 28, 28, .16); padding: 4pt 18pt;
+      -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    }
+
     @media print {
       html, body { background: #fff; }
       .lh { box-shadow: none; margin: 0; width: 100%; min-height: 0; }
@@ -521,6 +541,10 @@ export function renderLetterHtml({ letter, lang: rawLang = 'en', font: rawFont =
     : ''
 
   const refNumber = letter.referenceNumber || 'DRAFT'
+  // Only a submitted letter prints clean; every DRAFT render (preview, browser
+  // print, PDF) carries the watermark so an unsubmitted, deletable letter can
+  // never leave the system looking official.
+  const isDraft = isLetterDraft(letter.status)
   const dateStr = formatDate(letter.date)
 
   // Single page instance — reused for both the one-page and (future) multi-page case.
@@ -570,12 +594,13 @@ export function renderLetterHtml({ letter, lang: rawLang = 'en', font: rawFont =
 <html lang="${esc(lang)}">
 <head>
 <meta charset="utf-8" />
-<title>${esc(refNumber)}</title>
+<title>${isDraft ? 'DRAFT — ' : ''}${esc(refNumber)}</title>
 ${googleFontLinks(fontsToLoad)}
 <style>${styles(base, lang, font)}</style>
 </head>
 <body>
 ${pageHtml('Page 01 / 01')}
+${isDraft ? '<div class="draft-watermark" aria-hidden="true"><span>DRAFT</span></div>' : ''}
 </body>
 </html>`,
   }

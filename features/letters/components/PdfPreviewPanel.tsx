@@ -1,7 +1,7 @@
 'use client'
 
 import { useContext, useEffect, useRef, useState } from 'react'
-import { AlertTriangle, Download, Printer, RefreshCw } from 'lucide-react'
+import { AlertTriangle, Download, Info, Printer, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { LetterLangContext, useT } from '../i18n'
@@ -10,6 +10,8 @@ interface Props {
   letterId: string
   /** Retained for prop stability — no longer used. */
   canPrint?: boolean
+  /** Letter status; DRAFT renders server-side with a DRAFT watermark. */
+  status?: string
 }
 
 /**
@@ -21,8 +23,11 @@ interface Props {
  *
  * Print → iframe.contentWindow.print() (no popups, no popup-blocker)
  * Download PDF → /api/letters/[id]/pdf?download=1 (Puppeteer renders the same HTML)
+ *
+ * DRAFT letters are watermarked by the server renderer itself, so preview,
+ * print and PDF can't produce a clean copy until the letter is submitted.
  */
-export default function PdfPreviewPanel({ letterId }: Props) {
+export default function PdfPreviewPanel({ letterId, status }: Props) {
   const t = useT()
   const { lang, font } = useContext(LetterLangContext)
   const iframeRef = useRef<HTMLIFrameElement>(null)
@@ -34,7 +39,9 @@ export default function PdfPreviewPanel({ letterId }: Props) {
   const [error, setError] = useState<string | null>(null)
 
   const fontParam = `&font=${encodeURIComponent(font)}`
-  const htmlUrl = `/api/letters/${letterId}/html?lang=${lang}${fontParam}&_=${bust}`
+  // Status is in the URL so the preview reloads (watermark on/off) on submit/reject.
+  const htmlUrl = `/api/letters/${letterId}/html?lang=${lang}${fontParam}&s=${status ?? ''}&_=${bust}`
+  const isDraft = status === 'DRAFT'
   const printUrl = `/api/letters/${letterId}/pdf?lang=${lang}${fontParam}`
   const downloadUrl = `/api/letters/${letterId}/pdf?lang=${lang}${fontParam}&download=1`
 
@@ -124,6 +131,13 @@ export default function PdfPreviewPanel({ letterId }: Props) {
           </span>
         ) : null}
       </div>
+
+      {isDraft ? (
+        <div className="flex items-start gap-2 rounded-card border border-warning-200 bg-warning-50 p-3 text-body-sm text-warning-700">
+          <Info className="mt-0.5 size-4 shrink-0" />
+          <span>{t('pdf.draftNotice')}</span>
+        </div>
+      ) : null}
 
       {error ? (
         <div className="flex items-start gap-2 rounded-card border border-danger-200 bg-danger-50 p-3 text-body-sm text-danger-700">

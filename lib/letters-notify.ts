@@ -7,7 +7,8 @@
  * recipients who want them and returns who may be emailed. We then email
  * those recipients ourselves (same pattern as lib/dtp/notifier.ts), recording
  * the delivery on the notification row. sendMail's fake-recipient block-list
- * still applies.
+ * still applies. Approval requests (LETTER_SUBMITTED) are in-app only — see
+ * lib/letters-notify-policy.ts.
  */
 
 import { prisma } from '@/lib/prisma'
@@ -16,6 +17,7 @@ import { absoluteUrl } from '@/lib/notifications/deep-link'
 import { sendMail } from '@/lib/email'
 import { escapeHtml } from '@/lib/letter-sanitize'
 import type { Letter } from '@prisma/client'
+import { letterEventEmails } from '@/lib/letters-notify-policy'
 
 interface NotifyArgs {
   recipientIds: Array<string | null | undefined>
@@ -36,6 +38,7 @@ async function insert(args: NotifyArgs): Promise<void> {
   // preference; the direct write here applied none at all.
   const deepLink = `/dashboard/letters/${args.letter.id}`
   const startedAt = new Date()
+  const sendsEmail = letterEventEmails(args.eventKey)
   const delivery = await writeDirectNotifications({
     category: 'LETTER',
     type: args.eventKey,
@@ -49,11 +52,11 @@ async function insert(args: NotifyArgs): Promise<void> {
       actorId: args.actorId,
       deepLink,
     },
-    emailMode: 'IMMEDIATE',
+    emailMode: sendsEmail ? 'IMMEDIATE' : 'DISABLED',
   })
 
   // Email is best-effort: a mail failure must never fail the transition.
-  if (delivery.emailable.length === 0) return
+  if (!sendsEmail || delivery.emailable.length === 0) return
   const link = absoluteUrl(deepLink)
   const text = `${args.message}\n\nOpen the letter: ${link}`
   const html = `<p>${escapeHtml(args.message)}</p><p><a href="${escapeHtml(link)}">Open the letter</a></p>`

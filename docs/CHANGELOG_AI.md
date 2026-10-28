@@ -41,6 +41,12 @@
 - `scripts/lib/operating-package-import/people.ts` (new `SKIPPED` resolution), `importer.ts` (skipped package owner → package left out, no blocker), `people.test.ts` (+2 tests).
 - Tests: `npx tsx --test scripts/lib/operating-package-import/*.test.ts` 40/40; tsc clean.
 
+
+### 2026-10-28 — Letter approval requests: in-app only, no email
+- `lib/letters-notify-policy.ts` (new): `LETTER_SUBMITTED` ("Letter awaiting approval" — the approval request to approvers/signatory) is in-app only. It is still recorded in the activity log by `app/api/letters/[id]/submit` and shown in the notification bell, but no email is sent (row stored with `emailMode: 'DISABLED'`). Approved / returned / dispatched letters still email per user preferences.
+- `lib/letters-notify.ts` uses the policy; `lib/letters-notify-policy.test.ts` (+2 tests, added to `test:letters`).
+- Tests: `npm run test:letters` 27/27; tsc clean.
+
 ## 2026-10-11 — Employee Operating Package (built in the `operating-package` worktree, pending deploy)
 
 **Why:** FY 2026/27 plans each employee as an Operating Package (OKRs + role definition + recurring duties + KPIs + development plan + dependencies + decisions), reviewed item by item and approved by the manager. Spec `docs/employee_operating_package_REQUIREMENTS.md`; agent contract `docs/employee_operating_package_BUILD_PLAN.md`. Built by ~30 agents (F1–F4 foundations, V1–V12 verticals, P1–P5 surfaces, I1–I2 data scripts, 4 fixers) and integrated here.

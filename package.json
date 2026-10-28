@@ -21,7 +21,7 @@
     "test:attachments": "tsx --test lib/attachments/*.test.ts",
     "test:security": "tsx --test lib/security/*.test.ts lib/users/*.test.ts",
     "test:link-preview": "tsx --test lib/link-preview/*.test.ts",
-    "test:letters": "tsx --test lib/letters-security.test.ts",
+    "test:letters": "tsx --test lib/letters-security.test.ts lib/letters-notify-policy.test.ts",
     "test:core": "tsx --test lib/rbac.test.ts lib/objectiveProgress.test.ts lib/utils.test.ts lib/api/*.test.ts lib/email/*.test.ts lib/dtp/*.test.ts lib/stores/*.test.ts lib/ai/providers/*.test.ts",
     "postinstall": "prisma generate",
     "db:generate": "prisma generate",

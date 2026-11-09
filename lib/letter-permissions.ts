@@ -176,3 +176,5 @@ export async function checkLetterPermissionV2(
 export function canAdministerLetters(userId: string): Promise<boolean> {
   return checkLetterPermissionV2(userId, 'letter.view_all')
 }
+
+export { canAttachLetterCompanyStamp } from './letter-stamp'

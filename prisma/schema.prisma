@@ -1903,6 +1903,8 @@ model Letter {
   signatoryId           String?
   signatoryTitle        String? // Job title shown below signatory name on the letter (English)
   signatoryTitleAmharic String? // Job title in Amharic — used when lang=am
+  // Super Admin (ADMIN) only. When true, the company stamp is printed on the signature block.
+  useCompanyStamp       Boolean   @default(false)
   // Dispatch (filled at Mark as Sent).
   dispatchMethod        String? // EMAIL | PRINTED | COURIER
   dispatchDate          DateTime?

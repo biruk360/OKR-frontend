@@ -12,6 +12,7 @@ import {
   sanitizeUrl,
 } from './letter-sanitize'
 import { renderLetterHtml } from './letter-html'
+import { canAttachLetterCompanyStamp } from './letter-stamp'
 import { resolvePlaceholders } from './letters'
 import { canDeleteLetter, LETTER_EVER_SUBMITTED_ACTIONS, letterPdfFilename } from './letter-print-policy'
 import {
@@ -194,7 +195,8 @@ function fakeLetter(overrides: Record<string, unknown> = {}) {
     letterTypeId: null, status: 'DRAFT', date: new Date('2026-01-02T00:00:00Z'), odooPartnerId: null,
     customerName: 'ACME "Co"', recipientAddress: null, salutation: null, closing: null, senderDepartment: null,
     bodyContent: '<p onclick="x">Hello</p><script>alert(1)</script>', bodyDocx: null, preparedById: 'u1',
-    signatoryId: null, signatoryTitle: null, signatoryTitleAmharic: null, dispatchMethod: null, dispatchDate: null,
+    signatoryId: null, signatoryTitle: null, signatoryTitleAmharic: null, useCompanyStamp: false,
+    dispatchMethod: null, dispatchDate: null,
     trackingReference: null, archivedAt: null, createdAt: new Date(), updatedAt: new Date(),
     signatory: null, enclosures: [], letterTypeDef: null,
     ...overrides,
@@ -218,6 +220,25 @@ test('renderLetterHtml: no caller origin, assets inlined, body sanitized, fields
   assert.ok(html.includes('ACME &quot;Co&quot;'))
   const lang = renderLetterHtml({ letter: fakeLetter(), lang: '"><script>' as any }).html
   assert.ok(lang.includes('<html lang="en">'))
+})
+
+test('renderLetterHtml: company stamp is omitted unless Super Admin attached it', () => {
+  const off = renderLetterHtml({ letter: fakeLetter({ useCompanyStamp: false }) }).html
+  assert.ok(!off.includes('eldix-stamp') && !off.includes('company stamp'), off.slice(0, 200))
+  const on = renderLetterHtml({
+    letter: fakeLetter({ useCompanyStamp: true, signatory: { name: 'Ada', nameAmharic: null, designation: 'CEO', designationAmharic: null } }),
+  }).html
+  assert.ok(on.includes('class="stamp"'), 'stamp img missing')
+  assert.ok(/<img class="stamp" src="data:image\/png;base64,/.test(on), 'stamp must be inlined')
+  assert.ok(!/<img class="stamp"[^>]+src="https?:/i.test(on))
+})
+
+test('canAttachLetterCompanyStamp: ADMIN only', () => {
+  assert.equal(canAttachLetterCompanyStamp('ADMIN'), true)
+  assert.equal(canAttachLetterCompanyStamp('EXECUTIVE'), false)
+  assert.equal(canAttachLetterCompanyStamp('DEPARTMENT_LEAD'), false)
+  assert.equal(canAttachLetterCompanyStamp('EMPLOYEE'), false)
+  assert.equal(canAttachLetterCompanyStamp(null), false)
 })
 
 // ---------------------------------------------------------------------------

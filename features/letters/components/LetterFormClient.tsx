@@ -15,10 +15,11 @@ import {
   Copy,
   Loader2,
 } from 'lucide-react'
-import { Button, Input, Label, PageHeader, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui'
+import { Button, Checkbox, Input, Label, PageHeader, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui'
 import { ActivityLogPanel } from '@/components/shared/ActivityLogPanel'
 import { type LetterStatus, type UpdateLetterForm, LETTER_TYPE_LABEL } from '@/types'
 import { useUsersForSelection } from '@/hooks/useUsersForSelection'
+import { canAttachLetterCompanyStamp } from '@/lib/letter-stamp'
 import { cn } from '@/lib/utils'
 import LetterStatusBadge from './LetterStatusBadge'
 import LetterStatusBar from './LetterStatusBar'
@@ -78,6 +79,7 @@ function LetterFormInner({ initial, viewer, canAdminister = false }: Props) {
   const [signatoryId, setSignatoryId] = useState<string | null>(letter.signatoryId)
   const [signatoryTitle, setSignatoryTitle] = useState<string>((letter as any).signatoryTitle || '')
   const [signatoryTitleAmharic, setSignatoryTitleAmharic] = useState<string>((letter as any).signatoryTitleAmharic || '')
+  const [useCompanyStamp, setUseCompanyStamp] = useState<boolean>(Boolean(letter.useCompanyStamp))
   const [customerName, setCustomerName] = useState(letter.customerName)
   const [odooPartnerId, setOdooPartnerId] = useState<string | null>(letter.odooPartnerId)
   const [date, setDate] = useState(() => new Date(letter.date).toISOString().slice(0, 10))
@@ -89,6 +91,7 @@ function LetterFormInner({ initial, viewer, canAdminister = false }: Props) {
   const [showSendModal, setShowSendModal] = useState(false)
 
   const editable = canEditDraft(viewer, letter)
+  const canUseStamp = canAttachLetterCompanyStamp(viewer.role)
   const status = letter.status as LetterStatus
   const { users } = useUsersForSelection()
 
@@ -119,6 +122,7 @@ function LetterFormInner({ initial, viewer, canAdminister = false }: Props) {
         signatoryId: signatoryIdRef.current,
         signatoryTitle: signatoryTitleRef.current || null,
         signatoryTitleAmharic: signatoryTitleAmharicRef.current || null,
+        ...(canUseStamp ? { useCompanyStamp } : {}),
         ...overrides,
       }
       const updated = await updateLetter(letter.id, payload)
@@ -369,6 +373,25 @@ function LetterFormInner({ initial, viewer, canAdminister = false }: Props) {
               dir="auto"
             />
           </Field>
+
+          {canUseStamp ? (
+            <Field label={t('form.useStamp')} htmlFor="lf-use-stamp" className="md:col-span-2">
+              <label htmlFor="lf-use-stamp" className="flex items-start gap-2.5 pt-1">
+                <Checkbox
+                  id="lf-use-stamp"
+                  checked={useCompanyStamp}
+                  onCheckedChange={(checked) => {
+                    const next = checked === true
+                    setUseCompanyStamp(next)
+                    void saveWith({ useCompanyStamp: next }, { silent: true })
+                  }}
+                />
+                <span className="text-body-sm text-muted-foreground">{t('form.useStamp.help')}</span>
+              </label>
+            </Field>
+          ) : letter.useCompanyStamp ? (
+            <p className="text-body-sm text-muted-foreground md:col-span-2">{t('form.useStamp.attached')}</p>
+          ) : null}
         </div>
       </ApCard>
 
@@ -427,7 +450,7 @@ function LetterFormInner({ initial, viewer, canAdminister = false }: Props) {
 
         <TabsContent value="preview" className="mt-3">
           <ApCard padding="lg">
-            <PdfPreviewPanel letterId={letter.id} status={status} />
+            <PdfPreviewPanel letterId={letter.id} status={status} revision={useCompanyStamp ? 'stamp' : 'plain'} />
           </ApCard>
         </TabsContent>
       </Tabs>

@@ -142,7 +142,7 @@ is a real page, and no source file still links to a retired route. The page file
 | Route | Page File | Feature | Description |
 |-------|-----------|---------|-------------|
 | `/dashboard/letters` | `app/dashboard/letters/page.tsx` | letters | Letters list (filters, search, status tabs) |
-| `/dashboard/letters/[id]` | `app/dashboard/letters/[id]/page.tsx` | letters | Letter form: details, body, enclosures (real file upload), PDF preview (sandboxed iframe), activity log + workflow transitions |
+| `/dashboard/letters/[id]` | `app/dashboard/letters/[id]/page.tsx` | letters | Letter form: details, body, enclosures (real file upload), PDF preview (sandboxed iframe), activity log + workflow transitions. Super Admin can attach the company stamp. |
 | `/dashboard/letters/reports` | `app/dashboard/letters/reports/page.tsx` | letters | **New 2026-09-25 (FR-16).** `LetterReportsClient` (recharts) — letters by status, type, month and customer, plus preparers and signatories; scoped server-side by `GET /api/letters/reports` to the letters the viewer may read |
 | `/dashboard/letters/templates` | `app/dashboard/letters/templates/page.tsx` | letters | **New 2026-09-25.** `LetterTemplatesClient` — letter body template management; letter-admin only (`button.letter.admin`, ADMIN), others redirected to `/dashboard/letters` |
 
@@ -509,7 +509,7 @@ All `/api/package/*`, `/api/dependencies/*` and `/api/decisions/*` routes are `w
 | GET | `/api/letters` | List letters; supports `status`, `letterType`, `search`, `mine`, `includeArchived`, `page`, `limit`. |
 | POST | `/api/letters` | Create a draft letter and allocate its `360G/LT/{CL\|OF\|GR}/{SEQ}/{YEAR}` reference. |
 | GET | `/api/letters/[id]` | Letter detail incl. preparedBy, signatory, enclosures. Out-of-scope letters 404 (`letterReadGuard`, also on html/pdf/docx/activity/duplicate and workflow routes). |
-| PATCH | `/api/letters/[id]` | Update editable fields (locked after submission for non-admins). |
+| PATCH | `/api/letters/[id]` | Update editable fields (locked after submission for non-admins). `useCompanyStamp` is Super Admin (ADMIN) only; others get 403. |
 | DELETE | `/api/letters/[id]` | Delete a letter. Preparer: own never-submitted DRAFT only. Anything ever submitted (incl. rejected back to DRAFT) is admin-only, since it may have printed clean. |
 | POST | `/api/letters/[id]/submit` | DRAFT → SUBMITTED. |
 | POST | `/api/letters/[id]/approve` | SUBMITTED → APPROVED (requires `letter:approve`). |

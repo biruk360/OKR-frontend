@@ -245,6 +245,8 @@ export interface CreateLetterForm {
   signatoryId?: string | null
   signatoryTitle?: string | null
   signatoryTitleAmharic?: string | null
+  /** Super Admin only. Attach the company stamp to the signature block. */
+  useCompanyStamp?: boolean
   bodyContent?: string
 }
 

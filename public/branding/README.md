@@ -15,3 +15,9 @@ If no file is present, the letterhead degrades to text-only.
 - Under 500 KB
 
 Drop the file here, commit, deploy.
+
+**Company stamp (letters):**
+
+- `eldix-stamp.png` — printed on the signature block when a Super Admin (ADMIN)
+  enables **Use company stamp** on a letter. Recommended: PNG with a
+  transparent background.

@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { UpdateLetterForm } from '@/types'
 import { canAdministerLetters, checkLetterPermissionV2 } from '@/lib/letter-permissions'
+import { canAttachLetterCompanyStamp } from '@/lib/letter-stamp'
 import { letterReadGuard } from '@/lib/letter-access'
 import { resolveParams, type RouteIdParams } from '@/lib/resolve-route-params'
 import { recordActivity } from '@/lib/activity-log'
@@ -78,6 +79,12 @@ export const PATCH = withAuth<RouteIdParams>(async (req, { session, params }) =>
   const data: Record<string, unknown> = {}
   for (const key of EDITABLE_FIELDS) {
     if (key in body) data[key] = (body as any)[key]
+  }
+  if ('useCompanyStamp' in body) {
+    if (!canAttachLetterCompanyStamp(session.user.role)) {
+      return apiForbidden('Only a Super Admin can attach the company stamp')
+    }
+    data.useCompanyStamp = Boolean(body.useCompanyStamp)
   }
   if ('subject' in data) {
     const s = String(data.subject || '').trim()

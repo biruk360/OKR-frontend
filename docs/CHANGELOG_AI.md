@@ -2,6 +2,16 @@
 
 > **Purpose:** Log of all changes made by AI assistants. Every AI session that modifies code MUST append an entry here.
 
+### 2026-11-09 — Super Admin company stamp on letters
+
+**Why:** Official letters need an optional Eldix company stamp on the signature block, and only Super Admin (role `ADMIN`) may attach it.
+
+- `public/branding/eldix-stamp.png` — stamp asset (inlined as a data URI in HTML/PDF, same as logos).
+- `Letter.useCompanyStamp` (default false). PATCH `/api/letters/[id]` accepts it only when `session.user.role === 'ADMIN'`; others get 403. Duplicates do not copy the flag (explicit opt-in).
+- `LetterFormClient`: **Use company stamp** checkbox (ADMIN only). Other roles see a read-only note if a stamp is already attached.
+- `lib/letter-html.tsx` prints the stamp in the signature block when the flag is on (preview, print, and Puppeteer PDF share this renderer). `PdfPreviewPanel` takes `revision` alongside `status` so the preview reloads on toggle.
+- Tests: `lib/letters-security.test.ts` (stamp omitted unless attached; ADMIN-only helper). Deploy: `prisma db push` (additive `useCompanyStamp` on `letters`).
+
 ### 2026-10-27 — Operating-package importer reads the v2 workbooks (Company OKR v6 + 9 packages v3/v4) (branch `feat/okr-v2-import`)
 - **Discovery:** `parse.ts` `findWorkbooks` accepts spaced/underscored names and the " (1)" suffix ("360Ground Company OKR FY2026 27 v6 (1).xlsx"); `fileVersion` reads "-v4" / " v4"; `packageVersion` takes the highest of README status, title and file name (the v4 Eden/CEO files still say "v3" in README Status).
 - **Initiatives (new sheet):** parsed into `PackageWorkbook.initiatives` (groups EDN-IG1 / CIG1 + initiatives EDN-IN1.1 / CIN1.1); imported as Todo `kind='INITIATIVE'`, `externalRef` = id, title = lead phrase (`text.ts` `leadTitle`), full text + a "Label: value" block (Group, Type (C/A), Baseline, Target, Due, Measured by, Supports, Dependencies — read by `lib/package/initiatives.ts`), `keyResultId` = first imported KR in "Supports" (package, company "Company KR1.4", CEO "C1.2"), else the KR of a supported KPI (sheet or DB), else null ("Development Plan", most "KPI YOG-K0x"); due date only when one date is given. KR-less re-runs match on externalRef + kind + owner (assignee or creator) in the timeframe. All packages' initiatives are imported before any milestone/task so cross-package refs ("CEO CIN1.1") resolve.

@@ -9,6 +9,7 @@
  * Logo files (drop replacements at the same paths to update):
  *   - public/branding/eldix-primary.png   — Eldix wordmark, 2052×620 transparent PNG
  *   - public/branding/360ground.png       — 360Ground square mark, 1000×1000 transparent PNG
+ *   - public/branding/eldix-stamp.png     — company stamp (signature block, ADMIN opt-in)
  *
  * Both are detected lazily; if either is missing, the corresponding slot in
  * the PDF renders empty rather than crashing.
@@ -30,6 +31,8 @@ export interface LetterheadInfo {
   /** Absolute paths to logo files (or null if not yet uploaded). */
   eldixLogoPath: string | null
   groundLogoPath: string | null
+  /** Company rubber stamp used on the signature block (ADMIN opt-in). */
+  stampPath: string | null
 }
 
 function detectLogo(...rels: string[]): string | null {
@@ -72,6 +75,7 @@ export function getLetterhead(): LetterheadInfo {
       'public/branding/360ground.png',
       'public/branding/360ground.jpg',
     ),
+    stampPath: detectLogo('public/branding/eldix-stamp.png'),
   }
   return cached
 }

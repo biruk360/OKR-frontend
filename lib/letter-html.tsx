@@ -346,9 +346,16 @@ function styles(base: string, lang: 'en' | 'am' = 'en', font: string = DEFAULT_F
     .placeholder-missing { color: #b91c1c; font-weight: 600; }
 
     /* === Signature === */
-    .sig { margin-top: 7mm; font-family: ${bodyFont}; }
+    .sig { margin-top: 7mm; font-family: ${bodyFont}; position: relative; }
     .sig .closing { margin-bottom: 3mm; color: #000000; }
     .sig .line { width: 50mm; height: 11mm; border-bottom: 1px solid #000000; margin-bottom: 1.5mm; }
+    .sig .stamp {
+      display: block;
+      width: 48mm;
+      height: auto;
+      margin: -2mm 0 1.5mm;
+    }
+    .sig.stamped .line { height: 4mm; }
     .sig .name { font-weight: 600; color: #000000; font-size: 10pt; }
     .sig .title { font-size: 8.5pt; color: #000000; font-style: italic; }
 
@@ -478,6 +485,7 @@ export function renderLetterHtml({ letter, lang: rawLang = 'en', font: rawFont =
   const base = ''
   const eldixLogoUrl = head.eldixLogoPath ? logoSrc(head.eldixLogoPath, '/branding/eldix-primary.png') : ''
   const groundLogoUrl = head.groundLogoPath ? logoSrc(head.groundLogoPath, '/branding/360ground.png') : ''
+  const stampUrl = head.stampPath ? logoSrc(head.stampPath, '/branding/eldix-stamp.png') : ''
 
   // Right-rail HTML — contact info stack + spacer + brand block at bottom.
   const railHtml = `
@@ -514,7 +522,7 @@ export function renderLetterHtml({ letter, lang: rawLang = 'en', font: rawFont =
          </div>`
       : ''
 
-  // Signature block (only if a signatory is assigned).
+  // Signature block (shown when a signatory is assigned, or Super Admin attached the company stamp).
   const closingText = letter.closing?.trim() || lbl.sincerely
   // For Amharic letters prefer the Amharic name/title fields if populated.
   const sigName = (lang === 'am' && letter.signatory?.nameAmharic?.trim())
@@ -526,11 +534,15 @@ export function renderLetterHtml({ letter, lang: rawLang = 'en', font: rawFont =
     : (letter.signatoryTitle?.trim() || letter.signatory?.designation?.trim()))
     || letter.senderDepartment?.trim()
     || ''
-  const sigHtml = letter.signatory?.name
-    ? `<div class="sig">
+  const showStamp = Boolean(letter.useCompanyStamp && stampUrl)
+  const stampHtml = showStamp
+    ? `<img class="stamp" src="${stampUrl}" alt="Eldix company stamp" />`
+    : ''
+  const sigHtml = (letter.signatory?.name || showStamp)
+    ? `<div class="sig${showStamp ? ' stamped' : ''}">
          <div class="closing">${esc(closingText)}</div>
-         <div class="line"></div>
-         <div class="name">${esc(sigName)}</div>
+         ${stampHtml || '<div class="line"></div>'}
+         ${sigName ? `<div class="name">${esc(sigName)}</div>` : ''}
          ${sigTitle ? `<div class="title">${esc(sigTitle)}</div>` : ''}
        </div>`
     : ''
